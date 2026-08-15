@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
 import { GameProvider, useGameState } from './app/GameContext'
@@ -23,7 +23,69 @@ async function command(name: string) {
   return user
 }
 
+class VisualViewportStub extends EventTarget {
+  height = 800
+  width = 390
+  offsetLeft = 0
+  offsetTop = 0
+  pageLeft = 0
+  pageTop = 0
+  scale = 1
+  onresize = null
+  onscroll = null
+}
+
+const originalVisualViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+
+function setVisualViewport(viewport: VisualViewportStub | undefined) {
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
+}
+
+afterEach(() => {
+  if (originalVisualViewport) Object.defineProperty(window, 'visualViewport', originalVisualViewport)
+  else delete (window as Window & { visualViewport?: VisualViewport }).visualViewport
+})
+
 describe('NODE-OS shell', () => {
+  it('renders without VisualViewport support', () => {
+    setVisualViewport(undefined)
+    render(<App />)
+    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
+  })
+
+  it('uses the measured VisualViewport height', () => {
+    const viewport = new VisualViewportStub()
+    viewport.height = 812
+    setVisualViewport(viewport)
+    render(<App />)
+    expect(screen.getByTestId('os-shell')).toHaveStyle('--node-vvh: 812px')
+  })
+
+  it('requires editable focus and a meaningful viewport reduction for keyboard mode', async () => {
+    const viewport = new VisualViewportStub()
+    setVisualViewport(viewport)
+    const { input } = await openTerminal()
+    const shell = screen.getByTestId('os-shell')
+
+    input.focus()
+    viewport.dispatchEvent(new Event('resize'))
+    await waitFor(() => expect(shell).toHaveAttribute('data-keyboard-open', 'false'))
+
+    viewport.height = 600
+    viewport.dispatchEvent(new Event('resize'))
+    await waitFor(() => {
+      expect(shell).toHaveAttribute('data-keyboard-open', 'true')
+      expect(shell).toHaveStyle('--node-vvh: 600px')
+    })
+
+    input.blur()
+    await waitFor(() => expect(shell).toHaveAttribute('data-keyboard-open', 'false'))
+
+    viewport.height = 800
+    viewport.dispatchEvent(new Event('resize'))
+    await waitFor(() => expect(shell).toHaveStyle('--node-vvh: 800px'))
+  })
+
   it('renders shared status data', () => {
     render(<App />)
     expect(screen.getByTestId('os-shell')).toBeInTheDocument()
@@ -72,5 +134,24 @@ describe('NODE-OS shell', () => {
     expect(screen.getByText(/Local address:/)).toBeInTheDocument()
     await user.type(input, 'clear{enter}')
     expect(screen.queryByText(/Local address:/)).not.toBeInTheDocument()
+  })
+
+  it('recovers input focus after command submission', async () => {
+    const { user, input } = await openTerminal()
+    await user.type(input, 'help')
+    input.blur()
+    fireEvent.submit(input.closest('form')!)
+    expect(input).toHaveFocus()
+  })
+
+  it('preserves command history and exposes the mobile send hint', async () => {
+    const { user, input } = await openTerminal()
+    expect(input).toHaveAttribute('enterkeyhint', 'send')
+    await user.type(input, 'ip{enter}')
+    await user.type(input, 'status{enter}')
+    await user.keyboard('{ArrowUp}')
+    expect(input).toHaveValue('status')
+    await user.keyboard('{ArrowUp}')
+    expect(input).toHaveValue('ip')
   })
 })
