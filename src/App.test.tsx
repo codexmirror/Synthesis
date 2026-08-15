@@ -44,7 +44,7 @@ function setVisualViewport(viewport: VisualViewportStub | undefined) {
 
 afterEach(() => {
   if (originalVisualViewport) Object.defineProperty(window, 'visualViewport', originalVisualViewport)
-  else delete (window as Window & { visualViewport?: VisualViewport }).visualViewport
+  else Reflect.deleteProperty(window, 'visualViewport') VisualViewport }).visualViewport
   if (originalInnerHeight) Object.defineProperty(window, 'innerHeight', originalInnerHeight)
 })
 
