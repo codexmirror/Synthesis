@@ -36,6 +36,7 @@ class VisualViewportStub extends EventTarget {
 }
 
 const originalVisualViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+const originalInnerHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight')
 
 function setVisualViewport(viewport: VisualViewportStub | undefined) {
   Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
@@ -44,13 +45,24 @@ function setVisualViewport(viewport: VisualViewportStub | undefined) {
 afterEach(() => {
   if (originalVisualViewport) Object.defineProperty(window, 'visualViewport', originalVisualViewport)
   else delete (window as Window & { visualViewport?: VisualViewport }).visualViewport
+  if (originalInnerHeight) Object.defineProperty(window, 'innerHeight', originalInnerHeight)
 })
 
 describe('NODE-OS shell', () => {
-  it('renders without VisualViewport support', () => {
+  it('keeps the no-VisualViewport fallback responsive to window resize', async () => {
     setVisualViewport(undefined)
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 })
     render(<App />)
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
+    const shell = screen.getByTestId('os-shell')
+    expect(shell).toHaveAttribute('data-keyboard-open', 'false')
+    expect(shell).toHaveStyle('--node-vvh: 700px')
+
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 640 })
+    window.dispatchEvent(new Event('resize'))
+    await waitFor(() => {
+      expect(shell).toHaveAttribute('data-keyboard-open', 'false')
+      expect(shell).toHaveStyle('--node-vvh: 640px')
+    })
   })
 
   it('uses the measured VisualViewport height', () => {
@@ -79,11 +91,33 @@ describe('NODE-OS shell', () => {
     })
 
     input.blur()
-    await waitFor(() => expect(shell).toHaveAttribute('data-keyboard-open', 'false'))
+    await waitFor(() => expect(shell).toHaveAttribute('data-keyboard-open', 'true'))
 
     viewport.height = 800
     viewport.dispatchEvent(new Event('resize'))
     await waitFor(() => expect(shell).toHaveStyle('--node-vvh: 800px'))
+    expect(shell).toHaveAttribute('data-keyboard-open', 'false')
+  })
+
+  it('ignores pinch-zoom geometry until the viewport is unscaled again', async () => {
+    const viewport = new VisualViewportStub()
+    setVisualViewport(viewport)
+    const { input } = await openTerminal()
+    const shell = screen.getByTestId('os-shell')
+    input.focus()
+
+    viewport.scale = 2
+    viewport.height = 400
+    viewport.dispatchEvent(new Event('resize'))
+    await new Promise((resolve) => window.requestAnimationFrame(resolve))
+    expect(shell).toHaveAttribute('data-keyboard-open', 'false')
+    expect(shell).toHaveStyle('--node-vvh: 800px')
+
+    viewport.scale = 1
+    viewport.height = 780
+    viewport.dispatchEvent(new Event('resize'))
+    await waitFor(() => expect(shell).toHaveStyle('--node-vvh: 780px'))
+    expect(shell).toHaveAttribute('data-keyboard-open', 'false')
   })
 
   it('renders shared status data', () => {
