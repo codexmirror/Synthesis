@@ -1,11 +1,13 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { useGame } from '../../core/game/GameContext'
+import { OS_NAME } from '../../core/branding'
+import { useGameState } from '../../core/game/GameContext'
 import { dispatchCommand } from './commands'
+import { parseCommand } from './parser'
 
 interface Entry { command: string; output: string[] }
 
 export function Terminal() {
-  const { player } = useGame()
+  const gameState = useGameState()
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
   const [history, setHistory] = useState<string[]>([])
@@ -19,8 +21,9 @@ export function Terminal() {
     event.preventDefault()
     const command = input.trim()
     if (!command) return
-    if (command.toLowerCase() === 'clear') setEntries([])
-    else setEntries((current) => [...current, { command, output: dispatchCommand(command, player) }])
+    const result = dispatchCommand(parseCommand(command), { state: gameState })
+    if (result.type === 'clear') setEntries([])
+    else setEntries((current) => [...current, { command, output: result.lines }])
     const nextHistory = [...history, command]
     setHistory(nextHistory)
     setHistoryIndex(nextHistory.length)
@@ -36,7 +39,7 @@ export function Terminal() {
   return (
     <section className="terminal" aria-label="Terminal" onClick={() => inputRef.current?.focus()}>
       <div className="terminal-output" aria-live="polite">
-        <p className="muted">NODE-OS terminal · Type <strong>help</strong> to begin.</p>
+        <p className="muted">{OS_NAME} terminal · Type <strong>help</strong> to begin.</p>
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
             <div><span className="prompt">user@node:~$</span> {entry.command}</div>

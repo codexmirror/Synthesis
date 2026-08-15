@@ -1,36 +1,46 @@
-import type { PlayerState } from '../../core/game/GameContext'
+import type { GameState } from '../../core/game/types'
+import type { ParsedCommand } from './parser'
+
+export interface CommandContext {
+  state: Readonly<GameState>
+}
+
+export type CommandResult =
+  | { type: 'output'; lines: string[] }
+  | { type: 'clear' }
 
 export interface TerminalCommand {
   description: string
-  run: (player: PlayerState) => string[]
+  run: (context: CommandContext, args: string[]) => CommandResult
 }
 
 export const commands: Record<string, TerminalCommand> = {
   help: {
     description: 'List available commands',
-    run: () => ['Available commands:', '', 'help', 'clear', 'ip', 'status'],
+    run: () => ({ type: 'output', lines: ['Available commands:', '', 'help', 'clear', 'ip', 'status'] }),
   },
   clear: {
     description: 'Clear terminal output',
-    run: () => [],
+    run: () => ({ type: 'clear' }),
   },
   ip: {
     description: 'Show local address',
-    run: (player) => [`Local address: ${player.ip}`],
+    run: ({ state }) => ({ type: 'output', lines: [`Local address: ${state.player.ip}`] }),
   },
   status: {
     description: 'Show system status',
-    run: (player) => [
-      `CPU: ${player.hardware.cpu}%`,
-      `RAM: ${player.hardware.ram}%`,
-      `Network: ${player.status}`,
-    ],
+    run: ({ state }) => ({ type: 'output', lines: [
+      `CPU: ${state.system.runtime.cpuLoad}%`,
+      `RAM: ${state.system.runtime.ramUsage}%`,
+      `Network: ${state.system.runtime.networkStatus}`,
+    ] }),
   },
 }
 
-export function dispatchCommand(input: string, player: PlayerState) {
-  const name = input.trim().toLowerCase()
-  if (!name) return []
-  const command = commands[name]
-  return command ? command.run(player) : [`Command not found: ${name}. Type "help" for available commands.`]
+export function dispatchCommand(command: ParsedCommand, context: CommandContext): CommandResult {
+  if (!command.name) return { type: 'output', lines: [] }
+  const registeredCommand = commands[command.name]
+  return registeredCommand
+    ? registeredCommand.run(context, command.args)
+    : { type: 'output', lines: [`Command not found: ${command.name}. Type "help" for available commands.`] }
 }

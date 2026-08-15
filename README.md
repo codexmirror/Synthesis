@@ -1,6 +1,6 @@
-# NODE-OS
+# Synthesis
 
-NODE-OS is the V0 foundation for a browser-based hacker simulation. This build provides a responsive, terminal-inspired operating-system shell and a small set of modular apps—without hacking or network gameplay.
+Synthesis is a browser-based hacker simulation project. **NODE-OS** is the working name of its current V0 in-game operating-system interface: a responsive, terminal-inspired shell with modular apps, but no hacking or network gameplay yet.
 
 ## Technology
 
@@ -35,4 +35,4 @@ npm run build
 npm test
 ```
 
-The current feature boundary is documented in [`docs/V0.md`](docs/V0.md); confirmed future directions are listed in [`docs/FUTURE.md`](docs/FUTURE.md).
+The current feature boundary is documented in [`docs/V0.md`](docs/V0.md), architectural boundaries in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and confirmed future directions in [`docs/FUTURE.md`](docs/FUTURE.md).

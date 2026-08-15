@@ -14,3 +14,5 @@ Future iterations may add:
 - Shared organizations and global objectives
 
 These are directions, not specifications, and none are implemented in V0. All hacking systems will remain inside the simulated game world.
+
+Architectural constraints for future work are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
