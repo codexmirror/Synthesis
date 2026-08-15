@@ -1,11 +1,11 @@
 import { createContext, type ReactNode, useContext, useState } from 'react'
-import { initialGameState } from './initialState'
-import type { GameState } from './types'
+import { createInitialGameState } from '../core/game/initialState'
+import type { GameState } from '../core/game/types'
 
 const GameContext = createContext<GameState | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [gameState] = useState<GameState>(initialGameState)
+  const [gameState] = useState(createInitialGameState)
   return <GameContext.Provider value={gameState}>{children}</GameContext.Provider>
 }
 

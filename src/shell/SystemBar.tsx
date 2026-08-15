@@ -1,4 +1,4 @@
-import { useGameState } from '../core/game/GameContext'
+import { useGameState } from '../app/GameContext'
 
 export function SystemBar() {
   const { system } = useGameState()

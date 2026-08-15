@@ -1,4 +1,4 @@
-import { GameProvider } from './core/game/GameContext'
+import { GameProvider } from './app/GameContext'
 import { Shell } from './shell/Shell'
 
 export default function App() {

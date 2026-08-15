@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { OS_NAME } from '../core/branding'
-import { useGameState } from '../core/game/GameContext'
+import { useGameState } from '../app/GameContext'
 
 export function StatusBar() {
   const { player, wallet } = useGameState()

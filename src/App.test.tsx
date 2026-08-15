@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
-import { GameProvider, useGameState } from './core/game/GameContext'
+import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
 
 function StateSnapshot() {

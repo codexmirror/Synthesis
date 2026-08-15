@@ -1,3 +1,4 @@
+import './shell.css'
 import { useState } from 'react'
 import { appEntries, appRegistry, type AppId } from './appRegistry'
 import { Home } from './Home'

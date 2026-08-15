@@ -1,6 +1,7 @@
+import './terminal.css'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { OS_NAME } from '../../core/branding'
-import { useGameState } from '../../core/game/GameContext'
+import { useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './commands'
 import { parseCommand } from './parser'
 
@@ -21,7 +22,10 @@ export function Terminal() {
     event.preventDefault()
     const command = input.trim()
     if (!command) return
-    const result = dispatchCommand(parseCommand(command), { state: gameState })
+    const result = dispatchCommand(parseCommand(command), {
+      player: { ip: gameState.player.ip },
+      runtime: { ...gameState.system.runtime },
+    })
     if (result.type === 'clear') setEntries([])
     else setEntries((current) => [...current, { command, output: result.lines }])
     const nextHistory = [...history, command]

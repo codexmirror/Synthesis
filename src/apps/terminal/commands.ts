@@ -1,8 +1,11 @@
-import type { GameState } from '../../core/game/types'
+import type { RuntimeState } from '../../core/game/types'
 import type { ParsedCommand } from './parser'
 
 export interface CommandContext {
-  state: Readonly<GameState>
+  readonly player: {
+    readonly ip: string
+  }
+  readonly runtime: Readonly<RuntimeState>
 }
 
 export type CommandResult =
@@ -17,7 +20,7 @@ export interface TerminalCommand {
 export const commands: Record<string, TerminalCommand> = {
   help: {
     description: 'List available commands',
-    run: () => ({ type: 'output', lines: ['Available commands:', '', 'help', 'clear', 'ip', 'status'] }),
+    run: () => ({ type: 'output', lines: ['Available commands:', '', ...Object.keys(commands)] }),
   },
   clear: {
     description: 'Clear terminal output',
@@ -25,14 +28,14 @@ export const commands: Record<string, TerminalCommand> = {
   },
   ip: {
     description: 'Show local address',
-    run: ({ state }) => ({ type: 'output', lines: [`Local address: ${state.player.ip}`] }),
+    run: ({ player }) => ({ type: 'output', lines: [`Local address: ${player.ip}`] }),
   },
   status: {
     description: 'Show system status',
-    run: ({ state }) => ({ type: 'output', lines: [
-      `CPU: ${state.system.runtime.cpuLoad}%`,
-      `RAM: ${state.system.runtime.ramUsage}%`,
-      `Network: ${state.system.runtime.networkStatus}`,
+    run: ({ runtime }) => ({ type: 'output', lines: [
+      `CPU: ${runtime.cpuLoad}%`,
+      `RAM: ${runtime.ramUsage}%`,
+      `Network: ${runtime.networkStatus}`,
     ] }),
   },
 }
