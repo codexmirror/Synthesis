@@ -1,32 +1,32 @@
 export interface PlayerState {
   /** Stable entity identity; unlike the simulated IP, this value does not change. */
-  id: string
-  ip: string
+  readonly id: string
+  readonly ip: string
 }
 
 export interface HardwareState {
-  cpu: string
-  ram: string
+  readonly cpu: string
+  readonly ram: string
 }
 
 export interface RuntimeState {
-  cpuLoad: number
-  ramUsage: number
-  networkStatus: 'ONLINE' | 'OFFLINE'
+  readonly cpuLoad: number
+  readonly ramUsage: number
+  readonly networkStatus: 'ONLINE' | 'OFFLINE'
 }
 
 export interface SystemState {
-  hardware: HardwareState
-  runtime: RuntimeState
+  readonly hardware: HardwareState
+  readonly runtime: RuntimeState
 }
 
 export interface WalletState {
-  balance: number
+  readonly balance: number
 }
 
 export interface GameState {
-  version: number
-  player: PlayerState
-  system: SystemState
-  wallet: WalletState
+  readonly version: number
+  readonly player: PlayerState
+  readonly system: SystemState
+  readonly wallet: WalletState
 }

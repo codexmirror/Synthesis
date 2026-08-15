@@ -9,6 +9,7 @@ describe('createInitialGameState', () => {
     expect(first).not.toBe(second)
     expect(first.player).not.toBe(second.player)
     expect(first.system).not.toBe(second.system)
+    expect(first.system.hardware).not.toBe(second.system.hardware)
     expect(first.system.runtime).not.toBe(second.system.runtime)
     expect(first.wallet).not.toBe(second.wallet)
     expect(first).toEqual(second)
