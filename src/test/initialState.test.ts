@@ -20,13 +20,15 @@ describe('createInitialGameState', () => {
     expect(first.world.network.localNetworks[0].memberDeviceIds).not.toBe(second.world.network.localNetworks[0].memberDeviceIds)
     expect(first.world.network.hosts).not.toBe(second.world.network.hosts)
     expect(first.world.network.hosts[0]).not.toBe(second.world.network.hosts[0])
+    expect(first.world.network.hosts[0].services).not.toBe(second.world.network.hosts[0].services)
+    expect(first.world.network.hosts[0].services?.[0]).not.toBe(second.world.network.hosts[0].services?.[0])
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-network membership in schema version 4', () => {
+  it('separates identities and seeds canonical local-network membership in schema version 5', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(4)
-    expect(state.version).toBe(4)
+    expect(GAME_STATE_VERSION).toBe(5)
+    expect(state.version).toBe(5)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -36,7 +38,10 @@ describe('createInitialGameState', () => {
       runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: 'ONLINE' },
     })
     expect(state.world.network.hosts).toEqual([
-      { id: 'host-lan-001', ip: '198.51.100.47', online: true },
+      {
+        id: 'host-lan-001', ip: '198.51.100.47', online: true, role: 'server',
+        services: [{ id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true }],
+      },
       { id: 'host-training-001', ip: '203.0.113.42', online: true },
       { id: 'host-training-002', ip: '203.0.113.99', online: false },
     ])
@@ -46,5 +51,16 @@ describe('createInitialGameState', () => {
     ])
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')
+  })
+
+  it('preserves the existing LAN host as the canonical server and gives it one owned service', () => {
+    const state = createInitialGameState()
+    const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')
+
+    expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server' })
+    expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
+    expect(server?.services).toEqual([
+      { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true },
+    ])
   })
 })

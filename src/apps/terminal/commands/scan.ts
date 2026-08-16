@@ -15,7 +15,15 @@ export const scanCommand: TerminalCommand = {
     }
     const lines: TerminalLine[] = [`Scanning ${result.address}...`, '']
     if (result.status === 'no_response') return { type: 'output', lines: [...lines, 'NO RESPONSE'] }
-    if (result.networks.length === 0) return { type: 'output', lines: [...lines, 'NO RELATIONSHIPS FOUND'] }
-    return { type: 'output', lines: [...lines, `RELATIONSHIPS FOUND: ${result.networks.length}`, '', ...result.networks.map(({ name }) => [text('Network: '), targetFragment(name)])] }
+    if (result.networks.length === 0 && result.services.length === 0) {
+      return { type: 'output', lines: [...lines, 'NO RELATIONSHIPS OR SERVICES FOUND'] }
+    }
+    lines.push(`RELATIONSHIPS FOUND: ${result.networks.length}`)
+    if (result.networks.length > 0) lines.push('', ...result.networks.map(({ name }) => [text('Network: '), targetFragment(name)]))
+    lines.push('', `SERVICES FOUND: ${result.services.length}`)
+    for (const service of result.services) {
+      lines.push('', service.name, `Port: ${service.port}`, `Protocol: ${service.protocol}`)
+    }
+    return { type: 'output', lines }
   },
 }

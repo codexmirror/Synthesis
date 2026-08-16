@@ -7,6 +7,13 @@ export interface DiscoveredNetwork {
   readonly name: string
 }
 
+export interface DiscoveredService {
+  readonly id: string
+  readonly name: string
+  readonly port: number
+  readonly protocol: 'TCP' | 'UDP'
+}
+
 export type ScanResult =
   | {
     readonly status: 'device'
@@ -14,6 +21,7 @@ export type ScanResult =
     readonly address: string
     readonly scope: 'self' | 'lan' | 'remote'
     readonly networks: readonly DiscoveredNetwork[]
+    readonly services: readonly DiscoveredService[]
   }
   | {
     readonly status: 'network'
@@ -51,5 +59,10 @@ export function scanNetworkTarget(targets: Readonly<ScanTargets>, input: string)
   const networks = targets.network.localNetworks
     .filter(({ memberDeviceIds }) => memberDeviceIds.includes(resolved.entity.id))
     .map(({ id, name }) => ({ id, name }))
-  return { status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networks }
+  const services = resolved.scope === 'self'
+    ? []
+    : (resolved.entity.services ?? [])
+      .filter(({ open }) => open)
+      .map(({ id, name, port, protocol }) => ({ id, name, port, protocol }))
+  return { status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networks, services }
 }

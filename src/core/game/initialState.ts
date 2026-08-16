@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 4
+export const GAME_STATE_VERSION = 5
 
 export function createInitialGameState(): GameState {
   return {
@@ -30,7 +30,13 @@ export function createInitialGameState(): GameState {
           { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'] },
         ],
         hosts: [
-          { id: 'host-lan-001', ip: '198.51.100.47', online: true },
+          {
+            id: 'host-lan-001',
+            ip: '198.51.100.47',
+            online: true,
+            role: 'server',
+            services: [{ id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true }],
+          },
           { id: 'host-training-001', ip: '203.0.113.42', online: true },
           { id: 'host-training-002', ip: '203.0.113.99', online: false },
         ],

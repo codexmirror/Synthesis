@@ -34,9 +34,25 @@ describe('inspectNetworkTarget inward inspection', () => {
     })
     expect(inspectNetworkTarget(targets, '198.51.100.47')).toEqual({
       status: 'device', targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan', networkStatus: 'ONLINE',
+      deviceKind: 'server',
     })
     expect(inspectNetworkTarget(targets, '203.0.113.42')).toEqual({
       status: 'device', targetId: 'host-training-001', address: '203.0.113.42', scope: 'remote', networkStatus: 'ONLINE',
+      deviceKind: 'device',
+    })
+  })
+
+  it('identifies a server from state without exposing services or invented hardware', () => {
+    const result = inspectNetworkTarget(targets, '198.51.100.47')
+    expect(result).toMatchObject({ status: 'device', deviceKind: 'server' })
+    expect(result).not.toHaveProperty('services')
+    expect(result).not.toHaveProperty('hardware')
+
+    const hosts = targets.network.hosts.map((host) => host.id === 'host-lan-001'
+      ? { ...host, role: undefined, services: undefined }
+      : host)
+    expect(inspectNetworkTarget({ ...targets, network: { ...targets.network, hosts } }, '198.51.100.47')).toMatchObject({
+      status: 'device', deviceKind: 'device',
     })
   })
 
