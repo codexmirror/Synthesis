@@ -12,9 +12,9 @@ import { commands, dispatchCommand } from './registry'
 
 const state = createInitialGameState()
 const context: CommandContext = {
-  player: { ip: state.player.ip },
-  runtime: { ...state.system.runtime },
-  operations: { scanTarget: (target) => scanNetworkTarget(state.world.network, target) },
+  localDevice: { ip: state.player.localDevice.network.ip },
+  runtime: { ...state.player.localDevice.runtime },
+  operations: { scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target) },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context)
 
@@ -43,9 +43,29 @@ describe('command dispatcher', () => {
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Invalid target: 999.999.999.999'] })
-    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'HOST ONLINE', 'Address: 203.0.113.42'] })
+    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'HOST ONLINE', 'Address: 203.0.113.42', 'Scope:   REMOTE'] })
     expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
     expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
+  })
+  it('renders local scope when scanning the current device', () => {
+    expect(dispatch('scan 198.51.100.23')).toEqual({
+      type: 'output',
+      lines: ['Scanning 198.51.100.23...', '', 'HOST ONLINE', 'Address: 198.51.100.23', 'Scope:   LOCAL'],
+    })
+  })
+
+  it('renders no response when the local device is offline', () => {
+    const offlineDevice = {
+      ...state.player.localDevice,
+      runtime: { ...state.player.localDevice.runtime, networkStatus: 'OFFLINE' as const },
+    }
+    const offlineContext: CommandContext = {
+      ...context,
+      operations: { scanTarget: (target) => scanNetworkTarget({ localDevice: offlineDevice, network: state.world.network }, target) },
+    }
+    expect(dispatchCommand(parseCommand('scan 198.51.100.23'), offlineContext)).toEqual({
+      type: 'output', lines: ['Scanning 198.51.100.23...', '', 'NO RESPONSE'],
+    })
   })
 })
 
@@ -63,7 +83,7 @@ describe('individual commands', () => {
   })
 
   it('reads the player address for ip output', () => {
-    const narrowContext = { ...context, player: { ip: '203.0.113.7' } }
+    const narrowContext = { ...context, localDevice: { ip: '203.0.113.7' } }
     expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: ['Local address: 203.0.113.7'] })
   })
 

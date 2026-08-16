@@ -14,13 +14,13 @@ New game systems should normally become separate domain slices instead of expand
 
 ## Identity and state
 
-Game state carries a schema version, but V0 does not implement saves or migrations. Stable internal IDs identify game entities. Mutable presentation or gameplay attributes—including IP addresses, display names, hostnames, and wallet addresses—must not serve as entity identity. In particular, `player.id` and network host IDs are stable identity, while their IPs are simulated network attributes.
+Game state carries a schema version, but V0 does not implement saves or migrations. Stable internal IDs identify game entities. Mutable presentation or gameplay attributes—including IP addresses, display names, hostnames, and wallet addresses—must not serve as entity identity. The player owns an explicit local device with its own stable identity. `player.id`, the local device ID, and world network host IDs are distinct identities, while IPs are mutable simulated network attributes. The local device is the single source of truth for the player's current IP, hardware, and runtime state; wallet remains a separate domain slice and remote hosts remain world state.
 
 Hardware specification is distinct from runtime utilization. Wallet state is likewise separate from player identity so each concern can evolve at its own boundary.
 
 ## Shared operations and integrations
 
-A gameplay operation is implemented once behind an explicit game-level API and is callable from different interfaces. Basic Scan V1 establishes this path: the application binds the current network state to the pure scan operation and gives Terminal only that narrow callable dependency. A future Network UI can call the same operation directly; it must not construct a Terminal command. Cross-feature effects should similarly flow through explicit domain actions or services rather than one feature mutating another feature's UI. No generic action framework is needed.
+A gameplay operation is implemented once behind an explicit game-level API and is callable from different interfaces. Basic Scan V1 establishes this path: the application binds the current local device and world network to the pure scan operation and gives Terminal only that narrow callable dependency. Scan resolves those real targets from current state and derives local or remote observations without exposing entity state directly to the command. A future Network UI can call the same operation directly; it must not construct a Terminal command. Cross-feature effects should similarly flow through explicit domain actions or services rather than one feature mutating another feature's UI. No generic action framework is needed.
 
 External services must enter through explicit adapters or interfaces at the application boundary and must not become direct dependencies of core game-domain logic.
 

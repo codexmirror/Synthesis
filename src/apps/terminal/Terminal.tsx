@@ -24,10 +24,13 @@ export function Terminal() {
     const command = input.trim()
     if (!command) return
     const result = dispatchCommand(parseCommand(command), {
-      player: { ip: gameState.player.ip },
-      runtime: { ...gameState.system.runtime },
+      localDevice: { ip: gameState.player.localDevice.network.ip },
+      runtime: { ...gameState.player.localDevice.runtime },
       operations: {
-        scanTarget: (target) => scanNetworkTarget(gameState.world.network, target),
+        scanTarget: (target) => scanNetworkTarget({
+          localDevice: gameState.player.localDevice,
+          network: gameState.world.network,
+        }, target),
       },
     })
     if (result.type === 'clear') setEntries([])
