@@ -5,6 +5,7 @@ import { Home } from './Home'
 import { StatusBar } from './StatusBar'
 import { SystemBar } from './SystemBar'
 import { useEditingViewport } from './useEditingViewport'
+import { ViewportDebug } from './ViewportDebug'
 
 type ShellStyle = CSSProperties & {
   '--node-host-height': string
@@ -76,6 +77,7 @@ export function Shell() {
         <Home openApp={setActiveAppId} />
       )}
       <SystemBar />
+      <ViewportDebug viewport={viewport} />
     </div>
   )
 }
