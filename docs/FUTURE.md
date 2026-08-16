@@ -32,7 +32,7 @@ PLAYER DECISIONS
 FURTHER STATE MUTATION
 ```
 
-These are directions, not specifications. The current slice has Service Analysis and minimal positive vulnerability Knowledge, but no exploit, access, filesystem gameplay, autonomous actors, attention system, simulation clock, or active graphical Network app. Concrete mechanics should establish requirements before generic frameworks are considered.
+These are directions, not specifications. The current slice has a graphical Scan workspace, Service Analysis, and minimal positive vulnerability Knowledge, but no exploit, access, filesystem gameplay, autonomous actors, attention system, or simulation clock. Concrete mechanics should establish requirements before generic frameworks are considered.
 
 ### Player tools, capabilities, and strategic position
 

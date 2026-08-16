@@ -1,4 +1,5 @@
 import { target as targetFragment, text, type TerminalCommand, type TerminalLine } from '../commandTypes'
+import { isIpv4EndpointSyntax } from '../../../core/game/networkTarget'
 
 export const scanCommand: TerminalCommand = {
   description: 'Discover relationships and connected targets',
@@ -6,6 +7,7 @@ export const scanCommand: TerminalCommand = {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4|network-name>'] }
 
     const [target] = args
+    if (isIpv4EndpointSyntax(target)) return { type: 'output', lines: ['INVALID TARGET TYPE', '', `${target} is a service endpoint.`, '', 'scan accepts IPv4 devices and network names.', 'Service endpoints can be investigated with analyze.'] }
     const result = operations.scanTarget(target)
     if (result.status === 'unknown_target') {
       return { type: 'output', lines: [`Unknown scan target: ${result.input}`] }

@@ -1,10 +1,12 @@
 import { target, text, type TerminalCommand, type TerminalLine } from '../commandTypes'
+import { isIpv4EndpointSyntax } from '../../../core/game/networkTarget'
 
 export const inspectCommand: TerminalCommand = {
   description: 'Show properties of one target',
   run: ({ operations }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: inspect <ipv4|network-name>'] }
 
+    if (isIpv4EndpointSyntax(args[0])) return { type: 'output', lines: ['INVALID TARGET TYPE', '', `${args[0]} is a service endpoint.`, '', 'inspect operates on devices and networks.'] }
     const result = operations.inspectTarget(args[0])
     if (result.status === 'unknown_target') {
       return { type: 'output', lines: [`Unknown inspect target: ${result.input}`] }

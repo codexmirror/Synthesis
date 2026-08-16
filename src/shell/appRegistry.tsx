@@ -11,7 +11,7 @@ export interface AppDefinition { label: string; glyph: string; component: Compon
 
 export const appRegistry = {
   terminal: { label: 'Terminal', glyph: '>_', component: Terminal },
-  network: { label: 'Network', glyph: '◇', component: Network },
+  network: { label: 'Scan', glyph: '◇', component: Network },
   processes: { label: 'Processes', glyph: '▤', component: Processes },
   wallet: { label: 'Wallet', glyph: '$', component: Wallet },
   notes: { label: 'Notes', glyph: '≡', component: Notes },

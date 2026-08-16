@@ -41,7 +41,7 @@ describe('command dispatcher', () => {
     const result = dispatch('help')
     expect(result.type).toBe('output')
     if (result.type === 'output') {
-      expect(result.lines.filter(Boolean).slice(1)).toEqual(Object.keys(commands))
+      expect(result.lines.filter(Boolean).slice(1)).toEqual(Object.entries(commands).map(([name, command]) => `${name} — ${command.description}`))
     }
   })
   it('describes the Scan and Inspect semantic distinction concisely', () => {
@@ -56,6 +56,7 @@ describe('command dispatcher', () => {
   it('guides missing and extra scan arguments', () => {
     expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
     expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
+    expect(JSON.stringify(dispatch('scan 192.0.2.77:443'))).toContain('service endpoint')
   })
   it('validates analyze syntax and delegates through the narrow operation', () => {
     expect(dispatch('analyze')).toEqual({ type: 'output', lines: ['Usage: analyze <ipv4:port>'] })
@@ -98,6 +99,7 @@ describe('command dispatcher', () => {
     expect(dispatch('inspect')).toEqual({ type: 'output', lines: ['Usage: inspect <ipv4|network-name>'] })
     expect(dispatch('inspect 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: inspect <ipv4|network-name>'] })
     expect(dispatch('inspect invalid')).toEqual({ type: 'output', lines: ['Unknown inspect target: invalid'] })
+    expect(JSON.stringify(dispatch('inspect 192.0.2.77:443'))).toContain('service endpoint')
   })
 
   it('renders state-derived local inspection and supported remote truth', () => {
@@ -145,10 +147,10 @@ describe('command dispatcher', () => {
 
 describe('individual commands', () => {
   it('builds help output from the supplied registry names', () => {
-    const help = createHelpCommand(() => ['help', 'local-command'])
+    const help = createHelpCommand(() => [['help', commands.help], ['local-command', commands.scan]])
     expect(help.run(context, [])).toEqual({
       type: 'output',
-      lines: ['Available commands:', '', 'help', 'local-command'],
+      lines: ['Available commands:', '', 'help — List available commands', 'local-command — Discover relationships and connected targets'],
     })
   })
 
