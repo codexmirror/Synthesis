@@ -14,9 +14,9 @@ export function Terminal() {
   const [history, setHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
-  const endRef = useRef<HTMLDivElement>(null)
+  const outputRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => endRef.current?.scrollIntoView({ block: 'nearest' }), [entries])
+  useEffect(() => { const output = outputRef.current; if (output) output.scrollTop = output.scrollHeight }, [entries])
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -32,6 +32,7 @@ export function Terminal() {
     setHistory(nextHistory)
     setHistoryIndex(nextHistory.length)
     setInput('')
+    inputRef.current?.focus({ preventScroll: true })
   }
 
   function navigateHistory(direction: -1 | 1) {
@@ -41,8 +42,8 @@ export function Terminal() {
   }
 
   return (
-    <section className="terminal" aria-label="Terminal" onClick={() => inputRef.current?.focus()}>
-      <div className="terminal-output" aria-live="polite">
+    <section className="terminal" aria-label="Terminal">
+      <div className="terminal-output" aria-live="polite" ref={outputRef}>
         <p className="muted">{OS_NAME} terminal · Type <strong>help</strong> to begin.</p>
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
@@ -50,7 +51,6 @@ export function Terminal() {
             {entry.output.map((line, lineIndex) => <div key={lineIndex}>{line || '\u00a0'}</div>)}
           </div>
         ))}
-        <div ref={endRef} />
       </div>
       <form className="terminal-input" onSubmit={submit}>
         <label className="prompt" htmlFor="command-input">user@node:~$</label>
@@ -67,6 +67,7 @@ export function Terminal() {
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
+          enterKeyHint="send"
           aria-label="Command input"
         />
       </form>
