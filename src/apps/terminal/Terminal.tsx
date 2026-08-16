@@ -2,7 +2,7 @@ import './terminal.css'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { OS_NAME } from '../../core/branding'
 import { useGameState } from '../../app/GameContext'
-import { dispatchCommand } from './commands'
+import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
 
 interface Entry { command: string; output: string[] }
