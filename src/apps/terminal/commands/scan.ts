@@ -22,7 +22,8 @@ export const scanCommand: TerminalCommand = {
     if (result.networks.length > 0) lines.push('', ...result.networks.map(({ name }) => [text('Network: '), targetFragment(name)]))
     lines.push('', `SERVICES FOUND: ${result.services.length}`)
     for (const service of result.services) {
-      lines.push('', service.name, `Port: ${service.port}`, `Protocol: ${service.protocol}`)
+      lines.push('', service.name, [text('Endpoint: '), targetFragment(`${result.address}:${service.port}`)], `Protocol: ${service.protocol}`)
+      for (const label of operations.knownWeaknesses(result.targetId, service.id)) lines.push(`Known weakness: ${label}`)
     }
     return { type: 'output', lines }
   },

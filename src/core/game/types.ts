@@ -15,7 +15,17 @@ export interface RuntimeState {
   readonly networkStatus: 'ONLINE' | 'OFFLINE'
 }
 
-export interface GameProcess {
+export interface Vulnerability {
+  readonly id: string
+  readonly label: string
+}
+
+export type ServiceAnalysisResult =
+  | { readonly status: 'weaknesses_detected'; readonly vulnerabilities: readonly { readonly vulnerabilityId: string; readonly observedLabel: string }[] }
+  | { readonly status: 'no_weakness_detected' }
+  | { readonly status: 'service_unavailable' }
+
+interface ProcessBase {
   readonly id: string
   readonly label: string
   readonly executorDeviceId: string
@@ -24,6 +34,19 @@ export interface GameProcess {
   readonly workCompleted: number
   readonly ramRequiredMiB: number
 }
+
+export interface GenericProcess extends ProcessBase { readonly kind: 'generic' }
+
+export interface ServiceAnalysisProcess extends ProcessBase {
+  readonly kind: 'service_analysis'
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  /** Historical presentation only; gameplay resolution and identity use stable IDs. */
+  readonly startedEndpoint: string
+  readonly result?: ServiceAnalysisResult
+}
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess
 
 export interface ProcessState {
   readonly nextId: number
@@ -64,7 +87,18 @@ export interface NetworkService {
   readonly port: number
   readonly protocol: 'TCP' | 'UDP'
   readonly open: boolean
+  readonly vulnerabilities?: readonly Vulnerability[]
 }
+
+export interface DiscoveredVulnerability {
+  readonly vulnerabilityId: string
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  /** Historical presentation snapshot only; identity and gameplay use stable IDs. */
+  readonly observedLabel: string
+}
+
+export interface KnowledgeState { readonly discoveredVulnerabilities: readonly DiscoveredVulnerability[] }
 
 export interface LocalNetwork {
   /** Stable entity identity, separate from the player-visible network name. */
@@ -89,4 +123,5 @@ export interface GameState {
   readonly wallet: WalletState
   readonly world: WorldState
   readonly process: ProcessState
+  readonly knowledge: KnowledgeState
 }

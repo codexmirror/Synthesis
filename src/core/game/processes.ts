@@ -41,7 +41,7 @@ export function startProcess(state: ProcessState, hardware: HardwareState, runti
   const availableMiB = deriveResourceUsage(hardware, runtime, state).availableRamMiB
   if (input.ramRequiredMiB > availableMiB) return { status: 'insufficient_memory', state, requiredMiB: input.ramRequiredMiB, availableMiB }
   const processId = `process-${String(state.nextId).padStart(4, '0')}`
-  return { status: 'started', processId, state: { nextId: state.nextId + 1, processes: [...state.processes, { ...input, id: processId, status: 'running', workCompleted: 0 }] } }
+  return { status: 'started', processId, state: { nextId: state.nextId + 1, processes: [...state.processes, { ...input, kind: 'generic', id: processId, status: 'running', workCompleted: 0 }] } }
 }
 
 export function advanceProcesses(state: ProcessState, hardware: HardwareState, runtime: RuntimeState, elapsedMs: number): ProcessState {

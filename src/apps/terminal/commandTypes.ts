@@ -1,5 +1,6 @@
 import type { ScanResult } from '../../core/game/scan'
 import type { InspectResult } from '../../core/game/inspect'
+import type { EndpointAnalysisResult } from '../../core/game/serviceAnalysis'
 
 export interface CommandContext {
   readonly localDevice: {
@@ -9,6 +10,8 @@ export interface CommandContext {
   readonly operations: {
     readonly scanTarget: (target: string) => ScanResult
     readonly inspectTarget: (target: string) => InspectResult
+    readonly analyzeEndpoint: (endpoint: string) => EndpointAnalysisResult['status']
+    readonly knownWeaknesses: (targetDeviceId: string, serviceId: string) => readonly string[]
   }
 }
 

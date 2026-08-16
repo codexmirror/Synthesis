@@ -1,7 +1,7 @@
 import './terminal.css'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { OS_NAME } from '../../core/branding'
-import { useGameState } from '../../app/GameContext'
+import { useGameActions, useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
 import { scanNetworkTarget } from '../../core/game/scan'
@@ -9,6 +9,7 @@ import { inspectNetworkTarget } from '../../core/game/inspect'
 import type { TerminalLine } from './commandTypes'
 import { TargetToken } from './TargetToken'
 import { deriveResourceUsage } from '../../core/game/processes'
+import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 
 interface Entry { command: string; output: TerminalLine[] }
 
@@ -21,6 +22,7 @@ function TerminalOutputLine({ line }: { line: TerminalLine }) {
 
 export function Terminal() {
   const gameState = useGameState()
+  const actions = useGameActions()
   const usage = deriveResourceUsage(gameState.player.localDevice.hardware, gameState.player.localDevice.runtime, gameState.process)
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
@@ -47,6 +49,15 @@ export function Terminal() {
           localDevice: gameState.player.localDevice,
           network: gameState.world.network,
         }, target),
+        analyzeEndpoint: (endpoint) => {
+          const resolved = resolveServiceEndpoint(gameState, endpoint)
+          if (resolved === 'invalid') return 'invalid_endpoint'
+          if (!resolved) return 'endpoint_not_found'
+          return actions.startServiceAnalysis(resolved.targetDeviceId, resolved.serviceId).status
+        },
+        knownWeaknesses: (targetDeviceId, serviceId) => gameState.knowledge.discoveredVulnerabilities
+          .filter((known) => known.targetDeviceId === targetDeviceId && known.serviceId === serviceId)
+          .map((known) => known.observedLabel),
       },
     })
     if (result.type === 'clear') setEntries([])

@@ -9,8 +9,12 @@ export function Processes() {
   const completed = state.process.processes.filter((process) => process.status === 'completed')
   const cards = (processes: typeof state.process.processes) => processes.map((process) => <article className="process-card" key={process.id}>
     <header><strong>{process.label}</strong><span>{process.status}</span></header>
+    {process.kind === 'service_analysis' && <p><span>Target</span><br /><strong className="process-value">{process.startedEndpoint}</strong></p>}
     <progress value={process.workCompleted} max={process.workRequired} />
     <div><span>{Math.round(process.workCompleted / process.workRequired * 100)}% complete</span><span>CPU {Math.round(usage.cpuAllocationByProcess[process.id] ?? 0)}%</span><span>RAM {process.status === 'running' ? process.ramRequiredMiB : 0} MiB</span></div>
+    {process.kind === 'service_analysis' && process.result?.status === 'weaknesses_detected' && <p><strong>WEAKNESS DETECTED</strong><br />{process.result.vulnerabilities.map(({ vulnerabilityId, observedLabel }) => <span className="process-value" key={vulnerabilityId}>{observedLabel}</span>)}</p>}
+    {process.kind === 'service_analysis' && process.result?.status === 'no_weakness_detected' && <p><strong>NO WEAKNESS DETECTED</strong></p>}
+    {process.kind === 'service_analysis' && process.result?.status === 'service_unavailable' && <p><strong>SERVICE UNAVAILABLE</strong></p>}
   </article>)
   return <section className="app-content processes"><p className="eyebrow">PROCESS MONITOR</p>
     <div className="process-summary"><div><span>CPU</span><strong>{Math.round(usage.totalCpuLoad)}%</strong></div><div><span>RAM</span><strong>{(usage.baselineRamMiB + usage.processRamMiB).toFixed(0)} / {usage.ramCapacityMiB} MiB</strong></div></div>

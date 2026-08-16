@@ -25,10 +25,10 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-network membership in schema version 6', () => {
+  it('separates identities and seeds canonical local-network membership in schema version 7', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(6)
-    expect(state.version).toBe(6)
+    expect(GAME_STATE_VERSION).toBe(7)
+    expect(state.version).toBe(7)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -38,10 +38,14 @@ describe('createInitialGameState', () => {
       runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
     })
     expect(state.process).toEqual({ nextId: 1, processes: [] })
+    expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })
     expect(state.world.network.hosts).toEqual([
       {
         id: 'host-lan-001', ip: '198.51.100.47', online: true, role: 'server',
-        services: [{ id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true }],
+        services: [
+          { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
+          { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
+        ],
       },
       { id: 'host-training-001', ip: '203.0.113.42', online: true },
       { id: 'host-training-002', ip: '203.0.113.99', online: false },
@@ -54,14 +58,15 @@ describe('createInitialGameState', () => {
     expect(state.player.localDevice).not.toHaveProperty('networkId')
   })
 
-  it('preserves the existing LAN host as the canonical server and gives it one owned service', () => {
+  it('preserves the existing LAN host as the canonical server and gives it two owned services and vulnerability truth', () => {
     const state = createInitialGameState()
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')
 
     expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server' })
     expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
     expect(server?.services).toEqual([
-      { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true },
+      { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
+      { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
     ])
   })
 })

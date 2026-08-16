@@ -13,12 +13,17 @@ import { parseCommand } from './parser'
 import { commands, dispatchCommand } from './registry'
 
 const state = createInitialGameState()
+// @ts-expect-error Implemented Terminal operations are required integration contracts.
+const invalidContext: CommandContext = { localDevice: { ip: '198.51.100.23' }, runtime: { cpuLoad: 0, ramUsage: 0, networkStatus: 'ONLINE' }, operations: {} }
+void invalidContext
 const context: CommandContext = {
   localDevice: { ip: state.player.localDevice.network.ip },
   runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: state.player.localDevice.runtime.networkStatus },
   operations: {
     scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
+    analyzeEndpoint: () => 'endpoint_not_found',
+    knownWeaknesses: () => [],
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context)
@@ -26,10 +31,10 @@ const labeledTarget = (label: string, value: string) => [text(label), target(val
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
     expect(Object.keys(commands).filter((name) => name === 'inspect')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(6)
+    expect(new Set(Object.values(commands)).size).toBe(7)
   })
 
   it('derives help output from the command registry', () => {
@@ -51,6 +56,13 @@ describe('command dispatcher', () => {
   it('guides missing and extra scan arguments', () => {
     expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
     expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
+  })
+  it('validates analyze syntax and delegates through the narrow operation', () => {
+    expect(dispatch('analyze')).toEqual({ type: 'output', lines: ['Usage: analyze <ipv4:port>'] })
+    const analyzeEndpoint = vi.fn(() => 'started' as const)
+    const result = dispatchCommand(parseCommand('analyze 198.51.100.47:22'), { ...context, operations: { ...context.operations, analyzeEndpoint } })
+    expect(analyzeEndpoint).toHaveBeenCalledExactlyOnceWith('198.51.100.47:22')
+    expect(JSON.stringify(result)).toContain('198.51.100.47:22')
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })
@@ -107,12 +119,12 @@ describe('command dispatcher', () => {
     const output = dispatch('scan 198.51.100.47')
     expect(output).toEqual({ type: 'output', lines: [
       'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'home-net'),
-      '', 'SERVICES FOUND: 1', '', 'SSH', 'Port: 22', 'Protocol: TCP',
+      '', 'SERVICES FOUND: 2', '', 'SSH', labeledTarget('Endpoint: ', '198.51.100.47:22'), 'Protocol: TCP', '', 'HTTP', labeledTarget('Endpoint: ', '198.51.100.47:80'), 'Protocol: TCP',
     ] })
     expect(JSON.stringify(output)).not.toMatch(/service-ssh-001|host-lan-001/)
     if (output.type === 'output') {
       expect(output.lines.flatMap((line) => typeof line === 'string' ? [] : line).filter(({ type }) => type === 'target'))
-        .toEqual([target('home-net')])
+        .toEqual([target('home-net'), target('198.51.100.47:22'), target('198.51.100.47:80')])
     }
   })
 
