@@ -40,6 +40,29 @@ describe('inspectNetworkTarget inward inspection', () => {
     })
   })
 
+  it('resolves SELF from its current address while retaining stable device identity', () => {
+    const previousAddress = targets.localDevice.network.ip
+    const localDevice = { ...targets.localDevice, network: { ip: '192.0.2.44' } }
+
+    expect(inspectNetworkTarget({ ...targets, localDevice }, localDevice.network.ip)).toMatchObject({
+      status: 'device', targetId: targets.localDevice.id, address: '192.0.2.44', scope: 'self',
+    })
+    expect(inspectNetworkTarget({ ...targets, localDevice }, previousAddress)).toEqual({
+      status: 'no_response', address: previousAddress,
+    })
+  })
+
+  it('returns no response when the current SELF device is offline', () => {
+    const localDevice = {
+      ...targets.localDevice,
+      runtime: { ...targets.localDevice.runtime, networkStatus: 'OFFLINE' as const },
+    }
+
+    expect(inspectNetworkTarget({ ...targets, localDevice }, localDevice.network.ip)).toEqual({
+      status: 'no_response', address: localDevice.network.ip,
+    })
+  })
+
   it('preserves no-response behavior and rejects unsupported forms', () => {
     expect(inspectNetworkTarget(targets, '203.0.113.99')).toEqual({ status: 'no_response', address: '203.0.113.99' })
     expect(inspectNetworkTarget(targets, '192.0.2.10')).toEqual({ status: 'no_response', address: '192.0.2.10' })
