@@ -2,9 +2,13 @@ import { createContext, type ReactNode, useContext, useEffect, useRef, useState 
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
 import { advanceGameState, startServiceAnalysis, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
+import { clearCompletedProcesses as clearCompletedProcessState } from '../core/game/processes'
 
 const GameContext = createContext<GameState | null>(null)
-interface GameActions { startServiceAnalysis(targetDeviceId: string, serviceId: string): StartServiceAnalysisResult }
+interface GameActions {
+  startServiceAnalysis(targetDeviceId: string, serviceId: string): StartServiceAnalysisResult
+  clearCompletedProcesses(): void
+}
 const GameActionsContext = createContext<GameActions | null>(null)
 
 export function GameProvider({ children, initialState }: { children: ReactNode; initialState?: GameState }) {
@@ -31,6 +35,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       setGameState(nextState)
     }
     return result
+  }, clearCompletedProcesses() {
+    const state = currentState.current
+    const process = clearCompletedProcessState(state.process)
+    if (process === state.process) return
+    const nextState = { ...state, process }
+    currentState.current = nextState
+    setGameState(nextState)
   } }
   return <GameActionsContext.Provider value={actions}><GameContext.Provider value={gameState}>{children}</GameContext.Provider></GameActionsContext.Provider>
 }

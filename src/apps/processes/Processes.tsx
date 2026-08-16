@@ -1,9 +1,9 @@
 import './processes.css'
-import { useGameState } from '../../app/GameContext'
+import { useGameActions, useGameState } from '../../app/GameContext'
 import { deriveResourceUsage } from '../../core/game/processes'
 
 export function Processes() {
-  const state = useGameState(); const { hardware, runtime } = state.player.localDevice
+  const state = useGameState(); const { clearCompletedProcesses } = useGameActions(); const { hardware, runtime } = state.player.localDevice
   const usage = deriveResourceUsage(hardware, runtime, state.process)
   const running = state.process.processes.filter((process) => process.status === 'running')
   const completed = state.process.processes.filter((process) => process.status === 'completed')
@@ -20,6 +20,6 @@ export function Processes() {
     <div className="process-summary"><div><span>CPU</span><strong>{Math.round(usage.totalCpuLoad)}%</strong></div><div><span>RAM</span><strong>{(usage.baselineRamMiB + usage.processRamMiB).toFixed(0)} / {usage.ramCapacityMiB} MiB</strong></div></div>
     <h2>Active</h2>{running.length === 0 && <p className="muted">No active processes</p>}
     {cards(running)}
-    {completed.length > 0 && <><h2>Completed</h2>{cards(completed)}</>}
+    {completed.length > 0 && <><div className="process-section-heading"><h2>Completed</h2><button type="button" aria-label="Clear completed processes" onClick={() => { if (window.confirm('Clear completed process history?')) clearCompletedProcesses() }}>Clear completed</button></div>{cards(completed)}</>}
   </section>
 }
