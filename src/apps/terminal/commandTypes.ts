@@ -13,8 +13,17 @@ export interface CommandContext {
   }
 }
 
+export type TerminalLine = string | readonly TerminalFragment[]
+
+export type TerminalFragment =
+  | { readonly type: 'text'; readonly value: string }
+  | { readonly type: 'target'; readonly value: string }
+
+export const text = (value: string): TerminalFragment => ({ type: 'text', value })
+export const target = (value: string): TerminalFragment => ({ type: 'target', value })
+
 export type CommandResult =
-  | { type: 'output'; lines: string[] }
+  | { type: 'output'; lines: TerminalLine[] }
   | { type: 'clear' }
 
 export interface TerminalCommand {

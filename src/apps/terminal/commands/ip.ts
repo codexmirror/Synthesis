@@ -1,6 +1,6 @@
-import type { TerminalCommand } from '../commandTypes'
+import { target, text, type TerminalCommand } from '../commandTypes'
 
 export const ipCommand: TerminalCommand = {
   description: 'Show local address',
-  run: ({ localDevice }) => ({ type: 'output', lines: [`Local address: ${localDevice.ip}`] }),
+  run: ({ localDevice }) => ({ type: 'output', lines: [[text('Local address: '), target(localDevice.ip)]] }),
 }

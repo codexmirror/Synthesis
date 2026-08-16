@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createInitialGameState } from '../../core/game/initialState'
-import type { CommandContext } from './commandTypes'
+import { target, text, type CommandContext } from './commandTypes'
 import { clearCommand } from './commands/clear'
 import { createHelpCommand } from './commands/help'
 import { ipCommand } from './commands/ip'
@@ -22,6 +22,7 @@ const context: CommandContext = {
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context)
+const labeledTarget = (label: string, value: string) => [text(label), target(value)]
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
@@ -42,7 +43,7 @@ describe('command dispatcher', () => {
     expect(commands.scan.description).toBe('Discover relationships and connected targets')
     expect(commands.inspect.description).toBe('Show properties of one target')
   })
-  it('dispatches ip with the narrowed context', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: ['Local address: 198.51.100.23'] }))
+  it('dispatches ip with the player-visible address marked as a target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
@@ -60,7 +61,7 @@ describe('command dispatcher', () => {
   it('renders local scope when scanning the current device', () => {
     expect(dispatch('scan 198.51.100.23')).toEqual({
       type: 'output',
-      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', 'Network: home-net'],
+      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'home-net')],
     })
   })
 
@@ -89,23 +90,23 @@ describe('command dispatcher', () => {
 
   it('renders state-derived local inspection and supported remote truth', () => {
     expect(dispatch('inspect 198.51.100.23')).toEqual({ type: 'output', lines: [
-      'DEVICE', 'Address: 198.51.100.23', 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
+      'DEVICE', labeledTarget('Address: ', '198.51.100.23'), 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
     ] })
     expect(dispatch('inspect 203.0.113.42')).toEqual({ type: 'output', lines: [
-      'DEVICE', 'Address: 203.0.113.42', 'Scope:   REMOTE', 'Status:  ONLINE',
+      'DEVICE', labeledTarget('Address: ', '203.0.113.42'), 'Scope:   REMOTE', 'Status:  ONLINE',
     ] })
     expect(dispatch('inspect 198.51.100.47')).toEqual({ type: 'output', lines: [
-      'DEVICE', 'Address: 198.51.100.47', 'Scope:   LAN', 'Status:  ONLINE',
+      'DEVICE', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE',
     ] })
   })
 
   it('scans and inspects real network names without exposing stable IDs', () => {
     const inspection = dispatch('inspect home-net')
-    expect(inspection).toEqual({ type: 'output', lines: ['NETWORK', 'Name: home-net', 'Connected: YES'] })
-    expect(inspection).not.toMatchObject({ lines: expect.arrayContaining(['network-local-001', '198.51.100.23', '198.51.100.47']) })
+    expect(inspection).toEqual({ type: 'output', lines: ['NETWORK', labeledTarget('Name: ', 'home-net'), 'Connected: YES'] })
+    expect(JSON.stringify(inspection)).not.toMatch(/network-local-001|device-local-v0|host-lan-001/)
     const output = dispatch('scan home-net')
-    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', '198.51.100.23', '198.51.100.47'] })
-    expect(output).not.toMatchObject({ lines: expect.arrayContaining(['network-local-001', 'device-local-v0', 'host-lan-001']) })
+    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', [target('198.51.100.23')], [target('198.51.100.47')]] })
+    expect(JSON.stringify(output)).not.toMatch(/network-local-001|device-local-v0|host-lan-001/)
   })
 
   it('does not reveal whether inspect targets are offline or unknown', () => {
@@ -129,7 +130,7 @@ describe('individual commands', () => {
 
   it('reads the player address for ip output', () => {
     const narrowContext = { ...context, localDevice: { ip: '203.0.113.7' } }
-    expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: ['Local address: 203.0.113.7'] })
+    expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '203.0.113.7')] })
   })
 
   it('reads runtime utilization for status output', () => {
@@ -158,7 +159,7 @@ describe('individual commands', () => {
     }))
     expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['192.0.2.44'])).toEqual({
       type: 'output',
-      lines: ['DEVICE', 'Address: 192.0.2.44', 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
+      lines: ['DEVICE', labeledTarget('Address: ', '192.0.2.44'), 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
     })
     expect(inspectTarget).toHaveBeenCalledExactlyOnceWith('192.0.2.44')
   })
