@@ -19,6 +19,7 @@ export function Notes() {
       </div>
       <textarea
         id="notes"
+        data-editing-scroll-owner
         value={notes}
         placeholder="Write a note…"
         onChange={(event) => updateNotes(event.target.value)}
