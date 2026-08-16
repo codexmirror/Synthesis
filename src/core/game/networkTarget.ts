@@ -9,6 +9,19 @@ export type ResolvedNetworkTarget =
   | { readonly scope: 'self'; readonly entity: Readonly<LocalDeviceState> }
   | { readonly scope: 'lan' | 'remote'; readonly entity: Readonly<NetworkHost> }
 
+export function findSharedLocalNetwork(
+  targets: Readonly<NetworkTargets>,
+  targetId: string,
+): Readonly<LocalNetwork> | undefined {
+  return targets.network.localNetworks.find(({ memberDeviceIds }) =>
+    memberDeviceIds.includes(targets.localDevice.id) && memberDeviceIds.includes(targetId),
+  )
+}
+
+export function classifyHostScope(targets: Readonly<NetworkTargets>, targetId: string): 'lan' | 'remote' {
+  return findSharedLocalNetwork(targets, targetId) ? 'lan' : 'remote'
+}
+
 export function isValidIpv4(input: string): boolean {
   const octets = input.split('.')
   return octets.length === 4 && octets.every((octet) => {
@@ -25,8 +38,7 @@ export function resolveNetworkTarget(targets: Readonly<NetworkTargets>, address:
 
   const host = targets.network.hosts.find(({ ip }) => ip === address)
   if (!host) return undefined
-  const isLan = targets.network.localNetworks.some(({ memberDeviceIds }) => memberDeviceIds.includes(host.id))
-  return { scope: isLan ? 'lan' : 'remote', entity: host }
+  return { scope: classifyHostScope(targets, host.id), entity: host }
 }
 
 /** Resolve only the currently supported player-visible local-network name target. */

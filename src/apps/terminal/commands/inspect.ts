@@ -14,8 +14,8 @@ export const inspectCommand: TerminalCommand = {
     const lines = ['TARGET', `Address: ${result.address}`, `Scope:   ${result.scope.toUpperCase()}`, `Status:  ${result.networkStatus}`]
     if (result.scope === 'self') {
       lines.push(`CPU:     ${result.hardware.cpu}`, `RAM:     ${result.hardware.ram}`)
-      if (result.network) lines.push(`Network: ${result.network.name}`)
     }
+    if (result.network) lines.push(`Network: ${result.network.name}`)
     return { type: 'output', lines }
   },
 }

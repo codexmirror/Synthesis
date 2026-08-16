@@ -1,4 +1,4 @@
-import { isValidIpv4, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
+import { findSharedLocalNetwork, isValidIpv4, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
 
 export type InspectTargets = NetworkTargets
 
@@ -18,6 +18,7 @@ export type InspectResult =
     readonly address: string
     readonly scope: 'lan' | 'remote'
     readonly networkStatus: 'ONLINE'
+    readonly network?: { readonly id: string; readonly name: string }
   }
   | { readonly status: 'no_response'; readonly address: string }
   | { readonly status: 'invalid_target'; readonly input: string }
@@ -39,7 +40,11 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
       }
       : { status: 'no_response', address: input }
   }
+  const localNetwork = findSharedLocalNetwork(targets, resolved.entity.id)
   return resolved.entity.online
-    ? { status: 'reachable', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE' }
+    ? {
+      status: 'reachable', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE',
+      ...(localNetwork ? { network: { id: localNetwork.id, name: localNetwork.name } } : {}),
+    }
     : { status: 'no_response', address: input }
 }

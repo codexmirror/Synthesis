@@ -91,11 +91,16 @@ describe('command dispatcher', () => {
     expect(dispatch('inspect 203.0.113.42')).toEqual({ type: 'output', lines: [
       'TARGET', 'Address: 203.0.113.42', 'Scope:   REMOTE', 'Status:  ONLINE',
     ] })
+    expect(dispatch('inspect 198.51.100.47')).toEqual({ type: 'output', lines: [
+      'TARGET', 'Address: 198.51.100.47', 'Scope:   LAN', 'Status:  ONLINE', 'Network: home-net',
+    ] })
   })
 
   it('scans network names while inspect remains IPv4-only', () => {
     expect(dispatch('inspect home-net')).toEqual({ type: 'output', lines: ['Invalid target: home-net'] })
-    expect(dispatch('scan home-net')).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', '198.51.100.23', '198.51.100.47'] })
+    const output = dispatch('scan home-net')
+    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', '198.51.100.23', '198.51.100.47'] })
+    expect(output).not.toMatchObject({ lines: expect.arrayContaining(['device-local-v0', 'host-lan-001']) })
   })
 
   it('does not reveal whether inspect targets are offline or unknown', () => {

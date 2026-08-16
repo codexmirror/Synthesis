@@ -68,6 +68,20 @@ describe('inspectNetworkTarget', () => {
     const host = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!
     expect(inspectNetworkTarget(targets, host.ip)).toEqual({
       status: 'reachable', targetId: host.id, address: host.ip, scope: 'lan', networkStatus: 'ONLINE',
+      network: { id: 'network-local-001', name: 'home-net' },
+    })
+  })
+
+  it('derives LAN scope and network detail only from membership shared with SELF', () => {
+    const host = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!
+    const unrelatedNetwork = { id: 'network-other', name: 'other-net', memberDeviceIds: [host.id] }
+    const unrelated = inspectNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [unrelatedNetwork] } }, host.ip)
+    expect(unrelated).toMatchObject({ status: 'reachable', scope: 'remote' })
+    expect(unrelated).not.toHaveProperty('network')
+
+    const sharedNetwork = { ...unrelatedNetwork, name: 'shared-renamed', memberDeviceIds: [targets.localDevice.id, host.id] }
+    expect(inspectNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [sharedNetwork] } }, host.ip)).toMatchObject({
+      status: 'reachable', scope: 'lan', network: { id: 'network-other', name: 'shared-renamed' },
     })
   })
 

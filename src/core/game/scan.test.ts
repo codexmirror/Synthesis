@@ -16,22 +16,35 @@ describe('scanNetworkTarget discovery', () => {
 
   it('resolves a real network name and discovers only online represented members', () => {
     expect(scanNetworkTarget(targets, 'home-net')).toEqual({ status: 'network', networkName: 'home-net', devices: [
-      { address: '198.51.100.23', scope: 'self' }, { address: '198.51.100.47', scope: 'lan' },
+      { targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' },
+      { targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' },
     ] })
     const host = targets.network.hosts.find(({ id }) => id === 'host-lan-001')!
     expect(host).toMatchObject({ id: 'host-lan-001', online: true })
 
     const movedHosts = targets.network.hosts.map((item) => item.id === host.id ? { ...item, ip: '198.51.100.88' } : item)
-    expect(scanNetworkTarget({ ...targets, network: { ...targets.network, hosts: movedHosts } }, 'home-net')).toMatchObject({ devices: expect.arrayContaining([{ address: '198.51.100.88', scope: 'lan' }]) })
+    expect(scanNetworkTarget({ ...targets, network: { ...targets.network, hosts: movedHosts } }, 'home-net')).toMatchObject({ devices: expect.arrayContaining([{ targetId: host.id, address: '198.51.100.88', scope: 'lan' }]) })
 
     const noLanMember = { ...targets.network, localNetworks: [{ ...targets.network.localNetworks[0], memberDeviceIds: ['device-local-v0'] }] }
-    expect(scanNetworkTarget({ ...targets, network: noLanMember }, 'home-net')).toMatchObject({ devices: [{ address: '198.51.100.23', scope: 'self' }] })
+    expect(scanNetworkTarget({ ...targets, network: noLanMember }, 'home-net')).toMatchObject({ devices: [{ targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' }] })
 
     const unrelated = { ...targets.network, hosts: [...targets.network.hosts, { id: 'unrelated', ip: '192.0.2.77', online: true }] }
     expect(scanNetworkTarget({ ...targets, network: unrelated }, 'home-net')).toEqual(scanNetworkTarget(targets, 'home-net'))
 
     const offlineHosts = targets.network.hosts.map((item) => item.id === host.id ? { ...item, online: false } : item)
-    expect(scanNetworkTarget({ ...targets, network: { ...targets.network, hosts: offlineHosts } }, 'home-net')).toMatchObject({ devices: [{ address: '198.51.100.23', scope: 'self' }] })
+    expect(scanNetworkTarget({ ...targets, network: { ...targets.network, hosts: offlineHosts } }, 'home-net')).toMatchObject({ devices: [{ targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' }] })
+  })
+
+  it('classifies LAN only through a network shared with SELF', () => {
+    const otherNetwork = { id: 'network-other', name: 'other-net', memberDeviceIds: ['host-lan-001'] }
+    const network = { ...targets.network, localNetworks: [otherNetwork] }
+    expect(scanNetworkTarget({ ...targets, network }, '198.51.100.47')).toMatchObject({ scope: 'remote' })
+    expect(scanNetworkTarget({ ...targets, network }, 'other-net')).toMatchObject({
+      devices: [{ targetId: 'host-lan-001', address: '198.51.100.47', scope: 'remote' }],
+    })
+
+    const sharedNetwork = { ...otherNetwork, memberDeviceIds: [targets.localDevice.id, 'host-lan-001'] }
+    expect(scanNetworkTarget({ ...targets, network: { ...network, localNetworks: [sharedNetwork] } }, '198.51.100.47')).toMatchObject({ scope: 'lan' })
   })
 
   it('keeps LAN and remote scopes coherent and preserves no-response behavior', () => {
