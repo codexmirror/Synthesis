@@ -183,6 +183,36 @@ describe('dedicated editing viewport', () => {
     )
   })
 
+  it('converges late standalone keyboard geometry without an input event', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+
+    await user.click(input)
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveStyle({ '--node-edit-height': '844px' })
+
+    // Physical iOS standalone can update these values after focus without a
+    // useful VisualViewport event. A bounded focus-settle probe must observe it.
+    Object.assign(viewport, { height: 514, offsetTop: 24 })
+    await act(
+      () => new Promise((resolve) => setTimeout(resolve, 210)),
+    )
+
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '24px',
+      '--node-edit-height': '514px',
+    })
+
+    await user.type(input, 'x')
+    expect(shell).toHaveStyle({
+      '--node-edit-top': '24px',
+      '--node-edit-height': '514px',
+    })
+  })
+
   it('maps Safari top pan to editTop without changing host height', async () => {
     const viewport = new ViewportStub()
     installViewport(viewport)

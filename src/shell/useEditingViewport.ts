@@ -24,6 +24,10 @@ const EDITING_PRESENTATION_QUERY =
   '(max-width: 700px), (max-width: 900px) and (pointer: coarse)'
 const CLOSE_PROBE_DELAY = 360
 const ORIENTATION_REBASE_DELAY = 280
+// iOS standalone can expose its final keyboard VisualViewport geometry after
+// focus without dispatching a useful resize/scroll event. These bounded probes
+// only converge an editing plane that was already activated synchronously.
+const FOCUS_SETTLE_DELAYS = [64, 192, 384] as const
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -110,6 +114,7 @@ export function useEditingViewport(): EditingViewportState {
     let frame = 0
     let closeTimer: ReturnType<typeof setTimeout> | undefined
     let orientationTimer: ReturnType<typeof setTimeout> | undefined
+    let focusSettleTimers: ReturnType<typeof setTimeout>[] = []
     let editableFocused = false
     let editingLatched = false
     let reducedGeometryObserved = false
@@ -242,6 +247,18 @@ export function useEditingViewport(): EditingViewportState {
       closeTimer = undefined
     }
 
+    const cancelFocusSettle = () => {
+      focusSettleTimers.forEach(clearTimeout)
+      focusSettleTimers = []
+    }
+
+    const scheduleFocusSettle = () => {
+      cancelFocusSettle()
+      focusSettleTimers = FOCUS_SETTLE_DELAYS.map((delay) =>
+        setTimeout(schedule, delay),
+      )
+    }
+
     const onFocusIn = (event: FocusEvent) => {
       if (!isEditable(event.target)) return
 
@@ -254,6 +271,7 @@ export function useEditingViewport(): EditingViewportState {
       if (supportsEditingPresentation() && measurement) {
         editingLatched = true
         publishEditing(measurement)
+        scheduleFocusSettle()
       }
 
       schedule()
@@ -263,6 +281,7 @@ export function useEditingViewport(): EditingViewportState {
       if (!isEditable(event.target)) return
 
       editableFocused = false
+      cancelFocusSettle()
       schedule()
       cancelCloseProbe()
       closeTimer = setTimeout(() => {
@@ -382,6 +401,7 @@ export function useEditingViewport(): EditingViewportState {
       window.removeEventListener('orientationchange', onOrientationChange)
       cancelAnimationFrame(frame)
       cancelCloseProbe()
+      cancelFocusSettle()
       if (orientationTimer !== undefined) clearTimeout(orientationTimer)
     }
   }, [])
