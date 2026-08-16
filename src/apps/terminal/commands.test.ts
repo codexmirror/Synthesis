@@ -13,12 +13,17 @@ import { parseCommand } from './parser'
 import { commands, dispatchCommand } from './registry'
 
 const state = createInitialGameState()
+// @ts-expect-error Implemented Terminal operations are required integration contracts.
+const invalidContext: CommandContext = { localDevice: { ip: '198.51.100.23' }, runtime: { cpuLoad: 0, ramUsage: 0, networkStatus: 'ONLINE' }, operations: {} }
+void invalidContext
 const context: CommandContext = {
   localDevice: { ip: state.player.localDevice.network.ip },
   runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: state.player.localDevice.runtime.networkStatus },
   operations: {
     scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
+    analyzeEndpoint: () => 'endpoint_not_found',
+    knownWeaknesses: () => [],
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context)

@@ -1,5 +1,5 @@
 import { advanceProcesses, startProcess } from './processes'
-import type { GameProcess, GameState, NetworkService } from './types'
+import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
 
 export const SERVICE_ANALYSIS_WORK_REQUIRED = 1000
@@ -24,14 +24,15 @@ export function resolveServiceEndpoint(state: GameState, endpoint: string): { ta
   return host && service ? { targetDeviceId: host.id, serviceId: service.id } : undefined
 }
 
-function currentService(state: GameState, targetDeviceId: string, serviceId: string): { online: boolean; service?: NetworkService } {
+function currentService(state: GameState, targetDeviceId: string, serviceId: string): { online: boolean; hostIp?: string; service?: NetworkService } {
   const host = state.world.network.hosts.find(({ id }) => id === targetDeviceId)
-  return { online: host?.online ?? false, service: host?.services?.find(({ id }) => id === serviceId) }
+  return { online: host?.online ?? false, hostIp: host?.ip, service: host?.services?.find(({ id }) => id === serviceId) }
 }
 
 export function startServiceAnalysis(state: GameState, targetDeviceId: string, serviceId: string): StartServiceAnalysisResult {
   const current = currentService(state, targetDeviceId, serviceId)
-  if (!current.online || !current.service?.open) return { status: 'unavailable', state }
+  if (!current.online || !current.hostIp || !current.service?.open) return { status: 'unavailable', state }
+  const startedEndpoint = `${current.hostIp}:${current.service.port}`
   if (state.process.processes.some((process) => process.kind === 'service_analysis' && process.status === 'running' && process.targetDeviceId === targetDeviceId && process.serviceId === serviceId)) return { status: 'already_running', state }
   const started = startProcess(state.process, state.player.localDevice.hardware, state.player.localDevice.runtime, {
     label: 'SERVICE ANALYSIS', executorDeviceId: state.player.localDevice.id,
@@ -39,7 +40,7 @@ export function startServiceAnalysis(state: GameState, targetDeviceId: string, s
   })
   if (started.status === 'insufficient_memory') return { ...started, state }
   const processes = started.state.processes.map((process) => process.id === started.processId
-    ? { ...process, kind: 'service_analysis' as const, targetDeviceId, serviceId }
+    ? { ...process, kind: 'service_analysis' as const, targetDeviceId, serviceId, startedEndpoint }
     : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }
@@ -51,15 +52,15 @@ export function startServiceAnalysisAtEndpoint(state: GameState, endpoint: strin
   return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId)
 }
 
-function resolveCompletedAnalysis(state: GameState, process: GameProcess): { process: GameProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
-  const current = currentService(state, process.targetDeviceId!, process.serviceId!)
+function resolveCompletedAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
+  const current = currentService(state, process.targetDeviceId, process.serviceId)
   if (!current.online || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
   const vulnerabilities = current.service.vulnerabilities ?? []
   if (!vulnerabilities.length) return { process: { ...process, result: { status: 'no_weakness_detected' } }, discoveries: [] }
   const found = vulnerabilities.map(({ id, label }) => ({ vulnerabilityId: id, observedLabel: label }))
   return {
     process: { ...process, result: { status: 'weaknesses_detected', vulnerabilities: found } },
-    discoveries: found.map(({ vulnerabilityId, observedLabel }) => ({ vulnerabilityId, observedLabel, targetDeviceId: process.targetDeviceId!, serviceId: process.serviceId! })),
+    discoveries: found.map(({ vulnerabilityId, observedLabel }) => ({ vulnerabilityId, observedLabel, targetDeviceId: process.targetDeviceId, serviceId: process.serviceId })),
   }
 }
 

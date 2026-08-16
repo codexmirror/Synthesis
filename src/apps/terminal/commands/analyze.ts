@@ -5,7 +5,7 @@ export const analyzeCommand: TerminalCommand = {
   run: ({ operations }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: analyze <ipv4:port>'] }
     const endpoint = args[0]
-    const status = operations.analyzeEndpoint?.(endpoint) ?? 'endpoint_not_found'
+    const status = operations.analyzeEndpoint(endpoint)
     if (status === 'invalid_endpoint') return { type: 'output', lines: ['Usage: analyze <ipv4:port>'] }
     if (status === 'endpoint_not_found') return { type: 'output', lines: [`Endpoint not represented: ${endpoint}`] }
     if (status === 'unavailable') return { type: 'output', lines: ['SERVICE UNAVAILABLE'] }

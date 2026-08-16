@@ -25,7 +25,7 @@ export type ServiceAnalysisResult =
   | { readonly status: 'no_weakness_detected' }
   | { readonly status: 'service_unavailable' }
 
-export interface GameProcess {
+interface ProcessBase {
   readonly id: string
   readonly label: string
   readonly executorDeviceId: string
@@ -33,11 +33,20 @@ export interface GameProcess {
   readonly workRequired: number
   readonly workCompleted: number
   readonly ramRequiredMiB: number
-  readonly kind?: 'generic' | 'service_analysis'
-  readonly targetDeviceId?: string
-  readonly serviceId?: string
+}
+
+export interface GenericProcess extends ProcessBase { readonly kind: 'generic' }
+
+export interface ServiceAnalysisProcess extends ProcessBase {
+  readonly kind: 'service_analysis'
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  /** Historical presentation only; gameplay resolution and identity use stable IDs. */
+  readonly startedEndpoint: string
   readonly result?: ServiceAnalysisResult
 }
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess
 
 export interface ProcessState {
   readonly nextId: number

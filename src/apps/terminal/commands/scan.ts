@@ -23,7 +23,7 @@ export const scanCommand: TerminalCommand = {
     lines.push('', `SERVICES FOUND: ${result.services.length}`)
     for (const service of result.services) {
       lines.push('', service.name, [text('Endpoint: '), targetFragment(`${result.address}:${service.port}`)], `Protocol: ${service.protocol}`)
-      for (const label of operations.knownWeaknesses?.(result.targetId, service.id) ?? []) lines.push(`Known weakness: ${label}`)
+      for (const label of operations.knownWeaknesses(result.targetId, service.id)) lines.push(`Known weakness: ${label}`)
     }
     return { type: 'output', lines }
   },
