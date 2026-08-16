@@ -48,7 +48,10 @@ export function useMobileViewport(): MobileViewportState {
     }
 
     if (!viewport) {
-      const measureFallback = () => publish({ stableHeight: window.innerHeight, offsetTop: 0, keyboardInset: 0, keyboardOpen: false })
+      const measureFallback = () => {
+        frame = 0
+        publish({ stableHeight: window.innerHeight, offsetTop: 0, keyboardInset: 0, keyboardOpen: false })
+      }
       const scheduleFallback = () => {
         cancelAnimationFrame(frame)
         frame = requestAnimationFrame(measureFallback)
@@ -57,17 +60,33 @@ export function useMobileViewport(): MobileViewportState {
       return () => { window.removeEventListener('resize', scheduleFallback); cancelAnimationFrame(frame) }
     }
 
+    const queueOrientationProbe = () => {
+      if (orientationTimer !== undefined) clearTimeout(orientationTimer)
+      orientationTimer = setTimeout(() => {
+        orientationTimer = undefined
+        orientationPending = true
+        schedule()
+      }, 280)
+    }
+
     const measure = () => {
       frame = 0
       if (!isUnscaled(viewport.scale)) return
 
       const widthChanged = Math.abs(viewport.width - lastWidth) >= 80
-      if (widthChanged) orientationPending = true
+      if (widthChanged) {
+        lastWidth = viewport.width
+        orientationPending = true
+        queueOrientationProbe()
+      }
       if (orientationPending) {
         lastWidth = viewport.width
         const hostHeight = Math.max(viewport.offsetTop + viewport.height, document.documentElement.clientHeight || window.innerHeight)
         const inset = Math.max(0, hostHeight - (viewport.offsetTop + viewport.height))
-        const open = (current.keyboardOpen || editableFocused) && inset > RECOVERY_TOLERANCE
+        const threshold = Math.min(150, Math.max(96, hostHeight * 0.18))
+        const open = current.keyboardOpen
+          ? inset > RECOVERY_TOLERANCE
+          : editableFocused && inset > threshold
         orientationPending = false
         protectedSequence = open || editableFocused
         publish({ stableHeight: hostHeight, offsetTop: open ? viewport.offsetTop : 0, keyboardInset: open ? inset : 0, keyboardOpen: open })
@@ -104,13 +123,15 @@ export function useMobileViewport(): MobileViewportState {
       editableFocused = false
       schedule()
       cancelCloseProbe()
-      closeTimer = setTimeout(measure, 420)
+      closeTimer = setTimeout(() => {
+        closeTimer = undefined
+        schedule()
+      }, 420)
     }
     const onOrientation = () => {
       orientationPending = true
-      if (orientationTimer !== undefined) clearTimeout(orientationTimer)
       schedule()
-      orientationTimer = setTimeout(measure, 280)
+      queueOrientationProbe()
     }
 
     viewport.addEventListener('resize', schedule)
