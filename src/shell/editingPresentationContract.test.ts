@@ -10,7 +10,7 @@ describe('mobile editing presentation contract', () => {
       /@media \(max-width: 700px\)[\s\S]*?data-editing="true"[^}]+position: absolute;/,
     )
     expect(css).toMatch(
-      /@media \(display-mode: standalone\)[\s\S]*?data-editing="true"[^}]+position: fixed;/,
+      /@media \(max-width: 700px\)[\s\S]*?data-standalone="true"[^}]+position: fixed;[^}]+top: 0;[^}]+height: var\(--node-edit-height/,
     )
     expect(css).toContain('top: var(--node-edit-top, 0px)')
     expect(css).toContain(
@@ -20,6 +20,7 @@ describe('mobile editing presentation contract', () => {
 
   it('does not add timer or polling state to useEditingViewport', () => {
     expect(hook).not.toContain('setInterval')
+    expect(hook).not.toContain('window.scrollTo')
     // Two timer declarations and two calls are the existing focus-close and
     // orientation-rebase behavior. Diagnostics live outside this hook.
     expect(hook.match(/setTimeout/g)).toHaveLength(4)
@@ -31,5 +32,11 @@ describe('mobile editing presentation contract', () => {
       terminalSource.lastIndexOf('className="terminal-output"'),
     )
     expect(terminalCss).toMatch(/\.terminal\s*{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto;/)
+  })
+
+  it('keeps viewport logic out of Terminal', () => {
+    expect(terminalSource).not.toContain('visualViewport')
+    expect(terminalSource).not.toContain('window.scrollTo')
+    expect(terminalSource).not.toContain('setTimeout')
   })
 })

@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event'
 import App from './App'
 import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
+import { ViewportDebug } from './shell/ViewportDebug'
 
 class ViewportStub extends EventTarget {
   height = 844
@@ -52,6 +53,19 @@ const originalClientHeight = Object.getOwnPropertyDescriptor(
   document.documentElement,
   'clientHeight',
 )
+const originalNavigatorStandalone = Object.getOwnPropertyDescriptor(
+  navigator,
+  'standalone',
+)
+const originalUrl = window.location.href
+
+const EDITING_PRESENTATION_QUERY =
+  '(max-width: 700px), (max-width: 900px) and (pointer: coarse)'
+
+interface MediaQueryMatches {
+  editingPresentation?: boolean
+  standalonePresentation?: boolean
+}
 
 function installViewport(viewport?: ViewportStub) {
   Object.defineProperty(window, 'visualViewport', {
@@ -60,13 +74,40 @@ function installViewport(viewport?: ViewportStub) {
   })
 }
 
-function installEditingPresentation(matches = true) {
-  const query = new MediaQueryStub(matches)
+function installMediaQueries({
+  editingPresentation = true,
+  standalonePresentation = false,
+}: MediaQueryMatches = {}) {
+  const editingQuery = new MediaQueryStub(editingPresentation)
+  editingQuery.media = EDITING_PRESENTATION_QUERY
+  const standaloneQuery = new MediaQueryStub(standalonePresentation)
+  standaloneQuery.media = '(display-mode: standalone)'
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
-    value: vi.fn(() => query),
+    value: vi.fn((query: string) => {
+      if (query === EDITING_PRESENTATION_QUERY) return editingQuery
+      if (query === '(display-mode: standalone)') return standaloneQuery
+      const unmatched = new MediaQueryStub(false)
+      unmatched.media = query
+      return unmatched
+    }),
   })
-  return query
+  return { editingQuery, standaloneQuery }
+}
+
+function installEditingPresentation(matches = true) {
+  return installMediaQueries({ editingPresentation: matches }).editingQuery
+}
+
+function setNavigatorStandalone(value: boolean | undefined) {
+  if (value === undefined) {
+    Reflect.deleteProperty(navigator, 'standalone')
+    return
+  }
+  Object.defineProperty(navigator, 'standalone', {
+    configurable: true,
+    value,
+  })
 }
 
 async function updateViewport(
@@ -120,6 +161,16 @@ afterEach(() => {
   } else {
     Reflect.deleteProperty(document.documentElement, 'clientHeight')
   }
+  if (originalNavigatorStandalone) {
+    Object.defineProperty(
+      navigator,
+      'standalone',
+      originalNavigatorStandalone,
+    )
+  } else {
+    Reflect.deleteProperty(navigator, 'standalone')
+  }
+  window.history.replaceState(null, '', originalUrl)
 })
 
 function StateSnapshot() {
@@ -143,6 +194,86 @@ async function command(name: string) {
   await user.type(input, `${name}{enter}`)
   return user
 }
+
+describe('standalone presentation contract', () => {
+  it('marks normal Safari as non-standalone', () => {
+    installMediaQueries({ standalonePresentation: false })
+    setNavigatorStandalone(undefined)
+
+    render(<GameProvider><Shell /></GameProvider>)
+
+    expect(screen.getByTestId('os-shell')).toHaveAttribute(
+      'data-standalone',
+      'false',
+    )
+  })
+
+  it('recognizes the iOS Home-Screen capability signal', () => {
+    installMediaQueries({ standalonePresentation: false })
+    setNavigatorStandalone(true)
+
+    render(<GameProvider><Shell /></GameProvider>)
+
+    expect(screen.getByTestId('os-shell')).toHaveAttribute(
+      'data-standalone',
+      'true',
+    )
+  })
+
+  it('recognizes standards-based standalone presentation', () => {
+    installMediaQueries({ standalonePresentation: true })
+    setNavigatorStandalone(false)
+
+    render(<GameProvider><Shell /></GameProvider>)
+
+    expect(screen.getByTestId('os-shell')).toHaveAttribute(
+      'data-standalone',
+      'true',
+    )
+  })
+
+  it('samples the current viewport prop in diagnostics', async () => {
+    installMediaQueries()
+    window.history.replaceState(null, '', '/?viewportDebug=1')
+    const initial = {
+      hostHeight: 844,
+      editTop: 0,
+      editHeight: 844,
+      editing: false,
+    }
+    const current = {
+      hostHeight: 873,
+      editTop: 386,
+      editHeight: 487,
+      editing: true,
+    }
+    const { rerender } = render(
+      <div className="os-shell" data-standalone="true">
+        <ViewportDebug viewport={initial} />
+      </div>,
+    )
+    await screen.findByLabelText('Viewport diagnostics')
+
+    rerender(
+      <div className="os-shell" data-standalone="true">
+        <ViewportDebug viewport={current} />
+      </div>,
+    )
+    act(() => document.dispatchEvent(new Event('selectionchange')))
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Viewport diagnostics')).toHaveTextContent(
+        'hook.editTop: 386',
+      ),
+    )
+    expect(screen.getByLabelText('Viewport diagnostics')).toHaveTextContent(
+      'hook.editHeight: 487',
+    )
+    expect(screen.getByLabelText('Viewport diagnostics')).toHaveTextContent(
+      'shell data-standalone: true',
+    )
+  })
+})
 
 describe('dedicated editing viewport', () => {
   it('enters editing immediately on focus before keyboard geometry changes', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { EditingViewportState } from './useEditingViewport'
 
 interface DebugSnapshot {
@@ -19,6 +19,11 @@ interface DebugSnapshot {
   appViewRect: string
   terminalInputRect: string
   activeElement: string
+  hookHostHeight: number
+  hookEditTop: number
+  hookEditHeight: number
+  hookEditing: boolean
+  shellStandalone: string
 }
 
 const DEBUG_EVENTS = [
@@ -45,6 +50,8 @@ export function ViewportDebug({
   viewport: EditingViewportState
 }) {
   const enabled = isDebugEnabled()
+  const viewportRef = useRef(viewport)
+  viewportRef.current = viewport
   const [snapshot, setSnapshot] = useState<DebugSnapshot | null>(null)
 
   useEffect(() => {
@@ -62,6 +69,7 @@ export function ViewportDebug({
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         const shell = document.querySelector<HTMLElement>('.os-shell')
+        const currentViewport = viewportRef.current
         const computed = shell ? getComputedStyle(shell) : null
         const visual = window.visualViewport
         const active = document.activeElement
@@ -102,6 +110,11 @@ export function ViewportDebug({
           activeElement: active
             ? `${active.tagName.toLowerCase()}${active.id ? `#${active.id}` : ''}`
             : 'none',
+          hookHostHeight: currentViewport.hostHeight,
+          hookEditTop: currentViewport.editTop,
+          hookEditHeight: currentViewport.editHeight,
+          hookEditing: currentViewport.editing,
+          shellStandalone: shell?.dataset.standalone || 'unavailable',
         })
       })
     }
@@ -143,6 +156,7 @@ export function ViewportDebug({
       <strong>VIEWPORT DEBUG</strong>{' '}
       <span>standalone match: {String(snapshot.standaloneDisplayMode)}</span>{' '}
       <span>navigator.standalone: {String(snapshot.navigatorStandalone)}</span>{' '}
+      <span>shell data-standalone: {snapshot.shellStandalone}</span>{' '}
       <span>latest: {snapshot.event} @ {snapshot.timestamp}</span>{' '}
       <span>visualViewport.height: {snapshot.visualHeight}</span>{' '}
       <span>visualViewport.offsetTop: {snapshot.visualOffsetTop}</span>{' '}
@@ -150,10 +164,10 @@ export function ViewportDebug({
       <span>window.innerHeight: {snapshot.innerHeight}</span>{' '}
       <span>documentElement.clientHeight: {snapshot.clientHeight}</span>{' '}
       <span>window.scrollY: {snapshot.scrollY}</span>{' '}
-      <span>hook.hostHeight: {viewport.hostHeight}</span>{' '}
-      <span>hook.editTop: {viewport.editTop}</span>{' '}
-      <span>hook.editHeight: {viewport.editHeight}</span>{' '}
-      <span>hook.editing: {String(viewport.editing)}</span>{' '}
+      <span>hook.hostHeight: {snapshot.hookHostHeight}</span>{' '}
+      <span>hook.editTop: {snapshot.hookEditTop}</span>{' '}
+      <span>hook.editHeight: {snapshot.hookEditHeight}</span>{' '}
+      <span>hook.editing: {String(snapshot.hookEditing)}</span>{' '}
       <span>CSS --node-host-height: {snapshot.cssHostHeight}</span>{' '}
       <span>CSS --node-edit-top: {snapshot.cssEditTop}</span>{' '}
       <span>CSS --node-edit-height: {snapshot.cssEditHeight}</span>{' '}

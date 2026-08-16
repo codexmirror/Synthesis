@@ -305,10 +305,11 @@
   .os-shell[data-editing="true"] .app-mode { color: var(--green); }
 }
 
-@media (display-mode: standalone) and (max-width: 700px),
-       (display-mode: standalone) and (max-width: 900px) and (pointer: coarse) {
-  .os-shell[data-editing="true"] .app-view {
+@media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
+  .os-shell[data-standalone="true"][data-editing="true"] .app-view {
     position: fixed;
+    top: 0;
+    height: var(--node-edit-height, var(--node-host-height, 100dvh));
   }
 }
 
