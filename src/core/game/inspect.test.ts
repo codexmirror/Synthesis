@@ -5,107 +5,76 @@ import { inspectNetworkTarget, type InspectTargets } from './inspect'
 const state = createInitialGameState()
 const targets: InspectTargets = { localDevice: state.player.localDevice, network: state.world.network }
 
-describe('inspectNetworkTarget', () => {
-  it('derives local identity, address, scope, and hardware from current device state', () => {
-    const localDevice = {
-      ...state.player.localDevice,
-      network: { ip: '192.0.2.44' },
+describe('inspectNetworkTarget inward inspection', () => {
+  it('returns structured network properties without enumerating members', () => {
+    const result = inspectNetworkTarget(targets, 'home-net')
+    expect(result).toEqual({ status: 'network', networkId: 'network-local-001', networkName: 'home-net', connected: true })
+    expect(result).not.toHaveProperty('devices')
+    expect(result).not.toHaveProperty('memberDeviceIds')
+  })
+
+  it('derives renamed presentation while retaining stable network identity', () => {
+    const network = { ...targets.network, localNetworks: [{ ...targets.network.localNetworks[0], name: 'renamed-net' }] }
+    expect(inspectNetworkTarget({ ...targets, network }, 'renamed-net')).toEqual({
+      status: 'network', networkId: 'network-local-001', networkName: 'renamed-net', connected: true,
+    })
+    expect(inspectNetworkTarget({ ...targets, network }, 'home-net')).toEqual({ status: 'unknown_target', input: 'home-net' })
+  })
+
+  it('derives network connection from canonical SELF membership', () => {
+    const network = { ...targets.network, localNetworks: [{ ...targets.network.localNetworks[0], memberDeviceIds: ['host-lan-001'] }] }
+    expect(inspectNetworkTarget({ ...targets, network }, 'home-net')).toMatchObject({ status: 'network', connected: false })
+  })
+
+  it('reports only actual device properties', () => {
+    const localDevice = { ...targets.localDevice, hardware: { cpu: 'Changed CPU', ram: '12 GB' } }
+    expect(inspectNetworkTarget({ ...targets, localDevice }, '198.51.100.23')).toEqual({
+      status: 'device', targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self', networkStatus: 'ONLINE',
       hardware: { cpu: 'Changed CPU', ram: '12 GB' },
-    }
-    const movedTargets = { ...targets, localDevice }
-    expect(inspectNetworkTarget(movedTargets, '192.0.2.44')).toEqual({
-      status: 'reachable', targetId: localDevice.id, address: '192.0.2.44', scope: 'self', networkStatus: 'ONLINE',
-      hardware: { cpu: 'Changed CPU', ram: '12 GB' },
-      network: { id: 'network-local-001', name: 'home-net' },
     })
-    expect(inspectNetworkTarget(movedTargets, '198.51.100.23')).toEqual({
-      status: 'no_response', address: '198.51.100.23',
+    expect(inspectNetworkTarget(targets, '198.51.100.47')).toEqual({
+      status: 'device', targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan', networkStatus: 'ONLINE',
+    })
+    expect(inspectNetworkTarget(targets, '203.0.113.42')).toEqual({
+      status: 'device', targetId: 'host-training-001', address: '203.0.113.42', scope: 'remote', networkStatus: 'ONLINE',
     })
   })
 
-  it('derives an optional narrow network reference from canonical membership and current network state', () => {
-    const renamedNetwork = {
-      ...state.world.network,
-      localNetworks: state.world.network.localNetworks.map((network) => ({ ...network, name: 'renamed-net' })),
-    }
-    expect(inspectNetworkTarget({ ...targets, network: renamedNetwork }, state.player.localDevice.network.ip)).toMatchObject({
-      status: 'reachable', scope: 'self', network: { id: 'network-local-001', name: 'renamed-net' },
+  it('resolves SELF from its current address while retaining stable device identity', () => {
+    const previousAddress = targets.localDevice.network.ip
+    const localDevice = { ...targets.localDevice, network: { ip: '192.0.2.44' } }
+
+    expect(inspectNetworkTarget({ ...targets, localDevice }, localDevice.network.ip)).toMatchObject({
+      status: 'device', targetId: targets.localDevice.id, address: '192.0.2.44', scope: 'self',
     })
-
-    const withoutMembership = {
-      ...state.world.network,
-      localNetworks: state.world.network.localNetworks.map((network) => ({ ...network, memberDeviceIds: ['different-device'] })),
-    }
-    const result = inspectNetworkTarget({ ...targets, network: withoutMembership }, state.player.localDevice.network.ip)
-    expect(result).toMatchObject({ status: 'reachable', scope: 'self' })
-    expect(result).not.toHaveProperty('network')
-  })
-
-  it('does not derive local membership from unrelated remote host changes', () => {
-    const network = { ...state.world.network, hosts: [{ id: 'changed-remote', ip: '192.0.2.88', online: true }] }
-    expect(inspectNetworkTarget({ ...targets, network }, state.player.localDevice.network.ip)).toMatchObject({
-      network: { id: 'network-local-001', name: 'home-net' },
+    expect(inspectNetworkTarget({ ...targets, localDevice }, previousAddress)).toEqual({
+      status: 'no_response', address: previousAddress,
     })
   })
 
-  it('derives local response from current runtime state', () => {
+  it('returns no response when the current SELF device is offline', () => {
     const localDevice = {
-      ...state.player.localDevice,
-      runtime: { ...state.player.localDevice.runtime, networkStatus: 'OFFLINE' as const },
+      ...targets.localDevice,
+      runtime: { ...targets.localDevice.runtime, networkStatus: 'OFFLINE' as const },
     }
+
     expect(inspectNetworkTarget({ ...targets, localDevice }, localDevice.network.ip)).toEqual({
       status: 'no_response', address: localDevice.network.ip,
     })
   })
 
-  it('returns only supported current truth for an online remote host', () => {
-    expect(inspectNetworkTarget(targets, '203.0.113.42')).toEqual({
-      status: 'reachable', targetId: 'host-training-001', address: '203.0.113.42', scope: 'remote', networkStatus: 'ONLINE',
-    })
-  })
-
-  it('inspects the discovered LAN host from the same represented entity state', () => {
-    const host = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!
-    expect(inspectNetworkTarget(targets, host.ip)).toEqual({
-      status: 'reachable', targetId: host.id, address: host.ip, scope: 'lan', networkStatus: 'ONLINE',
-      network: { id: 'network-local-001', name: 'home-net' },
-    })
-  })
-
-  it('derives LAN scope and network detail only from membership shared with SELF', () => {
-    const host = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!
-    const unrelatedNetwork = { id: 'network-other', name: 'other-net', memberDeviceIds: [host.id] }
-    const unrelated = inspectNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [unrelatedNetwork] } }, host.ip)
-    expect(unrelated).toMatchObject({ status: 'reachable', scope: 'remote' })
-    expect(unrelated).not.toHaveProperty('network')
-
-    const sharedNetwork = { ...unrelatedNetwork, name: 'shared-renamed', memberDeviceIds: [targets.localDevice.id, host.id] }
-    expect(inspectNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [sharedNetwork] } }, host.ip)).toMatchObject({
-      status: 'reachable', scope: 'lan', network: { id: 'network-other', name: 'shared-renamed' },
-    })
-  })
-
-  it('derives remote response from current host state', () => {
-    const network = { ...state.world.network, hosts: state.world.network.hosts.map((host) => ({ ...host, online: false })) }
-    expect(inspectNetworkTarget({ ...targets, network }, '203.0.113.42')).toEqual({
-      status: 'no_response', address: '203.0.113.42',
-    })
-  })
-
-  it('makes represented offline and valid unknown targets observationally identical', () => {
+  it('preserves no-response behavior and rejects unsupported forms', () => {
     expect(inspectNetworkTarget(targets, '203.0.113.99')).toEqual({ status: 'no_response', address: '203.0.113.99' })
     expect(inspectNetworkTarget(targets, '192.0.2.10')).toEqual({ status: 'no_response', address: '192.0.2.10' })
+    for (const input of ['garbage', 'unknown-net', '999.999.999.999', '1.2.3', '01.2.3.4']) {
+      expect(inspectNetworkTarget(targets, input)).toEqual({ status: 'unknown_target', input })
+    }
   })
 
-  it('does not mutate supplied entity state', () => {
+  it('does not mutate supplied state', () => {
     const snapshot = structuredClone(targets)
-    inspectNetworkTarget(targets, state.player.localDevice.network.ip)
-    inspectNetworkTarget(targets, '203.0.113.42')
+    inspectNetworkTarget(targets, '198.51.100.23')
+    inspectNetworkTarget(targets, 'home-net')
     expect(targets).toEqual(snapshot)
   })
-
-  it.each(['garbage', '999.999.999.999', '1.2.3', '01.2.3.4'])(
-    'rejects invalid IPv4 target %s',
-    (input) => expect(inspectNetworkTarget(targets, input)).toEqual({ status: 'invalid_target', input }),
-  )
 })

@@ -1,7 +1,7 @@
 import type { TerminalCommand } from '../commandTypes'
 
 export const scanCommand: TerminalCommand = {
-  description: 'Discover a device or local network',
+  description: 'Discover relationships and connected targets',
   run: ({ operations }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4|network-name>'] }
 
@@ -15,6 +15,7 @@ export const scanCommand: TerminalCommand = {
     }
     const lines = [`Scanning ${result.address}...`, '']
     if (result.status === 'no_response') return { type: 'output', lines: [...lines, 'NO RESPONSE'] }
-    return { type: 'output', lines: [...lines, 'HOST ONLINE', `Address: ${result.address}`, `Scope:   ${result.scope.toUpperCase()}`, ...(result.networkName ? [`Network: ${result.networkName}`] : [])] }
+    if (result.networks.length === 0) return { type: 'output', lines: [...lines, 'NO RELATIONSHIPS FOUND'] }
+    return { type: 'output', lines: [...lines, `RELATIONSHIPS FOUND: ${result.networks.length}`, '', ...result.networks.map(({ name }) => `Network: ${name}`)] }
   },
 }
