@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
 import { GameProvider, useGameState } from './app/GameContext'
@@ -17,20 +23,90 @@ class ViewportStub extends EventTarget {
   onscroll = null
 }
 
+class MediaQueryStub extends EventTarget {
+  media = ''
+  onchange = null
+
+  constructor(public matches: boolean) {
+    super()
+  }
+
+  addListener(listener: (event: MediaQueryListEvent) => void) {
+    this.addEventListener('change', listener as EventListener)
+  }
+
+  removeListener(listener: (event: MediaQueryListEvent) => void) {
+    this.removeEventListener('change', listener as EventListener)
+  }
+
+  dispatchEvent(event: Event): boolean {
+    return super.dispatchEvent(event)
+  }
+}
+
 const originalViewport = window.visualViewport
+const originalMatchMedia = window.matchMedia
 const originalInnerHeight = window.innerHeight
-const originalClientHeight = Object.getOwnPropertyDescriptor(document.documentElement, 'clientHeight')
+const originalInnerWidth = window.innerWidth
+const originalClientHeight = Object.getOwnPropertyDescriptor(
+  document.documentElement,
+  'clientHeight',
+)
 
 function installViewport(viewport?: ViewportStub) {
-  Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: viewport,
+  })
+}
+
+function installEditingPresentation(matches = true) {
+  const query = new MediaQueryStub(matches)
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn(() => query),
+  })
+  return query
+}
+
+async function updateViewport(
+  viewport: ViewportStub,
+  values: Partial<Pick<ViewportStub, 'height' | 'width' | 'offsetTop' | 'scale'>>,
+  event: 'resize' | 'scroll' = 'resize',
+) {
+  Object.assign(viewport, values)
+  act(() => viewport.dispatchEvent(new Event(event)))
+  await new Promise((resolve) => requestAnimationFrame(resolve))
 }
 
 afterEach(() => {
   vi.useRealTimers()
-  Object.defineProperty(window, 'visualViewport', { configurable: true, value: originalViewport })
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight })
-  if (originalClientHeight) Object.defineProperty(document.documentElement, 'clientHeight', originalClientHeight)
-  else Reflect.deleteProperty(document.documentElement, 'clientHeight')
+  localStorage.clear()
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: originalViewport,
+  })
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: originalMatchMedia,
+  })
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: originalInnerHeight,
+  })
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: originalInnerWidth,
+  })
+  if (originalClientHeight) {
+    Object.defineProperty(
+      document.documentElement,
+      'clientHeight',
+      originalClientHeight,
+    )
+  } else {
+    Reflect.deleteProperty(document.documentElement, 'clientHeight')
+  }
 })
 
 function StateSnapshot() {
@@ -41,8 +117,12 @@ function StateSnapshot() {
 async function openTerminal() {
   const user = userEvent.setup()
   render(<App />)
-  await user.click(screen.getByRole('button', { name: /terminal/i }))
-  return { user, input: screen.getByLabelText('Command input') }
+  await user.click(screen.getByRole('button', { name: /open terminal/i }))
+  return {
+    user,
+    input: screen.getByLabelText('Command input'),
+    shell: screen.getByTestId('os-shell'),
+  }
 }
 
 async function command(name: string) {
@@ -51,192 +131,285 @@ async function command(name: string) {
   return user
 }
 
-describe('NODE-OS shell', () => {
-  it('protects the healthy baseline throughout progressive keyboard opening', async () => {
+describe('dedicated editing viewport', () => {
+  it('enters editing immediately on focus before keyboard geometry changes', async () => {
     const viewport = new ViewportStub()
     installViewport(viewport)
-    const { user, input } = await openTerminal()
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+
     await user.click(input)
+
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '0px',
+      '--node-edit-height': '844px',
+    })
+    expect(screen.getByText('EDITING')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /finish editing/i })).toHaveTextContent(
+      'DONE',
+    )
+  })
+
+  it('keeps the 844px host while the editing plane follows a 538px viewport', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+
+    await updateViewport(viewport, { height: 538 })
+
+    await waitFor(() =>
+      expect(shell).toHaveStyle({
+        '--node-host-height': '844px',
+        '--node-edit-top': '0px',
+        '--node-edit-height': '538px',
+      }),
+    )
+  })
+
+  it('maps Safari top pan to editTop without changing host height', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+
+    await updateViewport(
+      viewport,
+      { height: 514, offsetTop: 24 },
+      'scroll',
+    )
+
+    await waitFor(() =>
+      expect(shell).toHaveStyle({
+        '--node-host-height': '844px',
+        '--node-edit-top': '24px',
+        '--node-edit-height': '514px',
+      }),
+    )
+  })
+
+  it('keeps editing latched on blur while the viewport remains reduced', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await updateViewport(viewport, { height: 538 })
+
+    fireEvent.blur(input)
+
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'true'))
+    expect(shell).toHaveStyle({ '--node-edit-height': '538px' })
+  })
+
+  it('closes only after geometric recovery', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await updateViewport(viewport, { height: 538 })
+    fireEvent.blur(input)
+
+    await updateViewport(viewport, { height: 820, offsetTop: 0 })
+
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
+    expect(shell).toHaveStyle({
+      '--node-host-height': '820px',
+      '--node-edit-top': '0px',
+      '--node-edit-height': '820px',
+    })
+  })
+
+  it('closes on recovery while focus remains and suppresses stale re-entry', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await updateViewport(viewport, { height: 538 })
+
+    await updateViewport(viewport, { height: 844 })
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
+    expect(input).toHaveFocus()
+
+    await updateViewport(viewport, { height: 538 })
+    expect(shell).toHaveAttribute('data-editing', 'false')
+    expect(shell).toHaveStyle({ '--node-host-height': '844px' })
+  })
+
+  it('starts a fresh editing cycle after blur and refocus', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await updateViewport(viewport, { height: 538 })
+    await updateViewport(viewport, { height: 844 })
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
+
+    input.blur()
+    await user.click(input)
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    await updateViewport(viewport, { height: 538 })
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-height': '538px',
+    })
+  })
+
+  it('allows healthy host growth outside editing', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    render(<App />)
+
+    await updateViewport(viewport, { height: 900 })
+
+    await waitFor(() =>
+      expect(screen.getByTestId('os-shell')).toHaveStyle({
+        '--node-host-height': '900px',
+      }),
+    )
+  })
+
+  it('freezes application geometry during pinch zoom', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    render(<App />)
     const shell = screen.getByTestId('os-shell')
 
-    viewport.height = 780
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(shell).toHaveStyle({ '--node-app-height': '844px' }))
-    expect(shell).toHaveAttribute('data-keyboard-open', 'false')
+    await updateViewport(viewport, {
+      scale: 2,
+      height: 300,
+      offsetTop: 80,
+    })
 
-    viewport.height = 650
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(shell).toHaveAttribute('data-keyboard-open', 'true'))
-    expect(shell).toHaveStyle({ '--node-app-height': '844px' })
+    expect(shell).toHaveAttribute('data-editing', 'false')
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '0px',
+      '--node-edit-height': '844px',
+    })
 
-    viewport.height = 538
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(shell).toHaveStyle({ '--node-keyboard-inset': '306px' }))
-    expect(shell).toHaveStyle({ '--node-app-height': '844px' })
+    await updateViewport(viewport, {
+      scale: 1,
+      height: 844,
+      offsetTop: 0,
+    })
+    expect(shell).toHaveStyle({ '--node-host-height': '844px' })
   })
 
-  it('does not open for focused geometry below the opening threshold', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.height = 780
-    viewport.offsetTop = 8
-    viewport.dispatchEvent(new Event('resize'))
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-keyboard-inset': '0px', '--node-vv-top': '0px' })
-  })
-
-  it('keeps keyboard mode latched on blur and closes only after geometric recovery', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.height = 538
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
-    fireEvent.blur(input)
-    await new Promise((resolve) => setTimeout(resolve, 450))
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true')
-
-    viewport.height = 820
-    viewport.offsetTop = 0
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false'))
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-keyboard-inset': '0px', '--node-vv-top': '0px' })
-  })
-
-  it('remeasures offsetTop from VisualViewport scroll events', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.height = 538
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
-    viewport.height = 514
-    viewport.offsetTop = 24
-    viewport.dispatchEvent(new Event('scroll'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-vv-top': '24px', '--node-keyboard-inset': '306px' }))
-  })
-
-  it('uses the recovered healthy baseline for a full reopen cycle', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.height = 538
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
-    viewport.height = 820
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false'))
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '820px' })
-    viewport.height = 500
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '820px', '--node-keyboard-inset': '320px' })
-  })
-
-  it('cancels a pending close probe when editable focus returns', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.height = 538
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
+  it('performs one bounded final orientation rebase', async () => {
     vi.useFakeTimers()
-    fireEvent.blur(input)
-    fireEvent.focusIn(input)
-    await act(() => vi.advanceTimersByTimeAsync(20))
-    viewport.height = 844
-    await act(() => vi.advanceTimersByTimeAsync(480))
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true')
-    viewport.dispatchEvent(new Event('resize'))
-    await act(() => vi.advanceTimersByTimeAsync(20))
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
-  })
-
-  it('runs a final bounded orientation recalibration with corrected geometry', async () => {
     const viewport = new ViewportStub()
     installViewport(viewport)
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 0 })
-    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 0 })
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 390,
+    })
+    Object.defineProperty(document.documentElement, 'clientHeight', {
+      configurable: true,
+      value: 390,
+    })
     render(<App />)
-    vi.useFakeTimers()
+
     viewport.width = 844
     viewport.height = 500
     fireEvent(window, new Event('orientationchange'))
-    await act(() => vi.advanceTimersByTimeAsync(20))
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '500px' })
     viewport.height = 390
-    await act(() => vi.advanceTimersByTimeAsync(300))
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '390px' })
+    await act(() => vi.advanceTimersByTimeAsync(281))
+
+    expect(screen.getByTestId('os-shell')).toHaveStyle({
+      '--node-host-height': '390px',
+      '--node-edit-height': '390px',
+    })
   })
 
-  it('uses the full opening threshold for new orientation keyboard geometry', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 390 })
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.width = 844
-    viewport.height = 350
-    fireEvent(window, new Event('orientationchange'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '390px' }))
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
-    viewport.height = 194
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
-  })
-
-  it('keeps a fixed host and derives local keyboard occlusion including Safari top pan', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.height = 514
-    viewport.offsetTop = 24
-    viewport.dispatchEvent(new Event('resize'))
-
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
-    const shell = screen.getByTestId('os-shell')
-    expect(shell).toHaveStyle({ '--node-app-height': '844px', '--node-keyboard-inset': '306px', '--node-vv-top': '24px' })
-  })
-
-  it('freezes geometry during pinch zoom and resumes unscaled measurement', async () => {
-    const viewport = new ViewportStub()
-    installViewport(viewport)
-    const { user, input } = await openTerminal()
-    await user.click(input)
-    viewport.scale = 2
-    viewport.height = 300
-    viewport.offsetTop = 80
-    viewport.dispatchEvent(new Event('resize'))
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '844px', '--node-keyboard-inset': '0px', '--node-vv-top': '0px' })
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
-    viewport.scale = 1
-    viewport.height = 538
-    viewport.offsetTop = 0
-    viewport.dispatchEvent(new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
-  })
-
-  it('uses a responsive innerHeight fallback without VisualViewport', async () => {
+  it('uses a responsive no-VisualViewport fallback with the same edit plane', async () => {
     installViewport(undefined)
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 })
-    render(<App />)
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '700px', '--node-keyboard-inset': '0px', '--node-vv-top': '0px' })
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 620 })
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 700,
+    })
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    expect(shell).toHaveStyle({
+      '--node-host-height': '700px',
+      '--node-edit-height': '700px',
+    })
+
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 500,
+    })
     fireEvent(window, new Event('resize'))
-    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '620px' }))
-    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
-    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-keyboard-inset': '0px', '--node-vv-top': '0px' })
+    await waitFor(() =>
+      expect(shell).toHaveStyle({
+        '--node-host-height': '700px',
+        '--node-edit-height': '500px',
+      }),
+    )
+
+    fireEvent.blur(input)
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 700,
+    })
+    fireEvent(window, new Event('resize'))
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
   })
 
+  it('does not turn an 860px fine-pointer desktop into editing mode', async () => {
+    const viewport = new ViewportStub()
+    viewport.width = 860
+    installViewport(viewport)
+    installEditingPresentation(false)
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 860,
+    })
+    const { user, input, shell } = await openTerminal()
+
+    await user.click(input)
+    await updateViewport(viewport, { height: 538 })
+
+    expect(shell).toHaveAttribute('data-editing', 'false')
+  })
+
+  it('shares the editing viewport with Notes and restores after DONE', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: /open notes/i }))
+    const notes = screen.getByRole('textbox')
+    await user.click(notes)
+    await user.type(notes, 'abc')
+    const shell = screen.getByTestId('os-shell')
+
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(screen.getByLabelText('Note character count')).toHaveTextContent('3 CHR')
+    await updateViewport(viewport, { height: 538 })
+    expect(shell).toHaveStyle({ '--node-edit-height': '538px' })
+
+    await user.click(screen.getByRole('button', { name: /finish editing/i }))
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    await updateViewport(viewport, { height: 844 })
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
+  })
+})
+
+describe('NODE-OS shell and applications', () => {
   it('renders shared status data', () => {
     render(<App />)
     expect(screen.getByTestId('os-shell')).toBeInTheDocument()
@@ -249,7 +422,7 @@ describe('NODE-OS shell', () => {
   it('opens an app and returns home', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: /wallet/i }))
+    await user.click(screen.getByRole('button', { name: /open wallet/i }))
     expect(screen.getByText('AVAILABLE BALANCE')).toBeInTheDocument()
     expect(screen.getAllByText('$1,250')).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: /back to home/i }))
@@ -258,9 +431,14 @@ describe('NODE-OS shell', () => {
 
   it('keeps shell navigation outside canonical game state', async () => {
     const user = userEvent.setup()
-    render(<GameProvider><StateSnapshot /><Shell /></GameProvider>)
+    render(
+      <GameProvider>
+        <StateSnapshot />
+        <Shell />
+      </GameProvider>,
+    )
     const before = screen.getByTestId('state-snapshot').textContent
-    await user.click(screen.getByRole('button', { name: /wallet/i }))
+    await user.click(screen.getByRole('button', { name: /open wallet/i }))
     await user.click(screen.getByRole('button', { name: /back to home/i }))
     expect(screen.getByTestId('state-snapshot')).toHaveTextContent(before ?? '')
   })
@@ -268,17 +446,35 @@ describe('NODE-OS shell', () => {
   it('shows canonical runtime values in the System app', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: /system/i }))
+    await user.click(screen.getByRole('button', { name: /open system/i }))
     expect(screen.getAllByText('198.51.100.23')).toHaveLength(2)
     expect(screen.getAllByText('18%')).toHaveLength(2)
     expect(screen.getAllByText('23%')).toHaveLength(2)
     expect(screen.getAllByText('ONLINE')).toHaveLength(2)
   })
+})
 
-  it('runs help', async () => { await command('help'); expect(screen.getByText('Available commands:')).toBeInTheDocument() })
-  it('runs ip', async () => { await command('ip'); expect(screen.getByText('Local address: 198.51.100.23')).toBeInTheDocument() })
-  it('runs status', async () => { await command('status'); expect(screen.getByText('Network: ONLINE')).toBeInTheDocument() })
-  it('reports an unknown command', async () => { await command('hack'); expect(screen.getByText(/Command not found: hack/)).toBeInTheDocument() })
+describe('Terminal', () => {
+  it('runs help', async () => {
+    await command('help')
+    expect(screen.getByText('Available commands:')).toBeInTheDocument()
+  })
+
+  it('runs ip', async () => {
+    await command('ip')
+    expect(screen.getByText('Local address: 198.51.100.23')).toBeInTheDocument()
+  })
+
+  it('runs status', async () => {
+    await command('status')
+    expect(screen.getByText('Network: ONLINE')).toBeInTheDocument()
+  })
+
+  it('reports an unknown command', async () => {
+    await command('hack')
+    expect(screen.getByText(/Command not found: hack/)).toBeInTheDocument()
+  })
+
   it('clears terminal output', async () => {
     const { user, input } = await openTerminal()
     await user.type(input, 'ip{enter}')
@@ -300,6 +496,21 @@ describe('NODE-OS shell', () => {
     expect(input).toHaveValue('status')
     await user.keyboard('{ArrowDown}')
     expect(input).toHaveValue('')
+  })
+
+  it('scrolls only the Terminal output container after a command', async () => {
+    const { user, input } = await openTerminal()
+    const output = document.querySelector('.terminal-output') as HTMLDivElement
+    Object.defineProperty(output, 'scrollHeight', {
+      configurable: true,
+      value: 420,
+    })
+    output.scrollTop = 0
+
+    await user.type(input, 'ip{enter}')
+
+    await waitFor(() => expect(output.scrollTop).toBe(420))
+    expect(input).toHaveFocus()
   })
 
   it('does not refocus the command input when Terminal output is clicked', async () => {

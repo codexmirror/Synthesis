@@ -1,1 +1,62 @@
-.terminal { min-height: 0; padding: clamp(18px, 4vw, 42px); display: grid; grid-template-rows: minmax(0, 1fr) auto; overflow: hidden; font-size: .84rem; line-height: 1.65; }.terminal-output { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; touch-action: pan-y; overflow-wrap: anywhere; -webkit-overflow-scrolling: touch; scrollbar-color: #344139 transparent; }.terminal-entry { margin: 22px 0; }.prompt { color: var(--green); font-weight: 500; white-space: nowrap; }.terminal-input { display: flex; gap: 10px; border-top: 1px solid var(--line); padding-top: 18px; }.terminal-input input { flex: 1; min-width: 0; border: 0; outline: 0; color: #e3ebe6; background: transparent; caret-color: var(--green); }
+.terminal {
+  min-height: 0;
+  padding: clamp(18px, 4vw, 42px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  font-size: .84rem;
+  line-height: 1.65;
+}
+
+.terminal-output {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  overflow-wrap: anywhere;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: #344139 transparent;
+  scroll-padding-bottom: 16px;
+}
+
+.terminal-entry { margin: 18px 0; }
+
+.prompt {
+  color: var(--green);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.terminal-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.terminal-input:focus-within { border-top-color: #52705e; }
+
+.terminal-input input {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: #e3ebe6;
+  background: transparent;
+  caret-color: var(--green);
+}
+
+@media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
+  .terminal {
+    padding: 14px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    font-size: .78rem;
+    line-height: 1.55;
+  }
+
+  .terminal-entry { margin: 14px 0; }
+  .terminal-input { padding-top: 10px; }
+}
