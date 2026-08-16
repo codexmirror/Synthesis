@@ -1,9 +1,33 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
 import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
+
+class ViewportStub extends EventTarget {
+  height = 844
+  width = 390
+  offsetTop = 0
+  scale = 1
+  offsetLeft = 0
+  pageLeft = 0
+  pageTop = 0
+  onresize = null
+  onscroll = null
+}
+
+const originalViewport = window.visualViewport
+const originalInnerHeight = window.innerHeight
+
+function installViewport(viewport?: ViewportStub) {
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
+}
+
+afterEach(() => {
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: originalViewport })
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight })
+})
 
 function StateSnapshot() {
   const state = useGameState()
@@ -24,6 +48,49 @@ async function command(name: string) {
 }
 
 describe('NODE-OS shell', () => {
+  it('keeps a fixed host and derives local keyboard occlusion including Safari top pan', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    const { user, input } = await openTerminal()
+    await user.click(input)
+    viewport.height = 514
+    viewport.offsetTop = 24
+    viewport.dispatchEvent(new Event('resize'))
+
+    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
+    const shell = screen.getByTestId('os-shell')
+    expect(shell).toHaveStyle({ '--node-app-height': '844px', '--node-keyboard-inset': '306px', '--node-vv-top': '24px' })
+  })
+
+  it('freezes geometry during pinch zoom and resumes unscaled measurement', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    const { user, input } = await openTerminal()
+    await user.click(input)
+    viewport.scale = 2
+    viewport.height = 300
+    viewport.offsetTop = 80
+    viewport.dispatchEvent(new Event('resize'))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '844px', '--node-keyboard-inset': '0px', '--node-vv-top': '0px' })
+    viewport.scale = 1
+    viewport.height = 538
+    viewport.offsetTop = 0
+    viewport.dispatchEvent(new Event('resize'))
+    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'true'))
+  })
+
+  it('uses a responsive innerHeight fallback without VisualViewport', async () => {
+    installViewport(undefined)
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 })
+    render(<App />)
+    expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '700px' })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 620 })
+    fireEvent(window, new Event('resize'))
+    await waitFor(() => expect(screen.getByTestId('os-shell')).toHaveStyle({ '--node-app-height': '620px' }))
+    expect(screen.getByTestId('os-shell')).toHaveAttribute('data-keyboard-open', 'false')
+  })
+
   it('renders shared status data', () => {
     render(<App />)
     expect(screen.getByTestId('os-shell')).toBeInTheDocument()
