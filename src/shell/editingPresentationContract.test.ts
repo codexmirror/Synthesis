@@ -10,7 +10,7 @@ describe('mobile editing presentation contract', () => {
       /@media \(max-width: 700px\)[\s\S]*?data-editing="true"[^}]+position: absolute;/,
     )
     expect(css).toMatch(
-      /@media \(max-width: 700px\)[\s\S]*?data-standalone="true"[^}]+position: fixed;[^}]+top: 0;[^}]+height: var\(--node-edit-height/,
+      /@media \(max-width: 700px\)[\s\S]*?data-standalone="true"[^}]+position: fixed;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/,
     )
     expect(css).toContain('top: var(--node-edit-top, 0px)')
     expect(css).toContain(
