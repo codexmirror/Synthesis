@@ -24,10 +24,6 @@ const EDITING_PRESENTATION_QUERY =
   '(max-width: 700px), (max-width: 900px) and (pointer: coarse)'
 const CLOSE_PROBE_DELAY = 360
 const ORIENTATION_REBASE_DELAY = 280
-// iOS standalone can expose its final keyboard VisualViewport geometry after
-// focus without dispatching a useful resize/scroll event. These bounded probes
-// only converge an editing plane that was already activated synchronously.
-const FOCUS_SETTLE_DELAYS = [64, 192, 384] as const
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -114,9 +110,9 @@ export function useEditingViewport(): EditingViewportState {
     let frame = 0
     let closeTimer: ReturnType<typeof setTimeout> | undefined
     let orientationTimer: ReturnType<typeof setTimeout> | undefined
-    let focusSettleTimers: ReturnType<typeof setTimeout>[] = []
     let editableFocused = false
     let editingLatched = false
+    let editingGeometryReady = false
     let reducedGeometryObserved = false
     let suppressUntilNewFocus = false
     let touchX = 0
@@ -174,8 +170,34 @@ export function useEditingViewport(): EditingViewportState {
       })
     }
 
+    // Preserve the focused app's on-screen rectangle while iOS begins its
+    // native focus/keyboard transaction. Promoting a healthy viewport to the
+    // full host here moves the focused control after Safari chose what to keep
+    // visible; reduced VisualViewport geometry becomes authoritative below.
+    const readIntentGeometry = (
+      target: EventTarget | null,
+    ): ViewportMeasurement | null => {
+      if (!(target instanceof Element)) return null
+
+      const appView = target.closest<HTMLElement>('.app-view')
+      const shell = target.closest<HTMLElement>('.os-shell')
+      if (!appView || !shell) return null
+
+      const appRect = appView.getBoundingClientRect()
+      const shellRect = shell.getBoundingClientRect()
+      if (appRect.height <= 0) return null
+
+      return {
+        editTop: Math.max(0, Math.round(appRect.top - shellRect.top)),
+        editHeight: Math.max(1, Math.round(appRect.height)),
+        visualHeight: hostHeightRef.current,
+        healthyHeight: hostHeightRef.current,
+      }
+    }
+
     const stopEditing = (healthyHeight: number) => {
       editingLatched = false
+      editingGeometryReady = false
       reducedGeometryObserved = false
       suppressUntilNewFocus = editableFocused
       publishNormal(healthyHeight)
@@ -189,7 +211,15 @@ export function useEditingViewport(): EditingViewportState {
         measurement.visualHeight,
       )
 
-      if (!recovered) reducedGeometryObserved = true
+      if (!editingGeometryReady && recovered) {
+        if (!editableFocused) stopEditing(measurement.healthyHeight)
+        return
+      }
+
+      if (!recovered) {
+        editingGeometryReady = true
+        reducedGeometryObserved = true
+      }
 
       if (
         (reducedGeometryObserved && recovered) ||
@@ -207,6 +237,7 @@ export function useEditingViewport(): EditingViewportState {
     ) => {
       editableFocused = false
       editingLatched = false
+      editingGeometryReady = false
       reducedGeometryObserved = false
       suppressUntilNewFocus = false
       publishNormal(measurement.healthyHeight)
@@ -247,18 +278,6 @@ export function useEditingViewport(): EditingViewportState {
       closeTimer = undefined
     }
 
-    const cancelFocusSettle = () => {
-      focusSettleTimers.forEach(clearTimeout)
-      focusSettleTimers = []
-    }
-
-    const scheduleFocusSettle = () => {
-      cancelFocusSettle()
-      focusSettleTimers = FOCUS_SETTLE_DELAYS.map((delay) =>
-        setTimeout(schedule, delay),
-      )
-    }
-
     const onFocusIn = (event: FocusEvent) => {
       if (!isEditable(event.target)) return
 
@@ -270,8 +289,19 @@ export function useEditingViewport(): EditingViewportState {
       const measurement = readMeasurement()
       if (supportsEditingPresentation() && measurement) {
         editingLatched = true
-        publishEditing(measurement)
-        scheduleFocusSettle()
+        const recovered = hasEditingViewportRecovered(
+          hostHeightRef.current,
+          measurement.visualHeight,
+        )
+
+        if (recovered) {
+          editingGeometryReady = false
+          publishEditing(readIntentGeometry(event.target) ?? measurement)
+        } else {
+          editingGeometryReady = true
+          reducedGeometryObserved = true
+          publishEditing(measurement)
+        }
       }
 
       schedule()
@@ -281,7 +311,6 @@ export function useEditingViewport(): EditingViewportState {
       if (!isEditable(event.target)) return
 
       editableFocused = false
-      cancelFocusSettle()
       schedule()
       cancelCloseProbe()
       closeTimer = setTimeout(() => {
@@ -401,7 +430,6 @@ export function useEditingViewport(): EditingViewportState {
       window.removeEventListener('orientationchange', onOrientationChange)
       cancelAnimationFrame(frame)
       cancelCloseProbe()
-      cancelFocusSettle()
       if (orientationTimer !== undefined) clearTimeout(orientationTimer)
     }
   }, [])

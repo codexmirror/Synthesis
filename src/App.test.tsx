@@ -183,22 +183,31 @@ describe('dedicated editing viewport', () => {
     )
   })
 
-  it('converges late standalone keyboard geometry without an input event', async () => {
+  it('holds the pre-keyboard app rectangle until reduced geometry is ready', async () => {
     const viewport = new ViewportStub()
     installViewport(viewport)
     installEditingPresentation()
     const { user, input, shell } = await openTerminal()
 
+    const appView = input.closest('.app-view') as HTMLElement
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      height: 844,
+    } as DOMRect)
+    vi.spyOn(appView, 'getBoundingClientRect').mockReturnValue({
+      top: 64,
+      height: 726,
+    } as DOMRect)
+
     await user.click(input)
     expect(shell).toHaveAttribute('data-editing', 'true')
-    expect(shell).toHaveStyle({ '--node-edit-height': '844px' })
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '64px',
+      '--node-edit-height': '726px',
+    })
 
-    // Physical iOS standalone can update these values after focus without a
-    // useful VisualViewport event. A bounded focus-settle probe must observe it.
-    Object.assign(viewport, { height: 514, offsetTop: 24 })
-    await act(
-      () => new Promise((resolve) => setTimeout(resolve, 210)),
-    )
+    await updateViewport(viewport, { height: 514, offsetTop: 24 })
 
     expect(shell).toHaveStyle({
       '--node-host-height': '844px',
