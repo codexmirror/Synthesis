@@ -7,4 +7,5 @@
 .process-card { max-width: 620px; margin-top: 14px; padding: 20px; border: 1px solid var(--line); }
 .process-card header, .process-card div { display: flex; justify-content: space-between; gap: 18px; text-transform: uppercase; }
 .process-card progress { width: 100%; margin: 20px 0; accent-color: var(--green); }
+.process-value { overflow-wrap: anywhere; }
 @media (max-width: 520px) { .process-summary { grid-template-columns: 1fr; } .process-summary div + div { border-left: 0; border-top: 1px solid var(--line); } .process-card div { flex-direction: column; gap: 6px; } }

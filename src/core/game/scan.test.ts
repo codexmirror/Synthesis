@@ -92,7 +92,7 @@ describe('scanNetworkTarget outward discovery', () => {
 
   it('derives open service discoveries from current server state while retaining identity', () => {
     expect(scanNetworkTarget(targets, '198.51.100.47')).toMatchObject({
-      services: [{ id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP' }],
+      services: [{ id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP' }, { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP' }],
     })
 
     const hosts = targets.network.hosts.map((host) => host.id === 'host-lan-001'

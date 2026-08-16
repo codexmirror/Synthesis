@@ -2,26 +2,19 @@
 
 Future iterations may add:
 
-- Network Analysis upgrades that deepen observations derived from existing simulation truth (no upgrade system exists yet)
-- Expansion of the minimal discovery network into richer simulated networks, NPC hosts, and eventually exposed real players
-- Player discoverability through normal scans only when explainable traces have been left behind
-- Logs and trace removal
-- Brute-force programs and terminal comfort software / command assistance
-- Hardware upgrades building on the implemented CPU-throughput and RAM-capacity Process resource model
-- Tools and software progression
-- Malware with real effects on virtual systems
-- Mining
-- Companies and larger networks
-- Multiplayer
-- Shared organizations and global objectives
-- Multiple in-game device / OS interfaces over the same game systems, including touch-first or mobile-style interfaces
+- Network Analysis upgrades that deepen observations derived from existing simulation truth
+- Richer simulated networks, NPC hosts, and eventually exposed real players
+- Simulation time and autonomous world change when concrete mechanics require them
+- Imperfect, stale, and deeper player knowledge
+- Explainable traces, attention, risk, logs, and trace removal
+- Exploit attempts, credentials, access, and filesystems as concrete mechanics
+- Hardware, tools, software, malware, economy, organizations, and multiplayer progression
+- Multiple in-game device interfaces over the same game systems
 - External integrations where they serve an established product need
-- 
+
 ## Systemic gameplay north star
 
-The long-term goal is not merely to accumulate more targets, commands, applications, or isolated mechanics. Synthesis should grow into a systemic simulation in which independently useful mechanics increasingly interact with the same world state and can therefore produce situations that were not authored as explicit event chains.
-
-The intended conceptual progression is:
+The long-term goal is not merely to accumulate targets, commands, applications, or isolated mechanics. Synthesis should grow into a systemic simulation in which independently useful mechanics interact with shared world state and produce situations that were not authored as explicit event chains.
 
 ```text
 WORLD TRUTH
@@ -36,8 +29,9 @@ OBSERVATION
     ↓
 PLAYER DECISIONS
     ↓
-FURTHER STATE MUTATION 
+FURTHER STATE MUTATION
+```
 
-These are directions, not specifications. The current slice has copy-only Target Tokens but no persistent discovery knowledge, server/access/filesystem gameplay, or active graphical Network app. All hacking systems will remain inside the simulated game world.
+These are directions, not specifications. The current slice has Service Analysis and minimal positive vulnerability Knowledge, but no exploit, access, filesystem gameplay, autonomous actors, attention system, simulation clock, or active graphical Network app. Concrete mechanics should establish requirements before generic frameworks are considered.
 
 Architectural constraints for future work are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).

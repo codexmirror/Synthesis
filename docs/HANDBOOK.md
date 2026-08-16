@@ -133,9 +133,9 @@ A gameplay operation must be implemented once and exposed to every interface tha
            Terminal         GUI apps
 ```
 
-Terminal is intended to be the primary power-user operational interface, but Terminal is not the domain. A GUI must not generate a Terminal command string to perform gameplay. No scan, connect, or exploit operation exists yet.
+Terminal is intended to be the primary power-user operational interface, but Terminal is not the domain. A GUI must not generate a Terminal command string to perform gameplay. Scan, Inspect, and Service Analysis exist; connect, exploit, and access do not.
 
-Do not introduce plugin systems, event buses, dependency-injection frameworks, generic game engines, ECS, or generic persistence frameworks without a demonstrated requirement.
+Build concrete state mutations before extracting abstractions. Do not introduce plugin systems, event buses, dependency-injection frameworks, generic game engines, ECS, or generic persistence frameworks without a demonstrated requirement.
 
 ## 7. Mobile and interaction validation
 

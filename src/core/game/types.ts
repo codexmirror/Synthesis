@@ -15,6 +15,16 @@ export interface RuntimeState {
   readonly networkStatus: 'ONLINE' | 'OFFLINE'
 }
 
+export interface Vulnerability {
+  readonly id: string
+  readonly label: string
+}
+
+export type ServiceAnalysisResult =
+  | { readonly status: 'weaknesses_detected'; readonly vulnerabilities: readonly { readonly vulnerabilityId: string; readonly observedLabel: string }[] }
+  | { readonly status: 'no_weakness_detected' }
+  | { readonly status: 'service_unavailable' }
+
 export interface GameProcess {
   readonly id: string
   readonly label: string
@@ -23,6 +33,10 @@ export interface GameProcess {
   readonly workRequired: number
   readonly workCompleted: number
   readonly ramRequiredMiB: number
+  readonly kind?: 'generic' | 'service_analysis'
+  readonly targetDeviceId?: string
+  readonly serviceId?: string
+  readonly result?: ServiceAnalysisResult
 }
 
 export interface ProcessState {
@@ -64,7 +78,18 @@ export interface NetworkService {
   readonly port: number
   readonly protocol: 'TCP' | 'UDP'
   readonly open: boolean
+  readonly vulnerabilities?: readonly Vulnerability[]
 }
+
+export interface DiscoveredVulnerability {
+  readonly vulnerabilityId: string
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  /** Historical presentation snapshot only; identity and gameplay use stable IDs. */
+  readonly observedLabel: string
+}
+
+export interface KnowledgeState { readonly discoveredVulnerabilities: readonly DiscoveredVulnerability[] }
 
 export interface LocalNetwork {
   /** Stable entity identity, separate from the player-visible network name. */
@@ -89,4 +114,5 @@ export interface GameState {
   readonly wallet: WalletState
   readonly world: WorldState
   readonly process: ProcessState
+  readonly knowledge: KnowledgeState
 }
