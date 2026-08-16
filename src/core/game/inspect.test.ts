@@ -16,9 +16,35 @@ describe('inspectNetworkTarget', () => {
     expect(inspectNetworkTarget(movedTargets, '192.0.2.44')).toEqual({
       status: 'reachable', targetId: localDevice.id, address: '192.0.2.44', scope: 'local', networkStatus: 'ONLINE',
       hardware: { cpu: 'Changed CPU', ram: '12 GB' },
+      network: { id: 'network-local-001', name: 'home-net' },
     })
     expect(inspectNetworkTarget(movedTargets, '198.51.100.23')).toEqual({
       status: 'no_response', address: '198.51.100.23',
+    })
+  })
+
+  it('derives an optional narrow network reference from canonical membership and current network state', () => {
+    const renamedNetwork = {
+      ...state.world.network,
+      localNetworks: state.world.network.localNetworks.map((network) => ({ ...network, name: 'renamed-net' })),
+    }
+    expect(inspectNetworkTarget({ ...targets, network: renamedNetwork }, state.player.localDevice.network.ip)).toMatchObject({
+      status: 'reachable', scope: 'local', network: { id: 'network-local-001', name: 'renamed-net' },
+    })
+
+    const withoutMembership = {
+      ...state.world.network,
+      localNetworks: state.world.network.localNetworks.map((network) => ({ ...network, memberDeviceIds: ['different-device'] })),
+    }
+    const result = inspectNetworkTarget({ ...targets, network: withoutMembership }, state.player.localDevice.network.ip)
+    expect(result).toMatchObject({ status: 'reachable', scope: 'local' })
+    expect(result).not.toHaveProperty('network')
+  })
+
+  it('does not derive local membership from unrelated remote host changes', () => {
+    const network = { ...state.world.network, hosts: [{ id: 'changed-remote', ip: '192.0.2.88', online: true }] }
+    expect(inspectNetworkTarget({ ...targets, network }, state.player.localDevice.network.ip)).toMatchObject({
+      network: { id: 'network-local-001', name: 'home-net' },
     })
   })
 
@@ -39,7 +65,7 @@ describe('inspectNetworkTarget', () => {
   })
 
   it('derives remote response from current host state', () => {
-    const network = { hosts: state.world.network.hosts.map((host) => ({ ...host, online: false })) }
+    const network = { ...state.world.network, hosts: state.world.network.hosts.map((host) => ({ ...host, online: false })) }
     expect(inspectNetworkTarget({ ...targets, network }, '203.0.113.42')).toEqual({
       status: 'no_response', address: '203.0.113.42',
     })

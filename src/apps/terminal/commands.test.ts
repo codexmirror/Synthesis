@@ -86,10 +86,16 @@ describe('command dispatcher', () => {
   it('renders state-derived local inspection and supported remote truth', () => {
     expect(dispatch('inspect 198.51.100.23')).toEqual({ type: 'output', lines: [
       'TARGET', 'Address: 198.51.100.23', 'Scope:   LOCAL', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
+      'Network: home-net',
     ] })
     expect(dispatch('inspect 203.0.113.42')).toEqual({ type: 'output', lines: [
       'TARGET', 'Address: 203.0.113.42', 'Scope:   REMOTE', 'Status:  ONLINE',
     ] })
+  })
+
+  it('keeps network names outside the IPv4-only inspect and scan grammars', () => {
+    expect(dispatch('inspect home-net')).toEqual({ type: 'output', lines: ['Invalid target: home-net'] })
+    expect(dispatch('scan home-net')).toEqual({ type: 'output', lines: ['Invalid target: home-net'] })
   })
 
   it('does not reveal whether inspect targets are offline or unknown', () => {

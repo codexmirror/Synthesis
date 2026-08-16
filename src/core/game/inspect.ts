@@ -10,6 +10,7 @@ export type InspectResult =
     readonly scope: 'local'
     readonly networkStatus: 'ONLINE'
     readonly hardware: { readonly cpu: string; readonly ram: string }
+    readonly network?: { readonly id: string; readonly name: string }
   }
   | {
     readonly status: 'reachable'
@@ -29,10 +30,12 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
   if (!resolved) return { status: 'no_response', address: input }
   if (resolved.scope === 'local') {
     const device = resolved.entity
+    const localNetwork = targets.network.localNetworks.find(({ memberDeviceIds }) => memberDeviceIds.includes(device.id))
     return device.runtime.networkStatus === 'ONLINE'
       ? {
         status: 'reachable', targetId: device.id, address: input, scope: 'local', networkStatus: 'ONLINE',
         hardware: { cpu: device.hardware.cpu, ram: device.hardware.ram },
+        ...(localNetwork ? { network: { id: localNetwork.id, name: localNetwork.name } } : {}),
       }
       : { status: 'no_response', address: input }
   }

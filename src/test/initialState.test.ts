@@ -15,15 +15,18 @@ describe('createInitialGameState', () => {
     expect(first.wallet).not.toBe(second.wallet)
     expect(first.world).not.toBe(second.world)
     expect(first.world.network).not.toBe(second.world.network)
+    expect(first.world.network.localNetworks).not.toBe(second.world.network.localNetworks)
+    expect(first.world.network.localNetworks[0]).not.toBe(second.world.network.localNetworks[0])
+    expect(first.world.network.localNetworks[0].memberDeviceIds).not.toBe(second.world.network.localNetworks[0].memberDeviceIds)
     expect(first.world.network.hosts).not.toBe(second.world.network.hosts)
     expect(first.world.network.hosts[0]).not.toBe(second.world.network.hosts[0])
     expect(first).toEqual(second)
   })
 
-  it('separates stable player and device identities in schema version 3', () => {
+  it('separates identities and seeds canonical local-network membership in schema version 4', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(3)
-    expect(state.version).toBe(3)
+    expect(GAME_STATE_VERSION).toBe(4)
+    expect(state.version).toBe(4)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -37,5 +40,10 @@ describe('createInitialGameState', () => {
       { id: 'host-training-002', ip: '203.0.113.99', online: false },
     ])
     expect(state.world.network.hosts).not.toContainEqual(expect.objectContaining({ id: state.player.localDevice.id }))
+    expect(state.world.network.localNetworks).toEqual([
+      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id] },
+    ])
+    expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
+    expect(state.player.localDevice).not.toHaveProperty('networkId')
   })
 })
