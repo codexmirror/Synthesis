@@ -13,6 +13,6 @@ export const scanCommand: TerminalCommand = {
 
     const lines = [`Scanning ${result.address}...`, '']
     if (result.status === 'no_response') return { type: 'output', lines: [...lines, 'NO RESPONSE'] }
-    return { type: 'output', lines: [...lines, 'HOST ONLINE', `Address: ${result.address}`] }
+    return { type: 'output', lines: [...lines, 'HOST ONLINE', `Address: ${result.address}`, `Scope:   ${result.scope.toUpperCase()}`] }
   },
 }
