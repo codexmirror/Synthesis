@@ -93,10 +93,18 @@ export function useMobileViewport(): MobileViewportState {
         return
       }
 
-      const visibleBottom = viewport.offsetTop + viewport.height
-      const inset = Math.max(0, current.stableHeight - visibleBottom)
-      const threshold = Math.min(150, Math.max(96, current.stableHeight * 0.18))
-      const open = current.keyboardOpen ? inset > RECOVERY_TOLERANCE : editableFocused && inset > threshold
+      const visibleBottom =
+  viewport.offsetTop + viewport.height
+
+const keyboardInset =
+  Math.max(0, current.stableHeight - visibleBottom)
+
+const viewportLoss =
+  Math.max(0, current.stableHeight - viewport.height)
+
+const open = current.keyboardOpen
+  ? viewportLoss > RECOVERY_TOLERANCE
+  : editableFocused && viewportLoss > threshold
       if (open) {
         protectedSequence = true
         publish({ ...current, offsetTop: viewport.offsetTop, keyboardInset: inset, keyboardOpen: true })
