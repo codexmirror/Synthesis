@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createInitialGameState } from '../../core/game/initialState'
 import type { CommandContext } from './commandTypes'
 import { clearCommand } from './commands/clear'
 import { createHelpCommand } from './commands/help'
 import { ipCommand } from './commands/ip'
 import { statusCommand } from './commands/status'
+import { scanCommand } from './commands/scan'
+import { scanNetworkTarget } from '../../core/game/scan'
 import { parseCommand } from './parser'
 import { commands, dispatchCommand } from './registry'
 
@@ -12,13 +14,15 @@ const state = createInitialGameState()
 const context: CommandContext = {
   player: { ip: state.player.ip },
   runtime: { ...state.system.runtime },
+  operations: { scanTarget: (target) => scanNetworkTarget(state.world.network, target) },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context)
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status'])
-    expect(new Set(Object.values(commands)).size).toBe(4)
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan'])
+    expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
+    expect(new Set(Object.values(commands)).size).toBe(5)
   })
 
   it('derives help output from the command registry', () => {
@@ -33,6 +37,16 @@ describe('command dispatcher', () => {
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
   it('dispatches clear as a structured result', () => expect(dispatch('clear')).toEqual({ type: 'clear' }))
+  it('guides missing and extra scan arguments', () => {
+    expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4>'] })
+    expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4>'] })
+  })
+  it('renders invalid, online, offline, and valid unknown scan observations', () => {
+    expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Invalid target: 999.999.999.999'] })
+    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'HOST ONLINE', 'Address: 203.0.113.42'] })
+    expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
+    expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
+  })
 })
 
 describe('individual commands', () => {
@@ -62,5 +76,13 @@ describe('individual commands', () => {
       type: 'output',
       lines: ['CPU: 4%', 'RAM: 12%', 'Network: OFFLINE'],
     })
+  })
+
+  it('delegates scan rules through the narrow operation dependency', () => {
+    const scanTarget = vi.fn(() => ({ status: 'no_response' as const, address: '203.0.113.42' }))
+    expect(scanCommand.run({ ...context, operations: { scanTarget } }, ['203.0.113.42'])).toEqual({
+      type: 'output', lines: ['Scanning 203.0.113.42...', '', 'NO RESPONSE'],
+    })
+    expect(scanTarget).toHaveBeenCalledExactlyOnceWith('203.0.113.42')
   })
 })

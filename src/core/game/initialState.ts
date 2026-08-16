@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 1
+export const GAME_STATE_VERSION = 2
 
 export function createInitialGameState(): GameState {
   return {
@@ -22,6 +22,14 @@ export function createInitialGameState(): GameState {
     },
     wallet: {
       balance: 1250,
+    },
+    world: {
+      network: {
+        hosts: [
+          { id: 'host-training-001', ip: '203.0.113.42', online: true },
+          { id: 'host-training-002', ip: '203.0.113.99', online: false },
+        ],
+      },
     },
   }
 }

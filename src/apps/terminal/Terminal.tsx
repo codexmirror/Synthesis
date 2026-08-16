@@ -4,6 +4,7 @@ import { OS_NAME } from '../../core/branding'
 import { useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
+import { scanNetworkTarget } from '../../core/game/scan'
 
 interface Entry { command: string; output: string[] }
 
@@ -25,6 +26,9 @@ export function Terminal() {
     const result = dispatchCommand(parseCommand(command), {
       player: { ip: gameState.player.ip },
       runtime: { ...gameState.system.runtime },
+      operations: {
+        scanTarget: (target) => scanNetworkTarget(gameState.world.network, target),
+      },
     })
     if (result.type === 'clear') setEntries([])
     else setEntries((current) => [...current, { command, output: result.lines }])

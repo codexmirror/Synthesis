@@ -24,9 +24,25 @@ export interface WalletState {
   readonly balance: number
 }
 
+export interface NetworkHost {
+  /** Stable entity identity; the simulated IP remains a separate attribute. */
+  readonly id: string
+  readonly ip: string
+  readonly online: boolean
+}
+
+export interface NetworkState {
+  readonly hosts: readonly NetworkHost[]
+}
+
+export interface WorldState {
+  readonly network: NetworkState
+}
+
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
   readonly system: SystemState
   readonly wallet: WalletState
+  readonly world: WorldState
 }
