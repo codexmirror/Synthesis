@@ -16,6 +16,27 @@ Future iterations may add:
 - Shared organizations and global objectives
 - Multiple in-game device / OS interfaces over the same game systems, including touch-first or mobile-style interfaces
 - External integrations where they serve an established product need
+- 
+## Systemic gameplay north star
+
+The long-term goal is not merely to accumulate more targets, commands, applications, or isolated mechanics. Synthesis should grow into a systemic simulation in which independently useful mechanics increasingly interact with the same world state and can therefore produce situations that were not authored as explicit event chains.
+
+The intended conceptual progression is:
+
+```text
+WORLD TRUTH
+    ↓
+ACTIONS AND AUTONOMOUS CHANGE
+    ↓
+STATE MUTATION
+    ↓
+CROSS-SYSTEM CONSEQUENCES
+    ↓
+OBSERVATION
+    ↓
+PLAYER DECISIONS
+    ↓
+FURTHER STATE MUTATION 
 
 These are directions, not specifications. The current slice has copy-only Target Tokens but no persistent discovery knowledge, server/access/filesystem gameplay, or active graphical Network app. All hacking systems will remain inside the simulated game world.
 

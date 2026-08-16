@@ -38,6 +38,18 @@ The same principle applies to future gameplay mutations. Tools, malware, exploit
 
 Not every game entity must have every kind of state. A filesystem, services, software, network interfaces, or similar structures belong only to entity types and mechanics that actually require them. Synthesis should grow these models from concrete gameplay needs rather than introducing a universal entity or component framework prematurely.
 
+## Systemic simulation and causality
+
+Synthesis should favor causal state changes over scripted event chains. A gameplay mechanic changes concrete canonical simulation state; other systems should react to the resulting state when their own rules make it relevant rather than depending on hidden knowledge of which original action caused the change.
+
+The same resulting state may eventually be caused by player actions, autonomous actors, malware, automated services, security systems, time, or other simulated systems. Observations and interfaces should continue to derive from the current world truth regardless of what caused it.
+
+Processes are one execution mechanism for long-running work, not a universal action or event layer. A Process represents elapsed work and resource consumption. The concrete gameplay mechanic that uses the Process owns what completion means and which simulation state changes as a consequence.
+
+Future simulation time, autonomous actors, security responses, player knowledge, economy, malware, and similar systems should be introduced as concrete gameplay mechanics when they are actually needed. Synthesis should not introduce a generic causality framework, event framework, universal simulation object, or other speculative abstraction in anticipation of them.
+
+Shared abstractions should be extracted only after multiple implemented systems demonstrate the same concrete requirement. The long-term goal is for increasingly interesting situations to emerge from interactions between stateful systems rather than from bespoke scripted event chains.
+
 ## Shared operations and integrations
 
 A gameplay operation is implemented once behind an explicit game-level API and is callable from different interfaces. Network Analysis contains separate `scan` and `inspect` verbs that both narrowly accept a represented Device by valid IPv4 address or a LocalNetwork by exact player-visible name. `SELF` is the player-owned device, `LAN` is another device sharing a represented local network with SELF, and `REMOTE` is a represented device without that shared membership. Device Scan returns real network relationships and currently open owned services; network Scan returns responding represented members. Device Inspect returns only properties owned by that device, including its server identity where represented, but does not enumerate services; network Inspect returns its name and whether canonical membership connects SELF, without member enumeration. Stable device, network, and service IDs remain internal. Both pure operations independently derive closed structured results from current world truth. A future Network UI calls these same operations directly rather than constructing Terminal commands. No generic entity, observation, resolver, or action framework is needed.
