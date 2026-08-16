@@ -250,7 +250,7 @@ export function useMobileViewport(): MobileViewportState {
       closeTimer = undefined
     }
 
-        const onFocusIn = (event: FocusEvent) => {
+            const onFocusIn = (event: FocusEvent) => {
       cancelCloseProbe()
 
       editableFocused = isTextEntry(event.target)
@@ -259,21 +259,33 @@ export function useMobileViewport(): MobileViewportState {
         protectedSequence = true
       }
 
+      const wasKeyboardOpen = current.keyboardOpen
+
+      schedule()
+
+      if (
+        editableFocused &&
+        !wasKeyboardOpen
+      ) {
+        if (openTimer !== undefined) {
+          clearTimeout(openTimer)
+        }
+
+        openTimer = setTimeout(() => {
+          openTimer = undefined
+          schedule()
+        }, 300)
+      }
+    }
+
+        const onFocusOut = () => {
+      editableFocused = false
       schedule()
 
       if (openTimer !== undefined) {
         clearTimeout(openTimer)
-      }
-
-      openTimer = setTimeout(() => {
         openTimer = undefined
-        schedule()
-      }, 300)
-    }
-
-    const onFocusOut = () => {
-      editableFocused = false
-      schedule()
+      }
 
       cancelCloseProbe()
 
