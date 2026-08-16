@@ -12,7 +12,7 @@ export const inspectCommand: TerminalCommand = {
     if (result.status === 'no_response') return { type: 'output', lines: ['NO RESPONSE'] }
 
     const lines = ['TARGET', `Address: ${result.address}`, `Scope:   ${result.scope.toUpperCase()}`, `Status:  ${result.networkStatus}`]
-    if (result.scope === 'local') {
+    if (result.scope === 'self') {
       lines.push(`CPU:     ${result.hardware.cpu}`, `RAM:     ${result.hardware.ram}`)
       if (result.network) lines.push(`Network: ${result.network.name}`)
     }

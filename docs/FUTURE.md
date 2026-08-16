@@ -2,7 +2,8 @@
 
 Future iterations may add:
 
-- Expansion of the minimal Basic Scan V1 network into richer simulated networks, NPC hosts, and eventually exposed real players
+- Network Analysis upgrades that deepen observations derived from existing simulation truth (no upgrade system exists yet)
+- Expansion of the minimal discovery network into richer simulated networks, NPC hosts, and eventually exposed real players
 - Player discoverability through normal scans only when explainable traces have been left behind
 - Logs and trace removal
 - Brute-force programs and terminal comfort software / command assistance
