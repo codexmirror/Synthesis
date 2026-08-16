@@ -22,6 +22,8 @@ Long-running gameplay actions are represented as domain-owned Processes with sta
 
 Process scheduling derives completed work from elapsed time and hardware/resource state. A Service Analysis Process retains the endpoint originally selected solely for historical presentation; stable device and service IDs remain its gameplay identity, so later address changes do not rewrite the Process card. Browser timers are scheduling triggers rather than simulation truth, and the application adapter owns the single scheduler. The Processes app only observes canonical Process state. V1 Processes execute only on the player's local device; remote and distributed compute are deferred.
 
+Completed Process records are disposable execution history. Clearing them preserves running work and ID progression and does not reverse consequences stored in other canonical slices. Process history, player Knowledge, and World truth remain distinct concerns.
+
 ## Entity-owned simulation state
 
 Simulated objects own their actual state. Gameplay operations observe or modify that state; interfaces must not invent parallel representations of it.

@@ -1,12 +1,36 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { advanceProcesses, deriveResourceUsage, startProcess } from './processes'
+import { advanceProcesses, clearCompletedProcesses, deriveResourceUsage, startProcess } from './processes'
 
 const game = createInitialGameState(); const hardware = game.player.localDevice.hardware; const runtime = game.player.localDevice.runtime
 const input = (label = 'Analysis', ramRequiredMiB = 512, workRequired = 1000) => ({ label, ramRequiredMiB, workRequired, executorDeviceId: game.player.localDevice.id })
 function started(...jobs: ReturnType<typeof input>[]) { let state = game.process; for (const job of jobs) { const result = startProcess(state, hardware, runtime, job); if (result.status !== 'started') throw Error('fixture rejected'); state = result.state } return state }
 
 describe('process resource domain', () => {
+  it('preserves identity for empty and running-only process states', () => {
+    expect(clearCompletedProcesses(game.process)).toBe(game.process)
+    const running = started(input())
+    expect(clearCompletedProcesses(running)).toBe(running)
+    expect(running.processes).toHaveLength(1)
+  })
+  it('clears completed-only history without mutation and preserves nextId', () => {
+    const completed = advanceProcesses(started(input('Done', 100, 1)), hardware, runtime, 1000)
+    const snapshot = structuredClone(completed)
+    const cleared = clearCompletedProcesses(completed)
+    expect(cleared).not.toBe(completed)
+    expect(cleared).toEqual({ nextId: 2, processes: [] })
+    expect(completed).toEqual(snapshot)
+  })
+  it('removes only completed jobs while preserving running order and nextId', () => {
+    const base = started(input('First'), input('Done', 100, 1), input('Last'))
+    const mixed = { ...base, processes: base.processes.map((process) => process.id === 'process-0002' ? { ...process, status: 'completed' as const, workCompleted: process.workRequired } : process) }
+    const snapshot = structuredClone(mixed)
+    const cleared = clearCompletedProcesses(mixed)
+    expect(cleared.nextId).toBe(4)
+    expect(cleared.processes.map(({ id }) => id)).toEqual(['process-0001', 'process-0003'])
+    expect(cleared.processes.every(({ status }) => status === 'running')).toBe(true)
+    expect(mixed).toEqual(snapshot)
+  })
   it('creates stable IDs with explicit executors and admits without mutation', () => {
     const original = structuredClone(game.process); const first = startProcess(game.process, hardware, runtime, input())
     expect(first).toMatchObject({ status: 'started', processId: 'process-0001' }); if (first.status !== 'started') return

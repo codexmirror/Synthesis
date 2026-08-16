@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { advanceGameState, SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint } from './serviceAnalysis'
-import { deriveResourceUsage } from './processes'
+import { clearCompletedProcesses, deriveResourceUsage } from './processes'
 import type { GameProcess, ServiceAnalysisProcess } from './types'
 import { scanNetworkTarget } from './scan'
 
@@ -40,6 +40,16 @@ describe('Service Analysis', () => {
     const again = start(done); expect(again.status).toBe('started'); if (again.status !== 'started') return
     const twice = advanceGameState(again.state, 20_000); expect(twice.knowledge.discoveredVulnerabilities).toHaveLength(1)
     expect(analysis(twice.process.processes[0]).result).toBe(analysis(process).result)
+  })
+  it('allows re-analysis after history is cleared while retained knowledge does not bypass the running duplicate guard', () => {
+    const done = advanceGameState(started(), 20_000)
+    const cleared = { ...done, process: clearCompletedProcesses(done.process) }
+    expect(cleared.process.processes).toEqual([])
+    expect(cleared.knowledge).toBe(done.knowledge)
+    const again = start(cleared); expect(again.status).toBe('started')
+    if (again.status !== 'started') return
+    expect(again.processId).toBe('process-0002')
+    expect(start(again.state).status).toBe('already_running')
   })
   it('reads current vulnerability truth only at completion and retains historical knowledge', () => {
     const running = started(); const host = running.world.network.hosts[0]; const service = host.services![0]

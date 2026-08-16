@@ -1,4 +1,8 @@
 .processes h2 { margin-top: 36px; text-transform: uppercase; font-size: .72rem; letter-spacing: .15em; }
+.process-section-heading { max-width: 620px; margin-top: 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.process-section-heading h2 { margin-top: 0; }
+.process-section-heading button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); background: transparent; color: #98a39d; font: inherit; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
+.process-section-heading button:hover, .process-section-heading button:focus-visible { border-color: var(--green); color: var(--green); }
 .process-summary { max-width: 620px; display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--line); }
 .process-summary div { padding: 20px; display: flex; justify-content: space-between; gap: 16px; }
 .process-summary div + div { border-left: 1px solid var(--line); }

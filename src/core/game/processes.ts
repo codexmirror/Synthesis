@@ -37,6 +37,12 @@ export type StartProcessResult =
   | { status: 'started'; state: ProcessState; processId: string }
   | { status: 'insufficient_memory'; state: ProcessState; requiredMiB: number; availableMiB: number }
 
+/** Removes disposable completion history without affecting running work or ID progression. */
+export function clearCompletedProcesses(state: ProcessState): ProcessState {
+  if (!state.processes.some((process) => process.status === 'completed')) return state
+  return { ...state, processes: state.processes.filter((process) => process.status === 'running') }
+}
+
 export function startProcess(state: ProcessState, hardware: HardwareState, runtime: RuntimeState, input: StartProcessInput): StartProcessResult {
   const availableMiB = deriveResourceUsage(hardware, runtime, state).availableRamMiB
   if (input.ramRequiredMiB > availableMiB) return { status: 'insufficient_memory', state, requiredMiB: input.ramRequiredMiB, availableMiB }

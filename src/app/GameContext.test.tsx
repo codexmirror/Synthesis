@@ -15,6 +15,12 @@ function ActionHarness({ onRender }: { onRender?: () => void }) {
   }}>start</button><output>{JSON.stringify(state.process)}</output></>
 }
 
+function ClearHarness({ onRender }: { onRender?: () => void }) {
+  const actions = useGameActions(); const state = useGameState()
+  onRender?.()
+  return <><button onClick={actions.clearCompletedProcesses}>clear</button><output>{JSON.stringify(state)}</output></>
+}
+
 describe('GameProvider service-analysis actions', () => {
   it('atomically retains two concrete back-to-back starts', () => {
     let renders = 0
@@ -44,5 +50,26 @@ describe('GameProvider service-analysis actions', () => {
     vi.useFakeTimers(); let renders = 0
     function Counter() { useGameState(); renders += 1; return null }
     render(<GameProvider><Counter /></GameProvider>); expect(renders).toBe(1); act(() => vi.advanceTimersByTime(2000)); expect(renders).toBe(1)
+  })
+  it('clears only completed history and preserves canonical consequences and next ID', () => {
+    const base = createInitialGameState()
+    const completed = { kind: 'generic' as const, id: 'process-0012', label: 'Done', executorDeviceId: 'device-local-v0', status: 'completed' as const, workRequired: 1, workCompleted: 1, ramRequiredMiB: 10 }
+    const running = { ...completed, id: 'process-0013', label: 'Running', status: 'running' as const, workCompleted: 0 }
+    const initial: GameState = { ...base, process: { nextId: 14, processes: [completed, running] }, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'vulnerability-ssh-001', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
+    render(<GameProvider initialState={initial}><ClearHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'clear' }))
+    const state = JSON.parse(screen.getByRole('status').textContent ?? '') as GameState
+    expect(state.process).toMatchObject({ nextId: 14, processes: [{ id: 'process-0013', status: 'running' }] })
+    expect(state.knowledge).toEqual(initial.knowledge)
+    expect(state.world).toEqual(initial.world)
+    expect(state.player).toEqual(initial.player)
+    expect(state.wallet).toEqual(initial.wallet)
+  })
+  it('does not rerender consumers when there is no completed history', () => {
+    let renders = 0
+    render(<GameProvider><ClearHarness onRender={() => { renders += 1 }} /></GameProvider>)
+    expect(renders).toBe(1)
+    fireEvent.click(screen.getByRole('button', { name: 'clear' }))
+    expect(renders).toBe(1)
   })
 })
