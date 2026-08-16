@@ -20,10 +20,13 @@ interface ViewportMeasurement {
   healthyHeight: number
 }
 
+type TouchAxis = 'pending' | 'horizontal' | 'vertical'
+
 const EDITING_PRESENTATION_QUERY =
   '(max-width: 700px), (max-width: 900px) and (pointer: coarse)'
 const CLOSE_PROBE_DELAY = 360
 const ORIENTATION_REBASE_DELAY = 280
+const TOUCH_SLOP = 6
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -114,8 +117,11 @@ export function useEditingViewport(): EditingViewportState {
     let editingLatched = false
     let reducedGeometryObserved = false
     let suppressUntilNewFocus = false
+    let touchStartX = 0
+    let touchStartY = 0
     let touchX = 0
     let touchY = 0
+    let touchAxis: TouchAxis = 'pending'
     let touchScrollOwner: HTMLElement | null = null
 
     const publish = (next: EditingViewportState) => {
@@ -132,6 +138,7 @@ export function useEditingViewport(): EditingViewportState {
     ): ViewportMeasurement | null => {
       if (!viewport) {
         const healthyHeight = Math.max(1, Math.round(window.innerHeight))
+
         return {
           editTop: 0,
           editHeight: healthyHeight,
@@ -251,6 +258,7 @@ export function useEditingViewport(): EditingViewportState {
       suppressUntilNewFocus = false
 
       const measurement = readMeasurement()
+
       if (supportsEditingPresentation() && measurement) {
         editingLatched = true
         publishEditing(measurement)
@@ -265,6 +273,7 @@ export function useEditingViewport(): EditingViewportState {
       editableFocused = false
       schedule()
       cancelCloseProbe()
+
       closeTimer = setTimeout(() => {
         closeTimer = undefined
         schedule()
@@ -310,21 +319,31 @@ export function useEditingViewport(): EditingViewportState {
 
     const onOrientationChange = () => {
       if (orientationTimer !== undefined) clearTimeout(orientationTimer)
+
       orientationTimer = setTimeout(
         rebaseAfterOrientation,
         ORIENTATION_REBASE_DELAY,
       )
     }
 
+    const resetTouchGesture = () => {
+      touchAxis = 'pending'
+      touchScrollOwner = null
+    }
+
     const onTouchStart = (event: TouchEvent) => {
       if (!editingLatched || event.touches.length !== 1) {
-        touchScrollOwner = null
+        resetTouchGesture()
         return
       }
 
       const touch = event.touches[0]
+
+      touchStartX = touch.clientX
+      touchStartY = touch.clientY
       touchX = touch.clientX
       touchY = touch.clientY
+      touchAxis = 'pending'
       touchScrollOwner =
         event.target instanceof Element
           ? event.target.closest<HTMLElement>('[data-editing-scroll-owner]')
@@ -332,15 +351,30 @@ export function useEditingViewport(): EditingViewportState {
     }
 
     const onTouchMove = (event: TouchEvent) => {
-      if (!editingLatched || event.touches.length !== 1) return
+      if (!editingLatched || event.touches.length !== 1) {
+        resetTouchGesture()
+        return
+      }
 
       const touch = event.touches[0]
-      const deltaX = touch.clientX - touchX
       const deltaY = touch.clientY - touchY
+      const totalDeltaX = touch.clientX - touchStartX
+      const totalDeltaY = touch.clientY - touchStartY
+
       touchX = touch.clientX
       touchY = touch.clientY
 
-      if (Math.abs(deltaY) <= Math.abs(deltaX)) return
+      if (touchAxis === 'pending') {
+        if (Math.hypot(totalDeltaX, totalDeltaY) < TOUCH_SLOP) return
+
+        touchAxis =
+          Math.abs(totalDeltaY) > Math.abs(totalDeltaX)
+            ? 'vertical'
+            : 'horizontal'
+      }
+
+      if (touchAxis === 'horizontal') return
+
       if (
         touchScrollOwner &&
         canOwnVerticalGesture(touchScrollOwner, deltaY)
@@ -349,6 +383,10 @@ export function useEditingViewport(): EditingViewportState {
       }
 
       event.preventDefault()
+    }
+
+    const onTouchEnd = () => {
+      resetTouchGesture()
     }
 
     if (viewport) {
@@ -363,6 +401,8 @@ export function useEditingViewport(): EditingViewportState {
     document.addEventListener('focusout', onFocusOut)
     document.addEventListener('touchstart', onTouchStart, { passive: true })
     document.addEventListener('touchmove', onTouchMove, { passive: false })
+    document.addEventListener('touchend', onTouchEnd, { passive: true })
+    document.addEventListener('touchcancel', onTouchEnd, { passive: true })
     window.addEventListener('orientationchange', onOrientationChange)
     schedule()
 
@@ -379,10 +419,15 @@ export function useEditingViewport(): EditingViewportState {
       document.removeEventListener('focusout', onFocusOut)
       document.removeEventListener('touchstart', onTouchStart)
       document.removeEventListener('touchmove', onTouchMove)
+      document.removeEventListener('touchend', onTouchEnd)
+      document.removeEventListener('touchcancel', onTouchEnd)
       window.removeEventListener('orientationchange', onOrientationChange)
       cancelAnimationFrame(frame)
       cancelCloseProbe()
-      if (orientationTimer !== undefined) clearTimeout(orientationTimer)
+
+      if (orientationTimer !== undefined) {
+        clearTimeout(orientationTimer)
+      }
     }
   }, [])
 
