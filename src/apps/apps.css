@@ -59,7 +59,7 @@
   border: 1px solid var(--line);
   outline: 0;
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: none;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   background: #080b09;

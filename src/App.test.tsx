@@ -79,6 +79,19 @@ async function updateViewport(
   await new Promise((resolve) => requestAnimationFrame(resolve))
 }
 
+function dispatchTouch(
+  target: EventTarget,
+  type: 'touchstart' | 'touchmove',
+  clientX: number,
+  clientY: number,
+) {
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  Object.defineProperty(event, 'touches', {
+    value: [{ clientX, clientY }],
+  })
+  return target.dispatchEvent(event)
+}
+
 afterEach(() => {
   vi.useRealTimers()
   localStorage.clear()
@@ -217,6 +230,49 @@ describe('dedicated editing viewport', () => {
 
     await updateViewport(viewport, { height: 844, offsetTop: 0 })
     await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
+  })
+
+  it('contains editing gestures outside an app-owned scroll region', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input } = await openTerminal()
+    await user.click(input)
+
+    const header = screen.getByText(/terminal/i, { selector: 'h1' }).closest(
+      '.app-header',
+    )
+    expect(header).not.toBeNull()
+    dispatchTouch(header!, 'touchstart', 20, 200)
+    expect(dispatchTouch(header!, 'touchmove', 20, 150)).toBe(false)
+
+    const prompt = input.closest('.terminal-input')
+    expect(prompt).not.toBeNull()
+    dispatchTouch(prompt!, 'touchstart', 20, 200)
+    expect(dispatchTouch(prompt!, 'touchmove', 20, 150)).toBe(false)
+  })
+
+  it('lets Terminal output own only gestures it can scroll', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input } = await openTerminal()
+    await user.click(input)
+    const output = document.querySelector('.terminal-output') as HTMLDivElement
+    expect(output).toHaveAttribute('data-editing-scroll-owner')
+    expect(input.closest('.terminal-input')).not.toContainElement(output)
+
+    Object.defineProperties(output, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, value: 500 },
+    })
+    output.scrollTop = 100
+    dispatchTouch(output, 'touchstart', 20, 200)
+    expect(dispatchTouch(output, 'touchmove', 20, 150)).toBe(true)
+
+    output.scrollTop = 300
+    dispatchTouch(output, 'touchstart', 20, 200)
+    expect(dispatchTouch(output, 'touchmove', 20, 150)).toBe(false)
   })
 
   it('keeps editing latched on blur while the viewport remains reduced', async () => {
@@ -420,6 +476,7 @@ describe('dedicated editing viewport', () => {
     render(<App />)
     await user.click(screen.getByRole('button', { name: /open notes/i }))
     const notes = screen.getByRole('textbox')
+    expect(notes).toHaveAttribute('data-editing-scroll-owner')
     await user.click(notes)
     await user.type(notes, 'abc')
     const shell = screen.getByTestId('os-shell')

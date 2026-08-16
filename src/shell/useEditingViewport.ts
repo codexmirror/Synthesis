@@ -4,6 +4,7 @@ import {
   hasEditingViewportRecovered,
   isApproximatelyUnscaled,
 } from './editingViewportGeometry'
+import { canOwnVerticalGesture } from './editingScrollOwnership'
 
 export interface EditingViewportState {
   hostHeight: number
@@ -113,6 +114,9 @@ export function useEditingViewport(): EditingViewportState {
     let editingLatched = false
     let reducedGeometryObserved = false
     let suppressUntilNewFocus = false
+    let touchX = 0
+    let touchY = 0
+    let touchScrollOwner: HTMLElement | null = null
 
     const publish = (next: EditingViewportState) => {
       hostHeightRef.current = next.hostHeight
@@ -312,6 +316,41 @@ export function useEditingViewport(): EditingViewportState {
       )
     }
 
+    const onTouchStart = (event: TouchEvent) => {
+      if (!editingLatched || event.touches.length !== 1) {
+        touchScrollOwner = null
+        return
+      }
+
+      const touch = event.touches[0]
+      touchX = touch.clientX
+      touchY = touch.clientY
+      touchScrollOwner =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>('[data-editing-scroll-owner]')
+          : null
+    }
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!editingLatched || event.touches.length !== 1) return
+
+      const touch = event.touches[0]
+      const deltaX = touch.clientX - touchX
+      const deltaY = touch.clientY - touchY
+      touchX = touch.clientX
+      touchY = touch.clientY
+
+      if (Math.abs(deltaY) <= Math.abs(deltaX)) return
+      if (
+        touchScrollOwner &&
+        canOwnVerticalGesture(touchScrollOwner, deltaY)
+      ) {
+        return
+      }
+
+      event.preventDefault()
+    }
+
     if (viewport) {
       viewport.addEventListener('resize', schedule)
       viewport.addEventListener('scroll', schedule)
@@ -322,6 +361,8 @@ export function useEditingViewport(): EditingViewportState {
     mediaQuery?.addEventListener('change', schedule)
     document.addEventListener('focusin', onFocusIn)
     document.addEventListener('focusout', onFocusOut)
+    document.addEventListener('touchstart', onTouchStart, { passive: true })
+    document.addEventListener('touchmove', onTouchMove, { passive: false })
     window.addEventListener('orientationchange', onOrientationChange)
     schedule()
 
@@ -336,6 +377,8 @@ export function useEditingViewport(): EditingViewportState {
       mediaQuery?.removeEventListener('change', schedule)
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('focusout', onFocusOut)
+      document.removeEventListener('touchstart', onTouchStart)
+      document.removeEventListener('touchmove', onTouchMove)
       window.removeEventListener('orientationchange', onOrientationChange)
       cancelAnimationFrame(frame)
       cancelCloseProbe()

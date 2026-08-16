@@ -12,7 +12,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: none;
   touch-action: pan-y;
   overflow-wrap: anywhere;
   -webkit-overflow-scrolling: touch;

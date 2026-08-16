@@ -43,7 +43,12 @@ export function Terminal() {
 
   return (
     <section className="terminal" aria-label="Terminal">
-      <div className="terminal-output" aria-live="polite" ref={outputRef}>
+      <div
+        className="terminal-output"
+        aria-live="polite"
+        data-editing-scroll-owner
+        ref={outputRef}
+      >
         <p className="muted">{OS_NAME} terminal · Type <strong>help</strong> to begin.</p>
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
