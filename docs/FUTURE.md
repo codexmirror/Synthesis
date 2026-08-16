@@ -17,6 +17,6 @@ Future iterations may add:
 - Multiple in-game device / OS interfaces over the same game systems, including touch-first or mobile-style interfaces
 - External integrations where they serve an established product need
 
-These are directions, not specifications, and are not implemented by the current minimal scan slice. All hacking systems will remain inside the simulated game world.
+These are directions, not specifications. The current slice has no target highlighting/copy UI, persistent discovery knowledge, server/access/filesystem gameplay, or active graphical Network app. All hacking systems will remain inside the simulated game world.
 
 Architectural constraints for future work are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
