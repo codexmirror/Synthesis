@@ -232,6 +232,47 @@ describe('dedicated editing viewport', () => {
     })
   })
 
+  it('converges delayed iOS keyboard geometry before the first input event', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    const appView = input.closest('.app-view') as HTMLElement
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      height: 844,
+    } as DOMRect)
+    vi.spyOn(appView, 'getBoundingClientRect').mockReturnValue({
+      top: 64,
+      height: 726,
+    } as DOMRect)
+
+    await user.click(input)
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '64px',
+      '--node-edit-height': '726px',
+    })
+
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    Object.assign(viewport, { height: 514, offsetTop: 24 })
+    await act(() => new Promise((resolve) => setTimeout(resolve, 210)))
+
+    expect(input).toHaveValue('')
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '24px',
+      '--node-edit-height': '514px',
+    })
+
+    await user.type(input, 'x')
+    expect(shell).toHaveStyle({
+      '--node-edit-top': '24px',
+      '--node-edit-height': '514px',
+    })
+  })
+
   it('maps Safari top pan to editTop without changing host height', async () => {
     const viewport = new ViewportStub()
     installViewport(viewport)
