@@ -25,3 +25,9 @@ A gameplay operation should eventually be implemented once behind an explicit ga
 External services must enter through explicit adapters or interfaces at the application boundary and must not become direct dependencies of core game-domain logic.
 
 Terminal commands receive narrow, read-only values required by their behavior rather than unrestricted game state.
+
+## Interface and mobile presentation
+
+Terminal is intended to become the primary power-user operational interface, but it is not the game domain. When gameplay operations are introduced, Terminal and graphical apps must call the same domain operation directly; a GUI must not route gameplay through a Terminal command string. The current Terminal contains only local informational and presentation commands, not scan, connect, or exploit operations.
+
+Mobile is a first-class presentation target. The shell owns viewport and Editing-presentation coordination, while individual scrollable regions explicitly own their scrolling. In the established text-entry layout, Terminal output scrolls independently of its prompt and the Notes textarea owns its own scrolling. These are presentation boundaries and must not leak browser or viewport concerns into `core/game`.

@@ -1,635 +1,171 @@
-Synthesis Development Handbook
+# Synthesis Development Handbook
 
-This document defines the working rules for developing Synthesis.
+This handbook defines the current tool roles, development loop, and review discipline. Repository documentation and accepted code describe project reality; experiments and plans become canonical only through explicit review and integration.
 
-Its purpose is to keep the project consistent as the game grows, prevent tool-role drift, preserve architectural boundaries, and make future work easier to review.
+## 1. Development principles
 
-GitHub is the canonical source of truth. Experimental work is useful only after it is reviewed and intentionally transferred into the canonical repository.
+Prefer small, explicit boundaries; shared gameplay logic behind every interface; simple TypeScript over speculative frameworks; incremental architecture based on demonstrated requirements; reproducible tests and builds; and focused, reviewable changes.
 
-────────
+Avoid hidden cross-feature coupling, duplicated gameplay logic, accidental promotion of experiments, large unreviewed rewrites, mutable visible identifiers as entity identity, and UI components directly mutating unrelated state.
 
-1. Core Development Principle
+**Prototype aggressively. Integrate conservatively.**
 
-Synthesis should remain easy to extend even if future systems become large, unusual, or deeply interconnected.
+## 2. Sources of truth
 
-The project should prefer:
+The `codexmirror/Synthesis` repository is canonical, and accepted `main` is the canonical product state. Work output, screenshots, notes, generated artifacts, and local branches are not accepted merely because they exist. A tested Work implementation may nevertheless become the exact source integrated into the repository after review.
 
-• small, explicit module boundaries
-• clear ownership of state and behavior
-• shared gameplay logic behind multiple interfaces
-• simple TypeScript over speculative frameworks
-• incremental architecture based on real requirements
-• reproducible tests and builds
-• narrow pull requests with clear intent
+For repository-dependent decisions, inspect the actual repository rather than inferring its state. Documentation must distinguish current implementation from future direction and must be written in English; discussion and planning may use another language.
 
-The project should avoid:
+## 3. Tool roles
 
-• speculative framework architecture
-• hidden cross-feature coupling
-• duplicating gameplay logic in multiple UIs
-• letting prototypes become production code by accident
-• large unreviewed rewrites
-• treating visible identifiers such as IP addresses as entity identity
-• letting UI components directly mutate unrelated game state
+### ChatGPT and Work
 
-The goal is not to predict every future feature.
+ChatGPT is the coordination and review layer. It supports scope, architecture and product decisions, repository and diff review, interpretation of physical-device evidence, milestone selection, task preparation, and development discipline.
 
-The goal is to make future features attach cleanly.
+Work is the primary planning, UX, interaction, and implementation-experiment workspace. It may:
 
-────────
+- analyze architecture and product direction;
+- explore UX and compare alternatives;
+- build and test reference implementations;
+- produce exact source files or canonical implementation exports and patches;
+- prepare implementation handoffs; and
+- review browser and physical-device evidence.
 
-2. Source of Truth
+Work may move quickly, but its output crosses an explicit approval and integration boundary. It is not restricted to disposable mockups, and an approved tested implementation need not be recreated from prose.
 
-The canonical project lives in GitHub.
+### Codex
 
-Repository:
+Codex is the repository execution and implementation agent. Depending on the task, it may implement repository changes, mechanically apply an exact Work handoff, integrate files or patches, refactor, harden, run tests and builds, inspect diffs, and investigate repository state. For ordinary gameplay, domain, and repository work, Codex may be the primary implementer.
 
-codexmirror/Synthesis
+Codex should preserve an approved exact handoff rather than reinterpret it unnecessarily and must report deviations. It does not own the Git lifecycle.
 
-Canonical branch:
+### Human operator
 
+The human operator controls branch decisions, commits, pushes, pull requests, merges, and final acceptance unless explicitly delegating a specific action. Routine Codex tasks should not instruct Codex to perform those Git lifecycle actions.
+
+Manual edits remain appropriate for small, known, low-risk corrections. The same review, testing, and documentation discipline applies regardless of who makes an edit.
+
+## 4. Current development loop
+
+```text
+Idea / problem
+    ↓
+Work / ChatGPT analysis
+    ↓
+implementation or implementation handoff
+    ↓
+local repository execution
+    ↓
+tests / production build
+    ↓
+local Vite server when useful
+    ↓
+physical iPhone / browser validation when relevant
+    ↓
+review
+    ↓
+Git lifecycle controlled by operator
+    ↓
 main
-
-Rules:
-
-1. main represents the current accepted version of Synthesis.
-2. Production implementation decisions must ultimately exist in GitHub.
-3. Work prototypes, screenshots, HTML experiments, notes, and generated mockups are non-canonical until explicitly approved and implemented.
-4. Documentation in the repository should describe the actual canonical implementation, not an experiment or future assumption.
-5. Repository documentation, code, comments, commit messages, PR titles, PR descriptions, and Codex prompts are written in English.
-
-Our discussion and planning may remain in German.
-
-────────
-
-3. Tool Roles
-
-ChatGPT
-
-ChatGPT acts as the coordination, review, planning, and architecture layer.
-
-Use ChatGPT for:
-
-• deciding scope
-• architecture review
-• reviewing GitHub diffs and pull requests
-• converting experimental findings into implementation plans
-• writing Codex tasks
-• identifying risks and missing boundaries
-• deciding whether a change should be manual, Codex-driven, or experimental
-• maintaining project-level reasoning and development discipline
-
-ChatGPT should not invent repository state when GitHub can be inspected directly.
-
-For repository-dependent decisions, inspect the current canonical repository first.
-
-ChatGPT Work
-
-ChatGPT Work is the non-canonical UX and interaction laboratory.
-
-Use Work for:
-
-• visual experiments
-• interaction experiments
-• mobile UX exploration
-• responsive behavior
-• alternative layouts
-• shell behavior
-• keyboard behavior
-• app navigation experiments
-• information hierarchy
-• UI depth and polish
-• visual prototypes
-• experimental Sites
-• comparing multiple UX approaches
-• investigating live GitHub Pages behavior
-
-Work may deliberately move faster and be more experimental than the production codebase.
-
-Work must not define canonical game architecture.
-
-Work output should be treated as evidence and design exploration, not as production source code.
-
-Preferred Work flow:
-
-```text
-Canonical Synthesis
-        ↓
-Inspect / reproduce
-        ↓
-Experiment
-        ↓
-Compare alternatives
-        ↓
-Choose recommendation
-        ↓
-Implementation Handoff
-        ↓
-Human review
+    ↓
+GitHub Pages canonical deployment
 ```
 
-Do not copy a large Work-generated HTML/CSS prototype wholesale into Synthesis.
+The local Vite server supports rapid iteration and physical-device testing. An experimental mobile adjustment does not require a Pages deployment before it can be tested. GitHub Pages is the canonical deployed representation of accepted `main`; its workflow installs dependencies, runs tests, builds, and then deploys.
 
-Extract the approved behavior and implement it cleanly in the existing architecture.
+Review the actual diff and evidence, not just whether a change appears plausible. A failed required test or build blocks acceptance; do not weaken checks merely to obtain a deployment.
 
-Codex
+## 5. Work implementation handoffs
 
-Codex owns canonical implementation.
+Work can provide either of two handoff types.
 
-Use Codex for:
+### A. Behavior / design handoff
 
-• production code
-• game architecture
-• domain models
-• game state
-• gameplay systems
-• refactors
-• multi-file changes
-• tests
-• dependency changes
-• CI changes
-• repository structure
-• implementation hardening
-• branches and pull requests
+Include:
 
-Codex tasks should normally:
+- observed problem and evidence;
+- confirmed root cause and clearly labeled hypotheses;
+- alternatives considered;
+- selected behavior;
+- acceptance criteria; and
+- shared, feature-specific, browser, or implementation constraints.
 
-1. identify the exact existing branch or requested new branch
-2. define the objective
-3. define architectural constraints
-4. define explicit exclusions
-5. define required tests
-6. define completion criteria
-7. request a final implementation report
+### B. Canonical implementation export
 
-Codex should not be asked to improvise broad UX direction when Work can first explore the problem more cheaply.
+When Work has implemented and tested the solution, include:
 
-Working Copy / Manual Edits
+- exact source files or a unified patch against a known base;
+- a file manifest;
+- validation results; and
+- base and traceability information.
 
-Manual edits are appropriate for genuinely trivial, low-risk changes.
-
-Examples:
-
-• a single CSS value
-• one metadata line
-• a typo
-• a small configuration correction
-• a one-line test fix
-• a known dependency version adjustment
-
-Prefer Codex when a change affects:
-
-• multiple files
-• state
-• architecture
-• shared responsive behavior
-• component structure
-• new logic
-• test design
-• game rules
-• persistence
-• multiple features
-
-The purpose of manual editing is speed, not bypassing review discipline.
-
-────────
-
-4. Standard Feature Workflow
-
-For gameplay or architecture work:
+Integration should normally be mechanical:
 
 ```text
-Idea
-  ↓
-ChatGPT scope / architecture review
-  ↓
-Codex task
-  ↓
-Draft PR
-  ↓
-ChatGPT diff review
-  ↓
-Hardening if required
-  ↓
-Tests / build
-  ↓
-Merge
-  ↓
-GitHub Pages
-  ↓
-Real-device validation
+tested Work implementation
+    ↓
+exact patch / files
+    ↓
+apply and integrate
+    ↓
+tests
+    ↓
+production build
+    ↓
+device validation when relevant
 ```
 
-Do not merge because the implementation merely looks plausible.
+Review still determines whether the export is accepted. Codex should not recreate an exact approved implementation from a prose summary.
 
-Review the actual diff.
+## 6. Architecture and interface discipline
 
-────────
+Pure game-domain code must not depend on React, shell navigation, app components, DOM APIs, or browser storage. Shell navigation is presentation state, not gameplay state. Stable internal IDs—not IP addresses, hostnames, display names, or wallet addresses—identify entities. State should grow by domain slice, and external services remain behind application boundaries.
 
-5. Standard UX Workflow
-
-For visual, interaction, or mobile problems:
+A gameplay operation must be implemented once and exposed to every interface that needs it:
 
 ```text
-Observed UX problem
-        ↓
-ChatGPT defines experiment scope
-        ↓
-Work UX Lab
-        ↓
-Interactive prototype
-        ↓
-Implementation Handoff
-        ↓
-ChatGPT reviews recommendation
-        ↓
-Decision
-   ┌────┴────┐
-   │         │
-Manual     Codex
-small       non-trivial
-change      implementation
-   │         │
-   └────┬────┘
-        ↓
-GitHub
-        ↓
-Pages deployment
-        ↓
-Real-device validation
+                 GAME DOMAIN
+                      │
+          shared gameplay operations
+                      │
+              ┌───────┴───────┐
+              │               │
+           Terminal         GUI apps
 ```
 
-Work should solve the experience.
+Terminal is intended to be the primary power-user operational interface, but Terminal is not the domain. A GUI must not generate a Terminal command string to perform gameplay. No scan, connect, or exploit operation exists yet.
 
-Codex should solve the production implementation.
+Do not introduce plugin systems, event buses, dependency-injection frameworks, generic game engines, ECS, or generic persistence frameworks without a demonstrated requirement.
 
-────────
+## 7. Mobile and interaction validation
 
-6. Work Implementation Handoff Contract
+Mobile is a first-class target. Meaningful interaction changes should be checked for viewport stability, safe areas, software-keyboard behavior, touch targets, overflow, navigation, scrolling ownership, focus, and readable density.
 
-A useful Work experiment should finish with an implementation handoff containing:
+The current shell uses a dedicated Editing presentation for editable controls on mobile-style layouts. The shell should not become an arbitrary whole-page scroll surface: scrolling regions explicitly own their scrolling. Validate mobile interaction work on a real iPhone/Safari; desktop screenshots and automated viewport tests are useful but not sufficient evidence.
 
-Observed problem
+The opt-in viewport overlay retained in the repository is internal diagnostic tooling. It is not gameplay or a promised public feature and should only be documented further if that materially helps investigation.
 
-What is wrong in the current canonical build?
+## 8. Review and acceptance
 
-Root cause
+Keep changes focused. Review scope, architectural boundaries, tests, unintended coupling, mobile impact where relevant, and documentation accuracy. Planned systems—including scanning, traces, malware, progression, organizations, multiplayer, and external integrations—justify clean seams but not placeholder implementation.
 
-What is confirmed, and what remains a hypothesis?
+Before accepting a significant change, confirm:
 
-Experiments
+1. the exact problem and explicit exclusions;
+2. whether the work is experimentation or an implementation intended for integration;
+3. the repository base and affected boundaries;
+4. that logic is not duplicated and speculative architecture was not introduced;
+5. the required automated, browser, and physical-device evidence; and
+6. who is authorized to perform each Git lifecycle action.
 
-What alternatives were tested?
+## 9. Documentation ownership and anti-drift
 
-Recommended behavior
+- `README.md`: project entry point, technology, setup, and basic current description.
+- `V0.md`: current implemented scope.
+- `FUTURE.md`: confirmed directions that are not implementation contracts.
+- `ARCHITECTURE.md`: durable boundaries established by the codebase.
+- `HANDBOOK.md`: current process, tool roles, workflow, and review discipline.
 
-What should the user experience actually do?
+Every significant feature, architecture, or workflow change requires a documentation impact check. This does not require Markdown changes every time; the author and reviewer must explicitly decide whether any of the five documents above became inaccurate. If so, update the owning document in the same milestone or immediately afterward.
 
-Shared changes
-
-Which changes belong to the generic shell or shared UI?
-
-Feature-specific changes
-
-Which changes belong only to the feature being tested?
-
-Concrete implementation delta
-
-Reference current files, components, selectors, or interfaces where possible.
-
-Acceptance criteria
-
-Define observable pass/fail behavior.
-
-Limitations
-
-Document browser, platform, or implementation constraints that should not be fought unnecessarily.
-
-Experimental artifact
-
-Leave the best prototype inspectable when possible.
-
-The handoff should describe behavior and implementation intent.
-
-It should not require copying the prototype wholesale.
-
-────────
-
-7. Architectural Rules
-
-Domain is not UI
-
-Pure game-domain code must not depend on:
-
-• React
-• shell navigation
-• app components
-• DOM APIs
-• browser storage
-
-Shell is not Game State
-
-Opening Terminal, Wallet, Network, or another app is UI navigation.
-
-It should not mutate canonical game-domain state.
-
-UI is not Gameplay Logic
-
-Two interfaces performing the same gameplay operation must eventually call the same underlying game logic.
-
-Example:
-
-```text
-Terminal command ─┐
-                  ├──> Network scan action
-Network UI ───────┘
-```
-
-Do not implement duplicate scan behavior in Terminal and Network.
-
-Entity identity is stable
-
-Visible or mutable identifiers are not canonical identity.
-
-Examples:
-
-• IP address
-• hostname
-• display name
-• wallet address
-
-Future entities should use stable internal IDs.
-
-State should grow by domain
-
-Prefer new state slices/modules over continuously expanding one giant player object.
-
-External systems stay at the boundary
-
-Future external services such as:
-
-• authentication
-• multiplayer services
-• analytics
-• cloud saves
-• external economy systems
-• blockchain integrations
-
-must not become direct dependencies of pure game-domain logic.
-
-Avoid architecture without a current requirement
-
-Do not add:
-
-• plugin frameworks
-• event buses
-• dependency injection frameworks
-• generic game engines
-• ECS
-• generic persistence frameworks
-
-unless an actual implemented system creates a demonstrated need.
-
-────────
-
-8. Current Interface Architecture Direction
-
-Synthesis currently presents a fictional in-game operating system.
-
-Project:
-
-Synthesis
-
-Current in-game OS working name:
-
-NODE-OS
-
-These identities must remain separate.
-
-The current core app set is:
-
-• Terminal
-• Network
-• Wallet
-• Notes
-• Files
-• System
-
-Adding a new UI app should not require changing the pure game-domain model merely because the app exists.
-
-────────
-
-9. Mobile-First Rule
-
-Mobile is a first-class target.
-
-Every meaningful UI change should eventually be validated on a real phone.
-
-Important mobile concerns include:
-
-• viewport stability
-• safe areas
-• software keyboard behavior
-• touch targets
-• horizontal overflow
-• app navigation
-• scrolling ownership
-• input focus
-• Safari behavior
-• readable but dense typography
-
-Passing desktop screenshots is not sufficient evidence of good mobile UX.
-
-GitHub Pages is the canonical live validation environment.
-
-────────
-
-10. CI and Deployment Rule
-
-The canonical pipeline should remain:
-
-```text
-main
- ↓
-Install dependencies
- ↓
-Tests
- ↓
-Production build
- ↓
-GitHub Pages deployment
- ↓
-Live validation
-```
-
-A failed test or build blocks deployment.
-
-Do not weaken tests merely to make Pages green.
-
-Fix the underlying problem.
-
-When a lockfile is available and trusted, prefer deterministic dependency installation such as npm ci.
-
-────────
-
-11. Pull Request Discipline
-
-Prefer focused PRs.
-
-A PR should answer one clear question.
-
-Examples:
-
-Good:
-
-• mobile keyboard behavior
-• first Network scan mechanic
-• Wallet state transition
-• persistence layer for savegames
-• CI hardening
-
-Avoid combining:
-
-• gameplay feature
-• visual redesign
-• unrelated dependency upgrades
-• architecture rewrite
-• documentation overhaul
-
-unless they are genuinely inseparable.
-
-Every significant PR should be reviewed against:
-
-• scope
-• architecture
-• tests
-• unintended coupling
-• documentation accuracy
-• mobile impact where relevant
-
-────────
-
-12. Future-System Rule
-
-Synthesis may eventually contain systems that are currently unknown.
-
-Possible directions may include:
-
-• simulated networks
-• player discovery
-• causal traces
-• malware
-• mining
-• hardware progression
-• missions
-• organizations
-• multiplayer
-• multiple forms of in-game value
-• external integrations
-
-These possibilities justify clean boundaries.
-
-They do not justify implementing placeholder systems today.
-
-Build for the next real requirement while preserving obvious seams for growth.
-
-────────
-
-13. Decision Rule: Manual vs Work vs Codex
-
-Use this quick decision model:
-
-```text
-Is this primarily a UX/design question?
-        │
-       yes
-        ↓
-      Work
-        │
-        ↓
-Review recommendation
-        │
-        ├── tiny implementation → Manual
-        │
-        └── non-trivial implementation → Codex
-
-
-Is this primarily architecture/game logic/repository work?
-        │
-       yes
-        ↓
-      Codex
-
-
-Is it a tiny known correction with no meaningful architecture impact?
-        │
-       yes
-        ↓
-     Manual
-```
-
-If uncertain, prefer reviewing the problem with ChatGPT before implementation.
-
-────────
-
-14. Anti-Drift Checklist
-
-Before starting a significant task, ask:
-
-1. What exact problem are we solving?
-2. Is this canonical implementation or experimentation?
-3. Which tool owns this kind of work?
-4. Does the current repository already provide a boundary for it?
-5. Are we duplicating existing logic?
-6. Are we introducing architecture only for hypothetical future use?
-7. What is explicitly out of scope?
-8. How will the result be tested?
-9. Does this affect mobile behavior?
-10. What evidence is required before merge?
-
-If these questions are unclear, define the task more narrowly before coding.
-
-────────
-
-15. Documentation Ownership
-
-Use repository documentation for stable project knowledge.
-
-Recommended responsibilities:
-
-```text
-README.md
-→ project entry point and setup
-
-docs/V0.md
-→ current implemented game scope
-
-docs/FUTURE.md
-→ confirmed future directions
-
-docs/ARCHITECTURE.md
-→ canonical architectural boundaries
-
-docs/HANDBOOK.md
-→ development process, tool roles, review discipline
-```
-
-Do not turn HANDBOOK.md into a gameplay specification.
-
-Do not turn FUTURE.md into an implementation contract.
-
-Keep each document responsible for one kind of truth.
-
-────────
-
-16. Final Rule
-
-Prototype aggressively. Integrate conservatively.
-
-Work may explore freely.
-
-Codex may implement deeply.
-
-GitHub remains canonical.
-
-Every experimental idea must cross an explicit review boundary before becoming part of Synthesis.
+The goal is simple: repository documentation describes accepted reality.
