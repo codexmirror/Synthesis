@@ -18,6 +18,18 @@ Game state carries a schema version, but V0 does not implement saves or migratio
 
 Hardware specification is distinct from runtime utilization. Wallet state is likewise separate from player identity so each concern can evolve at its own boundary.
 
+## Entity-owned simulation state
+
+Simulated objects own their actual state. Gameplay operations observe or modify that state; interfaces must not invent parallel representations of it.
+
+A computing entity may own domain state such as network identity, hardware, runtime, and—when a real gameplay mechanic requires it—a filesystem, software, services, or other device-specific state. These properties should be added only when they are needed by implemented gameplay rather than as placeholders.
+
+Entity-owned state is the canonical source of truth. Terminal commands and graphical apps are interfaces over that same state. For example, when filesystems are introduced, a device’s files must belong to the simulated device rather than to the Files app. Terminal filesystem commands and the Files app must observe and modify the same underlying filesystem state.
+
+The same principle applies to future gameplay mutations. Tools, malware, exploits, or other mechanics should change actual simulated state, and later observations should derive from the resulting state rather than from scripted UI effects.
+
+Not every game entity must have every kind of state. A filesystem, services, software, network interfaces, or similar structures belong only to entity types and mechanics that actually require them. Synthesis should grow these models from concrete gameplay needs rather than introducing a universal entity or component framework prematurely.
+
 ## Shared operations and integrations
 
 A gameplay operation should eventually be implemented once behind an explicit game-level API and be callable from different interfaces. For example, a future terminal scan command and Network scan button should invoke the same domain operation; the Terminal must not reimplement the game. Cross-feature effects should similarly flow through explicit domain actions or services rather than one feature mutating another feature's UI. No generic action framework is needed in V0.
