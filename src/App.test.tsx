@@ -192,6 +192,33 @@ describe('dedicated editing viewport', () => {
     )
   })
 
+  it('does not mistake Safari chrome movement for keyboard recovery', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await updateViewport(viewport, { height: 538 })
+
+    // Safari toolbar movement can pan the reduced viewport all the way to the
+    // host bottom even though the software keyboard remains open.
+    await updateViewport(
+      viewport,
+      { height: 538, offsetTop: 306 },
+      'scroll',
+    )
+
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'true'))
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '306px',
+      '--node-edit-height': '538px',
+    })
+
+    await updateViewport(viewport, { height: 844, offsetTop: 0 })
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
+  })
+
   it('keeps editing latched on blur while the viewport remains reduced', async () => {
     const viewport = new ViewportStub()
     installViewport(viewport)

@@ -15,7 +15,7 @@ export interface EditingViewportState {
 interface ViewportMeasurement {
   editTop: number
   editHeight: number
-  visibleBottom: number
+  visualHeight: number
   healthyHeight: number
 }
 
@@ -131,7 +131,7 @@ export function useEditingViewport(): EditingViewportState {
         return {
           editTop: 0,
           editHeight: healthyHeight,
-          visibleBottom: Math.min(hostHeight, healthyHeight),
+          visualHeight: healthyHeight,
           healthyHeight,
         }
       }
@@ -148,7 +148,7 @@ export function useEditingViewport(): EditingViewportState {
       return {
         editTop: geometry.editTop,
         editHeight: geometry.editHeight,
-        visibleBottom: geometry.visibleBottom,
+        visualHeight: Math.max(0, Math.round(viewport.height)),
         healthyHeight: Math.max(
           1,
           Math.round(viewport.offsetTop + viewport.height),
@@ -177,7 +177,7 @@ export function useEditingViewport(): EditingViewportState {
     ): void => {
       const recovered = hasEditingViewportRecovered(
         hostHeightRef.current,
-        measurement.visibleBottom,
+        measurement.visualHeight,
       )
 
       if (!recovered) reducedGeometryObserved = true

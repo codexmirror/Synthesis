@@ -50,8 +50,8 @@ export function deriveEditingViewportGeometry({
 
 export function hasEditingViewportRecovered(
   hostHeight: number,
-  visibleBottom: number,
+  visualHeight: number,
   tolerance = RECOVERY_TOLERANCE,
 ): boolean {
-  return hostHeight - visibleBottom <= tolerance
+  return hostHeight - visualHeight <= tolerance
 }

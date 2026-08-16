@@ -55,8 +55,11 @@ describe('editing viewport geometry', () => {
     expect(isApproximatelyUnscaled(2)).toBe(false)
   })
 
-  it('uses the 24px recovery boundary inclusively', () => {
+  it('uses viewport height, not its panned bottom, for recovery', () => {
     expect(hasEditingViewportRecovered(844, 820)).toBe(true)
     expect(hasEditingViewportRecovered(844, 819)).toBe(false)
+    // Safari can pan a keyboard-reduced viewport until its bottom reaches the
+    // host bottom. Its 538px height must still be treated as keyboard-reduced.
+    expect(hasEditingViewportRecovered(844, 538)).toBe(false)
   })
 })
