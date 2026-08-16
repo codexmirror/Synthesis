@@ -5,6 +5,7 @@ import { useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
 import { scanNetworkTarget } from '../../core/game/scan'
+import { inspectNetworkTarget } from '../../core/game/inspect'
 
 interface Entry { command: string; output: string[] }
 
@@ -28,6 +29,10 @@ export function Terminal() {
       runtime: { ...gameState.player.localDevice.runtime },
       operations: {
         scanTarget: (target) => scanNetworkTarget({
+          localDevice: gameState.player.localDevice,
+          network: gameState.world.network,
+        }, target),
+        inspectTarget: (target) => inspectNetworkTarget({
           localDevice: gameState.player.localDevice,
           network: gameState.world.network,
         }, target),

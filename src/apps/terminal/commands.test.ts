@@ -6,7 +6,9 @@ import { createHelpCommand } from './commands/help'
 import { ipCommand } from './commands/ip'
 import { statusCommand } from './commands/status'
 import { scanCommand } from './commands/scan'
+import { inspectCommand } from './commands/inspect'
 import { scanNetworkTarget } from '../../core/game/scan'
+import { inspectNetworkTarget } from '../../core/game/inspect'
 import { parseCommand } from './parser'
 import { commands, dispatchCommand } from './registry'
 
@@ -14,15 +16,19 @@ const state = createInitialGameState()
 const context: CommandContext = {
   localDevice: { ip: state.player.localDevice.network.ip },
   runtime: { ...state.player.localDevice.runtime },
-  operations: { scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target) },
+  operations: {
+    scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
+    inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
+  },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context)
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(5)
+    expect(Object.keys(commands).filter((name) => name === 'inspect')).toHaveLength(1)
+    expect(new Set(Object.values(commands)).size).toBe(6)
   })
 
   it('derives help output from the command registry', () => {
@@ -61,11 +67,34 @@ describe('command dispatcher', () => {
     }
     const offlineContext: CommandContext = {
       ...context,
-      operations: { scanTarget: (target) => scanNetworkTarget({ localDevice: offlineDevice, network: state.world.network }, target) },
+      operations: {
+        ...context.operations,
+        scanTarget: (target) => scanNetworkTarget({ localDevice: offlineDevice, network: state.world.network }, target),
+      },
     }
     expect(dispatchCommand(parseCommand('scan 198.51.100.23'), offlineContext)).toEqual({
       type: 'output', lines: ['Scanning 198.51.100.23...', '', 'NO RESPONSE'],
     })
+  })
+
+  it('guides missing and extra inspect arguments and rejects invalid targets', () => {
+    expect(dispatch('inspect')).toEqual({ type: 'output', lines: ['Usage: inspect <ipv4>'] })
+    expect(dispatch('inspect 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: inspect <ipv4>'] })
+    expect(dispatch('inspect invalid')).toEqual({ type: 'output', lines: ['Invalid target: invalid'] })
+  })
+
+  it('renders state-derived local inspection and supported remote truth', () => {
+    expect(dispatch('inspect 198.51.100.23')).toEqual({ type: 'output', lines: [
+      'TARGET', 'Address: 198.51.100.23', 'Scope:   LOCAL', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
+    ] })
+    expect(dispatch('inspect 203.0.113.42')).toEqual({ type: 'output', lines: [
+      'TARGET', 'Address: 203.0.113.42', 'Scope:   REMOTE', 'Status:  ONLINE',
+    ] })
+  })
+
+  it('does not reveal whether inspect targets are offline or unknown', () => {
+    expect(dispatch('inspect 203.0.113.99')).toEqual({ type: 'output', lines: ['NO RESPONSE'] })
+    expect(dispatch('inspect 192.0.2.10')).toEqual({ type: 'output', lines: ['NO RESPONSE'] })
   })
 })
 
@@ -100,9 +129,21 @@ describe('individual commands', () => {
 
   it('delegates scan rules through the narrow operation dependency', () => {
     const scanTarget = vi.fn(() => ({ status: 'no_response' as const, address: '203.0.113.42' }))
-    expect(scanCommand.run({ ...context, operations: { scanTarget } }, ['203.0.113.42'])).toEqual({
+    expect(scanCommand.run({ ...context, operations: { ...context.operations, scanTarget } }, ['203.0.113.42'])).toEqual({
       type: 'output', lines: ['Scanning 203.0.113.42...', '', 'NO RESPONSE'],
     })
     expect(scanTarget).toHaveBeenCalledExactlyOnceWith('203.0.113.42')
+  })
+
+  it('delegates inspect rules through only the narrow operation dependency', () => {
+    const inspectTarget = vi.fn(() => ({
+      status: 'reachable' as const, targetId: 'changed-device', address: '192.0.2.44', scope: 'local' as const, networkStatus: 'ONLINE' as const,
+      hardware: { cpu: 'Changed CPU', ram: '12 GB' },
+    }))
+    expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['192.0.2.44'])).toEqual({
+      type: 'output',
+      lines: ['TARGET', 'Address: 192.0.2.44', 'Scope:   LOCAL', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
+    })
+    expect(inspectTarget).toHaveBeenCalledExactlyOnceWith('192.0.2.44')
   })
 })

@@ -32,14 +32,20 @@ Not every game entity must have every kind of state. A filesystem, services, sof
 
 ## Shared operations and integrations
 
-A gameplay operation is implemented once behind an explicit game-level API and is callable from different interfaces. Basic Scan V1 establishes this path: the application binds the current local device and world network to the pure scan operation and gives Terminal only that narrow callable dependency. Scan resolves those real targets from current state and derives local or remote observations without exposing entity state directly to the command. A future Network UI can call the same operation directly; it must not construct a Terminal command. Cross-feature effects should similarly flow through explicit domain actions or services rather than one feature mutating another feature's UI. No generic action framework is needed.
+A gameplay operation is implemented once behind an explicit game-level API and is callable from different interfaces. Network Analysis currently contains the separate `scan` and `inspect` verbs. The application binds the current local device and world network to those pure operations and gives Terminal only narrow callable dependencies. Both operations use one network-specific target resolver, then derive their distinct observations from the resolved entity's current state without exposing entity state directly to commands. Inspect can therefore report real local hardware while correctly limiting remote output to facts the remote host model owns. A future Network UI can call the same operations directly; it must not construct a Terminal command. Cross-feature effects should similarly flow through explicit domain actions or services rather than one feature mutating another feature's UI. No generic entity resolver or action framework is needed.
+
+Commands are interfaces, not installed tool objects or capabilities. Future Network Analysis upgrades should deepen the useful observations available through a small coherent operation family rather than automatically creating a standalone tool, command, registry, or permissions abstraction for every new fact.
 
 External services must enter through explicit adapters or interfaces at the application boundary and must not become direct dependencies of core game-domain logic.
 
 Terminal commands receive narrow, read-only values required by their behavior rather than unrestricted game state.
 
+## Entity-owned simulation state
+
+Simulated entities own their state; gameplay mechanics read or modify that state, and interfaces present the resulting observations. An interface must not invent entity properties or become their source of truth. For example, any future filesystem belonging to a simulated computer must live with that computing entity rather than in the Files UI. No simulated filesystem is implemented in V0.
+
 ## Interface and mobile presentation
 
-Terminal is intended to become the primary power-user operational interface, but it is not the game domain. Terminal and graphical apps must call the same domain operation directly; a GUI must not route gameplay through a Terminal command string. The current Terminal includes local informational and presentation commands plus the observational `scan <ipv4>` gameplay command. It receives no unrestricted game state, and scan presentation remains separate from the domain observation rule. Connect and exploit operations are not implemented.
+Terminal is intended to become the primary power-user operational interface, but it is not the game domain. Terminal and graphical apps must call the same domain operations directly; a GUI must not route gameplay through a Terminal command string. The current Terminal includes local informational and presentation commands plus the observational `scan <ipv4>` and `inspect <ipv4>` gameplay commands. It receives no unrestricted game state, and Network Analysis presentation remains separate from domain observation rules. Connect and exploit operations are not implemented.
 
 Mobile is a first-class presentation target. The shell owns viewport and Editing-presentation coordination, while individual scrollable regions explicitly own their scrolling. In the established text-entry layout, Terminal output scrolls independently of its prompt and the Notes textarea owns its own scrolling. These are presentation boundaries and must not leak browser or viewport concerns into `core/game`.
