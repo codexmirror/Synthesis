@@ -58,6 +58,7 @@ const originalNavigatorStandalone = Object.getOwnPropertyDescriptor(
   'standalone',
 )
 const originalUrl = window.location.href
+const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
 
 const EDITING_PRESENTATION_QUERY =
   '(max-width: 700px), (max-width: 900px) and (pointer: coarse)'
@@ -171,6 +172,8 @@ afterEach(() => {
     Reflect.deleteProperty(navigator, 'standalone')
   }
   window.history.replaceState(null, '', originalUrl)
+  if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard)
+  else Reflect.deleteProperty(navigator, 'clipboard')
 })
 
 function StateSnapshot() {
@@ -677,7 +680,8 @@ describe('Terminal', () => {
 
   it('runs ip', async () => {
     await command('ip')
-    expect(screen.getByText('Local address: 198.51.100.23')).toBeInTheDocument()
+    expect(screen.getByText('Local address:')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy target 198.51.100.23' })).toHaveTextContent('198.51.100.23')
   })
 
   it('runs status', async () => {
@@ -734,5 +738,51 @@ describe('Terminal', () => {
     input.blur()
     await user.click(screen.getByText(/terminal · Type/i))
     expect(input).not.toHaveFocus()
+  })
+
+  it('copies an exact target with local feedback without changing input or history', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const { user, input } = await openTerminal()
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    await user.type(input, 'scan home-net{enter}')
+    input.blur()
+    const token = screen.getByRole('button', { name: 'Copy target 198.51.100.47' })
+
+    expect(screen.getByText('Scanning home-net...')).not.toHaveAttribute('role', 'button')
+    await user.click(token)
+
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('198.51.100.47')
+    expect(token).toHaveTextContent('✓')
+    expect(input).not.toHaveFocus()
+    expect(input).toHaveValue('')
+    expect(screen.queryByText('Scanning 198.51.100.47...')).not.toBeInTheDocument()
+    input.focus()
+    await user.keyboard('{ArrowUp}')
+    expect(input).toHaveValue('scan home-net')
+  })
+
+  it('preserves focused prompt state on pointer copy and handles clipboard rejection', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    const { user, input } = await openTerminal()
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    await user.type(input, 'ip{enter}draft')
+    const token = screen.getByRole('button', { name: 'Copy target 198.51.100.23' })
+
+    fireEvent.pointerDown(token)
+    fireEvent.click(token)
+    await waitFor(() => expect(token).toHaveAttribute('data-copy-state', 'failed'))
+
+    expect(input).toHaveFocus()
+    expect(input).toHaveValue('draft')
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('198.51.100.23')
+  })
+
+  it('keeps historical structured targets interactive until clear', async () => {
+    const { user, input } = await openTerminal()
+    await user.type(input, 'ip{enter}status{enter}')
+    expect(screen.getByRole('button', { name: 'Copy target 198.51.100.23' })).toBeEnabled()
+    expect(screen.getByText('Network: ONLINE')).toBeInTheDocument()
+    await user.type(input, 'clear{enter}')
+    expect(screen.queryByRole('button', { name: 'Copy target 198.51.100.23' })).not.toBeInTheDocument()
   })
 })

@@ -1,4 +1,4 @@
-import type { TerminalCommand } from '../commandTypes'
+import { target as targetFragment, text, type TerminalCommand, type TerminalLine } from '../commandTypes'
 
 export const scanCommand: TerminalCommand = {
   description: 'Discover relationships and connected targets',
@@ -11,11 +11,11 @@ export const scanCommand: TerminalCommand = {
       return { type: 'output', lines: [`Unknown scan target: ${result.input}`] }
     }
     if (result.status === 'network') {
-      return { type: 'output', lines: [`Scanning ${result.networkName}...`, '', `DEVICES FOUND: ${result.devices.length}`, '', ...result.devices.map(({ address }) => address)] }
+      return { type: 'output', lines: [`Scanning ${result.networkName}...`, '', `DEVICES FOUND: ${result.devices.length}`, '', ...result.devices.map(({ address }) => [targetFragment(address)])] }
     }
-    const lines = [`Scanning ${result.address}...`, '']
+    const lines: TerminalLine[] = [`Scanning ${result.address}...`, '']
     if (result.status === 'no_response') return { type: 'output', lines: [...lines, 'NO RESPONSE'] }
     if (result.networks.length === 0) return { type: 'output', lines: [...lines, 'NO RELATIONSHIPS FOUND'] }
-    return { type: 'output', lines: [...lines, `RELATIONSHIPS FOUND: ${result.networks.length}`, '', ...result.networks.map(({ name }) => `Network: ${name}`)] }
+    return { type: 'output', lines: [...lines, `RELATIONSHIPS FOUND: ${result.networks.length}`, '', ...result.networks.map(({ name }) => [text('Network: '), targetFragment(name)])] }
   },
 }

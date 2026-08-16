@@ -1,4 +1,4 @@
-import type { TerminalCommand } from '../commandTypes'
+import { target, text, type TerminalCommand, type TerminalLine } from '../commandTypes'
 
 export const inspectCommand: TerminalCommand = {
   description: 'Show properties of one target',
@@ -11,10 +11,10 @@ export const inspectCommand: TerminalCommand = {
     }
     if (result.status === 'no_response') return { type: 'output', lines: ['NO RESPONSE'] }
     if (result.status === 'network') {
-      return { type: 'output', lines: ['NETWORK', `Name: ${result.networkName}`, `Connected: ${result.connected ? 'YES' : 'NO'}`] }
+      return { type: 'output', lines: ['NETWORK', [text('Name: '), target(result.networkName)], `Connected: ${result.connected ? 'YES' : 'NO'}`] }
     }
 
-    const lines = ['DEVICE', `Address: ${result.address}`, `Scope:   ${result.scope.toUpperCase()}`, `Status:  ${result.networkStatus}`]
+    const lines: TerminalLine[] = ['DEVICE', [text('Address: '), target(result.address)], `Scope:   ${result.scope.toUpperCase()}`, `Status:  ${result.networkStatus}`]
     if (result.scope === 'self') {
       lines.push(`CPU:     ${result.hardware.cpu}`, `RAM:     ${result.hardware.ram}`)
     }

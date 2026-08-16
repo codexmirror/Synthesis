@@ -6,8 +6,17 @@ import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
 import { scanNetworkTarget } from '../../core/game/scan'
 import { inspectNetworkTarget } from '../../core/game/inspect'
+import type { TerminalLine } from './commandTypes'
+import { TargetToken } from './TargetToken'
 
-interface Entry { command: string; output: string[] }
+interface Entry { command: string; output: TerminalLine[] }
+
+function TerminalOutputLine({ line }: { line: TerminalLine }) {
+  if (typeof line === 'string') return <>{line || '\u00a0'}</>
+  return <>{line.map((fragment, index) => fragment.type === 'target'
+    ? <TargetToken key={index} value={fragment.value} />
+    : <span key={index}>{fragment.value}</span>)}</>
+}
 
 export function Terminal() {
   const gameState = useGameState()
@@ -65,7 +74,7 @@ export function Terminal() {
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
             <div><span className="prompt">user@node:~$</span> {entry.command}</div>
-            {entry.output.map((line, lineIndex) => <div key={lineIndex}>{line || '\u00a0'}</div>)}
+            {entry.output.map((line, lineIndex) => <div key={lineIndex}><TerminalOutputLine line={line} /></div>)}
           </div>
         ))}
       </div>
