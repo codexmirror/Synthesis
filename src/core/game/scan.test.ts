@@ -34,7 +34,7 @@ describe('scanNetworkTarget', () => {
   })
 
   it('derives remote response from current host state without mutation', () => {
-    const offlineNetwork = { hosts: state.world.network.hosts.map((host) => ({ ...host, online: false })) }
+    const offlineNetwork = { ...state.world.network, hosts: state.world.network.hosts.map((host) => ({ ...host, online: false })) }
     const snapshot = structuredClone(offlineNetwork)
     expect(scanNetworkTarget({ ...targets, network: offlineNetwork }, '203.0.113.42')).toEqual({ status: 'no_response', address: '203.0.113.42' })
     expect(offlineNetwork).toEqual(snapshot)

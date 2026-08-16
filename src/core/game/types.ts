@@ -38,8 +38,17 @@ export interface NetworkHost {
   readonly online: boolean
 }
 
+export interface LocalNetwork {
+  /** Stable entity identity, separate from the player-visible network name. */
+  readonly id: string
+  readonly name: string
+  /** Canonical membership relation for devices represented on this network. */
+  readonly memberDeviceIds: readonly string[]
+}
+
 export interface NetworkState {
   readonly hosts: readonly NetworkHost[]
+  readonly localNetworks: readonly LocalNetwork[]
 }
 
 export interface WorldState {

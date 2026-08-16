@@ -14,13 +14,15 @@ New game systems should normally become separate domain slices instead of expand
 
 ## Identity and state
 
-Game state carries a schema version, but V0 does not implement saves or migrations. Stable internal IDs identify game entities. Mutable presentation or gameplay attributes—including IP addresses, display names, hostnames, and wallet addresses—must not serve as entity identity. The player owns an explicit local device with its own stable identity. `player.id`, the local device ID, and world network host IDs are distinct identities, while IPs are mutable simulated network attributes. The local device is the single source of truth for the player's current IP, hardware, and runtime state; wallet remains a separate domain slice and remote hosts remain world state.
+Game state carries a schema version, but V0 does not implement saves or migrations. Stable internal IDs identify game entities. Mutable presentation or gameplay attributes—including IP addresses, network names, display names, hostnames, and wallet addresses—must not serve as entity identity. The player owns an explicit local device with its own stable identity. `player.id`, the local device ID, local network IDs, and world network host IDs are distinct identities, while IPs and network names are mutable simulated attributes. The local device is the single source of truth for the player's current IP, hardware, and runtime state; wallet remains a separate domain slice and remote hosts remain world state.
 
 Hardware specification is distinct from runtime utilization. Wallet state is likewise separate from player identity so each concern can evolve at its own boundary.
 
 ## Entity-owned simulation state
 
 Simulated objects own their actual state. Gameplay operations observe or modify that state; interfaces must not invent parallel representations of it.
+
+The world currently owns one concrete local-network entity with a stable ID and player-visible name. Its member device IDs are the single canonical membership relation; the local device does not duplicate a network ID. Inspect follows that relation and returns only a narrow network reference for presentation. Network entities are not yet inspectable or scannable, and the shared target resolver remains limited to IPv4 devices and hosts.
 
 A computing entity may own domain state such as network identity, hardware, runtime, and—when a real gameplay mechanic requires it—a filesystem, software, services, or other device-specific state. These properties should be added only when they are needed by implemented gameplay rather than as placeholders.
 
@@ -39,10 +41,6 @@ Commands are interfaces, not installed tool objects or capabilities. Future Netw
 External services must enter through explicit adapters or interfaces at the application boundary and must not become direct dependencies of core game-domain logic.
 
 Terminal commands receive narrow, read-only values required by their behavior rather than unrestricted game state.
-
-## Entity-owned simulation state
-
-Simulated entities own their state; gameplay mechanics read or modify that state, and interfaces present the resulting observations. An interface must not invent entity properties or become their source of truth. For example, any future filesystem belonging to a simulated computer must live with that computing entity rather than in the Files UI. No simulated filesystem is implemented in V0.
 
 ## Interface and mobile presentation
 
