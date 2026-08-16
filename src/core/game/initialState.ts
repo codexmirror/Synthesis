@@ -27,9 +27,10 @@ export function createInitialGameState(): GameState {
     world: {
       network: {
         localNetworks: [
-          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0'] },
+          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'] },
         ],
         hosts: [
+          { id: 'host-lan-001', ip: '198.51.100.47', online: true },
           { id: 'host-training-001', ip: '203.0.113.42', online: true },
           { id: 'host-training-002', ip: '203.0.113.99', online: false },
         ],

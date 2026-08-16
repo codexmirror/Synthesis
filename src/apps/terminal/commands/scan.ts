@@ -1,18 +1,20 @@
 import type { TerminalCommand } from '../commandTypes'
 
 export const scanCommand: TerminalCommand = {
-  description: 'Scan one IPv4 target',
+  description: 'Discover a device or local network',
   run: ({ operations }, args) => {
-    if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4>'] }
+    if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4|network-name>'] }
 
     const [target] = args
     const result = operations.scanTarget(target)
-    if (result.status === 'invalid_target') {
-      return { type: 'output', lines: [`Invalid target: ${result.input}`] }
+    if (result.status === 'unknown_target') {
+      return { type: 'output', lines: [`Unknown scan target: ${result.input}`] }
     }
-
+    if (result.status === 'network') {
+      return { type: 'output', lines: [`Scanning ${result.networkName}...`, '', `DEVICES FOUND: ${result.devices.length}`, '', ...result.devices.map(({ address }) => address)] }
+    }
     const lines = [`Scanning ${result.address}...`, '']
     if (result.status === 'no_response') return { type: 'output', lines: [...lines, 'NO RESPONSE'] }
-    return { type: 'output', lines: [...lines, 'HOST ONLINE', `Address: ${result.address}`, `Scope:   ${result.scope.toUpperCase()}`] }
+    return { type: 'output', lines: [...lines, 'HOST ONLINE', `Address: ${result.address}`, `Scope:   ${result.scope.toUpperCase()}`, ...(result.networkName ? [`Network: ${result.networkName}`] : [])] }
   },
 }

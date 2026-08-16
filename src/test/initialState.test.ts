@@ -36,12 +36,13 @@ describe('createInitialGameState', () => {
       runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: 'ONLINE' },
     })
     expect(state.world.network.hosts).toEqual([
+      { id: 'host-lan-001', ip: '198.51.100.47', online: true },
       { id: 'host-training-001', ip: '203.0.113.42', online: true },
       { id: 'host-training-002', ip: '203.0.113.99', online: false },
     ])
     expect(state.world.network.hosts).not.toContainEqual(expect.objectContaining({ id: state.player.localDevice.id }))
     expect(state.world.network.localNetworks).toEqual([
-      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id] },
+      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'] },
     ])
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')

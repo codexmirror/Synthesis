@@ -44,11 +44,11 @@ describe('command dispatcher', () => {
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
   it('dispatches clear as a structured result', () => expect(dispatch('clear')).toEqual({ type: 'clear' }))
   it('guides missing and extra scan arguments', () => {
-    expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4>'] })
-    expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4>'] })
+    expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
+    expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
-    expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Invalid target: 999.999.999.999'] })
+    expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })
     expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'HOST ONLINE', 'Address: 203.0.113.42', 'Scope:   REMOTE'] })
     expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
     expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
@@ -56,7 +56,7 @@ describe('command dispatcher', () => {
   it('renders local scope when scanning the current device', () => {
     expect(dispatch('scan 198.51.100.23')).toEqual({
       type: 'output',
-      lines: ['Scanning 198.51.100.23...', '', 'HOST ONLINE', 'Address: 198.51.100.23', 'Scope:   LOCAL'],
+      lines: ['Scanning 198.51.100.23...', '', 'HOST ONLINE', 'Address: 198.51.100.23', 'Scope:   SELF', 'Network: home-net'],
     })
   })
 
@@ -85,17 +85,22 @@ describe('command dispatcher', () => {
 
   it('renders state-derived local inspection and supported remote truth', () => {
     expect(dispatch('inspect 198.51.100.23')).toEqual({ type: 'output', lines: [
-      'TARGET', 'Address: 198.51.100.23', 'Scope:   LOCAL', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
+      'TARGET', 'Address: 198.51.100.23', 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
       'Network: home-net',
     ] })
     expect(dispatch('inspect 203.0.113.42')).toEqual({ type: 'output', lines: [
       'TARGET', 'Address: 203.0.113.42', 'Scope:   REMOTE', 'Status:  ONLINE',
     ] })
+    expect(dispatch('inspect 198.51.100.47')).toEqual({ type: 'output', lines: [
+      'TARGET', 'Address: 198.51.100.47', 'Scope:   LAN', 'Status:  ONLINE', 'Network: home-net',
+    ] })
   })
 
-  it('keeps network names outside the IPv4-only inspect and scan grammars', () => {
+  it('scans network names while inspect remains IPv4-only', () => {
     expect(dispatch('inspect home-net')).toEqual({ type: 'output', lines: ['Invalid target: home-net'] })
-    expect(dispatch('scan home-net')).toEqual({ type: 'output', lines: ['Invalid target: home-net'] })
+    const output = dispatch('scan home-net')
+    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', '198.51.100.23', '198.51.100.47'] })
+    expect(output).not.toMatchObject({ lines: expect.arrayContaining(['device-local-v0', 'host-lan-001']) })
   })
 
   it('does not reveal whether inspect targets are offline or unknown', () => {
@@ -143,12 +148,12 @@ describe('individual commands', () => {
 
   it('delegates inspect rules through only the narrow operation dependency', () => {
     const inspectTarget = vi.fn(() => ({
-      status: 'reachable' as const, targetId: 'changed-device', address: '192.0.2.44', scope: 'local' as const, networkStatus: 'ONLINE' as const,
+      status: 'reachable' as const, targetId: 'changed-device', address: '192.0.2.44', scope: 'self' as const, networkStatus: 'ONLINE' as const,
       hardware: { cpu: 'Changed CPU', ram: '12 GB' },
     }))
     expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['192.0.2.44'])).toEqual({
       type: 'output',
-      lines: ['TARGET', 'Address: 192.0.2.44', 'Scope:   LOCAL', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
+      lines: ['TARGET', 'Address: 192.0.2.44', 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
     })
     expect(inspectTarget).toHaveBeenCalledExactlyOnceWith('192.0.2.44')
   })

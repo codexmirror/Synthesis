@@ -1,4 +1,4 @@
-import type { LocalDeviceState, NetworkHost, NetworkState } from './types'
+import type { LocalDeviceState, LocalNetwork, NetworkHost, NetworkState } from './types'
 
 export interface NetworkTargets {
   readonly localDevice: Readonly<LocalDeviceState>
@@ -6,8 +6,21 @@ export interface NetworkTargets {
 }
 
 export type ResolvedNetworkTarget =
-  | { readonly scope: 'local'; readonly entity: Readonly<LocalDeviceState> }
-  | { readonly scope: 'remote'; readonly entity: Readonly<NetworkHost> }
+  | { readonly scope: 'self'; readonly entity: Readonly<LocalDeviceState> }
+  | { readonly scope: 'lan' | 'remote'; readonly entity: Readonly<NetworkHost> }
+
+export function findSharedLocalNetwork(
+  targets: Readonly<NetworkTargets>,
+  targetId: string,
+): Readonly<LocalNetwork> | undefined {
+  return targets.network.localNetworks.find(({ memberDeviceIds }) =>
+    memberDeviceIds.includes(targets.localDevice.id) && memberDeviceIds.includes(targetId),
+  )
+}
+
+export function classifyHostScope(targets: Readonly<NetworkTargets>, targetId: string): 'lan' | 'remote' {
+  return findSharedLocalNetwork(targets, targetId) ? 'lan' : 'remote'
+}
 
 export function isValidIpv4(input: string): boolean {
   const octets = input.split('.')
@@ -20,9 +33,15 @@ export function isValidIpv4(input: string): boolean {
 /** Resolve represented network entities without deciding whether they respond. */
 export function resolveNetworkTarget(targets: Readonly<NetworkTargets>, address: string): ResolvedNetworkTarget | undefined {
   if (targets.localDevice.network.ip === address) {
-    return { scope: 'local', entity: targets.localDevice }
+    return { scope: 'self', entity: targets.localDevice }
   }
 
   const host = targets.network.hosts.find(({ ip }) => ip === address)
-  return host ? { scope: 'remote', entity: host } : undefined
+  if (!host) return undefined
+  return { scope: classifyHostScope(targets, host.id), entity: host }
+}
+
+/** Resolve only the currently supported player-visible local-network name target. */
+export function resolveLocalNetwork(network: Readonly<NetworkState>, name: string): Readonly<LocalNetwork> | undefined {
+  return network.localNetworks.find((candidate) => candidate.name === name)
 }
