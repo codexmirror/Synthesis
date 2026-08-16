@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  anchorEditingIntentTop,
   deriveEditingViewportGeometry,
   hasEditingViewportRecovered,
   isApproximatelyUnscaled,
@@ -61,5 +62,10 @@ describe('editing viewport geometry', () => {
     // Safari can pan a keyboard-reduced viewport until its bottom reaches the
     // host bottom. Its 538px height must still be treated as keyboard-reduced.
     expect(hasEditingViewportRecovered(844, 538)).toBe(false)
+  })
+
+  it('counteracts VisualViewport camera movement during editing intent', () => {
+    expect(anchorEditingIntentTop(64, 0, 80)).toBe(144)
+    expect(anchorEditingIntentTop(64, 24, 0)).toBe(40)
   })
 })

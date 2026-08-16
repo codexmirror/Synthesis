@@ -207,6 +207,16 @@ describe('dedicated editing viewport', () => {
       '--node-edit-height': '726px',
     })
 
+    await updateViewport(
+      viewport,
+      { height: 844, offsetTop: 80 },
+      'scroll',
+    )
+    expect(shell).toHaveStyle({
+      '--node-edit-top': '144px',
+      '--node-edit-height': '726px',
+    })
+
     await updateViewport(viewport, { height: 514, offsetTop: 24 })
 
     expect(shell).toHaveStyle({

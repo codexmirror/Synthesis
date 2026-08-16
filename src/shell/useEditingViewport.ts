@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  anchorEditingIntentTop,
   deriveEditingViewportGeometry,
   hasEditingViewportRecovered,
   isApproximatelyUnscaled,
@@ -17,6 +18,7 @@ interface ViewportMeasurement {
   editTop: number
   editHeight: number
   visualHeight: number
+  visualTop: number
   healthyHeight: number
 }
 
@@ -113,6 +115,8 @@ export function useEditingViewport(): EditingViewportState {
     let editableFocused = false
     let editingLatched = false
     let editingGeometryReady = false
+    let intentGeometry: ViewportMeasurement | null = null
+    let intentViewportTop = 0
     let reducedGeometryObserved = false
     let suppressUntilNewFocus = false
     let touchX = 0
@@ -137,6 +141,7 @@ export function useEditingViewport(): EditingViewportState {
           editTop: 0,
           editHeight: healthyHeight,
           visualHeight: healthyHeight,
+          visualTop: 0,
           healthyHeight,
         }
       }
@@ -154,6 +159,7 @@ export function useEditingViewport(): EditingViewportState {
         editTop: geometry.editTop,
         editHeight: geometry.editHeight,
         visualHeight: Math.max(0, Math.round(viewport.height)),
+        visualTop: Math.max(0, Math.round(viewport.offsetTop)),
         healthyHeight: Math.max(
           1,
           Math.round(viewport.offsetTop + viewport.height),
@@ -191,6 +197,7 @@ export function useEditingViewport(): EditingViewportState {
         editTop: Math.max(0, Math.round(appRect.top - shellRect.top)),
         editHeight: Math.max(1, Math.round(appRect.height)),
         visualHeight: hostHeightRef.current,
+        visualTop: 0,
         healthyHeight: hostHeightRef.current,
       }
     }
@@ -198,6 +205,7 @@ export function useEditingViewport(): EditingViewportState {
     const stopEditing = (healthyHeight: number) => {
       editingLatched = false
       editingGeometryReady = false
+      intentGeometry = null
       reducedGeometryObserved = false
       suppressUntilNewFocus = editableFocused
       publishNormal(healthyHeight)
@@ -212,12 +220,27 @@ export function useEditingViewport(): EditingViewportState {
       )
 
       if (!editingGeometryReady && recovered) {
-        if (!editableFocused) stopEditing(measurement.healthyHeight)
+        if (!editableFocused) {
+          stopEditing(measurement.healthyHeight)
+        } else if (intentGeometry) {
+          // offsetTop is browser camera movement here, not application scroll.
+          // Apply its delta inside the Shell so the intent rectangle keeps the
+          // same physical screen position until keyboard height is authoritative.
+          publishEditing({
+            ...intentGeometry,
+            editTop: anchorEditingIntentTop(
+              intentGeometry.editTop,
+              intentViewportTop,
+              measurement.visualTop,
+            ),
+          })
+        }
         return
       }
 
       if (!recovered) {
         editingGeometryReady = true
+        intentGeometry = null
         reducedGeometryObserved = true
       }
 
@@ -238,6 +261,7 @@ export function useEditingViewport(): EditingViewportState {
       editableFocused = false
       editingLatched = false
       editingGeometryReady = false
+      intentGeometry = null
       reducedGeometryObserved = false
       suppressUntilNewFocus = false
       publishNormal(measurement.healthyHeight)
@@ -296,9 +320,12 @@ export function useEditingViewport(): EditingViewportState {
 
         if (recovered) {
           editingGeometryReady = false
-          publishEditing(readIntentGeometry(event.target) ?? measurement)
+          intentGeometry = readIntentGeometry(event.target) ?? measurement
+          intentViewportTop = measurement.visualTop
+          publishEditing(intentGeometry)
         } else {
           editingGeometryReady = true
+          intentGeometry = null
           reducedGeometryObserved = true
           publishEditing(measurement)
         }

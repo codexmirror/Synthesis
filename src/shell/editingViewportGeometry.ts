@@ -55,3 +55,14 @@ export function hasEditingViewportRecovered(
 ): boolean {
   return hostHeight - visualHeight <= tolerance
 }
+
+export function anchorEditingIntentTop(
+  intentTop: number,
+  focusViewportTop: number,
+  currentViewportTop: number,
+): number {
+  return Math.max(
+    0,
+    Math.round(intentTop + currentViewportTop - focusViewportTop),
+  )
+}
