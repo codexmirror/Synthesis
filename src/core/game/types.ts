@@ -36,6 +36,19 @@ export interface NetworkHost {
   readonly id: string
   readonly ip: string
   readonly online: boolean
+  /** Present only when the represented device has a concrete server role. */
+  readonly role?: 'server'
+  /** Network services owned by this device, not a global service registry. */
+  readonly services?: readonly NetworkService[]
+}
+
+export interface NetworkService {
+  /** Stable service identity; name and port are mutable service attributes. */
+  readonly id: string
+  readonly name: string
+  readonly port: number
+  readonly protocol: 'TCP' | 'UDP'
+  readonly open: boolean
 }
 
 export interface LocalNetwork {

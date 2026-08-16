@@ -54,14 +54,14 @@ describe('command dispatcher', () => {
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })
-    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'NO RELATIONSHIPS FOUND'] })
+    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'NO RELATIONSHIPS OR SERVICES FOUND'] })
     expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
     expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
   })
   it('renders local scope when scanning the current device', () => {
     expect(dispatch('scan 198.51.100.23')).toEqual({
       type: 'output',
-      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'home-net')],
+      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'home-net'), '', 'SERVICES FOUND: 0'],
     })
   })
 
@@ -96,8 +96,24 @@ describe('command dispatcher', () => {
       'DEVICE', labeledTarget('Address: ', '203.0.113.42'), 'Scope:   REMOTE', 'Status:  ONLINE',
     ] })
     expect(dispatch('inspect 198.51.100.47')).toEqual({ type: 'output', lines: [
-      'DEVICE', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE',
+      'SERVER', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE',
     ] })
+  })
+
+  it('renders server services without exposing IDs or making service facts Target Tokens', () => {
+    const inspection = dispatch('inspect 198.51.100.47')
+    expect(JSON.stringify(inspection)).not.toMatch(/service-ssh-001|host-lan-001|CPU|RAM|SSH/)
+
+    const output = dispatch('scan 198.51.100.47')
+    expect(output).toEqual({ type: 'output', lines: [
+      'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'home-net'),
+      '', 'SERVICES FOUND: 1', '', 'SSH', 'Port: 22', 'Protocol: TCP',
+    ] })
+    expect(JSON.stringify(output)).not.toMatch(/service-ssh-001|host-lan-001/)
+    if (output.type === 'output') {
+      expect(output.lines.flatMap((line) => typeof line === 'string' ? [] : line).filter(({ type }) => type === 'target'))
+        .toEqual([target('home-net')])
+    }
   })
 
   it('scans and inspects real network names without exposing stable IDs', () => {

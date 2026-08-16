@@ -14,7 +14,8 @@ export const inspectCommand: TerminalCommand = {
       return { type: 'output', lines: ['NETWORK', [text('Name: '), target(result.networkName)], `Connected: ${result.connected ? 'YES' : 'NO'}`] }
     }
 
-    const lines: TerminalLine[] = ['DEVICE', [text('Address: '), target(result.address)], `Scope:   ${result.scope.toUpperCase()}`, `Status:  ${result.networkStatus}`]
+    const heading = result.scope !== 'self' && result.deviceKind === 'server' ? 'SERVER' : 'DEVICE'
+    const lines: TerminalLine[] = [heading, [text('Address: '), target(result.address)], `Scope:   ${result.scope.toUpperCase()}`, `Status:  ${result.networkStatus}`]
     if (result.scope === 'self') {
       lines.push(`CPU:     ${result.hardware.cpu}`, `RAM:     ${result.hardware.ram}`)
     }

@@ -10,6 +10,7 @@ describe('scanNetworkTarget outward discovery', () => {
     expect(scanNetworkTarget(targets, '198.51.100.23')).toEqual({
       status: 'device', targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self',
       networks: [{ id: 'network-local-001', name: 'home-net' }],
+      services: [],
     })
     const renamed = { ...targets.network, localNetworks: [{ ...targets.network.localNetworks[0], name: 'my-lan' }] }
     expect(scanNetworkTarget({ ...targets, network: renamed }, '198.51.100.23')).toMatchObject({
@@ -85,8 +86,34 @@ describe('scanNetworkTarget outward discovery', () => {
       status: 'device', scope: 'lan', networks: [{ id: 'network-local-001', name: 'home-net' }],
     })
     expect(scanNetworkTarget(targets, '203.0.113.42')).toEqual({
-      status: 'device', targetId: 'host-training-001', address: '203.0.113.42', scope: 'remote', networks: [],
+      status: 'device', targetId: 'host-training-001', address: '203.0.113.42', scope: 'remote', networks: [], services: [],
     })
+  })
+
+  it('derives open service discoveries from current server state while retaining identity', () => {
+    expect(scanNetworkTarget(targets, '198.51.100.47')).toMatchObject({
+      services: [{ id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP' }],
+    })
+
+    const hosts = targets.network.hosts.map((host) => host.id === 'host-lan-001'
+      ? { ...host, services: [{ ...host.services![0], name: 'Secure Shell', port: 2222 }] }
+      : host)
+    expect(scanNetworkTarget({ ...targets, network: { ...targets.network, hosts } }, '198.51.100.47')).toMatchObject({
+      services: [{ id: 'service-ssh-001', name: 'Secure Shell', port: 2222, protocol: 'TCP' }],
+    })
+  })
+
+  it('does not discover closed or removed services', () => {
+    const withServices = (services: typeof targets.network.hosts[number]['services']) => ({
+      ...targets,
+      network: {
+        ...targets.network,
+        hosts: targets.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, services } : host),
+      },
+    })
+    expect(scanNetworkTarget(withServices([{ ...targets.network.hosts[0].services![0], open: false }]), '198.51.100.47'))
+      .toMatchObject({ services: [] })
+    expect(scanNetworkTarget(withServices([]), '198.51.100.47')).toMatchObject({ services: [] })
   })
 
   it('preserves valid IPv4 no-response and rejects unsupported forms', () => {

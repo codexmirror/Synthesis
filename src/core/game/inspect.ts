@@ -17,6 +17,7 @@ export type InspectResult =
     readonly address: string
     readonly scope: 'lan' | 'remote'
     readonly networkStatus: 'ONLINE'
+    readonly deviceKind: 'device' | 'server'
   }
   | {
     readonly status: 'network'
@@ -53,6 +54,9 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
       : { status: 'no_response', address: input }
   }
   return resolved.entity.online
-    ? { status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE' }
+    ? {
+      status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE',
+      deviceKind: resolved.entity.role === 'server' ? 'server' : 'device',
+    }
     : { status: 'no_response', address: input }
 }
