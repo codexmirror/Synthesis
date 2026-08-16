@@ -45,13 +45,17 @@ export function startProcess(state: ProcessState, hardware: HardwareState, runti
 }
 
 export function advanceProcesses(state: ProcessState, hardware: HardwareState, runtime: RuntimeState, elapsedMs: number): ProcessState {
+  if (elapsedMs <= 0) return state
+  const runningAtStart = state.processes.filter((process) => process.status === 'running')
+  if (!runningAtStart.length) return state
+  const availableCompute = hardware.cpu.computeCapacity * Math.max(0, 1 - runtime.baselineCpuLoad / 100)
+  if (availableCompute <= 0) return state
   let remainingSeconds = Math.max(0, elapsedMs) / 1000
-  let processes = state.processes.map((process) => ({ ...process }))
+  let processes = [...state.processes]
   while (remainingSeconds > 1e-10) {
     const running = processes.filter((process) => process.status === 'running')
     if (!running.length) break
-    const rate = hardware.cpu.computeCapacity * Math.max(0, 1 - runtime.baselineCpuLoad / 100) / running.length
-    if (rate <= 0) break
+    const rate = availableCompute / running.length
     const toCompletion = Math.min(...running.map((process) => (process.workRequired - process.workCompleted) / rate))
     const step = Math.min(remainingSeconds, toCompletion)
     processes = processes.map((process) => process.status !== 'running' ? process : {

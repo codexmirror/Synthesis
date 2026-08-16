@@ -4,22 +4,37 @@ import type { GameState } from '../core/game/types'
 import { advanceProcesses, startProcess, type StartProcessInput, type StartProcessResult } from '../core/game/processes'
 
 const GameContext = createContext<GameState | null>(null)
-interface GameActions { startProcess(input: StartProcessInput): StartProcessResult }
+export type GameActionStartProcessInput = Omit<StartProcessInput, 'executorDeviceId'>
+interface GameActions { startProcess(input: GameActionStartProcessInput): StartProcessResult }
 const GameActionsContext = createContext<GameActions | null>(null)
 
 export function GameProvider({ children, initialState }: { children: ReactNode; initialState?: GameState }) {
   const [gameState, setGameState] = useState(() => initialState ?? createInitialGameState())
+  const currentState = useRef(gameState)
   const lastTick = useRef(performance.now())
   useEffect(() => {
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
-      setGameState((state) => ({ ...state, process: advanceProcesses(state.process, state.player.localDevice.hardware, state.player.localDevice.runtime, elapsed) }))
+      const state = currentState.current
+      const process = advanceProcesses(state.process, state.player.localDevice.hardware, state.player.localDevice.runtime, elapsed)
+      if (process === state.process) return
+      const nextState = { ...state, process }
+      currentState.current = nextState
+      setGameState(nextState)
     }, 250)
     return () => window.clearInterval(timer)
   }, [])
   const actions: GameActions = { startProcess(input) {
-    const result = startProcess(gameState.process, gameState.player.localDevice.hardware, gameState.player.localDevice.runtime, input)
-    if (result.status === 'started') setGameState((state) => ({ ...state, process: result.state }))
+    const state = currentState.current
+    const result = startProcess(state.process, state.player.localDevice.hardware, state.player.localDevice.runtime, {
+      ...input,
+      executorDeviceId: state.player.localDevice.id,
+    })
+    if (result.status === 'started') {
+      const nextState = { ...state, process: result.state }
+      currentState.current = nextState
+      setGameState(nextState)
+    }
     return result
   } }
   return <GameActionsContext.Provider value={actions}><GameContext.Provider value={gameState}>{children}</GameContext.Provider></GameActionsContext.Provider>

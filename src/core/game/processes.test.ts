@@ -41,4 +41,13 @@ describe('process resource domain', () => {
     expect(once.processes[1].workCompleted).toBeCloseTo(61.5); expect(once).toEqual(chunked)
   })
   it('does not mutate inputs', () => { const state = started(input()); const snapshot = structuredClone(state); deriveResourceUsage(hardware, runtime, state); advanceProcesses(state, hardware, runtime, 500); expect(state).toEqual(snapshot) })
+  it('preserves identity when advancement cannot change work', () => {
+    const completed = advanceProcesses(started(input('Done', 100, 1)), hardware, runtime, 1000)
+    const noCpu = { ...hardware, cpu: { ...hardware.cpu, computeCapacity: 0 } }
+    expect(advanceProcesses(game.process, hardware, runtime, 1000)).toBe(game.process)
+    expect(advanceProcesses(completed, hardware, runtime, 1000)).toBe(completed)
+    const running = started(input())
+    expect(advanceProcesses(running, hardware, runtime, 0)).toBe(running)
+    expect(advanceProcesses(running, noCpu, runtime, 1000)).toBe(running)
+  })
 })
