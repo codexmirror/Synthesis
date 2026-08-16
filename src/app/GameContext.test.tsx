@@ -21,7 +21,25 @@ function ClearHarness({ onRender }: { onRender?: () => void }) {
   return <><button onClick={actions.clearCompletedProcesses}>clear</button><output>{JSON.stringify(state)}</output></>
 }
 
+function EndpointHarness() {
+  const actions = useGameActions(); const state = useGameState()
+  return <><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:22').status }}>old</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:2222').status }}>current</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('invalid').status }}>invalid</button><output>{JSON.stringify(state.process)}</output></>
+}
+
 describe('GameProvider service-analysis actions', () => {
+  it('atomically resolves player-visible endpoints against the latest world state', () => {
+    const base = createInitialGameState(); const host = base.world.network.hosts[0]
+    const moved: GameState = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) }, ...base.world.network.hosts.slice(1)] } } }
+    render(<GameProvider initialState={moved}><EndpointHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'old' }))
+    expect(document.body.dataset.endpointResult).toBe('endpoint_not_found')
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '').processes).toEqual([])
+    fireEvent.click(screen.getByRole('button', { name: 'invalid' }))
+    expect(document.body.dataset.endpointResult).toBe('invalid_endpoint')
+    fireEvent.click(screen.getByRole('button', { name: 'current' }))
+    expect(document.body.dataset.endpointResult).toBe('started')
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '').processes[0]).toMatchObject({ targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:2222' })
+  })
   it('atomically retains two concrete back-to-back starts', () => {
     let renders = 0
     render(<GameProvider><ActionHarness onRender={() => { renders += 1 }} /></GameProvider>); fireEvent.click(screen.getByRole('button', { name: 'start' }))

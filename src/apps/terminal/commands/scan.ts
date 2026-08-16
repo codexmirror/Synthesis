@@ -2,7 +2,7 @@ import { target as targetFragment, text, type TerminalCommand, type TerminalLine
 import { isIpv4EndpointSyntax } from '../../../core/game/networkTarget'
 
 export const scanCommand: TerminalCommand = {
-  description: 'Discover relationships and connected targets',
+  description: 'Discover devices, relationships, and exposed services',
   run: ({ operations }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4|network-name>'] }
 

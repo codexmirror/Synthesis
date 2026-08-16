@@ -86,7 +86,7 @@ Terminal is intended to become the primary power-user operational interface, but
 
 Terminal and graphical applications are interchangeable interfaces over the same gameplay operations. A GUI may compose several existing operations into a simpler workflow for convenience, but it must not reimplement gameplay rules and must not construct or execute Terminal command strings internally.
 
-The graphical Scan application calls the same `scan` domain operation that Terminal exposes and invokes Service Analysis through the same game action boundary. A convenience action such as a quick analysis may sequence multiple domain operations, but the underlying mechanics, validation, target resolution, and state changes must remain shared.
+The graphical Scan application calls the same `scan` domain operation that Terminal exposes and invokes Service Analysis through the same endpoint-based game action boundary. An action initiated from a Scan observation preserves its player-visible observed reference at that boundary: stable IDs are resolved internally but do not authorize silently retargeting a stale endpoint. A convenience action such as a quick analysis may sequence multiple domain operations, but the underlying mechanics, validation, target resolution, and state changes must remain shared.
 
 This keeps gameplay independent from the current UI. Terminal may remain available as a precise power-user interface while graphical applications can provide more beginner-friendly access to the same capabilities without creating a parallel game implementation.
 

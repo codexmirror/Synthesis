@@ -2,7 +2,7 @@ import { target, text, type TerminalCommand, type TerminalLine } from '../comman
 import { isIpv4EndpointSyntax } from '../../../core/game/networkTarget'
 
 export const inspectCommand: TerminalCommand = {
-  description: 'Show properties of one target',
+  description: 'Examine current properties of a device or network',
   run: ({ operations }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: inspect <ipv4|network-name>'] }
 

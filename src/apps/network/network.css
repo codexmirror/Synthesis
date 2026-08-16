@@ -28,6 +28,8 @@
 .open-chip { padding:4px 7px; border:1px solid #31513f; color:#70c990; font-size:.52rem; letter-spacing:.12em; }
 .service-meta { margin:14px 0; padding:10px 0; border-top:1px solid #202923; border-bottom:1px solid #202923; color:#849087; font-size:.69rem; }
 .service-meta .scan-copy { font-size:.72rem; }
+.endpoint-reference { display:grid; gap:2px; min-width:0; }
+.endpoint-reference>span { color:#718078; font-size:.52rem; letter-spacing:.13em; }
 .knowledge-block,.analysis-result { display:grid; gap:6px; margin:12px 0; padding:11px 12px; border-left:2px solid #64b881; background:#0d1711; overflow-wrap:anywhere; }
 .knowledge-block strong,.analysis-result strong { color:#b8d9c4; font-size:.72rem; line-height:1.45; }
 .analysis-result { border-left-color:#537f8a; background:#0b1416; }

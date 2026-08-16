@@ -45,8 +45,9 @@ describe('command dispatcher', () => {
     }
   })
   it('describes the Scan and Inspect semantic distinction concisely', () => {
-    expect(commands.scan.description).toBe('Discover relationships and connected targets')
-    expect(commands.inspect.description).toBe('Show properties of one target')
+    expect(commands.scan.description).toBe('Discover devices, relationships, and exposed services')
+    expect(commands.inspect.description).toBe('Examine current properties of a device or network')
+    expect(commands.analyze.description).toBe('Investigate a service endpoint')
   })
   it('dispatches ip with the player-visible address marked as a target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))
@@ -150,7 +151,7 @@ describe('individual commands', () => {
     const help = createHelpCommand(() => [['help', commands.help], ['local-command', commands.scan]])
     expect(help.run(context, [])).toEqual({
       type: 'output',
-      lines: ['Available commands:', '', 'help — List available commands', 'local-command — Discover relationships and connected targets'],
+      lines: ['Available commands:', '', 'help — List available commands', 'local-command — Discover devices, relationships, and exposed services'],
     })
   })
 
