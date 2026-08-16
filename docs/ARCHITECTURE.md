@@ -1,6 +1,6 @@
 # Architecture
 
-Synthesis keeps a few practical dependency boundaries so that V0 can grow without introducing a framework prematurely.
+Synthesis keeps a few practical dependency boundaries so that the current foundation can grow without introducing a framework prematurely.
 
 ## Module direction
 
@@ -14,7 +14,7 @@ New game systems should normally become separate domain slices instead of expand
 
 ## Identity and state
 
-Game state carries a schema version, but V0 does not implement saves or migrations. Stable internal IDs identify game entities. Mutable presentation or gameplay attributes—including IP addresses, display names, hostnames, and wallet addresses—must not serve as entity identity. In particular, `player.id` is stable identity while `player.ip` is a simulated network attribute. The same rule applies to future hosts and organizations without defining those models now.
+Game state carries a schema version, but V0 does not implement saves or migrations. Stable internal IDs identify game entities. Mutable presentation or gameplay attributes—including IP addresses, display names, hostnames, and wallet addresses—must not serve as entity identity. The player owns an explicit local device with its own stable identity. `player.id`, the local device ID, and world network host IDs are distinct identities, while IPs are mutable simulated network attributes. The local device is the single source of truth for the player's current IP, hardware, and runtime state; wallet remains a separate domain slice and remote hosts remain world state.
 
 Hardware specification is distinct from runtime utilization. Wallet state is likewise separate from player identity so each concern can evolve at its own boundary.
 
@@ -32,7 +32,7 @@ Not every game entity must have every kind of state. A filesystem, services, sof
 
 ## Shared operations and integrations
 
-A gameplay operation should eventually be implemented once behind an explicit game-level API and be callable from different interfaces. For example, a future terminal scan command and Network scan button should invoke the same domain operation; the Terminal must not reimplement the game. Cross-feature effects should similarly flow through explicit domain actions or services rather than one feature mutating another feature's UI. No generic action framework is needed in V0.
+A gameplay operation is implemented once behind an explicit game-level API and is callable from different interfaces. Basic Scan V1 establishes this path: the application binds the current local device and world network to the pure scan operation and gives Terminal only that narrow callable dependency. Scan resolves those real targets from current state and derives local or remote observations without exposing entity state directly to the command. A future Network UI can call the same operation directly; it must not construct a Terminal command. Cross-feature effects should similarly flow through explicit domain actions or services rather than one feature mutating another feature's UI. No generic action framework is needed.
 
 External services must enter through explicit adapters or interfaces at the application boundary and must not become direct dependencies of core game-domain logic.
 
@@ -40,6 +40,6 @@ Terminal commands receive narrow, read-only values required by their behavior ra
 
 ## Interface and mobile presentation
 
-Terminal is intended to become the primary power-user operational interface, but it is not the game domain. When gameplay operations are introduced, Terminal and graphical apps must call the same domain operation directly; a GUI must not route gameplay through a Terminal command string. The current Terminal contains only local informational and presentation commands, not scan, connect, or exploit operations.
+Terminal is intended to become the primary power-user operational interface, but it is not the game domain. Terminal and graphical apps must call the same domain operation directly; a GUI must not route gameplay through a Terminal command string. The current Terminal includes local informational and presentation commands plus the observational `scan <ipv4>` gameplay command. It receives no unrestricted game state, and scan presentation remains separate from the domain observation rule. Connect and exploit operations are not implemented.
 
 Mobile is a first-class presentation target. The shell owns viewport and Editing-presentation coordination, while individual scrollable regions explicitly own their scrolling. In the established text-entry layout, Terminal output scrolls independently of its prompt and the Notes textarea owns its own scrolling. These are presentation boundaries and must not leak browser or viewport concerns into `core/game`.

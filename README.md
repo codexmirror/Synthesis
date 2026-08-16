@@ -1,6 +1,6 @@
 # Synthesis
 
-Synthesis is a browser-based hacker simulation project. **NODE-OS** is the working name of its current pre-gameplay in-game operating-system foundation: a responsive, terminal-inspired shell with modular apps, but no hacking or network gameplay yet.
+Synthesis is a browser-based hacker simulation project. **NODE-OS** is the working name of its responsive, terminal-inspired in-game operating-system foundation. Its first minimal gameplay slice provides a player-owned local device, a deterministic simulated network, and a reusable state-derived IPv4 scan operation through Terminal; wider hacking systems are not implemented.
 
 ## Technology
 

@@ -1,7 +1,7 @@
 export interface PlayerState {
-  /** Stable entity identity; unlike the simulated IP, this value does not change. */
+  /** Stable player identity, separate from every device the player owns. */
   readonly id: string
-  readonly ip: string
+  readonly localDevice: LocalDeviceState
 }
 
 export interface HardwareState {
@@ -15,7 +15,14 @@ export interface RuntimeState {
   readonly networkStatus: 'ONLINE' | 'OFFLINE'
 }
 
-export interface SystemState {
+export interface DeviceNetworkState {
+  readonly ip: string
+}
+
+export interface LocalDeviceState {
+  /** Stable device identity; unlike its simulated IP, this value does not change. */
+  readonly id: string
+  readonly network: DeviceNetworkState
   readonly hardware: HardwareState
   readonly runtime: RuntimeState
 }
@@ -24,9 +31,24 @@ export interface WalletState {
   readonly balance: number
 }
 
+export interface NetworkHost {
+  /** Stable entity identity; the simulated IP remains a separate attribute. */
+  readonly id: string
+  readonly ip: string
+  readonly online: boolean
+}
+
+export interface NetworkState {
+  readonly hosts: readonly NetworkHost[]
+}
+
+export interface WorldState {
+  readonly network: NetworkState
+}
+
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
-  readonly system: SystemState
   readonly wallet: WalletState
+  readonly world: WorldState
 }

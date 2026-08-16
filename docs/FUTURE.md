@@ -2,7 +2,7 @@
 
 Future iterations may add:
 
-- A simulated network and scan system, NPC hosts, and eventually exposed real players
+- Expansion of the minimal Basic Scan V1 network into richer simulated networks, NPC hosts, and eventually exposed real players
 - Player discoverability through normal scans only when explainable traces have been left behind
 - Logs and trace removal
 - Brute-force programs and terminal comfort software / command assistance
@@ -16,6 +16,6 @@ Future iterations may add:
 - Multiple in-game device / OS interfaces over the same game systems, including touch-first or mobile-style interfaces
 - External integrations where they serve an established product need
 
-These are directions, not specifications, and none are implemented in V0. All hacking systems will remain inside the simulated game world.
+These are directions, not specifications, and are not implemented by the current minimal scan slice. All hacking systems will remain inside the simulated game world.
 
 Architectural constraints for future work are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).

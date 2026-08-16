@@ -2,8 +2,9 @@ import './terminal.css'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { OS_NAME } from '../../core/branding'
 import { useGameState } from '../../app/GameContext'
-import { dispatchCommand } from './commands'
+import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
+import { scanNetworkTarget } from '../../core/game/scan'
 
 interface Entry { command: string; output: string[] }
 
@@ -23,8 +24,14 @@ export function Terminal() {
     const command = input.trim()
     if (!command) return
     const result = dispatchCommand(parseCommand(command), {
-      player: { ip: gameState.player.ip },
-      runtime: { ...gameState.system.runtime },
+      localDevice: { ip: gameState.player.localDevice.network.ip },
+      runtime: { ...gameState.player.localDevice.runtime },
+      operations: {
+        scanTarget: (target) => scanNetworkTarget({
+          localDevice: gameState.player.localDevice,
+          network: gameState.world.network,
+        }, target),
+      },
     })
     if (result.type === 'clear') setEntries([])
     else setEntries((current) => [...current, { command, output: result.lines }])
