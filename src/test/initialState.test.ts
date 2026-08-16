@@ -25,18 +25,19 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-network membership in schema version 5', () => {
+  it('separates identities and seeds canonical local-network membership in schema version 6', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(5)
-    expect(state.version).toBe(5)
+    expect(GAME_STATE_VERSION).toBe(6)
+    expect(state.version).toBe(6)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
     expect(state.player.localDevice).toMatchObject({
       network: { ip: '198.51.100.23' },
-      hardware: { cpu: 'Basic CPU', ram: '4 GB' },
-      runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: 'ONLINE' },
+      hardware: { cpu: { name: 'Basic CPU', computeCapacity: 100 }, ram: { name: '4 GB', capacityMiB: 4096 } },
+      runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
     })
+    expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.world.network.hosts).toEqual([
       {
         id: 'host-lan-001', ip: '198.51.100.47', online: true, role: 'server',

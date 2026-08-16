@@ -1,4 +1,3 @@
-import type { RuntimeState } from '../../core/game/types'
 import type { ScanResult } from '../../core/game/scan'
 import type { InspectResult } from '../../core/game/inspect'
 
@@ -6,7 +5,7 @@ export interface CommandContext {
   readonly localDevice: {
     readonly ip: string
   }
-  readonly runtime: Readonly<RuntimeState>
+  readonly runtime: { readonly cpuLoad: number; readonly ramUsage: number; readonly networkStatus: 'ONLINE' | 'OFFLINE' }
   readonly operations: {
     readonly scanTarget: (target: string) => ScanResult
     readonly inspectTarget: (target: string) => InspectResult

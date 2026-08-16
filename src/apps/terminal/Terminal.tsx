@@ -8,6 +8,7 @@ import { scanNetworkTarget } from '../../core/game/scan'
 import { inspectNetworkTarget } from '../../core/game/inspect'
 import type { TerminalLine } from './commandTypes'
 import { TargetToken } from './TargetToken'
+import { deriveResourceUsage } from '../../core/game/processes'
 
 interface Entry { command: string; output: TerminalLine[] }
 
@@ -20,6 +21,7 @@ function TerminalOutputLine({ line }: { line: TerminalLine }) {
 
 export function Terminal() {
   const gameState = useGameState()
+  const usage = deriveResourceUsage(gameState.player.localDevice.hardware, gameState.player.localDevice.runtime, gameState.process)
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
   const [history, setHistory] = useState<string[]>([])
@@ -35,7 +37,7 @@ export function Terminal() {
     if (!command) return
     const result = dispatchCommand(parseCommand(command), {
       localDevice: { ip: gameState.player.localDevice.network.ip },
-      runtime: { ...gameState.player.localDevice.runtime },
+      runtime: { cpuLoad: Math.round(usage.totalCpuLoad), ramUsage: Math.round(usage.totalRamUsage), networkStatus: gameState.player.localDevice.runtime.networkStatus },
       operations: {
         scanTarget: (target) => scanNetworkTarget({
           localDevice: gameState.player.localDevice,

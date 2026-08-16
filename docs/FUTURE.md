@@ -7,7 +7,7 @@ Future iterations may add:
 - Player discoverability through normal scans only when explainable traces have been left behind
 - Logs and trace removal
 - Brute-force programs and terminal comfort software / command assistance
-- Hardware upgrades and meaningful CPU/RAM resource usage
+- Hardware upgrades building on the implemented CPU-throughput and RAM-capacity Process resource model
 - Tools and software progression
 - Malware with real effects on virtual systems
 - Mining

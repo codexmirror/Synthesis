@@ -1,6 +1,8 @@
 import { useGameState } from '../app/GameContext'
+import { deriveResourceUsage } from '../core/game/processes'
 
 export function SystemBar() {
-  const { runtime } = useGameState().player.localDevice
-  return <footer className="system-bar"><div><span>CPU <strong>{runtime.cpuLoad}%</strong></span><span>RAM <strong>{runtime.ramUsage}%</strong></span></div><span className="online"><i />{runtime.networkStatus}</span></footer>
+  const state = useGameState(); const { hardware, runtime } = state.player.localDevice
+  const usage = deriveResourceUsage(hardware, runtime, state.process)
+  return <footer className="system-bar"><div><span>CPU <strong>{Math.round(usage.totalCpuLoad)}%</strong></span><span>RAM <strong>{Math.round(usage.totalRamUsage)}%</strong></span></div><span className="online"><i />{runtime.networkStatus}</span></footer>
 }

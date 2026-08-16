@@ -18,6 +18,10 @@ Game state carries a schema version, but V0 does not implement saves or migratio
 
 Hardware specification is distinct from runtime utilization. Wallet state is likewise separate from player identity so each concern can evolve at its own boundary.
 
+Long-running gameplay actions are represented as domain-owned Processes with stable identity and an explicit executor device. CPU compute capacity determines throughput, while numeric RAM capacity determines admission and parallel capacity; RAM is not a second speed multiplier. Current resource utilization is derived once from explicit system baselines plus running Process allocation and reservation.
+
+Process scheduling derives completed work from elapsed time and hardware/resource state. Browser timers are scheduling triggers rather than simulation truth, and the application adapter owns the single scheduler. The Processes app only observes canonical Process state. V1 Processes execute only on the player's local device; remote and distributed compute are deferred.
+
 ## Entity-owned simulation state
 
 Simulated objects own their actual state. Gameplay operations observe or modify that state; interfaces must not invent parallel representations of it.

@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 5
+export const GAME_STATE_VERSION = 6
 
 export function createInitialGameState(): GameState {
   return {
@@ -11,12 +11,12 @@ export function createInitialGameState(): GameState {
         id: 'device-local-v0',
         network: { ip: '198.51.100.23' },
         hardware: {
-          cpu: 'Basic CPU',
-          ram: '4 GB',
+          cpu: { name: 'Basic CPU', computeCapacity: 100 },
+          ram: { name: '4 GB', capacityMiB: 4096 },
         },
         runtime: {
-          cpuLoad: 18,
-          ramUsage: 23,
+          baselineCpuLoad: 18,
+          baselineRamUsage: 23,
           networkStatus: 'ONLINE',
         },
       },
@@ -24,6 +24,7 @@ export function createInitialGameState(): GameState {
     wallet: {
       balance: 1250,
     },
+    process: { nextId: 1, processes: [] },
     world: {
       network: {
         localNetworks: [

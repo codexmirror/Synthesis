@@ -15,7 +15,7 @@ import { commands, dispatchCommand } from './registry'
 const state = createInitialGameState()
 const context: CommandContext = {
   localDevice: { ip: state.player.localDevice.network.ip },
-  runtime: { ...state.player.localDevice.runtime },
+  runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: state.player.localDevice.runtime.networkStatus },
   operations: {
     scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),

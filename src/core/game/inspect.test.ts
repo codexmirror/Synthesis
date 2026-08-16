@@ -27,7 +27,7 @@ describe('inspectNetworkTarget inward inspection', () => {
   })
 
   it('reports only actual device properties', () => {
-    const localDevice = { ...targets.localDevice, hardware: { cpu: 'Changed CPU', ram: '12 GB' } }
+    const localDevice = { ...targets.localDevice, hardware: { cpu: { name: 'Changed CPU', computeCapacity: 999 }, ram: { name: '12 GB', capacityMiB: 12288 } } }
     expect(inspectNetworkTarget({ ...targets, localDevice }, '198.51.100.23')).toEqual({
       status: 'device', targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self', networkStatus: 'ONLINE',
       hardware: { cpu: 'Changed CPU', ram: '12 GB' },

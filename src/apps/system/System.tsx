@@ -1,12 +1,14 @@
 import { useGameState } from '../../app/GameContext'
+import { deriveResourceUsage } from '../../core/game/processes'
 
 export function System() {
-  const { localDevice } = useGameState().player
+  const state = useGameState(); const { localDevice } = state.player
+  const usage = deriveResourceUsage(localDevice.hardware, localDevice.runtime, state.process)
   const rows = [
-    ['CPU', localDevice.hardware.cpu],
-    ['RAM', localDevice.hardware.ram],
-    ['CPU load', `${localDevice.runtime.cpuLoad}%`],
-    ['RAM usage', `${localDevice.runtime.ramUsage}%`],
+    ['CPU', localDevice.hardware.cpu.name],
+    ['RAM', localDevice.hardware.ram.name],
+    ['CPU load', `${Math.round(usage.totalCpuLoad)}%`],
+    ['RAM usage', `${Math.round(usage.totalRamUsage)}%`],
     ['Network', localDevice.runtime.networkStatus],
     ['Local address', localDevice.network.ip],
   ]
