@@ -69,8 +69,9 @@ export function useMobileViewport(): MobileViewportState {
   useEffect(() => {
     const viewport = window.visualViewport
 
-    let frame = 0
+        let frame = 0
     let closeTimer: ReturnType<typeof setTimeout> | undefined
+    let openTimer: ReturnType<typeof setTimeout> | undefined
     let orientationTimer: ReturnType<typeof setTimeout> | undefined
 
     let protectedSequence = false
@@ -249,7 +250,7 @@ export function useMobileViewport(): MobileViewportState {
       closeTimer = undefined
     }
 
-    const onFocusIn = (event: FocusEvent) => {
+        const onFocusIn = (event: FocusEvent) => {
       cancelCloseProbe()
 
       editableFocused = isTextEntry(event.target)
@@ -259,6 +260,15 @@ export function useMobileViewport(): MobileViewportState {
       }
 
       schedule()
+
+      if (openTimer !== undefined) {
+        clearTimeout(openTimer)
+      }
+
+      openTimer = setTimeout(() => {
+        openTimer = undefined
+        schedule()
+      }, 300)
     }
 
     const onFocusOut = () => {
@@ -301,8 +311,12 @@ export function useMobileViewport(): MobileViewportState {
         onOrientation,
       )
 
-      cancelAnimationFrame(frame)
+            cancelAnimationFrame(frame)
       cancelCloseProbe()
+
+      if (openTimer !== undefined) {
+        clearTimeout(openTimer)
+      }
 
       if (orientationTimer !== undefined) {
         clearTimeout(orientationTimer)

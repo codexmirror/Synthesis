@@ -26,13 +26,15 @@
   .os-shell select,
   .os-shell [contenteditable="true"] { font-size: 16px; }
 
-  .os-shell[data-keyboard-open="true"] { grid-template-rows: 0 minmax(0, 1fr) 0; }
-  .os-shell[data-keyboard-open="true"] .status-bar,
-  .os-shell[data-keyboard-open="true"] .system-bar { display: none; min-height: 0; overflow: hidden; }
   .os-shell[data-keyboard-open="true"] .app-view {
-    padding-top: var(--node-vv-top, 0px);
-    padding-bottom: var(--node-keyboard-inset, 0px);
-  }
+  height: calc(
+    var(--node-app-height) -
+    var(--node-vv-top, 0px) -
+    var(--node-keyboard-inset, 0px)
+  );
+  transform: translateY(var(--node-vv-top, 0px));
+  align-self: start;
+}
   .os-shell[data-keyboard-open="true"] .app-header { min-height: 43px; }
   .os-shell[data-keyboard-open="true"] .back,
   .os-shell[data-keyboard-open="true"] .app-index { visibility: hidden; }
