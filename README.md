@@ -1,6 +1,6 @@
 # Synthesis
 
-Synthesis is a browser-based hacker simulation project. **NODE-OS** is the working name of its responsive, terminal-inspired in-game operating-system foundation. Its first discovery loop is `ip` → scan the player's address to reveal `home-net` → scan that network to find its represented devices → inspect the LAN server → scan it to reveal an exposed SSH service. Scan explores outward from a Device/IP or LocalNetwork/name target and may reveal represented services; Inspect looks inward and reports that target’s own properties without enumerating its attack surface. Access and wider hacking systems are not implemented.
+Synthesis is a browser-based hacker simulation project. **NODE-OS** is the working name of its responsive, terminal-inspired in-game operating-system foundation. Its first discovery loop is `ip` → scan the player's address to reveal `home-net` → scan that network to find its represented devices → inspect the LAN server → scan it to reveal an exposed SSH service. Scan explores outward from a Device/IP or LocalNetwork/name target and may reveal represented services; Inspect looks inward and reports that target’s own properties without enumerating its attack surface. Domain-owned Processes provide elapsed-time CPU work and RAM admission, although no gameplay action starts one yet. Access and wider hacking systems are not implemented.
 
 ## Technology
 

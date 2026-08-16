@@ -49,7 +49,7 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
     return device.runtime.networkStatus === 'ONLINE'
       ? {
         status: 'device', targetId: device.id, address: input, scope: 'self', networkStatus: 'ONLINE',
-        hardware: { cpu: device.hardware.cpu, ram: device.hardware.ram },
+        hardware: { cpu: device.hardware.cpu.name, ram: device.hardware.ram.name },
       }
       : { status: 'no_response', address: input }
   }

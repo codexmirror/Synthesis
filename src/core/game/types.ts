@@ -5,14 +5,29 @@ export interface PlayerState {
 }
 
 export interface HardwareState {
-  readonly cpu: string
-  readonly ram: string
+  readonly cpu: { readonly name: string; readonly computeCapacity: number }
+  readonly ram: { readonly name: string; readonly capacityMiB: number }
 }
 
 export interface RuntimeState {
-  readonly cpuLoad: number
-  readonly ramUsage: number
+  readonly baselineCpuLoad: number
+  readonly baselineRamUsage: number
   readonly networkStatus: 'ONLINE' | 'OFFLINE'
+}
+
+export interface GameProcess {
+  readonly id: string
+  readonly label: string
+  readonly executorDeviceId: string
+  readonly status: 'running' | 'completed'
+  readonly workRequired: number
+  readonly workCompleted: number
+  readonly ramRequiredMiB: number
+}
+
+export interface ProcessState {
+  readonly nextId: number
+  readonly processes: readonly GameProcess[]
 }
 
 export interface DeviceNetworkState {
@@ -73,4 +88,5 @@ export interface GameState {
   readonly player: PlayerState
   readonly wallet: WalletState
   readonly world: WorldState
+  readonly process: ProcessState
 }
