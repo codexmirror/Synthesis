@@ -5,7 +5,7 @@ import * as GameContext from '../../app/GameContext'
 import { GameProvider, useGameActions, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { appRegistry } from '../../shell/appRegistry'
-import { advanceGameState, startServiceAnalysisAtEndpoint } from '../../core/game/serviceAnalysis'
+import { advanceGameState, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from '../../core/game/serviceAnalysis'
 import type { GameState } from '../../core/game/types'
 import { Network } from './Network'
 
@@ -75,23 +75,35 @@ describe('Scan workspace', () => {
 
   it('binds Analyze to the observed endpoint and never silently retargets a stale card', async () => {
     let canonical = createInitialGameState()
-    const endpointAction = vi.fn((endpoint: string) => {
-      const result = startServiceAnalysisAtEndpoint(canonical, endpoint)
+    const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => {
+      const result = startServiceAnalysisFromObservation(canonical, observed)
       if (result.status === 'started') canonical = result.state
       return result
     })
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => canonical)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: endpointAction, clearCompletedProcesses: vi.fn(),
+      startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn(),
     })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
     const host = canonical.world.network.hosts[0]
-    canonical = { ...canonical, world: { network: { ...canonical.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) }, ...canonical.world.network.hosts.slice(1)] } } }
+    const movedServices = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []
+    canonical = {
+      ...canonical,
+      world: { network: { ...canonical.world.network, hosts: [{ ...host, services: [...movedServices, { id: 'service-replacement', name: 'REPLACEMENT', port: 22, protocol: 'TCP', open: true }] }, ...canonical.world.network.hosts.slice(1)] } },
+      process: { nextId: 3, processes: [
+        { kind: 'service_analysis', id: 'process-0001', label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'running', workRequired: 1000, workCompleted: 400, ramRequiredMiB: 768, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:2222' },
+        { kind: 'service_analysis', id: 'process-0002', label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'completed', workRequired: 1000, workCompleted: 1000, ramRequiredMiB: 768, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:2222', result: { status: 'weaknesses_detected', vulnerabilities: [] } },
+      ] },
+      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'known-ssh', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Historical SSH weakness' }] },
+    }
     view.rerender(<Network />)
+    expect(screen.queryByText('ANALYSIS RUNNING')).not.toBeInTheDocument()
+    expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()
+    expect(screen.getByText('Historical SSH weakness')).toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: 'Analyze' })[0])
-    expect(endpointAction).toHaveBeenCalledWith('198.51.100.47:22')
-    expect(canonical.process.processes).toEqual([])
+    expect(endpointAction).toHaveBeenCalledWith({ endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' })
+    expect(canonical.process.processes).toHaveLength(2)
     expect(screen.getByText('ENDPOINT NOT AVAILABLE')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.47:22')).toBeInTheDocument()
     expect(screen.queryByText('198.51.100.47:2222')).not.toBeInTheDocument()
@@ -169,9 +181,9 @@ describe('Scan workspace', () => {
   it('does not display stale start feedback beside canonical running state', async () => {
     const base = createInitialGameState()
     let canonical: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, hardware: { ...base.player.localDevice.hardware, ram: { ...base.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
-    const endpointAction = vi.fn((endpoint: string) => startServiceAnalysisAtEndpoint(canonical, endpoint))
+    const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => startServiceAnalysisFromObservation(canonical, observed))
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => canonical)
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: endpointAction, clearCompletedProcesses: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn() })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
     await user.click(screen.getAllByRole('button', { name: 'Analyze' })[0])

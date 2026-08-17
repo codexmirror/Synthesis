@@ -23,15 +23,16 @@ function ClearHarness({ onRender }: { onRender?: () => void }) {
 
 function EndpointHarness() {
   const actions = useGameActions(); const state = useGameState()
-  return <><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:22').status }}>old</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:2222').status }}>current</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('invalid').status }}>invalid</button><output>{JSON.stringify(state.process)}</output></>
+  return <><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:22').status }}>old</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:2222').status }}>current</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('invalid').status }}>invalid</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisFromObservation({ endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' }).status }}>observed old SSH</button><output>{JSON.stringify(state.process)}</output></>
 }
 
 describe('GameProvider service-analysis actions', () => {
   it('atomically resolves player-visible endpoints against the latest world state', () => {
     const base = createInitialGameState(); const host = base.world.network.hosts[0]
-    const moved: GameState = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) }, ...base.world.network.hosts.slice(1)] } } }
+    const services = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []
+    const moved: GameState = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: [...services, { id: 'replacement', name: 'OTHER', port: 22, protocol: 'TCP', open: true }] }, ...base.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={moved}><EndpointHarness /></GameProvider>)
-    fireEvent.click(screen.getByRole('button', { name: 'old' }))
+    fireEvent.click(screen.getByRole('button', { name: 'observed old SSH' }))
     expect(document.body.dataset.endpointResult).toBe('endpoint_not_found')
     expect(JSON.parse(screen.getByRole('status').textContent ?? '').processes).toEqual([])
     fireEvent.click(screen.getByRole('button', { name: 'invalid' }))
