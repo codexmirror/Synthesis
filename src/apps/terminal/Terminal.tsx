@@ -39,6 +39,13 @@ export function Terminal() {
     const command = input.trim()
     if (!command) return
     submitting.current = true
+    setInput('')
+    setHistory((current) => {
+      const next = [...current, command]
+      setHistoryIndex(next.length)
+      return next
+    })
+    inputRef.current?.focus({ preventScroll: true })
     try {
     const result = await dispatchCommand(parseCommand(command), {
       localDevice: { ip: gameState.player.localDevice.network.ip },
@@ -62,10 +69,6 @@ export function Terminal() {
     })
     if (result.type === 'clear') setEntries([])
     else setEntries((current) => [...current, { command, output: result.lines }])
-    const nextHistory = [...history, command]
-    setHistory(nextHistory)
-    setHistoryIndex(nextHistory.length)
-    setInput((current) => current.trim() === command ? '' : current)
     inputRef.current?.focus({ preventScroll: true })
     } catch {
       setEntries((current) => [...current, { command, output: ['COMMAND FAILED'] }])
