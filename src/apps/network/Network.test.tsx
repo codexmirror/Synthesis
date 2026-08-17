@@ -9,11 +9,17 @@ import { advanceGameState, startServiceAnalysisAtEndpoint, startServiceAnalysisF
 import type { GameState } from '../../core/game/types'
 import { Network } from './Network'
 
+const scanTargetSpy = vi.hoisted(() => vi.fn())
+vi.mock('../../core/game/scan', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/game/scan')>()
+  return { ...actual, scanNetworkTarget: (...args: Parameters<typeof actual.scanNetworkTarget>) => { scanTargetSpy(...args); return actual.scanNetworkTarget(...args) } }
+})
+
 async function openLanDevice() {
   const user = userEvent.setup()
   render(<GameProvider><Network /></GameProvider>)
-  await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
-  await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
+  await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+  await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
   return user
 }
 
@@ -23,8 +29,8 @@ function StateSnapshot() { return <output data-testid="game-state">{JSON.stringi
 function ClearCompleted() { const actions = useGameActions(); return <button onClick={actions.clearCompletedProcesses}>Clear test history</button> }
 
 async function navigateToServices(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
-  await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
+  await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+  await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
 }
 
 describe('Scan workspace', () => {
@@ -35,12 +41,13 @@ describe('Scan workspace', () => {
 
   it('opens on a truthful Known Space atlas without leaking undiscovered details', () => {
     render(<GameProvider><Network /></GameProvider>)
-    expect(screen.getByText('Known space')).toBeInTheDocument()
+    expect(screen.getByText('Known and observed network space')).toBeInTheDocument()
     expect(screen.getByText('KNOWN SPACE')).toBeInTheDocument()
     expect(screen.getByText('HOME')).toBeInTheDocument()
     expect(screen.getByText('home-net')).toBeInTheDocument()
     expect(screen.getByText('LOCAL NETWORK')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open and scan home-net' })).toHaveTextContent('Open / Scan')
+    expect(screen.getByRole('button', { name: 'Open known area home-net' })).toHaveClass('atlas-row')
+    expect(screen.getByRole('button', { name: 'Open known area home-net' })).not.toHaveTextContent('Open / Scan')
     expect(document.body.textContent).not.toMatch(/198\.51\.100\.47|SSH|HTTP|host-lan-001|service-ssh-001/i)
     expect(document.body.textContent).not.toMatch(/cluster|session|access|stale|entry point|weakness|%/i)
   })
@@ -50,11 +57,11 @@ describe('Scan workspace', () => {
     render(<GameProvider><Network /></GameProvider>)
     expect(screen.getByText('home-net')).toBeInTheDocument()
     expect(screen.queryByText(/unavailable/i)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
     expect(screen.getByText('2 responding')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.47')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
     expect(screen.getByText('1 discovered')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open HTTP service' })).toBeInTheDocument()
@@ -64,6 +71,15 @@ describe('Scan workspace', () => {
     expect(screen.queryByText('KNOWLEDGE')).not.toBeInTheDocument()
     expect(screen.getAllByText('Not analyzed')).toHaveLength(2)
     expect(document.body.textContent).not.toMatch(/service-ssh-001|host-lan-001|vulnerability-ssh-001/)
+  })
+
+  it('opens a Known Space area through exactly one network scan', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider><Network /></GameProvider>)
+    scanTargetSpy.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    expect(scanTargetSpy).toHaveBeenCalledOnce()
+    expect(scanTargetSpy.mock.calls[0]?.[1]).toBe('home-net')
   })
 
   it('copies device addresses and complete endpoints', async () => {
@@ -86,7 +102,7 @@ describe('Scan workspace', () => {
     await user.click(screen.getByRole('button', { name: '← home-net' }))
     expect(screen.getByText('2 responding')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '← Known Space' }))
-    expect(screen.getByRole('button', { name: 'Open and scan home-net' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open known area home-net' })).toBeInTheDocument()
   })
 
   it('starts concrete analyses and presents canonical running state', async () => {
@@ -203,8 +219,8 @@ describe('Scan workspace', () => {
     }
     const user = userEvent.setup()
     render(<GameProvider initialState={state}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
     expect(screen.getByText('Weakness known')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
     expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
@@ -215,8 +231,8 @@ describe('Scan workspace', () => {
     const constrained = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, hardware: { ...state.player.localDevice.hardware, ram: { ...state.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
     const user = userEvent.setup()
     render(<GameProvider initialState={constrained}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
     fireEvent.click(screen.getByRole('button', { name: 'Analyze' }))
     expect(screen.getByText(/INSUFFICIENT MEMORY/)).toBeInTheDocument()
