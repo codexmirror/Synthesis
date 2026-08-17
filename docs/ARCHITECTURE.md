@@ -40,6 +40,16 @@ The same principle applies to future gameplay mutations. Tools, malware, exploit
 
 Not every game entity must have every kind of state. A filesystem, services, software, network interfaces, or similar structures belong only to entity types and mechanics that actually require them. Synthesis should grow these models from concrete gameplay needs rather than introducing a universal entity or component framework prematurely.
 
+## Scan atlas and observation boundaries
+
+Scan is the player's atlas of known or observed space, not a browser over omniscient World truth. Its current observations come from the shared Scan domain operation, and opening a focus must not reveal objects beyond what that operation observed. An observation records what the player could learn at that interaction; it is not synonymous with eternal current World truth. Future freshness metadata may describe how current an observation is, but no generalized freshness system exists today.
+
+Known-world relationships may form a graph rather than a canonical ownership tree. The Scan interface may make that graph understandable through rooted views, collapsible or tree-like projections, and focused paths, but a presentation path must not impose canonical parent/child ownership on domain entities. No graph or clustering framework is implied by this rule.
+
+Scan scales through progressive disclosure: the broad view shows observed areas or networks, network focus shows devices, device focus keeps services compact, and service focus presents detailed observation, Knowledge, Process context, and implemented interactions. Only the current focus expands deeply; atlas growth is discovery, not checklist completion.
+
+Scan, Inspect, and Analyze have separate epistemic roles. Scan interprets known or observed space for navigation and decisions. A future richer Inspect may provide a precise current observation of one concrete object, constrained by what the player can actually observe, but must never expose raw GameState omnisciently. Analyze remains deeper, resource-consuming investigation that may create Knowledge. These boundaries describe durable responsibilities rather than unimplemented clustering, freshness, path, access, or session features.
+
 ## Systemic simulation and causality
 
 Synthesis should favor causal state changes over scripted event chains. A gameplay mechanic changes concrete canonical simulation state; other systems should react to the resulting state when their own rules make it relevant rather than depending on hidden knowledge of which original action caused the change.

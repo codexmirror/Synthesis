@@ -8,6 +8,11 @@
 .scan-list,.service-list { display:grid; gap:10px; }
 .scan-object,.service-row,.relationship,.service-identity,.interaction { border:1px solid #28322c; background:#0a0e0c; }
 .scan-object { min-height:82px; padding:15px; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.known-space { max-width:720px; }
+.known-space .scan-section-heading { margin-top:0; }
+.known-space-identity { display:grid; gap:4px; min-width:0; }
+.scan-area-label { color:#8fc6a3; font-size:.58rem; font-weight:600; letter-spacing:.16em; }
+.known-space-identity h2 { margin:0; }
 .scan-type { display:block; color:#6f8076; font-size:.56rem; letter-spacing:.14em; }
 .scan-object h2,.scan-detail-title h2 { margin:5px 0 0; color:#e2e9e5; font:600 1rem Inter,system-ui,sans-serif; }
 .scan-action,.scan-quiet,.scan-open { min-height:42px; border:1px solid #395045; background:#101914; color:#8fd3a8; cursor:pointer; }
