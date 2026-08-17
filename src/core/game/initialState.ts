@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 8
+export const GAME_STATE_VERSION = 9
 
 export function createInitialGameState(): GameState {
   return {
@@ -19,6 +19,7 @@ export function createInitialGameState(): GameState {
           baselineRamUsage: 23,
           networkStatus: 'ONLINE',
         },
+        tools: [{ id: 'basic-credential-toolkit', name: 'Basic Credential Toolkit' }],
       },
     },
     wallet: {
@@ -27,6 +28,7 @@ export function createInitialGameState(): GameState {
     process: { nextId: 1, processes: [] },
     knowledge: { discoveredVulnerabilities: [] },
     discovery: { networks: [], devices: [], networkDeviceRelations: [] },
+    deviceAccess: { nextId: 1, established: [] },
     world: {
       network: {
         localNetworks: [
@@ -39,7 +41,7 @@ export function createInitialGameState(): GameState {
             online: true,
             role: 'server',
             services: [
-              { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
+              { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
               { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
             ],
           },

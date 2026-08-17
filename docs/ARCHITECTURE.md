@@ -32,6 +32,12 @@ Process scheduling derives completed work from elapsed time and hardware/resourc
 
 Completed Process records are disposable execution history. Clearing them preserves running work and ID progression and does not reverse consequences stored in other canonical slices. Process history, player Knowledge, and World truth remain distinct concerns.
 
+Initial Access adds one concrete relationship-changing Process without introducing a generic attack model. SELF owns the installed **Basic Credential Toolkit** as concrete local-device tooling, not as a Player Skill. A remembered SSH service, historical Weak Authentication Knowledge, and ownership of that Tool make a credential attempt player-known feasible; the Tool permits the attempt but never guarantees success. Hidden changes to current vulnerability truth do not remove that known affordance.
+
+Credential Access runs on SELF with the existing CPU-sharing and RAM-admission rules. Its completion is resolved exactly once against current World truth: the stable target and service must still safely own the remembered endpoint, be available, retain the applicable Weak Authentication condition, and expose a current credential authentication context. Success derives privilege from that represented service authentication context and creates one deduplicated `DeviceAccess` relationship. Failure reports only that the target no longer responded as expected and does not rewrite historical Discovery or Knowledge.
+
+`DeviceAccess` is canonical state distinct from World, Discovery, Knowledge, Processes, and UI context. It records source device, target device, service path, and privilege; it is not a `hacked` flag and is not a current connection or future CONNECT context. Clearing completed Process history cannot remove established access (or Discovery or Knowledge). CONNECT, remote device context, and access-session lifecycle remain unimplemented.
+
 ## Entity-owned simulation state
 
 Simulated objects own their actual state. Gameplay operations observe or modify that state; interfaces must not invent parallel representations of it.

@@ -53,6 +53,25 @@ function deferred<T>() {
 }
 
 describe('Scan workspace', () => {
+  it('offers known credential access without hidden-world leakage and starts it through the application boundary', async () => {
+    let known = discoveredState()
+    const analysis = startServiceAnalysisFromObservation(known, { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' })
+    if (analysis.status !== 'started') throw Error(analysis.status)
+    known = advanceGameState(analysis.state, 20_000)
+    const host = known.world.network.hosts[0]
+    known = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, vulnerabilities: [] } : service) }, ...known.world.network.hosts.slice(1)] } } }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
+    await navigateToServices(user)
+    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
+    expect(screen.getByRole('button', { name: 'Start credential access attempt' })).toHaveTextContent('Basic Credential Toolkit · Outcome unknown')
+    await user.click(screen.getByRole('button', { name: 'Start credential access attempt' }))
+    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'running', startedEndpoint: '198.51.100.47:22' })
+    expect(state.deviceAccess.established).toEqual([])
+    expect(screen.getByLabelText('Credential access running')).toBeInTheDocument()
+  })
+
   it('preserves the network registry identity while exposing Scan', () => {
     expect(appRegistry.network.label).toBe('Scan')
     expect(Object.keys(appRegistry)).toHaveLength(7)
@@ -113,6 +132,7 @@ describe('Scan workspace', () => {
       startServiceAnalysis: vi.fn(),
       startServiceAnalysisAtEndpoint: vi.fn(),
       startServiceAnalysisFromObservation: vi.fn(),
+      startCredentialAccessAttemptFromObservation: vi.fn(),
       clearCompletedProcesses: vi.fn(),
     })
 
@@ -142,7 +162,7 @@ describe('Scan workspace', () => {
       return scanNetworkTarget(targets, input)
     })
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), clearCompletedProcesses: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), clearCompletedProcesses: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -161,7 +181,7 @@ describe('Scan workspace', () => {
     const device = deferred<ReturnType<typeof scanNetworkTarget>>()
     const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), clearCompletedProcesses: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), clearCompletedProcesses: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -180,7 +200,7 @@ describe('Scan workspace', () => {
     const device = deferred<ReturnType<typeof scanNetworkTarget>>()
     const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), clearCompletedProcesses: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), clearCompletedProcesses: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -236,7 +256,7 @@ describe('Scan workspace', () => {
     })
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn(),
+      scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), clearCompletedProcesses: vi.fn(),
     })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
@@ -354,7 +374,7 @@ describe('Scan workspace', () => {
     let canonical: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, hardware: { ...base.player.localDevice.hardware, ram: { ...base.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
     const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => startServiceAnalysisFromObservation(canonical, observed))
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), clearCompletedProcesses: vi.fn() })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))

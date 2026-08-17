@@ -22,6 +22,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     startServiceAnalysis: () => unavailable,
     startServiceAnalysisAtEndpoint: () => unavailable,
     startServiceAnalysisFromObservation: () => unavailable,
+    startCredentialAccessAttemptFromObservation: () => ({ status: 'not_available', state }),
     clearCompletedProcesses: () => {},
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)

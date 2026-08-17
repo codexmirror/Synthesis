@@ -25,6 +25,10 @@ export type ServiceAnalysisResult =
   | { readonly status: 'no_weakness_detected' }
   | { readonly status: 'service_unavailable' }
 
+export type CredentialAccessResult =
+  | { readonly status: 'access_established'; readonly accessId: string }
+  | { readonly status: 'attempt_failed'; readonly message: 'Target no longer responds as expected.' }
+
 interface ProcessBase {
   readonly id: string
   readonly label: string
@@ -46,7 +50,17 @@ export interface ServiceAnalysisProcess extends ProcessBase {
   readonly result?: ServiceAnalysisResult
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess
+export interface CredentialAccessProcess extends ProcessBase {
+  readonly kind: 'credential_access'
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  readonly startedEndpoint: string
+  readonly vulnerabilityId: string
+  readonly toolId: 'basic-credential-toolkit'
+  readonly result?: CredentialAccessResult
+}
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess
 
 export interface ProcessState {
   readonly nextId: number
@@ -63,6 +77,7 @@ export interface LocalDeviceState {
   readonly network: DeviceNetworkState
   readonly hardware: HardwareState
   readonly runtime: RuntimeState
+  readonly tools: readonly { readonly id: 'basic-credential-toolkit'; readonly name: 'Basic Credential Toolkit' }[]
 }
 
 export interface WalletState {
@@ -88,6 +103,7 @@ export interface NetworkService {
   readonly protocol: 'TCP' | 'UDP'
   readonly open: boolean
   readonly vulnerabilities?: readonly Vulnerability[]
+  readonly credentialAccess?: { readonly privilege: 'USER' }
 }
 
 export interface DiscoveredVulnerability {
@@ -147,6 +163,16 @@ export interface WorldState {
   readonly network: NetworkState
 }
 
+export interface DeviceAccess {
+  readonly id: string
+  readonly sourceDeviceId: string
+  readonly targetDeviceId: string
+  readonly viaServiceId: string
+  readonly privilege: 'USER'
+}
+
+export interface DeviceAccessState { readonly nextId: number; readonly established: readonly DeviceAccess[] }
+
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
@@ -155,4 +181,5 @@ export interface GameState {
   readonly process: ProcessState
   readonly knowledge: KnowledgeState
   readonly discovery: DiscoveryState
+  readonly deviceAccess: DeviceAccessState
 }
