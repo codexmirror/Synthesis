@@ -95,6 +95,12 @@
   color: var(--muted);
 }
 
+.process-projection { margin-top: 8px; display: grid; gap: 3px; }
+.process-state { margin-top: 8px; color: var(--green); font-weight: 600; }
+.process-resources { color: var(--muted); }
+.process-resources span { margin-left: 18px; }
+.known-interaction { margin-top: 8px; color: var(--muted); }
+
 .sr-only {
   position: absolute;
   width: 1px;

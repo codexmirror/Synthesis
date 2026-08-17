@@ -22,13 +22,13 @@ const context: CommandContext = {
   operations: {
     scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
-    analyzeEndpoint: () => 'endpoint_not_found',
+    analyzeEndpoint: () => ({ status: 'endpoint_not_found' }),
     knownWeaknesses: () => [],
     attackEndpoint: () => ({ status: 'not_available' }),
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context) as CommandResult
-const labeledTarget = (label: string, value: string) => [text(label), target(value)]
+const labeledTarget = (label: string, value: string, scope: 'local' | 'external' = 'external') => [text(label), target(value, scope)]
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
@@ -51,7 +51,7 @@ describe('command dispatcher', () => {
     expect(commands.analyze.description).toBe('Investigate a service endpoint')
     expect(commands.attack.description).toBe('Attempt a known attack method against an observed service')
   })
-  it('dispatches ip with the player-visible address marked as a target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23')] }))
+  it('dispatches ip with the player-visible address marked as a local target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23', 'local')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
@@ -63,16 +63,16 @@ describe('command dispatcher', () => {
   })
   it('validates analyze syntax and delegates through the narrow operation', () => {
     expect(dispatch('analyze')).toEqual({ type: 'output', lines: ['Usage: analyze <ipv4:port>'] })
-    const analyzeEndpoint = vi.fn(() => 'started' as const)
+    const analyzeEndpoint = vi.fn(() => ({ status: 'started' as const, processId: 'process-9' }))
     const result = dispatchCommand(parseCommand('analyze 198.51.100.47:22'), { ...context, operations: { ...context.operations, analyzeEndpoint } })
     expect(analyzeEndpoint).toHaveBeenCalledExactlyOnceWith('198.51.100.47:22')
-    expect(JSON.stringify(result)).toContain('198.51.100.47:22')
+    expect(result).toEqual({ type: 'process', processId: 'process-9' })
   })
   it('validates attack targets, delegates once, and maps shared operation results', () => {
     expect(dispatch('attack home-net')).toEqual({ type: 'output', lines: ['Usage: attack <ipv4:port>', 'Attack requires an observed service endpoint.'] })
     expect(dispatch('attack 198.51.100.47')).toEqual({ type: 'output', lines: ['Usage: attack <ipv4:port>', 'Attack requires an observed service endpoint.'] })
     const cases = [
-      [{ status: 'started' as const, processId: 'process-9' }, ['CREDENTIAL ACCESS ATTEMPT STARTED', labeledTarget('Target: ', '198.51.100.47:22'), 'Method: Basic Credential Toolkit', 'Open Processes to monitor progress.']],
+      [{ status: 'started' as const, processId: 'process-9' }, null],
       [{ status: 'already_running' as const }, ['ATTEMPT ALREADY RUNNING']],
       [{ status: 'access_established' as const }, ['ACCESS ALREADY ESTABLISHED']],
       [{ status: 'insufficient_memory' as const, requiredMiB: 896, availableMiB: 539.4 }, ['INSUFFICIENT MEMORY', '896 MiB required', '539 MiB available']],
@@ -81,7 +81,8 @@ describe('command dispatcher', () => {
     ] as const
     for (const [operationResult, lines] of cases) {
       const attackEndpoint = vi.fn(() => operationResult)
-      expect(dispatchCommand(parseCommand('attack 198.51.100.47:22'), { ...context, operations: { ...context.operations, attackEndpoint } })).toEqual({ type: 'output', lines })
+      const expected = lines === null ? { type: 'process', processId: 'process-9' } : { type: 'output', lines }
+      expect(dispatchCommand(parseCommand('attack 198.51.100.47:22'), { ...context, operations: { ...context.operations, attackEndpoint } })).toEqual(expected)
       expect(attackEndpoint).toHaveBeenCalledExactlyOnceWith('198.51.100.47:22')
     }
   })
@@ -180,7 +181,7 @@ describe('individual commands', () => {
 
   it('reads the player address for ip output', () => {
     const narrowContext = { ...context, localDevice: { ip: '203.0.113.7' } }
-    expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '203.0.113.7')] })
+    expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '203.0.113.7', 'local')] })
   })
 
   it('reads runtime utilization for status output', () => {

@@ -1,6 +1,6 @@
 import { type PointerEvent, useEffect, useRef, useState } from 'react'
 
-export function TargetToken({ value }: { value: string }) {
+export function TargetToken({ value, scope = 'external' }: { value: string; scope?: 'local' | 'external' }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const resetTimer = useRef<ReturnType<typeof setTimeout>>()
 
@@ -26,9 +26,10 @@ export function TargetToken({ value }: { value: string }) {
 
   return (
     <button
-      className="target-token"
+      className={`target-token target-token-${scope}`}
       type="button"
       aria-label={`Copy target ${value}`}
+      title={`${scope === 'local' ? 'Local reference' : 'External reference'} · Copy`}
       data-copy-state={copyState}
       onPointerDown={preservePromptFocus}
       onClick={copy}
