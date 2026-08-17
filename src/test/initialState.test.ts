@@ -25,10 +25,10 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-network membership in schema version 7', () => {
+  it('separates identities and seeds canonical local-network membership in schema version 8', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(7)
-    expect(state.version).toBe(7)
+    expect(GAME_STATE_VERSION).toBe(8)
+    expect(state.version).toBe(8)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)

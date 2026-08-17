@@ -18,7 +18,7 @@ export const commands: Record<string, TerminalCommand> = {
   analyze: analyzeCommand,
 }
 
-export function dispatchCommand(command: ParsedCommand, context: CommandContext): CommandResult {
+export function dispatchCommand(command: ParsedCommand, context: CommandContext): CommandResult | Promise<CommandResult> {
   if (!command.name) return { type: 'output', lines: [] }
   const registeredCommand = commands[command.name]
   return registeredCommand
