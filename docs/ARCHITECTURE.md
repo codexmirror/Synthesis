@@ -60,7 +60,27 @@ Scan, Inspect, and Analyze have separate epistemic roles. Scan interprets known 
 
 ## Systemic simulation and causality
 
-Synthesis should favor causal state changes over scripted event chains. A gameplay mechanic changes concrete canonical simulation state; other systems should react to the resulting state when their own rules make it relevant rather than depending on hidden knowledge of which original action caused the change.
+Synthesis should grow as a network of interacting world states and relationships. Mechanics should primarily observe or transform those shared states; downstream consequences should emerge because other systems react to the resulting state rather than because an action directly scripts its complete outcome. Player-owned tools and discovered information determine which transformations a player can meaningfully attempt, but no single interaction path should become the mandatory solution for a target.
+
+Persist independent causes and derive consequences where practical. A mechanic should normally change the concrete state it actually affects rather than duplicating every downstream consequence as additional flags. Resource usage, reachability, availability, risk, or similar derived conditions should be calculated from their represented causes when practical so independently developed systems can interact without maintaining contradictory copies of the same truth.
+
+The same resulting state may have multiple causes. CPU or RAM pressure may eventually come from normal workloads, player Processes, malware, security software, mining, background services, or other represented work. Connectivity may depend on interfaces, active connections, routes, firewall state, and current position. Systems consuming those states should not need to know which named mechanic originally caused them.
+
+Relationships may themselves become concrete simulation state when gameplay gives them an independent lifecycle or properties—for example an authenticated session or an active network connection. Other relationships may remain simple canonical references or be derived from lower-level state. Do not turn this principle into a universal relationship graph: model a relationship explicitly only when current gameplay needs to observe, modify, persist, or reason about it.
+
+Do not prematurely build a universal simulation, entity, relationship, capability, action, or effect framework. Add concrete state and concrete interactions only when current gameplay requires them, while preserving these systemic principles.
+
+### Design test for new mechanics
+
+Before introducing a significant gameplay mechanic, check:
+
+1. What concrete World state or relationship does this mechanic observe?
+2. What concrete state or relationship does it actually change?
+3. Which consequences should be derived rather than directly written?
+4. Can other independent systems influence the same underlying state?
+5. Can existing or future systems react to the resulting state without knowing which named action caused it?
+6. Does this add another meaningful approach to a goal, or merely another mandatory pipeline step?
+7. Are we modelling only what current gameplay requires rather than anticipating a universal framework?
 
 ### Knowledge, capabilities, relationships, and reachability
 
@@ -81,6 +101,8 @@ Actions are valuable because of the concrete state transitions they cause, not b
 The same transition may have different consequences in different surroundings. Conceptually, disruption of a gateway might remove availability where it is the only gateway; activate a backup and make another host observable in redundant infrastructure; contribute to an incident response in a security-sensitive organization; or cause secondary failures among fragile dependents. These are possibilities, not promised features or scripted chains. The durable rule is that other systems react to changed state according to their own represented rules, rather than an attack explicitly scripting every consequence.
 
 The same resulting state may eventually be caused by player actions, autonomous actors, malware, automated services, security systems, time, or other simulated systems. Observations and interfaces should continue to derive from the current world truth regardless of what caused it.
+
+When concrete artifact-producing systems exist, actions should leave artifacts because represented events actually occurred, not because a feature manufactures flavor evidence. Connections, authentication attempts, filesystem changes, Process execution, network activity, and similar events may later produce logs or other artifacts according to the configuration of the systems involved. Those artifacts can then become player-observable information without requiring downstream systems to know which higher-level action originally caused them.
 
 Processes are one execution mechanism for long-running work, not a universal action or event layer. A Process represents elapsed work and resource consumption. The concrete gameplay mechanic that uses the Process owns what completion means and which simulation state changes as a consequence. Service Analysis completion resolves exactly once in the canonical full-game advancement transition and evaluates current world truth, never React presentation.
 
