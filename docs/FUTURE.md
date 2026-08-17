@@ -2,6 +2,8 @@
 
 Future iterations may add:
 
+- Authoritative server-owned simulation and multiplayer clients limited to player-visible observations, projections, and operation results
+
 - Network Analysis upgrades that deepen observations derived from existing simulation truth
 - Richer simulated networks, NPC hosts, and eventually exposed real players
 - Simulation time and autonomous world change when concrete mechanics require them
