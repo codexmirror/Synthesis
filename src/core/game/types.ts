@@ -100,6 +100,36 @@ export interface DiscoveredVulnerability {
 
 export interface KnowledgeState { readonly discoveredVulnerabilities: readonly DiscoveredVulnerability[] }
 
+export interface DiscoveredNetworkSnapshot {
+  readonly id: string
+  readonly name: string
+  readonly membersObserved: boolean
+}
+
+export interface DiscoveredServiceSnapshot {
+  readonly id: string
+  readonly name: string
+  readonly port: number
+  readonly protocol: 'TCP' | 'UDP'
+  /** Endpoint captured by the service-depth observation, not reconstructed later. */
+  readonly endpoint: string
+}
+
+export interface DiscoveredDeviceSnapshot {
+  readonly id: string
+  readonly address: string
+  readonly scope: 'lan' | 'remote'
+  readonly servicesObserved: boolean
+  readonly services: readonly DiscoveredServiceSnapshot[]
+}
+
+export interface DiscoveryState {
+  readonly networks: readonly DiscoveredNetworkSnapshot[]
+  /** SELF is intrinsic and is intentionally absent from this collection. */
+  readonly devices: readonly DiscoveredDeviceSnapshot[]
+  readonly networkDeviceRelations: readonly { readonly networkId: string; readonly deviceId: string }[]
+}
+
 export interface LocalNetwork {
   /** Stable entity identity, separate from the player-visible network name. */
   readonly id: string
@@ -124,4 +154,5 @@ export interface GameState {
   readonly world: WorldState
   readonly process: ProcessState
   readonly knowledge: KnowledgeState
+  readonly discovery: DiscoveryState
 }

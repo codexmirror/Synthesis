@@ -40,3 +40,13 @@ describe('local Scan application operation', () => {
     })
   })
 })
+
+it('merges back-to-back observations against the latest canonical Discovery', async () => {
+  let state = createInitialGameState()
+  const scan = createLocalScanTarget(() => state, (next) => { state = next })
+  await scan(state.player.localDevice.network.ip)
+  await scan('home-net')
+  expect(state.discovery.networks).toMatchObject([{ name: 'home-net', membersObserved: true }])
+  expect(state.discovery.networkDeviceRelations).toHaveLength(2)
+  expect(state.discovery.devices).toMatchObject([{ id: 'host-lan-001', servicesObserved: false }])
+})

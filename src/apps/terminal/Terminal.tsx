@@ -4,7 +4,6 @@ import { OS_NAME } from '../../core/branding'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
-import { scanNetworkTarget } from '../../core/game/scan'
 import { inspectNetworkTarget } from '../../core/game/inspect'
 import type { TerminalLine } from './commandTypes'
 import { TargetToken } from './TargetToken'
@@ -30,21 +29,22 @@ export function Terminal() {
   const [historyIndex, setHistoryIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
+  const submitting = useRef(false)
 
   useEffect(() => { const output = outputRef.current; if (output) output.scrollTop = output.scrollHeight }, [entries])
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault()
+    if (submitting.current) return
     const command = input.trim()
     if (!command) return
-    const result = dispatchCommand(parseCommand(command), {
+    submitting.current = true
+    try {
+    const result = await dispatchCommand(parseCommand(command), {
       localDevice: { ip: gameState.player.localDevice.network.ip },
       runtime: { cpuLoad: Math.round(usage.totalCpuLoad), ramUsage: Math.round(usage.totalRamUsage), networkStatus: gameState.player.localDevice.runtime.networkStatus },
       operations: {
-        scanTarget: (target) => scanNetworkTarget({
-          localDevice: gameState.player.localDevice,
-          network: gameState.world.network,
-        }, target),
+        scanTarget: actions.scanTarget,
         inspectTarget: (target) => inspectNetworkTarget({
           localDevice: gameState.player.localDevice,
           network: gameState.world.network,
@@ -65,8 +65,13 @@ export function Terminal() {
     const nextHistory = [...history, command]
     setHistory(nextHistory)
     setHistoryIndex(nextHistory.length)
-    setInput('')
+    setInput((current) => current.trim() === command ? '' : current)
     inputRef.current?.focus({ preventScroll: true })
+    } catch {
+      setEntries((current) => [...current, { command, output: ['COMMAND FAILED'] }])
+    } finally {
+      submitting.current = false
+    }
   }
 
   function navigateHistory(direction: -1 | 1) {

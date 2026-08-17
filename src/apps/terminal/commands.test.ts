@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createInitialGameState } from '../../core/game/initialState'
-import { target, text, type CommandContext } from './commandTypes'
+import { target, text, type CommandContext, type CommandResult } from './commandTypes'
 import { clearCommand } from './commands/clear'
 import { createHelpCommand } from './commands/help'
 import { ipCommand } from './commands/ip'
@@ -26,7 +26,7 @@ const context: CommandContext = {
     knownWeaknesses: () => [],
   },
 }
-const dispatch = (input: string) => dispatchCommand(parseCommand(input), context)
+const dispatch = (input: string) => dispatchCommand(parseCommand(input), context) as CommandResult
 const labeledTarget = (label: string, value: string) => [text(label), target(value)]
 
 describe('command dispatcher', () => {

@@ -1,4 +1,4 @@
-import { target as targetFragment, text, type TerminalCommand, type TerminalLine } from '../commandTypes'
+import { target as targetFragment, text, type CommandResult, type TerminalCommand, type TerminalLine } from '../commandTypes'
 import { isIpv4EndpointSyntax } from '../../../core/game/networkTarget'
 
 export const scanCommand: TerminalCommand = {
@@ -8,7 +8,8 @@ export const scanCommand: TerminalCommand = {
 
     const [target] = args
     if (isIpv4EndpointSyntax(target)) return { type: 'output', lines: ['INVALID TARGET TYPE', '', `${target} is a service endpoint.`, '', 'scan accepts IPv4 devices and network names.', 'Service endpoints can be investigated with analyze.'] }
-    const result = operations.scanTarget(target)
+    const observed = operations.scanTarget(target)
+    const format = (result: Awaited<typeof observed>): CommandResult => {
     if (result.status === 'unknown_target') {
       return { type: 'output', lines: [`Unknown scan target: ${result.input}`] }
     }
@@ -27,6 +28,8 @@ export const scanCommand: TerminalCommand = {
       lines.push('', service.name, [text('Endpoint: '), targetFragment(`${result.address}:${service.port}`)], `Protocol: ${service.protocol}`)
       for (const label of operations.knownWeaknesses(result.targetId, service.id)) lines.push(`Known weakness: ${label}`)
     }
-    return { type: 'output', lines }
+    return { type: 'output' as const, lines }
+    }
+    return observed instanceof Promise ? observed.then(format) : format(observed)
   },
 }

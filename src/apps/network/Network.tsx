@@ -1,14 +1,11 @@
 import './network.css'
 import { useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
-import type { DiscoveredService, ScanResult } from '../../core/game/scan'
-import type { ServiceAnalysisProcess } from '../../core/game/types'
+import type { ServiceAnalysisProcess, DiscoveredDeviceSnapshot, DiscoveredNetworkSnapshot, DiscoveredServiceSnapshot } from '../../core/game/types'
 
-type DeviceObservation = Extract<ScanResult, { status: 'device' }>
-type NetworkObservation = Extract<ScanResult, { status: 'network' }>
 type CopyState = { value: string; status: 'copied' | 'failed' } | null
 type StartFeedback = { serviceId: string; message: string } | null
-type ServiceObservation = DiscoveredService & { readonly endpoint: string; readonly targetDeviceId: string }
+type ServiceObservation = DiscoveredServiceSnapshot & { readonly targetDeviceId: string }
 
 function CopyReference({ value, copyState, onCopy }: { value: string; copyState: CopyState; onCopy(value: string): void }) {
   const status = copyState?.value === value ? copyState.status : null
@@ -21,9 +18,8 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
 export function Network() {
   const gameState = useGameState()
   const actions = useGameActions()
-  const [selfObservation, setSelfObservation] = useState<DeviceObservation | null>(null)
-  const [networkObservation, setNetworkObservation] = useState<NetworkObservation | null>(null)
-  const [deviceObservation, setDeviceObservation] = useState<DeviceObservation | null>(null)
+  const [networkId, setNetworkId] = useState<string | null>(null)
+  const [deviceId, setDeviceId] = useState<string | null>(null)
   const [serviceObservation, setServiceObservation] = useState<ServiceObservation | null>(null)
   const [copyState, setCopyState] = useState<CopyState>(null)
   const [feedback, setFeedback] = useState<StartFeedback>(null)
@@ -31,15 +27,9 @@ export function Network() {
   const pendingTargetRef = useRef<string | null>(null)
   const requestGeneration = useRef(0)
   const copyTimer = useRef<ReturnType<typeof setTimeout>>()
-  useEffect(() => {
-    const generation = ++requestGeneration.current
-    void actions.scanTarget(gameState.player.localDevice.network.ip).then((result) => {
-      if (requestGeneration.current === generation && result.status === 'device') setSelfObservation(result)
-    }).catch(() => {})
-    return () => { requestGeneration.current++; clearTimeout(copyTimer.current) }
-  }, [actions.scanTarget, gameState.player.localDevice.network.ip])
-
-  const observedNetworks = selfObservation?.status === 'device' ? selfObservation.networks : []
+  useEffect(() => () => { requestGeneration.current++; clearTimeout(copyTimer.current) }, [])
+  const networkObservation = gameState.discovery.networks.find((network) => network.id === networkId) ?? null
+  const deviceObservation = gameState.discovery.devices.find((device) => device.id === deviceId) ?? null
 
   function beginRequest(target: string) {
     if (pendingTargetRef.current === target) return null
@@ -63,7 +53,7 @@ export function Network() {
     if (generation === null) return
     try {
       const result = await actions.scanTarget(name)
-      if (finishRequest(name, generation) && result.status === 'network') { setNetworkObservation(result); setDeviceObservation(null); setServiceObservation(null); setFeedback(null) }
+      finishRequest(name, generation)
     } catch { finishRequest(name, generation) }
   }
   async function scanDevice(address: string) {
@@ -71,7 +61,7 @@ export function Network() {
     if (generation === null) return
     try {
       const result = await actions.scanTarget(address)
-      if (finishRequest(address, generation) && result.status === 'device') { setDeviceObservation(result); setServiceObservation(null); setFeedback(null) }
+      finishRequest(address, generation)
     } catch { finishRequest(address, generation) }
   }
   async function copy(value: string) {
@@ -89,27 +79,27 @@ export function Network() {
 
   return <section className="app-content scan-app" aria-label="Scan workspace">
     {serviceObservation && deviceObservation ? <ServiceView observation={serviceObservation} deviceAddress={deviceObservation.address} processes={gameState.process.processes.filter((p): p is ServiceAnalysisProcess => p.kind === 'service_analysis')} knowledge={gameState.knowledge.discoveredVulnerabilities} copyState={copyState} feedback={feedback} onCopy={copy} onAnalyze={analyze} onBack={() => { setServiceObservation(null); setFeedback(null) }} />
-      : deviceObservation ? <DeviceView observation={deviceObservation} networkObservation={networkObservation} processes={gameState.process.processes.filter((p): p is ServiceAnalysisProcess => p.kind === 'service_analysis')} knowledge={gameState.knowledge.discoveredVulnerabilities} copyState={copyState} onCopy={copy} onService={(service) => { setServiceObservation({ ...service, endpoint: `${deviceObservation.address}:${service.port}`, targetDeviceId: deviceObservation.targetId }); setFeedback(null) }} onBack={() => { setDeviceObservation(null); setFeedback(null) }} />
-      : networkObservation ? <NetworkView observation={networkObservation} copyState={copyState} pendingTarget={pendingTarget} onCopy={copy} onDevice={scanDevice} onBack={() => { invalidateRequests(); setNetworkObservation(null) }} onRescan={() => scanNetwork(networkObservation.networkName)} />
-        : <div className="known-space"><header className="scan-atlas-heading"><h1>KNOWN SPACE</h1><p>Known and observed network space</p></header><div className="scan-list">{observedNetworks.map((network) => <button className="atlas-row network-object" type="button" key={network.id} aria-label={`Open known area ${network.name}`} disabled={pendingTarget === network.name} onClick={() => scanNetwork(network.name)}><span className="atlas-marker atlas-marker-local" aria-hidden="true" /><span className="known-space-identity"><strong className="scan-area-label">HOME</strong><span className="atlas-object-name">{network.name}</span><span className="scan-type">LOCAL NETWORK</span></span><span className="atlas-arrow" aria-hidden="true">→</span></button>)}</div></div>}
+      : deviceObservation ? <DeviceView observation={deviceObservation} network={networkObservation} pending={pendingTarget === deviceObservation.address} processes={gameState.process.processes.filter((p): p is ServiceAnalysisProcess => p.kind === 'service_analysis')} knowledge={gameState.knowledge.discoveredVulnerabilities} copyState={copyState} onCopy={copy} onScan={() => scanDevice(deviceObservation.address)} onService={(service) => { setServiceObservation({ ...service, targetDeviceId: deviceObservation.id }); setFeedback(null) }} onBack={() => { invalidateRequests(); setDeviceId(null); setFeedback(null) }} />
+      : networkObservation ? <NetworkView observation={networkObservation} devices={gameState.discovery.networkDeviceRelations.filter((relation) => relation.networkId === networkObservation.id).map((relation) => relation.deviceId === gameState.player.localDevice.id ? { id: relation.deviceId, address: gameState.player.localDevice.network.ip, scope: 'self' as const } : gameState.discovery.devices.find((device) => device.id === relation.deviceId)).filter((device): device is DiscoveredDeviceSnapshot | { id: string; address: string; scope: 'self' } => Boolean(device))} copyState={copyState} pending={pendingTarget === networkObservation.name} onCopy={copy} onDevice={(id) => setDeviceId(id)} onBack={() => { invalidateRequests(); setNetworkId(null) }} onScan={() => scanNetwork(networkObservation.name)} />
+        : <div className="known-space"><header className="scan-atlas-heading"><h1>KNOWN SPACE</h1><p>Known and observed network space</p></header><article className="atlas-row device-object"><span className="atlas-marker atlas-marker-local" /><div className="device-identity"><span className="scan-type">SELF</span><CopyReference value={gameState.player.localDevice.network.ip} copyState={copyState} onCopy={copy} /></div></article><div className="scan-list">{gameState.discovery.networks.map((network) => <button className="atlas-row network-object" type="button" key={network.id} aria-label={`Open known area ${network.name}`} onClick={() => setNetworkId(network.id)}><span className="atlas-marker atlas-marker-local" aria-hidden="true" /><span className="known-space-identity"><strong className="scan-area-label">HOME</strong><span className="atlas-object-name">{network.name}</span><span className="scan-type">LOCAL NETWORK</span></span><span className="atlas-arrow" aria-hidden="true">→</span></button>)}</div></div>}
   </section>
 }
 
-function NetworkView({ observation, copyState, pendingTarget, onCopy, onDevice, onBack, onRescan }: { observation: NetworkObservation; copyState: CopyState; pendingTarget: string | null; onCopy(value: string): void; onDevice(address: string): void; onBack(): void; onRescan(): void }) {
-  return <div><nav className="scan-crumbs" aria-label="Scan navigation"><button onClick={onBack}>← Known Space</button><span>/</span><strong>{observation.networkName}</strong></nav><div className="scan-detail-title network-focus"><div><span className="scan-type">NETWORK</span><h2>{observation.networkName}</h2></div><button className="scan-quiet" disabled={pendingTarget === observation.networkName} onClick={onRescan} aria-label={`Rescan ${observation.networkName}`}>↻ <span>Rescan</span></button></div><div className="scan-section-heading"><span>DEVICES</span><span>{observation.devices.length} responding</span></div><div className="scan-list">{observation.devices.map((device) => <article className="atlas-row device-object" key={device.targetId}><span className={`atlas-marker ${device.scope === 'self' ? 'atlas-marker-local' : ''}`} aria-hidden="true" /><div className="device-identity"><span className="scan-type">{device.scope === 'self' ? 'SELF' : `${device.scope.toUpperCase()} DEVICE`}</span><CopyReference value={device.address} copyState={copyState} onCopy={onCopy} /></div><button className="atlas-open" disabled={pendingTarget === device.address} onClick={() => onDevice(device.address)} aria-label={`Open device ${device.address}`}><span aria-hidden="true">→</span></button></article>)}</div></div>
+function NetworkView({ observation, devices, copyState, pending, onCopy, onDevice, onBack, onScan }: { observation: DiscoveredNetworkSnapshot; devices: readonly (DiscoveredDeviceSnapshot | { id: string; address: string; scope: 'self' })[]; copyState: CopyState; pending: boolean; onCopy(value: string): void; onDevice(id: string): void; onBack(): void; onScan(): void }) {
+  return <div><nav className="scan-crumbs" aria-label="Scan navigation"><button onClick={onBack}>← Known Space</button><span>/</span><strong>{observation.name}</strong></nav><div className="scan-detail-title network-focus"><div><span className="scan-type">NETWORK</span><h2>{observation.name}</h2></div><button className="scan-quiet" disabled={pending} onClick={onScan} aria-label={`Scan network ${observation.name}`}>⌁ <span>Scan Network</span></button></div><div className="scan-section-heading"><span>DEVICES</span><span>{observation.membersObserved ? `${devices.length} observed` : 'Members not observed yet'}</span></div><div className="scan-list">{devices.map((device) => <article className="atlas-row device-object" key={device.id}><span className={`atlas-marker ${device.scope === 'self' ? 'atlas-marker-local' : ''}`} aria-hidden="true" /><div className="device-identity"><span className="scan-type">{device.scope === 'self' ? 'SELF' : `${device.scope.toUpperCase()} DEVICE`}</span><CopyReference value={device.address} copyState={copyState} onCopy={onCopy} /></div>{device.scope !== 'self' && <button className="atlas-open" onClick={() => onDevice(device.id)} aria-label={`Open device ${device.address}`}><span aria-hidden="true">→</span></button>}</article>)}</div></div>
 }
 
 function matchingProcesses(processes: readonly ServiceAnalysisProcess[], observation: ServiceObservation) {
   return processes.filter((process) => process.targetDeviceId === observation.targetDeviceId && process.serviceId === observation.id && process.startedEndpoint === observation.endpoint)
 }
 
-function DeviceView({ observation, networkObservation, processes, knowledge, copyState, onCopy, onService, onBack }: { observation: DeviceObservation; networkObservation: NetworkObservation | null; processes: readonly ServiceAnalysisProcess[]; knowledge: readonly { targetDeviceId: string; serviceId: string; observedLabel: string }[]; copyState: CopyState; onCopy(value: string): void; onService(service: DiscoveredService): void; onBack(): void }) {
-  return <div><nav className="scan-crumbs" aria-label="Scan navigation"><button onClick={onBack}>← {networkObservation?.networkName ?? 'Devices'}</button><span>/</span><strong>{observation.address}</strong></nav><div className="scan-detail-title"><div><span className="scan-type">{observation.scope === 'self' ? 'SELF' : `${observation.scope.toUpperCase()} DEVICE`}</span><CopyReference value={observation.address} copyState={copyState} onCopy={onCopy} /></div></div><div className="scan-section-heading"><span>NETWORKS</span><span>{observation.networks.length} discovered</span></div>{observation.networks.map((network) => <div className="relationship" key={network.id}><span>NETWORK</span><strong>{network.name}</strong></div>)}<div className="scan-section-heading"><span>SERVICES</span><span>{observation.services.length} open</span></div><div className="service-list">{observation.services.map((service) => {
-    const serviceObservation = { ...service, endpoint: `${observation.address}:${service.port}`, targetDeviceId: observation.targetId }
+function DeviceView({ observation, network, pending, processes, knowledge, copyState, onCopy, onScan, onService, onBack }: { observation: DiscoveredDeviceSnapshot; network: DiscoveredNetworkSnapshot | null; pending: boolean; processes: readonly ServiceAnalysisProcess[]; knowledge: readonly { targetDeviceId: string; serviceId: string; observedLabel: string }[]; copyState: CopyState; onCopy(value: string): void; onScan(): void; onService(service: DiscoveredServiceSnapshot): void; onBack(): void }) {
+  return <div><nav className="scan-crumbs" aria-label="Scan navigation"><button onClick={onBack}>← {network?.name ?? 'Devices'}</button><span>/</span><strong>{observation.address}</strong></nav><div className="scan-detail-title"><div><span className="scan-type">{observation.scope.toUpperCase()} DEVICE</span><CopyReference value={observation.address} copyState={copyState} onCopy={onCopy} /></div><button className="scan-quiet" disabled={pending} onClick={onScan} aria-label={`Scan device ${observation.address}`}>⌁ <span>Scan Device</span></button></div><div className="scan-section-heading"><span>SERVICES</span><span>{observation.servicesObserved ? `${observation.services.length} open` : 'Services not observed yet'}</span></div><div className="service-list">{observation.services.map((service) => {
+    const serviceObservation = { ...service, targetDeviceId: observation.id }
     const related = matchingProcesses(processes, serviceObservation)
     const running = related.find((p) => p.status === 'running')
     const completed = [...related].reverse().find((p) => p.status === 'completed' && p.result)
-    const known = knowledge.filter((k) => k.targetDeviceId === observation.targetId && k.serviceId === service.id)
+    const known = knowledge.filter((k) => k.targetDeviceId === observation.id && k.serviceId === service.id)
     const progress = running ? Math.floor(running.workCompleted / running.workRequired * 100) : 0
     const summary = running ? `ANALYSIS RUNNING · ${progress}%` : known.length > 0 ? 'Weakness known' : completed ? 'Analysis complete' : 'Not analyzed'
     return <button type="button" className="service-row" key={service.id} onClick={() => onService(service)} aria-label={`Open ${service.name} service`}><span className="service-row-main"><strong>{service.name}</strong><span>{service.port} / {service.protocol}</span><span className="open-chip">OPEN</span></span><span className="service-row-secondary"><span>{summary}</span><span className="service-row-arrow" aria-hidden="true">→</span></span></button>

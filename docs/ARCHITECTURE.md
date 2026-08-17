@@ -1,5 +1,13 @@
 # Architecture
 
+## Discovery memory
+
+World Truth, Discovery, and Knowledge are deliberately separate. World Truth is the current simulation; Discovery is the player's canonical memory of positive Scan observations; Knowledge is the deeper result of Analyze. SELF and its current address are intrinsic player knowledge, so SELF is not duplicated in Discovery even though remembered network relationships may reference its stable device identity.
+
+Browse is not Observe. The Scan application projects remembered network/device relationships in a compact tree-like atlas, but opening an object reads Discovery only. Explicit network and device Scan actions use the shared application Scan operation, which observes current World Truth and additively merges the result into Discovery. The relationship records are independent pairs rather than parent/child ownership, so the presentation does not make the domain a tree.
+
+Discovery V1 records whether network members and device services have ever been successfully observed. Failures do not mark those depths complete, while successful empty observations do. Positive re-observation can update snapshots, but absence never deletes memory and a shallow network observation cannot erase deeper service memory. Each service snapshot stores its actually observed endpoint; it is not rebuilt from a later device address. Analyze therefore remains bound to the remembered endpoint and stable device/service identities, and stale endpoint validation remains authoritative.
+
 Synthesis keeps a few practical dependency boundaries so that the current foundation can grow without introducing a framework prematurely.
 
 ## Module direction
