@@ -108,9 +108,7 @@ describe('Terminal credential access', () => {
       endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001',
       vulnerabilityId: 'vulnerability-ssh-001', toolId: 'basic-credential-toolkit',
     })
-    expect(screen.getAllByText('CREDENTIAL ACCESS ATTEMPT STARTED')).toHaveLength(1)
-    expect(screen.getByText('Method: Basic Credential Toolkit')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Copy target 198.51.100.47:22' })).toBeInTheDocument()
+    expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
   })
 
   it('starts from stale Knowledge and later fails against patched current World truth', async () => {
@@ -121,11 +119,54 @@ describe('Terminal credential access', () => {
     render(<GameProvider initialState={patched}><Terminal /><Snapshot /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
-    expect(screen.getByText('CREDENTIAL ACCESS ATTEMPT STARTED')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS running' })).toBeInTheDocument()
+    expect(screen.getByText('Basic Credential Toolkit')).toBeInTheDocument()
     await act(async () => { vi.advanceTimersByTime(20_000) })
+    expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS completed' })).toHaveTextContent('ATTEMPT FAILED')
+    expect(screen.getByText('Target no longer responds as expected.')).toBeInTheDocument()
     const state = JSON.parse(screen.getByTestId('attack-state').textContent ?? '') as GameState
     expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'completed', result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' } })
     expect(state.deviceAccess.established).toEqual([])
     expect(state.knowledge).toEqual(patched.knowledge)
+  })
+})
+
+describe('Terminal live Process projection', () => {
+  it('binds Analyze to canonical Process state, updates in place, and preserves input focus', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const initial = knownCredentialState()
+    render(<GameProvider initialState={{ ...initial, knowledge: { discoveredVulnerabilities: [] } }}><Terminal /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const input = screen.getByLabelText('Command input')
+
+    await user.type(input, 'analyze 198.51.100.47:22{enter}')
+    const running = screen.getByRole('region', { name: 'SERVICE ANALYSIS running' })
+    expect(running).toHaveTextContent('CPU 82% RAM 768 MiB')
+    expect(running).toHaveTextContent('0%')
+    expect(input).toBeEnabled()
+    expect(input).toHaveFocus()
+
+    await act(async () => { vi.advanceTimersByTime(2_000) })
+    expect(screen.getByRole('region', { name: 'SERVICE ANALYSIS running' })).not.toHaveTextContent('0% complete')
+    expect(document.querySelectorAll('.terminal-entry')).toHaveLength(1)
+
+    input.blur()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    const completed = screen.getByRole('region', { name: 'SERVICE ANALYSIS completed' })
+    expect(completed).toHaveTextContent('WEAKNESS DETECTED')
+    expect(completed).toHaveTextContent('Weak authentication configuration')
+    expect(completed).toHaveTextContent('Known interaction')
+    expect(input).not.toHaveFocus()
+    expect(document.querySelectorAll('.terminal-entry')).toHaveLength(1)
+    vi.useRealTimers()
+  })
+
+  it('keeps Target Tokens copyable and exposes restrained semantic reference classes', async () => {
+    renderTerminal(vi.fn())
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Command input'), 'ip{enter}')
+    const token = screen.getByRole('button', { name: 'Copy target 198.51.100.23' })
+    expect(token).toHaveClass('target-token-local')
+    expect(token).toHaveAttribute('title', expect.stringContaining('Local reference'))
   })
 })

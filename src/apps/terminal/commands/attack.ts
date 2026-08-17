@@ -1,5 +1,5 @@
 import { isValidIpv4 } from '../../../core/game/networkTarget'
-import { target, text, type TerminalCommand } from '../commandTypes'
+import { type TerminalCommand } from '../commandTypes'
 
 function isServiceEndpoint(value: string): boolean {
   const separator = value.lastIndexOf(':')
@@ -19,6 +19,7 @@ export const attackCommand: TerminalCommand = {
     if (result.status === 'insufficient_memory') return { type: 'output', lines: ['INSUFFICIENT MEMORY', `${result.requiredMiB} MiB required`, `${Math.floor(result.availableMiB)} MiB available`] }
     if (result.status === 'endpoint_not_found') return { type: 'output', lines: ['ENDPOINT NOT AVAILABLE'] }
     if (result.status === 'not_available') return { type: 'output', lines: ['NO KNOWN ATTACK METHOD'] }
-    return { type: 'output', lines: ['CREDENTIAL ACCESS ATTEMPT STARTED', [text('Target: '), target(endpoint)], 'Method: Basic Credential Toolkit', 'Open Processes to monitor progress.'] }
+    if (result.status === 'started') return { type: 'process', processId: result.processId }
+    return { type: 'output', lines: ['ATTEMPT FAILED'] }
   },
 }

@@ -6,18 +6,44 @@ import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
 import { inspectNetworkTarget } from '../../core/game/inspect'
 import type { TerminalLine } from './commandTypes'
+import type { GameProcess } from '../../core/game/types'
 import { TargetToken } from './TargetToken'
 import { deriveResourceUsage } from '../../core/game/processes'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 
-interface Entry { command: string; output: TerminalLine[] }
+type Entry = { command: string; output: TerminalLine[]; processId?: never } | { command: string; processId: string; output?: never }
 
 function TerminalOutputLine({ line }: { line: TerminalLine }) {
   if (typeof line === 'string') return <>{line || '\u00a0'}</>
   return <>{line.map((fragment, index) => fragment.type === 'target'
-    ? <TargetToken key={index} value={fragment.value} />
+    ? <TargetToken key={index} value={fragment.value} scope={fragment.scope} />
     : <span key={index}>{fragment.value}</span>)}</>
+}
+
+function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess; gameState: ReturnType<typeof useGameState>; cpu: number }) {
+  if (!process || process.kind === 'generic') return <div className="process-projection"><strong>PROCESS UNAVAILABLE</strong></div>
+  const progress = Math.min(100, Math.floor(process.workCompleted / process.workRequired * 100))
+  const filled = Math.round(progress / 10)
+  const accessId = process.kind === 'credential_access' && process.result?.status === 'access_established' ? process.result.accessId : undefined
+  const access = accessId ? gameState.deviceAccess.established.find(({ id }) => id === accessId) : undefined
+  return <section className="process-projection" aria-label={`${process.label} ${process.status}`}>
+    <strong>{process.label}</strong>
+    <div><TargetToken value={process.startedEndpoint} scope="external" /></div>
+    {process.kind === 'credential_access' && process.status === 'running' && <div className="muted">Basic Credential Toolkit</div>}
+    <div className="process-state">{process.status.toUpperCase()}</div>
+    {process.status === 'running' ? <>
+      <div aria-label={`${progress}% complete`}><span aria-hidden="true">{'█'.repeat(filled)}{'░'.repeat(10 - filled)}</span> {progress}%</div>
+      <div className="process-resources">CPU {Math.round(cpu)}% <span>RAM {process.ramRequiredMiB} MiB</span></div>
+    </> : process.kind === 'service_analysis' ? <>
+      {process.result?.status === 'weaknesses_detected' && <><strong>WEAKNESS DETECTED</strong>{process.result.vulnerabilities.map((item) => <div key={item.vulnerabilityId}>{item.observedLabel}</div>)}<div className="known-interaction">Known interaction<br />attack <TargetToken value={process.startedEndpoint} scope="external" /></div></>}
+      {process.result?.status === 'no_weakness_detected' && <strong>NO WEAKNESS DETECTED</strong>}
+      {process.result?.status === 'service_unavailable' && <strong>SERVICE UNAVAILABLE</strong>}
+    </> : <>
+      {process.result?.status === 'access_established' && <><strong>ACCESS ESTABLISHED</strong>{access && <div>{access.privilege}</div>}</>}
+      {process.result?.status === 'attempt_failed' && <><strong>ATTEMPT FAILED</strong><div>{process.result.message}</div></>}
+    </>}
+  </section>
 }
 
 export function Terminal() {
@@ -59,9 +85,10 @@ export function Terminal() {
         }, target),
         analyzeEndpoint: (endpoint) => {
           const resolved = resolveServiceEndpoint(gameState, endpoint)
-          if (resolved === 'invalid') return 'invalid_endpoint'
-          if (!resolved) return 'endpoint_not_found'
-          return actions.startServiceAnalysis(resolved.targetDeviceId, resolved.serviceId).status
+          if (resolved === 'invalid') return { status: 'invalid_endpoint' }
+          if (!resolved) return { status: 'endpoint_not_found' }
+          const { state: _state, ...result } = actions.startServiceAnalysis(resolved.targetDeviceId, resolved.serviceId)
+          return result
         },
         knownWeaknesses: (targetDeviceId, serviceId) => gameState.knowledge.discoveredVulnerabilities
           .filter((known) => known.targetDeviceId === targetDeviceId && known.serviceId === serviceId)
@@ -77,6 +104,7 @@ export function Terminal() {
       },
     })
     if (result.type === 'clear') setEntries([])
+    else if (result.type === 'process') setEntries((current) => [...current, { command, processId: result.processId }])
     else setEntries((current) => [...current, { command, output: result.lines }])
     } catch {
       setEntries((current) => [...current, { command, output: ['COMMAND FAILED'] }])
@@ -103,7 +131,9 @@ export function Terminal() {
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
             <div><span className="prompt">user@node:~$</span> {entry.command}</div>
-            {entry.output.map((line, lineIndex) => <div key={lineIndex}><TerminalOutputLine line={line} /></div>)}
+            {'processId' in entry
+              ? <ProcessProjection process={gameState.process.processes.find(({ id }) => id === entry.processId)} gameState={gameState} cpu={usage.cpuAllocationByProcess[entry.processId!] ?? 0} />
+              : entry.output.map((line, lineIndex) => <div key={lineIndex}><TerminalOutputLine line={line} /></div>)}
           </div>
         ))}
       </div>

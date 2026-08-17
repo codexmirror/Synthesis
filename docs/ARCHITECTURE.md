@@ -144,7 +144,7 @@ Commands are interface verbs, not installed tool objects or capabilities, and th
 
 External services must enter through explicit adapters or interfaces at the application boundary and must not become direct dependencies of core game-domain logic.
 
-Terminal commands receive narrow, read-only values required by their behavior rather than unrestricted game state.
+Terminal commands receive narrow, read-only values required by their behavior rather than unrestricted game state. Terminal presentation may retain a UI-local Process ID for a live command entry; progress, resource allocation, completion results, Knowledge, and DeviceAccess continue to come from canonical `GameState`. Terminal, Scan, and Processes synchronize by rendering that shared state, never through app-to-app events. Target Token local/external visual semantics describe reference context only and do not create gameplay target categories.
 
 ## Interface and mobile presentation
 
