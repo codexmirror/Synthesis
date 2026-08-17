@@ -125,7 +125,7 @@ describe('command dispatcher', () => {
 
   it('renders state-derived local inspection and supported remote truth', () => {
     expect(dispatch('inspect 198.51.100.23')).toEqual({ type: 'output', lines: [
-      'DEVICE', labeledTarget('Address: ', '198.51.100.23'), 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
+      'DEVICE', labeledTarget('Address: ', '198.51.100.23', 'local'), 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Basic CPU', 'RAM:     4 GB',
     ] })
     expect(dispatch('inspect 203.0.113.42')).toEqual({ type: 'output', lines: [
       'DEVICE', labeledTarget('Address: ', '203.0.113.42'), 'Scope:   REMOTE', 'Status:  ONLINE',
@@ -156,7 +156,7 @@ describe('command dispatcher', () => {
     expect(inspection).toEqual({ type: 'output', lines: ['NETWORK', labeledTarget('Name: ', 'home-net'), 'Connected: YES'] })
     expect(JSON.stringify(inspection)).not.toMatch(/network-local-001|device-local-v0|host-lan-001/)
     const output = dispatch('scan home-net')
-    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', [target('198.51.100.23')], [target('198.51.100.47')]] })
+    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', [target('198.51.100.23', 'local')], [target('198.51.100.47')]] })
     expect(JSON.stringify(output)).not.toMatch(/network-local-001|device-local-v0|host-lan-001/)
   })
 
@@ -210,7 +210,7 @@ describe('individual commands', () => {
     }))
     expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['192.0.2.44'])).toEqual({
       type: 'output',
-      lines: ['DEVICE', labeledTarget('Address: ', '192.0.2.44'), 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
+      lines: ['DEVICE', labeledTarget('Address: ', '192.0.2.44', 'local'), 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
     })
     expect(inspectTarget).toHaveBeenCalledExactlyOnceWith('192.0.2.44')
   })

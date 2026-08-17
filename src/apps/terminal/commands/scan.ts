@@ -3,7 +3,7 @@ import { isIpv4EndpointSyntax } from '../../../core/game/networkTarget'
 
 export const scanCommand: TerminalCommand = {
   description: 'Discover devices, relationships, and exposed services',
-  run: ({ operations }, args) => {
+  run: ({ operations, localDevice }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4|network-name>'] }
 
     const [target] = args
@@ -14,8 +14,9 @@ export const scanCommand: TerminalCommand = {
       return { type: 'output', lines: [`Unknown scan target: ${result.input}`] }
     }
     if (result.status === 'network') {
-      return { type: 'output', lines: [`Scanning ${result.networkName}...`, '', `DEVICES FOUND: ${result.devices.length}`, '', ...result.devices.map(({ address }) => [targetFragment(address)])] }
+      return { type: 'output', lines: [`Scanning ${result.networkName}...`, '', `DEVICES FOUND: ${result.devices.length}`, '', ...result.devices.map(({ address, scope }) => [targetFragment(address, scope === 'self' ? 'local' : 'external')])] }
     }
+    const targetScope = result.address === localDevice.ip ? 'local' : 'external'
     const lines: TerminalLine[] = [`Scanning ${result.address}...`, '']
     if (result.status === 'no_response') return { type: 'output', lines: [...lines, 'NO RESPONSE'] }
     if (result.networks.length === 0 && result.services.length === 0) {
@@ -25,7 +26,7 @@ export const scanCommand: TerminalCommand = {
     if (result.networks.length > 0) lines.push('', ...result.networks.map(({ name }) => [text('Network: '), targetFragment(name)]))
     lines.push('', `SERVICES FOUND: ${result.services.length}`)
     for (const service of result.services) {
-      lines.push('', service.name, [text('Endpoint: '), targetFragment(`${result.address}:${service.port}`)], `Protocol: ${service.protocol}`)
+      lines.push('', service.name, [text('Endpoint: '), targetFragment(`${result.address}:${service.port}`, targetScope)], `Protocol: ${service.protocol}`)
       for (const label of operations.knownWeaknesses(result.targetId, service.id)) lines.push(`Known weakness: ${label}`)
     }
     return { type: 'output' as const, lines }

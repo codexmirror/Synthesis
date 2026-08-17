@@ -12,13 +12,37 @@ import { deriveResourceUsage } from '../../core/game/processes'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 
-type Entry = { command: string; output: TerminalLine[]; processId?: never } | { command: string; processId: string; output?: never }
+type CompletedProjection =
+  | { kind: 'service_analysis'; label: string; endpoint: string; result: 'weaknesses_detected'; vulnerabilityLabels: readonly string[] }
+  | { kind: 'service_analysis'; label: string; endpoint: string; result: 'no_weakness_detected' | 'service_unavailable' }
+  | { kind: 'credential_access'; label: string; endpoint: string; result: 'access_established'; privilege?: 'USER' }
+  | { kind: 'credential_access'; label: string; endpoint: string; result: 'attempt_failed'; message: string }
+
+type Entry =
+  | { command: string; output: TerminalLine[] }
+  | { command: string; processId: string; completed?: CompletedProjection }
 
 function TerminalOutputLine({ line }: { line: TerminalLine }) {
   if (typeof line === 'string') return <>{line || '\u00a0'}</>
   return <>{line.map((fragment, index) => fragment.type === 'target'
     ? <TargetToken key={index} value={fragment.value} scope={fragment.scope} />
     : <span key={index}>{fragment.value}</span>)}</>
+}
+
+function CompletedProcessProjection({ completed }: { completed: CompletedProjection }) {
+  return <section className="process-projection" aria-label={`${completed.label} completed`}>
+    <strong>{completed.label}</strong>
+    <div><TargetToken value={completed.endpoint} scope="external" /></div>
+    <div className="process-state">COMPLETED</div>
+    {completed.kind === 'service_analysis' ? <>
+      {completed.result === 'weaknesses_detected' && <><strong>WEAKNESS DETECTED</strong>{completed.vulnerabilityLabels.map((label, index) => <div key={index}>{label}</div>)}<div className="known-interaction">Known interaction<br />attack <TargetToken value={completed.endpoint} scope="external" /></div></>}
+      {completed.result === 'no_weakness_detected' && <strong>NO WEAKNESS DETECTED</strong>}
+      {completed.result === 'service_unavailable' && <strong>SERVICE UNAVAILABLE</strong>}
+    </> : <>
+      {completed.result === 'access_established' && <><strong>ACCESS ESTABLISHED</strong>{completed.privilege && <div>{completed.privilege}</div>}</>}
+      {completed.result === 'attempt_failed' && <><strong>ATTEMPT FAILED</strong><div>{completed.message}</div></>}
+    </>}
+  </section>
 }
 
 function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess; gameState: ReturnType<typeof useGameState>; cpu: number }) {
@@ -59,6 +83,32 @@ export function Terminal() {
   const submitting = useRef(false)
 
   useEffect(() => { const output = outputRef.current; if (output) output.scrollTop = output.scrollHeight }, [entries])
+
+  useEffect(() => {
+    setEntries((current) => {
+      let changed = false
+      const next = current.map((entry): Entry => {
+        if (!('processId' in entry) || entry.completed) return entry
+        const process = gameState.process.processes.find(({ id }) => id === entry.processId)
+        if (!process || process.kind === 'generic' || process.status !== 'completed' || !process.result) return entry
+        let completed: CompletedProjection
+        if (process.kind === 'service_analysis') {
+          completed = process.result.status === 'weaknesses_detected'
+            ? { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status, vulnerabilityLabels: process.result.vulnerabilities.map(({ observedLabel }) => observedLabel) }
+            : { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status }
+        } else if (process.result.status === 'access_established') {
+          const accessId = process.result.accessId
+          const privilege = gameState.deviceAccess.established.find(({ id }) => id === accessId)?.privilege
+          completed = { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status, privilege }
+        } else {
+          completed = { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status, message: process.result.message }
+        }
+        changed = true
+        return { ...entry, completed }
+      })
+      return changed ? next : current
+    })
+  }, [gameState.process.processes, gameState.deviceAccess.established])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -132,7 +182,9 @@ export function Terminal() {
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
             <div><span className="prompt">user@node:~$</span> {entry.command}</div>
             {'processId' in entry
-              ? <ProcessProjection process={gameState.process.processes.find(({ id }) => id === entry.processId)} gameState={gameState} cpu={usage.cpuAllocationByProcess[entry.processId!] ?? 0} />
+              ? entry.completed
+                ? <CompletedProcessProjection completed={entry.completed} />
+                : <ProcessProjection process={gameState.process.processes.find(({ id }) => id === entry.processId)} gameState={gameState} cpu={usage.cpuAllocationByProcess[entry.processId!] ?? 0} />
               : entry.output.map((line, lineIndex) => <div key={lineIndex}><TerminalOutputLine line={line} /></div>)}
           </div>
         ))}

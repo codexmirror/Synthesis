@@ -10,6 +10,8 @@ import { rememberScan } from '../../core/game/discovery'
 import { scanNetworkTarget } from '../../core/game/scan'
 import type { GameState } from '../../core/game/types'
 import { GameProvider, useGameState } from '../../app/GameContext'
+import { useGameActions } from '../../app/GameContext'
+import { deriveResourceUsage } from '../../core/game/processes'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -92,6 +94,12 @@ function knownCredentialState(): GameState {
   return { ...state, discovery, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'vulnerability-ssh-001', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
 }
 
+function StateControls() {
+  const state = useGameState()
+  const actions = useGameActions()
+  return <><button onClick={actions.clearCompletedProcesses}>Clear process history</button><output data-testid="game-state">{JSON.stringify(state)}</output></>
+}
+
 describe('Terminal credential access', () => {
   it('resolves remembered identities and invokes the same application action used by Scan', async () => {
     const state = knownCredentialState()
@@ -135,7 +143,7 @@ describe('Terminal live Process projection', () => {
   it('binds Analyze to canonical Process state, updates in place, and preserves input focus', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const initial = knownCredentialState()
-    render(<GameProvider initialState={{ ...initial, knowledge: { discoveredVulnerabilities: [] } }}><Terminal /></GameProvider>)
+    render(<GameProvider initialState={{ ...initial, knowledge: { discoveredVulnerabilities: [] } }}><Terminal /><StateControls /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     const input = screen.getByLabelText('Command input')
 
@@ -143,6 +151,7 @@ describe('Terminal live Process projection', () => {
     const running = screen.getByRole('region', { name: 'SERVICE ANALYSIS running' })
     expect(running).toHaveTextContent('CPU 82% RAM 768 MiB')
     expect(running).toHaveTextContent('0%')
+    expect(screen.getByRole('button', { name: 'Copy target 198.51.100.47:22' })).toHaveClass('target-token-external')
     expect(input).toBeEnabled()
     expect(input).toHaveFocus()
 
@@ -158,6 +167,64 @@ describe('Terminal live Process projection', () => {
     expect(completed).toHaveTextContent('Known interaction')
     expect(input).not.toHaveFocus()
     expect(document.querySelectorAll('.terminal-entry')).toHaveLength(1)
+
+    await user.click(screen.getByRole('button', { name: 'Clear process history' }))
+    expect(screen.getByRole('region', { name: 'SERVICE ANALYSIS completed' })).toHaveTextContent('Weak authentication configuration')
+    const afterCleanup = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(afterCleanup.process.processes).toEqual([])
+    expect(afterCleanup.knowledge.discoveredVulnerabilities).toHaveLength(1)
+
+    await user.type(input, 'clear{enter}')
+    expect(screen.queryByRole('region', { name: 'SERVICE ANALYSIS completed' })).not.toBeInTheDocument()
+    const afterTerminalClear = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(afterTerminalClear.knowledge).toEqual(afterCleanup.knowledge)
+    vi.useRealTimers()
+  })
+
+  it('preserves successful Attack presentation after Process cleanup without owning DeviceAccess', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<GameProvider initialState={knownCredentialState()}><Terminal /><StateControls /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    const completed = screen.getByRole('region', { name: 'CREDENTIAL ACCESS completed' })
+    expect(completed).toHaveTextContent('ACCESS ESTABLISHED')
+    expect(completed).toHaveTextContent('USER')
+
+    await user.click(screen.getByRole('button', { name: 'Clear process history' }))
+    expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS completed' })).toHaveTextContent('ACCESS ESTABLISHEDUSER')
+    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(state.process.processes).toEqual([])
+    expect(state.deviceAccess.established).toMatchObject([{ privilege: 'USER', viaServiceId: 'service-ssh-001' }])
+    vi.useRealTimers()
+  })
+
+  it('keeps concurrent entries independently bound and reflects canonical CPU sharing', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const initial = { ...knownCredentialState(), knowledge: { discoveredVulnerabilities: [] } }
+    render(<GameProvider initialState={initial}><Terminal /><StateControls /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const input = screen.getByLabelText('Command input')
+
+    await user.type(input, 'analyze 198.51.100.47:22{enter}')
+    const singleState = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const singleUsage = deriveResourceUsage(singleState.player.localDevice.hardware, singleState.player.localDevice.runtime, singleState.process)
+    expect(screen.getByRole('region', { name: 'SERVICE ANALYSIS running' })).toHaveTextContent(`CPU ${Math.round(singleUsage.cpuAllocationByProcess[singleState.process.processes[0].id])}%`)
+
+    await user.type(input, 'analyze 198.51.100.47:80{enter}')
+    const sharedState = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const sharedUsage = deriveResourceUsage(sharedState.player.localDevice.hardware, sharedState.player.localDevice.runtime, sharedState.process)
+    expect(new Set(sharedState.process.processes.map(({ id }) => id)).size).toBe(2)
+    const projections = screen.getAllByRole('region', { name: 'SERVICE ANALYSIS running' })
+    expect(projections).toHaveLength(2)
+    for (const process of sharedState.process.processes) {
+      const projection = screen.getByRole('button', { name: `Copy target ${process.kind === 'service_analysis' ? process.startedEndpoint : ''}` }).closest('.process-projection')
+      expect(projection).toHaveTextContent(`CPU ${Math.round(sharedUsage.cpuAllocationByProcess[process.id])}%`)
+    }
+
+    await act(async () => { vi.advanceTimersByTime(2_000) })
+    for (const projection of screen.getAllByRole('region', { name: 'SERVICE ANALYSIS running' })) expect(projection).not.toHaveTextContent('0%')
+    expect(document.querySelectorAll('.terminal-entry')).toHaveLength(2)
     vi.useRealTimers()
   })
 
@@ -168,5 +235,8 @@ describe('Terminal live Process projection', () => {
     const token = screen.getByRole('button', { name: 'Copy target 198.51.100.23' })
     expect(token).toHaveClass('target-token-local')
     expect(token).toHaveAttribute('title', expect.stringContaining('Local reference'))
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText')
+    await user.click(token)
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('198.51.100.23')
   })
 })
