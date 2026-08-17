@@ -189,9 +189,10 @@ export function Terminal() {
           </div>
         ))}
       </div>
-      <form className="terminal-input" onSubmit={submit}>
-        <label className="prompt" htmlFor="command-input">user@node:~$</label>
-        <input
+<form className="terminal-input" onSubmit={submit}>
+  <label className="prompt" htmlFor="command-input">user@node:~$</label>
+  <span className="terminal-cursor" aria-hidden="true">▌</span>
+  <input
           id="command-input"
           ref={inputRef}
           value={input}
