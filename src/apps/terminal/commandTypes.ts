@@ -1,6 +1,10 @@
 import type { ScanResult } from '../../core/game/scan'
 import type { InspectResult } from '../../core/game/inspect'
 import type { EndpointAnalysisResult } from '../../core/game/serviceAnalysis'
+import type { StartCredentialAccessResult } from '../../core/game/credentialAccess'
+
+type WithoutState<T> = T extends { state: unknown } ? Omit<T, 'state'> : T
+export type TerminalAttackResult = WithoutState<StartCredentialAccessResult>
 
 export interface CommandContext {
   readonly localDevice: {
@@ -12,6 +16,7 @@ export interface CommandContext {
     readonly inspectTarget: (target: string) => InspectResult
     readonly analyzeEndpoint: (endpoint: string) => EndpointAnalysisResult['status']
     readonly knownWeaknesses: (targetDeviceId: string, serviceId: string) => readonly string[]
+    readonly attackEndpoint: (endpoint: string) => TerminalAttackResult
   }
 }
 

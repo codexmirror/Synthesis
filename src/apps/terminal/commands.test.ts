@@ -24,6 +24,7 @@ const context: CommandContext = {
     inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     analyzeEndpoint: () => 'endpoint_not_found',
     knownWeaknesses: () => [],
+    attackEndpoint: () => ({ status: 'not_available' }),
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context) as CommandResult
@@ -31,10 +32,10 @@ const labeledTarget = (label: string, value: string) => [text(label), target(val
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze', 'attack'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
     expect(Object.keys(commands).filter((name) => name === 'inspect')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(7)
+    expect(new Set(Object.values(commands)).size).toBe(8)
   })
 
   it('derives help output from the command registry', () => {
@@ -48,6 +49,7 @@ describe('command dispatcher', () => {
     expect(commands.scan.description).toBe('Discover devices, relationships, and exposed services')
     expect(commands.inspect.description).toBe('Examine current properties of a device or network')
     expect(commands.analyze.description).toBe('Investigate a service endpoint')
+    expect(commands.attack.description).toBe('Attempt a known attack method against an observed service')
   })
   it('dispatches ip with the player-visible address marked as a target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))
@@ -65,6 +67,23 @@ describe('command dispatcher', () => {
     const result = dispatchCommand(parseCommand('analyze 198.51.100.47:22'), { ...context, operations: { ...context.operations, analyzeEndpoint } })
     expect(analyzeEndpoint).toHaveBeenCalledExactlyOnceWith('198.51.100.47:22')
     expect(JSON.stringify(result)).toContain('198.51.100.47:22')
+  })
+  it('validates attack targets, delegates once, and maps shared operation results', () => {
+    expect(dispatch('attack home-net')).toEqual({ type: 'output', lines: ['Usage: attack <ipv4:port>', 'Attack requires an observed service endpoint.'] })
+    expect(dispatch('attack 198.51.100.47')).toEqual({ type: 'output', lines: ['Usage: attack <ipv4:port>', 'Attack requires an observed service endpoint.'] })
+    const cases = [
+      [{ status: 'started' as const, processId: 'process-9' }, ['CREDENTIAL ACCESS ATTEMPT STARTED', labeledTarget('Target: ', '198.51.100.47:22'), 'Method: Basic Credential Toolkit', 'Open Processes to monitor progress.']],
+      [{ status: 'already_running' as const }, ['ATTEMPT ALREADY RUNNING']],
+      [{ status: 'access_established' as const }, ['ACCESS ALREADY ESTABLISHED']],
+      [{ status: 'insufficient_memory' as const, requiredMiB: 896, availableMiB: 539.4 }, ['INSUFFICIENT MEMORY', '896 MiB required', '539 MiB available']],
+      [{ status: 'endpoint_not_found' as const }, ['ENDPOINT NOT AVAILABLE']],
+      [{ status: 'not_available' as const }, ['NO KNOWN ATTACK METHOD']],
+    ] as const
+    for (const [operationResult, lines] of cases) {
+      const attackEndpoint = vi.fn(() => operationResult)
+      expect(dispatchCommand(parseCommand('attack 198.51.100.47:22'), { ...context, operations: { ...context.operations, attackEndpoint } })).toEqual({ type: 'output', lines })
+      expect(attackEndpoint).toHaveBeenCalledExactlyOnceWith('198.51.100.47:22')
+    }
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })

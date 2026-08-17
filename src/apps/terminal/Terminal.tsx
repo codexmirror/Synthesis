@@ -9,6 +9,7 @@ import type { TerminalLine } from './commandTypes'
 import { TargetToken } from './TargetToken'
 import { deriveResourceUsage } from '../../core/game/processes'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
+import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 
 interface Entry { command: string; output: TerminalLine[] }
 
@@ -65,6 +66,14 @@ export function Terminal() {
         knownWeaknesses: (targetDeviceId, serviceId) => gameState.knowledge.discoveredVulnerabilities
           .filter((known) => known.targetDeviceId === targetDeviceId && known.serviceId === serviceId)
           .map((known) => known.observedLabel),
+        attackEndpoint: (endpoint) => {
+          const device = gameState.discovery.devices.find((candidate) => candidate.services.some((service) => service.endpoint === endpoint))
+          const service = device?.services.find((candidate) => candidate.endpoint === endpoint)
+          const known = device && service ? gameState.knowledge.discoveredVulnerabilities.find((candidate) => candidate.targetDeviceId === device.id && candidate.serviceId === service.id) : undefined
+          if (!device || !service || !known) return { status: 'not_available' }
+          const { state: _state, ...result } = actions.startCredentialAccessAttemptFromObservation({ endpoint, targetDeviceId: device.id, serviceId: service.id, vulnerabilityId: known.vulnerabilityId, toolId: BASIC_CREDENTIAL_TOOLKIT_ID })
+          return result
+        },
       },
     })
     if (result.type === 'clear') setEntries([])
