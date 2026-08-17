@@ -7,6 +7,7 @@ import { statusCommand } from './commands/status'
 import { scanCommand } from './commands/scan'
 import { inspectCommand } from './commands/inspect'
 import { analyzeCommand } from './commands/analyze'
+import { attackCommand } from './commands/attack'
 
 export const commands: Record<string, TerminalCommand> = {
   help: createHelpCommand(() => Object.entries(commands)),
@@ -16,6 +17,7 @@ export const commands: Record<string, TerminalCommand> = {
   scan: scanCommand,
   inspect: inspectCommand,
   analyze: analyzeCommand,
+  attack: attackCommand,
 }
 
 export function dispatchCommand(command: ParsedCommand, context: CommandContext): CommandResult | Promise<CommandResult> {

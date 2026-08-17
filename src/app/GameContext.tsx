@@ -4,6 +4,7 @@ import type { GameState } from '../core/game/types'
 import { advanceGameState, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation, type EndpointAnalysisResult, type ObservedServiceTarget, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
 import { clearCompletedProcesses as clearCompletedProcessState } from '../core/game/processes'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
+import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 
 const GameContext = createContext<GameState | null>(null)
 export interface GameActions {
@@ -11,6 +12,7 @@ export interface GameActions {
   startServiceAnalysis(targetDeviceId: string, serviceId: string): StartServiceAnalysisResult
   startServiceAnalysisAtEndpoint(endpoint: string): EndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): EndpointAnalysisResult
+  startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
   clearCompletedProcesses(): void
 }
 const GameActionsContext = createContext<GameActions | null>(null)
@@ -54,6 +56,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, startServiceAnalysisFromObservation(observed) {
     const state = currentState.current
     const result = startServiceAnalysisFromObservation(state, observed)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, startCredentialAccessAttemptFromObservation(observed) {
+    const result = startCredentialAccessAttemptFromObservation(currentState.current, observed)
     if (result.status === 'started') {
       currentState.current = result.state
       setGameState(result.state)

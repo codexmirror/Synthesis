@@ -6,6 +6,10 @@ import type { GameActions } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import type { ScanResult } from '../../core/game/scan'
 import { Terminal } from './Terminal'
+import { rememberScan } from '../../core/game/discovery'
+import { scanNetworkTarget } from '../../core/game/scan'
+import type { GameState } from '../../core/game/types'
+import { GameProvider, useGameState } from '../../app/GameContext'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -22,6 +26,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     startServiceAnalysis: () => unavailable,
     startServiceAnalysisAtEndpoint: () => unavailable,
     startServiceAnalysisFromObservation: () => unavailable,
+    startCredentialAccessAttemptFromObservation: () => ({ status: 'not_available', state }),
     clearCompletedProcesses: () => {},
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
@@ -78,5 +83,49 @@ describe('Terminal asynchronous Scan submission', () => {
     expect(input).toHaveValue('ip')
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('scan home-net')
+  })
+})
+
+function knownCredentialState(): GameState {
+  const state = createInitialGameState()
+  const discovery = rememberScan(state.discovery, scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '198.51.100.47'), state.player.localDevice.id)
+  return { ...state, discovery, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'vulnerability-ssh-001', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
+}
+
+describe('Terminal credential access', () => {
+  it('resolves remembered identities and invokes the same application action used by Scan', async () => {
+    const state = knownCredentialState()
+    const startCredentialAccessAttemptFromObservation = vi.fn(() => ({ status: 'started' as const, processId: 'process-test', state }))
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
+      scanTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
+      startCredentialAccessAttemptFromObservation, clearCompletedProcesses: vi.fn(),
+    })
+    render(<Terminal />)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
+    expect(startCredentialAccessAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
+      endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001',
+      vulnerabilityId: 'vulnerability-ssh-001', toolId: 'basic-credential-toolkit',
+    })
+    expect(screen.getAllByText('CREDENTIAL ACCESS ATTEMPT STARTED')).toHaveLength(1)
+    expect(screen.getByText('Method: Basic Credential Toolkit')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy target 198.51.100.47:22' })).toBeInTheDocument()
+  })
+
+  it('starts from stale Knowledge and later fails against patched current World truth', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const known = knownCredentialState(); const host = known.world.network.hosts[0]
+    const patched = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, vulnerabilities: [] } : service) }, ...known.world.network.hosts.slice(1)] } } }
+    function Snapshot() { return <output data-testid="attack-state">{JSON.stringify(useGameState())}</output> }
+    render(<GameProvider initialState={patched}><Terminal /><Snapshot /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
+    expect(screen.getByText('CREDENTIAL ACCESS ATTEMPT STARTED')).toBeInTheDocument()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    const state = JSON.parse(screen.getByTestId('attack-state').textContent ?? '') as GameState
+    expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'completed', result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' } })
+    expect(state.deviceAccess.established).toEqual([])
+    expect(state.knowledge).toEqual(patched.knowledge)
   })
 })

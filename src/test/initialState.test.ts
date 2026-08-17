@@ -25,10 +25,10 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-network membership in schema version 8', () => {
+  it('separates identities and seeds canonical local-network membership in schema version 9', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(8)
-    expect(state.version).toBe(8)
+    expect(GAME_STATE_VERSION).toBe(9)
+    expect(state.version).toBe(9)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -43,7 +43,7 @@ describe('createInitialGameState', () => {
       {
         id: 'host-lan-001', ip: '198.51.100.47', online: true, role: 'server',
         services: [
-          { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
+          { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
           { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
         ],
       },
@@ -65,7 +65,7 @@ describe('createInitialGameState', () => {
     expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server' })
     expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
     expect(server?.services).toEqual([
-      { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
+      { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
       { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
     ])
   })
