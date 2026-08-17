@@ -69,7 +69,6 @@ export function Terminal() {
     })
     if (result.type === 'clear') setEntries([])
     else setEntries((current) => [...current, { command, output: result.lines }])
-    inputRef.current?.focus({ preventScroll: true })
     } catch {
       setEntries((current) => [...current, { command, output: ['COMMAND FAILED'] }])
     } finally {
