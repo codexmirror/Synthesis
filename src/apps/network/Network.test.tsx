@@ -12,7 +12,7 @@ import { Network } from './Network'
 async function openLanDevice() {
   const user = userEvent.setup()
   render(<GameProvider><Network /></GameProvider>)
-  await user.click(screen.getByRole('button', { name: 'Scan network' }))
+  await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
   await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
   return user
 }
@@ -23,7 +23,7 @@ function StateSnapshot() { return <output data-testid="game-state">{JSON.stringi
 function ClearCompleted() { const actions = useGameActions(); return <button onClick={actions.clearCompletedProcesses}>Clear test history</button> }
 
 async function navigateToServices(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Scan network' }))
+  await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
   await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
 }
 
@@ -33,12 +33,24 @@ describe('Scan workspace', () => {
     expect(Object.keys(appRegistry)).toHaveLength(7)
   })
 
+  it('opens on a truthful Known Space atlas without leaking undiscovered details', () => {
+    render(<GameProvider><Network /></GameProvider>)
+    expect(screen.getByText('Known space')).toBeInTheDocument()
+    expect(screen.getByText('KNOWN SPACE')).toBeInTheDocument()
+    expect(screen.getByText('HOME')).toBeInTheDocument()
+    expect(screen.getByText('home-net')).toBeInTheDocument()
+    expect(screen.getByText('LOCAL NETWORK')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open and scan home-net' })).toHaveTextContent('Open / Scan')
+    expect(document.body.textContent).not.toMatch(/198\.51\.100\.47|SSH|HTTP|host-lan-001|service-ssh-001/i)
+    expect(document.body.textContent).not.toMatch(/cluster|session|access|stale|entry point|weakness|%/i)
+  })
+
   it('discovers the local hierarchy from shared observations', async () => {
     const user = userEvent.setup()
     render(<GameProvider><Network /></GameProvider>)
     expect(screen.getByText('home-net')).toBeInTheDocument()
     expect(screen.queryByText(/unavailable/i)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Scan network' }))
+    await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
     expect(screen.getByText('2 responding')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.47')).toBeInTheDocument()
@@ -65,7 +77,7 @@ describe('Scan workspace', () => {
     expect(writeText).toHaveBeenNthCalledWith(2, '198.51.100.47:22')
   })
 
-  it('navigates locally from Service to Device to Network to Networks', async () => {
+  it('navigates locally from Service to Device to Network to Known Space', async () => {
     const user = await openLanDevice()
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
     expect(screen.getByRole('heading', { name: 'SSH' })).toBeInTheDocument()
@@ -73,8 +85,8 @@ describe('Scan workspace', () => {
     expect(screen.getByText('2 open')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '← home-net' }))
     expect(screen.getByText('2 responding')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← Networks' }))
-    expect(screen.getByRole('button', { name: 'Scan network' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    expect(screen.getByRole('button', { name: 'Open and scan home-net' })).toBeInTheDocument()
   })
 
   it('starts concrete analyses and presents canonical running state', async () => {
@@ -191,7 +203,7 @@ describe('Scan workspace', () => {
     }
     const user = userEvent.setup()
     render(<GameProvider initialState={state}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Scan network' }))
+    await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
     await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
     expect(screen.getByText('Weakness known')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
@@ -203,7 +215,7 @@ describe('Scan workspace', () => {
     const constrained = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, hardware: { ...state.player.localDevice.hardware, ram: { ...state.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
     const user = userEvent.setup()
     render(<GameProvider initialState={constrained}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Scan network' }))
+    await user.click(screen.getByRole('button', { name: 'Open and scan home-net' }))
     await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
     fireEvent.click(screen.getByRole('button', { name: 'Analyze' }))
