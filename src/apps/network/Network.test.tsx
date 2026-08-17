@@ -6,6 +6,7 @@ import { GameProvider, useGameActions, useGameState } from '../../app/GameContex
 import { createInitialGameState } from '../../core/game/initialState'
 import { appRegistry } from '../../shell/appRegistry'
 import { advanceGameState, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from '../../core/game/serviceAnalysis'
+import { scanNetworkTarget } from '../../core/game/scan'
 import type { GameState } from '../../core/game/types'
 import { Network } from './Network'
 
@@ -82,6 +83,32 @@ describe('Scan workspace', () => {
     expect(scanTargetSpy.mock.calls[0]?.[1]).toBe('home-net')
   })
 
+  it('executes graphical Scan through the application operation without reading World', async () => {
+    const base = createInitialGameState()
+    const stateWithoutReadableWorld = Object.defineProperty({ ...base }, 'world', {
+      get: () => { throw new Error('Scan UI read hidden World') },
+    }) as GameState
+    const scanTarget = vi.fn((input: string) => input === base.player.localDevice.network.ip
+      ? { status: 'device' as const, targetId: base.player.localDevice.id, address: input, scope: 'self' as const, networks: [{ id: 'network-home-v0', name: 'home-net' }], services: [] }
+      : { status: 'network' as const, networkId: 'network-home-v0', networkName: input, devices: [] })
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(stateWithoutReadableWorld)
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
+      scanTarget,
+      startServiceAnalysis: vi.fn(),
+      startServiceAnalysisAtEndpoint: vi.fn(),
+      startServiceAnalysisFromObservation: vi.fn(),
+      clearCompletedProcesses: vi.fn(),
+    })
+
+    const user = userEvent.setup()
+    render(<Network />)
+    expect(scanTarget).toHaveBeenCalledWith(base.player.localDevice.network.ip)
+    scanTarget.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    expect(scanTarget).toHaveBeenCalledOnce()
+    expect(scanTarget).toHaveBeenCalledWith('home-net')
+  })
+
   it('copies device addresses and complete endpoints', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     const user = await openLanDevice()
@@ -125,7 +152,7 @@ describe('Scan workspace', () => {
     })
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => canonical)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn(),
+      scanTarget: (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn(),
     })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
@@ -243,7 +270,7 @@ describe('Scan workspace', () => {
     let canonical: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, hardware: { ...base.player.localDevice.hardware, ram: { ...base.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
     const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => startServiceAnalysisFromObservation(canonical, observed))
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => canonical)
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget: (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, clearCompletedProcesses: vi.fn() })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))

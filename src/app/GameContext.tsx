@@ -3,9 +3,11 @@ import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
 import { advanceGameState, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation, type EndpointAnalysisResult, type ObservedServiceTarget, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
 import { clearCompletedProcesses as clearCompletedProcessState } from '../core/game/processes'
+import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 
 const GameContext = createContext<GameState | null>(null)
 export interface GameActions {
+  scanTarget: ScanTargetOperation
   startServiceAnalysis(targetDeviceId: string, serviceId: string): StartServiceAnalysisResult
   startServiceAnalysisAtEndpoint(endpoint: string): EndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): EndpointAnalysisResult
@@ -17,6 +19,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   const [gameState, setGameState] = useState(() => initialState ?? createInitialGameState())
   const currentState = useRef(gameState)
   const lastTick = useRef(performance.now())
+  const scanTarget = createLocalScanTarget(() => currentState.current)
   useEffect(() => {
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
@@ -28,7 +31,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     }, 250)
     return () => window.clearInterval(timer)
   }, [])
-  const actions: GameActions = { startServiceAnalysis(targetDeviceId, serviceId) {
+  const actions: GameActions = { scanTarget, startServiceAnalysis(targetDeviceId, serviceId) {
     const state = currentState.current
     const result = startServiceAnalysis(state, targetDeviceId, serviceId)
     if (result.status === 'started') {

@@ -1,7 +1,7 @@
 import './network.css'
 import { useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
-import { scanNetworkTarget, type DiscoveredService, type ScanResult } from '../../core/game/scan'
+import type { DiscoveredService, ScanResult } from '../../core/game/scan'
 import type { ServiceAnalysisProcess } from '../../core/game/types'
 
 type DeviceObservation = Extract<ScanResult, { status: 'device' }>
@@ -21,8 +21,7 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
 export function Network() {
   const gameState = useGameState()
   const actions = useGameActions()
-  const targets = { localDevice: gameState.player.localDevice, network: gameState.world.network }
-  const [selfObservation] = useState(() => scanNetworkTarget(targets, gameState.player.localDevice.network.ip))
+  const [selfObservation] = useState(() => actions.scanTarget(gameState.player.localDevice.network.ip))
   const [networkObservation, setNetworkObservation] = useState<NetworkObservation | null>(null)
   const [deviceObservation, setDeviceObservation] = useState<DeviceObservation | null>(null)
   const [serviceObservation, setServiceObservation] = useState<ServiceObservation | null>(null)
@@ -34,11 +33,11 @@ export function Network() {
   const observedNetworks = selfObservation.status === 'device' ? selfObservation.networks : []
 
   function scanNetwork(name: string) {
-    const result = scanNetworkTarget(targets, name)
+    const result = actions.scanTarget(name)
     if (result.status === 'network') { setNetworkObservation(result); setDeviceObservation(null); setServiceObservation(null); setFeedback(null) }
   }
   function scanDevice(address: string) {
-    const result = scanNetworkTarget(targets, address)
+    const result = actions.scanTarget(address)
     if (result.status === 'device') { setDeviceObservation(result); setServiceObservation(null); setFeedback(null) }
   }
   async function copy(value: string) {
