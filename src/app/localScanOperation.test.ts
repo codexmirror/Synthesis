@@ -5,21 +5,21 @@ import type { GameState } from '../core/game/types'
 import { createLocalScanTarget } from './localScanOperation'
 
 describe('local Scan application operation', () => {
-  it('returns the existing structured domain observation', () => {
+  it('returns the existing structured domain observation', async () => {
     const state = createInitialGameState()
     const scanTarget = createLocalScanTarget(() => state)
 
-    expect(scanTarget('home-net')).toEqual(scanNetworkTarget({
+    expect(await scanTarget('home-net')).toEqual(scanNetworkTarget({
       localDevice: state.player.localDevice,
       network: state.world.network,
     }, 'home-net'))
-    expect(scanTarget('198.51.100.47')).toEqual(scanNetworkTarget({
+    expect(await scanTarget('198.51.100.47')).toEqual(scanNetworkTarget({
       localDevice: state.player.localDevice,
       network: state.world.network,
     }, '198.51.100.47'))
   })
 
-  it('reads current canonical state for every request instead of capturing initial World', () => {
+  it('reads current canonical state for every request instead of capturing initial World', async () => {
     let state: GameState = createInitialGameState()
     const scanTarget = createLocalScanTarget(() => state)
     const host = state.world.network.hosts[0]
@@ -33,8 +33,8 @@ describe('local Scan application operation', () => {
       },
     }
 
-    expect(scanTarget(host.ip)).toEqual({ status: 'no_response', address: host.ip })
-    expect(scanTarget('home-net')).toMatchObject({
+    expect(await scanTarget(host.ip)).toEqual({ status: 'no_response', address: host.ip })
+    expect(await scanTarget('home-net')).toMatchObject({
       status: 'network',
       devices: [{ targetId: state.player.localDevice.id }],
     })

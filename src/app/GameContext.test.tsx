@@ -27,6 +27,19 @@ function EndpointHarness() {
 }
 
 describe('GameProvider service-analysis actions', () => {
+  it('keeps the asynchronous Scan operation identity stable across state updates', () => {
+    const operations: unknown[] = []
+    function ScanIdentityHarness() {
+      const actions = useGameActions()
+      operations.push(actions.scanTarget)
+      return <button onClick={() => actions.startServiceAnalysis('host-lan-001', 'service-ssh-001')}>update</button>
+    }
+    render(<GameProvider><ScanIdentityHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'update' }))
+    expect(operations).toHaveLength(2)
+    expect(operations[1]).toBe(operations[0])
+  })
+
   it('atomically resolves player-visible endpoints against the latest world state', () => {
     const base = createInitialGameState(); const host = base.world.network.hosts[0]
     const services = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []

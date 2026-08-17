@@ -19,7 +19,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   const [gameState, setGameState] = useState(() => initialState ?? createInitialGameState())
   const currentState = useRef(gameState)
   const lastTick = useRef(performance.now())
-  const scanTarget = createLocalScanTarget(() => currentState.current)
+  const [scanTarget] = useState(() => createLocalScanTarget(() => currentState.current))
   useEffect(() => {
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
