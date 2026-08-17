@@ -39,4 +39,23 @@ describe('local Scan application operation', () => {
       devices: [{ targetId: state.player.localDevice.id }],
     })
   })
+
+  it('commits observation and Discovery as one synchronous application transition', async () => {
+    let state = createInitialGameState()
+    const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
+    const pending = scanTarget(state.player.localDevice.network.ip)
+    expect(state.discovery.networks.map((network) => network.name)).toEqual(['home-net'])
+    await pending
+  })
+
+  it('merges back-to-back observations from latest canonical Discovery without lost updates', async () => {
+    let state = createInitialGameState()
+    const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
+    const first = scanTarget('home-net')
+    const second = scanTarget('198.51.100.47')
+    await Promise.all([first, second])
+    expect(state.discovery.networks.map((network) => network.name)).toContain('home-net')
+    expect(state.discovery.devices.map((device) => device.address)).toContain('198.51.100.47')
+    expect(state.discovery.services.map((service) => service.name)).toEqual(['SSH', 'HTTP'])
+  })
 })

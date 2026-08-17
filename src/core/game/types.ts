@@ -100,6 +100,41 @@ export interface DiscoveredVulnerability {
 
 export interface KnowledgeState { readonly discoveredVulnerabilities: readonly DiscoveredVulnerability[] }
 
+export interface DiscoveredNetworkMemory {
+  readonly id: string
+  readonly name: string
+  readonly hasObservedMembers: boolean
+}
+
+export interface DiscoveredDeviceMemory {
+  readonly id: string
+  readonly address: string
+  readonly scope: 'lan' | 'remote'
+  readonly hasObservedServices: boolean
+}
+
+export interface NetworkDeviceRelationship {
+  readonly networkId: string
+  readonly deviceId: string
+}
+
+/** A historical service observation, including the endpoint that was observed. */
+export interface DiscoveredServiceMemory {
+  readonly deviceId: string
+  readonly serviceId: string
+  readonly name: string
+  readonly port: number
+  readonly protocol: 'TCP' | 'UDP'
+  readonly observedEndpoint: string
+}
+
+export interface DiscoveryState {
+  readonly networks: readonly DiscoveredNetworkMemory[]
+  readonly devices: readonly DiscoveredDeviceMemory[]
+  readonly networkDeviceRelationships: readonly NetworkDeviceRelationship[]
+  readonly services: readonly DiscoveredServiceMemory[]
+}
+
 export interface LocalNetwork {
   /** Stable entity identity, separate from the player-visible network name. */
   readonly id: string
@@ -123,5 +158,6 @@ export interface GameState {
   readonly wallet: WalletState
   readonly world: WorldState
   readonly process: ProcessState
+  readonly discovery: DiscoveryState
   readonly knowledge: KnowledgeState
 }

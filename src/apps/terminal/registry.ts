@@ -21,7 +21,7 @@ export const commands: Record<string, TerminalCommand> = {
 export function dispatchCommand(command: ParsedCommand, context: CommandContext): CommandResult {
   if (!command.name) return { type: 'output', lines: [] }
   const registeredCommand = commands[command.name]
-  return registeredCommand
+  return (registeredCommand
     ? registeredCommand.run(context, command.args)
-    : { type: 'output', lines: [`Command not found: ${command.name}. Type "help" for available commands.`] }
+    : { type: 'output', lines: [`Command not found: ${command.name}. Type "help" for available commands.`] }) as CommandResult
 }

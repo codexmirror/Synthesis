@@ -8,7 +8,7 @@ export interface CommandContext {
   }
   readonly runtime: { readonly cpuLoad: number; readonly ramUsage: number; readonly networkStatus: 'ONLINE' | 'OFFLINE' }
   readonly operations: {
-    readonly scanTarget: (target: string) => ScanResult
+    readonly scanTarget: (target: string) => ScanResult | Promise<ScanResult>
     readonly inspectTarget: (target: string) => InspectResult
     readonly analyzeEndpoint: (endpoint: string) => EndpointAnalysisResult['status']
     readonly knownWeaknesses: (targetDeviceId: string, serviceId: string) => readonly string[]
@@ -30,5 +30,5 @@ export type CommandResult =
 
 export interface TerminalCommand {
   description: string
-  run: (context: CommandContext, args: string[]) => CommandResult
+  run: (context: CommandContext, args: string[]) => CommandResult | Promise<CommandResult>
 }

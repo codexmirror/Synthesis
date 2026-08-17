@@ -4,7 +4,6 @@ import { OS_NAME } from '../../core/branding'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
-import { scanNetworkTarget } from '../../core/game/scan'
 import { inspectNetworkTarget } from '../../core/game/inspect'
 import type { TerminalLine } from './commandTypes'
 import { TargetToken } from './TargetToken'
@@ -28,23 +27,22 @@ export function Terminal() {
   const [input, setInput] = useState('')
   const [history, setHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { const output = outputRef.current; if (output) output.scrollTop = output.scrollHeight }, [entries])
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault()
     const command = input.trim()
-    if (!command) return
-    const result = dispatchCommand(parseCommand(command), {
+    if (!command || submitting) return
+    setSubmitting(true)
+    const result = await dispatchCommand(parseCommand(command), {
       localDevice: { ip: gameState.player.localDevice.network.ip },
       runtime: { cpuLoad: Math.round(usage.totalCpuLoad), ramUsage: Math.round(usage.totalRamUsage), networkStatus: gameState.player.localDevice.runtime.networkStatus },
       operations: {
-        scanTarget: (target) => scanNetworkTarget({
-          localDevice: gameState.player.localDevice,
-          network: gameState.world.network,
-        }, target),
+        scanTarget: actions.scanTarget,
         inspectTarget: (target) => inspectNetworkTarget({
           localDevice: gameState.player.localDevice,
           network: gameState.world.network,
@@ -66,6 +64,7 @@ export function Terminal() {
     setHistory(nextHistory)
     setHistoryIndex(nextHistory.length)
     setInput('')
+    setSubmitting(false)
     inputRef.current?.focus({ preventScroll: true })
   }
 
@@ -108,6 +107,7 @@ export function Terminal() {
           spellCheck={false}
           enterKeyHint="send"
           aria-label="Command input"
+          disabled={submitting}
         />
       </form>
     </section>
