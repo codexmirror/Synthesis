@@ -1,12 +1,14 @@
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
-import { advanceGameState, startServiceAnalysis, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
+import { advanceGameState, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation, type EndpointAnalysisResult, type ObservedServiceTarget, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
 import { clearCompletedProcesses as clearCompletedProcessState } from '../core/game/processes'
 
 const GameContext = createContext<GameState | null>(null)
-interface GameActions {
+export interface GameActions {
   startServiceAnalysis(targetDeviceId: string, serviceId: string): StartServiceAnalysisResult
+  startServiceAnalysisAtEndpoint(endpoint: string): EndpointAnalysisResult
+  startServiceAnalysisFromObservation(observed: ObservedServiceTarget): EndpointAnalysisResult
   clearCompletedProcesses(): void
 }
 const GameActionsContext = createContext<GameActions | null>(null)
@@ -33,6 +35,22 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       const nextState = result.state
       currentState.current = nextState
       setGameState(nextState)
+    }
+    return result
+  }, startServiceAnalysisAtEndpoint(endpoint) {
+    const state = currentState.current
+    const result = startServiceAnalysisAtEndpoint(state, endpoint)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, startServiceAnalysisFromObservation(observed) {
+    const state = currentState.current
+    const result = startServiceAnalysisFromObservation(state, observed)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
     }
     return result
   }, clearCompletedProcesses() {

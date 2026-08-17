@@ -9,7 +9,7 @@ import { inspectCommand } from './commands/inspect'
 import { analyzeCommand } from './commands/analyze'
 
 export const commands: Record<string, TerminalCommand> = {
-  help: createHelpCommand(() => Object.keys(commands)),
+  help: createHelpCommand(() => Object.entries(commands)),
   clear: clearCommand,
   ip: ipCommand,
   status: statusCommand,

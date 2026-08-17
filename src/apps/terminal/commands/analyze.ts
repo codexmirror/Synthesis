@@ -1,7 +1,7 @@
 import { target, text, type TerminalCommand } from '../commandTypes'
 
 export const analyzeCommand: TerminalCommand = {
-  description: 'Analyze one represented service endpoint',
+  description: 'Investigate a service endpoint',
   run: ({ operations }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: analyze <ipv4:port>'] }
     const endpoint = args[0]

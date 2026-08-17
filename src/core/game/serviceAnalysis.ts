@@ -52,6 +52,22 @@ export function startServiceAnalysisAtEndpoint(state: GameState, endpoint: strin
   return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId)
 }
 
+export interface ObservedServiceTarget {
+  readonly endpoint: string
+  readonly targetDeviceId: string
+  readonly serviceId: string
+}
+
+/** Start only while a player-visible observation still identifies the same service. */
+export function startServiceAnalysisFromObservation(state: GameState, observed: ObservedServiceTarget): EndpointAnalysisResult {
+  const resolved = resolveServiceEndpoint(state, observed.endpoint)
+  if (resolved === 'invalid') return { status: 'invalid_endpoint', state }
+  if (!resolved || resolved.targetDeviceId !== observed.targetDeviceId || resolved.serviceId !== observed.serviceId) {
+    return { status: 'endpoint_not_found', state }
+  }
+  return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId)
+}
+
 function resolveCompletedAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
   if (!current.online || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }

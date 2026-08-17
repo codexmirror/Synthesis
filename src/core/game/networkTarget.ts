@@ -30,6 +30,14 @@ export function isValidIpv4(input: string): boolean {
   })
 }
 
+/** Recognize endpoint-shaped player input without resolving it against world truth. */
+export function isIpv4EndpointSyntax(input: string): boolean {
+  const separator = input.lastIndexOf(':')
+  if (separator < 1 || input.indexOf(':') !== separator) return false
+  const port = input.slice(separator + 1)
+  return isValidIpv4(input.slice(0, separator)) && /^\d+$/.test(port) && Number(port) >= 1 && Number(port) <= 65535
+}
+
 /** Resolve represented network entities without deciding whether they respond. */
 export function resolveNetworkTarget(targets: Readonly<NetworkTargets>, address: string): ResolvedNetworkTarget | undefined {
   if (targets.localDevice.network.ip === address) {

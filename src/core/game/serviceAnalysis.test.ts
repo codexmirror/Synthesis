@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { advanceGameState, SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint } from './serviceAnalysis'
+import { advanceGameState, SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { clearCompletedProcesses, deriveResourceUsage } from './processes'
 import type { GameProcess, ServiceAnalysisProcess } from './types'
 import { scanNetworkTarget } from './scan'
@@ -21,6 +21,15 @@ describe('Service Analysis', () => {
     expect(start(first.state).status).toBe('already_running'); expect(start(first.state, 'service-http-001').status).toBe('started')
     expect(startServiceAnalysisAtEndpoint(first.state, '198.51.100.47')).toMatchObject({ status: 'invalid_endpoint' })
     expect(startServiceAnalysisAtEndpoint(first.state, '198.51.100.47:81')).toMatchObject({ status: 'endpoint_not_found' })
+  })
+  it('rejects an observed endpoint when another service reuses it', () => {
+    const base = createInitialGameState(); const host = base.world.network.hosts[0]
+    const services = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []
+    const changed = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: [...services, { id: 'replacement', name: 'OTHER', port: 22, protocol: 'TCP' as const, open: true }] }, ...base.world.network.hosts.slice(1)] } } }
+    const result = startServiceAnalysisFromObservation(changed, { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' })
+    expect(result.status).toBe('endpoint_not_found')
+    expect(result.state).toBe(changed)
+    expect(result.state.process.processes).toEqual([])
   })
   it('uses real shared CPU and cumulative RAM', () => {
     const one = started(); const second = start(one, 'service-http-001'); if (second.status !== 'started') throw Error(second.status)
