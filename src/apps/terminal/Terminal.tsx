@@ -12,6 +12,12 @@ import { deriveResourceUsage } from '../../core/game/processes'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 
+const SCAN_MIN_DISPLAY_MS = 320
+
+function waitForPresentation(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 type CompletedProjection =
   | { kind: 'service_analysis'; label: string; endpoint: string; result: 'weaknesses_detected'; vulnerabilityLabels: readonly string[] }
   | { kind: 'service_analysis'; label: string; endpoint: string; result: 'no_weakness_detected' | 'service_unavailable' }
@@ -21,12 +27,29 @@ type CompletedProjection =
 type Entry =
   | { command: string; output: TerminalLine[] }
   | { command: string; processId: string; completed?: CompletedProjection }
+  | { command: string; pendingScanTarget: string }
 
 function TerminalOutputLine({ line }: { line: TerminalLine }) {
   if (typeof line === 'string') return <>{line || '\u00a0'}</>
   return <>{line.map((fragment, index) => fragment.type === 'target'
     ? <TargetToken key={index} value={fragment.value} scope={fragment.scope} />
     : <span key={index}>{fragment.value}</span>)}</>
+}
+
+function PendingScanProjection({ target }: { target: string }) {
+  return (
+    <div
+      className="scan-pending"
+      role="status"
+      aria-label={`Scanning ${target}`}
+    >
+      <strong>SCANNING</strong>
+      <div>
+        {target}
+        <span className="scan-pending-cursor" aria-hidden="true">▌</span>
+      </div>
+    </div>
+  )
 }
 
 function CompletedProcessProjection({ completed }: { completed: CompletedProjection }) {
@@ -113,8 +136,12 @@ export function Terminal() {
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (submitting.current) return
+
     const command = input.trim()
     if (!command) return
+
+    const parsedCommand = parseCommand(command)
+
     submitting.current = true
     setInput('')
     setHistory((current) => {
@@ -123,41 +150,143 @@ export function Terminal() {
       return next
     })
     inputRef.current?.focus({ preventScroll: true })
+
     try {
-    const result = await dispatchCommand(parseCommand(command), {
-      localDevice: { ip: gameState.player.localDevice.network.ip },
-      runtime: { cpuLoad: Math.round(usage.totalCpuLoad), ramUsage: Math.round(usage.totalRamUsage), networkStatus: gameState.player.localDevice.runtime.networkStatus },
-      operations: {
-        scanTarget: actions.scanTarget,
-        inspectTarget: (target) => inspectNetworkTarget({
-          localDevice: gameState.player.localDevice,
-          network: gameState.world.network,
-        }, target),
-        analyzeEndpoint: (endpoint) => {
-          const resolved = resolveServiceEndpoint(gameState, endpoint)
-          if (resolved === 'invalid') return { status: 'invalid_endpoint' }
-          if (!resolved) return { status: 'endpoint_not_found' }
-          const { state: _state, ...result } = actions.startServiceAnalysis(resolved.targetDeviceId, resolved.serviceId)
-          return result
+      const dispatched = dispatchCommand(parsedCommand, {
+        localDevice: { ip: gameState.player.localDevice.network.ip },
+        runtime: {
+          cpuLoad: Math.round(usage.totalCpuLoad),
+          ramUsage: Math.round(usage.totalRamUsage),
+          networkStatus: gameState.player.localDevice.runtime.networkStatus,
         },
-        knownWeaknesses: (targetDeviceId, serviceId) => gameState.knowledge.discoveredVulnerabilities
-          .filter((known) => known.targetDeviceId === targetDeviceId && known.serviceId === serviceId)
-          .map((known) => known.observedLabel),
-        attackEndpoint: (endpoint) => {
-          const device = gameState.discovery.devices.find((candidate) => candidate.services.some((service) => service.endpoint === endpoint))
-          const service = device?.services.find((candidate) => candidate.endpoint === endpoint)
-          const known = device && service ? gameState.knowledge.discoveredVulnerabilities.find((candidate) => candidate.targetDeviceId === device.id && candidate.serviceId === service.id) : undefined
-          if (!device || !service || !known) return { status: 'not_available' }
-          const { state: _state, ...result } = actions.startCredentialAccessAttemptFromObservation({ endpoint, targetDeviceId: device.id, serviceId: service.id, vulnerabilityId: known.vulnerabilityId, toolId: BASIC_CREDENTIAL_TOOLKIT_ID })
-          return result
+        operations: {
+          scanTarget: actions.scanTarget,
+          inspectTarget: (target) =>
+            inspectNetworkTarget(
+              {
+                localDevice: gameState.player.localDevice,
+                network: gameState.world.network,
+              },
+              target,
+            ),
+          analyzeEndpoint: (endpoint) => {
+            const resolved = resolveServiceEndpoint(gameState, endpoint)
+            if (resolved === 'invalid') return { status: 'invalid_endpoint' }
+            if (!resolved) return { status: 'endpoint_not_found' }
+
+            const { state: _state, ...result } =
+              actions.startServiceAnalysis(
+                resolved.targetDeviceId,
+                resolved.serviceId,
+              )
+
+            return result
+          },
+          knownWeaknesses: (targetDeviceId, serviceId) =>
+            gameState.knowledge.discoveredVulnerabilities
+              .filter(
+                (known) =>
+                  known.targetDeviceId === targetDeviceId &&
+                  known.serviceId === serviceId,
+              )
+              .map((known) => known.observedLabel),
+          attackEndpoint: (endpoint) => {
+            const device = gameState.discovery.devices.find((candidate) =>
+              candidate.services.some(
+                (service) => service.endpoint === endpoint,
+              ),
+            )
+            const service = device?.services.find(
+              (candidate) => candidate.endpoint === endpoint,
+            )
+            const known =
+              device && service
+                ? gameState.knowledge.discoveredVulnerabilities.find(
+                    (candidate) =>
+                      candidate.targetDeviceId === device.id &&
+                      candidate.serviceId === service.id,
+                  )
+                : undefined
+
+            if (!device || !service || !known) {
+              return { status: 'not_available' }
+            }
+
+            const { state: _state, ...result } =
+              actions.startCredentialAccessAttemptFromObservation({
+                endpoint,
+                targetDeviceId: device.id,
+                serviceId: service.id,
+                vulnerabilityId: known.vulnerabilityId,
+                toolId: BASIC_CREDENTIAL_TOOLKIT_ID,
+              })
+
+            return result
+          },
         },
-      },
-    })
-    if (result.type === 'clear') setEntries([])
-    else if (result.type === 'process') setEntries((current) => [...current, { command, processId: result.processId }])
-    else setEntries((current) => [...current, { command, output: result.lines }])
+      })
+
+      const pendingScan =
+        parsedCommand.name === 'scan' && dispatched instanceof Promise
+
+      const pendingScanTarget = pendingScan
+        ? parsedCommand.args[0] ?? ''
+        : ''
+
+      if (pendingScan) {
+        setEntries((current) => [
+          ...current,
+          { command, pendingScanTarget },
+        ])
+      }
+
+      const result = pendingScan
+        ? await Promise.all([
+            dispatched,
+            waitForPresentation(SCAN_MIN_DISPLAY_MS),
+          ]).then(([resolved]) => resolved)
+        : await dispatched
+
+      const commitEntry = (nextEntry: Entry) => {
+        setEntries((current) => {
+          if (!pendingScan) return [...current, nextEntry]
+
+          return current.map((entry) =>
+            'pendingScanTarget' in entry && entry.command === command
+              ? nextEntry
+              : entry,
+          )
+        })
+      }
+
+      if (result.type === 'clear') {
+        setEntries([])
+      } else if (result.type === 'process') {
+        commitEntry({ command, processId: result.processId })
+      } else {
+        commitEntry({ command, output: result.lines })
+      }
     } catch {
-      setEntries((current) => [...current, { command, output: ['COMMAND FAILED'] }])
+      const failure: Entry = {
+        command,
+        output: ['COMMAND FAILED'],
+      }
+
+      setEntries((current) => {
+        const pendingIndex = current.findIndex(
+          (entry) =>
+            'pendingScanTarget' in entry &&
+            entry.command === command,
+        )
+
+        if (pendingIndex === -1) {
+          return [...current, failure]
+        }
+
+        return current.map((entry, index) =>
+          index === pendingIndex ? failure : entry,
+        )
+      })
     } finally {
       submitting.current = false
     }
@@ -181,11 +310,23 @@ export function Terminal() {
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
             <div><span className="prompt">user@node:~$</span> {entry.command}</div>
-            {'processId' in entry
-              ? entry.completed
-                ? <CompletedProcessProjection completed={entry.completed} />
-                : <ProcessProjection process={gameState.process.processes.find(({ id }) => id === entry.processId)} gameState={gameState} cpu={usage.cpuAllocationByProcess[entry.processId!] ?? 0} />
-              : entry.output.map((line, lineIndex) => <div key={lineIndex}><TerminalOutputLine line={line} /></div>)}
+           {'pendingScanTarget' in entry
+  ? <PendingScanProjection target={entry.pendingScanTarget} />
+  : 'processId' in entry
+    ? entry.completed
+      ? <CompletedProcessProjection completed={entry.completed} />
+      : <ProcessProjection
+          process={gameState.process.processes.find(
+            ({ id }) => id === entry.processId,
+          )}
+          gameState={gameState}
+          cpu={usage.cpuAllocationByProcess[entry.processId] ?? 0}
+        />
+    : entry.output.map((line, lineIndex) => (
+        <div key={lineIndex}>
+          <TerminalOutputLine line={line} />
+        </div>
+      ))}
           </div>
         ))}
       </div>

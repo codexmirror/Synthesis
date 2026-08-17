@@ -52,13 +52,40 @@ describe('Terminal asynchronous Scan submission', () => {
     expect(input).toBeEnabled()
     expect(scanTarget).toHaveBeenCalledExactlyOnceWith('home-net')
 
+    const pendingView = screen.getByRole('status', {
+      name: 'Scanning home-net',
+    })
+    expect(pendingView).toHaveTextContent('SCANNING')
+    expect(pendingView).toHaveTextContent('home-net')
+
     await user.type(input, 'inspect home-net{enter}')
     expect(input).toHaveValue('inspect home-net')
     expect(scanTarget).toHaveBeenCalledOnce()
 
-    await act(async () => pending.resolve({ status: 'network', networkId: 'network-local-001', networkName: 'home-net', devices: [{ targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' }] }))
+        await act(async () => {
+      pending.resolve({
+        status: 'network',
+        networkId: 'network-local-001',
+        networkName: 'home-net',
+        devices: [
+          {
+            targetId: 'device-local-v0',
+            address: '198.51.100.23',
+            scope: 'self',
+          },
+        ],
+      })
+    })
+
     expect(input).toHaveValue('inspect home-net')
-    expect(screen.getAllByText('Scanning home-net...')).toHaveLength(1)
+
+    await waitFor(() =>
+      expect(screen.getAllByText('Scanning home-net...')).toHaveLength(1),
+    )
+
+    expect(
+      screen.queryByRole('status', { name: 'Scanning home-net' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy target 198.51.100.23' })).toHaveTextContent('198.51.100.23')
 
     await user.keyboard('{ArrowUp}')
