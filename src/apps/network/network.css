@@ -6,10 +6,10 @@
 .scan-section-heading { display:flex; justify-content:space-between; gap:16px; margin:24px 0 10px; padding-bottom:9px; border-bottom:1px solid var(--line); color:#819087; font-size:.62rem; letter-spacing:.14em; }
 .scan-section-heading span:last-child { color:#5f6b64; letter-spacing:.04em; }
 .scan-list,.service-list { display:grid; gap:10px; }
-.scan-object,.service-card,.relationship { border:1px solid #28322c; background:#0a0e0c; }
+.scan-object,.service-row,.relationship,.service-identity,.interaction { border:1px solid #28322c; background:#0a0e0c; }
 .scan-object { min-height:82px; padding:15px; display:flex; align-items:center; justify-content:space-between; gap:18px; }
 .scan-type { display:block; color:#6f8076; font-size:.56rem; letter-spacing:.14em; }
-.scan-object h2,.scan-detail-title h2,.service-card h3 { margin:5px 0 0; color:#e2e9e5; font:600 1rem Inter,system-ui,sans-serif; }
+.scan-object h2,.scan-detail-title h2 { margin:5px 0 0; color:#e2e9e5; font:600 1rem Inter,system-ui,sans-serif; }
 .scan-action,.scan-quiet,.scan-open { min-height:42px; border:1px solid #395045; background:#101914; color:#8fd3a8; cursor:pointer; }
 .scan-action { padding:0 16px; }
 .scan-quiet { padding:0 12px; background:transparent; }
@@ -23,13 +23,14 @@
 .relationship { min-height:58px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 15px; }
 .relationship span,.knowledge-block span,.analysis-result span { color:#718078; font-size:.55rem; letter-spacing:.13em; }
 .relationship strong { color:#a7cbb5; font-size:.78rem; }
-.service-card { padding:16px; }
-.service-card header,.service-meta,.analysis-running>div { display:flex; align-items:center; justify-content:space-between; gap:15px; }
+.service-row { width:100%; min-height:70px; padding:12px 14px; color:#89968f; cursor:pointer; text-align:left; }
+.service-row-main,.service-row-secondary,.analysis-running>div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.service-row-main strong { min-width:0; flex:1; color:#e2e9e5; font:600 .82rem Inter,system-ui,sans-serif; overflow-wrap:anywhere; }
+.service-row-main>span:not(.open-chip) { color:#9ba8a0; font-size:.65rem; white-space:nowrap; }
+.service-row-secondary { margin-top:8px; color:#708078; font-size:.61rem; line-height:1.35; }
+.service-row-secondary>span:first-child { min-width:0; overflow-wrap:anywhere; }
+.service-row-arrow { flex:none; color:#73bd8e; font-size:.9rem; }
 .open-chip { padding:4px 7px; border:1px solid #31513f; color:#70c990; font-size:.52rem; letter-spacing:.12em; }
-.service-meta { margin:14px 0; padding:10px 0; border-top:1px solid #202923; border-bottom:1px solid #202923; color:#849087; font-size:.69rem; }
-.service-meta .scan-copy { font-size:.72rem; }
-.endpoint-reference { display:grid; gap:2px; min-width:0; }
-.endpoint-reference>span { color:#718078; font-size:.52rem; letter-spacing:.13em; }
 .knowledge-block,.analysis-result { display:grid; gap:6px; margin:12px 0; padding:11px 12px; border-left:2px solid #64b881; background:#0d1711; overflow-wrap:anywhere; }
 .knowledge-block strong,.analysis-result strong { color:#b8d9c4; font-size:.72rem; line-height:1.45; }
 .analysis-result { border-left-color:#537f8a; background:#0b1416; }
@@ -38,4 +39,12 @@
 .analysis-running progress { width:100%; height:4px; margin-top:10px; border:0; background:#1d2822; accent-color:#6ac58a; }
 .analyze { width:100%; margin-top:5px; }
 .scan-feedback { margin:10px 0 0; color:#d49c79; font-size:.62rem; line-height:1.5; }
-@media (max-width:480px) { .scan-app { padding:18px 16px 28px; } .network-object { align-items:flex-end; } .scan-action { min-height:44px; } .service-meta { align-items:flex-start; flex-direction:column; gap:4px; } }
+.service-identity { margin-top:18px; padding:14px; }
+.service-identity>div>span,.service-identity dt { display:block; color:#718078; font-size:.52rem; letter-spacing:.13em; }
+.service-identity dl { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:13px 0 0; padding-top:12px; border-top:1px solid #202923; }
+.service-identity dd { margin:5px 0 0; color:#c5d2ca; font-size:.72rem; }
+.empty-knowledge { margin:12px 0; color:#7c8981; font-size:.7rem; }
+.interaction { padding:14px; }
+.interaction p { margin:8px 0 12px; color:#7f8d85; font-size:.68rem; line-height:1.5; }
+.interaction .interaction-running { margin-bottom:0; color:#81bd98; text-transform:uppercase; letter-spacing:.08em; }
+@media (max-width:480px) { .scan-app { padding:18px 16px 28px; } .network-object { align-items:flex-end; } .scan-action { min-height:44px; } }
