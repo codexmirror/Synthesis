@@ -52,7 +52,7 @@ Use the repository documentation according to its ownership:
 
 - `docs/design/...`
   - feature-specific design contracts and visual references when relevant
-  - 
+   
 - `docs/work-orders/...`
   - planned implementation work orders
   - not current implementation truth

@@ -192,10 +192,13 @@ The exact shape may adapt to current repository conventions, but preserve these
 semantics:
 
 - Session has stable identity
-- Session references the DeviceAccess that authorized it
-- source and target Device identity use stable IDs
-- connectedAddress is the address used for this connection, not identity
-- Session carries the actual authority context established for that connection
+- Session references the DeviceAccess that authorized it through `accessId`
+- `sourceDeviceId`, `targetDeviceId`, service path, and privilege remain
+  canonical on DeviceAccess and must not be duplicated in RemoteSession
+- effective source Device, target Device, and authority are derived through
+  `accessId -> DeviceAccess`
+- `connectedAddress` records the address used for this active connection and is
+  not entity identity
 - V1 supports exactly one active Remote Session
 
 Do not build a generic Session system.
@@ -702,10 +705,11 @@ prove CONNECT:
 
 - creates exactly one Session
 - gives it stable Session identity
-- references the correct DeviceAccess
-- records stable source and target Device IDs
+- references the correct DeviceAccess through `accessId`
 - records the connected address as an attribute, not identity
-- carries USER authority
+- derives source Device, target Device, service path, and USER authority from
+  the referenced DeviceAccess
+- does not duplicate those DeviceAccess-owned values in RemoteSession
 - does not mutate DeviceAccess
 
 
