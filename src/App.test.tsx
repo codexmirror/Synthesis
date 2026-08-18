@@ -746,7 +746,9 @@ describe('Terminal', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     await user.type(input, 'scan home-net{enter}')
     input.blur()
-    const token = screen.getByRole('button', { name: 'Copy target 198.51.100.47' })
+    const token = await screen.findByRole('button', {
+  name: 'Copy target 198.51.100.47',
+})
 
     expect(screen.getByText('Scanning home-net...')).not.toHaveAttribute('role', 'button')
     await user.click(token)

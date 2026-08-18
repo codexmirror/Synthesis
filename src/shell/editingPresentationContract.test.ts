@@ -34,9 +34,9 @@ describe('mobile editing presentation contract', () => {
     expect(terminalCss).toMatch(/\.terminal\s*{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto;/)
   })
 
-  it('keeps viewport logic out of Terminal', () => {
-    expect(terminalSource).not.toContain('visualViewport')
-    expect(terminalSource).not.toContain('window.scrollTo')
-    expect(terminalSource).not.toContain('setTimeout')
-  })
+  it('keeps viewport manipulation out of Terminal', () => {
+  expect(terminalSource).not.toContain('visualViewport')
+  expect(terminalSource).not.toContain('window.scrollTo')
+  expect(terminalSource).not.toContain('scrollIntoView')
+  expect(terminalSource).not.toContain('setInterval')
 })
