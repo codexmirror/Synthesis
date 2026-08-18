@@ -1,0 +1,897 @@
+# REMOTE SESSION + OPERATING CONTEXT FOUNDATION V1
+
+**Status:** Planned  
+**Sequence:** 04  
+**Depends on:** 01, 02, 03  
+**Authority:** Implementation work order; not current repository truth.
+
+TITLE
+
+NODE-OS CONTROL SURFACE + SHELL V1
+
+
+MISSION
+
+Replace the current game-like module launcher with the first mature NODE-OS
+Home and shared normal Shell presentation.
+
+NODE-OS should feel like the technical operating surface of a specialized
+personal pocket computer:
+
+- serious
+- compact
+- precise
+- restrained
+- highly usable
+- recognizably an operating system
+- purpose-built for networking and systems work
+
+The result must not feel like:
+
+- a smartphone app grid
+- a game HUD
+- a mission dashboard
+- a cyberpunk prop
+- a collection of generic web cards
+
+This slice changes presentation and Shell interaction only.
+
+It must not introduce new gameplay state or future systems.
+
+
+PRECONDITIONS
+
+Before starting this task:
+
+1. DEVICE + FIRMWARE FOUNDATION V1 must already be merged into current main.
+
+2. The repository must contain:
+
+   - docs/design/NODE_OS_HOME_V1.md
+   - docs/design/node-os-home-v1-reference.png
+
+3. The local Device must already own:
+
+   - stable Device ID
+   - displayName
+   - Firmware ID
+   - Firmware name
+   - Firmware version
+
+If these prerequisites are missing, report the mismatch rather than inventing
+replacement state.
+
+
+PRE-FLIGHT
+
+Before changing code:
+
+1. Inspect current main.
+
+2. Read:
+
+   - docs/ARCHITECTURE.md
+   - docs/FUTURE.md
+   - docs/V0.md
+   - docs/design/NODE_OS_HOME_V1.md
+   - docs/design/node-os-home-v1-reference.png
+
+3. Inspect:
+
+   - src/shell/Shell.tsx
+   - src/shell/Home.tsx
+   - src/shell/StatusBar.tsx
+   - src/shell/SystemBar.tsx
+   - src/shell/appRegistry.tsx
+   - src/shell/shell.css
+   - src/styles/tokens.css
+   - src/styles/base.css
+   - src/App.test.tsx
+   - src/shell/editingPresentationContract.test.ts
+   - relevant application tests
+
+4. Search current main for:
+
+   - `Select a module`
+   - `LOCAL WORKSPACE`
+   - `MODULE`
+   - `/ OPEN`
+   - `app-index`
+   - `app-glyph`
+   - Wallet balance usage in shared chrome
+
+Adapt the implementation to current repository reality rather than assuming
+the exact pre-task source shape.
+
+
+DESIGN AUTHORITY
+
+Use this priority when sources differ:
+
+1. canonical implemented state and docs/ARCHITECTURE.md
+2. this task's scope and acceptance criteria
+3. docs/design/NODE_OS_HOME_V1.md
+4. docs/design/node-os-home-v1-reference.png
+
+The Markdown contract defines product intent.
+
+The PNG is a visual direction reference for:
+
+- density
+- hierarchy
+- proportions
+- technical control treatment
+- typography
+- line weight
+- restrained use of green
+- icon character
+- overall maturity
+
+Do not treat every literal object in the image as implemented functionality.
+
+Never invent gameplay or Device state merely to reproduce the mockup.
+
+In particular, do not hardcode mockup-only:
+
+- user/operator identity
+- uptime
+- Tools application
+- network throughput
+- filesystem logs
+- File Monitor content
+- security status
+- temperature
+- storage utilization
+- lock/session controls
+
+Use only state that actually exists on current main.
+
+
+ARCHITECTURAL INVARIANTS
+
+Preserve:
+
+- NODE-OS is Firmware of the player's local Device, not the universal
+  Synthesis interface
+- shell navigation remains presentation state
+- Device state remains canonical game state
+- stable IDs remain identity
+- displayName remains a mutable presentation attribute
+- Firmware remains separate from hardware/runtime
+- Tools remain separate from Firmware
+- GUI presentation must not invent hidden World truth
+- Terminal remains a first-class operational interface
+- existing applications continue to call their current shared gameplay
+  operations
+- mobile Editing presentation remains an established working boundary
+
+This task should require no new canonical GameState shape.
+
+Do not increment GAME_STATE_VERSION.
+
+
+1. REBUILD THE TOP STATUS BAR
+
+Remove permanent Wallet balance from shared NODE-OS chrome.
+
+Wallet balance belongs inside Wallet, not in the OS status bar.
+
+The normal NODE-OS top bar should communicate:
+
+- canonical Firmware identity
+- canonical local Device display name
+- canonical local IP
+- current clock time
+- restrained connectivity indication derived from canonical local runtime state
+
+A target presentation is conceptually:
+
+NODE-OS / node-01      198.51.100.23      15:53:14      ●
+
+Exact responsive composition may differ.
+
+Requirements:
+
+- Firmware name comes from localDevice.firmware.name
+- Device name comes from localDevice.displayName
+- IP comes from localDevice.network.ip
+- connectivity comes from localDevice.runtime.networkStatus
+- time should display seconds
+- no Wallet balance
+- no hardcoded NODE-OS or node-01 duplicates as presentation truth
+- remove the current boxed `N` brand mark if it no longer fits the mature
+  NODE-OS language
+
+The status bar must remain compact and usable at narrow mobile widths.
+
+Do not allow horizontal page overflow.
+
+
+2. REBUILD HOME AS A TECHNICAL CONTROL SURFACE
+
+Remove the current:
+
+LOCAL WORKSPACE
+Select a module
+
+presentation.
+
+HOME should be a compact OS section title rather than a large hero headline.
+
+Represent local Device context using the canonical Device display name.
+
+Conceptually:
+
+HOME
+LOCAL DEVICE · node-01
+
+Keep this area restrained.
+
+Do not add user, uptime, security, or other unavailable state.
+
+
+3. REPLACE THE CONSUMER-LIKE APP GRID
+
+The Home launcher should become a two-column technical control surface.
+
+Each application remains clearly launchable, but controls should resemble
+professional soft keys / system modules rather than consumer app icons.
+
+Each control should use:
+
+- a compact technical icon/glyph area
+- application name
+- an optional small secondary line
+- a large accessible invisible/visible hit target
+- restrained technical framing
+
+Visual direction:
+
+┌─────────────────────┐  ┌─────────────────────┐
+│ >_  TERMINAL        │  │ ◎   SCAN            │
+│     LOCAL SHELL     │  │     KNOWN SPACE     │
+└─────────────────────┘  └─────────────────────┘
+
+Use:
+
+- square or near-square geometry
+- thin low-contrast borders or technical corner framing
+- compact spacing
+- restrained green accents
+- neutral white/gray structure
+
+Avoid:
+
+- large centered icons
+- rounded consumer cards
+- large empty card interiors
+- glass effects
+- glossy panels
+- gradients inside controls
+- excessive glow
+- oversized labels
+- decorative activity
+
+
+4. USE EXACTLY THE CURRENT SEVEN APPLICATIONS
+
+Home order must be:
+
+1. Terminal
+2. Scan
+3. Processes
+4. Files
+5. Wallet
+6. Notes
+7. System
+
+Conceptual two-column layout:
+
+Terminal      Scan
+Processes     Files
+Wallet        Notes
+System
+
+The final empty position is intentional.
+
+Do not create a Tools application merely to complete the grid.
+
+If current appRegistry ordering differs, make the Shell-owned application order
+match this list without changing gameplay identity.
+
+
+5. GIVE CURRENT APPS A NODE-OS TECHNICAL ICON LANGUAGE
+
+Replace the current plain Unicode launcher-glyph treatment with maintainable
+local NODE-OS icons.
+
+Prefer small local inline SVG/React icon components using `currentColor` or an
+equivalent maintainable approach.
+
+Do not:
+
+- add an external icon dependency
+- crop icons from the PNG reference
+- use raster screenshots as UI assets
+- build an icon framework
+- encode gameplay capability in icon appearance
+
+Visual identities:
+
+Terminal
+- terminal / shell / prompt
+
+Scan
+- network nodes / observation / concentric structure
+
+Processes
+- task lanes / process activity
+
+Files
+- filesystem / directory hierarchy
+
+Wallet
+- compact technical wallet identity
+- not merely a large `$`
+
+Notes
+- text buffer / document
+
+System
+- chip / device core / firmware
+
+The icons should clearly belong to the same NODE-OS family while remaining
+individually recognizable.
+
+
+6. SECONDARY CONTROL INFORMATION MUST BE REAL
+
+Secondary text is allowed only when it is either:
+
+- stable application meaning, or
+- derived from existing canonical state
+
+Use a restrained V1 mapping such as:
+
+Terminal
+LOCAL SHELL
+
+Scan
+KNOWN SPACE
+
+Processes
+<n> RUNNING
+
+where `<n>` is derived from canonical running Process state.
+
+Files
+LOCAL
+
+Wallet
+no dynamic secondary status required
+
+Notes
+no dynamic secondary status required
+
+System
+<Firmware name> <Firmware version>
+
+Do not display fake:
+
+READY
+SCANNING
+SYNCED
+SECURE
+ALERTS
+traffic
+activity percentages
+
+unless corresponding current state genuinely supports that statement.
+
+Do not create a generic Home-status provider framework for seven controls.
+
+
+7. ADD A REAL `THIS DEVICE` OBSERVATION SURFACE
+
+Home should include a compact local Device information surface below the
+launcher.
+
+This is not an About dialog and not decorative telemetry.
+
+It is a projection of canonical local Device state.
+
+V1 should show only information that exists after the Foundation slice:
+
+THIS DEVICE
+
+DEVICE      node-01
+ADDRESS     198.51.100.23
+FIRMWARE    NODE-OS 1.0
+NETWORK     ONLINE
+
+Every value must come from GameState.
+
+Do not add:
+
+- USER
+- UPTIME
+- SECURITY
+- TEMPERATURE
+- STORAGE
+- network throughput
+- session ownership
+
+The layout should be deliberately capable of growing later, but do not add a
+widget framework or placeholder rows now.
+
+
+8. DO NOT IMPLEMENT THE FILE MONITOR YET
+
+The visual reference may contain a SYS.LOG or File Monitor area.
+
+Do not fake it.
+
+Do not create:
+
+- pseudo-log strings
+- UI-owned filesystem content
+- mock `/var/log/...` files
+- file-selection controls
+- Home log widgets
+
+The future File Monitor must eventually read the same canonical Device-owned
+filesystem as Files and Terminal.
+
+That foundation belongs to a later slice.
+
+Do not reserve a large fake empty panel merely to imitate the mockup.
+
+
+9. REFINE THE PERMANENT BOTTOM SYSTEM STRIP
+
+Preserve the existing Device runtime strip and its canonical data sources.
+
+Present:
+
+CPU <load>%
+RAM <usage>%
+NET <network status>
+
+CPU/RAM must continue to use existing canonical Process/resource derivation.
+
+Network status must continue to use local Device runtime state.
+
+Do not add:
+
+- fake sparklines
+- CPU history
+- RAM history
+- network throughput
+- packet charts
+- traffic meters
+
+No historical telemetry model exists yet.
+
+
+10. REMOVE MODULE-SELECTION LANGUAGE FROM NORMAL APP CHROME
+
+The normal application shell must no longer present applications as numbered
+game modules.
+
+Remove normal-state:
+
+- MODULE
+- 01 / 07 style indexes
+- equivalent module-count presentation
+
+Normal app chrome should communicate only:
+
+- Home/back navigation
+- current application identity
+
+Keep it compact and OS-like.
+
+Conceptually:
+
+← HOME        TERMINAL
+
+or an equivalent restrained arrangement.
+
+
+11. PRESERVE EDITING PRESENTATION
+
+Editing mode is different from normal app chrome.
+
+The established mobile Editing presentation must continue to expose:
+
+- EDITING
+- application identity
+- DONE
+
+where currently required.
+
+Do not remove EDITING merely because MODULE is removed.
+
+Do not redesign `useEditingViewport` as part of this task.
+
+Preserve existing editing geometry, gesture ownership, and recovery behavior.
+
+
+12. PROTECT THE MOBILE VIEWPORT CONTRACT
+
+Do not introduce:
+
+- Terminal VisualViewport ownership
+- window.scrollTo
+- scrollIntoView keyboard hacks
+- fake keyboard heights
+- polling
+- arbitrary viewport timers
+- global page scrolling
+- zoom disabling
+- prompt relocation into Terminal output
+- body transform hacks
+
+Existing viewport/editing contract tests must remain green.
+
+Home may own its own vertical scrolling if content cannot fit.
+
+The permanent top and bottom chrome must remain stable.
+
+
+13. RESPONSIVE REQUIREMENTS
+
+Mobile portrait is the primary design target.
+
+At 320px and wider:
+
+- Home control surface remains two columns
+- no horizontal scrolling
+- labels remain readable
+- controls retain useful touch targets
+- top status information does not overlap
+- safe-area handling remains correct
+- bottom runtime strip remains readable
+
+Prefer a compact layout that fits a typical portrait iPhone without needless
+scrolling.
+
+If available height is insufficient:
+
+- allow Home content to scroll internally
+- never shrink interaction targets below comfortable touch size
+- never turn the entire shell/body into the scroll surface
+
+Desktop/tablet should preserve the same NODE-OS control-surface identity.
+
+Do not revert to the previous three-column card launcher on wider screens.
+
+
+14. VISUAL MATURITY PASS
+
+Move the shared NODE-OS visual language toward:
+
+- matte near-black surfaces
+- dense but readable spacing
+- subtle separators
+- thin technical lines
+- neutral text with selective mint-green emphasis
+- compact monospace typography
+- very restrained motion
+
+Reduce any presentation that feels unnecessarily:
+
+- soft
+- oversized
+- playful
+- card-heavy
+- consumer-like
+- glowing
+- game-HUD-like
+
+Do not add:
+
+- Matrix rain
+- scanline overlays
+- holograms
+- random code
+- fake terminal noise
+- animated radar for atmosphere
+- neon bloom
+- ambient blinking
+- decorative alerts
+
+Silence is valid UI state.
+
+If nothing real is changing, the Home screen should remain still.
+
+
+15. KEEP NAVIGATION SIMPLE
+
+Preserve Shell-owned navigation.
+
+Application tap:
+opens the selected app directly.
+
+Back/Home:
+returns directly to Home.
+
+Do not introduce:
+
+- routing framework
+- navigation state into GameState
+- artificial local-app loading screen
+- firmware boot animation
+- transition state machine
+
+A brief existing/restrained presentation transition is acceptable.
+
+Do not change application mount/persistence lifecycle in this slice unless a
+current regression makes it necessary.
+
+
+16. KEEP THIS A PRESENTATION SLICE
+
+Do not modify core gameplay/domain shape merely to satisfy the mockup.
+
+Do not add canonical fields in this task.
+
+In particular, no:
+
+- user identity
+- Session
+- uptime
+- traffic metrics
+- filesystem
+- logs
+- security state
+- temperature
+- storage
+- tool inventory UI state
+
+Use only state already present after DEVICE + FIRMWARE FOUNDATION V1.
+
+
+TESTING
+
+Update focused integration tests to prove behavior and state derivation.
+
+
+A. Home identity
+
+Prove that Home renders canonical:
+
+- Device display name
+- Firmware information where required
+- local address
+- network state
+
+Use altered test-state values where practical so tests detect hardcoded mockup
+copy.
+
+
+B. Status bar
+
+Prove:
+
+- Wallet balance is no longer rendered in permanent top chrome
+- Firmware/Device identity comes from canonical state
+- IP comes from canonical state
+- network indication comes from canonical runtime state
+
+Do not assert the real clock value.
+
+
+C. Launcher
+
+Prove all seven current applications remain launchable.
+
+Prove launcher order is:
+
+Terminal
+Scan
+Processes
+Files
+Wallet
+Notes
+System
+
+Prove no Tools launcher exists.
+
+Prove legacy launcher metadata such as `/ OPEN` is gone.
+
+
+D. Dynamic Processes control
+
+Use a valid supplied GameState containing a running Process and prove the
+Processes control reflects the real running count.
+
+Do not implement separate Home process state.
+
+
+E. Wallet behavior
+
+Prove removing Wallet from the top bar did not remove or duplicate canonical
+Wallet presentation inside the Wallet app.
+
+
+F. Normal application chrome
+
+Prove a normal opened app:
+
+- exposes Home/back navigation
+- identifies the app
+- does not render MODULE
+- does not render an application index
+
+
+G. Editing regression
+
+Preserve existing tests proving:
+
+- EDITING appears when expected
+- DONE remains available
+- mobile viewport geometry remains correct
+- Terminal prompt/scroll ownership remains correct
+
+Do not weaken `editingPresentationContract.test.ts`.
+
+
+H. Navigation-state boundary
+
+Preserve the existing proof that opening and closing applications does not
+mutate canonical GameState.
+
+
+Do not add brittle source-string/CSS tests merely to test aesthetic choices
+unless there is no stronger behavior-level assertion available.
+
+Visual layout will receive human physical-device review after Codex validation.
+
+
+DOCUMENTATION
+
+Perform a documentation impact check.
+
+
+docs/V0.md
+
+Update current implementation truth to describe:
+
+- NODE-OS Home as a two-column technical control surface
+- mature shared NODE-OS chrome
+- Device/Firmware-backed Home identity
+- real THIS DEVICE observation surface
+- Wallet removed from permanent status chrome
+- numbered module-selection presentation removed
+
+
+docs/design/NODE_OS_HOME_V1.md
+
+Update the design contract to reflect this implemented control-surface revision.
+
+If the previous document specifies:
+
+- three-column consumer icon grid
+- no THIS DEVICE surface
+- permanent Wallet balance
+- oversized launcher icons
+
+this task supersedes those details.
+
+Keep the PNG reference explicitly non-authoritative for gameplay state.
+
+
+docs/FUTURE.md
+
+Add or preserve a concise confirmed direction that:
+
+- NODE-OS Home may become a richer observation surface over real local Device
+  state
+- a future File Monitor should read selected text files from a canonical
+  Device-owned filesystem
+- Files, Terminal, and Home observation must share that filesystem truth
+- system/network logs should arise as concrete artifacts from represented
+  events rather than UI-only atmospheric text
+- user/session identity, uptime, traffic, storage, temperature, and similar
+  information should appear only when corresponding simulation state exists
+
+Do not turn these future directions into implementation in this task.
+
+
+NON-GOALS
+
+Do not implement:
+
+- Tools application
+- user/operator model
+- user profile control
+- Session state
+- lock screen
+- uptime
+- system clock simulation
+- filesystem
+- ls/cat commands
+- File Monitor
+- SYS.LOG widget
+- logging system
+- network traffic model
+- storage state
+- temperature state
+- security score/status
+- foreign Firmware
+- remote Device presentation
+- CONNECT
+- firmware switching
+- firmware upgrades
+- new gameplay actions
+- app persistence/lifecycle redesign
+- router/navigation framework
+- generic Home widget framework
+- generic application-status framework
+- new external dependencies
+
+
+VALIDATION
+
+Run:
+
+npm test
+npm run build
+
+Fix failures caused by this change.
+
+Do not weaken existing tests, mobile contracts, architecture boundaries, or
+build validation merely to obtain green output.
+
+
+ACCEPTANCE CRITERIA
+
+The task is complete only when:
+
+- NODE-OS Home no longer looks or reads like a module-selection screen
+- Home uses a compact two-column technical control surface
+- exactly seven current applications are represented
+- launcher order is correct
+- no Tools app exists
+- current Unicode-only launcher glyph treatment has been replaced by a mature
+  local NODE-OS icon language
+- no `/ OPEN` metadata remains
+- no normal MODULE label remains
+- no normal application index remains
+- Wallet balance is absent from permanent top chrome
+- Wallet remains functional inside its application
+- top chrome uses canonical Firmware, Device name, IP, time, and real
+  connectivity state
+- THIS DEVICE shows only canonical available Device state
+- Processes Home status derives from canonical Process state
+- bottom CPU/RAM/NET strip remains canonical
+- no fake uptime/user/log/traffic/security information exists
+- File Monitor is not implemented
+- no new canonical GameState shape was introduced
+- mobile Editing behavior remains intact
+- shell navigation remains outside GameState
+- application interiors remain functionally unchanged
+- documentation matches accepted implementation and future direction
+- npm test passes
+- npm run build passes
+
+
+COMPLETION REPORT
+
+Finish with a concise report containing:
+
+1. Files changed
+2. Final Home/Shell structure
+3. Launcher/icon implementation approach
+4. Which Home values derive from canonical state
+5. Tests added or changed
+6. Exact `npm test` result
+7. Exact `npm run build` result
+8. Documentation changed
+9. Explicit confirmation that no mockup-only state was invented
+10. Explicit confirmation that mobile Editing behavior was preserved
+11. Visual decisions that require physical iPhone review
+12. Any concrete remaining concern
+
+Do not commit, push, merge, create a PR, or perform other Git lifecycle actions.
