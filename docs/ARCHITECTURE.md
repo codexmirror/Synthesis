@@ -38,6 +38,33 @@ Credential Access runs on SELF with the existing CPU-sharing and RAM-admission r
 
 `DeviceAccess` is canonical state distinct from World, Discovery, Knowledge, Processes, and UI context. It records source device, target device, service path, and privilege; it is not a `hacked` flag and is not a current connection or future CONNECT context. Clearing completed Process history cannot remove established access (or Discovery or Knowledge). CONNECT, remote device context, and access-session lifecycle remain unimplemented.
 
+## Device, firmware, software, and operating context
+
+A computing Device represents the simulated machine itself. Device-owned state includes its stable identity and the concrete technical state required by implemented gameplay, such as hardware, runtime resources, networking, storage, and Processes executing on that Device.
+
+Hardware and runtime determine what work a Device can perform and how its resources are consumed. Firmware must not grant, duplicate, or replace Device-owned compute capacity, memory capacity, runtime utilization, networking, or other machine state.
+
+Firmware represents the operating system environment of a Device. It defines how represented Device and World state is presented and operated, not the underlying simulation truth. Firmware may determine concerns such as system chrome, home or launcher structure, navigation, system applications, terminal presentation, and convenience or interpretation layers exposed to the user.
+
+Different Firmware may expose the same underlying simulated state through substantially different interaction models. A polished graphical environment and a raw server-oriented shell may therefore operate over the same kinds of canonical Device state without requiring that state to be duplicated for either interface.
+
+NODE-OS should be modeled as the Firmware of the player’s personal Device, not as the universal Synthesis interface. Foreign Devices are not required to reproduce NODE-OS navigation, application structure, visual language, target affordances, or convenience features, and different Firmware should be allowed to differ structurally rather than merely through visual theming.
+
+Installed software and Tools remain separate from Firmware. Firmware describes the operating environment; installed software describes concrete functionality available on that Device. A Firmware may present or manage installed software without implying that every Device using that Firmware owns the same Tools.
+
+Established access is likewise separate from the Device currently being operated. `DeviceAccess` records a canonical relationship to another Device but does not automatically switch presentation or establish an active remote operating context.
+
+A future Session or remote operating context may identify the Device currently being operated, the Firmware presenting that Device, and the current user or privilege context. That context must continue to reference canonical Device-owned state rather than moving hardware, Processes, files, networking, or other simulation truth into UI state.
+
+The durable separation is:
+
+- **Device** — machine, resources, and runtime state
+- **Firmware** — operating system, interaction model, and presentation
+- **Software / Tools** — installed functionality
+- **Session / operating context** — which Device is currently being operated and under which authority
+
+These boundaries do not imply a `FirmwareEngine`, universal Device framework, firmware registry, theme engine, plugin architecture, or generic Session framework. Concrete gameplay requirements should establish additional abstractions only when multiple implemented systems demonstrate that they are needed.
+
 ## Entity-owned simulation state
 
 Simulated objects own their actual state. Gameplay operations observe or modify that state; interfaces must not invent parallel representations of it.

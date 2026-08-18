@@ -11,8 +11,22 @@ Future iterations may add:
 - Explainable traces, attention, risk, logs, and trace removal
 - Exploit attempts, credentials, access, and filesystems as concrete mechanics
 - Player-owned tools, software, derived capabilities, hardware, malware, economy, organizations, reachability, and multiplayer progression
-- Multiple in-game device interfaces over the same game systems
+- Device-owned Firmware and multiple operating environments over the same simulated systems
 - External integrations where they serve an established product need
+
+## Devices and firmware
+
+Long-term Device identity and Firmware identity are separate. A Device defines the simulated machine and its concrete capabilities and runtime state; Firmware defines the operating environment through which that machine is presented and operated.
+
+NODE-OS is intended to be the polished personal operating system of the player’s own Device rather than the universal Synthesis shell. Its identity should come from consistency, speed, clear interpretation of system state, strong networking and systems conveniences, and a stable interaction model.
+
+Foreign Devices may use substantially different Firmware. An older server environment may expose more raw process, socket, user, filesystem, or network information through a terminal-oriented interface, while another modern Firmware may provide its own graphical applications and conventions. These environments should be allowed to differ structurally rather than merely recoloring NODE-OS.
+
+The same underlying simulated condition may therefore be presented differently depending on Firmware without changing canonical World truth. NODE-OS may provide interpreted labels, known-target affordances, compact Process feedback, or other conveniences while a foreign system exposes lower-level state more directly.
+
+The goal is not to make foreign Firmware artificially frustrating. Different operating environments should have meaningful identities, strengths, limitations, and levels of convenience. Returning to NODE-OS after operating an unfamiliar system should feel like returning to the player’s own Device.
+
+A future remote operating context should build on established `DeviceAccess` rather than treating successful access as an automatic interface switch. Device state, Firmware identity, installed software, access relationships, and active operating context remain separate concerns.
 
 ## Systemic gameplay north star
 
