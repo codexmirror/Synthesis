@@ -89,6 +89,6 @@ INFORMATION / KNOWLEDGE
     ↓
 PLAYER DECISION
 
-Concrete mechanics come first. None of these directions requires or justifies a CapabilityEngine, ActionEngine, AttackFramework, AvailableActionsEngine, RuleEngine, ReachabilityEngine, ToolRegistry, SoftwareInventoryFramework, generic affordance system, ECS, event bus, or plugin framework. The first concrete attack and tool milestone should establish actual requirements before abstractions are extracted. No software or tool inventory, attack capability, reachability, session, exploit, access, or filesystem gameplay system exists today.
+Concrete mechanics come first. None of these directions requires or justifies a CapabilityEngine, ActionEngine, AttackFramework, AvailableActionsEngine, RuleEngine, ReachabilityEngine, ToolRegistry, SoftwareInventoryFramework, generic affordance system, ECS, event bus, or plugin framework. Concrete mechanics should establish actual requirements before abstractions are extracted. The current slice includes the concrete Basic Credential Toolkit and established `DeviceAccess`, but no generalized software inventory, capability resolver, reachability system, active remote Session, broader exploit model, or filesystem gameplay exists today.
 
 Architectural constraints for future work are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
