@@ -52,6 +52,13 @@ Use the repository documentation according to its ownership:
 
 - `docs/design/...`
   - feature-specific design contracts and visual references when relevant
+  - 
+- `docs/work-orders/...`
+  - planned implementation work orders
+  - not current implementation truth
+  - execute only when explicitly selected by the human operator
+  - a selected work order defines the requested task delta but does not
+    override `AGENTS.md` or `docs/ARCHITECTURE.md` 
 
 Current accepted code and current documentation matter more than stale planning
 text.

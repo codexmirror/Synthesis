@@ -2,136 +2,117 @@
 
 ## Status
 
-Planned NODE-OS home-screen design.
+Planned implementation design for the first mature NODE-OS Home and normal
+Shell presentation.
 
-This document is the authoritative implementation reference.
-The accompanying mockup is a visual reference for composition, spacing,
-icon direction, typography, restraint, and overall feel. Where the image and
-this document differ, this document wins.
+This document is the authoritative product and visual implementation reference
+for NODE-OS Home V1.
 
 Reference image:
 
-`docs/design/node-os-home-v1.png`
+`docs/design/node-os-home-v1-reference.png`
+
+The reference image defines visual direction only:
+
+- overall maturity
+- technical character
+- density
+- typography
+- line treatment
+- restrained color use
+- icon language
+- hierarchy
+
+It is not authoritative for gameplay state, exact layout, application count,
+telemetry, or functionality.
+
+Where the image and this document differ, this document wins.
+
+Canonical implemented state and `docs/ARCHITECTURE.md` remain authoritative
+over both.
+
 
 ## Product intent
 
-NODE-OS is the Firmware of the player’s personal Device, not the universal
-Synthesis interface.
+NODE-OS is the Firmware environment of the player’s personal Device.
 
-The Home screen should feel like the launcher of a compact personal operating
-system rather than a game dashboard or module-selection screen.
+It is not the universal Synthesis interface.
 
-The player should experience NODE-OS as familiar, fast, quiet, polished, and
-purpose-built for networking and systems work.
+NODE-OS should feel like the operating surface of a specialized personal
+networking and systems computer:
 
-## Home structure
+- serious
+- compact
+- precise
+- restrained
+- highly usable
+- technically mature
+- recognizable as an operating system
+- purpose-built rather than consumer-oriented
 
-Permanent top bar:
+The player should become familiar with NODE-OS and eventually feel the
+difference when operating Devices that use other Firmware.
 
-- NODE-OS Firmware identity
-- local Device IP
-- Wallet balance
-- current local time
+NODE-OS should not feel like:
 
-Home identity:
+- a smartphone launcher
+- a game HUD
+- a mission-selection screen
+- a cyberpunk prop
+- a generic dashboard
+- a collection of web cards
 
-- `HOME`
-- `LOCAL DEVICE`
-- future Device display name when that state is actually modeled
-- compact future user/session control when real operating-context state exists
-
-Launcher:
-
-- three-column mobile layout
-- icon plus application label
-- large invisible touch targets
-- no visible card backgrounds around applications
-- no `OPEN` labels
-- no application index such as `01 / 07`
-- deliberate whitespace is part of the design
-
-Current launcher applications:
-
-1. Terminal
-2. Scan
-3. Processes
-4. Files
-5. Wallet
-6. Notes
-7. System
-
-Do not introduce a Tools application solely to fill the layout. Empty launcher
-positions are acceptable until a real application exists.
-
-Permanent bottom system strip:
-
-- CPU utilization
-- RAM utilization
-- network status
-
-These values must continue to derive from canonical Device/runtime state.
 
 ## Visual language
 
-NODE-OS should be restrained rather than theatrical.
+The visual identity should use:
 
-- matte near-black background
-- subtle separators
-- neutral white/gray primary icon structure
-- restrained mint-green accents
-- minimal glow
-- no cyberpunk holograms
-- no decorative telemetry
-- no dashboard widgets
-- no unnecessary cards
-- no fake activity
-- no animation unless real state justifies it
+- matte near-black surfaces
+- subtle low-contrast separators
+- thin technical line work
+- neutral white and gray primary information
+- restrained mint-green emphasis
+- compact monospace typography
+- small technical glyphs
+- deliberate whitespace
+- minimal visual noise
+- very restrained motion
 
-Application icons should develop distinct identities while remaining part of
-one NODE-OS icon family.
+Avoid:
 
-The mockup icons are directional references, not final immutable assets.
+- neon bloom
+- excessive glow
+- glossy panels
+- glass effects
+- holograms
+- Matrix-style decoration
+- scanline effects
+- random code
+- fake terminal noise
+- decorative alerts
+- animated radar
+- atmospheric blinking
+- large consumer-style application icons
+- rounded smartphone-style cards
 
-## State truth
+Silence is valid UI state.
 
-Do not hardcode presentation-only facts merely because they appear in the
-mockup.
+If represented state is not changing, NODE-OS should remain visually still.
 
-In particular:
 
-- a Device display name such as `node-01` should be shown only after Device
-  display-name state exists
-- user/session information should be shown only after corresponding canonical
-  operating-context state exists
-- Firmware identity should come from Device Firmware state once implemented
-- CPU, RAM, IP, Wallet, and network status must continue to use their canonical
-  sources
-- no fake uptime, security state, or other decorative system information
+## Permanent top status bar
 
-## Navigation
+The normal NODE-OS top bar should communicate only useful local Device context.
 
-NODE-OS local navigation should prioritize immediacy.
+It should derive:
 
-- tapping an application opens it directly
-- Home returns reliably to the launcher
-- application state should remain intact where appropriate
-- no artificial loading screen between local applications
-- any transition should be brief and primarily provide spatial continuity
+- Firmware identity from `localDevice.firmware.name`
+- Device display name from `localDevice.displayName`
+- local address from `localDevice.network.ip`
+- connectivity from canonical local runtime state
+- current clock time from the presentation clock
 
-## Relationship to other Firmware
+Conceptual presentation:
 
-This layout is NODE-OS-specific.
-
-Foreign Firmware may use completely different:
-
-- chrome
-- navigation
-- home or launcher structure
-- application presentation
-- terminal environment
-- interpretation and convenience layers
-
-Do not turn this design into a global Synthesis shell.
-
-See `docs/ARCHITECTURE.md` for the Device / Firmware / Software / operating
-context boundaries.
+```text
+NODE-OS / node-01      198.51.100.23      15:53:14      ●

@@ -1,9 +1,9 @@
-# REMOTE SESSION + OPERATING CONTEXT FOUNDATION V1
+# NODE-OS CONTROL SURFACE + SHELL V1
 
-**Status:** Planned  
-**Sequence:** 04  
-**Depends on:** 01, 02, 03  
-**Authority:** Implementation work order; not current repository truth.
+**Status:** Planned
+**Sequence:** 02
+**Depends on:** 01
+**Authority:** Selected implementation work order; not current repository truth.
 
 TITLE
 

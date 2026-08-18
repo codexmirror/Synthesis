@@ -1,9 +1,9 @@
-# REMOTE SESSION + OPERATING CONTEXT FOUNDATION V1
+# DEVICE + FIRMWARE FOUNDATION V1
 
-**Status:** Planned  
-**Sequence:** 04  
-**Depends on:** 01, 02, 03  
-**Authority:** Implementation work order; not current repository truth.
+**Status:** Planned
+**Sequence:** 01
+**Depends on:** None
+**Authority:** Selected implementation work order; not current repository truth.
 
 TITLE
 
