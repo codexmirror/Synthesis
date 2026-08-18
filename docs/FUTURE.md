@@ -70,13 +70,164 @@ The current Scan → Analyze → weakness path is one concrete route, not the un
 
 Replayability should increasingly arise from combinations among existing systems rather than a huge catalog of isolated content. Infrastructure layout, redundancy, security posture, dependencies, current actors, existing access, and world state may make the same capability produce very different situations. Ideally, a tool discovered late in a playthrough can make a familiar world configuration strategically meaningful in a new way: old systems plus a new capability plus a different situation produce a new player strategy, rather than relying on a numbered scripted surprise.
 
+Ja. Und ich würde es jetzt festhalten, aber bewusst nicht als Work Order — es ist noch keine konkrete nächste Implementierung, sondern eine bestätigte Produkt-/Gameplay-Richtung.
+
+Der beste Ort ist docs/FUTURE.md. Dort steht bereits, dass Tools/Software konkrete Dinge werden sollen, die gefunden, gekauft, kopiert, gestohlen, verändert oder kompromittiert werden können, und dass Capabilities aus konkretem Zustand entstehen sollen.  ARCHITECTURE.md enthält außerdem schon die wichtigen dauerhaften Grenzen: Software/Tools ≠ Firmware, Command ≠ Capability, und ähnliche Fähigkeiten dürfen später von unterschiedlichen Tools mit unterschiedlichen Trade-offs kommen.
+
+Deshalb würde ich Architecture nicht aufblasen. In FUTURE.md, direkt innerhalb von ### Player tools, capabilities, and strategic position, würde ich diesen neuen Unterabschnitt ergänzen:
+
+#### Software products, modules, licensing, and provenance
+Player software should become a major progression axis rather than a cosmetic
+inventory of command unlocks.
+Terminal and graphical verbs remain interfaces. The ability and quality behind
+an operation should increasingly come from concrete software installed on the
+Device.
+Conceptually:
+
+COMMAND / UI VERB
+        ↓
+GAMEPLAY OPERATION
+        ↓
+AVAILABLE INSTALLED SOFTWARE
+        ↓
+SOFTWARE CAPABILITY / MODULES / CURRENT CONDITIONS
+        ↓
+WORLD INTERACTION
+
+A command therefore must not become permanently identical to one named Tool.
+
+Different software products may eventually provide overlapping ways to perform
+similar operations with different strengths, limitations, resource costs,
+reliability, exposure, supported environments, or observation depth.
+
+A first concrete reconnaissance product could, for example, combine the current
+Scan and Inspect interaction family.
+
+Working product direction:
+
+NodeScan
+├── network discovery
+├── object inspection
+└── optional future modules
+    ├── service fingerprinting
+    ├── banner probing
+    ├── broader sweeps
+    ├── topology assistance
+    ├── passive observation
+    └── deeper device/service evidence
+
+This does not mean scan or inspect are permanently owned by NodeScan.
+Another product could later provide overlapping reconnaissance capabilities
+with different trade-offs.
+
+Likewise, deeper analysis and offensive transformations may eventually be
+provided by one or more concrete offensive software products.
+
+A working thematic direction could be a distinctive underground tool such as a
+“Dolphin”-style loader or analysis/payload suite:
+
+OFFENSIVE SOFTWARE
+├── analysis capabilities
+├── attack / transformation capabilities
+└── optional modules
+    ├── credential techniques
+    ├── service-specific techniques
+    ├── payload functionality
+    ├── persistence
+    ├── privilege-related functionality
+    ├── stealth
+    └── cleanup
+
+These names and module lists are design examples, not current schemas or locked
+content.
+
+Software progression may eventually include:
+
+* product versions
+* optional modules or feature packs
+* official licenses
+* license keys
+* recovered or stolen licenses
+* key generators
+* cracked releases
+* modified or repacked releases
+* software obtained from legitimate and underground markets
+* different software provenance or trustworthiness
+
+The same desired capability should not always require the same acquisition
+route. A player might buy a legitimate license, recover a usable key from
+another system, obtain a key generator, install a cracked build, purchase a
+repack from another actor, or use another software product that provides a
+similar capability.
+
+This creates interaction between:
+
+* money
+* information
+* filesystem discoveries
+* software ownership
+* Device state
+* player trust and risk
+* existing access
+* market relationships
+
+A future black market may sell software, modules, licenses, cracks, key
+generators, or modified packages.
+
+Underground software must not be represented only as a cheaper shop item with a
+random penalty. Software provenance can become meaningful when concrete
+simulation systems exist.
+
+For example, a modified package could contain additional software or malware
+that later interacts with real represented state such as:
+
+* Device-owned files
+* running Processes
+* CPU or RAM usage
+* network activity
+* configuration
+* credentials
+* Wallet-related state
+* access relationships
+
+The player should ideally be able to discover such consequences through the
+same simulation and observation surfaces used elsewhere in the game rather than
+through an arbitrary “malware detected” event.
+
+Conceptually:
+
+UNTRUSTED SOFTWARE
+        ↓
+REAL DEVICE STATE CHANGE
+        ↓
+FILES / PROCESSES / NETWORK / OTHER STATE
+        ↓
+OBSERVATION
+        ↓
+PLAYER REALIZES SOMETHING IS WRONG
+
+This is especially important for systemic gameplay: software should participate
+in the same World state as other mechanics rather than live in an isolated
+upgrade menu.
+
+Official, cracked, stolen, modified, or malicious software therefore need not
+be intrinsically represented by universal quality or danger scores. Concrete
+future mechanics should model only the properties that actually matter.
+
+Do not introduce a universal SoftwareFramework, CapabilityResolver,
+LicenseEngine, MarketplaceEngine, generic module system, or package-risk
+system in anticipation of these directions.
+
+The first concrete software products should establish the real shared
+requirements before common abstractions are extracted.
+
 ### Action artifacts and information
 
 Actions should increasingly leave concrete artifacts when the represented environment would produce them.
 
 The durable information loop is:
 
-```text
+
 ACTION
     ↓
 REAL WORLD EVENT
