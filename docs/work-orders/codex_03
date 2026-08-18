@@ -1,65 +1,91 @@
-# REMOTE SESSION + OPERATING CONTEXT FOUNDATION V1
+# LOCAL FILESYSTEM FOUNDATION V1
 
-**Status:** Planned  
-**Sequence:** 04  
-**Depends on:** 01, 02, 03  
-**Authority:** Implementation work order; not current repository truth.
+**Status:** Planned
+**Sequence:** 03
+**Depends on:** 01, 02
+**Authority:** Selected implementation work order; not current repository truth.
+
 
 TITLE
 
-NODE-OS CONTROL SURFACE + SHELL V1
+LOCAL FILESYSTEM FOUNDATION V1
 
 
 MISSION
 
-Replace the current game-like module launcher with the first mature NODE-OS
-Home and shared normal Shell presentation.
+Introduce the first concrete Device-owned filesystem in Synthesis.
 
-NODE-OS should feel like the technical operating surface of a specialized
-personal pocket computer:
+The purpose of this slice is to establish one durable rule:
 
-- serious
-- compact
-- precise
-- restrained
-- highly usable
-- recognizably an operating system
-- purpose-built for networking and systems work
+FILES BELONG TO THE DEVICE.
 
-The result must not feel like:
+The Files application and Terminal must become two interfaces over the same
+canonical local Device filesystem.
 
-- a smartphone app grid
-- a game HUD
-- a mission dashboard
-- a cyberpunk prop
-- a collection of generic web cards
+Conceptually:
 
-This slice changes presentation and Shell interaction only.
+LOCAL DEVICE
+    │
+    └── FILESYSTEM
+          │
+          ├── Files App
+          │
+          └── Terminal
+                ├── ls
+                └── cat
 
-It must not introduce new gameplay state or future systems.
+This task replaces the current presentation-only Files mock with real canonical
+simulation state.
+
+Keep the implementation deliberately small.
+
+V1 contains exactly one initial text file:
+
+/home/user/welcome.txt
+
+Do not build a virtual operating-system filesystem framework.
+
+Do not add remote filesystem gameplay yet.
 
 
 PRECONDITIONS
 
-Before starting this task:
+Before starting, current main must already contain the accepted results of:
 
-1. DEVICE + FIRMWARE FOUNDATION V1 must already be merged into current main.
+1. DEVICE + FIRMWARE FOUNDATION V1
+2. NODE-OS CONTROL SURFACE + SHELL V1
 
-2. The repository must contain:
+Current main must therefore already contain:
 
-   - docs/design/NODE_OS_HOME_V1.md
-   - docs/design/node-os-home-v1-reference.png
+- AGENTS.md
+- the local Device with stable identity
+- local Device displayName
+- local Device Firmware identity
+- the accepted NODE-OS Home / Shell presentation
+- the existing Terminal architecture
+- the existing Files application
+- existing canonical GameState conventions
 
-3. The local Device must already own:
+If these prerequisites are missing, stop and report the mismatch rather than
+recreating them inside this task.
 
-   - stable Device ID
-   - displayName
-   - Firmware ID
-   - Firmware name
-   - Firmware version
 
-If these prerequisites are missing, report the mismatch rather than inventing
-replacement state.
+WORK-ORDER AUTHORITY
+
+Follow AGENTS.md and docs/ARCHITECTURE.md as durable repository constraints.
+
+Current code and docs/V0.md define the baseline before this task.
+
+This selected work order defines the requested delta from that baseline.
+
+A difference between current code and this work order is therefore not itself
+a conflict when this task explicitly asks for that code to change.
+
+If this task genuinely conflicts with AGENTS.md or docs/ARCHITECTURE.md, stop
+and report the conflict rather than silently overriding the durable contract.
+
+Do not modify the status of this work-order file. Human acceptance controls
+work-order completion.
 
 
 PRE-FLIGHT
@@ -70,828 +96,1045 @@ Before changing code:
 
 2. Read:
 
-   - docs/ARCHITECTURE.md
-   - docs/FUTURE.md
-   - docs/V0.md
-   - docs/design/NODE_OS_HOME_V1.md
-   - docs/design/node-os-home-v1-reference.png
+- AGENTS.md
+- docs/ARCHITECTURE.md
+- docs/V0.md
+- docs/FUTURE.md
+- docs/HANDBOOK.md
 
-3. Inspect:
+3. Inspect at minimum:
 
-   - src/shell/Shell.tsx
-   - src/shell/Home.tsx
-   - src/shell/StatusBar.tsx
-   - src/shell/SystemBar.tsx
-   - src/shell/appRegistry.tsx
-   - src/shell/shell.css
-   - src/styles/tokens.css
-   - src/styles/base.css
-   - src/App.test.tsx
-   - src/shell/editingPresentationContract.test.ts
-   - relevant application tests
+- src/core/game/types.ts
+- src/core/game/initialState.ts
+- current GameState/version tests
+- src/app/GameContext.tsx
+- src/apps/files/Files.tsx
+- Files-related styles/tests
+- src/apps/terminal/Terminal.tsx
+- src/apps/terminal/commandTypes.ts
+- src/apps/terminal/registry.ts
+- existing Terminal commands
+- existing Terminal tests
+- shell/mobile Editing contract tests
 
 4. Search current main for:
 
-   - `Select a module`
-   - `LOCAL WORKSPACE`
-   - `MODULE`
-   - `/ OPEN`
-   - `app-index`
-   - `app-glyph`
-   - Wallet balance usage in shared chrome
+- welcome.txt
+- /home/user
+- LOCAL FILES
+- file-row
+- `1 KB`
+- filesystem
+- FileSystem
+- `ls`
+- `cat`
+- CommandContext
+- GAME_STATE_VERSION
 
-Adapt the implementation to current repository reality rather than assuming
-the exact pre-task source shape.
+Adapt exact file names and integration points to current repository reality.
 
-
-DESIGN AUTHORITY
-
-Use this priority when sources differ:
-
-1. canonical implemented state and docs/ARCHITECTURE.md
-2. this task's scope and acceptance criteria
-3. docs/design/NODE_OS_HOME_V1.md
-4. docs/design/node-os-home-v1-reference.png
-
-The Markdown contract defines product intent.
-
-The PNG is a visual direction reference for:
-
-- density
-- hierarchy
-- proportions
-- technical control treatment
-- typography
-- line weight
-- restrained use of green
-- icon character
-- overall maturity
-
-Do not treat every literal object in the image as implemented functionality.
-
-Never invent gameplay or Device state merely to reproduce the mockup.
-
-In particular, do not hardcode mockup-only:
-
-- user/operator identity
-- uptime
-- Tools application
-- network throughput
-- filesystem logs
-- File Monitor content
-- security status
-- temperature
-- storage utilization
-- lock/session controls
-
-Use only state that actually exists on current main.
+Do not assume the exact pre-task code shape if previous accepted work changed it.
 
 
 ARCHITECTURAL INVARIANTS
 
-Preserve:
+Preserve all existing repository boundaries.
 
-- NODE-OS is Firmware of the player's local Device, not the universal
-  Synthesis interface
-- shell navigation remains presentation state
-- Device state remains canonical game state
-- stable IDs remain identity
-- displayName remains a mutable presentation attribute
-- Firmware remains separate from hardware/runtime
+Especially:
+
+- stable Device IDs remain identity
+- Filesystem belongs to the Device
+- Files app does not own canonical file state
+- Terminal does not own canonical file state
+- GUI and Terminal observe the same underlying filesystem
+- Terminal remains an interface, not the domain
+- Terminal commands receive narrow dependencies rather than unrestricted
+  GameState
+- Firmware remains separate from Device-owned storage
 - Tools remain separate from Firmware
-- GUI presentation must not invent hidden World truth
-- Terminal remains a first-class operational interface
-- existing applications continue to call their current shared gameplay
-  operations
-- mobile Editing presentation remains an established working boundary
+- DeviceAccess remains unrelated to local filesystem authority
+- shell navigation remains presentation state
+- no hidden World truth is exposed
+- no generic VFS/framework is introduced
+- mobile Editing ownership remains unchanged
 
-This task should require no new canonical GameState shape.
+This task changes canonical GameState shape.
 
-Do not increment GAME_STATE_VERSION.
-
-
-1. REBUILD THE TOP STATUS BAR
-
-Remove permanent Wallet balance from shared NODE-OS chrome.
-
-Wallet balance belongs inside Wallet, not in the OS status bar.
-
-The normal NODE-OS top bar should communicate:
-
-- canonical Firmware identity
-- canonical local Device display name
-- canonical local IP
-- current clock time
-- restrained connectivity indication derived from canonical local runtime state
-
-A target presentation is conceptually:
-
-NODE-OS / node-01      198.51.100.23      15:53:14      ●
-
-Exact responsive composition may differ.
-
-Requirements:
-
-- Firmware name comes from localDevice.firmware.name
-- Device name comes from localDevice.displayName
-- IP comes from localDevice.network.ip
-- connectivity comes from localDevice.runtime.networkStatus
-- time should display seconds
-- no Wallet balance
-- no hardcoded NODE-OS or node-01 duplicates as presentation truth
-- remove the current boxed `N` brand mark if it no longer fits the mature
-  NODE-OS language
-
-The status bar must remain compact and usable at narrow mobile widths.
-
-Do not allow horizontal page overflow.
+It therefore requires exactly one schema-version increment.
 
 
-2. REBUILD HOME AS A TECHNICAL CONTROL SURFACE
+1. ADD THE SMALLEST REUSABLE FILESYSTEM VALUE
 
-Remove the current:
+Introduce a small domain representation equivalent to:
 
-LOCAL WORKSPACE
-Select a module
+interface TextFile {
+  readonly path: string
+  readonly content: string
+}
 
-presentation.
+interface FilesystemState {
+  readonly files: readonly TextFile[]
+}
 
-HOME should be a compact OS section title rather than a large hero headline.
+Use repository-consistent naming if a minor naming adjustment is clearly
+better.
 
-Represent local Device context using the canonical Device display name.
+Important:
+
+Call the reusable value `FilesystemState` or an equivalent neutral name.
+
+Do NOT call the type:
+
+- LocalFilesystem
+- PlayerFilesystem
+- NodeOsFilesystem
+
+The filesystem is attached only to the local Device in this milestone, but the
+filesystem value itself should not be artificially local-only.
+
+A later concrete foreign Device may legitimately use the same small filesystem
+value.
+
+This does NOT justify a universal Device framework.
+
+
+2. ATTACH FILESYSTEM TO THE LOCAL DEVICE
+
+Add the filesystem as canonical Device-owned state.
 
 Conceptually:
 
-HOME
-LOCAL DEVICE · node-01
+LocalDeviceState {
+  ...
+  filesystem: FilesystemState
+}
 
-Keep this area restrained.
+Do not create a new top-level GameState filesystem slice.
 
-Do not add user, uptime, security, or other unavailable state.
+Do not put filesystem state inside:
 
+- Files app
+- Terminal
+- Firmware
+- Discovery
+- Knowledge
+- Session state
+- browser storage
 
-3. REPLACE THE CONSUMER-LIKE APP GRID
-
-The Home launcher should become a two-column technical control surface.
-
-Each application remains clearly launchable, but controls should resemble
-professional soft keys / system modules rather than consumer app icons.
-
-Each control should use:
-
-- a compact technical icon/glyph area
-- application name
-- an optional small secondary line
-- a large accessible invisible/visible hit target
-- restrained technical framing
-
-Visual direction:
-
-┌─────────────────────┐  ┌─────────────────────┐
-│ >_  TERMINAL        │  │ ◎   SCAN            │
-│     LOCAL SHELL     │  │     KNOWN SPACE     │
-└─────────────────────┘  └─────────────────────┘
-
-Use:
-
-- square or near-square geometry
-- thin low-contrast borders or technical corner framing
-- compact spacing
-- restrained green accents
-- neutral white/gray structure
-
-Avoid:
-
-- large centered icons
-- rounded consumer cards
-- large empty card interiors
-- glass effects
-- glossy panels
-- gradients inside controls
-- excessive glow
-- oversized labels
-- decorative activity
+The local Device owns its files.
 
 
-4. USE EXACTLY THE CURRENT SEVEN APPLICATIONS
+3. INITIAL FILESYSTEM
 
-Home order must be:
+The initial local Device contains exactly one text file:
 
-1. Terminal
-2. Scan
-3. Processes
-4. Files
-5. Wallet
-6. Notes
-7. System
+/home/user/welcome.txt
 
-Conceptual two-column layout:
+Use short, neutral static text content.
 
-Terminal      Scan
-Processes     Files
-Wallet        Notes
-System
+The content must not create another authority for mutable Device/Firmware state.
 
-The final empty position is intentional.
+Do not encode current:
 
-Do not create a Tools application merely to complete the grid.
+- IP address
+- Device displayName
+- Firmware version
+- runtime state
+- wallet value
+- uptime
+- user/session state
+- security state
 
-If current appRegistry ordering differs, make the Shell-owned application order
-match this list without changing gameplay identity.
+inside the file.
+
+A suitable simple value is conceptually:
+
+Welcome to your local filesystem.
+
+Exact punctuation/newline handling may follow repository conventions.
+
+The important current-state contract is:
+
+- exactly one initial file
+- path is `/home/user/welcome.txt`
+- content is real canonical filesystem state
+
+Do not add any other initial files.
 
 
-5. GIVE CURRENT APPS A NODE-OS TECHNICAL ICON LANGUAGE
+4. NO FAKE FILESYSTEM DEPTH
 
-Replace the current plain Unicode launcher-glyph treatment with maintainable
-local NODE-OS icons.
+Do not add:
 
-Prefer small local inline SVG/React icon components using `currentColor` or an
-equivalent maintainable approach.
+- `/etc`
+- `/var`
+- `/var/log`
+- system.log
+- network.log
+- config files
+- password files
+- credential files
+- SSH keys
+- hidden files
+- tool binaries
+- fake operating-system files
+
+There is currently no represented event/artifact system that justifies those
+files.
+
+Prompt 3 establishes filesystem truth.
+
+Future gameplay may create additional files when concrete mechanics actually
+require them.
+
+
+5. DO NOT MODEL UNUSED FILE METADATA
+
+TextFile V1 requires only:
+
+- path
+- content
+
+Do not add:
+
+- size
+- createdAt
+- modifiedAt
+- owner
+- group
+- permissions
+- executable flag
+- MIME type
+- inode
+- file ID
+- checksum
+- access time
+- hidden flag
+- arbitrary metadata
+
+Paths are sufficient addresses for this first read-only concrete slice.
+
+Stable file identity / inode semantics may be introduced later only if rename,
+move, mutation, references, or another concrete mechanic proves that they are
+needed.
+
+
+6. FILE PATH SEMANTICS
+
+Use simple POSIX-like absolute paths.
+
+V1 should support:
+
+/
+ /home
+ /home/user
+ /home/user/welcome.txt
+
+Directories do not need canonical directory entities.
+
+Directories may be derived from file paths.
+
+For example:
+
+/home/user/welcome.txt
+
+implies the browseable directory hierarchy:
+
+/
+└── home
+    └── user
+        └── welcome.txt
+
+Do not introduce:
+
+- DirectoryState objects
+- inode trees
+- mount tables
+- symlinks
+- hard links
+- drives
+- volumes
+- filesystem providers
+
+For V1, exact absolute paths are sufficient.
+
+Do not build a general path-resolution library.
+
+Support only the normalization genuinely needed by the implemented UI/commands.
+
+
+7. ADD SMALL PURE FILESYSTEM READ OPERATIONS
+
+Create small pure domain helpers for the concrete operations required now.
+
+Equivalent responsibilities:
+
+listDirectory(filesystem, path)
+
+readTextFile(filesystem, path)
+
+Exact names may follow repository conventions.
+
+
+LIST DIRECTORY
+
+Listing a directory returns only its direct children.
+
+Conceptually:
+
+listDirectory(filesystem, '/')
+
+→ home
+
+listDirectory(filesystem, '/home')
+
+→ user
+
+listDirectory(filesystem, '/home/user')
+
+→ welcome.txt
+
+Entries should expose only what current consumers need, conceptually:
+
+{
+  name: string
+  type: 'directory' | 'file'
+}
+
+Do not manufacture file metadata.
+
+
+READ TEXT FILE
+
+Conceptually:
+
+readTextFile(
+  filesystem,
+  '/home/user/welcome.txt'
+)
+
+returns the canonical text content.
+
+Use small explicit result types for expected failures.
+
+For example:
+
+- ok
+- not_found
+- not_directory
+- not_file
+- invalid_path
+
+Only include statuses the implementation genuinely needs.
+
+Do not throw for normal player input such as a missing path.
+
+
+8. KEEP FILESYSTEM OPERATIONS PURE
+
+Filesystem domain helpers must not depend on:
+
+- React
+- GameContext
+- DOM
+- localStorage
+- window
+- Terminal formatting
+- Files UI
+- NODE-OS
+- CSS
+
+They operate only on supplied filesystem data.
+
+
+9. REBUILD FILES APP OVER CANONICAL STATE
+
+Replace the current hardcoded Files mock.
+
+The Files app must now read:
+
+gameState.player.localDevice.filesystem
+
+or use a narrow shared helper over that canonical state.
+
+It must not maintain another hardcoded list of files.
+
+
+INITIAL FILES VIEW
+
+Start the Files application at:
+
+/home/user
+
+The initial view should show:
+
+welcome.txt
+
+
+DIRECTORY PRESENTATION
+
+Keep the UI restrained and consistent with the current NODE-OS design.
+
+Show:
+
+- current path
+- direct child entries
+
+Do not redesign NODE-OS broadly.
+
+
+FILE READING
+
+Selecting `welcome.txt` should display the canonical contents of:
+
+/home/user/welcome.txt
+
+Provide a clear way to return to the directory listing.
+
+The selected file/current directory are Files-app presentation state.
+
+They are NOT canonical GameState.
+
+
+10. REMOVE THE FAKE `1 KB`
+
+The existing Files presentation may currently show a hardcoded file size such
+as:
+
+1 KB
+
+Remove it.
+
+V1 has no canonical size metadata.
+
+Do not add a size field merely to preserve that visual.
+
+Do not replace it with another invented value.
+
+Silence is preferable to fake technical information.
+
+
+11. TERMINAL: ADD `ls`
+
+Add a Terminal command:
+
+ls [absolute-path]
+
+V1 has no current-working-directory model.
+
+Therefore:
+
+- `ls /home/user` must work
+- `ls /home` must work
+- `ls /` must work
+
+A bare:
+
+ls
+
+may default to `/`
+
+unless current Terminal conventions strongly justify another simple
+deterministic default.
+
+Do not introduce current-directory/session state merely to support bare `ls`.
+
+Output should be restrained.
+
+Example conceptually:
+
+> ls /home/user
+welcome.txt
+
+Directories may receive a minimal visible distinction if useful, but do not
+invent metadata.
+
+
+12. TERMINAL: ADD `cat`
+
+Add:
+
+cat <absolute-file-path>
+
+Example:
+
+cat /home/user/welcome.txt
+
+It must return exactly the canonical file contents.
+
+Expected invalid/missing path conditions should return restrained Terminal
+feedback.
+
+For example:
+
+FILE NOT FOUND
+
+or equivalent existing Terminal style.
+
+Do not expose internal IDs or raw implementation errors.
+
+
+13. TERMINAL FILESYSTEM CONTEXT MUST BE NARROW
+
+Do NOT pass GameState into Terminal commands.
+
+Extend the Terminal command context with the smallest read-only filesystem
+interface required by `ls` and `cat`.
+
+Conceptually:
+
+filesystem: {
+  list(path: string): ...
+  readText(path: string): ...
+}
+
+or equivalent.
+
+The adapter may resolve those reads against the current canonical local Device
+filesystem.
+
+Terminal commands must not receive:
+
+- unrestricted GameState
+- a mutable filesystem reference
+- setGameState
+- Files UI state
+
+This preserves the existing Terminal boundary.
+
+
+14. FILES AND TERMINAL MUST SHARE THE SAME TRUTH
+
+Do not duplicate filesystem rules between Files and Terminal.
+
+Both consumers must ultimately observe:
+
+player.localDevice.filesystem
+
+through the same small pure filesystem semantics.
+
+The architecture must be:
+
+LocalDevice.filesystem
+        │
+        ├── Files
+        └── Terminal
+
+NOT:
+
+LocalDevice filesystem
+Files-app filesystem
+Terminal filesystem
+
+
+15. READ-ONLY V1
+
+This filesystem milestone is read-only.
+
+Do not implement commands or UI for:
+
+- touch
+- mkdir
+- rm
+- rmdir
+- mv
+- cp
+- echo >
+- append
+- edit
+- chmod
+- chown
+- writeFile
+- createFile
+- deleteFile
+- renameFile
+- moveFile
+
+Do not expose mutation APIs merely in anticipation of future work.
+
+The first filesystem gameplay proof is observation/read access.
+
+
+16. NO `cd` / CURRENT DIRECTORY YET
+
+Do not add:
+
+- cd
+- pwd
+- shell working-directory state
+- per-Terminal current directory
+- canonical working-directory state
+
+`ls` and `cat` operate on explicit absolute paths in this slice.
+
+A real working-directory concept may later belong to a concrete operating
+context when remote shells exist.
+
+Do not solve that future problem here.
+
+
+17. LOCAL FILESYSTEM ONLY
+
+This milestone applies only to:
+
+player.localDevice
+
+Do not attach a filesystem to every existing NetworkHost.
+
+Do not add remote filesystem access.
+
+Do not make successful DeviceAccess imply filesystem access.
+
+The later remote operating-context / foreign Device milestones will establish
+the correct boundary first.
+
+Specifically:
+
+DeviceAccess ≠ remote filesystem access.
+
+
+18. DO NOT CHANGE PROCESS EXECUTION
+
+Filesystem reads are immediate local observations.
+
+Do not make `ls` or `cat` Processes.
 
 Do not:
 
-- add an external icon dependency
-- crop icons from the PNG reference
-- use raster screenshots as UI assets
-- build an icon framework
-- encode gameplay capability in icon appearance
+- consume CPU work
+- reserve RAM
+- create Process history
+- change Process scheduling
+- change executorDeviceId
 
-Visual identities:
-
-Terminal
-- terminal / shell / prompt
-
-Scan
-- network nodes / observation / concentric structure
-
-Processes
-- task lanes / process activity
-
-Files
-- filesystem / directory hierarchy
-
-Wallet
-- compact technical wallet identity
-- not merely a large `$`
-
-Notes
-- text buffer / document
-
-System
-- chip / device core / firmware
-
-The icons should clearly belong to the same NODE-OS family while remaining
-individually recognizable.
+Existing Process behavior remains unchanged.
 
 
-6. SECONDARY CONTROL INFORMATION MUST BE REAL
+19. DO NOT CREATE FILESYSTEM GAMEPLAY ARTIFACTS YET
 
-Secondary text is allowed only when it is either:
+This slice establishes the storage surface.
 
-- stable application meaning, or
-- derived from existing canonical state
+It does not yet establish artifact production.
 
-Use a restrained V1 mapping such as:
+Do not generate files because the player:
 
-Terminal
-LOCAL SHELL
+- scans
+- analyzes
+- attacks
+- gains DeviceAccess
+- runs commands
+- opens applications
 
-Scan
-KNOWN SPACE
+Do not create fake logs.
 
-Processes
-<n> RUNNING
-
-where `<n>` is derived from canonical running Process state.
-
-Files
-LOCAL
-
-Wallet
-no dynamic secondary status required
-
-Notes
-no dynamic secondary status required
-
-System
-<Firmware name> <Firmware version>
-
-Do not display fake:
-
-READY
-SCANNING
-SYNCED
-SECURE
-ALERTS
-traffic
-activity percentages
-
-unless corresponding current state genuinely supports that statement.
-
-Do not create a generic Home-status provider framework for seven controls.
+Later concrete gameplay can mutate filesystem state when represented events
+actually justify artifacts.
 
 
-7. ADD A REAL `THIS DEVICE` OBSERVATION SURFACE
+20. GAMESTATE VERSION
 
-Home should include a compact local Device information surface below the
-launcher.
+Because LocalDeviceState gains canonical filesystem state:
 
-This is not an About dialog and not decorative telemetry.
-
-It is a projection of canonical local Device state.
-
-V1 should show only information that exists after the Foundation slice:
-
-THIS DEVICE
-
-DEVICE      node-01
-ADDRESS     198.51.100.23
-FIRMWARE    NODE-OS 1.0
-NETWORK     ONLINE
-
-Every value must come from GameState.
+increment the current GAME_STATE_VERSION by exactly one.
 
 Do not add:
 
-- USER
-- UPTIME
-- SECURITY
-- TEMPERATURE
-- STORAGE
-- network throughput
-- session ownership
+- save migrations
+- backward compatibility
+- persistence
+- serialization framework
 
-The layout should be deliberately capable of growing later, but do not add a
-widget framework or placeholder rows now.
 
+SOURCE-OF-TRUTH TESTS
 
-8. DO NOT IMPLEMENT THE FILE MONITOR YET
 
-The visual reference may contain a SYS.LOG or File Monitor area.
+A. INITIAL FILESYSTEM STATE
 
-Do not fake it.
+Prove createInitialGameState():
 
-Do not create:
+- contains localDevice.filesystem
+- contains exactly one file
+- that file path is `/home/user/welcome.txt`
+- it contains the expected neutral text
+- no other initial files exist
+- GameState version advanced exactly once
 
-- pseudo-log strings
-- UI-owned filesystem content
-- mock `/var/log/...` files
-- file-selection controls
-- Home log widgets
 
-The future File Monitor must eventually read the same canonical Device-owned
-filesystem as Files and Terminal.
+B. FILESYSTEM DIRECTORY DERIVATION
 
-That foundation belongs to a later slice.
+Prove the pure listing behavior:
 
-Do not reserve a large fake empty panel merely to imitate the mockup.
+`listDirectory(fs, '/')`
 
+contains exactly the direct `home` directory.
 
-9. REFINE THE PERMANENT BOTTOM SYSTEM STRIP
+`listDirectory(fs, '/home')`
 
-Preserve the existing Device runtime strip and its canonical data sources.
+contains exactly the direct `user` directory.
 
-Present:
+`listDirectory(fs, '/home/user')`
 
-CPU <load>%
-RAM <usage>%
-NET <network status>
+contains exactly:
 
-CPU/RAM must continue to use existing canonical Process/resource derivation.
+welcome.txt
 
-Network status must continue to use local Device runtime state.
+Do not rely on hardcoded UI lists.
 
-Do not add:
 
-- fake sparklines
-- CPU history
-- RAM history
-- network throughput
-- packet charts
-- traffic meters
-
-No historical telemetry model exists yet.
-
-
-10. REMOVE MODULE-SELECTION LANGUAGE FROM NORMAL APP CHROME
-
-The normal application shell must no longer present applications as numbered
-game modules.
-
-Remove normal-state:
-
-- MODULE
-- 01 / 07 style indexes
-- equivalent module-count presentation
-
-Normal app chrome should communicate only:
-
-- Home/back navigation
-- current application identity
-
-Keep it compact and OS-like.
-
-Conceptually:
-
-← HOME        TERMINAL
-
-or an equivalent restrained arrangement.
-
-
-11. PRESERVE EDITING PRESENTATION
-
-Editing mode is different from normal app chrome.
-
-The established mobile Editing presentation must continue to expose:
-
-- EDITING
-- application identity
-- DONE
-
-where currently required.
-
-Do not remove EDITING merely because MODULE is removed.
-
-Do not redesign `useEditingViewport` as part of this task.
-
-Preserve existing editing geometry, gesture ownership, and recovery behavior.
-
-
-12. PROTECT THE MOBILE VIEWPORT CONTRACT
-
-Do not introduce:
-
-- Terminal VisualViewport ownership
-- window.scrollTo
-- scrollIntoView keyboard hacks
-- fake keyboard heights
-- polling
-- arbitrary viewport timers
-- global page scrolling
-- zoom disabling
-- prompt relocation into Terminal output
-- body transform hacks
-
-Existing viewport/editing contract tests must remain green.
-
-Home may own its own vertical scrolling if content cannot fit.
-
-The permanent top and bottom chrome must remain stable.
-
-
-13. RESPONSIVE REQUIREMENTS
-
-Mobile portrait is the primary design target.
-
-At 320px and wider:
-
-- Home control surface remains two columns
-- no horizontal scrolling
-- labels remain readable
-- controls retain useful touch targets
-- top status information does not overlap
-- safe-area handling remains correct
-- bottom runtime strip remains readable
-
-Prefer a compact layout that fits a typical portrait iPhone without needless
-scrolling.
-
-If available height is insufficient:
-
-- allow Home content to scroll internally
-- never shrink interaction targets below comfortable touch size
-- never turn the entire shell/body into the scroll surface
-
-Desktop/tablet should preserve the same NODE-OS control-surface identity.
-
-Do not revert to the previous three-column card launcher on wider screens.
-
-
-14. VISUAL MATURITY PASS
-
-Move the shared NODE-OS visual language toward:
-
-- matte near-black surfaces
-- dense but readable spacing
-- subtle separators
-- thin technical lines
-- neutral text with selective mint-green emphasis
-- compact monospace typography
-- very restrained motion
-
-Reduce any presentation that feels unnecessarily:
-
-- soft
-- oversized
-- playful
-- card-heavy
-- consumer-like
-- glowing
-- game-HUD-like
-
-Do not add:
-
-- Matrix rain
-- scanline overlays
-- holograms
-- random code
-- fake terminal noise
-- animated radar for atmosphere
-- neon bloom
-- ambient blinking
-- decorative alerts
-
-Silence is valid UI state.
-
-If nothing real is changing, the Home screen should remain still.
-
-
-15. KEEP NAVIGATION SIMPLE
-
-Preserve Shell-owned navigation.
-
-Application tap:
-opens the selected app directly.
-
-Back/Home:
-returns directly to Home.
-
-Do not introduce:
-
-- routing framework
-- navigation state into GameState
-- artificial local-app loading screen
-- firmware boot animation
-- transition state machine
-
-A brief existing/restrained presentation transition is acceptable.
-
-Do not change application mount/persistence lifecycle in this slice unless a
-current regression makes it necessary.
-
-
-16. KEEP THIS A PRESENTATION SLICE
-
-Do not modify core gameplay/domain shape merely to satisfy the mockup.
-
-Do not add canonical fields in this task.
-
-In particular, no:
-
-- user identity
-- Session
-- uptime
-- traffic metrics
-- filesystem
-- logs
-- security state
-- temperature
-- storage
-- tool inventory UI state
-
-Use only state already present after DEVICE + FIRMWARE FOUNDATION V1.
-
-
-TESTING
-
-Update focused integration tests to prove behavior and state derivation.
-
-
-A. Home identity
-
-Prove that Home renders canonical:
-
-- Device display name
-- Firmware information where required
-- local address
-- network state
-
-Use altered test-state values where practical so tests detect hardcoded mockup
-copy.
-
-
-B. Status bar
+C. FILE READING
 
 Prove:
 
-- Wallet balance is no longer rendered in permanent top chrome
-- Firmware/Device identity comes from canonical state
-- IP comes from canonical state
-- network indication comes from canonical runtime state
+readTextFile(
+  fs,
+  '/home/user/welcome.txt'
+)
 
-Do not assert the real clock value.
+returns the canonical content.
 
+Also prove the expected closed failure behavior for at least:
 
-C. Launcher
+- missing file
+- attempting to read a directory as a file
 
-Prove all seven current applications remain launchable.
-
-Prove launcher order is:
-
-Terminal
-Scan
-Processes
-Files
-Wallet
-Notes
-System
-
-Prove no Tools launcher exists.
-
-Prove legacy launcher metadata such as `/ OPEN` is gone.
+Do not overbuild exhaustive VFS tests.
 
 
-D. Dynamic Processes control
+D. FILES APP SOURCE OF TRUTH
 
-Use a valid supplied GameState containing a running Process and prove the
-Processes control reflects the real running count.
+Use altered test state.
 
-Do not implement separate Home process state.
+Render the Files app with a valid GameState whose filesystem differs from the
+default.
 
+For example, replace the filesystem contents in the test state with a different
+text file/path.
 
-E. Wallet behavior
+Prove the UI renders the supplied canonical filesystem rather than hardcoded:
 
-Prove removing Wallet from the top bar did not remove or duplicate canonical
-Wallet presentation inside the Wallet app.
+welcome.txt
 
-
-F. Normal application chrome
-
-Prove a normal opened app:
-
-- exposes Home/back navigation
-- identifies the app
-- does not render MODULE
-- does not render an application index
+This test must fail if the Files app returns to a static list.
 
 
-G. Editing regression
+E. FILE CONTENT SOURCE OF TRUTH
 
-Preserve existing tests proving:
+Use altered file content in a supplied GameState.
 
-- EDITING appears when expected
-- DONE remains available
-- mobile viewport geometry remains correct
-- Terminal prompt/scroll ownership remains correct
+Open the file through the Files UI.
 
-Do not weaken `editingPresentationContract.test.ts`.
+Prove the displayed content is the supplied canonical content.
 
-
-H. Navigation-state boundary
-
-Preserve the existing proof that opening and closing applications does not
-mutate canonical GameState.
+Do not merely assert the default welcome string.
 
 
-Do not add brittle source-string/CSS tests merely to test aesthetic choices
-unless there is no stronger behavior-level assertion available.
+F. REMOVE FAKE SIZE
 
-Visual layout will receive human physical-device review after Codex validation.
+Prove the Files UI no longer relies on the hardcoded:
+
+1 KB
+
+Do not replace it with another hardcoded size.
+
+
+G. TERMINAL `ls`
+
+Prove:
+
+ls /
+ls /home
+ls /home/user
+
+derive their outputs from the supplied filesystem.
+
+Use altered filesystem state where practical so the test would fail if the
+command hardcoded `welcome.txt`.
+
+
+H. TERMINAL `cat`
+
+Use a supplied filesystem containing known test content.
+
+Prove:
+
+cat <path>
+
+returns exactly that canonical content.
+
+Also prove a missing file returns restrained command feedback rather than
+throwing.
+
+
+I. SAME FILESYSTEM, TWO INTERFACES
+
+Add at least one test or shared-fixture proof demonstrating that Files and
+Terminal observe the same supplied filesystem state.
+
+The important architecture proof is:
+
+change canonical filesystem state once
+
+→ Files changes
+→ Terminal changes
+
+without maintaining separate file models.
+
+
+J. NARROW TERMINAL CONTEXT
+
+Preserve the Terminal command-context architecture.
+
+Tests/types should make it unnecessary for `ls` or `cat` to receive full
+GameState.
+
+Do not weaken existing command-boundary tests.
+
+
+K. MOBILE REGRESSION
+
+Preserve all existing mobile Editing contracts.
+
+Filesystem/Terminal work must not introduce:
+
+- Terminal-owned VisualViewport logic
+- scrollIntoView keyboard fixes
+- window.scrollTo keyboard fixes
+- global page scrolling hacks
+- disabled zoom
+- prompt relocation
+
+Existing mobile tests must remain green.
 
 
 DOCUMENTATION
 
-Perform a documentation impact check.
+Follow AGENTS.md documentation ownership.
 
 
 docs/V0.md
 
-Update current implementation truth to describe:
+Update current truth to state that:
 
-- NODE-OS Home as a two-column technical control surface
-- mature shared NODE-OS chrome
-- Device/Firmware-backed Home identity
-- real THIS DEVICE observation surface
-- Wallet removed from permanent status chrome
-- numbered module-selection presentation removed
+- the player's local Device now owns a canonical read-only filesystem
+- V1 contains `/home/user/welcome.txt`
+- Files and Terminal read the same Device-owned filesystem
+- Terminal now supports local `ls` and `cat`
+- filesystem mutation is not implemented
+- remote filesystem access is not implemented
 
 
-docs/design/NODE_OS_HOME_V1.md
+docs/ARCHITECTURE.md
 
-Update the design contract to reflect this implemented control-surface revision.
+The existing filesystem direction becomes implemented current architecture.
 
-If the previous document specifies:
+Update relevant wording so it clearly states:
 
-- three-column consumer icon grid
-- no THIS DEVICE surface
-- permanent Wallet balance
-- oversized launcher icons
+- filesystem state belongs to the simulated Device
+- Files and Terminal are interfaces over the same filesystem truth
+- application-local file models are not canonical
+- V1 filesystem is local/read-only
+- filesystem state remains separate from Firmware and UI state
 
-this task supersedes those details.
+Revise stale wording that still presents all filesystem gameplay as entirely
+future.
 
-Keep the PNG reference explicitly non-authoritative for gameplay state.
+Do not broaden the architecture into a generic VFS specification.
 
 
 docs/FUTURE.md
 
-Add or preserve a concise confirmed direction that:
+Update stale current-slice language.
 
-- NODE-OS Home may become a richer observation surface over real local Device
-  state
-- a future File Monitor should read selected text files from a canonical
-  Device-owned filesystem
-- Files, Terminal, and Home observation must share that filesystem truth
-- system/network logs should arise as concrete artifacts from represented
-  events rather than UI-only atmospheric text
-- user/session identity, uptime, traffic, storage, temperature, and similar
-  information should appear only when corresponding simulation state exists
+Reflect that:
 
-Do not turn these future directions into implementation in this task.
+- a concrete local Device-owned read-only filesystem now exists
+- Files and Terminal can read it
+
+Keep future:
+
+- filesystem mutation
+- remote filesystems
+- credentials discovered in files
+- keys
+- configuration gameplay
+- logs/artifacts
+- trace removal
+- remote operating contexts
+- foreign Firmware filesystem presentation
+
+
+AGENTS.md
+
+Perform an impact check.
+
+Because this milestone proves a durable architecture rule, add a small invariant
+if it is not already present.
+
+Use wording equivalent to:
+
+### Filesystem
+
+Files belong to the simulated Device.
+
+Files, Terminal, and other observation surfaces must read the same canonical
+Device-owned filesystem rather than maintaining interface-local file models.
+
+Keep this concise.
+
+Do not add feature-specific details such as:
+
+- welcome.txt
+- `/home/user`
+- `ls`
+- `cat`
+
+to AGENTS.md.
+
+
+docs/work-orders/
+
+Do not mark this work order Completed.
+
+Do not edit later work orders merely because this implementation changes the
+baseline.
+
+The human operator will review subsequent planned work orders against resulting
+main before execution.
 
 
 NON-GOALS
 
 Do not implement:
 
-- Tools application
-- user/operator model
-- user profile control
-- Session state
-- lock screen
-- uptime
-- system clock simulation
-- filesystem
-- ls/cat commands
-- File Monitor
-- SYS.LOG widget
-- logging system
-- network traffic model
-- storage state
-- temperature state
-- security score/status
+- filesystem writes
+- file creation
+- file deletion
+- file rename
+- file move/copy
+- directories as canonical entities
+- inode/file identity system
+- permissions
+- owners/groups
+- timestamps
+- file sizes
+- executable state
+- binaries
+- MIME types
+- symlinks
+- mounts
+- volumes
+- `cd`
+- `pwd`
+- shell current working directory
+- text editor
+- remote filesystem
+- remote Device state
 - foreign Firmware
-- remote Device presentation
-- CONNECT
-- firmware switching
-- firmware upgrades
-- new gameplay actions
-- app persistence/lifecycle redesign
-- router/navigation framework
-- generic Home widget framework
-- generic application-status framework
+- Remote Session
+- connect/disconnect
+- remote Terminal
+- DeviceAccess filesystem implication
+- filesystem Process execution
+- logs
+- system.log
+- network.log
+- Home File Monitor
+- artifact logging
+- credentials
+- SSH keys
+- password files
+- configuration gameplay
+- generic VFS
+- FilesystemEngine
+- filesystem provider framework
+- storage framework
+- persistence framework
+- universal Device framework
 - new external dependencies
 
 
 VALIDATION
+
+Follow AGENTS.md.
 
 Run:
 
 npm test
 npm run build
 
-Fix failures caused by this change.
+Fix failures caused by this task.
 
-Do not weaken existing tests, mobile contracts, architecture boundaries, or
-build validation merely to obtain green output.
+Do not weaken:
+
+- architecture contracts
+- Terminal command boundaries
+- filesystem source-of-truth tests
+- Scan/gameplay tests
+- mobile Editing tests
+- build checks
+
+merely to obtain green output.
 
 
 ACCEPTANCE CRITERIA
 
-The task is complete only when:
+PASS only when:
 
-- NODE-OS Home no longer looks or reads like a module-selection screen
-- Home uses a compact two-column technical control surface
-- exactly seven current applications are represented
-- launcher order is correct
-- no Tools app exists
-- current Unicode-only launcher glyph treatment has been replaced by a mature
-  local NODE-OS icon language
-- no `/ OPEN` metadata remains
-- no normal MODULE label remains
-- no normal application index remains
-- Wallet balance is absent from permanent top chrome
-- Wallet remains functional inside its application
-- top chrome uses canonical Firmware, Device name, IP, time, and real
-  connectivity state
-- THIS DEVICE shows only canonical available Device state
-- Processes Home status derives from canonical Process state
-- bottom CPU/RAM/NET strip remains canonical
-- no fake uptime/user/log/traffic/security information exists
-- File Monitor is not implemented
-- no new canonical GameState shape was introduced
-- mobile Editing behavior remains intact
-- shell navigation remains outside GameState
-- application interiors remain functionally unchanged
-- documentation matches accepted implementation and future direction
+- LocalDeviceState owns canonical filesystem state
+- the filesystem uses a small reusable neutral filesystem value
+- initial state contains exactly `/home/user/welcome.txt`
+- no fake additional files exist
+- no file metadata is invented
+- GAME_STATE_VERSION increments exactly once
+- pure directory listing exists
+- pure text-file reading exists
+- directories are derived without a directory/entity framework
+- Files app reads canonical Device filesystem
+- Files app can open and display canonical text content
+- the hardcoded `1 KB` presentation is gone
+- Terminal has `ls`
+- Terminal has `cat`
+- Terminal filesystem access uses a narrow read-only context
+- Files and Terminal observe exactly the same filesystem truth
+- no duplicate Files/Terminal filesystem models exist
+- no filesystem mutation exists
+- no `cd`/working-directory system exists
+- no remote filesystem exists
+- DeviceAccess does not imply filesystem access
+- Process behavior remains unchanged
+- no logs/artifacts are fabricated
+- no generic filesystem framework is introduced
+- V0 matches current implementation
+- Architecture reflects the implemented Device-owned filesystem boundary
+- Future documentation correctly leaves remote/mutation/artifacts for later
+- AGENTS.md receives only the durable filesystem invariant if needed
 - npm test passes
 - npm run build passes
 
 
 COMPLETION REPORT
 
+Follow AGENTS.md.
+
 Finish with a concise report containing:
 
-1. Files changed
-2. Final Home/Shell structure
-3. Launcher/icon implementation approach
-4. Which Home values derive from canonical state
-5. Tests added or changed
-6. Exact `npm test` result
-7. Exact `npm run build` result
-8. Documentation changed
-9. Explicit confirmation that no mockup-only state was invented
-10. Explicit confirmation that mobile Editing behavior was preserved
-11. Visual decisions that require physical iPhone review
-12. Any concrete remaining concern
+1. files changed
+2. final FilesystemState / TextFile shape
+3. exact initial filesystem contents
+4. directory-listing semantics
+5. file-read semantics
+6. how Files app reads canonical state
+7. how Terminal receives narrow filesystem reads
+8. proof that Files and Terminal share one truth
+9. confirmation that fake `1 KB` metadata was removed
+10. tests added or changed
+11. exact `npm test` result
+12. exact `npm run build` result
+13. documentation changes
+14. AGENTS.md impact
+15. explicit confirmation that mutation, remote filesystem, logs, credentials,
+    working-directory state, and generic VFS architecture remained out of scope
+16. any concrete concern requiring human review
 
-Do not commit, push, merge, create a PR, or perform other Git lifecycle actions.
+Do not commit, push, merge, create a PR, change work-order status, or otherwise
+perform Git lifecycle actions unless explicitly delegated.
