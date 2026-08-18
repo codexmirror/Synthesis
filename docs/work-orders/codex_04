@@ -175,10 +175,7 @@ Prefer a concrete shape equivalent to:
 interface RemoteSession {
   readonly id: string
   readonly accessId: string
-  readonly sourceDeviceId: string
-  readonly targetDeviceId: string
   readonly connectedAddress: string
-  readonly privilege: 'USER'
 }
 
 interface RemoteSessionState {
