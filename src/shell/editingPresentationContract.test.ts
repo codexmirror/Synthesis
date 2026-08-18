@@ -35,8 +35,9 @@ describe('mobile editing presentation contract', () => {
   })
 
   it('keeps viewport manipulation out of Terminal', () => {
-  expect(terminalSource).not.toContain('visualViewport')
-  expect(terminalSource).not.toContain('window.scrollTo')
-  expect(terminalSource).not.toContain('scrollIntoView')
-  expect(terminalSource).not.toContain('setInterval')
+    expect(terminalSource).not.toContain('visualViewport')
+    expect(terminalSource).not.toContain('window.scrollTo')
+    expect(terminalSource).not.toContain('scrollIntoView')
+    expect(terminalSource).not.toContain('setInterval')
+  })
 })
