@@ -1,186 +1,698 @@
 # Architecture
 
-## Discovery memory
+This document defines the durable architecture boundaries of Synthesis.
 
-World Truth, Discovery, and Knowledge are deliberately separate. World Truth is the current simulation; Discovery is the player's canonical memory of positive Scan observations; Knowledge is the deeper result of Analyze. SELF and its current address are intrinsic player knowledge, so SELF is not duplicated in Discovery even though remembered network relationships may reference its stable device identity.
+It is not a description of every currently implemented feature and it is not a
+future roadmap.
 
-Browse is not Observe. The Scan application projects remembered network/device relationships in a compact tree-like atlas, but opening an object reads Discovery only. Explicit network and device Scan actions use the shared application Scan operation, which observes current World Truth and additively merges the result into Discovery. The relationship records are independent pairs rather than parent/child ownership, so the presentation does not make the domain a tree.
+Use:
 
-Discovery V1 records whether network members and device services have ever been successfully observed. Failures do not mark those depths complete, while successful empty observations do. Positive re-observation can update snapshots, but absence never deletes memory and a shallow network observation cannot erase deeper service memory. Each service snapshot stores its actually observed endpoint; it is not rebuilt from a later device address. Analyze therefore remains bound to the remembered endpoint and stable device/service identities, and stale endpoint validation remains authoritative.
+- `docs/V0.md` for current implemented product truth
+- `docs/FUTURE.md` for confirmed future direction
+- `docs/design/...` for feature-specific design contracts
+- `docs/work-orders/...` for explicitly selected implementation deltas
 
-Synthesis keeps a few practical dependency boundaries so that the current foundation can grow without introducing a framework prematurely.
+Current code may evolve. The invariants in this document should change only
+when the underlying architectural decision intentionally changes.
 
-## Module direction
 
-- `core/game` contains only pure domain state and rules. It must not depend on React, browser APIs, the shell, or app UI.
-- `app` contains the thin React adapter that creates a fresh game state for each client session and exposes it to the UI.
-- `apps/<feature>` owns each feature's UI and local helpers. Features may consume game-domain APIs, but must not import another feature's internal UI implementation.
-- `shell` registers, hosts, and navigates apps. Navigation is presentation state and the shell must not own gameplay rules.
-- Shared styles contain reusable presentation concerns only; they must not contain game rules.
+## Architecture invariants
 
-New game systems should normally become separate domain slices instead of expanding player state into the whole game. Browser-specific persistence stays at the feature/application boundary; for example, Notes owns its small storage adapter.
+The identifiers below exist so work orders and reviews can reference durable
+rules without restating them.
 
-## Identity and state
 
-Game state carries a schema version, but V0 does not implement saves or migrations. Stable internal IDs identify game entities. Mutable presentation or gameplay attributes—including IP addresses, network names, display names, hostnames, and wallet addresses—must not serve as entity identity. The player owns an explicit local device with its own stable identity. `player.id`, the local device ID, local network IDs, and world network host IDs are distinct identities, while IPs and network names are mutable simulated attributes. The local device is the single source of truth for the player's current IP, hardware, and runtime state; wallet remains a separate domain slice and remote hosts remain world state.
+### A01 — Stable identity
 
-Hardware specification is distinct from runtime utilization. Wallet state is likewise separate from player identity so each concern can evolve at its own boundary.
+Stable internal IDs are canonical entity identity.
 
-Long-running gameplay actions are represented as domain-owned Processes with stable identity and an explicit executor device. CPU compute capacity determines throughput, while numeric RAM capacity determines admission and parallel capacity; RAM is not a second speed multiplier. Current resource utilization is derived once from explicit system baselines plus running Process allocation and reservation.
+Mutable or player-visible attributes must not become identity, including:
 
-Process scheduling derives completed work from elapsed time and hardware/resource state. A Service Analysis Process retains the endpoint originally selected solely for historical presentation; stable device and service IDs remain its gameplay identity, so later address changes do not rewrite the Process card. Browser timers are scheduling triggers rather than simulation truth, and the application adapter owns the single scheduler. The Processes app only observes canonical Process state. V1 Processes execute only on the player's local device; remote and distributed compute are deferred.
+- IP addresses
+- ports
+- network names
+- display names
+- hostnames
+- labels
+- wallet addresses
 
-Completed Process records are disposable execution history. Clearing them preserves running work and ID progression and does not reverse consequences stored in other canonical slices. Process history, player Knowledge, and World truth remain distinct concerns.
+A represented object’s address, name, presentation, ownership, reachability, or
+other mutable state may change without changing which entity it is.
 
-Initial Access adds one concrete relationship-changing Process without introducing a generic attack model. SELF owns the installed **Basic Credential Toolkit** as concrete local-device tooling, not as a Player Skill. A remembered SSH service, historical Weak Authentication Knowledge, and ownership of that Tool make a credential attempt player-known feasible; the Tool permits the attempt but never guarantees success. Hidden changes to current vulnerability truth do not remove that known affordance.
 
-Credential Access runs on SELF with the existing CPU-sharing and RAM-admission rules. Its completion is resolved exactly once against current World truth: the stable target and service must still safely own the remembered endpoint, be available, retain the applicable Weak Authentication condition, and expose a current credential authentication context. Success derives privilege from that represented service authentication context and creates one deduplicated `DeviceAccess` relationship. Failure reports only that the target no longer responded as expected and does not rewrite historical Discovery or Knowledge.
+### A02 — Entity-owned simulation truth
 
-`DeviceAccess` is canonical state distinct from World, Discovery, Knowledge, Processes, and UI context. It records source device, target device, service path, and privilege; it is not a `hacked` flag and is not a current connection or future CONNECT context. Clearing completed Process history cannot remove established access (or Discovery or Knowledge). CONNECT, remote device context, and access-session lifecycle remain unimplemented.
+Represented simulation state belongs to the entity or relationship whose state
+it describes.
 
-## Device, firmware, software, and operating context
+Interfaces must not create competing gameplay truth merely because a local copy
+would be convenient.
 
-A computing Device represents the simulated machine itself. Device-owned state includes its stable identity and the concrete technical state required by implemented gameplay, such as hardware, runtime resources, networking, storage, and Processes executing on that Device.
+Prefer:
 
-Hardware and runtime determine what work a Device can perform and how its resources are consumed. Firmware must not grant, duplicate, or replace Device-owned compute capacity, memory capacity, runtime utilization, networking, or other machine state.
+```text
+CANONICAL STATE
+      ↓
+MULTIPLE INTERFACES
+```
 
-Firmware represents the operating system environment of a Device. It defines how represented Device and World state is presented and operated, not the underlying simulation truth. Firmware may determine concerns such as system chrome, home or launcher structure, navigation, system applications, terminal presentation, and convenience or interpretation layers exposed to the user.
+over:
 
-Different Firmware may expose the same underlying simulated state through substantially different interaction models. A polished graphical environment and a raw server-oriented shell may therefore operate over the same kinds of canonical Device state without requiring that state to be duplicated for either interface.
+```text
+TERMINAL STATE
+FILES APP STATE
+SCAN APP STATE
+OTHER UI STATE
+```
 
-NODE-OS should be modeled as the Firmware of the player’s personal Device, not as the universal Synthesis interface. Foreign Devices are not required to reproduce NODE-OS navigation, application structure, visual language, target affordances, or convenience features, and different Firmware should be allowed to differ structurally rather than merely through visual theming.
+Semantic ownership does not require every property to be physically nested
+inside one TypeScript object. It means there is one authoritative represented
+truth.
 
-Installed software and Tools remain separate from Firmware. Firmware describes the operating environment; installed software describes concrete functionality available on that Device. A Firmware may present or manage installed software without implying that every Device using that Firmware owns the same Tools.
 
-Established access is likewise separate from the Device currently being operated. `DeviceAccess` records a canonical relationship to another Device but does not automatically switch presentation or establish an active remote operating context.
+### A03 — Separate world truth from player information
 
-A future Session or remote operating context may identify the Device currently being operated, the Firmware presenting that Device, and the current user or privilege context. That context must continue to reference canonical Device-owned state rather than moving hardware, Processes, files, networking, or other simulation truth into UI state.
+These concerns are distinct:
 
-The durable separation is:
+| Concern | Meaning |
+| — | — |
+| World Truth | What currently exists and is true in the simulation |
+| Discovery | Positive remembered observations about known space |
+| Knowledge | Deeper learned or interpreted information |
+| Capabilities | Ways the player can currently attempt to interact |
+| Relationships | Access, sessions, ownership, trust, or similar represented connections |
+| Reachability / position | What can currently be interacted with from a given position |
 
-- **Device** — machine, resources, and runtime state
-- **Firmware** — operating system, interaction model, and presentation
-- **Software / Tools** — installed functionality
-- **Session / operating context** — which Device is currently being operated and under which authority
+Do not collapse them into a single generic state or unlock model.
 
-These boundaries do not imply a `FirmwareEngine`, universal Device framework, firmware registry, theme engine, plugin architecture, or generic Session framework. Concrete gameplay requirements should establish additional abstractions only when multiple implemented systems demonstrate that they are needed.
+Changing World Truth does not automatically rewrite historical Discovery or
+Knowledge.
 
-## Entity-owned simulation state
+Learning something does not automatically create access, capability, or
+reachability.
 
-Simulated objects own their actual state. Gameplay operations observe or modify that state; interfaces must not invent parallel representations of it.
 
-The world currently owns one concrete local-network entity with a stable ID and player-visible name. Its member device IDs are the single canonical membership relation; devices do not duplicate a network ID. A device is not its IP: the stable device ID remains identity while its IP is a mutable network address. The existing LAN device is represented as a server and owns exposed SSH and HTTP services. SSH owns one fictional represented vulnerability; vulnerabilities are current, entity-owned world truth. A service has stable identity distinct from mutable attributes such as its name and port; services remain owned device state rather than entries in a global registry. Network scanning resolves the real network by its exact player-visible name and derives responding represented members from that canonical relation. Network Scan and Inspect results retain stable identities for domain consumers even though Terminal does not display them. Network Inspect reports only the network’s own represented properties and never enumerates members.
+### A04 — Player-visible belief is not hidden truth
 
-World truth exists independently of what the player can currently observe. Scan explores outward from a simulation object and may reveal adjacent real objects or relationships. Inspect observes the current intrinsic state of one specific simulation object; when gameplay changes canonical object state, a later Inspect derives its observation from that changed current state. Inspect need not expose every internal property, and its observation depth should grow only when concrete gameplay requires it. Scan observations reveal real simulation objects; they do not create those objects. Neither operation derives its result from the other or from formatted output. A `ScanResult` is an observation result rather than an entity, while its legitimately observed positive facts grow canonical Discovery. Terminal output is not game state. World truth, remembered Discovery, and historical player Knowledge are distinct. Knowledge records only positive discovered vulnerability relations; its observed label is historical presentation and never identity or gameplay logic.
+Interfaces may reason from information the player legitimately possesses.
 
-A computing device may own represented exposed services when gameplay requires them. Scan may reveal open services from current world truth. Inspect describes the device itself and does not enumerate its attack surface. Other properties should be added only when they are needed by implemented gameplay rather than as placeholders.
+They must not silently use hidden current World Truth to reveal whether a
+player’s stale belief is correct.
 
-Entity-owned state is the canonical source of truth. Terminal commands and graphical apps are interfaces over that same state. For example, when filesystems are introduced, a device’s files must belong to the simulated device rather than to the Files app. Terminal filesystem commands and the Files app must observe and modify the same underlying filesystem state.
+A player may reasonably believe an action is possible while current World Truth
+causes the attempt to fail.
 
-The same principle applies to future gameplay mutations. Tools, malware, exploits, or other mechanics should change actual simulated state, and later observations should derive from the resulting state rather than from scripted UI effects.
+Therefore:
 
-Not every game entity must have every kind of state. A filesystem, services, software, network interfaces, or similar structures belong only to entity types and mechanics that actually require them. Synthesis should grow these models from concrete gameplay needs rather than introducing a universal entity or component framework prematurely.
+```text
+PLAYER-KNOWN FEASIBILITY
+        ≠
+ACTUAL FEASIBILITY
+```
 
-## Scan atlas and observation boundaries
+A disabled button, missing action, warning, or other presentation must not leak
+hidden truth unless the player has information that justifies that conclusion.
 
-Scan is the player's atlas of known or observed space, not a browser over omniscient World truth. Its current observations come from the shared Scan domain operation, and opening a focus must not reveal objects beyond what that operation observed. An observation records what the player could learn at that interaction; it is not synonymous with eternal current World truth. Future freshness metadata may describe how current an observation is, but no generalized freshness system exists today.
 
-Known-world relationships may form a graph rather than a canonical ownership tree. The Scan interface may make that graph understandable through rooted views, collapsible or tree-like projections, and focused paths, but a presentation path must not impose canonical parent/child ownership on domain entities. No graph or clustering framework is implied by this rule.
+### A05 — Interfaces do not own gameplay operations
 
-Scan scales through progressive disclosure: the broad view shows observed areas or networks, network focus shows devices, device focus keeps services compact, and service focus presents detailed observation, Knowledge, Process context, and implemented interactions. Only the current focus expands deeply; atlas growth is discovery, not checklist completion.
+Terminal commands and graphical controls are interfaces over gameplay
+operations.
 
-Scan, Inspect, and Analyze have separate epistemic roles. Scan interprets known or observed space for navigation and decisions. A future richer Inspect may provide a precise current observation of one concrete object, constrained by what the player can actually observe, but must never expose raw GameState omnisciently. Analyze remains deeper, resource-consuming investigation that may create Knowledge. These boundaries describe durable responsibilities rather than unimplemented clustering, freshness, path, access, or session features.
+A gameplay rule should be implemented once behind a domain/application
+boundary and exposed through whichever interfaces need it.
 
-## Systemic simulation and causality
+```text
+TERMINAL ─────┐
+              ├── GAMEPLAY OPERATION ── DOMAIN STATE
+GRAPHICAL UI ─┘
+```
 
-Synthesis should grow as a network of interacting world states and relationships. Mechanics should primarily observe or transform those shared states; downstream consequences should emerge because other systems react to the resulting state rather than because an action directly scripts its complete outcome. Player-owned tools and discovered information determine which transformations a player can meaningfully attempt, but no single interaction path should become the mandatory solution for a target.
+A graphical interface must not construct or execute a Terminal command string
+to perform gameplay.
 
-Persist independent causes and derive consequences where practical. A mechanic should normally change the concrete state it actually affects rather than duplicating every downstream consequence as additional flags. Resource usage, reachability, availability, risk, or similar derived conditions should be calculated from their represented causes when practical so independently developed systems can interact without maintaining contradictory copies of the same truth.
+Terminal must not become the game domain.
 
-The same resulting state may have multiple causes. CPU or RAM pressure may eventually come from normal workloads, player Processes, malware, security software, mining, background services, or other represented work. Connectivity may depend on interfaces, active connections, routes, firewall state, and current position. Systems consuming those states should not need to know which named mechanic originally caused them.
+Commands should receive narrow state or operations rather than unrestricted
+`GameState` when a smaller boundary is sufficient.
 
-Relationships may themselves become concrete simulation state when gameplay gives them an independent lifecycle or properties—for example an authenticated session or an active network connection. Other relationships may remain simple canonical references or be derived from lower-level state. Do not turn this principle into a universal relationship graph: model a relationship explicitly only when current gameplay needs to observe, modify, persist, or reason about it.
 
-Do not prematurely build a universal simulation, entity, relationship, capability, action, or effect framework. Add concrete state and concrete interactions only when current gameplay requires them, while preserving these systemic principles.
+### A06 — Command is not capability
 
-### Design test for new mechanics
+The existence of an interface verb does not prove that the player currently has
+the software, hardware, information, access, position, resources, or other
+conditions required to perform it successfully.
 
-Before introducing a significant gameplay mechanic, check:
+Likewise, a named Tool or software product must not become permanently
+synonymous with one command.
 
-1. What concrete World state or relationship does this mechanic observe?
-2. What concrete state or relationship does it actually change?
-3. Which consequences should be derived rather than directly written?
-4. Can other independent systems influence the same underlying state?
-5. Can existing or future systems react to the resulting state without knowing which named action caused it?
-6. Does this add another meaningful approach to a goal, or merely another mandatory pipeline step?
-7. Are we modelling only what current gameplay requires rather than anticipating a universal framework?
+Long-term, multiple concrete software products may provide overlapping
+capabilities, and one product may support multiple interface verbs.
 
-### Knowledge, capabilities, relationships, and reachability
+Capabilities should arise from represented conditions rather than permanent
+command-unlock flags where practical.
 
-World truth, player Knowledge, player capabilities, player-to-world relationships, and current position or reachability are related but distinct concerns. World truth describes what currently exists and how simulated objects are configured. Knowledge describes what the player has learned or currently believes. Relationships describe established access, sessions, ownership, trust, or similar connections between actors and world entities. Position and reachability describe what can currently be interacted with from the player's present place in the simulated world.
 
-Capabilities describe ways of interacting with systems, not one-to-one permissions for named vulnerabilities. They should increasingly emerge from concrete owned state—such as installed software, available hardware, existing access, runtime conditions, credentials, or other implemented resources—rather than become permanent boolean unlocks on the player. Knowledge must not become a disguised unlock tree: discovering a weakness neither grants the ability to exploit it nor guarantees success. Knowledge may make an interaction recognizable; owned tools and other capabilities determine which attempts the player can formulate; relationships, reachability, resources, and current world truth determine what actually happens.
+### A07 — Device, Firmware, Software, and Session are separate
 
-This direction must not become a permanent key-and-lock mapping in which each weakness requires its named tool. Prefer world conditions with multiple possible approaches, capabilities useful in multiple situations, and similar capabilities supplied by different concrete tools with different trade-offs. Those tools may eventually vary in resource cost, speed, noise or exposure, hardware requirements, supported environments, dependencies, reliability, or other represented properties. These are future directions, not current implementation requirements.
+Preserve these concepts:
 
-Player-known feasibility and actual feasibility must remain distinct. If a weakness has been patched in World truth while the player's Knowledge still records it and the player owns an otherwise applicable method, an interface may continue to present the attempt as reasonable; the attempt may fail only when it meets current World truth. Disappearing actions, disabled buttons, hidden commands, or labels such as “no longer exploitable” must not silently disclose that stale Knowledge is false unless the player has learned information that justifies that presentation. This protects stale and imperfect Knowledge as gameplay without prescribing an available-actions implementation.
+| Concern | Responsibility |
+| — | — |
+| Device | Machine identity and represented machine state |
+| Hardware | Compute and memory capacity |
+| Runtime | Current resource use and execution state |
+| Firmware | Operating-system identity, interaction model, and presentation |
+| Software / Tools | Installed functionality |
+| DeviceAccess | Established access relationship |
+| Session / operating context | Which Device is currently being operated and under which authority |
 
-Commands are interfaces rather than capabilities: Terminal and graphical verbs express operations the player may request, but do not prove that required software, position, access, or other conditions exist.
+Firmware must not duplicate or grant Device-owned hardware, runtime, networking,
+filesystem, or other simulation truth.
 
-### Actions and environmental consequences
+Installed software is not Firmware.
 
-Actions are valuable because of the concrete state transitions they cause, not because they belong to an abstract attack category. Different actions may change Knowledge, relationships, service availability, resource usage, software state, Process state, filesystem state, reachability, or other represented simulation state. A successful action therefore does not inherently imply access: **attack is not access**. One future action might establish access, while another might disrupt availability, alter resource or software state, operate through credentials or trust, or change reachability. These examples neither define implementations nor require a fixed taxonomy.
+Established access is not an active Session.
 
-The same transition may have different consequences in different surroundings. Conceptually, disruption of a gateway might remove availability where it is the only gateway; activate a backup and make another host observable in redundant infrastructure; contribute to an incident response in a security-sensitive organization; or cause secondary failures among fragile dependents. These are possibilities, not promised features or scripted chains. The durable rule is that other systems react to changed state according to their own represented rules, rather than an attack explicitly scripting every consequence.
+Operating another Device must not redefine the player’s personal Device.
 
-The same resulting state may eventually be caused by player actions, autonomous actors, malware, automated services, security systems, time, or other simulated systems. Observations and interfaces should continue to derive from the current world truth regardless of what caused it.
+NODE-OS is the Firmware environment of the player’s personal Device, not the
+universal presentation layer for every machine in Synthesis.
 
-When concrete artifact-producing systems exist, actions should leave artifacts because represented events actually occurred, not because a feature manufactures flavor evidence. Connections, authentication attempts, filesystem changes, Process execution, network activity, and similar events may later produce logs or other artifacts according to the configuration of the systems involved. Those artifacts can then become player-observable information without requiring downstream systems to know which higher-level action originally caused them.
+Foreign Firmware may expose the same underlying kinds of simulation state
+through substantially different interfaces.
 
-Processes are one execution mechanism for long-running work, not a universal action or event layer. A Process represents elapsed work and resource consumption. The concrete gameplay mechanic that uses the Process owns what completion means and which simulation state changes as a consequence. Service Analysis completion resolves exactly once in the canonical full-game advancement transition and evaluates current world truth, never React presentation.
 
-Future simulation time, autonomous actors, security responses, deeper player knowledge, economy, malware, and similar systems should be introduced as concrete gameplay mechanics when they are actually needed. Concrete mechanics come first. These directions do not justify a CapabilityEngine, ActionEngine, AttackFramework, AvailableActionsEngine, RuleEngine, ReachabilityEngine, ToolRegistry, SoftwareInventoryFramework, generic affordance system, ECS, event bus, plugin framework, generic causality framework, or universal simulation object. The first concrete attack and tool mechanics should establish actual requirements before shared abstractions are extracted.
+### A08 — Access is a relationship, not a hacked flag
 
-Shared abstractions should be extracted only after multiple implemented systems demonstrate the same concrete requirement. The long-term goal is for increasingly interesting situations to emerge from interactions between stateful systems rather than from bespoke scripted event chains.
+`DeviceAccess` represents established access between stable entities.
 
-## Authoritative deployment and online readiness
+It is not:
 
-V0/V1 browser mode is locally authoritative: `GameProvider` owns the current complete `GameState`, its application adapter executes gameplay operations in-process, and the browser scheduler triggers `advanceGameState`. That is the current offline deployment implementation, not a permanent requirement that a gameplay client possess canonical simulation truth. No server, networking, account system, or multiplayer system exists today.
+- a generic `hacked` boolean
+- an active connection
+- an active Session
+- automatic remote execution
+- automatic filesystem access
+- automatic privilege escalation
+- automatic interface switching
 
-In a future authoritative online deployment, the server owns hidden canonical World truth, canonical simulation time, and Process advancement. The client may animate or project progress, but it must not decide that canonical work completed. The same authority rule applies as autonomous actors, security responses, world changes, economy changes, and other persistent simulation systems are introduced. `core/game` remains pure and independent of React, browser scheduling, and transport in either deployment.
+If active Sessions or remote operating contexts exist, they must build on
+established access without replacing it.
 
-Gameplay that depends on hidden truth follows **UI → application/session operation → domain rules**, not **UI → inspect hidden World → decide gameplay**. Application/session operations must not assume synchronous in-process execution. Locally, an operation may read the latest canonical state and resolve after invoking the pure rule in-process. Online, an adapter may send the conceptual request to the server, where current authoritative state accepts, rejects, or resolves it and returns a player-visible result. The exact provider and transport contracts remain future work; this rule does not imply a command bus or runtime framework. The graphical Scan app establishes the concrete seam with `scanTarget(input)`: it consumes the closed `ScanResult`, while the local adapter alone constructs the domain's narrow Scan targets from `GameState`.
+Disconnecting a Session must not implicitly erase persistent access unless a
+future concrete mechanic explicitly changes that relationship.
 
-An online client must neither require nor receive the complete hidden World merely to execute gameplay. It receives only legitimately player-visible state: observations, Knowledge, Process/status projections, operation results, and concrete public or player-owned information. Exact projections remain future work. React may still read local/canonical state that is legitimately presentation-relevant in the offline prototype—such as player runtime state, Processes, Knowledge, and wallet data. This is not a rule that UI can never read `GameState`; it is an authority rule against gameplay decisions that require hidden World truth.
 
-Online clients request operations rather than asserting validity. The authoritative simulation evaluates current truth and then accepts, rejects, or resolves the request. Observation-bound Service Analysis is the precedent for stale input: a player-visible endpoint plus expected stable identities is checked against current authoritative truth at execution, so stale or reused endpoints cannot silently retarget work.
+### A09 — Observation operations have distinct epistemic roles
 
-Simulation identity remains distinct from account, authentication, connection, WebSocket/session, and transport identity. A canonical device ID identifies a simulated device independently of the lifetime or kind of actor controlling it. The current separation between `PlayerState.localDevice` and `WorldState.network.hosts` is useful for current gameplay but is not a permanent multiplayer invariant. A future player-controlled device may be a canonical World entity related to a player/actor (for example, a player could reference a controlled device ID); no actor, ownership, or unified-device model is implemented now.
+Observation must remain separate from browsing remembered information.
 
-Consequently, a future player-controlled device needs no special multiplayer Scan object. If it is represented in World state and legitimately observable, the same device observation semantics can surface it. Human control is separate actor/control state and must not automatically leak through Scan.
+Opening or navigating remembered data is not itself a new observation.
 
-Terminal already receives narrow operations rather than unrestricted `GameState`. Terminal Scan and graphical Scan both invoke the same application/session `scanTarget` operation; only that adapter reads current World truth, applies the pure Scan rule, remembers its result in Discovery, and returns the `ScanResult`. No Terminal transport or generic RPC layer is warranted now.
+The durable conceptual roles are:
 
-## Shared operations and integrations
+```text
+SCAN
+explore outward / discover adjacent objects or relationships
 
-Gameplay verbs should normally be established through a shared domain/application operation and exposed first through Terminal; specialized apps may then add graphical affordances over that same operation. Terminal-first does not make Terminal the owner of gameplay logic: Terminal and GUI both call the shared boundary, the GUI never constructs a Terminal command string, and neither interface duplicates the domain rule.
+INSPECT
+observe the current intrinsic state of a specific known object
 
-A gameplay operation is implemented once behind an explicit game-level API and is callable from different interfaces. Network Analysis contains separate `scan` and `inspect` verbs that both narrowly accept a represented Device by valid IPv4 address or a LocalNetwork by exact player-visible name. `SELF` is the player-owned device, `LAN` is another device sharing a represented local network with SELF, and `REMOTE` is a represented device without that shared membership. Device Scan returns real network relationships and currently open owned services; network Scan returns responding represented members. Device Inspect returns only properties owned by that device, including its server identity where represented, but does not enumerate services; network Inspect returns its name and whether canonical membership connects SELF, without member enumeration. Stable device, network, and service IDs remain internal. Both pure operations independently derive closed structured results from current world truth. The graphical Scan UI browses canonical Discovery and invokes explicit observations through the narrow application operation rather than reading hidden World or constructing Terminal commands. Focus and Back navigation remain local presentation state. No generic entity, observation, resolver, or action framework is needed.
+ANALYZE
+perform deeper, potentially resource-consuming investigation
+```
 
-Commands are interface verbs, not installed tool objects or capabilities, and their presence does not prove that the player possesses the software, capability, position, access, or other conditions an operation requires. Future graphical applications and Terminal commands must call the same domain operations. Player-owned software or tools should influence those shared domain rules rather than create Terminal-only gameplay. Future Network Analysis upgrades may deepen observations derived from the same entities, but no general software inventory, capability framework, scanner-level, or upgrade system exists today.
+Exact observation depth belongs to the currently implemented mechanic and is
+documented in `docs/V0.md`.
 
-External services must enter through explicit adapters or interfaces at the application boundary and must not become direct dependencies of core game-domain logic.
+These verbs must not become a mandatory universal pipeline.
 
-Terminal commands receive narrow, read-only values required by their behavior rather than unrestricted game state. A live Terminal entry retains a UI-local Process ID and projects progress, resources, and results from canonical `GameState`. Once completion has been presented, Terminal history may retain only that minimal player-visible final presentation so later Process-history cleanup does not rewrite it; this snapshot is not gameplay state. Terminal, Scan, and Processes synchronize through canonical state, never app-to-app events. Target Token local/external visual semantics describe reference context only and do not create gameplay target categories.
+Knowledge obtained through one path does not imply that every target must be
+processed through the same sequence.
 
-## Interface and mobile presentation
 
-Terminal is intended to become the primary power-user operational interface, but it is not the game domain. Terminal and graphical apps must call the same domain operations directly; a GUI must not route gameplay through a Terminal command string. The current Terminal includes local informational and presentation commands plus the observational `scan <ipv4|network-name>` and `inspect <ipv4|network-name>` gameplay commands. It receives no unrestricted game state, and Network Analysis presentation remains separate from domain observation rules. Actionable player-visible world references may be marked by Terminal commands as Target Tokens. Target Tokens communicate possibility rather than target category, and are presentation metadata: they do not represent game state, entity identity, or persistent player knowledge. Their only V1 interaction copies the exact visible value; they never expose stable IDs, insert prompt text, or execute commands. A complete service endpoint is a Target Token because Analyze accepts it; service names, raw ports, protocols, and internal IDs are not. Analyze targets stable IDs after endpoint resolution. Stable identity does not promise permanent reachability semantics: V1 permits an open, retained service to resolve after a port change, while future operations may require current endpoint reachability. Inspect is contextual observation rather than a mandatory gate before Scan, Analyze, or future actions. Analyze performs deeper resource-driven investigation of a selected exposed surface and is one information-gathering route, not a mandatory pipeline for every future access path. Connect, exploit, access, and filesystem gameplay are not implemented.
+### A10 — Processes represent work, not universal causality
 
-Terminal and graphical applications are interchangeable interfaces over the same gameplay operations. A GUI may compose several existing operations into a simpler workflow for convenience, but it must not reimplement gameplay rules and must not construct or execute Terminal command strings internally.
+A Process represents elapsed work and resource consumption.
 
-The graphical Scan application reaches the same `scan` domain operation that Terminal exposes through its application/session boundary and invokes Service Analysis through an observation-bound game action. An action initiated from a Scan observation validates its player-visible endpoint and expected stable target and service IDs together: stable IDs do not authorize silently retargeting a stale or reused endpoint. A convenience action such as a quick analysis may sequence multiple domain operations, but the underlying mechanics, validation, target resolution, and state changes must remain shared.
+Processes may have:
 
-This keeps gameplay independent from the current UI. Terminal may remain available as a precise power-user interface while graphical applications can provide more beginner-friendly access to the same capabilities without creating a parallel game implementation.
+- stable identity
+- an executor Device
+- resource requirements
+- progress
+- completion
+- a concrete result
 
-Mobile is a first-class presentation target. The shell owns viewport and Editing-presentation coordination, while individual scrollable regions explicitly own their scrolling. In the established text-entry layout, Terminal output scrolls independently of its prompt and the Notes textarea owns its own scrolling. These are presentation boundaries and must not leak browser or viewport concerns into `core/game`.
+The mechanic that creates the Process owns what completion means.
+
+A Process is not a universal:
+
+- action system
+- event bus
+- job framework
+- causality layer
+- effect system
+
+Browser timers or schedulers may trigger advancement, but they are not
+canonical simulation truth.
+
+Clearing disposable Process presentation or completed history must not undo
+consequences already stored in other canonical state.
+
+
+### A11 — Mutate causes; derive consequences
+
+Synthesis should grow as interacting stateful systems rather than collections of
+scripted event chains.
+
+Prefer:
+
+```text
+ACTION / AUTONOMOUS CHANGE
+        ↓
+CONCRETE STATE MUTATION
+        ↓
+OTHER SYSTEMS OBSERVE THE NEW STATE
+        ↓
+CONSEQUENCES
+```
+
+over:
+
+```text
+NAMED ACTION
+        ↓
+HAND-WRITTEN LIST OF ALL DOWNSTREAM EFFECTS
+```
+
+Persist independent causes and derive downstream conditions when practical.
+
+The same resulting state may have multiple causes.
+
+For example, future CPU pressure might result from legitimate workloads,
+player Processes, malware, security software, or other represented execution.
+Systems observing CPU pressure should not need to know which named mechanic
+caused it.
+
+Likewise, future connectivity may depend on concrete interfaces, routes,
+connections, firewall state, availability, and current position rather than a
+single `reachable` unlock flag.
+
+
+### A12 — Actions are defined by state transitions
+
+A successful action means its requested concrete transition occurred.
+
+It does not imply that a generic „hack“ succeeded.
+
+In particular:
+
+```text
+ATTACK ≠ ACCESS
+```
+
+Different actions may eventually affect:
+
+- Knowledge
+- relationships
+- service state
+- filesystem state
+- software state
+- runtime resources
+- Process state
+- reachability
+- infrastructure
+- other represented simulation state
+
+Do not require every action to fit a universal attack taxonomy.
+
+
+### A13 — Artifacts come from represented events
+
+When artifact-producing mechanics exist, artifacts should exist because a
+represented event actually occurred.
+
+Examples may eventually include:
+
+- connection records
+- authentication records
+- filesystem changes
+- Process execution
+- network activity
+- service events
+
+Do not manufacture fake logs or evidence solely for atmosphere.
+
+Artifacts can later become observable information and influence player
+decisions through normal simulation boundaries.
+
+
+### A14 — Shared-world authority remains explicit
+
+The current browser implementation may execute canonical simulation locally,
+but client-side authority is not a permanent multiplayer requirement.
+
+A future authoritative deployment may move hidden canonical World Truth,
+simulation time, Process advancement, autonomous actors, economy, and other
+persistent simulation state to a server.
+
+The durable flow is:
+
+```text
+INTERFACE
+    ↓
+APPLICATION / SESSION OPERATION
+    ↓
+AUTHORITATIVE DOMAIN RULE
+    ↓
+PLAYER-VISIBLE RESULT
+```
+
+A future online client should not require complete hidden World Truth merely to
+request gameplay operations.
+
+Clients request operations; they do not assert that hidden conditions are
+valid.
+
+Account identity, transport identity, simulated entity identity, player
+identity, Device identity, and Session identity must remain conceptually
+separate.
+
+This rule does not require a server, RPC framework, command bus, or networking
+architecture today.
+
+
+### A15 — Community or external actors do not receive privileged world mutation
+
+If Synthesis later supports community-authored software, Firmware,
+organizations, services, markets, scenarios, or other extensions, they should
+interact through explicit supported simulation boundaries where practical.
+
+Prefer:
+
+```text
+ACTOR / ORGANIZATION / PRODUCT
+        ↓
+AUTHORIZED OPERATION
+        ↓
+CANONICAL STATE TRANSITION
+        ↓
+NORMAL SYSTEMIC CONSEQUENCES
+```
+
+over:
+
+```text
+SPECIAL NAMED ACTOR
+        ↓
+ARBITRARY GAMESTATE MUTATION
+        ↓
+SCRIPTED WORLD OUTCOME
+```
+
+An important product, company, Firmware, Tool, or community group may be unique
+content without requiring unique laws of simulation.
+
+This invariant does not define a mod API, plugin interface, scripting system,
+permission framework, organization model, or extension schema.
+
+
+### A16 — Concrete mechanics before generic frameworks
+
+Do not generalize a hypothetical future system before concrete implementations
+demonstrate the shared requirement.
+
+Avoid introducing speculative:
+
+- universal entity models
+- generic capability engines
+- generic action/effect engines
+- generic relationship engines
+- generic reachability engines
+- generic causality frameworks
+- generic persistence frameworks
+- generic Firmware frameworks
+- generic Session frameworks
+- generic software inventory frameworks
+- plugin systems
+- event buses
+- ECS
+- dependency-injection frameworks
+
+A small amount of concrete duplication is preferable to a premature universal
+abstraction.
+
+Extract shared abstractions after multiple implemented systems reveal the same
+real requirement.
+
+
+## Repository boundaries
+
+### `src/core/game/`
+
+Owns pure simulation state and rules.
+
+It must not depend on:
+
+- React
+- DOM APIs
+- browser storage
+- shell navigation
+- CSS
+- viewport behavior
+- presentation-specific state
+
+Core rules should be executable independently of the current interface or
+deployment adapter.
+
+
+### `src/app/`
+
+Owns the application boundary between React and the game domain.
+
+Responsibilities may include:
+
+- hosting current canonical state in the local prototype
+- invoking pure game rules
+- exposing narrow operations to interfaces
+- coordinating browser-side simulation advancement where currently required
+- adapting future transport without moving transport into `core/game`
+
+
+### `src/apps/<feature>/`
+
+Owns feature-specific interface code and local presentation state.
+
+Apps may consume shared application/domain operations.
+
+They must not:
+
+- own competing gameplay truth
+- import another feature’s private UI implementation as a gameplay dependency
+- communicate gameplay through app-to-app events when canonical state already
+  provides the shared truth
+
+
+### `src/shell/`
+
+Owns application registration, hosting, navigation, and shared NODE-OS
+presentation.
+
+Shell navigation is presentation state.
+
+The Shell must not own gameplay rules.
+
+
+### `src/styles/`
+
+Owns reusable presentation primitives and visual tokens.
+
+Styles must not encode gameplay rules.
+
+
+## Canonical ownership reference
+
+The table below describes semantic ownership. It does not require these concerns
+to be physically nested in one object.
+
+| State / concern | Canonical owner | Must not become |
+| — | — | — |
+| Entity identity | represented entity | IP/name/label identity |
+| World configuration | World / represented entities | UI-owned truth |
+| Discovery | player Discovery state | current World Truth |
+| Knowledge | player Knowledge state | capability or unlock flags |
+| Hardware | Device | Firmware state |
+| Runtime resources | Device-associated runtime state | UI telemetry invented for presentation |
+| Firmware | Device-installed Firmware state | compute/resource authority |
+| Software / Tools | Device-owned installed functionality | Firmware or player skill flags |
+| DeviceAccess | relationship state | hacked flag or active Session |
+| Session | operating-context state | replacement for Device identity |
+| Filesystem | represented Device | Files/Terminal private data |
+| Processes | canonical simulation state with executor identity | UI timers or app-local jobs |
+| Shell navigation | Shell presentation state | gameplay state |
+| Terminal output | Terminal presentation state | canonical game history |
+| Target highlighting | presentation metadata | entity type or gameplay state |
+
+
+## Discovery and remembered observations
+
+Discovery represents positive remembered observation, not omniscient World
+Truth.
+
+Browse is not Observe.
+
+A UI may project remembered relationships as a tree, hierarchy, atlas, graph
+projection, or other understandable presentation without making that
+presentation structure canonical ownership.
+
+A relationship displayed as parent/child in an interface is not automatically a
+parent/child domain relationship.
+
+Re-observation may update legitimately observed positive information.
+
+Failure or absence must not silently erase historical knowledge unless a
+concrete mechanic explicitly establishes that the player learned the earlier
+information was no longer valid.
+
+Historical observations that identify a mutable endpoint must retain the
+identity and attributes actually observed rather than silently retargeting to a
+different current entity.
+
+
+## Operations and stale input
+
+Operations initiated from player-visible observations must validate the
+identities and player-visible references required by that operation against
+authoritative current state.
+
+Stable identity prevents accidental identity drift.
+
+It must not become permission to silently retarget stale player input.
+
+A stale endpoint, address, relationship, or observation may cause an operation
+to fail even when the stable entity still exists.
+
+The exact validation required belongs to the concrete mechanic.
+
+
+## Device state and operating contexts
+
+A Device is the simulated machine.
+
+A Firmware is the environment through which that Device is presented and
+operated.
+
+Software provides functionality on a Device.
+
+Access records an established relationship.
+
+A Session records an active operating context when such a mechanic is
+represented.
+
+These concerns may interact but must remain independently meaningful.
+
+Conceptually:
+
+```text
+DEVICE
+├── identity
+├── machine state
+├── hardware
+├── runtime
+├── networking
+├── filesystem          when represented
+└── installed software  when represented
+
+DEVICE
+└── FIRMWARE
+      ↓
+presentation / interaction model
+
+DEVICE ACCESS
+      ↓
+may authorize
+
+REMOTE SESSION
+      ↓
+operating context over a Device
+```
+
+NODE-OS remains one Firmware implementation, not the global definition of what
+a computer interface in Synthesis must look like.
+
+
+## Interface and mobile boundaries
+
+Mobile Safari/iPhone is a first-class presentation target.
+
+Viewport and Editing-presentation coordination belongs to the Shell boundary,
+not to gameplay or Terminal domain logic.
+
+Individual scrollable application regions own their scrolling.
+
+Do not move browser viewport state into `core/game`.
+
+Do not reintroduce Terminal-owned or feature-owned global keyboard hacks merely
+to solve local presentation issues.
+
+Presentation behavior may evolve, but viewport mechanics must remain separate
+from canonical simulation truth.
+
+
+## Presentation truth
+
+Player-facing technical values should come from represented canonical state
+when that state exists.
+
+Do not invent fake:
+
+- telemetry
+- logs
+- traffic
+- uptime
+- security state
+- process state
+- filesystem content
+- alerts
+
+solely to make an interface appear more technical.
+
+Silence or unavailable information is valid presentation state.
+
+
+## Design test for significant mechanics
+
+Before implementing a significant gameplay mechanic, answer:
+
+1. What concrete state or relationship does the mechanic observe?
+2. What concrete state or relationship does it change?
+3. Which consequences should be derived instead of directly written?
+4. Can another independent system influence the same underlying state?
+5. Can other systems react to the result without knowing the named action that
+   caused it?
+6. Does this create another meaningful approach or merely another mandatory
+   pipeline step?
+7. Is the interface using player-visible information rather than hidden truth?
+8. Is stable identity separate from mutable presentation attributes?
+9. Is gameplay implemented once behind a shared operation boundary?
+10. Are we modelling only what the current mechanic requires?
+
+
+## Architecture change rule
+
+Do not add a future idea to this document merely because it is interesting.
+
+`docs/FUTURE.md` may think far ahead.
+
+This document should anticipate the future only where a durable boundary is
+needed to prevent current code from creating unnecessary coupling or duplicate
+truth.
+
+When an architectural invariant intentionally changes:
+
+1. update this document
+2. update affected current-scope documentation
+3. update architecture/source-of-truth tests where appropriate
+4. re-check planned work orders against the new contract

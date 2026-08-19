@@ -1,41 +1,41 @@
 # Confirmed future directions
 
-Future iterations may add:
+This document records long-term product and simulation directions for Synthesis.
 
-- Authoritative server-owned simulation and multiplayer clients limited to player-visible observations, projections, and operation results
+It is intentionally allowed to think far beyond the current implementation.
 
-- Network Analysis upgrades that deepen observations derived from existing simulation truth
-- Richer simulated networks, NPC hosts, and eventually exposed real players
-- Simulation time and autonomous world change when concrete mechanics require them
-- Imperfect, stale, and deeper player knowledge
-- Explainable traces, attention, risk, logs, and trace removal
-- Exploit attempts, credentials, access, and filesystems as concrete mechanics
-- Player-owned tools, software, derived capabilities, hardware, malware, economy, organizations, reachability, and multiplayer progression
-- Device-owned Firmware and multiple operating environments over the same simulated systems
-- External integrations where they serve an established product need
+It is not:
 
-## Devices and firmware
+- current product truth
+- an implementation contract
+- a roadmap with guaranteed ordering
+- a promise that every example will exist
+- authority to implement a feature merely because it is described here
 
-Long-term Device identity and Firmware identity are separate. A Device defines the simulated machine and its concrete capabilities and runtime state; Firmware defines the operating environment through which that machine is presented and operated.
+Use:
 
-NODE-OS is intended to be the polished personal operating system of the player’s own Device rather than the universal Synthesis shell. Its identity should come from consistency, speed, clear interpretation of system state, strong networking and systems conveniences, and a stable interaction model.
+- `docs/V0.md` for current implemented truth
+- `docs/ARCHITECTURE.md` for durable architecture constraints
+- `docs/work-orders/...` for explicitly selected implementation work
 
-Foreign Devices may use substantially different Firmware. An older server environment may expose more raw process, socket, user, filesystem, or network information through a terminal-oriented interface, while another modern Firmware may provide its own graphical applications and conventions. These environments should be allowed to differ structurally rather than merely recoloring NODE-OS.
+Examples and working product names in this document are exploratory unless
+explicitly stated otherwise.
 
-The same underlying simulated condition may therefore be presented differently depending on Firmware without changing canonical World truth. NODE-OS may provide interpreted labels, known-target affordances, compact Process feedback, or other conveniences while a foreign system exposes lower-level state more directly.
 
-The goal is not to make foreign Firmware artificially frustrating. Different operating environments should have meaningful identities, strengths, limitations, and levels of convenience. Returning to NODE-OS after operating an unfamiliar system should feel like returning to the player’s own Device.
+## North star
 
-A future remote operating context should build on established `DeviceAccess` rather than treating successful access as an automatic interface switch. Device state, Firmware identity, installed software, access relationships, and active operating context remain separate concerns.
+Synthesis should grow into a systemic simulated digital world rather than a
+fixed sequence of hacking puzzles.
 
-## Systemic gameplay north star
+Hacking is the player’s language for observing, understanding, navigating, and
+changing that world.
 
-The long-term goal is not merely to accumulate targets, commands, applications, exploits, or isolated mechanics. Synthesis should grow as a network of interacting world states and relationships in which independently useful mechanics observe or transform shared state and create situations that were not authored as explicit event chains. Hacking is the player’s language for investigating and manipulating that simulated world, not a fixed sequence of prescribed exploit steps.
+The long-term direction is:
 
 ```text
 WORLD TRUTH
     ↓
-ACTIONS AND AUTONOMOUS CHANGE
+PLAYER OR AUTONOMOUS ACTION
     ↓
 STATE MUTATION
     ↓
@@ -43,83 +43,375 @@ CROSS-SYSTEM CONSEQUENCES
     ↓
 OBSERVATION
     ↓
-PLAYER DECISIONS
+INFORMATION
+    ↓
+PLAYER DECISION
     ↓
 FURTHER STATE MUTATION
 ```
 
-These are directions, not specifications. The current slice has a graphical Scan workspace, Service Analysis, and minimal positive vulnerability Knowledge, but no exploit, access, filesystem gameplay, autonomous actors, attention system, or simulation clock. Concrete mechanics should establish requirements before generic frameworks are considered.
+Interesting outcomes should increasingly emerge from interactions among
+independently useful systems rather than bespoke scripted event chains.
 
-### Player tools, capabilities, and strategic position
+The goal is not simply more:
 
-Long-term progression should expand the player's ways of interacting with existing systems rather than merely unlock a fixed sequence of stronger commands. Tools and software should increasingly be concrete things in the simulation. Depending on mechanics that are actually implemented, they might be found, copied, stolen, purchased, traded, modified, deleted, outdated, corrupted, detected, or otherwise affected by world systems. These are examples of systemic possibilities, not promises that every listed mechanic will exist or that every tool must use one inventory model.
+- commands
+- missions
+- targets
+- exploits
+- applications
+- content
 
-Capabilities should increasingly be derived from concrete state rather than made ultimate canonical truth as permanent player flags. Conceptually, installed software, hardware, runtime state, relationships or access, credentials, and position or reachability could together determine currently usable capabilities. A tool might be installed while required hardware is absent; a target might be unreachable from the current position; or a tool might work only from another controlled device. In each case, possession alone is insufficient. This is a future design direction, not a capability resolver or schema.
+The goal is a world in which existing systems combine to create new situations.
 
-Knowledge reveals potential ways of interacting with the world. It does not automatically unlock success, prove current validity or reachability, provide required software or credentials, or create access. One player might know a weakness and have compatible tooling; another might know it but lack tooling; another might not know it but own valid credentials; and another might already have an internal session. The same world object can therefore offer meaningfully different options in different player situations.
 
-Observation tools should primarily reduce uncertainty and improve decision quality rather than act as artificial permission gates. A player may be allowed to attempt a transformation without knowing whether current World truth makes it effective. Better Scan, Inspect, fingerprinting, forensics, or analysis capabilities can reveal more useful information before the player commits time or resources, but lack of perfect information should not automatically remove an otherwise meaningful attempt. **I can attempt this** and **I know whether this is a good idea** are deliberately different statements.
+## Multiple approaches instead of one hacking pipeline
 
-Reachability should become a major source of strategic depth while remaining conceptually separate from Knowledge, tool possession, and World identity. A player may know that a database exists and own a useful technique while the database is unreachable from the Internet. A later foothold on a web server could make the database reachable from that position without changing either the database or the tool: the player's relationship and position changed the useful action space. This direction does not define routing or network simulation.
+No universal sequence such as:
 
-The UI should express what the player reasonably believes they can attempt, not expose omniscient World truth. A player may know an old weakness, possess a suitable tool, see an attempt as plausible, begin it, spend time or resources, and learn only from its result that the world has changed. Visible feasibility is not actual feasibility, and this principle does not define a generic available-actions API.
+```text
+SCAN
+→ ANALYZE
+→ ATTACK
+→ ACCESS
+```
 
-Future attacks should not all produce the same outcome. An action is valuable because of its concrete state transition, and success means that the requested transition occurred—not that a “generic hack” succeeded or that access necessarily followed. Service disruption, credential use, exploitation, malware or software manipulation, traffic or reachability manipulation, filesystem actions, and resource abuse are possible examples, not a required taxonomy or a future `AttackType` contract.
+should become the required solution to every target.
 
-The current Scan → Analyze → weakness path is one concrete route, not the universal hacking pipeline. Future access or influence over a device may come from service weaknesses, credentials, keys, trusted sessions, another controlled machine, firmware or configuration changes, filesystem discoveries, malware, routing or reachability changes, social or intelligence routes, or other concrete mechanics that later prove useful. No target should require every player to progress through the same ordered chain, and no player should be expected to eventually possess every possible approach.
+Different situations may eventually be approached through combinations of:
 
-Replayability should increasingly arise from combinations among existing systems rather than a huge catalog of isolated content. Infrastructure layout, redundancy, security posture, dependencies, current actors, existing access, and world state may make the same capability produce very different situations. Ideally, a tool discovered late in a playthrough can make a familiar world configuration strategically meaningful in a new way: old systems plus a new capability plus a different situation produce a new player strategy, rather than relying on a numbered scripted surprise.
+- observation
+- service weaknesses
+- credentials
+- keys
+- trusted relationships
+- existing access
+- filesystem discoveries
+- configuration
+- software
+- malware
+- reachability
+- another controlled Device
+- routing or network position
+- social or intelligence information
+- future concrete mechanics
 
-#### Software products, modules, licensing, and provenance
-Player software should become a major progression axis rather than a cosmetic
-inventory of command unlocks.
-Terminal and graphical verbs remain interfaces. The ability and quality behind
-an operation should increasingly come from concrete software installed on the
-Device.
+A successful first access should create a foothold, not complete the target.
+
+A foothold becomes interesting when it changes:
+
+- where the player can operate
+- what the player can observe
+- what is reachable
+- which tools are useful
+- which information becomes meaningful
+- which further decisions become possible
+
+
+## Observation, Discovery, and Knowledge
+
+Observation should increasingly reduce uncertainty rather than operate as a
+permission ladder.
+
+The long-term conceptual vocabulary is:
+
+```text
+SCAN
+What is around this object?
+Expand known space and discover relationships.
+
+INSPECT
+What is this object?
+Obtain targeted current observable evidence.
+
+ANALYZE
+What deeper information can be derived from specific evidence?
+Potentially consume time and resources.
+```
+
+These roles are directional rather than a commitment to today’s exact
+observation depth.
+
+SELF and directly available local context should increasingly feel intrinsic
+rather than requiring repetitive discovery of facts the player obviously
+already owns.
+
+Opening remembered information should remain browsing, not observation.
+
+Known Space may eventually grow from several concrete sources, including:
+
+- intrinsic local context
+- Scan
+- Inspect
+- files
+- configuration
+- credentials
+- active remote operating contexts
+- other represented systems
+
+Do not assume every piece of player information must originate from Scan.
+
+
+### Better observation tools
+
+Tool progression may reduce repetitive probing by increasing the quantity,
+quality, speed, or efficiency of observation.
+
+A stronger reconnaissance product might, for example:
+
+- discover more useful relationships
+- return shallow fingerprints during a broader Scan
+- expose richer current evidence during Inspect
+- work faster
+- consume different resources
+- operate from different positions
+- produce different observable consequences
+
+Better observation should improve decision quality rather than arbitrarily
+unlock objects that otherwise physically exist.
+
+
+### Stale and imperfect information
+
+Player information may eventually be:
+
+- incomplete
+- historical
+- stale
+- uncertain
+- misleading because the world changed
+
+A player may know an old weakness while the target has already changed.
+
+That uncertainty is gameplay.
+
+Interfaces should represent what the player reasonably knows, not silently
+correct stale information using hidden World Truth.
+
+
+## Devices and Firmware
+
+Devices and Firmware should become a major part of the identity of the world.
+
+A Device is the simulated machine.
+
+Firmware is the operating environment through which that machine is presented
+and controlled.
+
+NODE-OS is intended to become the polished personal Firmware of the player’s
+own Device rather than the universal Synthesis interface.
+
+Its identity may grow through:
+
+- consistent interaction
+- strong networking workflows
+- useful interpretation of represented state
+- polished system tools
+- efficient navigation
+- a recognizable technical visual language
+
+Foreign Devices may run substantially different Firmware.
+
+Examples might include:
+
+- raw legacy server environments
+- terminal-oriented systems
+- other graphical operating environments
+- specialized embedded systems
+- community-developed Firmware
+
+Different Firmware should be allowed to differ structurally rather than merely
+recolor NODE-OS.
+
+Returning to NODE-OS after operating unfamiliar environments should feel like
+returning to the player’s own machine.
+
+
+## Remote operating contexts
+
+Established access and active operation should remain distinct.
+
+Long-term progression may include:
+
+```text
+DEVICE ACCESS
+      ↓
+CONNECT
+      ↓
+REMOTE SESSION
+      ↓
+FOREIGN OPERATING ENVIRONMENT
+      ↓
+FILES / SYSTEM / TERMINAL / OTHER SURFACES
+```
+
+A connected foreign Device should become a real place from which the player can
+operate rather than only another detail card.
+
+NODE-OS should remain the player’s local environment while a remote Session
+opens a second operating context.
+
+Different form factors may present this differently:
+
+- a contained second surface on larger screens
+- a focused full-screen or stacked context on mobile
+
+The presentation may evolve without collapsing local Device identity and remote
+operating context.
+
+
+## Networks, Firewall, and strategic position
+
+Reachability should become a major source of strategic depth.
+
+The same target may be:
+
+- known
+- supported by the player’s software
+- accessible with valid credentials
+
+and still be unreachable from the player’s current network position.
+
 Conceptually:
 
+```text
+KNOWLEDGE      ✓
+TOOL           ✓
+CREDENTIAL     ✓
+REACHABILITY   ✗
+```
+
+A foothold on another Device may change that situation.
+
+Example:
+
+```text
+INTERNET
+    │
+    ▼
+PUBLIC SERVER
+    │
+    ▼
+INTERNAL DATABASE
+```
+
+From the player’s local Device:
+
+```text
+DATABASE
+UNREACHABLE
+```
+
+After gaining and using access to the public server:
+
+```text
+PUBLIC SERVER
+      ↓
+new network position
+      ↓
+DATABASE
+REACHABLE
+```
+
+The database did not become unlocked.
+
+The player’s position changed.
+
+
+### Firewall
+
+Firewall state may become one concrete contributor to reachability.
+
+Keep conceptually separate:
+
+```text
+AUTHENTICATION
+Who may use this service?
+
+FIREWALL
+Which traffic is allowed between represented positions?
+
+REACHABILITY
+Can this target currently be communicated with from this position?
+
+FIRMWARE
+How is this Device operated and presented?
+```
+
+Firewall should not become a generic „security level“.
+
+Initial implementations should prove one concrete network-position interaction
+before broader routing or reachability abstractions are considered.
+
+
+## Software as a progression axis
+
+Player software should become a major progression system rather than a cosmetic
+inventory of command unlocks.
+
+The long-term relationship is:
+
+```text
 COMMAND / UI VERB
         ↓
 GAMEPLAY OPERATION
         ↓
-AVAILABLE INSTALLED SOFTWARE
+INSTALLED SOFTWARE + OTHER CONDITIONS
         ↓
-SOFTWARE CAPABILITY / MODULES / CURRENT CONDITIONS
+CAPABILITY
         ↓
 WORLD INTERACTION
+```
 
-A command therefore must not become permanently identical to one named Tool.
+A command is not permanently identical to one software product.
 
-Different software products may eventually provide overlapping ways to perform
-similar operations with different strengths, limitations, resource costs,
-reliability, exposure, supported environments, or observation depth.
+Different products may provide overlapping capabilities with different:
 
-A first concrete reconnaissance product could, for example, combine the current
-Scan and Inspect interaction family.
+- strengths
+- limitations
+- resource costs
+- speed
+- reliability
+- exposure
+- supported environments
+- observation depth
+- dependencies
 
-Working product direction:
+One product may support multiple gameplay verbs.
 
+
+### Example: reconnaissance software
+
+A possible first recognizable reconnaissance product is:
+
+```text
 NodeScan
 ├── network discovery
-├── object inspection
-└── optional future modules
+├── targeted inspection
+└── possible future modules
     ├── service fingerprinting
     ├── banner probing
     ├── broader sweeps
     ├── topology assistance
     ├── passive observation
-    └── deeper device/service evidence
+    └── deeper evidence
+```
 
-This does not mean scan or inspect are permanently owned by NodeScan.
-Another product could later provide overlapping reconnaissance capabilities
-with different trade-offs.
+`NodeScan` is a working product direction, not a permanent rule that `scan` or
+`inspect` must always require that specific product.
 
-Likewise, deeper analysis and offensive transformations may eventually be
-provided by one or more concrete offensive software products.
+Other software may later offer overlapping reconnaissance functionality with
+different trade-offs.
 
-A working thematic direction could be a distinctive underground tool such as a
-“Dolphin”-style loader or analysis/payload suite:
 
+### Example: offensive software
+
+Analyze and offensive transformations may eventually be supported by distinctive
+software products.
+
+A thematic working example is a „Dolphin“-style loader or offensive suite:
+
+```text
 OFFENSIVE SOFTWARE
 ├── analysis capabilities
 ├── attack / transformation capabilities
@@ -131,65 +423,90 @@ OFFENSIVE SOFTWARE
     ├── privilege-related functionality
     ├── stealth
     └── cleanup
+```
 
-These names and module lists are design examples, not current schemas or locked
-content.
+The product name and module list are examples, not locked schemas.
 
-Software progression may eventually include:
 
-* product versions
-* optional modules or feature packs
-* official licenses
-* license keys
-* recovered or stolen licenses
-* key generators
-* cracked releases
-* modified or repacked releases
-* software obtained from legitimate and underground markets
-* different software provenance or trustworthiness
+## Software modules, versions, and licensing
 
-The same desired capability should not always require the same acquisition
-route. A player might buy a legitimate license, recover a usable key from
-another system, obtain a key generator, install a cracked build, purchase a
-repack from another actor, or use another software product that provides a
-similar capability.
+Software may eventually have:
 
-This creates interaction between:
+- versions
+- modules
+- optional feature packs
+- official licenses
+- license keys
+- recovered or stolen licenses
+- key generators
+- cracked releases
+- repacks
+- modified releases
+- different distribution sources
+- different provenance
 
-* money
-* information
-* filesystem discoveries
-* software ownership
-* Device state
-* player trust and risk
-* existing access
-* market relationships
+The same capability should not necessarily have one acquisition route.
 
-A future black market may sell software, modules, licenses, cracks, key
-generators, or modified packages.
+A player might eventually:
 
-Underground software must not be represented only as a cheaper shop item with a
-random penalty. Software provenance can become meaningful when concrete
-simulation systems exist.
+- buy a legitimate license
+- discover a usable license key
+- obtain a key generator
+- install a cracked build
+- buy a modified release
+- use a competing product
 
-For example, a modified package could contain additional software or malware
-that later interacts with real represented state such as:
+That allows software progression to interact with:
 
-* Device-owned files
-* running Processes
-* CPU or RAM usage
-* network activity
-* configuration
-* credentials
-* Wallet-related state
-* access relationships
+- money
+- information
+- filesystem discoveries
+- Device state
+- access
+- markets
+- trust
+- risk
 
-The player should ideally be able to discover such consequences through the
-same simulation and observation surfaces used elsewhere in the game rather than
-through an arbitrary “malware detected” event.
 
-Conceptually:
+## Underground software and provenance
 
+A future black market may distribute:
+
+- software
+- modules
+- licenses
+- cracks
+- key generators
+- repacks
+- modified packages
+
+Underground software should not merely be:
+
+```text
+CHEAPER VERSION
++ RANDOM BAD EFFECT
+```
+
+Its provenance becomes interesting when actual simulation systems can express
+real consequences.
+
+A modified package might eventually interact with represented:
+
+- files
+- Processes
+- CPU or RAM use
+- network activity
+- configuration
+- credentials
+- Wallet-related state
+- access relationships
+
+The player should ideally discover suspicious behavior through the same systems
+used elsewhere in Synthesis.
+
+Example:
+
+```text
 UNTRUSTED SOFTWARE
         ↓
 REAL DEVICE STATE CHANGE
@@ -199,40 +516,135 @@ FILES / PROCESSES / NETWORK / OTHER STATE
 OBSERVATION
         ↓
 PLAYER REALIZES SOMETHING IS WRONG
+```
 
-This is especially important for systemic gameplay: software should participate
-in the same World state as other mechanics rather than live in an isolated
-upgrade menu.
+This is more interesting than an arbitrary „malware detected“ popup.
 
-Official, cracked, stolen, modified, or malicious software therefore need not
-be intrinsically represented by universal quality or danger scores. Concrete
-future mechanics should model only the properties that actually matter.
 
-Do not introduce a universal SoftwareFramework, CapabilityResolver,
-LicenseEngine, MarketplaceEngine, generic module system, or package-risk
-system in anticipation of these directions.
+## Malware and defensive software
 
-The first concrete software products should establish the real shared
-requirements before common abstractions are extracted.
+Malware may eventually become concrete software operating inside the same
+simulation as legitimate software.
+
+Its consequences may include represented:
+
+- execution
+- resource consumption
+- filesystem changes
+- network behavior
+- persistence
+- credential interaction
+- other concrete effects
+
+Security or forensic software may observe or counter those same underlying
+conditions.
+
+This creates the possibility of an ecosystem in which offensive, malicious,
+defensive, and diagnostic software interact through shared Device and World
+state rather than bespoke counters.
+
+
+## Economy and markets
+
+Economy should become meaningful when represented products, services, resources,
+and relationships give money something systemic to interact with.
+
+Possible future markets include:
+
+- software
+- licenses
+- services
+- infrastructure
+- information
+- hardware
+- currencies
+- other represented products
+
+Prices and value should increasingly emerge from represented market conditions
+when concrete economic systems exist rather than from arbitrary story labels.
+
+
+## Organizations
+
+Organizations may eventually become persistent actors in the world.
+
+They might operate:
+
+- software projects
+- Firmware projects
+- services
+- infrastructure
+- marketplaces
+- treasuries
+- currencies
+- other products
+
+Examples could include companies, informal developer groups, security teams, or
+other organizations.
+
+Named organizations may have strong fictional identities without requiring
+special laws of simulation.
+
+
+## Fictional currencies
+
+Synthesis may eventually contain fictional digital currencies.
+
+A currency might interact with:
+
+- player balances
+- organization treasuries
+- markets
+- product payments
+- exchange
+- services
+- speculation
+
+The interesting direction is not a scripted price chart.
+
+It is the possibility that represented actions produce economic history.
+
+For example:
+
+```text
+ORGANIZATION
+      ↓
+ISSUES CURRENCY
+      ↓
+PLAYERS BUY / SELL / USE IT
+      ↓
+MARKET STATE CHANGES
+      ↓
+ORGANIZATION OR PLAYERS CHANGE THEIR POSITIONS
+      ↓
+SUPPLY / DEMAND CHANGES
+      ↓
+PRICE CHANGES
+```
+
+If an organization later dumps a large represented treasury and players react,
+the resulting collapse may socially be described as a „rug pull“.
+
+The durable simulation event should be the underlying market actions and state
+changes, not:
+
+```text
+rugPullOccurred = true
+```
+
+The same principle applies to other economic events.
+
 
 ## Community-shaped persistent world
 
-A long-term possibility for Synthesis is a persistent simulated world that is
-not authored only by the core development team.
+A long-term possibility is that Synthesis becomes a persistent world influenced
+not only by the core development team but also by its players and trusted
+community contributors.
 
-Players, contributors, and trusted community developers may eventually operate
-organizations, software projects, infrastructure, services, markets, or other
-world-facing entities whose actions become part of the shared history of the
-simulation.
+This is broader than conventional modding.
 
-This is a product direction, not a commitment to a specific multiplayer,
-modding, governance, organization, marketplace, or scripting architecture.
-
-The important long-term idea is that community participation may eventually
-happen both outside and inside the fictional world.
-
-For example, a real community development team could eventually represent an
-in-world organization responsible for a Firmware or software product.
+The idea is that real contributors might eventually operate fictional entities
+inside the world.
 
 Conceptually:
 
@@ -247,17 +659,229 @@ REAL SIMULATION STATE
         ↓
 PLAYER USE AND REACTION
         ↓
-ECONOMIC / TECHNICAL / SOCIAL CONSEQUENCES
+TECHNICAL / ECONOMIC / SOCIAL CONSEQUENCES
         ↓
 SHARED WORLD HISTORY
+```
 
-### Action artifacts and information
-
-Actions should increasingly leave concrete artifacts when the represented environment would produce them.
-
-The durable information loop is:
+A real community development team could, for example, eventually represent the
+fictional organization responsible for a Firmware or software product.
 
 
+### Example: a community-operated Firmware project
+
+A team could eventually maintain an in-world organization responsible for
+NODE-OS or another Firmware family.
+
+It might publish actual in-world:
+
+- Firmware releases
+- product updates
+- related software
+- licenses
+- services
+
+A release could become part of the simulation because players actually use it.
+
+A defective release might create real represented consequences.
+
+A competing Firmware team might gain users because players prefer its product.
+
+The history would emerge from the interaction between real contributors,
+products, players, and simulation state rather than from a scripted
+„corporate war“ storyline.
+
+
+### Community-created software
+
+Community developers might eventually create products such as:
+
+```text
+NodeTrace
+Network Sniffer
+GhostProbe
+BlackFin
+Manta
+other reconnaissance, defensive, offensive, or utility software
+```
+
+These products could develop their own:
+
+- identity
+- interface
+- version history
+- supported capabilities
+- reputation
+- distribution
+- user base
+
+Players might meaningfully compare them rather than treat them as cosmetic
+skins.
+
+For example, one reconnaissance product might prioritize topology mapping while
+another focuses on passive observation.
+
+A cracked version might offer different provenance or consequences.
+
+Software could therefore acquire actual history inside the world.
+
+
+### Community developers as world participants
+
+A contributor would not merely be a mod author outside the game.
+
+Depending on future product decisions, contributors might also become
+participants representing:
+
+- software companies
+- Firmware teams
+- infrastructure providers
+- security groups
+- marketplaces
+- other organizations
+
+Their authorized actions could create normal simulation consequences.
+
+A Firmware team publishing an update should not therefore gain arbitrary
+authority over unrelated player state.
+
+Community participation should mean:
+
+```text
+AUTHORIZED WORLD ACTION
+        ↓
+NORMAL SIMULATION RULES
+```
+
+not:
+
+```text
+ARBITRARY GAMESTATE CONTROL
+```
+
+
+### Community-created history
+
+The long-term possibility is a world in which players can remember events that
+actually emerged.
+
+Examples might eventually include:
+
+- a popular software release failing
+- a competing Firmware gaining adoption
+- a currency collapsing
+- a cracked Tool spreading widely
+- malicious software being discovered
+- a security product becoming popular
+- an organization losing trust
+- infrastructure becoming strategically important
+
+These examples are not promised scripted events.
+
+Their value comes from the possibility that they emerge from represented
+systems and real participant decisions.
+
+
+## External community
+
+People may coordinate outside Synthesis through:
+
+- chat groups
+- forums
+- repositories
+- social platforms
+- other communities
+
+Those discussions may influence what participants choose to build or do inside
+the world.
+
+External discussion is not automatically simulation truth.
+
+Any future technical bridge between an external service and Synthesis requires
+an explicit authority and product boundary.
+
+
+## Community extensibility and modding
+
+Synthesis may eventually support community-authored content without requiring
+every contributor to modify the core repository.
+
+Possible extension layers include:
+
+- world or scenario definitions
+- Devices
+- networks
+- software
+- Firmware presentation
+- services
+- other content
+- eventually sandboxed behavior where a real requirement exists
+
+The safest and simplest extension layer may eventually be declarative content
+rather than unrestricted code execution.
+
+More powerful scripting would require explicit authority and sandbox
+boundaries.
+
+Do not assume a future public extension system must expose mutable canonical
+`GameState`.
+
+The exact modding architecture should be extracted only after several real
+first-party systems reveal stable extension points.
+
+
+## Autonomous world change
+
+A deeper simulation may eventually contain autonomous actors and systems that
+change the world without direct player action.
+
+Examples might include:
+
+- normal workloads
+- infrastructure behavior
+- service changes
+- defensive systems
+- security responses
+- autonomous organizations
+- software behavior
+- economic activity
+- other actors
+
+Autonomous systems should operate through the same represented state as player
+mechanics.
+
+The player should be able to encounter a world that changed because something
+actually happened rather than because a mission script advanced.
+
+
+## Simulation time
+
+Simulation time may eventually become important when concrete mechanics require
+persistent change.
+
+Possible consumers include:
+
+- Processes
+- autonomous actors
+- markets
+- software behavior
+- infrastructure
+- security responses
+- stale information
+- scheduled world changes
+
+Time should not be introduced as a universal framework before those mechanics
+need it.
+
+
+## Artifacts, traces, attention, and information
+
+Actions should increasingly leave artifacts when the represented environment
+would actually produce them.
+
+The information loop is:
+
+```text
 ACTION
     ↓
 REAL WORLD EVENT
@@ -269,7 +893,186 @@ OBSERVATION
 INFORMATION / KNOWLEDGE
     ↓
 PLAYER DECISION
+```
 
-Concrete mechanics come first. None of these directions requires or justifies a CapabilityEngine, ActionEngine, AttackFramework, AvailableActionsEngine, RuleEngine, ReachabilityEngine, ToolRegistry, SoftwareInventoryFramework, generic affordance system, ECS, event bus, or plugin framework. Concrete mechanics should establish actual requirements before abstractions are extracted. The current slice includes the concrete Basic Credential Toolkit and established `DeviceAccess`, but no generalized software inventory, capability resolver, reachability system, active remote Session, broader exploit model, or filesystem gameplay exists today.
+Possible future artifacts include:
 
-Architectural constraints for future work are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- authentication records
+- connection records
+- filesystem changes
+- process evidence
+- network activity
+- service logs
+- configuration changes
+
+Those artifacts may later support:
+
+- forensic investigation
+- trace discovery
+- attention
+- detection
+- cleanup
+- security response
+
+Evidence should arise from real represented events rather than decorative fake
+logs.
+
+
+## Risk and consequences
+
+Risk should become explainable through represented causes.
+
+An action may become risky because of:
+
+- its resource use
+- network activity
+- generated artifacts
+- target security configuration
+- timing
+- repeated attempts
+- current infrastructure
+- other represented conditions
+
+Avoid a universal hidden „risk score“ when the actual causes can be represented.
+
+Different systems may respond independently to the same evidence.
+
+
+## Hardware and execution
+
+Hardware should increasingly matter because actual work consumes represented
+resources.
+
+Potential long-term interactions include:
+
+- faster compute
+- RAM capacity
+- concurrent Processes
+- software requirements
+- local versus remote execution
+- malware workloads
+- defensive workloads
+- other Device activity
+
+Firmware must not become the source of compute power.
+
+A powerful machine with inconvenient Firmware may still outperform a weaker
+machine running a polished environment.
+
+Software, Firmware, Device, and execution position should remain independently
+meaningful progression axes.
+
+
+## Remote compute
+
+Future controlled Devices may eventually execute work.
+
+That may enable:
+
+- moving computation to another Device
+- using more powerful remote hardware
+- distributing workloads
+- running software where network position is advantageous
+
+Remote compute should build from concrete Device resources and active operating
+relationships rather than a generic „remote power“ stat.
+
+
+## Multiplayer and authoritative simulation
+
+A persistent shared world eventually requires stronger authority boundaries than
+the current local prototype.
+
+A future server-authoritative deployment may own:
+
+- hidden World Truth
+- canonical simulation time
+- Process advancement
+- autonomous actors
+- persistent economy
+- shared infrastructure
+- organization state
+- other persistent world systems
+
+Clients should receive only information they are legitimately allowed to
+observe.
+
+Conceptually:
+
+```text
+PLAYER CLIENT
+      ↓
+REQUESTED OPERATION
+      ↓
+AUTHORITATIVE SIMULATION
+      ↓
+PLAYER-VISIBLE RESULT / PROJECTION
+```
+
+The client should not require the entire hidden world merely to perform
+gameplay.
+
+Multiplayer identity, account identity, Device identity, organization identity,
+and active connection identity should remain separate concepts.
+
+
+## Replayability
+
+Replayability should increasingly emerge from combinations among systems rather
+than a huge catalog of isolated authored surprises.
+
+The same tool may be strategically different depending on:
+
+- infrastructure layout
+- network position
+- security posture
+- existing access
+- available hardware
+- software
+- current organizations
+- economic conditions
+- autonomous actors
+- world history
+
+Ideally:
+
+```text
+OLD SYSTEMS
+    +
+NEW CAPABILITY
+    +
+DIFFERENT WORLD STATE
+    =
+NEW STRATEGY
+```
+
+A familiar target can therefore become interesting again because the surrounding
+world or the player’s available possibilities changed.
+
+
+## Product directions, not frameworks
+
+Nothing in this document requires current implementation of:
+
+- mod support
+- plugin systems
+- community governance
+- organizations
+- currencies
+- marketplaces
+- generic software inventories
+- capability engines
+- universal reachability systems
+- scripting runtimes
+- autonomous actors
+- multiplayer
+- server infrastructure
+
+Future ideas should influence current architecture only when a durable boundary
+is needed to avoid unnecessary coupling.
+
+Concrete mechanics remain the source from which future abstractions are
+discovered.
+
+The purpose of this document is to preserve important possibilities without
+turning possibilities into premature implementation.
