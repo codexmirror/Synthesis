@@ -70,12 +70,6 @@ The current Scan → Analyze → weakness path is one concrete route, not the un
 
 Replayability should increasingly arise from combinations among existing systems rather than a huge catalog of isolated content. Infrastructure layout, redundancy, security posture, dependencies, current actors, existing access, and world state may make the same capability produce very different situations. Ideally, a tool discovered late in a playthrough can make a familiar world configuration strategically meaningful in a new way: old systems plus a new capability plus a different situation produce a new player strategy, rather than relying on a numbered scripted surprise.
 
-Ja. Und ich würde es jetzt festhalten, aber bewusst nicht als Work Order — es ist noch keine konkrete nächste Implementierung, sondern eine bestätigte Produkt-/Gameplay-Richtung.
-
-Der beste Ort ist docs/FUTURE.md. Dort steht bereits, dass Tools/Software konkrete Dinge werden sollen, die gefunden, gekauft, kopiert, gestohlen, verändert oder kompromittiert werden können, und dass Capabilities aus konkretem Zustand entstehen sollen.  ARCHITECTURE.md enthält außerdem schon die wichtigen dauerhaften Grenzen: Software/Tools ≠ Firmware, Command ≠ Capability, und ähnliche Fähigkeiten dürfen später von unterschiedlichen Tools mit unterschiedlichen Trade-offs kommen.
-
-Deshalb würde ich Architecture nicht aufblasen. In FUTURE.md, direkt innerhalb von ### Player tools, capabilities, and strategic position, würde ich diesen neuen Unterabschnitt ergänzen:
-
 #### Software products, modules, licensing, and provenance
 Player software should become a major progression axis rather than a cosmetic
 inventory of command unlocks.
@@ -220,6 +214,42 @@ system in anticipation of these directions.
 
 The first concrete software products should establish the real shared
 requirements before common abstractions are extracted.
+
+## Community-shaped persistent world
+
+A long-term possibility for Synthesis is a persistent simulated world that is
+not authored only by the core development team.
+
+Players, contributors, and trusted community developers may eventually operate
+organizations, software projects, infrastructure, services, markets, or other
+world-facing entities whose actions become part of the shared history of the
+simulation.
+
+This is a product direction, not a commitment to a specific multiplayer,
+modding, governance, organization, marketplace, or scripting architecture.
+
+The important long-term idea is that community participation may eventually
+happen both outside and inside the fictional world.
+
+For example, a real community development team could eventually represent an
+in-world organization responsible for a Firmware or software product.
+
+Conceptually:
+
+```text
+REAL COMMUNITY CONTRIBUTORS
+        ↓
+IN-WORLD ORGANIZATION
+        ↓
+PRODUCTS / SERVICES / INFRASTRUCTURE
+        ↓
+REAL SIMULATION STATE
+        ↓
+PLAYER USE AND REACTION
+        ↓
+ECONOMIC / TECHNICAL / SOCIAL CONSEQUENCES
+        ↓
+SHARED WORLD HISTORY
 
 ### Action artifacts and information
 
