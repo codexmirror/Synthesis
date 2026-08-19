@@ -1,149 +1,119 @@
 # Synthesis Development Handbook
 
-This handbook defines the current tool roles, development loop, and review discipline.
+This handbook defines the development workflow, participant roles, review
+process, and integration discipline for Synthesis.
 
-Repository documentation and accepted code describe project reality; experiments and plans become canonical only through explicit review and integration.
+It does not define:
 
+- current gameplay implementation
+- durable game architecture
+- future product scope
+- feature-specific design
+- a requested implementation delta
 
-## 1. Development principles
-
-Prefer:
-
-- small, explicit boundaries
-- shared gameplay logic behind every interface
-- simple TypeScript over speculative frameworks
-- incremental architecture based on demonstrated requirements
-- reproducible tests and builds
-- focused, reviewable changes
-
-Avoid:
-
-- hidden cross-feature coupling
-- duplicated gameplay logic
-- accidental promotion of experiments
-- large unreviewed rewrites
-- mutable visible identifiers as entity identity
-- UI components directly mutating unrelated gameplay state
-
-**Prototype aggressively. Integrate conservatively.**
+Those concerns belong to their owning documents.
 
 
-## 2. Sources of truth
+## 1. Documentation ownership
 
-The `codexmirror/Synthesis` repository is canonical, and accepted `main` is the canonical product state.
+Use repository documentation according to its responsibility.
 
-Work output, screenshots, notes, generated artifacts, planning documents, and local branches are not accepted merely because they exist. A tested implementation may nevertheless become the exact source integrated into the repository after review.
+| Source | Owns |
+| — | — |
+| `README.md` | Project entry point, setup, and documentation navigation |
+| `AGENTS.md` | Repository-wide implementation-agent contract |
+| `docs/V0.md` | Current implemented product truth |
+| `docs/ARCHITECTURE.md` | Durable architectural boundaries and invariants |
+| `docs/FUTURE.md` | Long-term product and simulation direction |
+| `docs/HANDBOOK.md` | Development workflow, roles, review, and integration discipline |
+| `docs/design/...` | Feature-specific design contracts and references |
+| `docs/work-orders/...` | Planned implementation deltas selected by the human operator |
 
-For repository-dependent decisions, inspect the actual repository rather than inferring its state from an older prompt, screenshot, branch, conversation, or work order.
+A volatile fact should have one owning document.
 
-Documentation has explicit ownership:
+Other documents may reference that fact, but they should not maintain competing
+copies when a link or ownership statement is sufficient.
 
-- `README.md`
-  - project entry point
-  - setup
-  - basic current description
+Examples:
 
-- `AGENTS.md`
-  - repository-wide working contract for implementation agents
-  - source navigation
-  - implementation discipline
-  - validation and Git boundaries
+```text
+„What gameplay exists today?“
+→ docs/V0.md
 
-- `docs/V0.md`
-  - current implemented product truth
+„What architecture must remain true?“
+→ docs/ARCHITECTURE.md
 
-- `docs/ARCHITECTURE.md`
-  - durable architecture boundaries and invariants
+„What should Codex implement in this task?“
+→ selected work order
 
-- `docs/FUTURE.md`
-  - confirmed future product and simulation direction
-  - not an implementation contract
+„How do we review and integrate the result?“
+→ docs/HANDBOOK.md
+```
 
-- `docs/HANDBOOK.md`
-  - development workflow
-  - tool roles
-  - review and acceptance discipline
+Do not duplicate current feature-completeness lists in this handbook.
 
-- `docs/design/...`
-  - feature-specific design contracts and visual references where relevant
+Do not duplicate the complete architecture invariant set in this handbook.
 
-- `docs/work-orders/...`
-  - planned implementation deltas
-  - not current implementation truth
-  - executable only when explicitly selected by the human operator
-
-Current accepted code and current owning documentation matter more than stale planning text.
-
-A selected work order defines the requested implementation delta from current `main`, but it does not override `AGENTS.md` or `docs/ARCHITECTURE.md`.
-
-Do not implement items from `docs/FUTURE.md` merely because they are documented there.
-
-When a task intentionally changes current truth, update the owning documentation as part of the same milestone when necessary.
-
-If current code, documentation, and the selected task appear to contradict one another, inspect the relevant implementation and report the conflict rather than silently choosing an interpretation.
-
-Repository documentation must be written in English. Discussion and planning may use another language.
+Do not implement future ideas merely because they are documented in
+`docs/FUTURE.md`.
 
 
-## 3. Tool roles
+## 2. Repository truth and precedence
 
-### ChatGPT and Work
+The `codexmirror/Synthesis` repository is canonical.
 
-ChatGPT is the coordination and review layer.
+Accepted `main` is the canonical repository state.
 
-It supports:
+Before repository-dependent work, inspect current `main` rather than relying on:
 
-- scope decisions
-- architecture and product decisions
-- repository and diff review
-- interpretation of physical-device evidence
+- an older prompt
+- a previous branch
+- a screenshot
+- an old conversation
+- a local experiment
+- a stale work order assumption
+
+For implementation work:
+
+```text
+CURRENT ACCEPTED CODE
+        +
+docs/V0.md
+        ↓
+CURRENT BASELINE
+
+AGENTS.md
+        +
+docs/ARCHITECTURE.md
+        ↓
+DURABLE CONSTRAINTS
+
+EXPLICITLY SELECTED WORK ORDER
+        ↓
+REQUESTED DELTA
+```
+
+`docs/FUTURE.md` supplies direction and context only unless a selected work
+order explicitly implements part of it.
+
+Relevant files under `docs/design/` provide design authority when the selected
+task depends on them.
+
+If current code, owning documentation, and the selected work order appear to
+contradict one another, inspect the repository and report the conflict rather
+than silently choosing an interpretation.
+
+A work order asking current code to change is not itself a contradiction.
+
+
+## 3. Human operator
+
+The human operator owns final repository and product acceptance.
+
+Unless explicitly delegating a specific action, the human operator controls:
+
 - milestone selection
-- task preparation
-- development discipline
-
-Work is the primary planning, UX, interaction, and implementation-experiment workspace.
-
-It may:
-
-- analyze architecture and product direction
-- explore UX and compare alternatives
-- build and test reference implementations
-- produce exact source files or canonical implementation exports and patches
-- prepare implementation handoffs
-- review browser and physical-device evidence
-
-Work may move quickly, but its output crosses an explicit approval and integration boundary.
-
-It is not restricted to disposable mockups, and an approved tested implementation need not be recreated from prose.
-
-
-### Codex
-
-Codex is the repository execution and implementation agent.
-
-Depending on the selected task, it may:
-
-- inspect repository state
-- implement repository changes
-- mechanically apply an exact approved handoff
-- integrate files or patches
-- refactor or harden implementation
-- add or update focused tests
-- run tests and production builds
-- inspect the resulting diff
-- investigate repository inconsistencies
-
-For ordinary gameplay, domain, and repository work, Codex may be the primary implementer.
-
-Codex should preserve an approved exact handoff rather than reinterpret it unnecessarily and must report meaningful deviations.
-
-Codex does not own the Git lifecycle unless a specific Git action is explicitly delegated.
-
-
-### Human operator
-
-The human operator controls:
-
+- work-order selection
 - branch decisions
 - commits
 - pushes
@@ -151,279 +121,327 @@ The human operator controls:
 - merges
 - final acceptance
 
-unless explicitly delegating a specific action.
+The operator may use manual edits for small, known, low-risk corrections.
 
-Routine Codex tasks should not instruct Codex to perform those Git lifecycle actions.
-
-Manual edits remain appropriate for small, known, low-risk corrections.
-
-The same review, testing, and documentation discipline applies regardless of who makes an edit.
+Manual edits are held to the same documentation and review standards as
+agent-generated changes.
 
 
-## 4. Current development loop
+## 4. ChatGPT and Work
+
+ChatGPT is primarily the coordination, planning, and review layer.
+
+Typical responsibilities include:
+
+- product reasoning
+- architecture discussion
+- task decomposition
+- repository review
+- diff review
+- design review
+- physical-device evidence interpretation
+- work-order preparation and hardening
+- acceptance recommendations
+
+Work may be used for:
+
+- UX exploration
+- interaction experiments
+- visual and implementation prototypes
+- reference implementations
+- exact implementation exports or patches
+- design handoffs
+
+Experimental output is not canonical merely because it exists.
+
+A tested implementation may become canonical after review and integration.
+
+
+## 5. Codex
+
+Codex is the repository implementation agent.
+
+Typical responsibilities include:
+
+- inspecting current repository state
+- reading the selected sources of truth
+- implementing the requested delta
+- adapting the work order to current repository reality
+- adding or updating focused tests
+- running required validation
+- checking documentation impact
+- inspecting the final diff
+- reporting completion and remaining concerns
+
+For exact implementation-agent rules, prohibitions, repository boundaries, and
+validation expectations, `AGENTS.md` is authoritative.
+
+Codex does not gain Git lifecycle authority merely by being asked to implement a
+task.
+
+
+## 6. Work-order execution
+
+Work orders are planned implementation deltas.
+
+They are not current implementation truth.
+
+A work order becomes executable only when the human operator explicitly selects
+it.
+
+Before implementation:
+
+1. inspect current `main`
+2. read `AGENTS.md`
+3. read `docs/ARCHITECTURE.md`
+4. read `docs/V0.md`
+5. read the selected work order
+6. read any design or additional files named by that work order
+7. inspect the relevant implementation and tests
+
+A selected work order must be re-checked against the current repository before
+execution.
+
+Do not execute multiple dependent work orders in parallel when later work
+depends on acceptance of earlier work.
+
+Prefer:
 
 ```text
-Idea / problem
+WORK ORDER A
     ↓
-Work / ChatGPT analysis
+IMPLEMENT
     ↓
-selected implementation or implementation handoff
+VALIDATE
     ↓
-current main inspected
+REVIEW
     ↓
-repository implementation
+ACCEPT / MERGE
     ↓
-tests / production build
+RE-READ NEW MAIN
     ↓
-local Vite server when useful
-    ↓
-physical iPhone / browser validation when relevant
-    ↓
-diff and behavior review
-    ↓
-Git lifecycle controlled by operator
-    ↓
-main
-    ↓
-GitHub Pages canonical deployment
+WORK ORDER B
 ```
 
-The local Vite server supports rapid iteration and physical-device testing.
-
-An experimental mobile adjustment does not require a Pages deployment before it can be tested.
-
-GitHub Pages is the canonical deployed representation of accepted `main`; its workflow installs dependencies, runs tests, builds, and then deploys.
-
-Review the actual diff and evidence, not just whether a change appears plausible.
-
-A failed required test or build blocks acceptance.
-
-Do not weaken checks merely to obtain a deployment.
+over stacking several planned architecture slices onto an unaccepted base.
 
 
-## 5. Work implementation handoffs
+## 7. Implementation handoffs
 
-Work can provide either of two handoff types.
+A handoff may describe either behavior/design or an exact implementation.
 
 
-### A. Behavior / design handoff
+### Behavior or design handoff
 
-Include:
+Include when relevant:
 
-- observed problem and evidence
-- confirmed root cause and clearly labeled hypotheses
-- alternatives considered
+- observed problem
+- evidence
 - selected behavior
+- alternatives considered
 - acceptance criteria
-- shared, feature-specific, browser, or implementation constraints
+- affected boundaries
+- mobile/browser constraints
+- explicit exclusions
 
 
-### B. Canonical implementation export
+### Exact implementation handoff
 
-When Work has implemented and tested the solution, include:
+When a tested implementation already exists, include:
 
-- exact source files or a unified patch against a known base
-- a file manifest
+- exact files or patch
+- known base
+- changed-file manifest
 - validation results
-- base and traceability information
+- deviations or unresolved concerns
 
-Integration should normally be mechanical:
+Integration should preserve the tested implementation unless current repository
+reality requires a justified adaptation.
 
-```text
-tested Work implementation
-    ↓
-exact patch / files
-    ↓
-apply and integrate
-    ↓
-tests
-    ↓
-production build
-    ↓
-device validation when relevant
+Do not recreate an approved exact implementation from a loose prose summary
+without reason.
+
+
+## 8. Validation
+
+Normal code changes use the repository’s required validation commands:
+
+```bash
+npm test
+npm run build
 ```
 
-Review still determines whether the export is accepted.
+A required failing test or build blocks acceptance.
 
-Codex should not recreate an exact approved implementation from a prose summary.
+Do not:
 
+- weaken a meaningful test merely to make it pass
+- remove architecture-contract coverage because new code conflicts with it
+- replace behavioral tests with weaker literal assertions
+- hide regressions behind changed snapshots or expectations
 
-## 6. Architecture and interface discipline
+Prefer tests that prove source-of-truth behavior.
 
-Durable architectural constraints belong to `docs/ARCHITECTURE.md`.
-
-This handbook summarizes only the implementation discipline required by the development workflow.
-
-Pure game-domain code must not depend on:
-
-- React
-- shell navigation
-- app components
-- DOM APIs
-- browser storage
-- viewport behavior
-- presentation-specific state
-
-Shell navigation is presentation state, not gameplay state.
-
-Stable internal IDs — not IP addresses, hostnames, display names, ports, or wallet addresses — identify simulation entities.
-
-Gameplay operations should be implemented once and exposed to each interface that needs them:
-
-```text
-                 GAME DOMAIN
-                      │
-          shared gameplay operations
-                      │
-              ┌───────┴───────┐
-              │               │
-           Terminal         GUI apps
-```
-
-Terminal is intended to be a first-class power-user operational interface, but Terminal is not the domain.
-
-A GUI must not generate or execute a Terminal command string in order to perform gameplay.
-
-Current implemented gameplay includes:
-
-- Scan
-- Inspect
-- Service Analysis
-- Credential Access
-- persistent `DeviceAccess`
-
-Current implementation does **not** include:
-
-- CONNECT
-- active Remote Sessions
-- remote operating contexts
-- remote filesystem access
-- privilege escalation
-- broader hacking systems
-
-`DeviceAccess` is an established canonical relationship. It is not an active connection or remote Session.
-
-Build concrete state mutations before extracting abstractions.
-
-Do not introduce plugin systems, event buses, dependency-injection frameworks, generic game engines, ECS, generic persistence frameworks, or similar universal abstractions without a demonstrated requirement.
-
-Use `docs/ARCHITECTURE.md` rather than duplicating its full invariant set here.
+For example, if a UI value must derive from canonical state, an altered-state
+test is stronger than a test that only asserts the default literal value.
 
 
-## 7. Mobile and interaction validation
+## 9. Mobile validation
 
-Mobile is a first-class target.
+Mobile is a first-class product target.
 
-Meaningful interaction changes should be checked for:
+Meaningful mobile interaction changes should be reviewed for:
 
 - viewport stability
 - safe areas
 - software-keyboard behavior
 - touch targets
 - overflow
-- navigation
 - scrolling ownership
-- focus
+- navigation
+- focus behavior
 - readable density
 
-The current shell uses a dedicated Editing presentation for editable controls on mobile-style layouts.
+Automated tests and desktop emulation are useful but do not replace physical
+iPhone/Safari validation for meaningful interaction changes.
 
-The shell should not become an arbitrary whole-page scroll surface.
+The established Shell-owned Editing presentation should be preserved unless a
+selected task intentionally changes that contract.
 
-Scrolling regions explicitly own their scrolling.
-
-Validate meaningful mobile interaction work on a real iPhone/Safari.
-
-Desktop screenshots and automated viewport tests are useful but not sufficient evidence for physical mobile behavior.
-
-The opt-in viewport overlay retained in the repository is internal diagnostic tooling.
-
-It is not gameplay or a promised public feature and should only be documented further if that materially helps investigation.
+Detailed implementation-agent mobile constraints belong to `AGENTS.md` and the
+relevant source/tests rather than being duplicated here.
 
 
-## 8. Review and acceptance
+## 10. Review
 
-Keep changes focused.
+Review the actual result, not merely the implementation report.
 
-Review:
+For a meaningful change, review:
 
-- requested scope
-- explicit exclusions
-- architecture boundaries
-- source-of-truth ownership
-- focused tests
-- unintended coupling
-- mobile impact where relevant
-- documentation accuracy
-- the complete resulting diff
+1. requested scope
+2. explicit non-goals
+3. complete changed-file set
+4. relevant code paths
+5. source-of-truth ownership
+6. architecture compatibility
+7. test coverage
+8. exact validation results
+9. mobile behavior where relevant
+10. documentation impact
+11. accidental scope expansion
+12. speculative abstractions
+13. dead or compatibility-only code
+14. remaining human-review concerns
 
-Planned systems justify clean seams but not placeholder implementation.
-
-Before accepting a significant change, confirm:
-
-1. the exact problem and explicit exclusions
-2. whether the work is experimentation or an implementation intended for integration
-3. the current repository base and affected boundaries
-4. that logic is not duplicated
-5. that speculative architecture was not introduced
-6. the required automated, browser, and physical-device evidence
-7. that owning documentation remains accurate
-8. who is authorized to perform each Git lifecycle action
+Green tests are necessary but do not by themselves prove that a task was
+implemented correctly.
 
 
-## 9. Documentation ownership and anti-drift
+## 11. Documentation impact
 
-Use the repository documentation according to its role:
+Every significant change requires a documentation impact check.
 
-- `README.md`
-  - entry point
-  - technology and setup
-  - short current product description
+This does not mean every change requires editing every document.
 
-- `AGENTS.md`
-  - repository-wide implementation-agent contract
-  - navigation and execution discipline
+Update only the document that owns the changed truth.
 
-- `docs/V0.md`
-  - current implemented product truth
+Use:
 
-- `docs/ARCHITECTURE.md`
-  - durable architecture boundaries and invariants
+```text
+current implementation changed
+→ docs/V0.md
 
-- `docs/FUTURE.md`
-  - confirmed future direction
-  - not implementation authority
+durable architecture changed
+→ docs/ARCHITECTURE.md
 
-- `docs/HANDBOOK.md`
-  - development process
-  - tool roles
-  - review discipline
+future direction changed
+→ docs/FUTURE.md
 
-- `docs/design/...`
-  - feature-specific design authority and references where applicable
+workflow or review process changed
+→ docs/HANDBOOK.md
 
-- `docs/work-orders/...`
-  - planned implementation deltas
-  - executable only after explicit human selection
+implementation-agent contract changed
+→ AGENTS.md
 
-Every significant feature, architecture, gameplay, workflow, or major presentation change requires a documentation impact check.
+feature-specific design changed
+→ docs/design/...
 
-This does not require Markdown changes every time.
+planned requested delta changed
+→ docs/work-orders/...
+```
 
-The implementer and reviewer must explicitly decide whether any owning document became inaccurate.
+`README.md` should change only when project entry information, setup,
+technology, or documentation navigation changes.
 
-If accepted current product truth changed, update `docs/V0.md`.
+Do not copy a new fact into several documents merely because multiple readers
+might find it useful.
 
-If a durable architectural decision changed, update `docs/ARCHITECTURE.md`.
+Link to or reference the owning source instead.
 
-If confirmed long-term direction changed, update `docs/FUTURE.md`.
 
-If workflow or review discipline changed, update this handbook.
+## 12. Acceptance and integration
 
-If a feature-specific design contract changed, update the appropriate file under `docs/design/`.
+After implementation:
 
-If a planned implementation delta changed, update the appropriate work order without treating that work order as current implementation truth.
+```text
+IMPLEMENTATION
+      ↓
+VALIDATION
+      ↓
+DIFF REVIEW
+      ↓
+BEHAVIOR / DEVICE REVIEW WHEN NEEDED
+      ↓
+DOCUMENTATION CHECK
+      ↓
+HUMAN ACCEPTANCE
+      ↓
+GIT LIFECYCLE
+      ↓
+NEW MAIN
+```
 
-The goal is simple:
+After a merge, dependent future work must treat the new `main` as the baseline.
 
-**Repository documentation must describe accepted reality at the level each document owns.**
+Do not assume that a previously prepared work order still matches the repository
+without re-checking it.
+
+
+## 13. Completion reporting
+
+Implementation work should finish with a concise report containing:
+
+- files changed
+- important implementation decisions
+- tests added or changed
+- exact test result
+- exact production build result
+- documentation impact
+- deviations from requested scope
+- unresolved concerns requiring human review
+
+For meaningful mobile work, state whether physical iPhone/Safari validation has
+or has not been completed.
+
+
+## 14. Anti-drift rule
+
+The repository should not require routine updates to many Markdown files for one
+ordinary feature change.
+
+The intended model is:
+
+```text
+ONE KIND OF TRUTH
+      ↓
+ONE PRIMARY OWNER
+      ↓
+OTHER DOCUMENTS REFERENCE IT
+```
+
+If a normal gameplay feature requires editing README, AGENTS, V0, Architecture,
+Future, Handbook, multiple design documents, and several work orders merely to
+keep identical statements synchronized, documentation ownership has probably
+become unclear.
+
+Fix the ownership problem instead of normalizing the duplication.
