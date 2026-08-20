@@ -153,6 +153,19 @@ describe('Scan workspace', () => {
     expect(scanTargetSpy).not.toHaveBeenCalled()
   })
 
+  it('derives product metadata from canonical software and reports an absent installation', () => {
+    const base = createInitialGameState()
+    const altered: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, version: '2.4', channel: 'preview' } : software) } } }
+    const view = render(<GameProvider initialState={altered}><Network /></GameProvider>)
+    expect(screen.getByText('2.4 PREVIEW')).toBeInTheDocument()
+    view.unmount()
+    const absent: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
+    render(<GameProvider initialState={absent}><Network /></GameProvider>)
+    expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
+    expect(screen.queryByText('KNOWN SPACE')).not.toBeInTheDocument()
+    expect(screen.queryByText(base.world.network.localNetworks[0].name)).not.toBeInTheDocument()
+  })
+
   it('discovers the local hierarchy from shared observations', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)

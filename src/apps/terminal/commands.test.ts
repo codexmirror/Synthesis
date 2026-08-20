@@ -15,10 +15,10 @@ import { listDirectory, readTextFile } from '../../core/game/filesystem'
 
 const state = createInitialGameState()
 // @ts-expect-error Implemented Terminal operations are required integration contracts.
-const invalidContext: CommandContext = { localDevice: { ip: '198.51.100.23' }, runtime: { cpuLoad: 0, ramUsage: 0, networkStatus: 'ONLINE' }, operations: {} }
+const invalidContext: CommandContext = { localDevice: { ip: '198.51.100.23', installedSoftware: [] }, runtime: { cpuLoad: 0, ramUsage: 0, networkStatus: 'ONLINE' }, operations: {} }
 void invalidContext
 const context: CommandContext = {
-  localDevice: { ip: state.player.localDevice.network.ip },
+  localDevice: { ip: state.player.localDevice.network.ip, installedSoftware: state.player.localDevice.installedSoftware },
   runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: state.player.localDevice.runtime.networkStatus },
   filesystem: {
     list: (path) => listDirectory(state.player.localDevice.filesystem, path),
@@ -54,12 +54,21 @@ describe('command dispatcher', () => {
         'status — Show system status', 'ls — List a local absolute directory path',
         'cat — Read a local text file by absolute path',
         'connect — <ipv4>  Open a remote session using established access', 'disconnect — Close the active remote session',
-        '', 'NODESCAN', '', 'scan — Discover devices, relationships, and exposed services',
-        'analyze — Investigate a service endpoint', '', 'BASIC CREDENTIAL TOOLKIT', '',
+        '', 'NODESCAN 1.0 STANDARD', '', 'scan — Discover devices, relationships, and exposed services',
+        'analyze — Investigate a service endpoint', '', 'BASIC CREDENTIAL TOOLKIT 1.0', '',
         'attack — Attempt a known attack method against an observed service',
       ])
       expect(JSON.stringify(result.lines)).not.toContain('inspect')
     }
+  })
+  it('derives provider help from installed software and omits absent providers', () => {
+    const nodeScanOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, name: 'NodeScan' as const, version: '2.4', channel: 'preview' }] } }
+    expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).toContain('NODESCAN 2.4 PREVIEW')
+    expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).not.toContain('BASIC CREDENTIAL TOOLKIT')
+    const builtInsOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [] } }
+    const help = JSON.stringify(dispatchCommand(parseCommand('help'), builtInsOnly))
+    expect(help).not.toContain('NODESCAN')
+    expect(help).not.toContain('BASIC CREDENTIAL TOOLKIT')
   })
   it('describes the public operational commands concisely', () => {
     expect(commands.scan.description).toBe('Discover devices, relationships, and exposed services')
@@ -187,7 +196,7 @@ describe('individual commands', () => {
   })
 
   it('reads the player address for ip output', () => {
-    const narrowContext = { ...context, localDevice: { ip: '203.0.113.7' } }
+    const narrowContext = { ...context, localDevice: { ip: '203.0.113.7', installedSoftware: context.localDevice.installedSoftware } }
     expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '203.0.113.7', 'local')] })
   })
 

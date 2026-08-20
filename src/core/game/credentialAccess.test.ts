@@ -35,7 +35,7 @@ describe('Initial credential access', () => {
     expect(canFormCredentialAccessAttempt(state, observation)).toBe(true)
     expect(canFormCredentialAccessAttempt({ ...state, knowledge: { discoveredVulnerabilities: [] } }, observation)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation({ ...state, knowledge: { discoveredVulnerabilities: [] } }, observation).status).toBe('not_available')
-    const noTool = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, tools: [] } } }
+    const noTool = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [] } } }
     expect(canFormCredentialAccessAttempt(noTool, observation)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation(noTool, observation).status).toBe('not_available')
   })

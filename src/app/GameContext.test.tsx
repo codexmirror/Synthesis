@@ -27,6 +27,14 @@ function EndpointHarness() {
 }
 
 describe('GameProvider service-analysis actions', () => {
+  it('does not create analysis Processes when NodeScan is absent', () => {
+    const base = createInitialGameState()
+    const withoutNodeScan: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
+    render(<GameProvider initialState={withoutNodeScan}><ActionHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'start' }))
+    expect(document.body.dataset.results).toBe('unavailable,unavailable')
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '').processes).toEqual([])
+  })
   it('keeps the asynchronous Scan operation identity stable across state updates', () => {
     const operations: unknown[] = []
     function ScanIdentityHarness() {

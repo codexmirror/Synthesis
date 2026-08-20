@@ -39,6 +39,15 @@ describe('local Scan application operation', () => {
       devices: [{ targetId: state.player.localDevice.id }],
     })
   })
+
+  it('does not observe or mutate Discovery without NodeScan installed', async () => {
+    let state = createInitialGameState()
+    state = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
+    const before = state.discovery
+    const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
+    expect(await scanTarget('home-net')).toEqual({ status: 'software_unavailable' })
+    expect(state.discovery).toBe(before)
+  })
 })
 
 it('merges back-to-back observations against the latest canonical Discovery', async () => {
