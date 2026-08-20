@@ -5,6 +5,7 @@ import { advanceGameState, startServiceAnalysis, startServiceAnalysisAtEndpoint,
 import { clearCompletedProcesses as clearCompletedProcessState } from '../core/game/processes'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
+import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 
 const GameContext = createContext<GameState | null>(null)
 export interface GameActions {
@@ -13,6 +14,8 @@ export interface GameActions {
   startServiceAnalysisAtEndpoint(endpoint: string): EndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): EndpointAnalysisResult
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
+  connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
+  disconnectRemoteSession(): DisconnectRemoteResult
   clearCompletedProcesses(): void
 }
 const GameActionsContext = createContext<GameActions | null>(null)
@@ -67,6 +70,14 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       currentState.current = result.state
       setGameState(result.state)
     }
+    return result
+  }, connectRemoteFromObservation(observed) {
+    const result = connectRemoteFromObservation(currentState.current, observed)
+    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, disconnectRemoteSession() {
+    const result = disconnectRemoteSession(currentState.current)
+    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
     return result
   }, clearCompletedProcesses() {
     const state = currentState.current

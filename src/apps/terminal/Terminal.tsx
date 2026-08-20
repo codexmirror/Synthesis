@@ -227,6 +227,16 @@ export function Terminal() {
 
             return result
           },
+          connectAddress: (address) => {
+            const observed = gameState.discovery.devices.find((device) => device.address === address)
+            if (!observed) return { status: 'target_not_known' }
+            const { state: _state, ...result } = actions.connectRemoteFromObservation({ targetDeviceId: observed.id, address })
+            return result
+          },
+          disconnectRemote: () => {
+            const { state: _state, ...result } = actions.disconnectRemoteSession()
+            return result
+          },
         },
       })
 
