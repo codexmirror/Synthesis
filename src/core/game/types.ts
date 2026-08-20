@@ -108,6 +108,11 @@ export interface NetworkHost {
   readonly id: string
   readonly ip: string
   readonly online: boolean
+  /** Optional mutable presentation identity for a concretely operable host. */
+  readonly displayName?: string
+  /** Device-owned operating environment and filesystem, when represented. */
+  readonly firmware?: FirmwareState
+  readonly filesystem?: FilesystemState
   /** Present only when the represented device has a concrete server role. */
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */

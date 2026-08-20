@@ -6,6 +6,9 @@ import { StatusBar } from './StatusBar'
 import { SystemBar } from './SystemBar'
 import { useEditingViewport } from './useEditingViewport'
 import { ViewportDebug } from './ViewportDebug'
+import { useGameState } from '../app/GameContext'
+import { resolveActiveRemoteTarget } from '../core/game/remoteSession'
+import { RackOS } from '../apps/rackos/RackOS'
 
 type ShellStyle = CSSProperties & {
   '--node-host-height': string
@@ -28,6 +31,7 @@ function isStandalonePresentation(): boolean {
 
 export function Shell() {
   const [activeAppId, setActiveAppId] = useState<AppId | null>(null)
+  const remoteTarget = resolveActiveRemoteTarget(useGameState())
   const activeApp = activeAppId ? appRegistry[activeAppId] : null
   const ActiveComponent = activeApp?.component
   const viewport = useEditingViewport()
@@ -51,6 +55,7 @@ export function Shell() {
       data-standalone={standalonePresentation ? 'true' : 'false'}
       style={shellStyle}
     >
+      <div className="node-workspace" hidden={Boolean(remoteTarget)}>
       <StatusBar />
       {ActiveComponent && activeApp && activeAppId ? (
         <main className="app-view">
@@ -83,6 +88,8 @@ export function Shell() {
         <Home openApp={setActiveAppId} />
       )}
       <SystemBar />
+      </div>
+      {remoteTarget && <RackOS key={remoteTarget.session.id} context={remoteTarget} />}
       <ViewportDebug viewport={viewport} />
     </div>
   )

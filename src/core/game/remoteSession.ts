@@ -1,4 +1,23 @@
-import type { GameState } from './types'
+import type { DeviceAccess, GameState, NetworkHost, NetworkService, RemoteSession } from './types'
+
+export interface ActiveRemoteTarget {
+  readonly session: RemoteSession
+  readonly access: DeviceAccess
+  readonly target: NetworkHost
+  readonly service: NetworkService
+}
+
+/** Resolve identity only through Session -> DeviceAccess -> target Device. */
+export function resolveActiveRemoteTarget(state: GameState): ActiveRemoteTarget | undefined {
+  const session = state.remoteSession.active
+  if (!session) return undefined
+  const access = state.deviceAccess.established.find(({ id }) => id === session.accessId)
+  if (!access) return undefined
+  const target = state.world.network.hosts.find(({ id }) => id === access.targetDeviceId)
+  const service = target?.services?.find(({ id }) => id === access.viaServiceId)
+  if (!target?.displayName || !target.firmware || !target.filesystem || !service) return undefined
+  return { session, access, target, service }
+}
 
 export interface RemoteDeviceObservation {
   readonly targetDeviceId: string
