@@ -675,7 +675,7 @@ describe('NODE-OS shell and applications', () => {
     render(<App />)
     const launchers = screen.getAllByRole('button', { name: /^open /i })
     expect(launchers.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Open Terminal', 'Open Scan', 'Open Processes', 'Open Files',
+      'Open Terminal', 'Open NodeScan', 'Open Processes', 'Open Files',
       'Open Wallet', 'Open Notes', 'Open System',
     ])
     expect(screen.queryByRole('button', { name: /open tools/i })).not.toBeInTheDocument()
@@ -765,7 +765,7 @@ describe('NODE-OS shell and applications', () => {
 describe('Terminal', () => {
   it('runs help', async () => {
     await command('help')
-    expect(screen.getByText('Available commands:')).toBeInTheDocument()
+    expect(screen.getByText('AVAILABLE COMMANDS')).toBeInTheDocument()
   })
 
   it('runs ip', async () => {

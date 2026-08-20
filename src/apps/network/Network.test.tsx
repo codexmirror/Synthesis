@@ -134,15 +134,19 @@ describe('Scan workspace', () => {
     expect(screen.getByLabelText('Credential access running')).toBeInTheDocument()
   })
 
-  it('preserves the network registry identity while exposing Scan', () => {
-    expect(appRegistry.network.label).toBe('Scan')
-    expect(Object.keys(appRegistry)).toHaveLength(7)
+  it('preserves the network registry identity while presenting NodeScan', () => {
+    expect(appRegistry.network.label).toBe('NodeScan')
+    expect(Object.entries(appRegistry).map(([id, app]) => [id, app.label])).toEqual([
+      ['terminal', 'Terminal'], ['network', 'NodeScan'], ['processes', 'Processes'],
+      ['files', 'Files'], ['wallet', 'Wallet'], ['notes', 'Notes'], ['system', 'System'],
+    ])
   })
 
   it('opens on a truthful Known Space atlas without leaking undiscovered details', async () => {
     render(<GameProvider><Network /></GameProvider>)
     expect(screen.getByText('Known and observed network space')).toBeInTheDocument()
     expect(screen.getByText('KNOWN SPACE')).toBeInTheDocument()
+    expect(screen.getByText('NODESCAN')).toBeInTheDocument()
     expect(screen.getByText('SELF')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
     expect(screen.queryByText('home-net')).not.toBeInTheDocument()

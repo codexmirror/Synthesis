@@ -5,7 +5,6 @@ import { createHelpCommand } from './commands/help'
 import { ipCommand } from './commands/ip'
 import { statusCommand } from './commands/status'
 import { scanCommand } from './commands/scan'
-import { inspectCommand } from './commands/inspect'
 import { analyzeCommand } from './commands/analyze'
 import { attackCommand } from './commands/attack'
 import { lsCommand } from './commands/ls'
@@ -13,13 +12,20 @@ import { catCommand } from './commands/cat'
 import { connectCommand } from './commands/connect'
 import { disconnectCommand } from './commands/disconnect'
 
+function commandEntries(names: readonly string[]): [string, TerminalCommand][] {
+  return names.map((name) => [name, commands[name]])
+}
+
 export const commands: Record<string, TerminalCommand> = {
-  help: createHelpCommand(() => Object.entries(commands)),
+  help: createHelpCommand(() => [
+    { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'connect', 'disconnect']) },
+    { heading: 'NODESCAN', commands: commandEntries(['scan', 'analyze']) },
+    { heading: 'BASIC CREDENTIAL TOOLKIT', commands: [['attack', commands.attack]] },
+  ]),
   clear: clearCommand,
   ip: ipCommand,
   status: statusCommand,
   scan: scanCommand,
-  inspect: inspectCommand,
   analyze: analyzeCommand,
   attack: attackCommand,
   ls: lsCommand,
