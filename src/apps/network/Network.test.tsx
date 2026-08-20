@@ -386,6 +386,23 @@ describe('Scan workspace', () => {
     expect(screen.getByRole('button', { name: 'Analyze again' })).toBeInTheDocument()
   })
 
+  it('retains a Finding alongside a later non-redundant no-weakness result', async () => {
+    const first = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (first.status !== 'started') throw Error(first.status)
+    const learned = advanceGameState(first.state, 20_000)
+    const host = learned.world.network.hosts[0]
+    const changed = { ...learned, world: { network: { ...learned.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, vulnerabilities: [] } : service) }, ...learned.world.network.hosts.slice(1)] } } }
+    const second = startServiceAnalysisAtEndpoint(changed, '198.51.100.47:22'); if (second.status !== 'started') throw Error(second.status)
+    const completed = advanceGameState(second.state, 20_000)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withDiscovery(completed)}><Network /></GameProvider>)
+    await navigateToServices(user)
+    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
+    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
+    expect(screen.getByText('No weakness detected')).toBeInTheDocument()
+    expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()
+    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
+  })
+
   it('clears completed history without clearing Knowledge and permits monotonic re-analysis', async () => {
     const started = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (started.status !== 'started') throw Error(started.status)
     const completed = advanceGameState(started.state, 20_000)
