@@ -183,19 +183,7 @@ Foreign Firmware may expose the same underlying kinds of simulation state
 through substantially different interfaces.
 
 
-### A08 — Filesystem truth belongs to the Device
-
-Filesystem state is owned by the simulated Device and remains separate from
-Firmware and interface presentation state. Files, Terminal, and any other
-observation surfaces must derive their views from the same canonical
-filesystem rather than creating application-local file models.
-
-The current filesystem implementation is deliberately local and read-only.
-Directories are derived from file paths; this boundary does not imply a generic
-virtual-filesystem framework or remote filesystem authority.
-
-
-### A09 — Access is a relationship, not a hacked flag
+### A08 — Access is a relationship, not a hacked flag
 
 `DeviceAccess` represents established access between stable entities.
 
@@ -216,7 +204,7 @@ Disconnecting a Session must not implicitly erase persistent access unless a
 future concrete mechanic explicitly changes that relationship.
 
 
-### A10 — Observation operations have distinct epistemic roles
+### A09 — Observation operations have distinct epistemic roles
 
 Observation must remain separate from browsing remembered information.
 
@@ -244,7 +232,7 @@ Knowledge obtained through one path does not imply that every target must be
 processed through the same sequence.
 
 
-### A11 — Processes represent work, not universal causality
+### A10 — Processes represent work, not universal causality
 
 A Process represents elapsed work and resource consumption.
 
@@ -274,7 +262,7 @@ Clearing disposable Process presentation or completed history must not undo
 consequences already stored in other canonical state.
 
 
-### A12 — Mutate causes; derive consequences
+### A11 — Mutate causes; derive consequences
 
 Synthesis should grow as interacting stateful systems rather than collections of
 scripted event chains.
@@ -313,7 +301,7 @@ connections, firewall state, availability, and current position rather than a
 single `reachable` unlock flag.
 
 
-### A13 — Actions are defined by state transitions
+### A12 — Actions are defined by state transitions
 
 A successful action means its requested concrete transition occurred.
 
@@ -341,7 +329,7 @@ Different actions may eventually affect:
 Do not require every action to fit a universal attack taxonomy.
 
 
-### A14 — Artifacts come from represented events
+### A13 — Artifacts come from represented events
 
 When artifact-producing mechanics exist, artifacts should exist because a
 represented event actually occurred.
@@ -361,7 +349,7 @@ Artifacts can later become observable information and influence player
 decisions through normal simulation boundaries.
 
 
-### A15 — Shared-world authority remains explicit
+### A14 — Shared-world authority remains explicit
 
 The current browser implementation may execute canonical simulation locally,
 but client-side authority is not a permanent multiplayer requirement.
@@ -396,7 +384,7 @@ This rule does not require a server, RPC framework, command bus, or networking
 architecture today.
 
 
-### A16 — Community or external actors do not receive privileged world mutation
+### A15 — Community or external actors do not receive privileged world mutation
 
 If Synthesis later supports community-authored software, Firmware,
 organizations, services, markets, scenarios, or other extensions, they should
@@ -431,7 +419,7 @@ This invariant does not define a mod API, plugin interface, scripting system,
 permission framework, organization model, or extension schema.
 
 
-### A17 — Concrete mechanics before generic frameworks
+### A16 — Concrete mechanics before generic frameworks
 
 Do not generalize a hypothetical future system before concrete implementations
 demonstrate the shared requirement.
@@ -458,6 +446,18 @@ abstraction.
 
 Extract shared abstractions after multiple implemented systems reveal the same
 real requirement.
+
+
+### A17 — Filesystem truth belongs to the Device
+
+Filesystem state is owned by the simulated Device and remains separate from
+Firmware and interface presentation state. Files, Terminal, and any other
+observation surfaces must derive their views from the same canonical
+filesystem rather than creating application-local file models.
+
+The current filesystem implementation is deliberately local and read-only.
+Directories are derived from file paths; this boundary does not imply a generic
+virtual-filesystem framework or remote filesystem authority.
 
 
 ## Repository boundaries

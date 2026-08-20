@@ -61,7 +61,7 @@ describe('command dispatcher', () => {
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
   it('reads altered filesystem state through narrow ls and cat operations', () => {
-    const filesystem = { files: [{ path: '/home/user/proof.txt', content: 'Canonical proof.' }] }
+    const filesystem = { files: [{ path: '/home/user/proof.txt', content: 'line one\nline two\nline three' }] }
     const filesystemContext: CommandContext = {
       ...context,
       filesystem: {
@@ -73,7 +73,7 @@ describe('command dispatcher', () => {
     expect(run('ls /')).toEqual({ type: 'output', lines: ['home/'] })
     expect(run('ls /home')).toEqual({ type: 'output', lines: ['user/'] })
     expect(run('ls /home/user')).toEqual({ type: 'output', lines: ['proof.txt'] })
-    expect(run('cat /home/user/proof.txt')).toEqual({ type: 'output', lines: ['Canonical proof.'] })
+    expect(run('cat /home/user/proof.txt')).toEqual({ type: 'output', lines: ['line one', 'line two', 'line three'] })
     expect(run('cat /home/user/missing.txt')).toEqual({ type: 'output', lines: ['FILE NOT FOUND'] })
   })
   it('dispatches clear as a structured result', () => expect(dispatch('clear')).toEqual({ type: 'clear' }))
