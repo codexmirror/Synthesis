@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
+import { connectRemoteFromObservation, disconnectRemoteSession, resolveActiveRemoteTarget } from './remoteSession'
 import type { GameState } from './types'
 
 const observation = { targetDeviceId: 'host-lan-001', address: '198.51.100.47' }
@@ -10,6 +10,12 @@ function accessed(): GameState {
 }
 
 describe('remote session lifecycle', () => {
+  it('resolves the active target through stable access identity rather than the connected address', () => {
+    const connected = connectRemoteFromObservation(accessed(), observation).state
+    const altered = { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '192.0.2.10' } }, world: { network: { ...connected.world.network, hosts: connected.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, ip: '192.0.2.99', displayName: 'altered-server' } : host) } } }
+    expect(resolveActiveRemoteTarget(altered)).toMatchObject({ target: { id: observation.targetDeviceId, ip: '192.0.2.99', displayName: 'altered-server' }, access: { id: 'access-0001' } })
+    expect(resolveActiveRemoteTarget({ ...altered, remoteSession: { ...altered.remoteSession, active: null } })).toBeUndefined()
+  })
   it('creates a minimal session through established DeviceAccess without mutating access', () => {
     const state = accessed(); const result = connectRemoteFromObservation(state, observation)
     expect(result.status).toBe('connected')

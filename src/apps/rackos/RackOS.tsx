@@ -1,0 +1,52 @@
+import './rackos.css'
+import { type FormEvent, useState } from 'react'
+import { useGameActions } from '../../app/GameContext'
+import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
+import { listDirectory, readTextFile } from '../../core/game/filesystem'
+import { runRemoteCommand } from './remoteCommands'
+
+type Section = 'terminal' | 'files' | 'system'
+
+export function RackOS({ context }: { context: ActiveRemoteTarget }) {
+  const { disconnectRemoteSession } = useGameActions()
+  const [section, setSection] = useState<Section>('terminal')
+  const { target, access, service } = context
+  return <section className="rack-os" aria-label={`${target.firmware!.name} remote operating environment`}>
+    <header className="rack-header">
+      <div><strong>{target.firmware!.name} {target.firmware!.version}</strong><span>REMOTE</span></div>
+      <div><span>{target.displayName} · {target.ip}</span><span>{access.privilege}</span></div>
+      <button type="button" onClick={() => disconnectRemoteSession()}>DISCONNECT</button>
+    </header>
+    <nav className="rack-nav" aria-label={`${target.firmware!.name} sections`}>
+      {(['terminal', 'files', 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => setSection(item)}>{item.toUpperCase()}</button>)}
+    </nav>
+    <main className="rack-body">
+      {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} />}
+      {section === 'files' && <RemoteFiles filesystem={target.filesystem!} />}
+      {section === 'system' && <dl className="rack-system">
+        <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
+        <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>{target.role && <div><dt>ROLE</dt><dd>{target.role.toUpperCase()}</dd></div>}
+        <div><dt>SESSION AUTHORITY</dt><dd>{access.privilege}</dd></div><div><dt>ACCESS PATH</dt><dd>{service.name}</dd></div>
+      </dl>}
+    </main>
+  </section>
+}
+
+function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget; onDisconnect(): void }) {
+  const [input, setInput] = useState('')
+  const [lines, setLines] = useState<readonly { command: string; output: readonly string[] }[]>([])
+  function submit(event: FormEvent) {
+    event.preventDefault(); const command = input.trim(); if (!command) return
+    const result = runRemoteCommand(context, command); setInput('')
+    if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
+    if (result.disconnect) onDisconnect()
+  }
+  return <div className="rack-terminal"><div className="rack-output" aria-live="polite">{lines.map((line, index) => <div key={index}><div className="rack-command">{context.target.displayName} [{context.access.privilege}] &gt; {line.command}</div>{line.output.map((value, outputIndex) => <div key={outputIndex}>{value}</div>)}</div>)}</div><form onSubmit={submit}><label><span>{context.target.displayName} [{context.access.privilege}] &gt;</span><input aria-label="Remote command" autoCapitalize="none" autoComplete="off" value={input} onChange={(event) => setInput(event.target.value)} /></label></form></div>
+}
+
+function RemoteFiles({ filesystem }: { filesystem: ActiveRemoteTarget['target']['filesystem'] }) {
+  const [path, setPath] = useState('/'); const [selected, setSelected] = useState<string>()
+  const listing = listDirectory(filesystem!, path); const file = selected ? readTextFile(filesystem!, selected) : undefined
+  if (selected) return <section className="rack-files"><p>FILES</p><code>{selected}</code><button onClick={() => setSelected(undefined)}>← {path}</button>{file?.status === 'ok' && <pre>{file.content}</pre>}</section>
+  return <section className="rack-files"><p>FILES</p><code>{path}</code>{path !== '/' && <button onClick={() => setPath('/')}>../</button>}{listing.status === 'ok' && listing.entries.map((entry) => <button key={entry.name} onClick={() => entry.type === 'directory' ? setPath(`${path === '/' ? '' : path}/${entry.name}`) : setSelected(`${path === '/' ? '' : path}/${entry.name}`)}>{entry.type === 'directory' ? 'DIR ' : 'FILE '}{entry.name}</button>)}</section>
+}

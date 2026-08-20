@@ -180,8 +180,11 @@ service path, and authority rather than duplicating those facts. Its connected
 address is an observation attribute, not Device identity.
 
 An active Remote Session does not replace `player.localDevice`, retarget
-NODE-OS, or require a global `currentDeviceId`. Future remote surfaces may
-consume the Session while the local NODE-OS environment remains present.
+NODE-OS, or require a global `currentDeviceId`. A distinct foreign operating
+surface may consume the Session while the local NODE-OS environment remains
+present. It resolves the target by stable Session → DeviceAccess → target
+identity and may expose authorized current canonical target state rather than
+remembered Discovery.
 
 Operating another Device must not redefine the player’s personal Device.
 
@@ -464,8 +467,9 @@ Firmware and interface presentation state. Files, Terminal, and any other
 observation surfaces must derive their views from the same canonical
 filesystem rather than creating application-local file models.
 
-The current filesystem implementation is deliberately local and read-only.
-Directories are derived from file paths; this boundary does not imply a generic
+The current filesystem implementation is deliberately read-only. Directories
+are derived from file paths. Local and foreign interfaces remain bound to their
+respective Device-owned filesystem; this boundary does not imply a generic
 virtual-filesystem framework or remote filesystem authority.
 
 ### A18 — Wallet, currency, Device, and wallet software are separate

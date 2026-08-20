@@ -267,8 +267,8 @@
     font-size: 16px;
   }
 
-  .os-shell[data-editing="true"] > .status-bar,
-  .os-shell[data-editing="true"] > .system-bar {
+  .os-shell[data-editing="true"] > .node-workspace > .status-bar,
+  .os-shell[data-editing="true"] > .node-workspace > .system-bar {
     visibility: hidden;
     opacity: 0;
     pointer-events: none;

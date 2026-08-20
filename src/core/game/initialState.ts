@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 12
+export const GAME_STATE_VERSION = 13
 
 export function createInitialGameState(): GameState {
   return {
@@ -43,9 +43,12 @@ export function createInitialGameState(): GameState {
         hosts: [
           {
             id: 'host-lan-001',
+            displayName: 'srv-01',
             ip: '198.51.100.47',
             online: true,
             role: 'server',
+            firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
+            filesystem: { files: [{ path: '/srv/readme.txt', content: 'Service workspace.' }] },
             services: [
               { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
               { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
