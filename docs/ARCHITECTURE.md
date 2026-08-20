@@ -468,6 +468,53 @@ The current filesystem implementation is deliberately local and read-only.
 Directories are derived from file paths; this boundary does not imply a generic
 virtual-filesystem framework or remote filesystem authority.
 
+### A18 — Wallet, currency, Device, and wallet software are separate
+
+A Wallet is a represented economic entity or account controlled through
+represented authority.
+
+It is not:
+
+- the Player
+- a Device
+- the Wallet application
+- a wallet address
+- a displayed balance
+- a generic inventory of money
+
+A Device may contain software that presents or operates a Wallet.
+
+That software does not own the Wallet’s economic truth.
+
+Wallet addresses are mutable or externally visible addressing attributes and
+must not become stable Wallet identity.
+
+Secret or key material may authorize Wallet operations when a concrete mechanic
+represents that authority.
+
+Possessing a Device, Wallet application, address, or remembered Wallet
+information must not automatically imply possession of the Wallet’s secret
+authority.
+
+Currency balances, transfers, mining payouts, and later market activity must
+derive from canonical economic state rather than interface-local counters.
+
+Conceptually:
+
+PLAYER
+   ↓ relationship / authority
+WALLET
+   ↓
+CURRENCY / LEDGER STATE
+
+DEVICE
+   ↓
+WALLET SOFTWARE
+   ↓
+AUTHORIZED WALLET OPERATIONS
+
+Wallet compromise should arise from concrete represented authority or secret
+exposure rather than a generic `walletHacked` flag.
 
 ## Repository boundaries
 

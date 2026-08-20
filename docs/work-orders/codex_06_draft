@@ -1,0 +1,698 @@
+TITLE
+
+FILE ARTIFACT + TRANSFER FOUNDATION V1
+
+
+STATUS
+
+PLANNING DRAFT -- NOT YET EXECUTABLE.
+
+Before execution:
+
+1. Work Order 05 / RACK-OS V1 must be accepted and integrated.
+2. Re-read current main.
+3. Reconcile every type, path and operation named below against accepted code.
+4. Remove stale assumptions.
+5. Only then convert this draft into the selected executable Work Order.
+
+
+MISSION
+
+Turn the existing read-only local/foreign filesystem foundation into the first
+small mutable filesystem interaction slice.
+
+This Work Order establishes the domain distinctions required for later software
+acquisition:
+
+FILE
+≠ SOFTWARE PACKAGE
+≠ INSTALLED SOFTWARE
+≠ RUNNING PROCESS
+
+and proves one concrete cross-Device file transfer operation.
+
+The goal is NOT yet to implement NodeScan Experimental, installation, Inspect,
+executables, mining, remote Processes, permissions or a package manager.
+
+The goal is to make a foreign filesystem capable of containing a meaningful
+transferable software artifact and make local/remote Files and Terminal observe
+the resulting canonical filesystem mutation.
+
+
+AUTHORITATIVE INPUTS
+
+Read and follow:
+
+- AGENTS.md
+- docs/ARCHITECTURE.md
+- docs/V0.md
+- docs/FUTURE.md
+- docs/design/REMOTE_SERVER_OS_V1.md
+- docs/work-orders/README.md
+- current accepted filesystem implementation
+- current RemoteSession / DeviceAccess implementation
+- current local Files app
+- current local Terminal filesystem commands
+- current RACK-OS Files and Terminal implementation
+
+Preserve all existing architecture invariants, especially:
+
+A01 stable identity
+A02 entity-owned truth
+A05 interfaces do not own operations
+A06 command is not capability
+A07 Device / Firmware / Software / Session separation
+A08 Access is a relationship
+A10 Processes represent real work
+A11 mutate causes, derive consequences
+A16 concrete mechanics before generic frameworks
+A17 filesystem truth belongs to Device
+
+
+CURRENT BASELINE
+
+Expected post-WO05 state:
+
+- Local Device has canonical filesystem.
+- First foreign server has its own canonical filesystem.
+- Files and Terminal read the same filesystem truth on each Device.
+- RACK-OS exists only while a valid RemoteSession resolves.
+- Filesystem currently contains text files only.
+- Filesystem is currently read-only.
+- Directories are derived from paths.
+- There is no generic VFS.
+- There is no file transfer operation.
+- There is no software package representation.
+- There is no installation operation.
+- There is no remote execution.
+- Existing Processes must remain untouched by file transfer in this slice.
+
+
+PRODUCT / DOMAIN DECISION
+
+The following distinction becomes explicit:
+
+TEXT FILE
+  readable textual content
+
+SOFTWARE PACKAGE FILE
+  a transferable filesystem artifact representing a concrete software package
+
+INSTALLED SOFTWARE
+  Device-owned functionality
+  NOT implemented in this Work Order
+
+RUNNING SOFTWARE / PROCESS
+  execution state
+  NOT implemented in this Work Order
+
+A `.pkg` filename alone must NOT make something software.
+
+Do not infer semantics from filename extensions.
+
+Software package identity and metadata must be represented explicitly.
+
+
+1. FILESYSTEM ENTRY MODEL
+
+Extend the current filesystem model only as far as required to represent:
+
+A) text files
+B) one concrete software-package file kind
+
+Prefer a small discriminated representation consistent with current code.
+
+Conceptually only:
+
+TextFile
+- kind: text
+- path
+- content
+
+SoftwarePackageFile
+- kind: software_package
+- path
+- represented package metadata
+
+Exact naming may adapt to the repository.
+
+Do NOT introduce:
+
+- generic MIME systems
+- arbitrary blob systems
+- generic artifact framework
+- inode model
+- file permissions
+- ownership/groups
+- timestamps
+- symlinks
+- filesystem mounts
+- universal VFS abstractions
+
+
+2. SOFTWARE PACKAGE METADATA
+
+Represent only the concrete metadata required for the next NodeScan slice.
+
+The first package artifact may already use the future product identity:
+
+NodeScan
+Version 1.1
+Channel: Experimental
+
+but this Work Order does NOT install it and does NOT change capabilities.
+
+A package should have stable product/package identity separate from its file
+path.
+
+Moving or copying the package later must not redefine what software product it
+represents.
+
+Do not create a generic capability list.
+
+
+3. FIRST FOREIGN SOFTWARE PACKAGE
+
+Deepen srv-01 with exactly one additional meaningful artifact.
+
+Suggested canonical path:
+
+/opt/packages/nodescan-exp-1.1.pkg
+
+Represent it as a software-package file, not text content pretending to be a
+package.
+
+Metadata:
+
+Product:
+NodeScan
+
+Version:
+1.1
+
+Channel:
+Experimental
+
+Do not add Inspect functionality yet.
+
+Do not add progression clues beyond what this package actually represents.
+
+Keep the existing neutral `/srv/readme.txt`.
+
+
+4. MUTABLE FILESYSTEM OPERATION
+
+Introduce the smallest pure domain operation necessary to copy a filesystem
+entry from one represented Device filesystem to another.
+
+The operation must mutate canonical filesystem state.
+
+Conceptually:
+
+SOURCE DEVICE
++ SOURCE PATH
++ DESTINATION DEVICE
++ DESTINATION PATH
+
+→ copied filesystem entry
+
+The source remains present.
+
+This is COPY / TRANSFER, not MOVE.
+
+Do not implement delete, rename or arbitrary write yet.
+
+
+5. TRANSFER PRESERVES ARTIFACT SEMANTICS
+
+Copying a software package must preserve:
+
+- software/package identity
+- product name
+- version
+- channel
+- any other represented package metadata
+
+The destination path may differ.
+
+The destination path must not become product identity.
+
+
+6. NO SILENT OVERWRITE
+
+For V1, if the destination path already exists, fail deterministically.
+
+Do not silently overwrite existing files.
+
+Return a concrete result such as:
+
+transferred
+source_not_found
+destination_exists
+unsupported_source
+session_unavailable
+
+Adapt exact result names to current style.
+
+
+7. REMOTE TRANSFER AUTHORITY
+
+Cross-Device transfer involving srv-01 must use the existing active
+RemoteSession / DeviceAccess relationship.
+
+Do NOT create:
+
+remoteFilesystemAccess = true
+
+or a second access model.
+
+The active Session determines the currently operated foreign target through:
+
+RemoteSession
+→ DeviceAccess
+→ targetDeviceId
+
+Stable target identity remains authoritative.
+
+Do not identify the remote Device by IP address.
+
+
+8. DOWNLOAD OPERATION
+
+Implement one concrete application/domain operation:
+
+DOWNLOAD
+
+Meaning:
+
+active foreign Device
+→ local Device
+
+The caller supplies or derives:
+
+- foreign source path
+- local destination path
+
+For the first product flow, support downloading:
+
+/opt/packages/nodescan-exp-1.1.pkg
+
+to:
+
+/home/user/downloads/nodescan-exp-1.1.pkg
+
+Do not hardcode the package itself into transfer logic.
+
+The transfer operation should work because it is a represented filesystem
+entry.
+
+
+9. UPLOAD FOUNDATION
+
+If the same small operation naturally supports the reverse direction without
+scope expansion, support:
+
+local Device
+→ active foreign Device
+
+as UPLOAD.
+
+However:
+
+- do not add miner content
+- do not add executable behavior
+- do not add remote Process execution
+- do not add permissions
+- do not create generic networking abstractions
+
+If reverse transfer requires materially broader architecture, leave UI exposure
+for the next slice while keeping the core copy operation direction-neutral.
+
+
+10. TERMINAL-FIRST INTERFACE
+
+Expose DOWNLOAD through the RACK-OS Terminal first.
+
+Suggested syntax:
+
+download <remote-absolute-path> <local-absolute-path>
+
+Example:
+
+download /opt/packages/nodescan-exp-1.1.pkg /home/user/downloads/nodescan-exp-1.1.pkg
+
+It must delegate to the shared canonical transfer operation.
+
+Terminal must not implement filesystem mutation itself.
+
+Do NOT add transfer progress animation.
+
+
+11. OPTIONAL UPLOAD COMMAND
+
+Only if reverse transfer is included cleanly:
+
+upload <local-absolute-path> <remote-absolute-path>
+
+Again:
+
+Terminal
+→ shared transfer operation
+→ canonical Device-owned filesystems
+
+No duplicate command-specific file copy logic.
+
+
+12. TRANSFERS ARE NOT PROCESSES IN V1
+
+A file transfer is immediate in this slice.
+
+Do not create a Process merely to display progress.
+
+The simulation currently lacks represented:
+
+- file size
+- bandwidth
+- network throughput
+- transfer rate
+
+Therefore a timed transfer would be fake telemetry.
+
+Future transfer Processes may become valid once those causes are represented.
+
+
+13. LOCAL FILES APP
+
+Update the local Files app only enough to understand both supported file kinds.
+
+Text file:
+- current readable presentation remains
+
+Software package:
+- show represented metadata
+- Product
+- Version
+- Channel
+- Type: SOFTWARE PACKAGE
+
+Do NOT add INSTALL yet.
+
+A downloaded package is still only a file.
+
+
+14. RACK-OS FILES
+
+Update RACK-OS Files so the package is visibly distinct from a text file.
+
+Selecting the package should show canonical package metadata.
+
+Expose a graphical DOWNLOAD action only after the shared transfer operation
+exists.
+
+The graphical action and Terminal command MUST use the same application/domain
+operation.
+
+Do not construct a Terminal command string from the GUI.
+
+
+15. DOWNLOAD DESTINATION
+
+For the first graphical flow, DOWNLOAD may use the canonical local destination:
+
+/home/user/downloads/<source basename>
+
+This is presentation/application policy for this concrete slice.
+
+Do not build a destination picker or file-dialog framework.
+
+
+16. FILESYSTEM DIRECTORY DERIVATION
+
+Preserve current directory derivation from paths unless the accepted filesystem
+implementation has changed before execution.
+
+Creating:
+
+/home/user/downloads/nodescan-exp-1.1.pkg
+
+may therefore cause `/home/user/downloads` to appear naturally.
+
+Do not introduce explicit directory entities merely for transfer.
+
+
+17. SAME TRUTH / MULTIPLE INTERFACES
+
+After graphical or Terminal download:
+
+Local Files must see the package.
+
+Local filesystem Terminal operations must observe the same canonical destination.
+
+RACK-OS must continue seeing the original source package.
+
+No interface-local transfer state.
+
+
+18. SOFTWARE IS NOT INSTALLED
+
+After download, prove:
+
+NodeScan installed functionality is unchanged.
+
+No new Inspect capability appears.
+
+No Help change occurs.
+
+No command registry change occurs.
+
+No installed-software state is mutated merely because the package exists.
+
+This is a critical acceptance boundary.
+
+
+19. PACKAGE IS NOT RUNNING
+
+Downloading or opening the package must not create a Process.
+
+No CPU/RAM use is created.
+
+No runtime state changes.
+
+No Process card appears.
+
+
+20. FILE CONTENT / PACKAGE PRESENTATION
+
+Do not use `cat` to fabricate textual package contents.
+
+If existing `cat` receives a software-package path, return a clear type-aware
+result such as:
+
+NOT A TEXT FILE
+
+Use repository-consistent wording.
+
+Do not serialize package metadata into fake file text.
+
+
+21. STATE VERSION
+
+If canonical GameState shape changes, increment schema exactly once according to
+repository policy.
+
+Do not bump schema for purely presentational changes.
+
+Add focused altered-state tests for any changed canonical shape.
+
+
+22. NODESCAN PRODUCT DIRECTION -- DOCUMENT ONLY
+
+Record the accepted near-term product direction for the following slice:
+
+- NodeScan is first-party NODE-OS system software.
+- Its commands remain direct system commands:
+  scan
+  analyze
+  later inspect
+- The player does NOT type `nodescan scan`.
+- Help should later group direct commands by their providing installed software.
+- NodeScan 1.0 Standard provides Scan and Analyze.
+- NodeScan 1.1 Experimental will later add Inspect.
+- Merely downloading the package must not add Inspect.
+- NodeScan visual/company identity will receive its own later design contract.
+
+Do NOT implement this Help/command change in Work Order 06.
+
+
+STRICT NON-GOALS
+
+Do not implement:
+
+- software installation
+- NodeScan capability changes
+- Inspect progression
+- NodeScan command redesign
+- Help grouping
+- executable files
+- RUN
+- miner
+- Wallet changes
+- currency
+- remote Process execution
+- Process refactor
+- file sizes
+- network transfer speed
+- transfer Processes
+- delete
+- rename
+- move
+- chmod
+- permissions
+- ownership
+- users/groups
+- package manager
+- dependency resolution
+- generic software inventory framework
+- generic artifact framework
+- generic VFS
+- logs
+- malware
+- signatures
+- licenses
+- cracked software semantics
+
+
+TEST MATRIX
+
+A. Existing text files still behave unchanged.
+
+B. srv-01 owns the represented NodeScan Experimental package.
+
+C. Package identity/metadata comes from canonical filesystem state, not UI copy.
+
+D. Alter package metadata and prove Files presentation changes accordingly.
+
+E. Download copies the package from foreign filesystem to local filesystem.
+
+F. Source package remains on srv-01 after download.
+
+G. Destination package appears under local filesystem.
+
+H. Package metadata survives transfer.
+
+I. Destination path does not become package/product identity.
+
+J. Duplicate destination fails deterministically and does not overwrite.
+
+K. Missing source fails without mutation.
+
+L. No active valid RemoteSession prevents remote download.
+
+M. Stable Session → DeviceAccess → target identity resolves the foreign Device;
+   stale/different connectedAddress must not retarget transfer.
+
+N. RACK-OS Terminal download and graphical Files download use the same canonical
+   operation.
+
+O. Local Files and local Terminal observe the same downloaded state.
+
+P. `cat` continues reading text files normally.
+
+Q. `cat` does not fabricate text content for a software package.
+
+R. Downloading the package does NOT mutate installed software.
+
+S. Downloading the package does NOT expose Inspect.
+
+T. Downloading/opening the package creates no Process.
+
+U. Existing RACK-OS session/disconnect semantics remain unchanged.
+
+V. Existing mobile Shell/Editing behavior remains unchanged.
+
+
+DOCUMENTATION
+
+Update V0 only with implemented truth.
+
+Update ARCHITECTURE only if a genuinely durable boundary needs clarification.
+Prefer relying on A17 and existing software separation unless new invariant
+language is actually required.
+
+Update FUTURE with the accepted NodeScan product direction if not already
+represented.
+
+Create a focused design contract if useful, for example:
+
+docs/design/FILES_AND_TRANSFER_V1.md
+
+It should record:
+
+FILE ≠ INSTALLED SOFTWARE ≠ PROCESS
+
+and the concrete V1 transfer semantics.
+
+Do not mark future installation/mining mechanics as implemented.
+
+
+VALIDATION
+
+Run focused tests for:
+
+- filesystem
+- transfer operation
+- local Files
+- local Terminal filesystem commands
+- RACK-OS Files
+- RACK-OS Terminal
+- RemoteSession targeting
+
+Then run:
+
+npm test
+npm run build
+
+
+FINAL SELF-REVIEW
+
+Before completion:
+
+1. Search for filename-extension-based gameplay semantics.
+2. Search for package metadata duplicated in UI.
+3. Search for IP-based remote target identity.
+4. Verify transfer uses canonical active Session authority.
+5. Verify GUI does not execute Terminal strings.
+6. Verify no automatic installation.
+7. Verify no Process creation.
+8. Verify no fake transfer timing.
+9. Verify local/foreign filesystem ownership remains distinct.
+10. Verify existing RACK-OS and mobile behavior remain intact.
+11. Inspect complete diff for speculative frameworks.
+12. Rerun full tests/build.
+
+
+COMPLETION REPORT
+
+Report:
+
+1. files changed
+2. GameState version, if changed
+3. final filesystem entry shape
+4. package representation
+5. canonical srv-01 package state
+6. transfer operation and result states
+7. Session/authority resolution
+8. Terminal download syntax
+9. graphical Files behavior
+10. same-truth proof
+11. package-not-installed proof
+12. package-not-running proof
+13. focused tests
+14. full npm test result
+15. npm run build result
+16. docs updated
+17. any remaining concern
+18. physical iPhone/Safari validation required or not relevant
+
+Do not commit, push, merge, create/close PRs, rewrite history, or perform other
+Git lifecycle actions.
