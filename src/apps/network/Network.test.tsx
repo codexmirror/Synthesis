@@ -61,9 +61,33 @@ describe('Scan workspace', () => {
     await navigateToServices(user)
     await user.click(screen.getByRole('button', { name: /CONNECT/ }))
     expect(screen.getByText('REMOTE SESSION')).toBeInTheDocument()
+    expect(screen.getByLabelText('Remote session active')).toHaveTextContent('ACTIVE')
+    expect(screen.getByLabelText('Remote session active')).toHaveTextContent('USER')
+    expect(screen.getByRole('button', { name: 'DISCONNECT' })).toBeInTheDocument()
     expect((JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).remoteSession.active).toMatchObject({ accessId: 'access-0001' })
-    await user.click(screen.getByRole('button', { name: /ACTIVE/ }))
+    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    const disconnected = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(disconnected.remoteSession.active).toBeNull()
+    expect(disconnected.deviceAccess.established).toEqual(state.deviceAccess.established)
     expect(screen.getAllByText('USER ACCESS')).not.toHaveLength(0)
+  })
+
+  it('keeps CONNECT visible from remembered access and presents only coarse unavailable feedback', async () => {
+    const known = discoveredState()
+    const host = known.world.network.hosts[0]
+    const state = {
+      ...known,
+      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] },
+      world: { network: { ...known.world.network, hosts: [{ ...host, online: false }, ...known.world.network.hosts.slice(1)] } },
+    }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /></GameProvider>)
+    await navigateToServices(user)
+    const connect = screen.getByRole('button', { name: /CONNECT/ })
+    expect(connect).toBeEnabled()
+    await user.click(connect)
+    expect(screen.getByRole('status')).toHaveTextContent('TARGET NOT AVAILABLE')
+    expect(document.body).not.toHaveTextContent(/offline|service closed|stale address/i)
   })
   it('offers known credential access without hidden-world leakage and starts it through the application boundary', async () => {
     let known = discoveredState()

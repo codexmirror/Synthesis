@@ -57,6 +57,8 @@ describe('command dispatcher', () => {
     expect(commands.inspect.description).toBe('Examine current properties of a device or network')
     expect(commands.analyze.description).toBe('Investigate a service endpoint')
     expect(commands.attack.description).toBe('Attempt a known attack method against an observed service')
+    expect(commands.connect.description).toBe('<ipv4>  Open a remote session using established access')
+    expect(commands.disconnect.description).toBe('Close the active remote session')
   })
   it('dispatches ip with the player-visible address marked as a local target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23', 'local')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))

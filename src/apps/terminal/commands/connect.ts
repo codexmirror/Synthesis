@@ -1,7 +1,7 @@
 import type { TerminalCommand } from '../commandTypes'
 
 export const connectCommand: TerminalCommand = {
-  description: 'connect <ipv4>  Open a remote session using established access',
+  description: '<ipv4>  Open a remote session using established access',
   run: ({ operations }, args) => {
     if (args.length !== 1) return { type: 'output', lines: ['USAGE: connect <ipv4>'] }
     const result = operations.connectAddress(args[0])
