@@ -72,6 +72,32 @@ describe('Scan workspace', () => {
     expect(screen.getAllByText('USER ACCESS')).not.toHaveLength(0)
   })
 
+  it('presents access provenance on its Service and returns to Device without connecting', async () => {
+    const known = discoveredState()
+    const established = [{ id: 'access-altered', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }]
+    const state = { ...known, deviceAccess: { nextId: 9, established } }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
+    await navigateToServices(user)
+    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
+    expect(screen.getByText('ACCESS PATH')).toBeInTheDocument()
+    expect(screen.getByText(/ESTABLISHED VIA THIS SERVICE/).closest('p')).toHaveTextContent('USER · ESTABLISHED VIA THIS SERVICE')
+    await user.click(screen.getByRole('button', { name: 'VIEW DEVICE' }))
+    expect(screen.getByLabelText('Device access available')).toHaveTextContent('USER ACCESS')
+    expect(screen.getByRole('button', { name: /CONNECT/ })).toBeInTheDocument()
+    const navigated = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(navigated.deviceAccess.established).toEqual(established)
+    expect(navigated.remoteSession.active).toBeNull()
+  })
+
+  it('does not present access provenance or VIEW DEVICE before access exists', async () => {
+    const user = await openLanDevice()
+    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
+    expect(screen.queryByText('ACCESS PATH')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'VIEW DEVICE' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Analyze' })).toBeInTheDocument()
+  })
+
   it('keeps CONNECT visible from remembered access and presents only coarse unavailable feedback', async () => {
     const known = discoveredState()
     const host = known.world.network.hosts[0]
@@ -334,6 +360,17 @@ describe('Scan workspace', () => {
     expect(state.process.processes).toMatchObject([{ status: 'running', serviceId: 'service-ssh-001' }, { status: 'running', serviceId: 'service-http-001' }])
   })
 
+  it('presents the empty Finding state before analysis produces a result', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={discoveredState()}><Network /><StateSnapshot /></GameProvider>)
+    await navigateToServices(user)
+    await user.click(screen.getByRole('button', { name: 'Open HTTP service' }))
+    expect(screen.getByText('No known weakness recorded')).toBeInTheDocument()
+    expect(screen.queryByText('No weakness detected')).not.toBeInTheDocument()
+    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
+  })
+
   it('presents positive SSH Knowledge and precise historical HTTP completion', async () => {
     const base = createInitialGameState()
     const ssh = startServiceAnalysisAtEndpoint(base, '198.51.100.47:22'); if (ssh.status !== 'started') throw Error(ssh.status)
@@ -347,16 +384,34 @@ describe('Scan workspace', () => {
     expect(screen.queryByText('Weak authentication configuration')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
     expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    expect(screen.getByText('Weakness detected')).toBeInTheDocument()
+    expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()
+    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Analyze again' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
     await user.click(screen.getByRole('button', { name: 'Open HTTP service' }))
     expect(screen.getByText('No weakness detected')).toBeInTheDocument()
+    expect(screen.queryByText('No known weakness recorded')).not.toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/\bSAFE\b|\bSECURE\b/)
     const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
     expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
-    expect(screen.getByText('No known weakness recorded')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Analyze again' })).toBeInTheDocument()
+  })
+
+  it('retains a Finding alongside a later non-redundant no-weakness result', async () => {
+    const first = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (first.status !== 'started') throw Error(first.status)
+    const learned = advanceGameState(first.state, 20_000)
+    const host = learned.world.network.hosts[0]
+    const changed = { ...learned, world: { network: { ...learned.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, vulnerabilities: [] } : service) }, ...learned.world.network.hosts.slice(1)] } } }
+    const second = startServiceAnalysisAtEndpoint(changed, '198.51.100.47:22'); if (second.status !== 'started') throw Error(second.status)
+    const completed = advanceGameState(second.state, 20_000)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withDiscovery(completed)}><Network /></GameProvider>)
+    await navigateToServices(user)
+    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
+    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
+    expect(screen.getByText('No weakness detected')).toBeInTheDocument()
+    expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()
+    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
   })
 
   it('clears completed history without clearing Knowledge and permits monotonic re-analysis', async () => {
@@ -366,7 +421,8 @@ describe('Scan workspace', () => {
     render(<GameProvider initialState={withDiscovery(completed)}><Network /><ClearCompleted /><StateSnapshot /></GameProvider>)
     await navigateToServices(user)
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('Weakness detected')).toBeInTheDocument()
+    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
+    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Clear test history' }))
     expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
     expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()

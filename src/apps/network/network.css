@@ -62,4 +62,12 @@ button.atlas-row:hover,.atlas-open:hover,.interaction-action:hover { border-colo
 .interaction-progress-value { color:#a7cdb5; font-size:.66rem; }
 .interaction-active progress { grid-column:1/-1; width:100%; height:3px; border:0; background:#1d2822; accent-color:#6ac58a; }
 .interaction .scan-feedback { margin:0; padding:0 12px 10px; }
+.device-state.interaction-active { grid-template-columns:1fr auto; }
+.device-state .interaction-action { min-height:44px; }
+.device-state.interaction-active .interaction-action { width:auto; min-height:40px; padding:6px 0 6px 14px; border-left:1px solid #253029; }
+.scan-device-action { width:100%; min-height:52px; padding:10px 12px; display:flex; align-items:center; border:1px solid #28322c; background:#0a0e0c; color:#9fd0b0; cursor:pointer; text-align:left; }
+.scan-device-action strong { font-size:.61rem; letter-spacing:.1em; }
+.service-detail .scan-device-action + .interaction,.service-detail .interaction + .interaction { margin-top:6px; }
+.analysis-note,.access-path { margin:8px 0; padding:8px 10px; border-left:2px solid #46564d; color:#87958d; font-size:.65rem; line-height:1.45; }
+.access-path strong { color:#b8d9c4; }
 @media (max-width:480px) { .scan-app { padding:16px 14px 26px; } .atlas-row { min-height:60px; } }
