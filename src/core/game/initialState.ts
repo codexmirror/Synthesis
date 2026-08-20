@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 9
+export const GAME_STATE_VERSION = 10
 
 export function createInitialGameState(): GameState {
   return {
@@ -9,6 +9,8 @@ export function createInitialGameState(): GameState {
       id: 'player-local-v0',
       localDevice: {
         id: 'device-local-v0',
+        displayName: 'node-01',
+        firmware: { id: 'firmware-node-os-v1', name: 'NODE-OS', version: '1.0' },
         network: { ip: '198.51.100.23' },
         hardware: {
           cpu: { name: 'Basic CPU', computeCapacity: 100 },

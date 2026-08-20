@@ -71,9 +71,18 @@ export interface DeviceNetworkState {
   readonly ip: string
 }
 
+export interface FirmwareState {
+  readonly id: string
+  readonly name: string
+  readonly version: string
+}
+
 export interface LocalDeviceState {
   /** Stable device identity; unlike its simulated IP, this value does not change. */
   readonly id: string
+  /** Mutable presentation name; never canonical device identity. */
+  readonly displayName: string
+  readonly firmware: FirmwareState
   readonly network: DeviceNetworkState
   readonly hardware: HardwareState
   readonly runtime: RuntimeState

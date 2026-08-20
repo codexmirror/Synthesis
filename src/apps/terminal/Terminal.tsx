@@ -1,6 +1,5 @@
 import './terminal.css'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { OS_NAME } from '../../core/branding'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
@@ -306,7 +305,7 @@ export function Terminal() {
         data-editing-scroll-owner
         ref={outputRef}
       >
-        <p className="muted">{OS_NAME} terminal · Type <strong>help</strong> to begin.</p>
+        <p className="muted">{gameState.player.localDevice.firmware.name} terminal · Type <strong>help</strong> to begin.</p>
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
             <div><span className="prompt">user@node:~$</span> {entry.command}</div>

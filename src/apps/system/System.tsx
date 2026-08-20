@@ -5,6 +5,9 @@ export function System() {
   const state = useGameState(); const { localDevice } = state.player
   const usage = deriveResourceUsage(localDevice.hardware, localDevice.runtime, state.process)
   const rows = [
+    ['Device', localDevice.displayName],
+    ['Firmware', localDevice.firmware.name],
+    ['Version', localDevice.firmware.version],
     ['CPU', localDevice.hardware.cpu.name],
     ['RAM', localDevice.hardware.ram.name],
     ['CPU load', `${Math.round(usage.totalCpuLoad)}%`],

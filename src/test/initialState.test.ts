@@ -9,6 +9,7 @@ describe('createInitialGameState', () => {
     expect(first).not.toBe(second)
     expect(first.player).not.toBe(second.player)
     expect(first.player.localDevice).not.toBe(second.player.localDevice)
+    expect(first.player.localDevice.firmware).not.toBe(second.player.localDevice.firmware)
     expect(first.player.localDevice.network).not.toBe(second.player.localDevice.network)
     expect(first.player.localDevice.hardware).not.toBe(second.player.localDevice.hardware)
     expect(first.player.localDevice.runtime).not.toBe(second.player.localDevice.runtime)
@@ -25,14 +26,16 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-network membership in schema version 9', () => {
+  it('separates identities and seeds canonical local-device state in schema version 10', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(9)
-    expect(state.version).toBe(9)
+    expect(GAME_STATE_VERSION).toBe(10)
+    expect(state.version).toBe(10)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
     expect(state.player.localDevice).toMatchObject({
+      displayName: 'node-01',
+      firmware: { id: 'firmware-node-os-v1', name: 'NODE-OS', version: '1.0' },
       network: { ip: '198.51.100.23' },
       hardware: { cpu: { name: 'Basic CPU', computeCapacity: 100 }, ram: { name: '4 GB', capacityMiB: 4096 } },
       runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
