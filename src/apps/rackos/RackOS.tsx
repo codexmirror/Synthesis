@@ -25,7 +25,7 @@ export function RackOS({ context }: { context: ActiveRemoteTarget }) {
       {section === 'files' && <RemoteFiles filesystem={target.filesystem!} />}
       {section === 'system' && <dl className="rack-system">
         <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
-        <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div><div><dt>ROLE</dt><dd>{target.role?.toUpperCase()}</dd></div>
+        <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>{target.role && <div><dt>ROLE</dt><dd>{target.role.toUpperCase()}</dd></div>}
         <div><dt>SESSION AUTHORITY</dt><dd>{access.privilege}</dd></div><div><dt>ACCESS PATH</dt><dd>{service.name}</dd></div>
       </dl>}
     </main>

@@ -268,12 +268,6 @@ operate rather than only another detail card.
 NODE-OS should remain the player’s local environment while a remote Session
 opens a second operating context.
 
-Future work includes richer foreign Firmware families and filesystems, multiple
-Sessions, remote Process execution, Firewall and Reachability, pivoting and
-remote reconnaissance position, filesystem permissions, logs and artifacts,
-malware, software progression, and explicit persistent intelligence extraction
-from meaningful files.
-
 Richer foreign Firmware and operating surfaces, remote Process execution,
 multiple simultaneous Sessions, firewall/reachability and pivoting, and
 connection artifacts/logging remain future mechanics.

@@ -3,6 +3,7 @@ import terminalSource from '../apps/terminal/Terminal.tsx?raw'
 import terminalCss from '../apps/terminal/terminal.css?raw'
 import css from './shell.css?raw'
 import hook from './useEditingViewport.ts?raw'
+import rackCss from '../apps/rackos/rackos.css?raw'
 
 describe('mobile editing presentation contract', () => {
   it('keeps normal editing absolute and overrides only standalone with fixed', () => {
@@ -39,5 +40,14 @@ describe('mobile editing presentation contract', () => {
     expect(terminalSource).not.toContain('window.scrollTo')
     expect(terminalSource).not.toContain('scrollIntoView')
     expect(terminalSource).not.toContain('setInterval')
+  })
+
+  it('keeps wrapped NODE-OS chrome hidden and gives RACK-OS the Shell edit geometry', () => {
+    expect(css).toContain('.os-shell[data-editing="true"] > .node-workspace > .status-bar')
+    expect(css).toContain('.os-shell[data-editing="true"] > .node-workspace > .system-bar')
+    expect(rackCss).toMatch(/data-editing="true"[^}]+\.rack-os\s*{[^}]+position: absolute;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/)
+    expect(rackCss).toMatch(/data-standalone="true"[^}]+data-editing="true"[^}]+\.rack-os\s*{[^}]+position: fixed;/)
+    expect(rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView|setInterval/)
+    expect(css).toMatch(/\.os-shell input,[\s\S]*?font-size: 16px;/)
   })
 })
