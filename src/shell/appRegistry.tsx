@@ -11,7 +11,7 @@ export interface AppDefinition { label: string; component: ComponentType }
 
 export const appRegistry = {
   terminal: { label: 'Terminal', component: Terminal },
-  network: { label: 'Scan', component: Network },
+  network: { label: 'NodeScan', component: Network },
   processes: { label: 'Processes', component: Processes },
   files: { label: 'Files', component: Files },
   wallet: { label: 'Wallet', component: Wallet },

@@ -62,7 +62,7 @@ describe('RACK-OS', () => {
 
   it('preserves the same Scan Device detail across CONNECT and DISCONNECT', async () => {
     const user = userEvent.setup(); render(<GameProvider initialState={discoveredAccessState()}><Shell /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open Scan' }))
+    await user.click(screen.getByRole('button', { name: 'Open NodeScan' }))
     await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
     await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
     expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
