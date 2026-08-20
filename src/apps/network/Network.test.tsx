@@ -360,6 +360,17 @@ describe('Scan workspace', () => {
     expect(state.process.processes).toMatchObject([{ status: 'running', serviceId: 'service-ssh-001' }, { status: 'running', serviceId: 'service-http-001' }])
   })
 
+  it('presents the empty Finding state before analysis produces a result', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={discoveredState()}><Network /><StateSnapshot /></GameProvider>)
+    await navigateToServices(user)
+    await user.click(screen.getByRole('button', { name: 'Open HTTP service' }))
+    expect(screen.getByText('No known weakness recorded')).toBeInTheDocument()
+    expect(screen.queryByText('No weakness detected')).not.toBeInTheDocument()
+    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
+  })
+
   it('presents positive SSH Knowledge and precise historical HTTP completion', async () => {
     const base = createInitialGameState()
     const ssh = startServiceAnalysisAtEndpoint(base, '198.51.100.47:22'); if (ssh.status !== 'started') throw Error(ssh.status)
@@ -379,10 +390,10 @@ describe('Scan workspace', () => {
     await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
     await user.click(screen.getByRole('button', { name: 'Open HTTP service' }))
     expect(screen.getByText('No weakness detected')).toBeInTheDocument()
+    expect(screen.queryByText('No known weakness recorded')).not.toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/\bSAFE\b|\bSECURE\b/)
     const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
     expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
-    expect(screen.getByText('No known weakness recorded')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Analyze again' })).toBeInTheDocument()
   })
 
