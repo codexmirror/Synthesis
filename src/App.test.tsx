@@ -11,6 +11,7 @@ import App from './App'
 import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
 import { ViewportDebug } from './shell/ViewportDebug'
+import { createInitialGameState } from './core/game/initialState'
 
 class ViewportStub extends EventTarget {
   height = 844
@@ -628,6 +629,25 @@ describe('dedicated editing viewport', () => {
 })
 
 describe('NODE-OS shell and applications', () => {
+  it('derives status-bar OS identity from the local Device firmware', () => {
+    const base = createInitialGameState()
+    const state = {
+      ...base,
+      player: {
+        ...base.player,
+        localDevice: {
+          ...base.player.localDevice,
+          firmware: { ...base.player.localDevice.firmware, name: 'TEST-OS' },
+        },
+      },
+    }
+
+    render(<GameProvider initialState={state}><Shell /></GameProvider>)
+
+    expect(screen.getByText('TEST-OS')).toBeInTheDocument()
+    expect(screen.queryByText('NODE-OS')).not.toBeInTheDocument()
+  })
+
   it('renders shared status data', () => {
     render(<App />)
     expect(screen.getByTestId('os-shell')).toBeInTheDocument()
@@ -669,6 +689,33 @@ describe('NODE-OS shell and applications', () => {
     expect(screen.getAllByText('18%')).toHaveLength(2)
     expect(screen.getAllByText('23%')).toHaveLength(2)
     expect(screen.getAllByText('ONLINE')).toHaveLength(2)
+  })
+
+  it('shows Device and Firmware diagnostics from canonical state', async () => {
+    const base = createInitialGameState()
+    const state = {
+      ...base,
+      player: {
+        ...base.player,
+        localDevice: {
+          ...base.player.localDevice,
+          displayName: 'test-device',
+          firmware: {
+            id: 'firmware-test-v7',
+            name: 'TEST-OS',
+            version: '7.4',
+          },
+        },
+      },
+    }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Shell /></GameProvider>)
+
+    await user.click(screen.getByRole('button', { name: /open system/i }))
+
+    expect(screen.getByText('Device').parentElement).toHaveTextContent('test-device')
+    expect(screen.getByText('Firmware').parentElement).toHaveTextContent('TEST-OS')
+    expect(screen.getByText('Version').parentElement).toHaveTextContent('7.4')
   })
 })
 
