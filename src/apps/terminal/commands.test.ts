@@ -11,6 +11,7 @@ import { scanNetworkTarget } from '../../core/game/scan'
 import { inspectNetworkTarget } from '../../core/game/inspect'
 import { parseCommand } from './parser'
 import { commands, dispatchCommand } from './registry'
+import { listDirectory, readTextFile } from '../../core/game/filesystem'
 
 const state = createInitialGameState()
 // @ts-expect-error Implemented Terminal operations are required integration contracts.
@@ -19,6 +20,10 @@ void invalidContext
 const context: CommandContext = {
   localDevice: { ip: state.player.localDevice.network.ip },
   runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: state.player.localDevice.runtime.networkStatus },
+  filesystem: {
+    list: (path) => listDirectory(state.player.localDevice.filesystem, path),
+    readText: (path) => readTextFile(state.player.localDevice.filesystem, path),
+  },
   operations: {
     scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
@@ -32,10 +37,10 @@ const labeledTarget = (label: string, value: string, scope: 'local' | 'external'
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze', 'attack'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze', 'attack', 'ls', 'cat'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
     expect(Object.keys(commands).filter((name) => name === 'inspect')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(8)
+    expect(new Set(Object.values(commands)).size).toBe(10)
   })
 
   it('derives help output from the command registry', () => {
@@ -55,6 +60,22 @@ describe('command dispatcher', () => {
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
+  it('reads altered filesystem state through narrow ls and cat operations', () => {
+    const filesystem = { files: [{ path: '/home/user/proof.txt', content: 'Canonical proof.' }] }
+    const filesystemContext: CommandContext = {
+      ...context,
+      filesystem: {
+        list: (path) => listDirectory(filesystem, path),
+        readText: (path) => readTextFile(filesystem, path),
+      },
+    }
+    const run = (input: string) => dispatchCommand(parseCommand(input), filesystemContext)
+    expect(run('ls /')).toEqual({ type: 'output', lines: ['home/'] })
+    expect(run('ls /home')).toEqual({ type: 'output', lines: ['user/'] })
+    expect(run('ls /home/user')).toEqual({ type: 'output', lines: ['proof.txt'] })
+    expect(run('cat /home/user/proof.txt')).toEqual({ type: 'output', lines: ['Canonical proof.'] })
+    expect(run('cat /home/user/missing.txt')).toEqual({ type: 'output', lines: ['FILE NOT FOUND'] })
+  })
   it('dispatches clear as a structured result', () => expect(dispatch('clear')).toEqual({ type: 'clear' }))
   it('guides missing and extra scan arguments', () => {
     expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })

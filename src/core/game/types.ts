@@ -77,12 +77,22 @@ export interface FirmwareState {
   readonly version: string
 }
 
+export interface TextFile {
+  readonly path: string
+  readonly content: string
+}
+
+export interface FilesystemState {
+  readonly files: readonly TextFile[]
+}
+
 export interface LocalDeviceState {
   /** Stable device identity; unlike its simulated IP, this value does not change. */
   readonly id: string
   /** Mutable presentation name; never canonical device identity. */
   readonly displayName: string
   readonly firmware: FirmwareState
+  readonly filesystem: FilesystemState
   readonly network: DeviceNetworkState
   readonly hardware: HardwareState
   readonly runtime: RuntimeState
