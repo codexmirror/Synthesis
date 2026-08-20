@@ -7,16 +7,16 @@ import { Terminal } from '../apps/terminal/Terminal'
 import { Wallet } from '../apps/wallet/Wallet'
 import { Processes } from '../apps/processes/Processes'
 
-export interface AppDefinition { label: string; glyph: string; component: ComponentType }
+export interface AppDefinition { label: string; component: ComponentType }
 
 export const appRegistry = {
-  terminal: { label: 'Terminal', glyph: '>_', component: Terminal },
-  network: { label: 'Scan', glyph: '◇', component: Network },
-  processes: { label: 'Processes', glyph: '▤', component: Processes },
-  wallet: { label: 'Wallet', glyph: '$', component: Wallet },
-  notes: { label: 'Notes', glyph: '≡', component: Notes },
-  files: { label: 'Files', glyph: '▱', component: Files },
-  system: { label: 'System', glyph: '⌁', component: System },
+  terminal: { label: 'Terminal', component: Terminal },
+  network: { label: 'Scan', component: Network },
+  processes: { label: 'Processes', component: Processes },
+  files: { label: 'Files', component: Files },
+  wallet: { label: 'Wallet', component: Wallet },
+  notes: { label: 'Notes', component: Notes },
+  system: { label: 'System', component: System },
 } satisfies Record<string, AppDefinition>
 
 export type AppId = keyof typeof appRegistry

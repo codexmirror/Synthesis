@@ -1,6 +1,6 @@
 import './shell.css'
 import { type CSSProperties, useState } from 'react'
-import { appEntries, appRegistry, type AppId } from './appRegistry'
+import { appRegistry, type AppId } from './appRegistry'
 import { Home } from './Home'
 import { StatusBar } from './StatusBar'
 import { SystemBar } from './SystemBar'
@@ -63,9 +63,7 @@ export function Shell() {
               ← <span>HOME</span>
             </button>
             <div className="app-title">
-              <span className="app-mode">
-                {viewport.editing ? 'EDITING' : 'MODULE'}
-              </span>
+              {viewport.editing && <span className="app-mode">EDITING</span>}
               <h1>{activeApp.label}</h1>
             </div>
             {viewport.editing ? (
@@ -77,14 +75,7 @@ export function Shell() {
               >
                 DONE
               </button>
-            ) : (
-              <span className="app-index">
-                {String(
-                  appEntries.findIndex(([id]) => id === activeAppId) + 1,
-                ).padStart(2, '0')}{' '}
-                / {String(appEntries.length).padStart(2, '0')}
-              </span>
-            )}
+            ) : <span aria-hidden="true" />}
           </div>
           <ActiveComponent />
         </main>

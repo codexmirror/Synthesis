@@ -629,7 +629,7 @@ describe('dedicated editing viewport', () => {
 })
 
 describe('NODE-OS shell and applications', () => {
-  it('derives status-bar OS identity from the local Device firmware', () => {
+  it('derives Home and status-bar Device context from canonical state', () => {
     const base = createInitialGameState()
     const state = {
       ...base,
@@ -637,6 +637,9 @@ describe('NODE-OS shell and applications', () => {
         ...base.player,
         localDevice: {
           ...base.player.localDevice,
+          displayName: 'field-node',
+          network: { ip: '203.0.113.77' },
+          runtime: { ...base.player.localDevice.runtime, networkStatus: 'OFFLINE' as const },
           firmware: { ...base.player.localDevice.firmware, name: 'TEST-OS' },
         },
       },
@@ -644,17 +647,48 @@ describe('NODE-OS shell and applications', () => {
 
     render(<GameProvider initialState={state}><Shell /></GameProvider>)
 
-    expect(screen.getByText('TEST-OS')).toBeInTheDocument()
+    expect(screen.getAllByText(/TEST-OS/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/field-node/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('203.0.113.77').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Network OFFLINE')).toBeInTheDocument()
+    expect(screen.getByText('NETWORK').parentElement).toHaveTextContent('OFFLINE')
     expect(screen.queryByText('NODE-OS')).not.toBeInTheDocument()
   })
 
-  it('renders shared status data', () => {
+  it('renders canonical runtime data without Wallet balance in shared chrome', () => {
     render(<App />)
     expect(screen.getByTestId('os-shell')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
-    expect(screen.getByText('$1,250')).toBeInTheDocument()
+    expect(screen.getAllByText('198.51.100.23')).toHaveLength(2)
+    expect(screen.queryByText('$1,250')).not.toBeInTheDocument()
     expect(screen.getByText('CPU').parentElement).toHaveTextContent('18%')
-    expect(screen.getByText('ONLINE')).toBeInTheDocument()
+    expect(screen.getByText('NET').parentElement).toHaveTextContent('ONLINE')
+  })
+
+  it('orders and exposes exactly the seven current application controls', () => {
+    render(<App />)
+    const launchers = screen.getAllByRole('button', { name: /^open /i })
+    expect(launchers.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Open Terminal', 'Open Scan', 'Open Processes', 'Open Files',
+      'Open Wallet', 'Open Notes', 'Open System',
+    ])
+    expect(screen.queryByRole('button', { name: /open tools/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('/ OPEN')).not.toBeInTheDocument()
+  })
+
+  it('derives the Processes launcher status from canonical Process state', () => {
+    const base = createInitialGameState()
+    const state = {
+      ...base,
+      process: {
+        nextId: 3,
+        processes: [
+          { id: 'process-1', kind: 'generic' as const, label: 'One', executorDeviceId: base.player.localDevice.id, status: 'running' as const, workRequired: 10, workCompleted: 2, ramRequiredMiB: 1 },
+          { id: 'process-2', kind: 'generic' as const, label: 'Two', executorDeviceId: base.player.localDevice.id, status: 'completed' as const, workRequired: 10, workCompleted: 10, ramRequiredMiB: 1 },
+        ],
+      },
+    }
+    render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    expect(screen.getByRole('button', { name: /open processes/i })).toHaveTextContent('1 RUNNING')
   })
 
   it('opens an app and returns home', async () => {
@@ -662,9 +696,11 @@ describe('NODE-OS shell and applications', () => {
     render(<App />)
     await user.click(screen.getByRole('button', { name: /open wallet/i }))
     expect(screen.getByText('AVAILABLE BALANCE')).toBeInTheDocument()
-    expect(screen.getAllByText('$1,250')).toHaveLength(2)
+    expect(screen.getByText('$1,250')).toBeInTheDocument()
+    expect(screen.queryByText('MODULE')).not.toBeInTheDocument()
+    expect(screen.queryByText(/05\s*\/\s*07/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /back to home/i }))
-    expect(screen.getByText('Select a module')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'HOME' })).toBeInTheDocument()
   })
 
   it('keeps shell navigation outside canonical game state', async () => {
@@ -688,7 +724,7 @@ describe('NODE-OS shell and applications', () => {
     expect(screen.getAllByText('198.51.100.23')).toHaveLength(2)
     expect(screen.getAllByText('18%')).toHaveLength(2)
     expect(screen.getAllByText('23%')).toHaveLength(2)
-    expect(screen.getAllByText('ONLINE')).toHaveLength(2)
+    expect(screen.getAllByText('ONLINE')).toHaveLength(3)
   })
 
   it('shows Device and Firmware diagnostics from canonical state', async () => {
