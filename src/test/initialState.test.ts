@@ -10,6 +10,8 @@ describe('createInitialGameState', () => {
     expect(first.player).not.toBe(second.player)
     expect(first.player.localDevice).not.toBe(second.player.localDevice)
     expect(first.player.localDevice.firmware).not.toBe(second.player.localDevice.firmware)
+    expect(first.player.localDevice.filesystem).not.toBe(second.player.localDevice.filesystem)
+    expect(first.player.localDevice.filesystem.files).not.toBe(second.player.localDevice.filesystem.files)
     expect(first.player.localDevice.network).not.toBe(second.player.localDevice.network)
     expect(first.player.localDevice.hardware).not.toBe(second.player.localDevice.hardware)
     expect(first.player.localDevice.runtime).not.toBe(second.player.localDevice.runtime)
@@ -26,10 +28,11 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 10', () => {
+  it('separates identities and seeds canonical local-device state in schema version 12', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(10)
-    expect(state.version).toBe(10)
+    expect(GAME_STATE_VERSION).toBe(12)
+    expect(state.remoteSession).toEqual({ nextId: 1, active: null })
+    expect(state.version).toBe(12)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -39,6 +42,9 @@ describe('createInitialGameState', () => {
       network: { ip: '198.51.100.23' },
       hardware: { cpu: { name: 'Basic CPU', computeCapacity: 100 }, ram: { name: '4 GB', capacityMiB: 4096 } },
       runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
+    })
+    expect(state.player.localDevice.filesystem).toEqual({
+      files: [{ path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' }],
     })
     expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })

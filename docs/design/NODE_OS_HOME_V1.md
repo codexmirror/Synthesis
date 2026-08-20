@@ -1,7 +1,7 @@
 # NODE-OS Home V1
 ## Status
-Planned implementation design for the first mature NODE-OS Home and normal
-Shell presentation.
+Implemented design contract for the first mature NODE-OS Home and normal Shell
+presentation.
 This document is the authoritative product and visual implementation reference
 for NODE-OS Home V1.
 Reference image:

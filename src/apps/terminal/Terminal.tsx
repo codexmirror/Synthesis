@@ -10,6 +10,7 @@ import { TargetToken } from './TargetToken'
 import { deriveResourceUsage } from '../../core/game/processes'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
+import { listDirectory, readTextFile } from '../../core/game/filesystem'
 
 const SCAN_MIN_DISPLAY_MS = 320
 
@@ -153,6 +154,10 @@ export function Terminal() {
     try {
       const dispatched = dispatchCommand(parsedCommand, {
         localDevice: { ip: gameState.player.localDevice.network.ip },
+        filesystem: {
+          list: (path) => listDirectory(gameState.player.localDevice.filesystem, path),
+          readText: (path) => readTextFile(gameState.player.localDevice.filesystem, path),
+        },
         runtime: {
           cpuLoad: Math.round(usage.totalCpuLoad),
           ramUsage: Math.round(usage.totalRamUsage),
@@ -220,6 +225,16 @@ export function Terminal() {
                 toolId: BASIC_CREDENTIAL_TOOLKIT_ID,
               })
 
+            return result
+          },
+          connectAddress: (address) => {
+            const observed = gameState.discovery.devices.find((device) => device.address === address)
+            if (!observed) return { status: 'target_not_known' }
+            const { state: _state, ...result } = actions.connectRemoteFromObservation({ targetDeviceId: observed.id, address })
+            return result
+          },
+          disconnectRemote: () => {
+            const { state: _state, ...result } = actions.disconnectRemoteSession()
             return result
           },
         },

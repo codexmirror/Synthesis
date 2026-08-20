@@ -261,6 +261,18 @@ It is not:
 Do not infer those states from established access unless a future concrete
 mechanic explicitly introduces them.
 
+Remote Session is canonical gameplay state created from existing DeviceAccess.
+It does not replace the local Device or automatically retarget NODE-OS
+interfaces.
+
+
+### Filesystem
+
+Files belong to the simulated Device.
+
+Files, Terminal, and other observation surfaces must read the same canonical
+Device-owned filesystem rather than maintaining interface-local file models.
+
 
 ### Processes
 

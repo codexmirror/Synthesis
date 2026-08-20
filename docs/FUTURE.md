@@ -189,6 +189,25 @@ Interfaces should represent what the player reasonably knows, not silently
 correct stale information using hidden World Truth.
 
 
+## NODE-OS Home observation
+
+A concrete local Device-owned read-only filesystem now exists, and Files and
+Terminal read it as shared canonical state. NODE-OS Home may become a richer
+observation surface as real local Device state grows. A future File Monitor
+should read selected text files from that same filesystem rather than
+maintaining presentation-only copies.
+
+Filesystem mutation, remote filesystems and operating contexts, foreign
+Firmware filesystem presentation, credentials and keys discovered in files,
+configuration gameplay, logs and other artifacts, and trace removal remain
+future mechanics requiring concrete authority and state boundaries.
+
+System and network logs should arise as concrete artifacts of represented
+events, not atmospheric UI text. User or Session identity, uptime, traffic,
+storage, temperature, and similar information should appear only after the
+corresponding simulation state exists.
+
+
 ## Devices and Firmware
 
 Devices and Firmware should become a major part of the identity of the world.
@@ -229,17 +248,15 @@ returning to the player’s own machine.
 
 ## Remote operating contexts
 
-Established access and active operation should remain distinct.
+Established access and active operation remain distinct. The first concrete,
+single active Remote Session lifecycle now exists; the foreign operating
+environment that consumes it remains future work.
 
 Long-term progression may include:
 
 ```text
 DEVICE ACCESS
-      ↓
-CONNECT
-      ↓
-REMOTE SESSION
-      ↓
+      ↓ (implemented CONNECT / Remote Session lifecycle)
 FOREIGN OPERATING ENVIRONMENT
       ↓
 FILES / SYSTEM / TERMINAL / OTHER SURFACES
@@ -250,6 +267,10 @@ operate rather than only another detail card.
 
 NODE-OS should remain the player’s local environment while a remote Session
 opens a second operating context.
+
+Foreign Firmware and operating surfaces, remote filesystem and Process
+execution, multiple simultaneous Sessions, firewall/reachability and pivoting,
+and connection artifacts/logging remain future mechanics.
 
 Different form factors may present this differently:
 

@@ -85,6 +85,31 @@
   border-bottom: 1px solid var(--line);
 }
 
+.file-row {
+  width: 100%;
+  padding: 0;
+  border-width: 0 0 1px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-back {
+  margin: 18px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  cursor: pointer;
+}
+
+.file-content {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+  font: inherit;
+}
+
 .system-list {
   max-width: 600px;
   margin-top: 28px;

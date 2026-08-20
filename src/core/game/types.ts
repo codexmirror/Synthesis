@@ -77,12 +77,22 @@ export interface FirmwareState {
   readonly version: string
 }
 
+export interface TextFile {
+  readonly path: string
+  readonly content: string
+}
+
+export interface FilesystemState {
+  readonly files: readonly TextFile[]
+}
+
 export interface LocalDeviceState {
   /** Stable device identity; unlike its simulated IP, this value does not change. */
   readonly id: string
   /** Mutable presentation name; never canonical device identity. */
   readonly displayName: string
   readonly firmware: FirmwareState
+  readonly filesystem: FilesystemState
   readonly network: DeviceNetworkState
   readonly hardware: HardwareState
   readonly runtime: RuntimeState
@@ -182,6 +192,15 @@ export interface DeviceAccess {
 
 export interface DeviceAccessState { readonly nextId: number; readonly established: readonly DeviceAccess[] }
 
+export interface RemoteSession {
+  readonly id: string
+  readonly accessId: string
+  /** Address used for this connection; stable Device identity remains on DeviceAccess. */
+  readonly connectedAddress: string
+}
+
+export interface RemoteSessionState { readonly nextId: number; readonly active: RemoteSession | null }
+
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
@@ -191,4 +210,5 @@ export interface GameState {
   readonly knowledge: KnowledgeState
   readonly discovery: DiscoveryState
   readonly deviceAccess: DeviceAccessState
+  readonly remoteSession: RemoteSessionState
 }

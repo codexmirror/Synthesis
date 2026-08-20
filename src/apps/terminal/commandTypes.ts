@@ -1,6 +1,8 @@
 import type { ScanResult } from '../../core/game/scan'
 import type { InspectResult } from '../../core/game/inspect'
 import type { StartCredentialAccessResult } from '../../core/game/credentialAccess'
+import type { ListDirectoryResult, ReadTextFileResult } from '../../core/game/filesystem'
+import type { ConnectRemoteResult, DisconnectRemoteResult } from '../../core/game/remoteSession'
 
 type WithoutState<T> = T extends { state: unknown } ? Omit<T, 'state'> : T
 export type TerminalAttackResult = WithoutState<StartCredentialAccessResult>
@@ -14,12 +16,18 @@ export interface CommandContext {
     readonly ip: string
   }
   readonly runtime: { readonly cpuLoad: number; readonly ramUsage: number; readonly networkStatus: 'ONLINE' | 'OFFLINE' }
+  readonly filesystem: {
+    readonly list: (path: string) => ListDirectoryResult
+    readonly readText: (path: string) => ReadTextFileResult
+  }
   readonly operations: {
     readonly scanTarget: (target: string) => ScanResult | Promise<ScanResult>
     readonly inspectTarget: (target: string) => InspectResult
     readonly analyzeEndpoint: (endpoint: string) => TerminalAnalyzeResult
     readonly knownWeaknesses: (targetDeviceId: string, serviceId: string) => readonly string[]
     readonly attackEndpoint: (endpoint: string) => TerminalAttackResult
+    readonly connectAddress: (address: string) => Omit<ConnectRemoteResult, 'state'> | { status: 'target_not_known' }
+    readonly disconnectRemote: () => Omit<DisconnectRemoteResult, 'state'>
   }
 }
 

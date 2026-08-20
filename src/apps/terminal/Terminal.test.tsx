@@ -29,6 +29,8 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     startServiceAnalysisAtEndpoint: () => unavailable,
     startServiceAnalysisFromObservation: () => unavailable,
     startCredentialAccessAttemptFromObservation: () => ({ status: 'not_available', state }),
+    connectRemoteFromObservation: () => ({ status: 'access_required', state }),
+    disconnectRemoteSession: () => ({ status: 'not_connected', state }),
     clearCompletedProcesses: () => {},
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
@@ -134,7 +136,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, clearCompletedProcesses: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), clearCompletedProcesses: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
@@ -163,6 +165,30 @@ describe('Terminal credential access', () => {
     expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'completed', result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' } })
     expect(state.deviceAccess.established).toEqual([])
     expect(state.knowledge).toEqual(patched.knowledge)
+  })
+})
+
+describe('Terminal remote session', () => {
+  it('resolves connect through Discovery, preserves local commands, and disconnects', async () => {
+    const known = knownCredentialState()
+    const state = { ...known, deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] } }
+    render(<GameProvider initialState={state}><Terminal /><StateControls /></GameProvider>)
+    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+    await user.type(input, 'connect 198.51.100.47{enter}')
+    expect(await screen.findByText('REMOTE SESSION ESTABLISHED')).toBeInTheDocument()
+    await user.type(input, 'ip{enter}ls /home/user{enter}')
+    expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
+    expect(screen.getByText('welcome.txt')).toBeInTheDocument()
+    await user.type(input, 'disconnect{enter}')
+    expect(screen.getByText('REMOTE SESSION ENDED')).toBeInTheDocument()
+    const snapshot = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(snapshot.remoteSession.active).toBeNull(); expect(snapshot.deviceAccess.established).toHaveLength(1)
+  })
+
+  it('does not resolve an address that exists only in hidden World', async () => {
+    render(<GameProvider><Terminal /></GameProvider>)
+    await userEvent.setup().type(screen.getByLabelText('Command input'), 'connect 198.51.100.47{enter}')
+    expect(await screen.findByText('TARGET NOT KNOWN')).toBeInTheDocument()
   })
 })
 
