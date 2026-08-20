@@ -192,6 +192,15 @@ export interface DeviceAccess {
 
 export interface DeviceAccessState { readonly nextId: number; readonly established: readonly DeviceAccess[] }
 
+export interface RemoteSession {
+  readonly id: string
+  readonly accessId: string
+  /** Address used for this connection; stable Device identity remains on DeviceAccess. */
+  readonly connectedAddress: string
+}
+
+export interface RemoteSessionState { readonly nextId: number; readonly active: RemoteSession | null }
+
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
@@ -201,4 +210,5 @@ export interface GameState {
   readonly knowledge: KnowledgeState
   readonly discovery: DiscoveryState
   readonly deviceAccess: DeviceAccessState
+  readonly remoteSession: RemoteSessionState
 }

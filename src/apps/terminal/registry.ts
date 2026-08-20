@@ -10,6 +10,8 @@ import { analyzeCommand } from './commands/analyze'
 import { attackCommand } from './commands/attack'
 import { lsCommand } from './commands/ls'
 import { catCommand } from './commands/cat'
+import { connectCommand } from './commands/connect'
+import { disconnectCommand } from './commands/disconnect'
 
 export const commands: Record<string, TerminalCommand> = {
   help: createHelpCommand(() => Object.entries(commands)),
@@ -22,6 +24,8 @@ export const commands: Record<string, TerminalCommand> = {
   attack: attackCommand,
   ls: lsCommand,
   cat: catCommand,
+  connect: connectCommand,
+  disconnect: disconnectCommand,
 }
 
 export function dispatchCommand(command: ParsedCommand, context: CommandContext): CommandResult | Promise<CommandResult> {

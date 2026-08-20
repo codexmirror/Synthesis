@@ -174,6 +174,15 @@ Installed software is not Firmware.
 
 Established access is not an active Session.
 
+The concrete V1 `RemoteSession` is canonical active-connection state created
+from an existing `DeviceAccess`. It references that access for source, target,
+service path, and authority rather than duplicating those facts. Its connected
+address is an observation attribute, not Device identity.
+
+An active Remote Session does not replace `player.localDevice`, retarget
+NODE-OS, or require a global `currentDeviceId`. Future remote surfaces may
+consume the Session while the local NODE-OS environment remains present.
+
 Operating another Device must not redefine the player’s personal Device.
 
 NODE-OS is the Firmware environment of the player’s personal Device, not the
@@ -600,8 +609,8 @@ Software provides functionality on a Device.
 
 Access records an established relationship.
 
-A Session records an active operating context when such a mechanic is
-represented.
+A Remote Session records active use of established DeviceAccess. Disconnecting
+it preserves the access relationship and local operating context.
 
 These concerns may interact but must remain independently meaningful.
 

@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 11
+export const GAME_STATE_VERSION = 12
 
 export function createInitialGameState(): GameState {
   return {
@@ -34,6 +34,7 @@ export function createInitialGameState(): GameState {
     knowledge: { discoveredVulnerabilities: [] },
     discovery: { networks: [], devices: [], networkDeviceRelations: [] },
     deviceAccess: { nextId: 1, established: [] },
+    remoteSession: { nextId: 1, active: null },
     world: {
       network: {
         localNetworks: [

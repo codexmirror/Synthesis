@@ -248,17 +248,15 @@ returning to the player’s own machine.
 
 ## Remote operating contexts
 
-Established access and active operation should remain distinct.
+Established access and active operation remain distinct. The first concrete,
+single active Remote Session lifecycle now exists; the foreign operating
+environment that consumes it remains future work.
 
 Long-term progression may include:
 
 ```text
 DEVICE ACCESS
-      ↓
-CONNECT
-      ↓
-REMOTE SESSION
-      ↓
+      ↓ (implemented CONNECT / Remote Session lifecycle)
 FOREIGN OPERATING ENVIRONMENT
       ↓
 FILES / SYSTEM / TERMINAL / OTHER SURFACES
@@ -269,6 +267,10 @@ operate rather than only another detail card.
 
 NODE-OS should remain the player’s local environment while a remote Session
 opens a second operating context.
+
+Foreign Firmware and operating surfaces, remote filesystem and Process
+execution, multiple simultaneous Sessions, firewall/reachability and pivoting,
+and connection artifacts/logging remain future mechanics.
 
 Different form factors may present this differently:
 
