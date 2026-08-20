@@ -189,6 +189,19 @@ Interfaces should represent what the player reasonably knows, not silently
 correct stale information using hidden World Truth.
 
 
+## NODE-OS Home observation
+
+NODE-OS Home may become a richer observation surface as real local Device
+state grows. A future File Monitor should read selected text files from a
+canonical Device-owned filesystem shared by Files, Terminal, and Home rather
+than maintaining presentation-only copies.
+
+System and network logs should arise as concrete artifacts of represented
+events, not atmospheric UI text. User or Session identity, uptime, traffic,
+storage, temperature, and similar information should appear only after the
+corresponding simulation state exists.
+
+
 ## Devices and Firmware
 
 Devices and Firmware should become a major part of the identity of the world.

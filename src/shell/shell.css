@@ -21,7 +21,7 @@
 
 .status-bar,
 .system-bar {
-  min-height: 68px;
+  min-height: 54px;
   padding: 0 clamp(18px, 4vw, 42px);
   display: flex;
   align-items: center;
@@ -37,19 +37,10 @@
 .system-bar { grid-row: 3; }
 
 .brand {
-  font-family: Inter, system-ui, sans-serif;
-  letter-spacing: .15em;
+  font-weight: 500;
+  letter-spacing: .1em;
 }
-
-.brand-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  margin-right: 9px;
-  border: 1px solid var(--green);
-  color: var(--green);
-}
+.brand span { color: #68736c; }
 
 .top-stats {
   display: flex;
@@ -58,23 +49,27 @@
 }
 
 .top-stats time {
-  min-width: 42px;
+  min-width: 66px;
   color: var(--green);
+}
+
+.connection { color: var(--green); }
+.connection[data-network-status="OFFLINE"] { color: #68736c; }
+.connection i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .home {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: clamp(34px, 7vh, 72px) clamp(20px, 8vw, 100px);
+  padding: clamp(24px, 5vh, 48px) clamp(20px, 7vw, 80px);
   animation: surface-in 130ms ease-out both;
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  color: var(--green);
-  font-size: .7rem;
-  letter-spacing: .16em;
 }
 
 .home h1,
@@ -85,28 +80,36 @@
 
 .home h1 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 3rem);
+  color: var(--green);
+  font-size: 1rem;
+  letter-spacing: .16em;
 }
 
+.home-heading p {
+  margin: 8px 0 0;
+  color: #7f8b84;
+  font-size: .66rem;
+  letter-spacing: .13em;
+}
+.home-heading p span { color: var(--green); }
+
 .app-grid {
-  margin-top: clamp(34px, 7vh, 70px);
+  margin-top: clamp(20px, 4vh, 34px);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .app-launcher {
   position: relative;
-  min-height: 150px;
-  padding: 26px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  border: 0;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  min-width: 0;
+  min-height: 72px;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--line);
   background: transparent;
   cursor: pointer;
   text-transform: uppercase;
@@ -134,43 +137,49 @@
   transform: scale(.985);
 }
 
-.app-glyph {
+.app-icon {
+  display: grid;
+  place-items: center;
   color: var(--green);
-  font-size: 1.45rem;
+}
+.app-icon svg { width: 28px; height: 28px; }
+
+.launcher-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+.launcher-copy strong { font-size: .76rem; font-weight: 500; }
+.launcher-copy small {
+  color: #68736c;
+  font-size: .54rem;
+  letter-spacing: .11em;
+  white-space: nowrap;
 }
 
-.app-launcher small {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  color: #68736c;
-  font-size: .58rem;
+.device-observation {
+  margin-top: clamp(20px, 4vh, 34px);
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
+.device-observation h2 { margin: 0 0 12px; color: var(--green); font-size: .62rem; font-weight: 500; letter-spacing: .15em; }
+.device-observation dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 36px; }
+.device-observation dl div { min-width: 0; padding: 7px 0; display: grid; grid-template-columns: minmax(70px, .45fr) minmax(0, 1fr); border-top: 1px solid rgba(37, 48, 42, .55); font-size: .67rem; }
+.device-observation dt { color: #68736c; }
+.device-observation dd { margin: 0; overflow-wrap: anywhere; color: #cbd4ce; }
 
 .system-bar {
   min-height: 54px;
   border: 0;
   border-top: 1px solid var(--line);
+  justify-content: flex-start;
+  gap: clamp(24px, 6vw, 70px);
   color: #768179;
 }
 
-.system-bar div {
-  display: flex;
-  gap: 28px;
-}
-
 .system-bar strong { color: #cad3cd; }
-.online { color: var(--green); }
-
-.online i {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-right: 9px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 9px var(--green);
-}
+.online strong { color: var(--green); }
 
 .app-view {
   min-height: 0;
@@ -212,12 +221,6 @@
   color: #68736c;
   font-size: .56rem;
   letter-spacing: .15em;
-}
-
-.app-index {
-  justify-self: end;
-  color: #69736d;
-  font-size: .7rem;
 }
 
 .back,
@@ -345,8 +348,11 @@
   }
 
   .status-bar {
-    min-height: 64px;
-    padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
+    min-height: 58px;
+    padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
   }
 
   .brand {
@@ -354,36 +360,41 @@
     letter-spacing: .08em;
   }
 
-  .brand-mark { display: none; }
-
   .top-stats {
-    gap: 7px;
+    display: contents;
     font-size: .55rem;
   }
 
-  .home { padding: 26px 14px; }
+  .top-stats > span:first-child { grid-column: 1; grid-row: 2; }
+  .top-stats time { grid-column: 2; grid-row: 1; text-align: right; }
+  .connection { grid-column: 2; grid-row: 2; justify-self: end; }
+  .connection { font-size: 0; }
+  .connection i { margin-right: 0; }
+
+  .home { padding: 20px 12px; }
 
   .app-grid {
     grid-template-columns: repeat(2, 1fr);
-    margin-top: 26px;
+    margin-top: 18px;
+    gap: 7px;
   }
 
   .app-launcher {
-    min-height: 120px;
-    padding: 17px;
+    min-height: 68px;
+    padding: 11px;
+    grid-template-columns: 27px minmax(0, 1fr);
+    gap: 9px;
   }
-
-  .app-launcher small {
-    right: 14px;
-    bottom: 14px;
-  }
+  .app-icon svg { width: 24px; height: 24px; }
+  .launcher-copy strong { font-size: .67rem; letter-spacing: .09em; }
+  .launcher-copy small { font-size: .48rem; letter-spacing: .06em; }
+  .device-observation { margin-top: 18px; }
+  .device-observation dl { grid-template-columns: 1fr; }
 
   .system-bar {
     padding: 0 max(16px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left));
     font-size: .65rem;
   }
-
-  .system-bar div { gap: 14px; }
 
   .app-header {
     min-height: 60px;
@@ -407,7 +418,7 @@
 }
 
 @media (max-height: 650px) {
-  .app-launcher { min-height: 105px; }
+  .app-launcher { min-height: 62px; }
   .home { padding-top: 20px; }
   .app-grid { margin-top: 20px; }
 }
