@@ -650,7 +650,10 @@ describe('NODE-OS shell and applications', () => {
     expect(screen.getAllByText(/TEST-OS/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/field-node/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('203.0.113.77').length).toBeGreaterThan(0)
-    expect(screen.getByLabelText('Network OFFLINE')).toBeInTheDocument()
+    expect(screen.getByLabelText('Network OFFLINE')).toHaveAttribute(
+      'data-network-status',
+      'OFFLINE',
+    )
     expect(screen.getByText('NETWORK').parentElement).toHaveTextContent('OFFLINE')
     expect(screen.queryByText('NODE-OS')).not.toBeInTheDocument()
   })
@@ -662,6 +665,10 @@ describe('NODE-OS shell and applications', () => {
     expect(screen.queryByText('$1,250')).not.toBeInTheDocument()
     expect(screen.getByText('CPU').parentElement).toHaveTextContent('18%')
     expect(screen.getByText('NET').parentElement).toHaveTextContent('ONLINE')
+    expect(screen.getByLabelText('Network ONLINE')).toHaveAttribute(
+      'data-network-status',
+      'ONLINE',
+    )
   })
 
   it('orders and exposes exactly the seven current application controls', () => {

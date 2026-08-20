@@ -54,6 +54,7 @@
 }
 
 .connection { color: var(--green); }
+.connection[data-network-status="OFFLINE"] { color: #68736c; }
 .connection i {
   display: inline-block;
   width: 6px;
