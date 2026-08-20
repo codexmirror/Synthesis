@@ -262,6 +262,14 @@ Do not infer those states from established access unless a future concrete
 mechanic explicitly introduces them.
 
 
+### Filesystem
+
+Files belong to the simulated Device.
+
+Files, Terminal, and other observation surfaces must read the same canonical
+Device-owned filesystem rather than maintaining interface-local file models.
+
+
 ### Processes
 
 Processes represent elapsed work and resource consumption.

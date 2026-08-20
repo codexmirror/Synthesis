@@ -448,6 +448,18 @@ Extract shared abstractions after multiple implemented systems reveal the same
 real requirement.
 
 
+### A17 — Filesystem truth belongs to the Device
+
+Filesystem state is owned by the simulated Device and remains separate from
+Firmware and interface presentation state. Files, Terminal, and any other
+observation surfaces must derive their views from the same canonical
+filesystem rather than creating application-local file models.
+
+The current filesystem implementation is deliberately local and read-only.
+Directories are derived from file paths; this boundary does not imply a generic
+virtual-filesystem framework or remote filesystem authority.
+
+
 ## Repository boundaries
 
 ### `src/core/game/`
@@ -602,7 +614,7 @@ DEVICE
 ├── hardware
 ├── runtime
 ├── networking
-├── filesystem          when represented
+├── filesystem
 └── installed software  when represented
 
 DEVICE

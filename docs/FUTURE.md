@@ -191,10 +191,16 @@ correct stale information using hidden World Truth.
 
 ## NODE-OS Home observation
 
-NODE-OS Home may become a richer observation surface as real local Device
-state grows. A future File Monitor should read selected text files from a
-canonical Device-owned filesystem shared by Files, Terminal, and Home rather
-than maintaining presentation-only copies.
+A concrete local Device-owned read-only filesystem now exists, and Files and
+Terminal read it as shared canonical state. NODE-OS Home may become a richer
+observation surface as real local Device state grows. A future File Monitor
+should read selected text files from that same filesystem rather than
+maintaining presentation-only copies.
+
+Filesystem mutation, remote filesystems and operating contexts, foreign
+Firmware filesystem presentation, credentials and keys discovered in files,
+configuration gameplay, logs and other artifacts, and trace removal remain
+future mechanics requiring concrete authority and state boundaries.
 
 System and network logs should arise as concrete artifacts of represented
 events, not atmospheric UI text. User or Session identity, uptime, traffic,
