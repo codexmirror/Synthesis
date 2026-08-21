@@ -6,6 +6,7 @@ import { getFilesystemFile, listDirectory, sameFilesystemArtifactIgnoringPath } 
 import { deriveDownloadDestinationPath } from '../../core/game/remoteDownload'
 import { runRemoteCommand } from './remoteCommands'
 import { useTerminalInteraction } from '../terminalInteraction/useTerminalInteraction'
+import { TerminalInteractionFrame } from '../terminalInteraction/TerminalInteractionFrame'
 
 type Section = 'terminal' | 'files' | 'system'
 
@@ -45,7 +46,7 @@ function RemoteTerminal({ context, onDisconnect, downloadRemoteFile }: { context
       if (result.disconnect) onDisconnect()
     },
   })
-  return <div className="rack-terminal"><div className="rack-output" data-editing-scroll-owner ref={interaction.outputRef} onScroll={interaction.onOutputScroll}>{lines.map((line, index) => <div key={index}><div className="rack-command">{context.target.displayName} [{context.access.privilege}] &gt; {line.command}</div>{line.output.map((value, outputIndex) => <div key={outputIndex}>{value}</div>)}</div>)}</div><form onSubmit={interaction.onSubmit}><label><span>{context.target.displayName} [{context.access.privilege}] &gt;</span><input ref={interaction.inputRef} aria-label="Remote command" autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="send" value={interaction.input} onChange={(event) => interaction.setInput(event.target.value)} onKeyDown={interaction.onKeyDown} onCompositionStart={interaction.onCompositionStart} onCompositionEnd={interaction.onCompositionEnd} /></label></form></div>
+  return <TerminalInteractionFrame interaction={interaction} className="rack-terminal" outputClassName="rack-output" formClassName="rack-terminal-form" promptClassName="rack-terminal-prompt" ariaLabel="Remote Terminal" inputAriaLabel="Remote command" prompt={<span>{context.target.displayName} [{context.access.privilege}] &gt;</span>}>{lines.map((line, index) => <div key={index}><div className="rack-command">{context.target.displayName} [{context.access.privilege}] &gt; {line.command}</div>{line.output.map((value, outputIndex) => <div key={outputIndex}>{value}</div>)}</div>)}</TerminalInteractionFrame>
 }
 
 function RemoteFiles({ filesystem, downloadRemoteFile }: { filesystem: ActiveRemoteTarget['target']['filesystem']; downloadRemoteFile: ReturnType<typeof useGameActions>['downloadRemoteFile'] }) {

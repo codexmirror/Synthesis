@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import terminalSource from '../apps/terminal/Terminal.tsx?raw'
 import terminalCss from '../apps/terminal/terminal.css?raw'
+import terminalFrameSource from '../apps/terminalInteraction/TerminalInteractionFrame.tsx?raw'
+import terminalFrameCss from '../apps/terminalInteraction/terminalInteraction.css?raw'
 import css from './shell.css?raw'
 import hook from './useEditingViewport.ts?raw'
 import rackCss from '../apps/rackos/rackos.css?raw'
@@ -28,11 +30,13 @@ describe('mobile editing presentation contract', () => {
   })
 
   it('keeps the terminal input mounted as the final terminal grid row', () => {
-    expect(terminalSource).toMatch(/<div[\s\S]*className="terminal-output"[\s\S]*<form className="terminal-input"/)
-    expect(terminalSource.lastIndexOf('className="terminal-input"')).toBeGreaterThan(
-      terminalSource.lastIndexOf('className="terminal-output"'),
+    expect(terminalSource).toContain('<TerminalInteractionFrame')
+    expect(terminalFrameSource).toMatch(/<div[\s\S]*className={classes\('terminal-interaction-output'[\s\S]*<form/)
+    expect(terminalFrameSource.lastIndexOf('<form')).toBeGreaterThan(
+      terminalFrameSource.lastIndexOf("classes('terminal-interaction-output'"),
     )
-    expect(terminalCss).toMatch(/\.terminal\s*{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto;/)
+    expect(terminalFrameCss).toMatch(/\.terminal-interaction-frame\s*{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto;/)
+    expect(terminalCss).not.toContain('72px')
   })
 
   it('keeps viewport manipulation out of Terminal', () => {

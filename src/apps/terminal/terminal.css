@@ -1,19 +1,10 @@
 .terminal {
-  min-height: 0;
   padding: clamp(18px, 4vw, 42px);
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  overflow: hidden;
   font-size: .84rem;
   line-height: 1.65;
 }
 
 .terminal-output {
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  touch-action: pan-y pinch-zoom;
   overflow-wrap: anywhere;
   -webkit-overflow-scrolling: touch;
   scrollbar-color: #344139 transparent;
@@ -190,10 +181,6 @@
     padding: 14px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
     font-size: .78rem;
     line-height: 1.55;
-  }
-
-  .os-shell[data-editing="true"][data-standalone="false"] .terminal {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
   .terminal-entry {

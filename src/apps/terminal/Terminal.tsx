@@ -12,6 +12,7 @@ import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
 import { useTerminalInteraction } from '../terminalInteraction/useTerminalInteraction'
+import { TerminalInteractionFrame } from '../terminalInteraction/TerminalInteractionFrame'
 
 type CompletedProjection =
   | { kind: 'service_analysis'; label: string; endpoint: string; result: 'weaknesses_detected'; vulnerabilityLabels: readonly string[] }
@@ -264,13 +265,18 @@ export function Terminal() {
   })
 
   return (
-    <section className="terminal" aria-label="Terminal">
-      <div
-        className="terminal-output"
-        data-editing-scroll-owner
-        ref={interaction.outputRef}
-        onScroll={interaction.onOutputScroll}
-      >
+    <TerminalInteractionFrame
+      interaction={interaction}
+      className="terminal"
+      outputClassName="terminal-output"
+      formClassName="terminal-input"
+      promptClassName="prompt"
+      inputId="command-input"
+      ariaLabel="Terminal"
+      inputAriaLabel="Command input"
+      prompt="user@node:~$"
+      inputPrefix={<span className="terminal-cursor" aria-hidden="true">▌</span>}
+    >
         <p className="muted">{gameState.player.localDevice.firmware.name} terminal · Type <strong>help</strong> to begin.</p>
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
@@ -294,26 +300,6 @@ export function Terminal() {
       ))}
           </div>
         ))}
-      </div>
-<form className="terminal-input" onSubmit={interaction.onSubmit}>
-  <label className="prompt" htmlFor="command-input">user@node:~$</label>
-  <span className="terminal-cursor" aria-hidden="true">▌</span>
-  <input
-          id="command-input"
-          ref={interaction.inputRef}
-          value={interaction.input}
-          onChange={(event) => interaction.setInput(event.target.value)}
-          onKeyDown={interaction.onKeyDown}
-          onCompositionStart={interaction.onCompositionStart}
-          onCompositionEnd={interaction.onCompositionEnd}
-          autoCapitalize="none"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="send"
-          aria-label="Command input"
-        />
-      </form>
-    </section>
+    </TerminalInteractionFrame>
   )
 }

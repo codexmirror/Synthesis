@@ -101,3 +101,5 @@ export function useTerminalInteraction({ dispatch, onDispatchFailure, outputVers
     },
   }
 }
+
+export type TerminalInteraction = ReturnType<typeof useTerminalInteraction>
