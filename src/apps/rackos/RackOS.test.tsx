@@ -30,6 +30,16 @@ function connectedState(): GameState {
 }
 
 describe('RACK-OS', () => {
+  it('uses shared history with its real output as the editing scroll owner', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    const input = screen.getByLabelText('Remote command')
+    const output = document.querySelector('.rack-output')
+    expect(output).toHaveAttribute('data-editing-scroll-owner')
+    await user.type(input, 'ip{enter}dra{ArrowUp}{ArrowDown}')
+    expect(input).toHaveValue('dra')
+  })
+
   it('presents live canonical identity, authority, access path, and one filesystem through Files and Terminal', async () => {
     const user = userEvent.setup(); const initial = connectedState(); const discoveryBefore = initial.discovery; const knowledgeBefore = initial.knowledge
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)

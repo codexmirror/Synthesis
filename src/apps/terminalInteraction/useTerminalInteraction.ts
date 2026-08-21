@@ -50,6 +50,11 @@ export function useTerminalInteraction({ dispatch, onDispatchFailure, outputVers
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    const isComposing = composingRef.current || event.nativeEvent.isComposing || event.keyCode === 229
+    if (isComposing) {
+      if (event.key === 'Enter') event.preventDefault()
+      return
+    }
     if (event.key === 'ArrowUp') { event.preventDefault(); navigateHistory(-1) }
     if (event.key === 'ArrowDown') { event.preventDefault(); navigateHistory(1) }
   }
