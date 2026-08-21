@@ -101,13 +101,15 @@ export interface FilesystemState {
 
 export interface NodeScanInstallation {
   readonly id: 'nodescan'
-  readonly name: 'NodeScan'
+  readonly releaseId: string
+  readonly name: string
   readonly version: string
   readonly channel: string
 }
 
 export interface BasicCredentialToolkitInstallation {
   readonly id: 'basic-credential-toolkit'
+  readonly releaseId: string
   readonly name: 'Basic Credential Toolkit'
   readonly version: string
 }

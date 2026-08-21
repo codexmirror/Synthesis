@@ -4,6 +4,7 @@ import type { StartCredentialAccessResult } from '../../core/game/credentialAcce
 import type { ListDirectoryResult, ReadTextFileResult } from '../../core/game/filesystem'
 import type { ConnectRemoteResult, DisconnectRemoteResult } from '../../core/game/remoteSession'
 import type { InstalledSoftware } from '../../core/game/types'
+import type { InstallLocalSoftwarePackageResult } from '../../core/game/softwareInstallation'
 
 type WithoutState<T> = T extends { state: unknown } ? Omit<T, 'state'> : T
 export type TerminalAttackResult = WithoutState<StartCredentialAccessResult>
@@ -30,6 +31,7 @@ export interface CommandContext {
     readonly attackEndpoint: (endpoint: string) => TerminalAttackResult
     readonly connectAddress: (address: string) => Omit<ConnectRemoteResult, 'state'> | { status: 'target_not_known' }
     readonly disconnectRemote: () => Omit<DisconnectRemoteResult, 'state'>
+    readonly installLocalSoftwarePackage: (path: string) => WithoutState<InstallLocalSoftwarePackageResult>
   }
 }
 

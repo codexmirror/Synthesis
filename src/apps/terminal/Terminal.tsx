@@ -237,6 +237,10 @@ export function Terminal() {
             const { state: _state, ...result } = actions.disconnectRemoteSession()
             return result
           },
+          installLocalSoftwarePackage: (path) => {
+            const { state: _state, ...result } = actions.installLocalSoftwarePackage(path)
+            return result
+          },
         },
       })
 

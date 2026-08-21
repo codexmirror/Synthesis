@@ -31,6 +31,8 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     startCredentialAccessAttemptFromObservation: () => ({ status: 'not_available', state }),
     connectRemoteFromObservation: () => ({ status: 'access_required', state }),
     disconnectRemoteSession: () => ({ status: 'not_connected', state }),
+    downloadRemoteFile: vi.fn(),
+    installLocalSoftwarePackage: vi.fn(),
     clearCompletedProcesses: () => {},
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
@@ -136,7 +138,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), clearCompletedProcesses: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), downloadRemoteFile: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
@@ -189,6 +191,27 @@ describe('Terminal remote session', () => {
     render(<GameProvider><Terminal /></GameProvider>)
     await userEvent.setup().type(screen.getByLabelText('Command input'), 'connect 198.51.100.47{enter}')
     expect(await screen.findByText('TARGET NOT KNOWN')).toBeInTheDocument()
+  })
+})
+
+describe('Terminal local installation', () => {
+  it('installs through GameActions, reports the represented release, and updates Help without exposing Inspect', async () => {
+    const base = createInitialGameState()
+    const packageFile = { kind: 'software_package' as const, path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { files: [...base.player.localDevice.filesystem.files, packageFile] } } } }
+    render(<GameProvider initialState={state}><Terminal /><StateControls /></GameProvider>)
+    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+    await user.type(input, `install ${packageFile.path}{enter}`)
+    expect(screen.getByText('INSTALLED')).toBeInTheDocument()
+    expect(screen.getByText('NodeScan 1.1 Experimental')).toBeInTheDocument()
+    await user.type(input, 'help{enter}')
+    expect(screen.getByText('NODESCAN 1.1 EXPERIMENTAL')).toBeInTheDocument()
+    expect(screen.getByText('install — <local-absolute-file-path> Install a local software package')).toBeInTheDocument()
+    expect(screen.queryByText(/inspect —/i)).not.toBeInTheDocument()
+    await user.type(input, `install ${packageFile.path}{enter}`)
+    expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
+    const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
+    expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }, { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0' }])
   })
 })
 
