@@ -86,7 +86,7 @@ export interface TextFile {
 export interface SoftwarePackageFile {
   readonly kind: 'software_package'
   readonly path: string
-  readonly packageId: string
+  readonly releaseId: string
   readonly productId: string
   readonly name: string
   readonly version: string

@@ -22,13 +22,18 @@ describe('filesystem reads', () => {
 
   it('resolves represented files and reads only explicitly discriminated text', () => {
     const files = { files: [
-      { kind: 'software_package' as const, path: '/release', packageId: 'package-1', productId: 'product-1', name: 'Altered', version: '9.2', channel: 'preview' },
+      { kind: 'software_package' as const, path: '/remote/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+      { kind: 'software_package' as const, path: '/local/nodescan-copy.txt', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' },
       { kind: 'text' as const, path: '/readable.pkg', content: 'Still text.' },
     ] }
-    expect(getFilesystemFile(files, '/release')).toEqual({ status: 'ok', file: files.files[0] })
+    expect(getFilesystemFile(files, '/remote/nodescan.pkg')).toEqual({ status: 'ok', file: files.files[0] })
+    expect(getFilesystemFile(files, '/local/nodescan-copy.txt')).toEqual({ status: 'ok', file: files.files[1] })
+    expect(files.files[0].releaseId).toBe(files.files[1].releaseId)
     expect(getFilesystemFile(files, '/')).toEqual({ status: 'not_file' })
     expect(getFilesystemFile(files, 'release')).toEqual({ status: 'invalid_path' })
-    expect(readTextFile(files, '/release')).toEqual({ status: 'not_text_file' })
+    expect(readTextFile(files, '/missing')).toEqual({ status: 'not_found' })
+    expect(readTextFile(files, '/local')).toEqual({ status: 'not_file' })
+    expect(readTextFile(files, '/local/nodescan-copy.txt')).toEqual({ status: 'not_text_file' })
     expect(readTextFile(files, '/readable.pkg')).toEqual({ status: 'ok', content: 'Still text.' })
   })
 })

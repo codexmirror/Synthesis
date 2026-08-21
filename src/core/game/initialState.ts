@@ -53,7 +53,7 @@ export function createInitialGameState(): GameState {
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
             filesystem: { files: [
               { kind: 'text', path: '/srv/readme.txt', content: 'Service workspace.' },
-              { kind: 'software_package', path: '/opt/packages/nodescan-exp-1.1.pkg', packageId: 'nodescan-exp-1.1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+              { kind: 'software_package', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' },
             ] },
             services: [
               { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },

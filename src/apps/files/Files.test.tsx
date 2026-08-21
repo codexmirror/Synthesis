@@ -42,7 +42,7 @@ describe('Files', () => {
 
   it('renders supplied package metadata by kind without exposing an install or transfer action', async () => {
     const state = createInitialGameState()
-    const packageFile = { kind: 'software_package' as const, path: '/home/user/release.bin', packageId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing' }
+    const packageFile = { kind: 'software_package' as const, path: '/home/user/release.bin', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing' }
     const initialState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { files: [packageFile] } } } }
     render(<GameProvider initialState={initialState}><Files /><Terminal /></GameProvider>)
 
@@ -51,6 +51,7 @@ describe('Files', () => {
     expect(screen.getByText('SOFTWARE PACKAGE')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Canonical Scanner' })).toBeInTheDocument()
     expect(screen.getByText('4.2 Testing')).toBeInTheDocument()
+    expect(screen.getByText('RELEASE')).toBeInTheDocument()
     expect(screen.getByText('altered-release')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /install|download|run/i })).not.toBeInTheDocument()
 

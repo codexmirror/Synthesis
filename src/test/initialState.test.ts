@@ -57,7 +57,7 @@ describe('createInitialGameState', () => {
       {
         id: 'host-lan-001', displayName: 'srv-01', ip: '198.51.100.47', online: true, role: 'server',
         firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
-        filesystem: { files: [{ kind: 'text', path: '/srv/readme.txt', content: 'Service workspace.' }, { kind: 'software_package', path: '/opt/packages/nodescan-exp-1.1.pkg', packageId: 'nodescan-exp-1.1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }] },
+        filesystem: { files: [{ kind: 'text', path: '/srv/readme.txt', content: 'Service workspace.' }, { kind: 'software_package', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }] },
         services: [
           { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
           { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
@@ -79,7 +79,7 @@ describe('createInitialGameState', () => {
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')
 
     expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server' })
-    expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { files: [{ kind: 'text', path: '/srv/readme.txt', content: 'Service workspace.' }, { kind: 'software_package', path: '/opt/packages/nodescan-exp-1.1.pkg', packageId: 'nodescan-exp-1.1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } })
+    expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { files: [{ kind: 'text', path: '/srv/readme.txt', content: 'Service workspace.' }, { kind: 'software_package', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } })
     expect(state.world.network.hosts.slice(1).every((host) => !host.displayName && !host.firmware && !host.filesystem)).toBe(true)
     expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
     expect(server?.services).toEqual([

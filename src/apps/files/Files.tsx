@@ -17,7 +17,7 @@ export function Files() {
     <button className="file-back" type="button" onClick={() => setSelectedFile(undefined)}>Back to {path}</button>
     {selected?.status === 'ok' ? selected.file.kind === 'text'
       ? <><p className="eyebrow">TEXT</p><pre className="file-content">{selected.file.content}</pre></>
-      : <div className="file-package"><p className="eyebrow">SOFTWARE PACKAGE</p><h2>{selected.file.name}</h2><p>{selected.file.version} {titleCase(selected.file.channel)}</p><dl><dt>PACKAGE</dt><dd>{selected.file.packageId}</dd><dt>PATH</dt><dd>{selected.file.path}</dd></dl></div>
+      : <div className="file-package"><p className="eyebrow">SOFTWARE PACKAGE</p><h2>{selected.file.name}</h2><p>{selected.file.version} {titleCase(selected.file.channel)}</p><dl><dt>RELEASE</dt><dd>{selected.file.releaseId}</dd><dt>PATH</dt><dd>{selected.file.path}</dd></dl></div>
       : <p className="muted">FILE NOT FOUND</p>}
   </section>
 

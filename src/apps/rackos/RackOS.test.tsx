@@ -56,7 +56,7 @@ describe('RACK-OS', () => {
   it('navigates and presents canonical package metadata while cat rejects the artifact', async () => {
     const initial = connectedState()
     const host = initial.world.network.hosts[0]
-    const packageFile = { kind: 'software_package' as const, path: '/opt/packages/scanner.release', packageId: 'canonical-package', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly' }
+    const packageFile = { kind: 'software_package' as const, path: '/opt/packages/scanner.release', releaseId: 'canonical-package', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly' }
     const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={state}><Shell /></GameProvider>)
     const user = userEvent.setup()
@@ -70,6 +70,7 @@ describe('RACK-OS', () => {
     expect(document.body).toHaveTextContent('SOFTWARE PACKAGE')
     expect(screen.getByRole('heading', { name: 'Altered NodeScan' })).toBeInTheDocument()
     expect(document.body).toHaveTextContent('8.7 Nightly')
+    expect(document.body).toHaveTextContent('RELEASE')
     expect(document.body).toHaveTextContent('canonical-package')
     expect(screen.queryByRole('button', { name: /install|download|run/i })).not.toBeInTheDocument()
     expect(state.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })
