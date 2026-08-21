@@ -9,6 +9,7 @@ export const analyzeCommand: TerminalCommand = {
     const status = result.status
     if (status === 'invalid_endpoint') return { type: 'output', lines: ['Usage: analyze <ipv4:port>'] }
     if (status === 'endpoint_not_found') return { type: 'output', lines: [`Endpoint not represented: ${endpoint}`] }
+    if (status === 'software_unavailable') return { type: 'output', lines: ['NODESCAN NOT INSTALLED'] }
     if (status === 'unavailable') return { type: 'output', lines: ['SERVICE UNAVAILABLE'] }
     if (status === 'already_running') return { type: 'output', lines: ['ANALYSIS ALREADY RUNNING'] }
     if (status === 'insufficient_memory') return { type: 'output', lines: ['INSUFFICIENT MEMORY'] }

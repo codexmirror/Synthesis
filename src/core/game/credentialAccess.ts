@@ -1,6 +1,7 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
+import { findInstalledBasicCredentialToolkit } from './software'
 
 export const BASIC_CREDENTIAL_TOOLKIT_ID = 'basic-credential-toolkit' as const
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
@@ -18,7 +19,7 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const tool = state.player.localDevice.tools.some(({ id }) => id === observed.toolId)
+  const tool = Boolean(findInstalledBasicCredentialToolkit(state.player.localDevice))
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   return Boolean(service && known && tool && !accessed)
 }

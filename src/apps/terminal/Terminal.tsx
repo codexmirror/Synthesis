@@ -153,7 +153,7 @@ export function Terminal() {
 
     try {
       const dispatched = dispatchCommand(parsedCommand, {
-        localDevice: { ip: gameState.player.localDevice.network.ip },
+        localDevice: { ip: gameState.player.localDevice.network.ip, installedSoftware: gameState.player.localDevice.installedSoftware },
         filesystem: {
           list: (path) => listDirectory(gameState.player.localDevice.filesystem, path),
           readText: (path) => readTextFile(gameState.player.localDevice.filesystem, path),

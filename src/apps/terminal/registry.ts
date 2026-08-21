@@ -17,11 +17,15 @@ function commandEntries(names: readonly string[]): [string, TerminalCommand][] {
 }
 
 export const commands: Record<string, TerminalCommand> = {
-  help: createHelpCommand(() => [
-    { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'connect', 'disconnect']) },
-    { heading: 'NODESCAN', commands: commandEntries(['scan', 'analyze']) },
-    { heading: 'BASIC CREDENTIAL TOOLKIT', commands: [['attack', commands.attack]] },
-  ]),
+  help: createHelpCommand(({ localDevice }) => {
+    const nodeScan = localDevice.installedSoftware.find(({ id }) => id === 'nodescan')
+    const toolkit = localDevice.installedSoftware.find(({ id }) => id === 'basic-credential-toolkit')
+    return [
+      { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'connect', 'disconnect']) },
+      ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version} ${nodeScan.channel.toUpperCase()}`, commands: commandEntries(['scan', 'analyze']) }] : []),
+      ...(toolkit ? [{ heading: `${toolkit.name.toUpperCase()} ${toolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
+    ]
+  }),
   clear: clearCommand,
   ip: ipCommand,
   status: statusCommand,

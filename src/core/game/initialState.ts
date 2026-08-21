@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 13
+export const GAME_STATE_VERSION = 14
 
 export function createInitialGameState(): GameState {
   return {
@@ -24,7 +24,10 @@ export function createInitialGameState(): GameState {
           baselineRamUsage: 23,
           networkStatus: 'ONLINE',
         },
-        tools: [{ id: 'basic-credential-toolkit', name: 'Basic Credential Toolkit' }],
+        installedSoftware: [
+          { id: 'nodescan', name: 'NodeScan', version: '1.0', channel: 'standard' },
+          { id: 'basic-credential-toolkit', name: 'Basic Credential Toolkit', version: '1.0' },
+        ],
       },
     },
     wallet: {

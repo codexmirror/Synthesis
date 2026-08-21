@@ -6,13 +6,16 @@ import { clearCompletedProcesses as clearCompletedProcessState } from '../core/g
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
+import { findInstalledNodeScan } from '../core/game/software'
 
 const GameContext = createContext<GameState | null>(null)
+export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
+export type NodeScanEndpointAnalysisResult = EndpointAnalysisResult | { status: 'software_unavailable'; state: GameState }
 export interface GameActions {
   scanTarget: ScanTargetOperation
-  startServiceAnalysis(targetDeviceId: string, serviceId: string): StartServiceAnalysisResult
-  startServiceAnalysisAtEndpoint(endpoint: string): EndpointAnalysisResult
-  startServiceAnalysisFromObservation(observed: ObservedServiceTarget): EndpointAnalysisResult
+  startServiceAnalysis(targetDeviceId: string, serviceId: string): NodeScanStartServiceAnalysisResult
+  startServiceAnalysisAtEndpoint(endpoint: string): NodeScanEndpointAnalysisResult
+  startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
@@ -41,6 +44,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, [])
   const actions: GameActions = { scanTarget, startServiceAnalysis(targetDeviceId, serviceId) {
     const state = currentState.current
+    if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
     const result = startServiceAnalysis(state, targetDeviceId, serviceId)
     if (result.status === 'started') {
       const nextState = result.state
@@ -50,6 +54,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, startServiceAnalysisAtEndpoint(endpoint) {
     const state = currentState.current
+    if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
     const result = startServiceAnalysisAtEndpoint(state, endpoint)
     if (result.status === 'started') {
       currentState.current = result.state
@@ -58,6 +63,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, startServiceAnalysisFromObservation(observed) {
     const state = currentState.current
+    if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
     const result = startServiceAnalysisFromObservation(state, observed)
     if (result.status === 'started') {
       currentState.current = result.state
