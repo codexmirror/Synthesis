@@ -1,5 +1,5 @@
 import './terminal.css'
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
@@ -11,12 +11,7 @@ import { deriveResourceUsage } from '../../core/game/processes'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
-
-const SCAN_MIN_DISPLAY_MS = 320
-
-function waitForPresentation(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+import { useTerminalInteraction } from '../terminalInteraction/useTerminalInteraction'
 
 type CompletedProjection =
   | { kind: 'service_analysis'; label: string; endpoint: string; result: 'weaknesses_detected'; vulnerabilityLabels: readonly string[] }
@@ -98,14 +93,6 @@ export function Terminal() {
   const actions = useGameActions()
   const usage = deriveResourceUsage(gameState.player.localDevice.hardware, gameState.player.localDevice.runtime, gameState.process)
   const [entries, setEntries] = useState<Entry[]>([])
-  const [input, setInput] = useState('')
-  const [history, setHistory] = useState<string[]>([])
-  const [historyIndex, setHistoryIndex] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const outputRef = useRef<HTMLDivElement>(null)
-  const submitting = useRef(false)
-
-  useEffect(() => { const output = outputRef.current; if (output) output.scrollTop = output.scrollHeight }, [entries])
 
   useEffect(() => {
     setEntries((current) => {
@@ -133,25 +120,8 @@ export function Terminal() {
     })
   }, [gameState.process.processes, gameState.deviceAccess.established])
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (submitting.current) return
-
-    const command = input.trim()
-    if (!command) return
-
+  async function dispatch(command: string) {
     const parsedCommand = parseCommand(command)
-
-    submitting.current = true
-    setInput('')
-    setHistory((current) => {
-      const next = [...current, command]
-      setHistoryIndex(next.length)
-      return next
-    })
-    inputRef.current?.focus({ preventScroll: true })
-
-    try {
       const dispatched = dispatchCommand(parsedCommand, {
         localDevice: { ip: gameState.player.localDevice.network.ip, installedSoftware: gameState.player.localDevice.installedSoftware },
         filesystem: {
@@ -258,12 +228,7 @@ export function Terminal() {
         ])
       }
 
-      const result = pendingScan
-        ? await Promise.all([
-            dispatched,
-            waitForPresentation(SCAN_MIN_DISPLAY_MS),
-          ]).then(([resolved]) => resolved)
-        : await dispatched
+      const result = await dispatched
 
       const commitEntry = (nextEntry: Entry) => {
         setEntries((current) => {
@@ -284,45 +249,27 @@ export function Terminal() {
       } else {
         commitEntry({ command, output: result.lines })
       }
-    } catch {
-      const failure: Entry = {
-        command,
-        output: ['COMMAND FAILED'],
-      }
+  }
 
+  const interaction = useTerminalInteraction({
+    dispatch,
+    outputVersion: entries,
+    onDispatchFailure: (command) => {
       setEntries((current) => {
-        const pendingIndex = current.findIndex(
-          (entry) =>
-            'pendingScanTarget' in entry &&
-            entry.command === command,
-        )
-
-        if (pendingIndex === -1) {
-          return [...current, failure]
-        }
-
-        return current.map((entry, index) =>
-          index === pendingIndex ? failure : entry,
-        )
+        const pendingIndex = current.findIndex((entry) => 'pendingScanTarget' in entry)
+        const failure: Entry = { command, output: ['COMMAND FAILED'] }
+        return pendingIndex < 0 ? [...current, failure] : current.map((entry, index) => index === pendingIndex ? failure : entry)
       })
-    } finally {
-      submitting.current = false
-    }
-  }
-
-  function navigateHistory(direction: -1 | 1) {
-    const next = Math.max(0, Math.min(history.length, historyIndex + direction))
-    setHistoryIndex(next)
-    setInput(next === history.length ? '' : history[next])
-  }
+    },
+  })
 
   return (
     <section className="terminal" aria-label="Terminal">
       <div
         className="terminal-output"
-        aria-live="polite"
         data-editing-scroll-owner
-        ref={outputRef}
+        ref={interaction.outputRef}
+        onScroll={interaction.onOutputScroll}
       >
         <p className="muted">{gameState.player.localDevice.firmware.name} terminal · Type <strong>help</strong> to begin.</p>
         {entries.map((entry, index) => (
@@ -348,18 +295,17 @@ export function Terminal() {
           </div>
         ))}
       </div>
-<form className="terminal-input" onSubmit={submit}>
+<form className="terminal-input" onSubmit={interaction.onSubmit}>
   <label className="prompt" htmlFor="command-input">user@node:~$</label>
   <span className="terminal-cursor" aria-hidden="true">▌</span>
   <input
           id="command-input"
-          ref={inputRef}
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowUp') { event.preventDefault(); navigateHistory(-1) }
-            if (event.key === 'ArrowDown') { event.preventDefault(); navigateHistory(1) }
-          }}
+          ref={interaction.inputRef}
+          value={interaction.input}
+          onChange={(event) => interaction.setInput(event.target.value)}
+          onKeyDown={interaction.onKeyDown}
+          onCompositionStart={interaction.onCompositionStart}
+          onCompositionEnd={interaction.onCompositionEnd}
           autoCapitalize="none"
           autoComplete="off"
           autoCorrect="off"

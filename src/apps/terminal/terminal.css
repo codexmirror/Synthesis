@@ -12,8 +12,8 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior-y: none;
-  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y pinch-zoom;
   overflow-wrap: anywhere;
   -webkit-overflow-scrolling: touch;
   scrollbar-color: #344139 transparent;

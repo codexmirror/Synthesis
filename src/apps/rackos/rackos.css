@@ -9,7 +9,7 @@
 .rack-nav button { padding: 13px 4px; border: 0; border-right: 1px solid #394246; background: #151b1e; color: #879398; font: 700 .68rem ui-monospace, monospace; letter-spacing: .1em; }
 .rack-nav button[aria-current] { color: #edf3f4; background: #20282b; }
 .rack-body,.rack-terminal { min-height: 0; overflow: hidden; }.rack-terminal { height: 100%; display: grid; grid-template-rows: minmax(0,1fr) auto; padding: 16px; }
-.rack-output { overflow: auto; white-space: pre-wrap; font-size: .78rem; line-height: 1.7; }.rack-command { color: #9eabad; margin-top: 8px; }
+.rack-output { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; white-space: pre-wrap; font-size: .78rem; line-height: 1.7; }.rack-command { color: #9eabad; margin-top: 8px; }
 .rack-terminal form { border-top: 1px solid #394246; padding: 12px 0 max(0px, env(safe-area-inset-bottom)); }.rack-terminal label { display: flex; gap: 8px; align-items: center; font-size: .76rem; white-space: nowrap; }
 .rack-terminal input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #fff; font: inherit; }
 .rack-files { padding: 18px; display: grid; align-content: start; gap: 10px; }.rack-files p { letter-spacing: .12em; }.rack-files button { padding: 10px; text-align: left; border: 1px solid #394246; background: transparent; color: inherit; font: inherit; }.rack-files pre { white-space: pre-wrap; }

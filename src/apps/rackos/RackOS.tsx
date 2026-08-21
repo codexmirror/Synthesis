@@ -1,10 +1,11 @@
 import './rackos.css'
-import { type FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { getFilesystemFile, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
 import { deriveDownloadDestinationPath } from '../../core/game/remoteDownload'
 import { runRemoteCommand } from './remoteCommands'
+import { useTerminalInteraction } from '../terminalInteraction/useTerminalInteraction'
 
 type Section = 'terminal' | 'files' | 'system'
 
@@ -34,15 +35,17 @@ export function RackOS({ context }: { context: ActiveRemoteTarget }) {
 }
 
 function RemoteTerminal({ context, onDisconnect, downloadRemoteFile }: { context: ActiveRemoteTarget; onDisconnect(): void; downloadRemoteFile: ReturnType<typeof useGameActions>['downloadRemoteFile'] }) {
-  const [input, setInput] = useState('')
   const [lines, setLines] = useState<readonly { command: string; output: readonly string[] }[]>([])
-  function submit(event: FormEvent) {
-    event.preventDefault(); const command = input.trim(); if (!command) return
-    const result = runRemoteCommand(context, command, downloadRemoteFile); setInput('')
-    if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
-    if (result.disconnect) onDisconnect()
-  }
-  return <div className="rack-terminal"><div className="rack-output" aria-live="polite">{lines.map((line, index) => <div key={index}><div className="rack-command">{context.target.displayName} [{context.access.privilege}] &gt; {line.command}</div>{line.output.map((value, outputIndex) => <div key={outputIndex}>{value}</div>)}</div>)}</div><form onSubmit={submit}><label><span>{context.target.displayName} [{context.access.privilege}] &gt;</span><input aria-label="Remote command" autoCapitalize="none" autoComplete="off" value={input} onChange={(event) => setInput(event.target.value)} /></label></form></div>
+  const interaction = useTerminalInteraction({
+    outputVersion: lines,
+    onDispatchFailure: (command) => setLines((current) => [...current, { command, output: ['COMMAND FAILED'] }]),
+    dispatch: (command) => {
+      const result = runRemoteCommand(context, command, downloadRemoteFile)
+      if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
+      if (result.disconnect) onDisconnect()
+    },
+  })
+  return <div className="rack-terminal"><div className="rack-output" data-editing-scroll-owner ref={interaction.outputRef} onScroll={interaction.onOutputScroll}>{lines.map((line, index) => <div key={index}><div className="rack-command">{context.target.displayName} [{context.access.privilege}] &gt; {line.command}</div>{line.output.map((value, outputIndex) => <div key={outputIndex}>{value}</div>)}</div>)}</div><form onSubmit={interaction.onSubmit}><label><span>{context.target.displayName} [{context.access.privilege}] &gt;</span><input ref={interaction.inputRef} aria-label="Remote command" autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="send" value={interaction.input} onChange={(event) => interaction.setInput(event.target.value)} onKeyDown={interaction.onKeyDown} onCompositionStart={interaction.onCompositionStart} onCompositionEnd={interaction.onCompositionEnd} /></label></form></div>
 }
 
 function RemoteFiles({ filesystem, downloadRemoteFile }: { filesystem: ActiveRemoteTarget['target']['filesystem']; downloadRemoteFile: ReturnType<typeof useGameActions>['downloadRemoteFile'] }) {
