@@ -97,19 +97,46 @@ describe('RACK-OS', () => {
     expect(document.body).toHaveTextContent('Foreign canonical proof.')
   })
 
-  it('downloads through remote Files with restrained duplicate feedback and the same local truth', async () => {
+  it('derives graphical Download, successful, and reopened states from canonical local truth', async () => {
     const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'FILES' }))
     await user.click(screen.getByRole('button', { name: 'DIR srv' }))
     await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
-    expect(screen.getByRole('status')).toHaveTextContent('DOWNLOADED · /home/user/downloads/proof.txt')
-    await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
-    expect(screen.getByRole('status')).toHaveTextContent('DESTINATION ALREADY EXISTS')
+    expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('LOCAL COPY/home/user/downloads/proof.txt')
+    expect(screen.queryByRole('button', { name: 'DOWNLOAD' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← /srv' }))
+    await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/proof.txt')
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     await user.click(screen.getByRole('button', { name: 'Open Files' }))
     await user.click(screen.getByRole('button', { name: 'downloads' }))
     expect(screen.getByRole('button', { name: 'proof.txt' })).toBeInTheDocument()
+  })
+
+  it('shows a truthful collision and no action for a different artifact at the destination', async () => {
+    const initial = connectedState()
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, { kind: 'text' as const, path: '/home/user/downloads/proof.txt', content: 'Different artifact.' }] } } } }
+    const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR srv' }))
+    await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
+    expect(screen.getByRole('status')).toHaveTextContent('LOCAL DESTINATION OCCUPIED')
+    expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/proof.txt')
+    expect(screen.queryByRole('button', { name: /DOWNLOAD/ })).not.toBeInTheDocument()
+  })
+
+  it('derives an existing package copy by full canonical metadata, not its filename', async () => {
+    const initial = connectedState(); const host = initial.world.network.hosts[0]
+    const packageFile = { kind: 'software_package' as const, path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, { ...packageFile, path: '/home/user/downloads/weird.txt' }] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR opt' })); await user.click(screen.getByRole('button', { name: 'FILE weird.txt' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/weird.txt')
   })
 
   it('preserves the same Scan Device detail across CONNECT and DISCONNECT', async () => {

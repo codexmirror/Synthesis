@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { copyFilesystemFileToPath, getFilesystemFile, listDirectory, readTextFile } from './filesystem'
+import { copyFilesystemFileToPath, getFilesystemFile, listDirectory, readTextFile, sameFilesystemArtifactIgnoringPath } from './filesystem'
 
 const filesystem = createInitialGameState().player.localDevice.filesystem
 
@@ -59,5 +59,23 @@ describe('filesystem copies', () => {
     const blocked = { files: [{ kind: 'text' as const, path: '/home/user/downloads', content: 'block' }] }
     expect(copyFilesystemFileToPath(source, blocked, '/home/user/downloads/file')).toEqual({ status: 'destination_conflict' })
     expect(existing.files).toHaveLength(1); expect(blocked.files).toHaveLength(1)
+  })
+})
+
+describe('filesystem artifact sameness', () => {
+  const text = { kind: 'text' as const, path: '/remote/file.pkg', content: 'same content' }
+  const packageFile = { kind: 'software_package' as const, path: '/remote/file.txt', releaseId: 'release-1', productId: 'tool', name: 'Tool', version: '1.2', channel: 'test' }
+
+  it('compares text content regardless of path or extension', () => {
+    expect(sameFilesystemArtifactIgnoringPath(text, { ...text, path: '/local/copy.pkg' })).toBe(true)
+    expect(sameFilesystemArtifactIgnoringPath(text, { ...text, path: '/local/copy.pkg', content: 'different' })).toBe(false)
+    expect(sameFilesystemArtifactIgnoringPath(text, packageFile)).toBe(false)
+  })
+
+  it('compares every represented package field regardless of path or extension', () => {
+    expect(sameFilesystemArtifactIgnoringPath(packageFile, { ...packageFile, path: '/local/copy.txt' })).toBe(true)
+    for (const changed of [
+      { releaseId: 'release-2' }, { productId: 'other' }, { name: 'Other' }, { version: '2.0' }, { channel: 'stable' },
+    ]) expect(sameFilesystemArtifactIgnoringPath(packageFile, { ...packageFile, ...changed })).toBe(false)
   })
 })

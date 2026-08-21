@@ -1,8 +1,9 @@
 import './rackos.css'
 import { type FormEvent, useState } from 'react'
-import { useGameActions } from '../../app/GameContext'
+import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
-import { getFilesystemFile, listDirectory } from '../../core/game/filesystem'
+import { getFilesystemFile, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
+import { deriveDownloadDestinationPath } from '../../core/game/remoteDownload'
 import { runRemoteCommand } from './remoteCommands'
 
 type Section = 'terminal' | 'files' | 'system'
@@ -45,15 +46,25 @@ function RemoteTerminal({ context, onDisconnect, downloadRemoteFile }: { context
 }
 
 function RemoteFiles({ filesystem, downloadRemoteFile }: { filesystem: ActiveRemoteTarget['target']['filesystem']; downloadRemoteFile: ReturnType<typeof useGameActions>['downloadRemoteFile'] }) {
+  const localFilesystem = useGameState().player.localDevice.filesystem
   const [path, setPath] = useState('/'); const [selected, setSelected] = useState<string>()
   const [feedback, setFeedback] = useState<string>()
   const listing = listDirectory(filesystem!, path); const result = selected ? getFilesystemFile(filesystem!, selected) : undefined
+  const destinationPath = result?.status === 'ok' ? deriveDownloadDestinationPath(result.file.path) : undefined
+  const localResult = destinationPath ? getFilesystemFile(localFilesystem, destinationPath) : undefined
+  const downloadState = result?.status !== 'ok' || !localResult
+    ? undefined
+    : localResult.status === 'not_found'
+      ? 'available'
+      : localResult.status === 'ok' && sameFilesystemArtifactIgnoringPath(result.file, localResult.file)
+        ? 'downloaded'
+        : 'occupied'
   function download() {
     if (!selected) return
     const downloadResult = downloadRemoteFile(selected)
-    setFeedback(downloadResult.status === 'downloaded' ? `DOWNLOADED · ${downloadResult.destinationPath}` : downloadResult.status === 'destination_exists' ? 'DESTINATION ALREADY EXISTS' : downloadResult.status.toUpperCase().replaceAll('_', ' '))
+    setFeedback(downloadResult.status === 'downloaded' ? undefined : downloadResult.status === 'destination_exists' ? 'DESTINATION ALREADY EXISTS' : downloadResult.status.toUpperCase().replaceAll('_', ' '))
   }
-  if (selected) return <section className="rack-files"><p>FILES</p><code>{selected}</code><button onClick={() => { setSelected(undefined); setFeedback(undefined) }}>← {path}</button>{result?.status === 'ok' && <><button onClick={download}>DOWNLOAD</button>{feedback && <output>{feedback}</output>}{result.file.kind === 'text' ? <pre>{result.file.content}</pre> : <div><p>SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p>{result.file.version} {titleCase(result.file.channel)}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>}</>}</section>
+  if (selected) return <section className="rack-files"><p>FILES</p><code>{selected}</code><button onClick={() => { setSelected(undefined); setFeedback(undefined) }}>← {path}</button>{result?.status === 'ok' && <>{downloadState === 'available' && <button onClick={download}>DOWNLOAD</button>}{downloadState === 'downloaded' && <div className="rack-download-state" role="status"><button disabled>DOWNLOADED ✓</button><dl><dt>LOCAL COPY</dt><dd>{destinationPath}</dd></dl></div>}{downloadState === 'occupied' && <div className="rack-download-state" role="status"><strong>LOCAL DESTINATION OCCUPIED</strong><code>{destinationPath}</code></div>}{feedback && <output role="status">{feedback}</output>}{result.file.kind === 'text' ? <pre>{result.file.content}</pre> : <div><p>SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p>{result.file.version} {titleCase(result.file.channel)}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>}</>}</section>
   return <section className="rack-files"><p>FILES</p><code>{path}</code>{path !== '/' && <button onClick={() => setPath('/')}>../</button>}{listing.status === 'ok' && listing.entries.map((entry) => <button key={entry.name} onClick={() => entry.type === 'directory' ? setPath(`${path === '/' ? '' : path}/${entry.name}`) : setSelected(`${path === '/' ? '' : path}/${entry.name}`)}>{entry.type === 'directory' ? 'DIR ' : 'FILE '}{entry.name}</button>)}</section>
 }
 

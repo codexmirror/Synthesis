@@ -79,6 +79,20 @@ export function getFilesystemFile(filesystem: FilesystemState, path: string): Ge
   return { status: 'not_found' }
 }
 
+/** Compare the complete represented artifact while deliberately excluding its location. */
+export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: FilesystemFile): boolean {
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'text' && b.kind === 'text') return a.content === b.content
+  if (a.kind === 'software_package' && b.kind === 'software_package') {
+    return a.releaseId === b.releaseId
+      && a.productId === b.productId
+      && a.name === b.name
+      && a.version === b.version
+      && a.channel === b.channel
+  }
+  return false
+}
+
 /** Copy one represented file without deriving its semantics from its path. */
 export function copyFilesystemFileToPath(sourceFile: FilesystemFile, destinationFilesystem: FilesystemState, destinationPath: string): CopyFilesystemFileResult {
   const normalized = normalizeAbsolutePath(destinationPath)
