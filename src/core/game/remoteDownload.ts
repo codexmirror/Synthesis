@@ -6,6 +6,11 @@ export type DownloadRemoteFileResult =
   | { readonly status: 'downloaded'; readonly state: GameState; readonly sourcePath: string; readonly destinationPath: string }
   | { readonly status: 'session_unavailable' | 'invalid_path' | 'source_not_found' | 'source_not_file' | 'destination_exists' | 'destination_conflict'; readonly state: GameState }
 
+export function deriveDownloadDestinationPath(sourcePath: string): string {
+  const basename = sourcePath.slice(sourcePath.lastIndexOf('/') + 1)
+  return `/home/user/downloads/${basename}`
+}
+
 export function downloadRemoteFile(state: GameState, sourcePath: string): DownloadRemoteFileResult {
   const remote = resolveActiveRemoteTarget(state)
   if (!remote) return { status: 'session_unavailable', state }
@@ -15,8 +20,7 @@ export function downloadRemoteFile(state: GameState, sourcePath: string): Downlo
   if (source.status === 'not_found') return { status: 'source_not_found', state }
   if (source.status === 'not_file') return { status: 'source_not_file', state }
 
-  const basename = source.file.path.slice(source.file.path.lastIndexOf('/') + 1)
-  const destinationPath = `/home/user/downloads/${basename}`
+  const destinationPath = deriveDownloadDestinationPath(source.file.path)
   const copied = copyFilesystemFileToPath(source.file, state.player.localDevice.filesystem, destinationPath)
   if (copied.status !== 'copied') return { status: copied.status, state }
 

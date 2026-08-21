@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation } from './remoteSession'
-import { downloadRemoteFile } from './remoteDownload'
+import { deriveDownloadDestinationPath, downloadRemoteFile } from './remoteDownload'
 import type { GameState } from './types'
 
 function connectedState(): GameState {
@@ -12,6 +12,14 @@ function connectedState(): GameState {
 }
 
 describe('remote download', () => {
+  it('shares the exact destination policy used by the canonical operation', () => {
+    expect(deriveDownloadDestinationPath('/opt/packages/nodescan-exp-1.1.pkg')).toBe('/home/user/downloads/nodescan-exp-1.1.pkg')
+    const result = downloadRemoteFile(connectedState(), '/opt/packages/nodescan-exp-1.1.pkg')
+    expect(result.status).toBe('downloaded')
+    if (result.status !== 'downloaded') throw new Error('expected download')
+    expect(result.destinationPath).toBe(deriveDownloadDestinationPath(result.sourcePath))
+  })
+
   it('requires a current resolvable Session and resolves its target by stable access identity', () => {
     const base = createInitialGameState()
     expect(downloadRemoteFile(base, '/srv/readme.txt')).toEqual({ status: 'session_unavailable', state: base })
@@ -44,5 +52,17 @@ describe('remote download', () => {
     if (first.status !== 'downloaded') throw new Error('expected download')
     const duplicate = downloadRemoteFile(first.state, '/srv/readme.txt')
     expect(duplicate).toEqual({ status: 'destination_exists', state: first.state })
+
+    const blockedState = {
+      ...state,
+      player: {
+        ...state.player,
+        localDevice: {
+          ...state.player.localDevice,
+          filesystem: { files: [...state.player.localDevice.filesystem.files, { kind: 'text' as const, path: '/home/user/downloads', content: 'blocking ancestor' }] },
+        },
+      },
+    }
+    expect(downloadRemoteFile(blockedState, '/srv/readme.txt')).toEqual({ status: 'destination_conflict', state: blockedState })
   })
 })
