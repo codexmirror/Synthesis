@@ -7,6 +7,7 @@ export const catCommand: TerminalCommand = {
     const result = filesystem.readText(args[0])
     if (result.status === 'invalid_path') return { type: 'output', lines: ['INVALID PATH'] }
     if (result.status === 'not_file') return { type: 'output', lines: ['NOT A FILE'] }
+    if (result.status === 'not_text_file') return { type: 'output', lines: ['NOT A TEXT FILE'] }
     if (result.status === 'not_found') return { type: 'output', lines: ['FILE NOT FOUND'] }
     return { type: 'output', lines: result.content.split('\n') }
   },

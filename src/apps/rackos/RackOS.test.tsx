@@ -24,7 +24,7 @@ function discoveredAccessState(): GameState {
 function connectedState(): GameState {
   const base = createInitialGameState()
   const host = base.world.network.hosts[0]
-  const altered = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, displayName: 'live-server', ip: '192.0.2.99', firmware: { id: 'firmware-test', name: 'STATE-OS', version: '7.4' }, filesystem: { files: [{ path: '/srv/proof.txt', content: 'Foreign canonical proof.' }] } }, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-test', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-http-001', privilege: 'USER' as const }] } }
+  const altered = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, displayName: 'live-server', ip: '192.0.2.99', firmware: { id: 'firmware-test', name: 'STATE-OS', version: '7.4' }, filesystem: { files: [{ kind: 'text' as const, path: '/srv/proof.txt', content: 'Foreign canonical proof.' }] } }, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-test', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-http-001', privilege: 'USER' as const }] } }
   const connected = connectRemoteFromObservation(altered, { targetDeviceId: host.id, address: '192.0.2.99' }).state
   return { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '198.51.100.47' } } }
 }
@@ -51,6 +51,30 @@ describe('RACK-OS', () => {
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     expect(screen.queryByLabelText('STATE-OS remote operating environment')).not.toBeInTheDocument()
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
+  })
+
+  it('navigates and presents canonical package metadata while cat rejects the artifact', async () => {
+    const initial = connectedState()
+    const host = initial.world.network.hosts[0]
+    const packageFile = { kind: 'software_package' as const, path: '/opt/packages/scanner.release', releaseId: 'canonical-package', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly' }
+    const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText('Remote command'), 'cat /opt/packages/scanner.release{enter}')
+    expect(document.body).toHaveTextContent('NOT A TEXT FILE')
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR opt' }))
+    await user.click(screen.getByRole('button', { name: 'DIR packages' }))
+    await user.click(screen.getByRole('button', { name: 'FILE scanner.release' }))
+    expect(document.body).toHaveTextContent('SOFTWARE PACKAGE')
+    expect(screen.getByRole('heading', { name: 'Altered NodeScan' })).toBeInTheDocument()
+    expect(document.body).toHaveTextContent('8.7 Nightly')
+    expect(document.body).toHaveTextContent('RELEASE')
+    expect(document.body).toHaveTextContent('canonical-package')
+    expect(screen.queryByRole('button', { name: /install|download|run/i })).not.toBeInTheDocument()
+    expect(state.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })
+    expect(state.process.processes).toEqual([])
   })
 
   it('disconnects from the remote Terminal through canonical Session state', async () => {

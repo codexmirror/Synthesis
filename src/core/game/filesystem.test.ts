@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { listDirectory, readTextFile } from './filesystem'
+import { getFilesystemFile, listDirectory, readTextFile } from './filesystem'
 
 const filesystem = createInitialGameState().player.localDevice.filesystem
 
@@ -16,5 +16,24 @@ describe('filesystem reads', () => {
     expect(readTextFile(filesystem, '/home/user/missing.txt')).toEqual({ status: 'not_found' })
     expect(readTextFile(filesystem, '/home/user')).toEqual({ status: 'not_file' })
     expect(readTextFile(filesystem, 'home/user/welcome.txt')).toEqual({ status: 'invalid_path' })
+    expect(listDirectory(createInitialGameState().world.network.hosts[0].filesystem!, '/opt')).toEqual({ status: 'ok', entries: [{ name: 'packages', type: 'directory' }] })
+    expect(listDirectory(createInitialGameState().world.network.hosts[0].filesystem!, '/opt/packages')).toEqual({ status: 'ok', entries: [{ name: 'nodescan-exp-1.1.pkg', type: 'file' }] })
+  })
+
+  it('resolves represented files and reads only explicitly discriminated text', () => {
+    const files = { files: [
+      { kind: 'software_package' as const, path: '/remote/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+      { kind: 'software_package' as const, path: '/local/nodescan-copy.txt', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+      { kind: 'text' as const, path: '/readable.pkg', content: 'Still text.' },
+    ] }
+    expect(getFilesystemFile(files, '/remote/nodescan.pkg')).toEqual({ status: 'ok', file: files.files[0] })
+    expect(getFilesystemFile(files, '/local/nodescan-copy.txt')).toEqual({ status: 'ok', file: files.files[1] })
+    expect(files.files[0].releaseId).toBe(files.files[1].releaseId)
+    expect(getFilesystemFile(files, '/')).toEqual({ status: 'not_file' })
+    expect(getFilesystemFile(files, 'release')).toEqual({ status: 'invalid_path' })
+    expect(readTextFile(files, '/missing')).toEqual({ status: 'not_found' })
+    expect(readTextFile(files, '/local')).toEqual({ status: 'not_file' })
+    expect(readTextFile(files, '/local/nodescan-copy.txt')).toEqual({ status: 'not_text_file' })
+    expect(readTextFile(files, '/readable.pkg')).toEqual({ status: 'ok', content: 'Still text.' })
   })
 })

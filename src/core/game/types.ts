@@ -78,12 +78,25 @@ export interface FirmwareState {
 }
 
 export interface TextFile {
+  readonly kind: 'text'
   readonly path: string
   readonly content: string
 }
 
+export interface SoftwarePackageFile {
+  readonly kind: 'software_package'
+  readonly path: string
+  readonly releaseId: string
+  readonly productId: string
+  readonly name: string
+  readonly version: string
+  readonly channel: string
+}
+
+export type FilesystemFile = TextFile | SoftwarePackageFile
+
 export interface FilesystemState {
-  readonly files: readonly TextFile[]
+  readonly files: readonly FilesystemFile[]
 }
 
 export interface NodeScanInstallation {
