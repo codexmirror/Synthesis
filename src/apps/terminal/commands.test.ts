@@ -113,6 +113,15 @@ describe('command dispatcher', () => {
     expect(analyzeEndpoint).toHaveBeenCalledExactlyOnceWith('198.51.100.47:22')
     expect(result).toEqual({ type: 'process', processId: 'process-9' })
   })
+  it('distinguishes missing NodeScan from an unavailable analysis target', () => {
+    const run = (status: 'software_unavailable' | 'unavailable') => dispatchCommand(parseCommand('analyze 198.51.100.47:22'), {
+      ...context,
+      operations: { ...context.operations, analyzeEndpoint: () => ({ status }) },
+    })
+    expect(run('software_unavailable')).toEqual({ type: 'output', lines: ['NODESCAN NOT INSTALLED'] })
+    expect(run('unavailable')).toEqual({ type: 'output', lines: ['SERVICE UNAVAILABLE'] })
+    expect(JSON.stringify(run('unavailable'))).not.toContain('NODESCAN NOT INSTALLED')
+  })
   it('validates attack targets, delegates once, and maps shared operation results', () => {
     expect(dispatch('attack home-net')).toEqual({ type: 'output', lines: ['Usage: attack <ipv4:port>', 'Attack requires an observed service endpoint.'] })
     expect(dispatch('attack 198.51.100.47')).toEqual({ type: 'output', lines: ['Usage: attack <ipv4:port>', 'Attack requires an observed service endpoint.'] })

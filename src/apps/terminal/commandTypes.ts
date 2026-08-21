@@ -9,7 +9,7 @@ type WithoutState<T> = T extends { state: unknown } ? Omit<T, 'state'> : T
 export type TerminalAttackResult = WithoutState<StartCredentialAccessResult>
 export type TerminalAnalyzeResult =
   | { status: 'started'; processId: string }
-  | { status: 'invalid_endpoint' | 'endpoint_not_found' | 'unavailable' | 'already_running' }
+  | { status: 'invalid_endpoint' | 'endpoint_not_found' | 'software_unavailable' | 'unavailable' | 'already_running' }
   | { status: 'insufficient_memory'; requiredMiB: number; availableMiB: number }
 
 export interface CommandContext {

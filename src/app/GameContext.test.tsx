@@ -32,6 +32,16 @@ describe('GameProvider service-analysis actions', () => {
     const withoutNodeScan: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
     render(<GameProvider initialState={withoutNodeScan}><ActionHarness /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'start' }))
+    expect(document.body.dataset.results).toBe('software_unavailable,software_unavailable')
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '').processes).toEqual([])
+  })
+
+  it('preserves target unavailability when NodeScan is installed', () => {
+    const base = createInitialGameState()
+    const host = base.world.network.hosts[0]
+    const offline: GameState = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, online: false }, ...base.world.network.hosts.slice(1)] } } }
+    render(<GameProvider initialState={offline}><ActionHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'start' }))
     expect(document.body.dataset.results).toBe('unavailable,unavailable')
     expect(JSON.parse(screen.getByRole('status').textContent ?? '').processes).toEqual([])
   })
