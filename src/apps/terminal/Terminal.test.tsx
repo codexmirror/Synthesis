@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as GameContext from '../../app/GameContext'
@@ -42,6 +42,74 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
 }
 
 afterEach(() => vi.restoreAllMocks())
+
+describe('Terminal interaction controller', () => {
+  it('does not autofocus, ignores composed keys, and restores the live history draft', async () => {
+    const scanTarget = vi.fn()
+    const input = renderTerminal(scanTarget)
+    const user = userEvent.setup()
+    expect(input).not.toHaveFocus()
+
+    input.focus()
+    fireEvent.compositionStart(input)
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    fireEvent.keyDown(input, { key: 'ArrowUp', isComposing: true })
+    expect(scanTarget).not.toHaveBeenCalled()
+    fireEvent.compositionEnd(input)
+
+    await user.type(input, 'ip{enter}analy')
+    await user.keyboard('{ArrowUp}')
+    expect(input).toHaveValue('ip')
+    await user.keyboard('{ArrowDown}')
+    expect(input).toHaveValue('analy')
+  })
+
+  it('keeps history after clear and keeps history local to each Terminal instance', async () => {
+    const input = renderTerminal(vi.fn())
+    const user = userEvent.setup()
+    await user.type(input, 'ip{enter}clear{enter}')
+    expect(screen.queryByText('Local address:')).not.toBeInTheDocument()
+    await user.keyboard('{ArrowUp}')
+    expect(input).toHaveValue('clear')
+    await user.keyboard('{ArrowUp}')
+    expect(input).toHaveValue('ip')
+  })
+
+  it('follows newly rendered tail, respects scroll-away, and resumes near the tail or on submit', async () => {
+    const input = renderTerminal(vi.fn())
+    const output = document.querySelector<HTMLElement>('.terminal-output')!
+    let scrollHeight = 100
+    Object.defineProperties(output, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+    })
+    output.scrollTop = 0
+    const user = userEvent.setup()
+
+    scrollHeight = 240
+    await user.type(input, 'ip{enter}')
+    expect(output.scrollTop).toBe(240)
+
+    output.scrollTop = 20
+    fireEvent.scroll(output)
+    scrollHeight = 360
+    await user.type(input, 'help')
+    expect(output.scrollTop).toBe(20)
+
+    output.scrollTop = 250
+    fireEvent.scroll(output)
+    await user.type(input, '{enter}')
+    expect(output.scrollTop).toBe(360)
+
+    output.scrollTop = 0
+    fireEvent.scroll(output)
+    scrollHeight = 480
+    await user.type(input, 'ip{enter}')
+    expect(output.scrollTop).toBe(480)
+    expect(output).toHaveAttribute('data-editing-scroll-owner')
+    expect(output).not.toHaveAttribute('aria-live')
+  })
+})
 
 describe('Terminal asynchronous Scan submission', () => {
   it('clears immediately, stays editable, deduplicates submission, preserves later input and history, and renders one structured result', async () => {
