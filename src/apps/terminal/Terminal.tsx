@@ -178,7 +178,11 @@ export function Terminal() {
     }
   }
 
-  const interaction = useTerminalInteraction(dispatchTerminalCommand, [entries, gameState.process.processes])
+  const interaction = useTerminalInteraction(
+    dispatchTerminalCommand,
+    entries,
+    gameState.process.processes,
+  )
 
   return (
     <section className="terminal" aria-label="Terminal">

@@ -44,19 +44,25 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
 afterEach(() => vi.restoreAllMocks())
 
 describe('Terminal interaction controller', () => {
-  it('does not autofocus, ignores composed keys, and restores the live history draft', async () => {
+  it('does not autofocus, prevents composed Enter submission, and restores the live history draft', async () => {
     const scanTarget = vi.fn()
     const input = renderTerminal(scanTarget)
     const user = userEvent.setup()
     expect(input).not.toHaveFocus()
 
     input.focus()
+    await user.type(input, 'scan home-net')
     fireEvent.compositionStart(input)
-    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    expect(fireEvent.keyDown(input, { key: 'Enter', isComposing: true })).toBe(false)
     fireEvent.keyDown(input, { key: 'ArrowUp', isComposing: true })
-    expect(scanTarget).not.toHaveBeenCalled()
     fireEvent.compositionEnd(input)
+    expect(fireEvent.keyDown(input, { key: 'Enter', isComposing: true })).toBe(false)
+    expect(fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })).toBe(false)
+    await act(async () => {})
+    expect(scanTarget).not.toHaveBeenCalled()
+    expect(document.querySelectorAll('.terminal-entry')).toHaveLength(0)
 
+    await user.clear(input)
     await user.type(input, 'ip{enter}analy')
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('ip')
@@ -64,7 +70,7 @@ describe('Terminal interaction controller', () => {
     expect(input).toHaveValue('analy')
   })
 
-  it('keeps history after clear and keeps history local to each Terminal instance', async () => {
+  it('keeps history after clear and isolates history between Terminal instances', async () => {
     const input = renderTerminal(vi.fn())
     const user = userEvent.setup()
     await user.type(input, 'ip{enter}clear{enter}')
@@ -73,39 +79,59 @@ describe('Terminal interaction controller', () => {
     expect(input).toHaveValue('clear')
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('ip')
+
+    render(<Terminal />)
+    const secondInput = screen.getAllByLabelText('Command input')[1]
+    secondInput.focus()
+    await user.keyboard('{ArrowUp}')
+    expect(secondInput).toHaveValue('')
+    expect(input).toHaveValue('ip')
   })
 
-  it('follows newly rendered tail, respects scroll-away, and resumes near the tail or on submit', async () => {
-    const input = renderTerminal(vi.fn())
+  it('follows real async output changes only when intended and uses newly rendered geometry', async () => {
+    const first = deferred<ScanResult>()
+    const second = deferred<ScanResult>()
+    const scanTarget = vi.fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+    const input = renderTerminal(scanTarget)
     const output = document.querySelector<HTMLElement>('.terminal-output')!
-    let scrollHeight = 100
+    let scrollHeight = 200
+    const scrollWrites: number[] = []
     Object.defineProperties(output, {
       clientHeight: { configurable: true, value: 100 },
       scrollHeight: { configurable: true, get: () => scrollHeight },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollWrites.at(-1) ?? 0,
+        set: (value: number) => { scrollWrites.push(value) },
+      },
     })
-    output.scrollTop = 0
     const user = userEvent.setup()
 
-    scrollHeight = 240
-    await user.type(input, 'ip{enter}')
-    expect(output.scrollTop).toBe(240)
-
+    await user.type(input, 'scan home-net{enter}')
     output.scrollTop = 20
     fireEvent.scroll(output)
-    scrollHeight = 360
-    await user.type(input, 'help')
+    scrollHeight = 320
+    await act(async () => first.resolve({ status: 'network', networkId: 'network-local-001', networkName: 'home-net', devices: [] }))
     expect(output.scrollTop).toBe(20)
 
-    output.scrollTop = 250
+    await user.type(input, 'scan home-net{enter}')
+    output.scrollTop = 210
     fireEvent.scroll(output)
-    await user.type(input, '{enter}')
-    expect(output.scrollTop).toBe(360)
+    scrollHeight = 440
+    await act(async () => second.resolve({ status: 'network', networkId: 'network-local-001', networkName: 'home-net', devices: [] }))
+    expect(output.scrollTop).toBe(440)
 
     output.scrollTop = 0
     fireEvent.scroll(output)
-    scrollHeight = 480
-    await user.type(input, 'ip{enter}')
-    expect(output.scrollTop).toBe(480)
+    scrollWrites.length = 0
+    scrollHeight = 440
+    await user.type(input, 'ip')
+    expect(scrollWrites).toEqual([])
+    scrollHeight = 560
+    await user.type(input, '{enter}')
+    expect(scrollWrites).toEqual([560])
     expect(output).toHaveAttribute('data-editing-scroll-owner')
     expect(output).not.toHaveAttribute('aria-live')
   })

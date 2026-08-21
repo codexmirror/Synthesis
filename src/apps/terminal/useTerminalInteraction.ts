@@ -6,7 +6,11 @@ export function isNearTerminalTail(element: Pick<HTMLElement, 'scrollHeight' | '
   return element.scrollHeight - element.scrollTop - element.clientHeight <= FOLLOW_TAIL_TOLERANCE
 }
 
-export function useTerminalInteraction(onCommand: (command: string) => Promise<void>, contentVersion: unknown) {
+export function useTerminalInteraction(
+  onCommand: (command: string) => Promise<void>,
+  entriesVersion: unknown,
+  processesVersion: unknown,
+) {
   const [input, setInput] = useState('')
   const [history, setHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(0)
@@ -20,7 +24,7 @@ export function useTerminalInteraction(onCommand: (command: string) => Promise<v
   useLayoutEffect(() => {
     const output = outputRef.current
     if (output && followingTail.current) output.scrollTop = output.scrollHeight
-  }, [contentVersion])
+  }, [entriesVersion, processesVersion])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -53,7 +57,11 @@ export function useTerminalInteraction(onCommand: (command: string) => Promise<v
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return
+    const isComposing = composing.current || event.nativeEvent.isComposing || event.keyCode === 229
+    if (isComposing) {
+      if (event.key === 'Enter') event.preventDefault()
+      return
+    }
     if (event.key === 'ArrowUp') { event.preventDefault(); navigate(-1) }
     if (event.key === 'ArrowDown') { event.preventDefault(); navigate(1) }
   }
