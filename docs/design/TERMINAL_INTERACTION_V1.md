@@ -96,16 +96,17 @@ The shared layer must not become a universal operating-system abstraction.
 
 —
 
-# 2. NODE-OS IS NOT THE REFERENCE IMPLEMENTATION
+# 2. NODE-OS IS THE FIRST REFERENCE IMPLEMENTATION
 
-The current NODE-OS Terminal is an existing consumer, not the canonical design
-source.
+The NODE-OS Terminal is the first concrete reference implementation of this
+interaction contract. Its interaction controller remains NODE-local until a
+second accepted implementation demonstrates the correct shared boundary.
 
 Useful existing behavior may be retained.
 
 Incorrect, incomplete, or overly aggressive existing behavior may be replaced.
 
-RACK-OS must not merely copy the current NODE-OS component.
+RACK-OS must not merely copy the NODE-OS component.
 
 Both terminals must converge on the accepted Terminal Interaction contract.
 

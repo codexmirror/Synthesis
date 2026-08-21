@@ -4,6 +4,8 @@ import terminalCss from '../apps/terminal/terminal.css?raw'
 import css from './shell.css?raw'
 import hook from './useEditingViewport.ts?raw'
 import rackCss from '../apps/rackos/rackos.css?raw'
+import terminalInteraction from '../apps/terminal/useTerminalInteraction.ts?raw'
+import nodeCommandAdapter from '../apps/terminal/nodeCommandAdapter.ts?raw'
 
 describe('mobile editing presentation contract', () => {
   it('keeps normal editing absolute and overrides only standalone with fixed', () => {
@@ -36,10 +38,16 @@ describe('mobile editing presentation contract', () => {
   })
 
   it('keeps viewport manipulation out of Terminal', () => {
-    expect(terminalSource).not.toContain('visualViewport')
-    expect(terminalSource).not.toContain('window.scrollTo')
-    expect(terminalSource).not.toContain('scrollIntoView')
-    expect(terminalSource).not.toContain('setInterval')
+    const nodeTerminalSources = terminalSource + terminalInteraction + nodeCommandAdapter
+    expect(nodeTerminalSources).not.toContain('visualViewport')
+    expect(nodeTerminalSources).not.toContain('window.scrollTo')
+    expect(nodeTerminalSources).not.toContain('scrollIntoView')
+    expect(nodeTerminalSources).not.toContain('setInterval')
+    expect(nodeTerminalSources).not.toContain('SCAN_MIN_DISPLAY_MS')
+    expect(nodeTerminalSources).not.toContain('waitForPresentation')
+    expect(terminalSource).not.toContain('aria-live="polite"')
+    expect(terminalCss).not.toContain('72px')
+    expect(terminalCss).toContain('touch-action: pan-y pinch-zoom')
   })
 
   it('keeps wrapped NODE-OS chrome hidden and gives RACK-OS the Shell edit geometry', () => {
