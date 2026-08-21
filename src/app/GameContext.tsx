@@ -8,6 +8,7 @@ import { startCredentialAccessAttemptFromObservation, type CredentialAccessObser
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
 import { downloadRemoteFile, type DownloadRemoteFileResult } from '../core/game/remoteDownload'
+import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } from '../core/game/softwareInstallation'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -21,6 +22,7 @@ export interface GameActions {
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
   downloadRemoteFile(sourcePath: string): DownloadRemoteFileResult
+  installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   clearCompletedProcesses(): void
 }
 const GameActionsContext = createContext<GameActions | null>(null)
@@ -90,6 +92,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, downloadRemoteFile(sourcePath) {
     const result = downloadRemoteFile(currentState.current, sourcePath)
     if (result.status === 'downloaded') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, installLocalSoftwarePackage(path) {
+    const result = installLocalSoftwarePackage(currentState.current, path)
+    if (result.status === 'installed') {
       currentState.current = result.state
       setGameState(result.state)
     }
