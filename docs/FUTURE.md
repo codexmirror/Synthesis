@@ -451,6 +451,16 @@ The product name and module list are examples, not locked schemas.
 
 ## Software modules, versions, and licensing
 
+Device-owned installed software is distinct from filesystem artifacts and
+Process state: files describe which artifacts exist, installed software
+describes which functionality is installed, and Processes describe work that is
+running or retained as completed history. A future software manager may expose
+install, update, uninstall, open, or run operations, but remains an interface
+over Device-owned truth. A software source, store, or repository is a separate
+concern. Future filesystem and software design should not inherently exclude
+represented player-created executable or interactive content; no scripting
+language or sandbox is selected yet.
+
 Software may eventually have:
 
 - versions

@@ -1,8 +1,18 @@
-import type { TerminalCommand } from '../commandTypes'
+import type { CommandContext, TerminalCommand } from '../commandTypes'
 
-export function createHelpCommand(commands: () => readonly [string, TerminalCommand][]): TerminalCommand {
+export interface HelpGroup {
+  readonly heading: string
+  readonly commands: readonly [string, TerminalCommand][]
+}
+
+export function createHelpCommand(groups: (context: CommandContext) => readonly HelpGroup[]): TerminalCommand {
   return {
     description: 'List available commands',
-    run: () => ({ type: 'output', lines: ['Available commands:', '', ...commands().map(([name, command]) => `${name} — ${command.description}`)] }),
+    run: (context) => ({
+      type: 'output',
+      lines: ['AVAILABLE COMMANDS', ...groups(context).flatMap(({ heading, commands }) => [
+        '', heading, '', ...commands.map(([name, command]) => `${name} — ${command.description}`),
+      ])],
+    }),
   }
 }

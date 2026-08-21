@@ -10,6 +10,7 @@ export const scanCommand: TerminalCommand = {
     if (isIpv4EndpointSyntax(target)) return { type: 'output', lines: ['INVALID TARGET TYPE', '', `${target} is a service endpoint.`, '', 'scan accepts IPv4 devices and network names.', 'Service endpoints can be investigated with analyze.'] }
     const observed = operations.scanTarget(target)
     const format = (result: Awaited<typeof observed>): CommandResult => {
+    if (result.status === 'software_unavailable') return { type: 'output', lines: ['NODESCAN NOT INSTALLED'] }
     if (result.status === 'unknown_target') {
       return { type: 'output', lines: [`Unknown scan target: ${result.input}`] }
     }

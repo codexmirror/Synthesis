@@ -1,4 +1,4 @@
-import type { FilesystemState } from './types'
+import type { FilesystemFile, FilesystemState } from './types'
 
 export interface DirectoryEntry {
   readonly name: string
@@ -13,6 +13,13 @@ export type ListDirectoryResult =
 
 export type ReadTextFileResult =
   | { readonly status: 'ok'; readonly content: string }
+  | { readonly status: 'invalid_path' }
+  | { readonly status: 'not_found' }
+  | { readonly status: 'not_file' }
+  | { readonly status: 'not_text_file' }
+
+export type GetFilesystemFileResult =
+  | { readonly status: 'ok'; readonly file: FilesystemFile }
   | { readonly status: 'invalid_path' }
   | { readonly status: 'not_found' }
   | { readonly status: 'not_file' }
@@ -53,10 +60,17 @@ export function listDirectory(filesystem: FilesystemState, path: string): ListDi
 }
 
 export function readTextFile(filesystem: FilesystemState, path: string): ReadTextFileResult {
+  const result = getFilesystemFile(filesystem, path)
+  if (result.status !== 'ok') return result
+  if (result.file.kind !== 'text') return { status: 'not_text_file' }
+  return { status: 'ok', content: result.file.content }
+}
+
+export function getFilesystemFile(filesystem: FilesystemState, path: string): GetFilesystemFileResult {
   const normalized = normalizeAbsolutePath(path)
   if (!normalized) return { status: 'invalid_path' }
   const file = filesystem.files.find((candidate) => candidate.path === normalized)
-  if (file) return { status: 'ok', content: file.content }
+  if (file) return { status: 'ok', file }
   if (isDirectory(filesystem, normalized)) return { status: 'not_file' }
   return { status: 'not_found' }
 }

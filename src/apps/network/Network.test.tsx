@@ -134,19 +134,36 @@ describe('Scan workspace', () => {
     expect(screen.getByLabelText('Credential access running')).toBeInTheDocument()
   })
 
-  it('preserves the network registry identity while exposing Scan', () => {
-    expect(appRegistry.network.label).toBe('Scan')
-    expect(Object.keys(appRegistry)).toHaveLength(7)
+  it('preserves the network registry identity while presenting NodeScan', () => {
+    expect(appRegistry.network.label).toBe('NodeScan')
+    expect(Object.entries(appRegistry).map(([id, app]) => [id, app.label])).toEqual([
+      ['terminal', 'Terminal'], ['network', 'NodeScan'], ['processes', 'Processes'],
+      ['files', 'Files'], ['wallet', 'Wallet'], ['notes', 'Notes'], ['system', 'System'],
+    ])
   })
 
   it('opens on a truthful Known Space atlas without leaking undiscovered details', async () => {
     render(<GameProvider><Network /></GameProvider>)
     expect(screen.getByText('Known and observed network space')).toBeInTheDocument()
     expect(screen.getByText('KNOWN SPACE')).toBeInTheDocument()
+    expect(screen.getByText('NODESCAN')).toBeInTheDocument()
     expect(screen.getByText('SELF')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
     expect(screen.queryByText('home-net')).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
+  })
+
+  it('derives product metadata from canonical software and reports an absent installation', () => {
+    const base = createInitialGameState()
+    const altered: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, version: '2.4', channel: 'preview' } : software) } } }
+    const view = render(<GameProvider initialState={altered}><Network /></GameProvider>)
+    expect(screen.getByText('2.4 PREVIEW')).toBeInTheDocument()
+    view.unmount()
+    const absent: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
+    render(<GameProvider initialState={absent}><Network /></GameProvider>)
+    expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
+    expect(screen.queryByText('KNOWN SPACE')).not.toBeInTheDocument()
+    expect(screen.queryByText(base.world.network.localNetworks[0].name)).not.toBeInTheDocument()
   })
 
   it('discovers the local hierarchy from shared observations', async () => {

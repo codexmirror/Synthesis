@@ -17,6 +17,7 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string): R
   if (name === 'cat') {
     if (!args[0]) return { output: ['USAGE: cat /absolute/path'] }
     const result = readTextFile(context.target.filesystem!, args[0])
+    if (result.status === 'not_text_file') return { output: ['NOT A TEXT FILE'] }
     return { output: result.status === 'ok' ? [result.content] : [result.status.toUpperCase().replaceAll('_', ' ')] }
   }
   return { output: ['COMMAND NOT FOUND'] }

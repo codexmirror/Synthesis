@@ -78,13 +78,41 @@ export interface FirmwareState {
 }
 
 export interface TextFile {
+  readonly kind: 'text'
   readonly path: string
   readonly content: string
 }
 
-export interface FilesystemState {
-  readonly files: readonly TextFile[]
+export interface SoftwarePackageFile {
+  readonly kind: 'software_package'
+  readonly path: string
+  readonly releaseId: string
+  readonly productId: string
+  readonly name: string
+  readonly version: string
+  readonly channel: string
 }
+
+export type FilesystemFile = TextFile | SoftwarePackageFile
+
+export interface FilesystemState {
+  readonly files: readonly FilesystemFile[]
+}
+
+export interface NodeScanInstallation {
+  readonly id: 'nodescan'
+  readonly name: 'NodeScan'
+  readonly version: string
+  readonly channel: string
+}
+
+export interface BasicCredentialToolkitInstallation {
+  readonly id: 'basic-credential-toolkit'
+  readonly name: 'Basic Credential Toolkit'
+  readonly version: string
+}
+
+export type InstalledSoftware = NodeScanInstallation | BasicCredentialToolkitInstallation
 
 export interface LocalDeviceState {
   /** Stable device identity; unlike its simulated IP, this value does not change. */
@@ -96,7 +124,7 @@ export interface LocalDeviceState {
   readonly network: DeviceNetworkState
   readonly hardware: HardwareState
   readonly runtime: RuntimeState
-  readonly tools: readonly { readonly id: 'basic-credential-toolkit'; readonly name: 'Basic Credential Toolkit' }[]
+  readonly installedSoftware: readonly InstalledSoftware[]
 }
 
 export interface WalletState {
