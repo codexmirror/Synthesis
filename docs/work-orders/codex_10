@@ -1,0 +1,748 @@
+# CODEX 10 -- FILES + SOFTWARE ACTION UX HARDENING V1
+
+
+STATUS
+
+PLANNED -- NOT SELECTED
+
+This Work Order is forward-looking implementation context.
+
+Do not execute it unless the human operator explicitly selects Codex 10.
+
+Before execution, reconcile it against current accepted main and the final
+accepted results of Codex 08 and Codex 09.
+
+Current accepted code, AGENTS.md, docs/ARCHITECTURE.md, docs/V0.md, and owning
+design contracts outrank stale planning assumptions.
+
+
+MISSION
+
+Harden the current Files / software-package user experience across the two
+existing operating environments:
+
+- NODE-OS Files
+- RACK-OS Files
+
+The underlying filesystem, download, and software-installation mechanics already
+exist.
+
+This slice improves how those real mechanics are presented and operated.
+
+Primary problems to solve:
+
+- software package details currently feel visually raw
+- INSTALL / INSTALLED states need a clear technical action grammar
+- DOWNLOAD / DOWNLOADED states need the same quality
+- long paths and release IDs must remain readable on mobile
+- action controls should look native to their operating environment rather than
+  generic browser buttons
+- metadata hierarchy should be easier to scan
+- NODE-OS and RACK-OS should express the same underlying truth without becoming
+  identical interfaces
+
+This is a UX / presentation hardening slice.
+
+Do not change the underlying gameplay lifecycle merely to improve presentation.
+
+
+SUCCESS STATE
+
+Before:
+
+Package details
+→ technically correct
+→ visually raw / browser-like
+
+INSTALL
+→ immediate canonical operation
+→ presentation does not yet feel integrated
+
+DOWNLOAD
+→ immediate canonical operation
+→ presentation does not yet feel integrated
+
+
+After:
+
+NODE-OS Files
+→ package metadata is compact and readable
+→ supported package exposes a restrained INSTALL action
+→ same installed release shows INSTALLED ✓
+→ current installed release is clearly understandable
+
+RACK-OS Files
+→ remote package metadata is compact and readable
+→ available package exposes DOWNLOAD
+→ existing identical local copy shows DOWNLOADED ✓
+→ occupied destination remains clearly distinct from downloaded state
+
+Both interfaces:
+→ derive all states from canonical truth
+→ remain comfortable on phone and desktop
+→ preserve exact technical values
+→ do not invent progress or pending state
+
+
+AUTHORITATIVE INPUTS
+
+When selected, inspect current main and read:
+
+- AGENTS.md
+- docs/ARCHITECTURE.md
+- docs/V0.md
+- docs/design/FILES_AND_TRANSFER_V1.md
+- docs/design/TERMINAL_INTERACTION_V1.md where mobile/editing boundaries matter
+- docs/work-orders/README.md
+- current NODE-OS Files implementation/tests/styles
+- current RACK-OS Files implementation/tests/styles
+- current filesystem file types
+- current remote download operation
+- current software installation operation
+- current installed-software representation
+- accepted shared styling primitives
+
+Also inspect final Codex 08 / Codex 09 implementation instead of assuming their
+planned file/class names.
+
+
+CURRENT BASELINE
+
+Expected semantics before this slice:
+
+FILESYSTEM FILE
+≠ INSTALLED SOFTWARE
+
+REMOTE PACKAGE
+≠ LOCAL DOWNLOADED PACKAGE
+≠ INSTALLED SOFTWARE
+
+
+Current canonical package:
+
+NodeScan 1.1 Experimental
+
+remote:
+  /opt/packages/nodescan-exp-1.1.pkg
+
+local downloaded copy:
+  /home/user/downloads/nodescan-exp-1.1.pkg
+
+
+Download is currently immediate because represented file size / bandwidth do
+not yet exist.
+
+Installation is currently immediate because represented installation work does
+not yet exist.
+
+This Work Order MUST NOT fake either missing cause.
+
+
+IMPLEMENTATION CONTRACT
+
+
+1. PRESERVE DOMAIN SEMANTICS
+
+Do not change the meaning of:
+
+- FilesystemFile
+- SoftwarePackageFile
+- releaseId
+- productId
+- installedSoftware
+- downloadRemoteFile
+- installLocalSoftwarePackage
+
+GUI actions continue to invoke the existing shared application/domain
+operations.
+
+Do not implement gameplay by constructing Terminal commands.
+
+
+2. PACKAGE DETAILS GRAMMAR
+
+Create a clearer compact presentation for SoftwarePackageFile.
+
+The player should be able to distinguish at minimum:
+
+- product/name
+- version
+- channel
+- release identity where useful
+- current filesystem path
+
+For local supported packages, also expose the currently installed represented
+release where relevant.
+
+Do not invent package metadata that is not canonically represented.
+
+
+3. TECHNICAL VALUES MUST REMAIN EXACT
+
+Do not truncate or mutate canonical:
+
+- path
+- releaseId
+- productId
+- version
+- channel
+
+merely for layout.
+
+Long values may visually wrap.
+
+Visual wrapping must not insert characters into the represented/copyable value.
+
+
+4. MOBILE LONG-VALUE HANDLING
+
+Paths and release identifiers must not cause whole-page horizontal scrolling.
+
+Prefer safe wrapping inside their local value region.
+
+Do not solve this with tiny unreadable text.
+
+
+5. ACTION GRAMMAR
+
+Package actions should look like restrained operating-system actions, not
+default browser buttons.
+
+NODE-OS and RACK-OS may use different visual identity, but action hierarchy
+should remain understandable.
+
+Avoid:
+
+- large glossy buttons
+- pill-heavy UI
+- dashboard cards
+- excessive icons
+- dramatic animation
+
+
+6. LOCAL PACKAGE STATE
+
+For a supported local software package derive presentation from CURRENT
+installedSoftware.
+
+Required states:
+
+A. Supported package, different release installed or product absent
+
+→ INSTALL action available
+
+
+B. Exact same releaseId installed
+
+→ INSTALLED ✓
+→ action disabled / non-action state
+
+
+C. Unsupported package
+
+→ UNSUPPORTED PACKAGE
+→ no INSTALL action
+
+
+Do not infer installed state from:
+
+- filename
+- extension
+- name
+- version text
+- channel text
+
+Exact installed-release equality uses canonical releaseId.
+
+
+7. CURRENT INSTALLATION PRESENTATION
+
+When the package product already has an installed release, show the current
+installed software state clearly enough to understand the transition.
+
+Example before installation:
+
+PACKAGE
+NodeScan 1.1 Experimental
+
+CURRENT
+NodeScan 1.0 Standard
+
+[ INSTALL ]
+
+
+After canonical installation:
+
+PACKAGE
+NodeScan 1.1 Experimental
+
+CURRENT
+NodeScan 1.1 Experimental
+
+INSTALLED ✓
+
+
+Exact wording/layout may adapt to accepted UI style.
+
+Do not create a fake "update available" domain state unless such state is
+already represented.
+
+
+8. UNSUPPORTED PACKAGE MUST NOT LIE
+
+Do not display misleading:
+
+CURRENT NOT INSTALLED
+
+for an unsupported package merely because its presentation code only knows how
+to format NodeScan.
+
+If the UI cannot meaningfully represent current installation for an unsupported
+product, omit that CURRENT field rather than asserting false state.
+
+UNSUPPORTED PACKAGE remains sufficient.
+
+
+9. INSTALL FAILURE FEEDBACK
+
+The Files action must call the canonical install operation against current
+state.
+
+If execution fails because the rendered UI became stale, do not silently
+pretend installation succeeded.
+
+Provide restrained local failure feedback based on the real operation result.
+
+Do not invent persistent error state.
+
+Do not add fake retry timers.
+
+
+10. INSTALL REMAINS IMMEDIATE
+
+Do NOT add:
+
+INSTALLING
+progress %
+spinner implying simulated work
+setTimeout delay
+minimum presentation delay
+Process
+
+Installation completes when the canonical operation completes.
+
+
+11. REMOTE DOWNLOAD STATE
+
+RACK-OS package/file presentation must continue deriving download state from the
+current local filesystem.
+
+Required states remain:
+
+destination absent
+→ DOWNLOAD
+
+same represented artifact at destination
+→ DOWNLOADED ✓
+→ local copy location may be shown
+
+different artifact occupies destination
+→ LOCAL DESTINATION OCCUPIED
+→ no DOWNLOAD action
+
+
+Do not weaken the canonical domain conflict behavior.
+
+
+12. DOWNLOADED IDENTITY
+
+"Downloaded" means the expected local destination currently represents the same
+artifact according to the accepted canonical comparison.
+
+Do not infer it from:
+
+- matching basename only
+- extension
+- product name only
+
+
+13. DOWNLOAD FAILURE FEEDBACK
+
+If canonical download fails at click time because current state changed, display
+restrained result feedback rather than stale success.
+
+Do not create a second download state machine inside the UI.
+
+
+14. DOWNLOAD REMAINS IMMEDIATE
+
+Do NOT add:
+
+DOWNLOADING
+progress %
+transfer animation implying work
+fake network speed
+fake file size
+Process
+setTimeout
+
+Codex 11/12 own the future represented causes and real transfer Process.
+
+
+15. TEXT FILES REMAIN TEXT FILES
+
+Do not turn Files into a software-only interface.
+
+TextFile presentation must continue working.
+
+Do not infer package behavior from `.pkg` extension.
+
+
+16. FILE KIND DRIVES PRESENTATION
+
+Software-package controls appear because:
+
+file.kind === represented software package kind
+
+not because the filename resembles a package.
+
+Preserve existing extension-independence tests.
+
+
+17. DIRECTORY MODEL REMAINS PATH-DERIVED
+
+Do not introduce Directory entities.
+
+Do not change current filesystem navigation semantics in this UX slice unless a
+proven presentation bug requires a narrow fix.
+
+
+18. NODE-OS FILES IDENTITY
+
+NODE-OS Files should feel consistent with the accepted NODE-OS system-tool
+language:
+
+- restrained
+- compact
+- clean
+- technical
+- dark
+- minimal decoration
+
+
+Do not make Files look like an ecommerce software store.
+
+
+19. RACK-OS FILES IDENTITY
+
+RACK-OS remains a distinct foreign/server environment.
+
+Do not simply copy NODE-OS Files styling and recolor it.
+
+Interaction quality may be equally good while presentation remains different.
+
+
+20. SHARED PRESENTATION ONLY WHERE REAL
+
+A small shared package-details/action presentation primitive is acceptable if
+both implemented Files consumers genuinely need it.
+
+Do not create:
+
+- generic FileRenderer platform
+- universal Artifact UI framework
+- generic Action system
+- Software Manager framework
+- theme engine
+
+
+21. ACTION STATE MUST COME FROM CANONICAL TRUTH
+
+Do not persist presentation booleans such as:
+
+isInstalled
+isDownloaded
+
+as competing UI truth.
+
+Derive them from:
+
+canonical filesystem
+canonical installedSoftware
+accepted comparison helpers
+
+
+Temporary click/error feedback may remain local ephemeral UI state.
+
+
+22. ACCESSIBILITY
+
+Interactive actions must remain semantic controls.
+
+Preserve:
+
+- keyboard activation
+- visible keyboard focus
+- accessible action names
+- adequate touch target
+
+Do not make action state understandable only by color.
+
+
+23. NO WHOLE-PAGE SCROLL REGRESSION
+
+Files remains inside the accepted Shell scrolling/editing architecture.
+
+Long metadata must not create Shell/page horizontal scroll.
+
+Do not add Files-specific viewport or keyboard management.
+
+
+24. NO NEW SIMULATION STATE
+
+This Work Order is presentation/UX only.
+
+GAME_STATE_VERSION remains unchanged from the accepted baseline.
+
+Expected currently:
+
+GAME_STATE_VERSION = 16
+
+
+NON-GOALS
+
+Do not implement:
+
+- file size
+- upload/download speed
+- transfer Process
+- install Process
+- upload
+- uninstall
+- Software Manager
+- App Store
+- executable files
+- RUN
+- Inspect
+- new package type
+- arbitrary destination selection
+- overwrite
+- auto-rename
+- new filesystem identity model
+- new GameState fields
+- fake progress
+- fake timers
+- generic artifact framework
+
+
+ACCEPTANCE MATRIX
+
+A. GAME_STATE_VERSION remains unchanged.
+
+B. TextFile behavior remains intact.
+
+C. SoftwarePackageFile behavior remains kind-driven, not extension-driven.
+
+D. Long package paths remain fully represented without whole-page horizontal
+scroll.
+
+E. Long release IDs remain fully represented.
+
+F. Supported local package with different/absent installed release exposes
+INSTALL.
+
+G. Exact same releaseId shows INSTALLED ✓.
+
+H. Installed-state equality is not based on version/channel/name.
+
+I. Unsupported package has no INSTALL action.
+
+J. Unsupported-package presentation does not falsely claim the product is not
+installed.
+
+K. INSTALL uses the existing canonical application operation.
+
+L. Successful INSTALL updates presentation from canonical installedSoftware.
+
+M. Package remains in filesystem after installation.
+
+N. Installation creates no Process.
+
+O. Installation adds no fake timer/progress.
+
+P. Remote file with absent destination exposes DOWNLOAD.
+
+Q. Same local artifact produces DOWNLOADED ✓.
+
+R. DOWNLOADED presentation shows the real local destination where appropriate.
+
+S. Occupied destination shows LOCAL DESTINATION OCCUPIED and no active
+DOWNLOAD action.
+
+T. Download still uses canonical domain conflict behavior.
+
+U. Download creates no Process.
+
+V. Download adds no fake timer/progress/network data.
+
+W. Stale install/download failure does not produce false visual success.
+
+X. NODE-OS and RACK-OS remain visually distinct.
+
+Y. Actions remain keyboard accessible.
+
+Z. Focus-visible remains usable.
+
+AA. Existing Files navigation remains functional.
+
+AB. Existing Terminal download/install semantics remain unchanged.
+
+AC. Existing Terminal Interaction / Shell mobile tests remain green.
+
+
+ALTERED-STATE TESTS
+
+Where practical, prove derivation instead of literals.
+
+Include cases such as:
+
+- same releaseId with altered display metadata
+  → still installed
+
+- different releaseId with similar version/name
+  → not treated as same installed release
+
+- SoftwarePackageFile using unusual filename extension
+  → still package UI
+
+- TextFile using `.pkg`
+  → still text UI
+
+- long path/releaseId
+  → exact value remains represented
+
+- unsupported package whose product corresponds to represented installed
+  software
+  → UI does not falsely display CURRENT NOT INSTALLED
+
+
+VALIDATION
+
+Run focused tests for:
+
+- NODE-OS Files
+- RACK-OS Files
+- package state derivation
+- install action
+- download state
+- altered package/file kinds
+- accessibility
+- long technical values
+
+Then run:
+
+npm test
+
+npm run build
+
+npx tsc -b --pretty false
+
+git diff --check
+
+
+PHYSICAL MOBILE ACCEPTANCE
+
+After automated validation, test on real iPhone Safari.
+
+NODE-OS Files:
+
+1. Open downloaded NodeScan package.
+2. Confirm path/release metadata remains readable.
+3. Confirm CURRENT NodeScan 1.0 Standard.
+4. Confirm INSTALL looks integrated with NODE-OS.
+5. Tap INSTALL.
+6. Confirm immediate canonical result.
+7. Confirm INSTALLED ✓.
+8. Navigate away and reopen.
+9. Confirm state remains derived correctly.
+10. Confirm no layout jump / horizontal page scroll.
+
+
+RACK-OS Files:
+
+11. Open remote package.
+12. Confirm package metadata readability.
+13. Confirm DOWNLOAD / DOWNLOADED state.
+14. Confirm local-copy path is readable.
+15. Repeat with `/srv/readme.txt`.
+16. Confirm text-file presentation remains correct.
+17. Confirm remote Files still feels visually distinct from NODE-OS.
+
+
+Repeat high-risk layout cases in Home-Screen mode.
+
+
+DOCUMENTATION IMPACT
+
+Perform a documentation impact check.
+
+Update docs/V0.md only if accepted current Files/package interaction truth
+materially changes.
+
+Do not create a new domain/design contract merely for CSS.
+
+Do not change docs/ARCHITECTURE.md unless a genuinely new durable architecture
+boundary was introduced; none is expected.
+
+
+FINAL SELF-REVIEW
+
+Before completion confirm:
+
+1. this remained a UX/presentation slice
+2. canonical download/install operations were reused
+3. no competing installed/downloaded UI truth was introduced
+4. no fake timer/progress exists
+5. unsupported package presentation does not lie
+6. package/text behavior remains kind-driven
+7. long technical values remain exact
+8. NODE and RACK remain distinct
+9. no generic artifact/software-manager framework was introduced
+10. no GameState shape changed
+11. GAME_STATE_VERSION remains unchanged
+12. no Files-specific viewport controller exists
+13. Terminal behavior remains unchanged
+14. all required validation is green
+
+
+COMPLETION REPORT
+
+Report:
+
+- files changed
+- package-details presentation
+- NODE Files changes
+- RACK Files changes
+- INSTALL-state derivation
+- DOWNLOAD-state derivation
+- stale-operation failure feedback
+- long-value behavior
+- accessibility impact
+- confirmation no fake duration/process was introduced
+- confirmation canonical operations remain authoritative
+- confirmation GAME_STATE_VERSION is unchanged
+- focused tests
+- full npm test
+- build
+- TypeScript
+- git diff --check
+- documentation impact
+- remaining physical iPhone/Home-Screen checks
+
+
+GIT BOUNDARY
+
+Do not commit, push, merge, create/close pull requests, rewrite history, or
+perform other Git lifecycle actions.
+
+The human operator owns Git lifecycle decisions.

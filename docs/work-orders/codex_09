@@ -1,0 +1,1595 @@
+# CODEX 09 -- TERMINAL PRESENTATION + COMFORT V1
+
+
+STATUS
+
+PLANNED -- NOT SELECTED
+
+This Work Order is forward-looking implementation context.
+
+It MAY be inspected by earlier selected Work Orders to understand the intended
+near-term direction and avoid decisions that unnecessarily obstruct it.
+
+It MUST NOT be implemented unless the human operator explicitly selects
+Codex 09.
+
+Before selection/execution, this Work Order MUST be reconciled against:
+
+- current accepted main
+- AGENTS.md
+- docs/ARCHITECTURE.md
+- docs/V0.md
+- docs/design/TERMINAL_INTERACTION_V1.md
+- the final accepted Codex 08 implementation
+- physical mobile acceptance findings from Codex 08
+
+Current accepted code and current owning documentation always outrank stale
+planning assumptions.
+
+If this Work Order conflicts with AGENTS.md, docs/ARCHITECTURE.md, or the
+accepted Terminal Interaction contract, stop and report the conflict rather
+than silently overriding accepted architecture.
+
+
+FORWARD CONTEXT
+
+Expected near-term sequence:
+
+Codex 08
+TERMINAL INTERACTION FOUNDATION V1
+
+        ↓
+
+Codex 09
+TERMINAL PRESENTATION + COMFORT V1
+[this Work Order]
+
+        ↓
+
+Codex 10
+FILES + SOFTWARE ACTION UX HARDENING V1
+
+        ↓
+
+Codex 11
+FILE SIZE + NETWORK CAPACITY FOUNDATION V1
+
+        ↓
+
+Codex 12
+NETWORK FILE DOWNLOAD PROCESS V1
+
+
+Later Work Orders are context only.
+
+Do NOT implement Codex 10–12 while executing Codex 09.
+
+
+MISSION
+
+Polish the two existing Synthesis terminal surfaces into restrained,
+comfortable, believable terminal interfaces now that their shared interaction
+behavior has been stabilized by Codex 08.
+
+Concrete consumers:
+
+- NODE-OS Terminal
+- RACK-OS Terminal
+
+
+Codex 09 is primarily a PRESENTATION / COMFORT slice.
+
+It improves:
+
+- visual hierarchy
+- prompt/input readability
+- output density
+- spacing
+- terminal typography
+- cursor/caret presentation
+- long-line/path presentation
+- target-token presentation
+- copy feedback stability
+- text selection readability
+- scrollbar presentation
+- responsive behavior
+- mobile comfort
+- visual distinction between NODE-OS and RACK-OS
+
+
+It must NOT destabilize the accepted interaction mechanics from Codex 08.
+
+The target is not:
+
+"make both terminals look identical"
+
+and not:
+
+"make them look more cyberpunk"
+
+The target is:
+
+BOTH TERMINALS
+feel like mature terminal surfaces
+
+while:
+
+NODE-OS
+retains its own operating-system identity
+
+and:
+
+RACK-OS
+retains its own foreign/server operating-system identity.
+
+
+NORTH STAR
+
+A Synthesis terminal should feel like a serious technical interface that the
+player can comfortably use for extended periods.
+
+It should feel:
+
+- dense but readable
+- technical but not decorative
+- responsive but not animated for spectacle
+- clearly interactive without looking like a web form
+- consistent without erasing OS identity
+- comfortable on phone and desktop
+- believable rather than cinematic
+
+
+Avoid:
+
+- glossy sci-fi panels
+- excessive glow
+- holographic effects
+- generic dashboard cards
+- giant buttons
+- unnecessary badges
+- visual noise
+- fake telemetry
+- fake terminal artifacts
+- visual state that has no represented cause
+
+
+AUTHORITATIVE INPUTS
+
+When this Work Order becomes selected, inspect CURRENT main before editing.
+
+Read and follow:
+
+1. AGENTS.md
+2. docs/ARCHITECTURE.md
+3. docs/V0.md
+4. docs/design/TERMINAL_INTERACTION_V1.md
+5. docs/work-orders/README.md
+6. final accepted Codex 08 implementation
+7. current NODE-OS Terminal component/tests/styles
+8. current RACK-OS Terminal component/tests/styles
+9. current TargetToken implementation/tests
+10. current Shell/mobile editing CSS
+11. current shared style tokens
+
+
+Also inspect physical-test findings from Codex 08 if they have been recorded.
+
+Do not assume exact shared-hook/class/file names from the planning version of
+Codex 08.
+
+Use whatever accepted implementation actually exists.
+
+
+PRECONDITIONS
+
+Do not execute Codex 09 until Codex 08 has been accepted.
+
+Accepted Codex 08 should already prove, using final accepted naming:
+
+- NODE-OS and RACK-OS share the accepted Terminal Interaction foundation
+- each Terminal has the correct real output scroll owner
+- history semantics are shared but per-instance
+- live draft preservation works
+- pending dispatch does not disable the input
+- duplicate submit is guarded
+- IME composition is safe
+- async completion does not steal focus
+- follow-tail respects manual scroll-away
+- broad output aria-live behavior is removed
+- artificial Scan minimum presentation timing is removed
+- Shell remains the sole editing/viewport authority
+- GAME_STATE_VERSION remains 16
+
+
+Physical iPhone Safari and Home-Screen testing for Codex 08 should also have
+confirmed the interaction foundation is usable.
+
+If Codex 08 still has unresolved interaction bugs:
+
+STOP.
+
+Do not hide them beneath visual polish.
+
+Fix and accept the interaction foundation first.
+
+
+ARCHITECTURE TO PRESERVE
+
+Especially preserve:
+
+- Terminal is an interface, not gameplay truth
+- Shell owns viewport/editing geometry
+- Terminal Interaction owns internal input/focus/history/scroll behavior
+- OS adapters own OS-specific presentation
+- command adapters own command/game semantics
+- NODE-OS is not the universal Firmware interface
+- interfaces do not create competing gameplay truth
+- presentation must not invent simulation state
+
+
+GAME_STATE_VERSION
+
+This Work Order changes no canonical simulation state.
+
+GAME_STATE_VERSION must remain exactly:
+
+16
+
+Do not change GameState shape.
+
+
+1. PRESENTATION ONLY -- NOT INTERACTION REWRITE
+
+Codex 09 must build on the accepted Codex 08 interaction foundation.
+
+Do NOT replace or independently reimplement:
+
+- history
+- live-draft preservation
+- dispatch guard
+- IME handling
+- focus preservation
+- output scroll ownership
+- follow-tail
+- Shell Editing geometry
+- viewport handling
+
+
+Visual changes must consume the accepted interaction behavior rather than
+creating a second behavior path.
+
+
+2. FIX CONFIRMED PRESENTATION REGRESSIONS NARROWLY
+
+If a presentation change reveals a genuine interaction regression:
+
+- prove it with a focused test where practical
+- fix it at the existing owning interaction boundary
+- keep the fix narrow
+- report it explicitly
+
+Do not use Codex 09 as permission for a second Terminal Interaction refactor.
+
+
+3. SHARED GRAMMAR ≠ SHARED SKIN
+
+NODE-OS and RACK-OS may share presentation primitives where a real common need
+exists.
+
+Examples:
+
+- terminal output spacing primitives
+- input-row geometry
+- safe long-token wrapping
+- selection behavior
+- generic terminal typography constraints
+
+
+But do NOT force identical:
+
+- accent color
+- prompt
+- chrome
+- header
+- terminal introduction text
+- OS-specific labels
+- command output styling
+- Firmware personality
+
+
+The result should communicate:
+
+SAME CLASS OF INTERFACE
+different operating environments
+
+
+4. DO NOT BUILD A TERMINAL THEME ENGINE
+
+Do NOT introduce speculative abstractions such as:
+
+TerminalTheme
+TerminalThemeProvider
+TerminalSkinRegistry
+FirmwareThemeRegistry
+TerminalPresentationEngine
+TerminalVariantFactory
+generic OS theme system
+
+
+A small number of CSS custom properties or local shared classes is acceptable
+only where the two implemented terminals demonstrate a current shared need.
+
+Do not create a framework for hypothetical future Firmware.
+
+
+5. TERMINAL SURFACE HIERARCHY
+
+Each terminal should visually read as three simple layers:
+
+OPERATING CONTEXT / TERMINAL SURFACE
+
+OUTPUT HISTORY
+
+ACTIVE PROMPT / INPUT
+
+
+The prompt/input row must feel integrated into the terminal rather than like a
+generic HTML form attached underneath it.
+
+Avoid card-like framing around every command or result.
+
+
+6. OUTPUT DENSITY
+
+Terminal output should be compact enough to support real use on a phone without
+feeling cramped.
+
+Reduce unnecessary vertical waste.
+
+Preserve readable separation between:
+
+- submitted command
+- result
+- process projection
+- next command
+
+
+Do not compress output until separate command interactions become visually
+ambiguous.
+
+
+7. COMMAND / RESULT RELATIONSHIP
+
+A submitted command and its resulting output should be visually recognizable as
+one interaction.
+
+Do not create large bordered containers/cards for every command.
+
+Prefer restrained grouping through:
+
+- spacing
+- prompt treatment
+- muted/primary contrast
+- alignment
+
+
+Async/process completions should remain associated with the command entry they
+belong to.
+
+
+8. PROMPT READABILITY
+
+Prompts remain OS-owned.
+
+NODE-OS may retain conceptually:
+
+user@node:~$
+
+RACK-OS may retain conceptually:
+
+srv-01 [USER] >
+
+
+Improve readability and alignment without changing prompt semantics.
+
+Prompt must:
+
+- remain visually distinguishable from command text
+- not dominate the line
+- remain readable on narrow phones
+- not cause the editable area to collapse unnecessarily
+
+
+Do not abbreviate semantic prompt information merely to solve layout unless the
+accepted presentation explicitly chooses that behavior.
+
+
+9. MOBILE PROMPT WIDTH
+
+On narrow screens, long prompts must not make the command input unusably small.
+
+Use a layout that allows the editable command region meaningful width.
+
+Possible narrow solutions may include restrained responsive sizing/wrapping or
+adapter-specific presentation adjustment.
+
+Do NOT:
+
+- move the prompt into scrolling output
+- hide important prompt identity arbitrarily
+- horizontally scroll the entire application
+- change gameplay identity
+
+
+10. INPUT MUST NOT LOOK LIKE A WEB FORM
+
+Terminal command input should visually behave like part of the terminal line.
+
+Avoid:
+
+- browser-like boxed input field
+- rounded form-control card
+- inset white/grey field
+- oversized submit-button affordance
+
+
+Editing/focus should remain discoverable through restrained terminal-native
+cues.
+
+
+11. NATIVE CARET WHILE EDITING
+
+While the actual input is focused, prefer the browser/native caret as the real
+editing caret.
+
+Do not overlay a decorative fake cursor on top of a native editing caret.
+
+Any idle/decorative cursor presentation must not:
+
+- imply focus when input is not focused
+- interfere with selection
+- affect geometry
+- create a second interaction truth
+
+
+12. CURSOR MOTION
+
+Cursor blink, if retained, must be subtle.
+
+Respect:
+
+prefers-reduced-motion
+
+
+Do not introduce:
+
+- glowing pulse
+- scanning animation
+- dramatic flicker
+- animation tied to fake work
+
+
+13. TERMINAL TYPOGRAPHY
+
+Use a credible monospace terminal stack.
+
+Do not add a new external font dependency solely for this Work Order.
+
+Typography must prioritize:
+
+- distinguishable characters
+- readable addresses
+- readable paths
+- readable version strings
+- readable punctuation
+- sufficient mobile size
+
+
+Do not reduce the mobile command input below the accepted protection required
+to avoid iOS focus-autozoom.
+
+
+14. OUTPUT TYPOGRAPHY MAY BE DENSER THAN INPUT
+
+It is acceptable for terminal output to be slightly denser/smaller than the
+mobile command input if readability remains good.
+
+The 16px mobile input protection does NOT require all output history to become
+16px.
+
+Do not blindly enlarge the entire terminal and drastically reduce usable
+history space.
+
+
+15. LINE HEIGHT
+
+Use restrained line height suitable for technical text.
+
+Differentiate:
+
+normal output lines
+
+from:
+
+deliberate grouped projections / metadata
+
+through local spacing rather than huge global line height.
+
+
+16. NO HORIZONTAL PAGE SCROLL
+
+Normal terminal use must not create horizontal Shell/Page scrolling.
+
+Long content such as:
+
+- IPv4/service endpoints
+- package paths
+- filesystem paths
+- release IDs
+- error strings
+- commands
+
+must remain readable on narrow screens.
+
+
+17. LONG TOKEN / PATH POLICY
+
+Long unbroken technical strings must wrap safely when required on narrow
+surfaces.
+
+Do not truncate canonical technical information merely for aesthetics unless
+the complete value remains immediately available through an accepted
+interaction.
+
+Avoid ellipsis for values the player may need to read/copy exactly.
+
+
+18. WRAPPING MUST NOT CHANGE SEMANTICS
+
+Wrapping is presentation only.
+
+Do not insert literal whitespace/newlines into:
+
+- copied targets
+- command input
+- canonical paths
+- output values
+
+merely to achieve visual wrapping.
+
+
+19. USER COMMANDS SHOULD REMAIN READABLE
+
+If a submitted command is longer than one visual line:
+
+- allow safe visual wrapping
+- preserve the exact represented command
+- keep its prompt association obvious
+
+
+Do not create horizontal whole-page scrolling just to mimic a desktop terminal.
+
+
+20. NORMAL OUTPUT TEXT REMAINS SELECTABLE
+
+Preserve ordinary browser text selection for normal Terminal output.
+
+Do not introduce:
+
+user-select: none
+
+across the terminal surface.
+
+Do not turn output into a full-surface gesture control.
+
+
+21. SELECTION PRESENTATION
+
+Selected terminal text should remain legible.
+
+A small scoped `::selection` treatment is acceptable if it improves contrast.
+
+Do not apply a global application-wide selection style unless the current
+shared style system already intentionally owns it.
+
+
+22. TARGET TOKENS REMAIN INLINE TECHNICAL CONTENT
+
+TargetToken must continue to feel like technical output that happens to be
+actionable.
+
+Do not transform IPs/endpoints into:
+
+- large pills
+- badges
+- cards
+- raised buttons
+
+
+Its visual action affordance should remain restrained.
+
+
+23. TARGET TOKEN HIT BEHAVIOR
+
+Do not shrink the effective TargetToken interaction to an unreliable
+single-pixel/text-edge target.
+
+Improve comfort where possible without materially inflating terminal line
+height or turning tokens into UI chips.
+
+Preserve the accepted focus/copy behavior from Terminal Interaction V1.
+
+
+24. COPY FEEDBACK MUST NOT CAUSE DISTRACTING LAYOUT SHIFT
+
+Current copy success/failure presentation may be refined.
+
+When a token changes to:
+
+copied
+or
+failed
+
+the surrounding terminal history should not noticeably jump/reflow.
+
+Reserve space or use another restrained stable presentation if required.
+
+Do not move clipboard execution away from the direct user activation.
+
+
+25. COPY FEEDBACK IS TEMPORARY PRESENTATION
+
+Copy feedback remains:
+
+- local
+- temporary
+- non-canonical
+- accessible
+
+
+Do not add clipboard state to GameState.
+
+
+26. COPY ACCESSIBILITY MUST SURVIVE POLISH
+
+TargetToken remains a real accessible control.
+
+Preserve:
+
+- semantic button behavior
+- accessible label
+- keyboard activation
+- focus-visible treatment
+- pointer activation
+- screen-reader discoverability
+
+
+Do not trade accessibility for a more "terminal-like" appearance.
+
+
+27. SCROLLBAR PRESENTATION
+
+Desktop / environments with visible scrollbars should receive a restrained
+terminal-appropriate scrollbar treatment where supported.
+
+It should be:
+
+- subtle
+- visible enough to communicate scrollability
+- non-dominant
+
+
+Do not implement a custom JavaScript scrollbar.
+
+Do not globally hide scrollbars to achieve visual cleanliness.
+
+
+28. MOBILE SCROLLBAR
+
+Do not force a desktop-style permanent scrollbar onto touch devices.
+
+Preserve native/mobile scrolling behavior.
+
+Presentation must not interfere with the accepted Codex 08 scroll ownership.
+
+
+29. SCROLL SHADOWS / FADE
+
+Do not add decorative top/bottom scroll fades unless they solve a demonstrated
+current usability problem.
+
+If introduced, they must not:
+
+- obscure terminal text
+- imply fake state
+- capture pointer events
+- create large visual chrome
+
+
+Default to no extra decoration.
+
+
+30. FOLLOW-TAIL PRESENTATION
+
+Codex 08 owns follow-tail behavior.
+
+Codex 09 may improve its visual comfort but must not change its semantics.
+
+Do not add a fake "live" state.
+
+Do not force the viewport to bottom through presentation effects.
+
+
+31. NEW OUTPUT INDICATOR
+
+Do NOT automatically introduce a "NEW OUTPUT" floating button/badge in this
+slice.
+
+The accepted follow-tail behavior is sufficient unless physical testing after
+Codex 08 demonstrates a real navigation problem.
+
+Avoid inventing UI for hypothetical future high-volume output.
+
+
+32. NODE-OS VISUAL IDENTITY
+
+NODE-OS Terminal should remain consistent with NODE-OS:
+
+- matte dark surface
+- restrained green/mint technical accent
+- clean monospace content
+- low decorative noise
+- professional system-tool character
+
+
+Do not introduce:
+
+- neon cyberpunk glow
+- CRT distortion
+- scanline gimmicks
+- excessive matrix-green text
+- fake screen noise
+
+
+33. RACK-OS VISUAL IDENTITY
+
+RACK-OS Terminal should remain visibly foreign to NODE-OS.
+
+It should feel:
+
+- server-oriented
+- rawer
+- more utilitarian
+- less polished/productized than NODE-OS
+
+but NOT:
+
+- broken
+- intentionally frustrating
+- unreadable
+- primitive in interaction quality
+
+
+RACK-OS and NODE-OS must share interaction quality without sharing visual
+identity.
+
+
+34. RACK-OS MUST NOT BECOME RECOLORED NODE-OS
+
+Do not copy the complete NODE-OS Terminal CSS and merely substitute colors.
+
+Share only genuinely common structural/presentation primitives.
+
+Keep RACK-specific presentation local where its identity differs.
+
+
+35. NODE-OS MUST NOT BECOME RACK-OS
+
+Likewise, do not flatten NODE-OS into a generic universal shell terminal.
+
+NODE-OS may remain more refined as the player's personal Firmware environment.
+
+
+36. TERMINAL INTRODUCTORY TEXT
+
+Existing terminal-introduction/help hint text may be visually refined.
+
+Do not add verbose fake startup logs, BIOS output, boot timestamps, security
+banners, or atmospheric telemetry.
+
+Silence remains valid.
+
+
+37. PROCESS PROJECTIONS
+
+Existing NODE-OS real Process projections may receive narrow presentation
+polish.
+
+Preserve their canonical meaning.
+
+Do not fabricate additional:
+
+- CPU
+- RAM
+- progress
+- activity
+- completion
+- elapsed time
+
+
+Only represented Process state may be shown.
+
+
+38. PROCESS PROJECTION DENSITY
+
+Running/completed Process output should remain clearly distinguishable from
+ordinary single-line command results without becoming a dashboard card.
+
+Technical grouping through spacing/alignment is preferred.
+
+
+39. STATUS COLORS
+
+Use color as secondary reinforcement, not the only semantic distinction.
+
+Success/error/running states must remain understandable without relying solely
+on hue.
+
+Do not introduce a broad generic semantic-color framework unless already
+present and appropriate.
+
+
+40. CONTRAST
+
+Terminal foreground, muted text, prompt, target tokens, errors, and focus states
+must remain readable against their respective terminal backgrounds.
+
+Do not achieve "subtle" styling by reducing important information to near
+invisibility.
+
+
+41. TOUCH FEEDBACK
+
+Interactive terminal elements should give restrained immediate touch feedback.
+
+Do not use large scale/bounce animations inside flowing terminal history.
+
+Feedback must not cause viewport or line-layout jumps.
+
+
+42. FOCUS-VISIBLE
+
+Keyboard focus on terminal controls must remain visible.
+
+Do not remove focus outlines without an accessible replacement.
+
+Pointer-only presentation may remain visually quieter.
+
+
+43. INPUT FOCUS PRESENTATION
+
+An active command input should be clearly editable without using a boxed
+form-control appearance.
+
+A restrained divider/accent/caret treatment is acceptable.
+
+Do not change focus mechanics from Codex 08.
+
+
+44. KEYBOARD-OPEN PRESENTATION
+
+When Shell enters its accepted Editing presentation:
+
+- Terminal remains visually coherent
+- input remains visually connected to output
+- no redundant desktop chrome should crowd the reduced viewport
+- safe-area behavior remains correct
+
+
+Do not add Terminal-specific viewport calculations.
+
+
+45. SAFE AREAS
+
+Preserve accepted safe-area handling for:
+
+- top browser/Home-Screen presentation
+- bottom home indicator
+- keyboard-open layout
+
+
+Do not hardcode device-specific pixel values.
+
+
+46. BROWSER VS HOME-SCREEN
+
+The Terminal should remain visually coherent both:
+
+- inside normal iPhone Safari presentation
+- when installed/opened from Home Screen
+
+
+Do not assume absence of browser chrome when choosing spacing.
+
+
+47. ORIENTATION
+
+Portrait is the primary mobile design target.
+
+Landscape must remain usable.
+
+Do not create portrait-only fixed widths/heights that break the accepted
+orientation recovery of the Shell.
+
+
+48. DESKTOP
+
+Desktop Terminal remains a serious first-class surface.
+
+Do not over-mobile-optimize so that desktop becomes an oversized phone
+interface.
+
+Use available space without making lines excessively long/unreadable.
+
+
+49. MAXIMUM READABLE TERMINAL WIDTH
+
+If terminal content becomes excessively wide on large screens, restrained
+content-width/spacing treatment is acceptable.
+
+Do not add card framing simply to reduce line length.
+
+Adapt to the existing application-shell dimensions rather than inventing a new
+desktop layout.
+
+
+50. CSS OWNERSHIP
+
+Shared terminal presentation rules should live at the narrowest honest common
+boundary.
+
+NODE-specific presentation stays with NODE.
+
+RACK-specific presentation stays with RACK.
+
+Avoid broad global selectors such as:
+
+button {}
+input {}
+code {}
+pre {}
+
+for Terminal-specific behavior.
+
+
+51. DO NOT CREATE CSS SPECIFICITY WARFARE
+
+Avoid fixing one Terminal through increasingly specific selectors that fight
+existing Shell/app CSS.
+
+Prefer explicit scoped classes and a clear ownership boundary.
+
+Do not use `!important` unless an existing accepted browser/platform workaround
+genuinely requires it and the reason is documented.
+
+
+52. NO INLINE STYLE PROLIFERATION
+
+Prefer scoped CSS/classes for durable presentation rules.
+
+Do not scatter repeated terminal appearance values through JSX inline styles.
+
+
+53. USE EXISTING DESIGN TOKENS WHERE HONEST
+
+Reuse existing accepted style tokens where they already represent the intended
+value.
+
+Do not force RACK-OS to use NODE-specific color tokens merely to reduce
+duplication.
+
+Small local RACK values remain preferable to a premature universal theme
+system.
+
+
+54. NO NEW EXTERNAL DEPENDENCIES
+
+Do not add:
+
+- terminal emulator libraries
+- animation libraries
+- scrollbar libraries
+- styling frameworks
+- icon libraries
+
+for this Work Order.
+
+Use the current stack.
+
+
+55. DO NOT IMPLEMENT XTERM / VT100 EMULATION
+
+This remains a gameplay terminal interface.
+
+Do not introduce terminal-emulator complexity for presentation authenticity.
+
+
+56. COMMAND OUTPUT MUST NOT CHANGE SEMANTICALLY
+
+Codex 09 should not rewrite command strings/results simply because another text
+would fit the layout better.
+
+Preserve accepted command semantics and important player-facing messages.
+
+Minor typography/punctuation presentation changes require strong justification
+and must not alter command meaning or test contracts unnecessarily.
+
+
+57. NO NEW COMMANDS
+
+Do NOT add:
+
+- Inspect
+- aliases
+- shortcuts
+- terminal settings commands
+- theme commands
+- font-size commands
+
+
+This Work Order is not a command feature slice.
+
+
+58. NO FAKE TERMINAL FEATURES
+
+Do not add cosmetic representations of features that do not exist, including:
+
+- fake working directory state
+- fake user/root state
+- fake connection latency
+- fake packet activity
+- fake shell jobs
+- fake environment variables
+- fake filesystem permissions
+- fake system uptime
+
+
+59. NO FAKE DELAYS / ANIMATIONS
+
+Do not reintroduce artificial waiting behavior removed by Codex 08.
+
+Presentation animation must never imply simulated work that does not exist.
+
+
+60. REDUCED MOTION
+
+Any retained/added non-essential visual motion must respect:
+
+prefers-reduced-motion
+
+Default toward little motion.
+
+
+61. NO GAMEPLAY STATE
+
+Do not add presentation fields to GameState.
+
+Examples that must remain local UI state:
+
+- copy feedback
+- hover state
+- focus state
+- selection state
+- visual cursor state
+
+
+62. DO NOT TOUCH DOWNLOAD / INSTALL SEMANTICS
+
+Download and Installation remain exactly as accepted at the start of this Work
+Order.
+
+Do not add:
+
+- durations
+- progress
+- Process entries
+- file sizes
+- network capacity
+
+
+Those belong to later Work Orders.
+
+
+63. DO NOT POLISH FILES IN THIS SLICE
+
+Files/Package presentation may remain as accepted.
+
+Codex 10 owns Files + Software Action UX hardening.
+
+Do not expand Codex 09 because Files is visually nearby.
+
+
+64. PHYSICAL FINDINGS OVERRIDE AESTHETIC ASSUMPTIONS
+
+If physical iPhone testing shows that an apparently attractive visual treatment
+causes:
+
+- focus instability
+- keyboard jumps
+- scroll interference
+- accidental zoom
+- inaccessible hit behavior
+- selection problems
+
+remove/revise that treatment.
+
+Interaction stability outranks visual polish.
+
+
+65. AUTOMATED TESTS SHOULD PROVE CONTRACTS, NOT PIXEL ART
+
+Do not write fragile snapshot tests for arbitrary CSS formatting.
+
+Prefer assertions proving:
+
+- expected structural classes exist
+- shared vs OS-specific presentation boundaries remain
+- prompts remain distinct
+- inputs remain correct
+- TargetToken remains accessible
+- long values remain present/not truncated
+- broad interaction semantics from Codex 08 remain intact
+
+
+Do not assert dozens of exact CSS pixel values unless a value is itself an
+accepted behavioral contract.
+
+
+66. ALTERED CONTENT TESTING
+
+Where practical, use altered technical content to ensure layout/presentation
+does not accidentally rely on current short values.
+
+Examples:
+
+- longer display name
+- longer package/path output
+- long release ID
+- longer command
+- multiple process outputs
+
+
+Do not change canonical initial game state merely for presentation testing.
+
+
+67. LONG OUTPUT REGRESSION
+
+Test enough generated terminal entries to prove the Terminal still renders and
+its output remains the correct scroll surface.
+
+Do not pretend jsdom can prove physical touch/keyboard behavior.
+
+
+68. ACCESSIBILITY REGRESSION
+
+Verify:
+
+- Terminal input retains accessible naming
+- TargetToken retains semantic button role
+- TargetToken focus-visible remains available
+- output history is not converted into an aggressive live region
+- normal output remains readable/selectable
+- visual states are not communicated only by color
+
+
+69. NODE / RACK SEPARATION TEST
+
+Add/retain a focused regression proving the two Terminal consumers do not
+accidentally converge to identical prompt/OS presentation.
+
+The exact visual pixels do not need a snapshot.
+
+Prove their intentional identity markers remain distinct.
+
+
+70. INTERACTION REGRESSION MATRIX
+
+The accepted Codex 08 interaction behavior must remain green, especially:
+
+- no auto-focus on open
+- history/draft
+- IME guard
+- input remains enabled while pending
+- duplicate-submit guard
+- async cleanup
+- async completion no focus stealing
+- correct real scroll owner
+- follow-tail semantics
+- clear preserves history
+- no broad aria-live
+- copy focus/accessibility behavior
+
+
+Do not weaken those tests to accommodate presentation changes.
+
+
+STRICT NON-GOALS
+
+Do NOT implement:
+
+- Terminal Interaction rewrite
+- new viewport controller
+- Shell keyboard redesign
+- new gameplay
+- Inspect
+- new commands
+- command aliases
+- autocomplete
+- persistent history
+- terminal tabs
+- multiple shells
+- shell scripting
+- pipes
+- redirects
+- VT100/xterm
+- terminal theme engine
+- Firmware theme registry
+- generic OS UI framework
+- fake boot logs
+- fake telemetry
+- fake activity
+- fake delays
+- file sizes
+- network speeds
+- Download Process
+- Install Process
+- Upload
+- Files UX redesign
+- Software Manager
+- App Store
+- GameState changes
+- schema bump
+
+
+EXPECTED CURRENT-STATE RESULT
+
+After Codex 09:
+
+NODE-OS Terminal
+→ same accepted commands/gameplay
+→ same accepted interaction mechanics
+→ more polished, dense, readable NODE-OS presentation
+
+RACK-OS Terminal
+→ same accepted remote commands/gameplay
+→ same accepted interaction mechanics
+→ more polished, usable RACK-OS presentation
+→ still clearly foreign/server-oriented
+
+Both:
+→ comfortable mobile/desktop technical interfaces
+→ no fake simulation
+→ no interaction regression
+→ no shared universal OS skin
+
+
+GAME_STATE_VERSION
+→ remains 16
+
+
+TEST MATRIX
+
+A. GAME_STATE_VERSION remains exactly 16.
+
+B. NODE-OS command semantics remain unchanged.
+
+C. RACK-OS command semantics remain unchanged.
+
+D. Accepted Codex 08 interaction suite remains green.
+
+E. NODE prompt identity remains NODE-specific.
+
+F. RACK prompt identity remains RACK-specific.
+
+G. NODE and RACK do not become identical skins.
+
+H. Mobile Terminal input retains accepted non-autozoom-safe sizing.
+
+I. Input remains visually integrated with Terminal rather than browser-form
+styling.
+
+J. Long commands remain fully represented.
+
+K. Long paths remain fully represented.
+
+L. Long endpoints/release identifiers do not cause page horizontal scrolling.
+
+M. Wrapped display does not mutate copied/canonical value.
+
+N. TargetToken remains semantic button.
+
+O. TargetToken remains keyboard accessible.
+
+P. TargetToken copy feedback does not create disruptive layout shift.
+
+Q. TargetToken focus-visible remains visible.
+
+R. Normal output text remains selectable/readable.
+
+S. Selection contrast remains usable if custom selection styling is added.
+
+T. Whole Terminal output remains free of aggressive aria-live behavior.
+
+U. Desktop output scrollbar remains usable and not hidden by custom JS.
+
+V. No custom scrollbar dependency exists.
+
+W. NODE real Process projections still show only canonical represented
+information.
+
+X. RACK Terminal remains usable with large output.
+
+Y. NODE Terminal remains usable with large output.
+
+Z. No artificial delay/timer is added.
+
+AA. Reduced-motion behavior remains respected for cursor/visual motion.
+
+AB. No Terminal-specific VisualViewport listener exists.
+
+AC. No global user zoom disabling exists.
+
+AD. No global Terminal `user-select:none` exists.
+
+AE. No generic Terminal theme engine exists.
+
+AF. No command registry abstraction is introduced.
+
+AG. Download behavior remains unchanged.
+
+AH. Installation behavior remains unchanged.
+
+AI. Files UX remains outside scope.
+
+AJ. Current Shell editing/viewport tests remain green.
+
+
+PHYSICAL ACCEPTANCE -- IPHONE SAFARI
+
+After automated validation, test physically.
+
+NODE-OS:
+
+1. Open Terminal.
+   Confirm presentation is calm and readable.
+
+2. Tap input.
+   Confirm no focus autozoom and no visual jump.
+
+3. Type long command text.
+   Confirm editable region remains usable.
+
+4. Submit enough commands to fill history.
+   Confirm spacing remains readable.
+
+5. Scroll old output with keyboard open.
+   Confirm no presentation layer interferes with accepted interaction.
+
+6. Copy a target token.
+   Confirm feedback does not move surrounding output materially.
+
+7. Select ordinary output text.
+   Confirm selection remains usable.
+
+8. Test a long path/endpoint.
+   Confirm no whole-page horizontal scroll.
+
+9. Close/reopen keyboard.
+   Confirm surface remains visually coherent.
+
+10. Rotate device.
+    Confirm portrait/landscape remain usable.
+
+
+RACK-OS:
+
+11. Connect and open Terminal.
+
+12. Confirm RACK remains visually distinct from NODE.
+
+13. Repeat keyboard-open scrolling.
+
+14. Repeat long command/path presentation.
+
+15. Repeat history.
+
+16. Repeat selection.
+
+17. Run help / ls / cat / download-related existing commands as available.
+    Confirm output remains readable.
+
+18. Switch RACK section and return.
+    Confirm no presentation corruption.
+
+19. Disconnect.
+    Confirm normal NODE context restores cleanly.
+
+
+PHYSICAL ACCEPTANCE -- HOME-SCREEN MODE
+
+Repeat the high-risk cases:
+
+- focus
+- long input
+- keyboard-open output scrolling
+- copy feedback
+- text selection
+- long path wrapping
+- orientation
+- RACK section switching
+- disconnect/return
+
+
+DESKTOP ACCEPTANCE
+
+Verify:
+
+- readable terminal density
+- sensible line length
+- visible keyboard focus
+- TargetToken hover/focus behavior
+- ordinary text selection
+- scrollbar usability
+- long command/path wrapping
+- NODE/RACK identity distinction
+- no oversized mobile-like layout
+
+
+VALIDATION
+
+Run focused tests covering:
+
+- NODE Terminal presentation structure
+- RACK Terminal presentation structure
+- TargetToken
+- long technical content
+- accessibility regressions
+- Codex 08 interaction regressions
+- Shell editing regressions
+
+
+Then run:
+
+npm test
+
+npm run build
+
+npx tsc -b --pretty false
+
+git diff --check
+
+
+FINAL SELF-REVIEW
+
+Before completion:
+
+1. Inspect the entire diff.
+
+2. Confirm Codex 08 interaction mechanics were consumed, not rewritten.
+
+3. Confirm no interaction test was weakened merely to obtain green output.
+
+4. Confirm NODE and RACK retain distinct visual identity.
+
+5. Confirm shared styling exists only where both real consumers demonstrate the
+same need.
+
+6. Confirm no theme engine/framework was introduced.
+
+7. Confirm no broad global CSS accidentally affects unrelated apps.
+
+8. Confirm no `!important` specificity workaround was introduced without a
+documented platform reason.
+
+9. Confirm no external dependency was added.
+
+10. Confirm mobile input protection remains intact.
+
+11. Confirm long technical values remain fully available.
+
+12. Confirm display wrapping does not mutate data.
+
+13. Confirm no whole-page horizontal Terminal scroll path was introduced.
+
+14. Confirm normal output remains selectable.
+
+15. Confirm TargetToken remains a real accessible control.
+
+16. Confirm copy feedback does not cause obvious layout shift.
+
+17. Confirm whole output is not an aggressive live region.
+
+18. Confirm keyboard focus-visible remains available.
+
+19. Confirm no fake terminal state/telemetry was introduced.
+
+20. Confirm no artificial operation delay was introduced.
+
+21. Confirm no new command/gameplay feature slipped in.
+
+22. Confirm Download/Install behavior remains unchanged.
+
+23. Confirm Files UX was not expanded.
+
+24. Confirm Shell remains sole viewport/editing authority.
+
+25. Confirm no Terminal-owned VisualViewport logic exists.
+
+26. Confirm GAME_STATE_VERSION remains exactly 16.
+
+27. Re-run all required validation.
+
+
+DOCUMENTATION IMPACT
+
+Perform a documentation impact check.
+
+The owning durable interaction contract remains:
+
+docs/design/TERMINAL_INTERACTION_V1.md
+
+
+Do not rewrite it merely to describe CSS.
+
+Update docs/V0.md only where the accepted current Terminal presentation/consumer
+truth materially changes.
+
+Do not create a second competing Terminal Interaction document.
+
+If implementation establishes a genuinely durable presentation rule not already
+captured anywhere and important to future Terminal consumers, report it first;
+do not casually expand architecture documentation from CSS implementation
+details.
+
+
+COMPLETION REPORT
+
+When Codex 09 is eventually selected and executed, report:
+
+1. files changed
+2. accepted Codex 08 baseline inspected
+3. shared presentation primitives introduced/reused
+4. NODE-specific presentation changes
+5. RACK-specific presentation changes
+6. prompt/input presentation changes
+7. typography changes
+8. long-value wrapping behavior
+9. cursor/caret presentation
+10. scrollbar presentation
+11. text-selection presentation
+12. TargetToken presentation/copy-feedback changes
+13. accessibility impact
+14. mobile/safe-area impact
+15. confirmation no Terminal Interaction semantics changed unintentionally
+16. confirmation no command/gameplay semantics changed
+17. confirmation no fake state/delay was introduced
+18. confirmation no external dependency was added
+19. confirmation GAME_STATE_VERSION remains 16
+20. focused test results
+21. full npm test result
+22. npm run build result
+23. npx tsc -b --pretty false result
+24. git diff --check result
+25. documentation impact
+26. architecture concern/scope deviation
+27. exact physical iPhone Safari test steps
+28. exact Home-Screen test steps
+29. exact desktop review steps
+
+
+GIT BOUNDARY
+
+Do not commit, push, merge, create or close pull requests, rewrite history, or
+perform any other Git lifecycle action.
+
+The human operator owns all Git lifecycle decisions.

@@ -1,0 +1,776 @@
+# CODEX 08 -- TERMINAL INTERACTION FOUNDATION V1
+
+
+STATUS
+
+SELECTED -- EXECUTABLE WORK ORDER
+
+The human operator has selected Codex 08 as the next implementation slice.
+
+Before implementation, inspect current accepted main.
+
+Current code and the authoritative repository documents outrank stale assumptions
+in this Work Order.
+
+If this Work Order conflicts with AGENTS.md, docs/ARCHITECTURE.md, or
+docs/design/TERMINAL_INTERACTION_V1.md, stop and report the conflict.
+
+
+MISSION
+
+Implement the first shared Terminal Interaction foundation for the two existing
+terminal consumers:
+
+- NODE-OS Terminal
+- RACK-OS Terminal
+
+Both must share the same durable interaction behavior for:
+
+- input
+- focus
+- command history
+- live-draft preservation
+- async submit guarding
+- IME/composition
+- terminal-output scrolling
+- follow-tail
+- common mobile input behavior
+
+Do NOT unify their:
+
+- commands
+- command registries
+- prompts
+- gameplay operations
+- output semantics
+- operating-system identity
+
+The durable behavior contract already exists in:
+
+docs/design/TERMINAL_INTERACTION_V1.md
+
+Do not duplicate that document in code or create a second competing Terminal
+contract.
+
+
+SUCCESS STATE
+
+After this slice:
+
+NODE-OS Terminal
+        │
+        ├── own commands / output / prompt
+        │
+        └── shared Terminal Interaction
+                         ↑
+        ┌────────────────┘
+        │
+RACK-OS Terminal
+        ├── own commands / output / prompt
+        └── same interaction behavior
+
+
+A player can:
+
+- open either Terminal without automatic keyboard activation
+- focus the prompt and work continuously
+- submit without the keyboard collapsing
+- type a new draft while an async command is pending
+- use ArrowUp / ArrowDown history without losing the live draft
+- scroll old output without later async output yanking them down
+- scroll RACK-OS output while the mobile keyboard is open
+- use copy targets without deliberate focus stealing
+- clear output without losing history
+
+No fake operation duration is introduced.
+
+
+AUTHORITATIVE INPUTS
+
+Before editing, read:
+
+- AGENTS.md
+- docs/ARCHITECTURE.md
+- docs/V0.md
+- docs/design/TERMINAL_INTERACTION_V1.md
+- docs/work-orders/README.md
+
+Inspect current implementations of:
+
+- NODE-OS Terminal
+- RACK-OS Terminal
+- TargetToken
+- their tests/styles
+- Shell editing / scroll-ownership infrastructure
+
+Search current main for existing implementations of:
+
+- command history
+- submit guarding
+- focus({ preventScroll: true })
+- data-editing-scroll-owner
+- follow/autoscroll behavior
+- VisualViewport/editing ownership
+- SCAN_MIN_DISPLAY_MS or equivalent presentation delay
+
+Use accepted names and structure from current main.
+
+
+CURRENT BASELINE TO VERIFY
+
+Expected current baseline includes:
+
+- GAME_STATE_VERSION = 16
+- Shell owns mobile editing / viewport geometry
+- NODE-OS already has a more mature Terminal interaction implementation
+- NODE-OS currently performs unconditional output-to-bottom scrolling
+- NODE-OS currently contains an artificial minimum Scan presentation delay
+- RACK-OS has a separate reduced Terminal implementation
+- RACK-OS does not yet fully participate in the established editing-scroll
+  ownership contract
+- TargetToken already uses a semantic button and direct clipboard activation
+
+If current main materially differs, adapt narrowly to accepted code rather than
+recreating stale assumptions.
+
+
+IMPLEMENTATION CONTRACT
+
+
+1. SHARED INTERACTION BOUNDARY
+
+Extract only interaction behavior demonstrated by BOTH real Terminal consumers.
+
+Place the shared interaction primitive in a neutral presentation/interaction
+location that is legal under the current repository dependency boundaries.
+
+Do not make one feature import another feature's internal UI merely to reuse
+Terminal interaction behavior.
+
+A location conceptually similar to:
+
+src/apps/terminalInteraction/
+
+is acceptable only if it fits the current accepted repository structure.
+
+If current architecture provides a more appropriate shared UI/interaction
+location, use that instead and report the final location.
+
+Do not change repository dependency rules merely to accommodate this primitive.
+
+Do not place reusable interaction ownership inside the NODE-specific Terminal
+module merely because NODE currently has the more mature implementation.
+
+The shared layer may own:
+
+- input value
+- input/output refs
+- per-instance history
+- history position
+- preserved live draft
+- dispatch guard
+- IME/composition state
+- follow-tail state
+- narrow focus/scroll helpers
+
+It must not own:
+
+- GameState
+- GameActions
+- command parsing
+- command registries
+- filesystem semantics
+- RemoteSession
+- Process semantics
+- NodeScan
+- operating-system identity
+
+
+Do not build a giant UniversalTerminal component.
+
+Prefer a small hook plus pure helpers and the minimum honest shared styling.
+
+
+2. BOTH TERMINALS MUST ACTUALLY CONSUME IT
+
+Migrate both:
+
+- NODE-OS Terminal
+- RACK-OS Terminal
+
+onto the accepted shared interaction foundation.
+
+Do not leave NODE with a private duplicate implementation while only RACK uses
+the new abstraction.
+
+Keep adapter-specific output and command behavior local.
+
+
+3. HISTORY + LIVE DRAFT
+
+History is ephemeral per-Terminal-instance interaction state.
+
+NODE history and RACK history remain separate.
+
+Required behavior:
+
+current draft:
+analy
+
+ArrowUp
+→ older command
+
+ArrowDown back to live position
+→ analy
+
+
+History restoration must:
+
+- keep focus when already focused
+- place the caret at the end after the value is rendered
+- avoid select-all
+- avoid scrollIntoView / page movement
+
+`clear` clears visible output only.
+
+It does not clear history.
+
+
+4. COMMON INPUT BEHAVIOR
+
+Both Terminal inputs must use terminal-appropriate browser behavior:
+
+- autoCapitalize="none"
+- autoComplete="off"
+- autoCorrect="off"
+- spellCheck={false}
+- enterKeyHint="send"
+
+Opening a Terminal must not auto-focus the input on mobile.
+
+
+5. IME / COMPOSITION
+
+Enter must not submit while text composition is active.
+
+Use the current React/browser event model reliably; do not assume every Enter
+means command submission.
+
+
+6. ASYNC DISPATCH GUARD
+
+The shared interaction layer must support synchronous or asynchronous command
+adapters without owning command semantics.
+
+While one guarded dispatch is pending:
+
+new submit
+→ ignored / guarded
+
+Do NOT:
+
+- disable the focused input
+- queue another command
+- run concurrent commands
+- prevent the player from typing the next draft
+
+
+Submitting captures the current command string, then clears only that submitted
+draft.
+
+Text typed afterward belongs to the next draft.
+
+Late resolve/reject of the previous command must never overwrite or clear it.
+
+
+7. GUARDED DISPATCH ALWAYS RECOVERS
+
+Dispatch cleanup must run through `finally`.
+
+A success or rejection must always release the interaction guard.
+
+A command rejection must become controlled Terminal failure output rather than
+an unhandled Promise rejection.
+
+The shared interaction layer does not decide the exact OS-specific failure text.
+
+The shared interaction layer may expose a narrow controlled dispatch-failure
+signal/result to the Terminal adapter.
+
+The adapter owns player-facing failure presentation.
+
+Do not automatically render raw:
+
+- Error stacks
+- internal exception names
+- arbitrary implementation messages
+
+into Terminal output merely because a Promise rejected.
+
+8. FOCUS OWNERSHIP
+
+Normal submit should preserve an already-active editing session.
+
+The input remains enabled and the keyboard should remain open.
+
+Where immediate focus preservation is needed, use behavior equivalent to:
+
+focus({ preventScroll: true })
+
+
+Do NOT implement:
+
+await command
+finally
+  input.focus()
+
+
+Async completion must not steal focus after the player has:
+
+- blurred the input
+- dismissed the keyboard
+- focused another control
+- changed section/app
+- disconnected
+- unmounted the Terminal
+
+Leaving or unmounting the Terminal does not by itself cancel the underlying
+gameplay/application operation.
+
+If an already-submitted command represents a real application operation, that
+operation continues according to its existing semantics.
+
+Only Terminal interaction/presentation behavior is abandoned when the surface
+is no longer active.
+
+A later completion must not:
+
+- reopen the Terminal
+- restore Terminal focus
+- reopen the keyboard
+- restore stale presentation state
+
+Do not introduce command cancellation semantics in this Work Order.
+
+
+9. ONE REAL OUTPUT SCROLLER
+
+Each Terminal has exactly one actual vertical output scroller.
+
+The element that owns:
+
+overflow-y
+
+must itself own:
+
+data-editing-scroll-owner
+
+
+Its geometry must support the equivalent of:
+
+min-height: 0;
+overflow-y: auto;
+overflow-x: hidden;
+
+
+Terminal scrolling must not chain into Shell/Page scrolling.
+
+Prefer:
+
+overscroll-behavior-y: contain
+
+unless tested current-platform behavior requires stronger containment.
+
+Do not attach the editing-scroll-owner marker to a decorative ancestor.
+
+
+10. SHELL REMAINS VIEWPORT AUTHORITY
+
+Do not modify the architecture established for mobile editing.
+
+Do NOT introduce Terminal-owned:
+
+- VisualViewport listeners
+- keyboard-height state
+- window.scrollTo fixes
+- scrollIntoView keyboard fixes
+- body transforms
+- viewport polling
+- fake keyboard dimensions
+
+Shell remains the only external editing/viewport authority.
+
+
+11. FOLLOW-TAIL
+
+Replace unconditional NODE output autoscroll with shared follow-tail semantics.
+
+Required transitions:
+
+user is near bottom
+→ followingTail = true
+
+user manually scrolls away
+→ followingTail = false
+
+user manually returns near bottom
+→ followingTail = true
+
+player submits a command
+→ followingTail = true
+
+async output arrives while followingTail = false
+→ remains false
+
+
+A late async result must not yank a player away from old output they are
+reading.
+
+Programmatic scrolling performed by the Terminal itself to follow the tail must
+not accidentally be interpreted as deliberate user scroll-away.
+
+The implementation must preserve the semantic distinction:
+
+Terminal follows newest output
+→ remains followingTail
+
+player deliberately scrolls away from newest output
+→ followingTail = false
+
+
+12. NEAR-BOTTOM + POST-RENDER SCROLL
+
+Use a small pure helper to determine whether the user is near the bottom.
+
+Use a modest tolerance in approximately the 24–32 CSS-pixel range rather than
+exact equality.
+
+When follow-tail is active:
+
+new output renders
+→ then scroll to newest rendered content
+
+
+Do not scroll against stale pre-render `scrollHeight`.
+
+Prefer a normal controlled React effect/layout-effect mechanism.
+
+Do not add MutationObserver unless current accepted implementation demonstrates
+a concrete need.
+
+
+13. REMOVE FAKE SCAN PRESENTATION DURATION
+
+Remove:
+
+SCAN_MIN_DISPLAY_MS
+
+or any equivalent artificial minimum presentation delay.
+
+If Scan currently has no represented duration:
+
+scan
+→ actual result immediately
+
+
+Do not replace it with another fake delay, animation, or timer.
+
+Do not alter real Process timing.
+
+
+14. OUTPUT ACCESSIBILITY
+
+Do not make the entire continuously changing Terminal history an `aria-live`
+region.
+
+Normal output remains normal readable/selectable DOM content.
+
+Targeted status announcements may remain where useful.
+
+Do not broadly refactor TargetToken in this slice.
+
+Preserve its:
+
+- semantic button
+- accessible naming
+- keyboard activation
+- direct user-triggered clipboard write
+- pointer focus-preservation behavior
+- local copy feedback
+
+
+15. NO GAMEPLAY OR STATE MODEL CHANGE
+
+This is interaction/presentation work.
+
+Do not alter canonical GameState.
+
+GAME_STATE_VERSION remains:
+
+16
+
+
+Do not add or change:
+
+- gameplay commands
+- Inspect
+- download/install semantics
+- Processes
+- Filesystem semantics
+- RemoteSession semantics
+- installed software
+- command capabilities
+
+
+STRICT NON-GOALS
+
+Do not implement:
+
+- visual Terminal redesign
+- Terminal theme system
+- generic OS framework
+- universal command registry
+- command queue
+- parallel shell commands
+- persistent/global history
+- autocomplete
+- tabs
+- aliases
+- pipes
+- redirects
+- shell scripting
+- VT100/xterm emulation
+- new viewport controller
+- new dependencies
+- fake operation timing
+- GameState changes
+
+
+ACCEPTANCE MATRIX
+
+The implementation must prove at least:
+
+A. NODE and RACK use the shared interaction foundation.
+
+B. Their histories are independent.
+
+C. ArrowUp / ArrowDown works in both.
+
+D. A live draft survives history navigation.
+
+E. History restoration places caret at end where reliably testable.
+
+F. `clear` removes output but preserves history.
+
+G. Opening either Terminal does not auto-focus on mobile-oriented rendering.
+
+H. Common Terminal input attributes exist in both.
+
+I. Enter during active composition does not submit.
+
+J. Pending async dispatch leaves input enabled.
+
+K. A second submit while pending is guarded.
+
+L. The player can type a new draft while the old dispatch is pending.
+
+M. Old success does not erase the new draft.
+
+N. Old rejection does not erase the new draft.
+
+O. Dispatch guard resets after both success and rejection.
+
+P. Rejection produces controlled Terminal failure.
+
+Q. Late completion does not deliberately refocus an abandoned Terminal.
+
+QA. Navigating away/unmounting while an async command is pending does not
+    cause later completion to reopen/refocus the Terminal or keyboard.
+
+QB. Navigating away from the Terminal does not implicitly cancel an already
+    submitted gameplay/application operation unless that operation already has
+    its own cancellation semantics.
+
+R. NODE output is the real editing scroll owner.
+
+S. RACK output is the real editing scroll owner.
+
+T. `data-editing-scroll-owner` is on the actual overflow scroller.
+
+U. Manual scroll-away disables follow-tail.
+
+V. Async output cannot re-enable follow-tail.
+
+W. Manual return near bottom re-enables follow-tail.
+
+X. Own submit re-enables follow-tail.
+
+Y. Active follow-tail scrolls after new output has rendered.
+
+Z. Whole Terminal history is not a broad live region.
+
+AA. TargetToken remains an accessible semantic control.
+
+AB. Existing TargetToken clipboard behavior remains intact.
+
+AC. Artificial Scan minimum-delay code is gone.
+
+AD. NODE command semantics remain unchanged.
+
+AE. RACK command semantics remain unchanged.
+
+AF. Existing RACK download behavior remains unchanged.
+
+AG. Existing NODE install/help/software behavior remains unchanged.
+
+AH. GAME_STATE_VERSION remains exactly 16.
+
+AI. Existing Shell editing/viewport tests remain green.
+
+
+TESTING GUIDANCE
+
+Use pure numeric tests for scroll geometry/follow-tail helpers.
+
+Do not write brittle jsdom assertions pretending to prove real:
+
+- VisualViewport behavior
+- mobile keyboard geometry
+- browser chrome
+- physical touch scrolling
+- Home-Screen behavior
+
+Those remain physical acceptance requirements.
+
+Do not weaken existing architecture or interaction tests to obtain green output.
+
+
+VALIDATION
+
+Run focused tests for:
+
+- shared Terminal Interaction
+- NODE Terminal
+- RACK-OS Terminal
+- history/draft
+- async dispatch guard
+- IME
+- follow-tail
+- TargetToken regression
+- Shell editing regressions
+
+Then run:
+
+npm test
+npm run build
+npx tsc -b --pretty false
+git diff --check
+
+
+PHYSICAL ACCEPTANCE
+
+Automated tests do not complete this milestone.
+
+After implementation, the human operator must test on physical iPhone Safari.
+
+At minimum:
+
+NODE-OS:
+- open Terminal → keyboard remains closed
+- focus input
+- submit repeatedly
+- keyboard remains stable
+- create enough output to scroll
+- scroll upward with keyboard open
+- produce later output → no yank
+- return to bottom → follow resumes
+- test history with a partial draft
+- copy a target token
+- close/reopen keyboard
+- rotate with keyboard open
+
+RACK-OS:
+- connect
+- open Terminal
+- repeat focus/submit/history behavior
+- scroll output with keyboard open
+- verify no Shell/Page scrolling
+- change RACK section and return
+- disconnect cleanly
+
+Repeat the high-risk sequence in Home-Screen mode.
+
+
+DOCUMENTATION IMPACT
+
+The durable contract already exists in:
+
+docs/design/TERMINAL_INTERACTION_V1.md
+
+Do not rewrite it merely to mirror implementation.
+
+Update docs/V0.md only if current implemented Terminal truth materially changes.
+
+No architecture invariant or GameState schema change is expected.
+
+
+FINAL SELF-REVIEW
+
+Before completion confirm:
+
+- both real Terminal consumers use the shared interaction layer
+- no universal Terminal/OS framework was created
+- command semantics remain separate
+- input remains enabled while pending
+- no command queue/concurrency was added
+- async cleanup cannot strand the guard
+- late async completion cannot steal focus
+- newer draft cannot be erased by older completion
+- IME cannot accidentally submit
+- histories remain per-instance
+- `clear` preserves history
+- RACK now owns its real editing scroller
+- follow-tail respects deliberate user scroll-away
+- output scroll happens after rendered geometry exists
+- Shell remains sole viewport/editing authority
+- broad output aria-live is gone
+- TargetToken remains accessible
+- fake Scan minimum duration is gone
+- no gameplay/state shape changed
+- GAME_STATE_VERSION remains 16
+- no unrelated scope entered the diff
+
+
+COMPLETION REPORT
+
+Report concisely:
+
+- files changed
+- shared interaction location/API
+- NODE migration
+- RACK migration
+- history/draft behavior
+- async guard/error behavior
+- focus behavior
+- IME handling
+- follow-tail implementation
+- real scroll-owner implementation
+- accessibility changes
+- Scan-delay removal
+- confirmation command/gameplay semantics stayed unchanged
+- confirmation GAME_STATE_VERSION remains 16
+- focused tests
+- full test result
+- build result
+- TypeScript result
+- diff-check result
+- documentation impact
+- remaining physical iPhone/Home-Screen validation
+
+
+GIT BOUNDARY
+
+Do not commit, push, merge, create/close pull requests, rewrite history, or
+perform any other Git lifecycle action.
+
+The human operator owns Git lifecycle decisions.
