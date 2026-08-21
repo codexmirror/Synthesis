@@ -11,6 +11,7 @@ import { lsCommand } from './commands/ls'
 import { catCommand } from './commands/cat'
 import { connectCommand } from './commands/connect'
 import { disconnectCommand } from './commands/disconnect'
+import { installCommand } from './commands/install'
 
 function commandEntries(names: readonly string[]): [string, TerminalCommand][] {
   return names.map((name) => [name, commands[name]])
@@ -21,7 +22,7 @@ export const commands: Record<string, TerminalCommand> = {
     const nodeScan = localDevice.installedSoftware.find(({ id }) => id === 'nodescan')
     const toolkit = localDevice.installedSoftware.find(({ id }) => id === 'basic-credential-toolkit')
     return [
-      { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'connect', 'disconnect']) },
+      { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'install', 'connect', 'disconnect']) },
       ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version} ${nodeScan.channel.toUpperCase()}`, commands: commandEntries(['scan', 'analyze']) }] : []),
       ...(toolkit ? [{ heading: `${toolkit.name.toUpperCase()} ${toolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
     ]
@@ -34,6 +35,7 @@ export const commands: Record<string, TerminalCommand> = {
   attack: attackCommand,
   ls: lsCommand,
   cat: catCommand,
+  install: installCommand,
   connect: connectCommand,
   disconnect: disconnectCommand,
 }

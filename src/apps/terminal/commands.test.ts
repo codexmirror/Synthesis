@@ -32,6 +32,7 @@ const context: CommandContext = {
     attackEndpoint: () => ({ status: 'not_available' }),
     connectAddress: () => ({ status: 'target_not_known' }),
     disconnectRemote: () => ({ status: 'not_connected' }),
+    installLocalSoftwarePackage: () => ({ status: 'package_not_found' }),
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context) as CommandResult
@@ -39,9 +40,9 @@ const labeledTarget = (label: string, value: string, scope: 'local' | 'external'
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'analyze', 'attack', 'ls', 'cat', 'connect', 'disconnect'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(11)
+    expect(new Set(Object.values(commands)).size).toBe(12)
   })
 
   it('groups current commands by their concrete provider', () => {
@@ -53,6 +54,7 @@ describe('command dispatcher', () => {
         'help — List available commands', 'clear — Clear terminal output', 'ip — Show local address',
         'status — Show system status', 'ls — List a local absolute directory path',
         'cat — Read a local text file by absolute path',
+        'install — <local-absolute-file-path>  Install a local software package',
         'connect — <ipv4>  Open a remote session using established access', 'disconnect — Close the active remote session',
         '', 'NODESCAN 1.0 STANDARD', '', 'scan — Discover devices, relationships, and exposed services',
         'analyze — Investigate a service endpoint', '', 'BASIC CREDENTIAL TOOLKIT 1.0', '',
@@ -62,7 +64,7 @@ describe('command dispatcher', () => {
     }
   })
   it('derives provider help from installed software and omits absent providers', () => {
-    const nodeScanOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, name: 'NodeScan' as const, version: '2.4', channel: 'preview' }] } }
+    const nodeScanOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'opaque-preview', name: 'NodeScan', version: '2.4', channel: 'preview' }] } }
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).toContain('NODESCAN 2.4 PREVIEW')
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).not.toContain('BASIC CREDENTIAL TOOLKIT')
     const builtInsOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [] } }
@@ -101,6 +103,13 @@ describe('command dispatcher', () => {
     expect(run('cat /home/user/missing.txt')).toEqual({ type: 'output', lines: ['FILE NOT FOUND'] })
   })
   it('dispatches clear as a structured result', () => expect(dispatch('clear')).toEqual({ type: 'clear' }))
+  it('delegates install through the shared narrow operation and presents canonical results', () => {
+    const installLocalSoftwarePackage = vi.fn(() => ({ status: 'installed' as const, productId: 'nodescan' as const, releaseId: 'opaque', name: 'Canonical Scanner', version: '1.1', channel: 'experimental' }))
+    const installContext = { ...context, operations: { ...context.operations, installLocalSoftwarePackage } }
+    expect(dispatchCommand(parseCommand('install /home/user/package.bin'), installContext)).toEqual({ type: 'output', lines: ['INSTALLED', 'Canonical Scanner 1.1 Experimental'] })
+    expect(installLocalSoftwarePackage).toHaveBeenCalledExactlyOnceWith('/home/user/package.bin')
+    expect(dispatchCommand(parseCommand('install'), installContext)).toEqual({ type: 'output', lines: ['Usage: install <local-absolute-file-path>'] })
+  })
   it('guides missing and extra scan arguments', () => {
     expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
     expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })

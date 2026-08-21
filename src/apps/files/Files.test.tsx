@@ -40,7 +40,7 @@ describe('Files', () => {
     expect(terminal.getByText('line three')).toBeInTheDocument()
   })
 
-  it('renders supplied package metadata by kind without exposing an install or transfer action', async () => {
+  it('installs a supported local package through canonical state and derives the installed presentation on reopen', async () => {
     const state = createInitialGameState()
     const packageFile = { kind: 'software_package' as const, path: '/home/user/release.bin', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing' }
     const initialState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { files: [packageFile] } } } }
@@ -53,11 +53,27 @@ describe('Files', () => {
     expect(screen.getByText('4.2 Testing')).toBeInTheDocument()
     expect(screen.getByText('RELEASE')).toBeInTheDocument()
     expect(screen.getByText('altered-release')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /install|download|run/i })).not.toBeInTheDocument()
+    expect(screen.getByText('CURRENT')).toBeInTheDocument()
+    expect(screen.getByText('NodeScan 1.0 Standard')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+    expect(screen.getByText(/INSTALLED RELEASE/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Back to /home/user' }))
+    await user.click(screen.getByRole('button', { name: /release\.bin/ }))
+    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
 
     await user.type(screen.getByLabelText('Command input'), 'cat /home/user/release.bin{enter}')
     expect(within(screen.getByRole('region', { name: 'Terminal' })).getByText('NOT A TEXT FILE')).toBeInTheDocument()
     expect(state.player.localDevice.installedSoftware[0]).toMatchObject({ name: 'NodeScan', version: '1.0', channel: 'standard' })
     expect(state.process.processes).toEqual([])
+  })
+
+  it('does not expose install for an unsupported represented package', async () => {
+    const state = createInitialGameState()
+    const file = { kind: 'software_package' as const, path: '/home/user/other.bin', releaseId: 'opaque', productId: 'other', name: 'Other', version: '1', channel: 'test' }
+    render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { files: [file] } } } }}><Files /></GameProvider>)
+    await userEvent.setup().click(screen.getByRole('button', { name: /other\.bin/ }))
+    expect(screen.getByText('UNSUPPORTED PACKAGE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
   })
 })

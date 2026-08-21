@@ -28,11 +28,11 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 15', () => {
+  it('separates identities and seeds canonical local-device state in schema version 16', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(15)
+    expect(GAME_STATE_VERSION).toBe(16)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
-    expect(state.version).toBe(15)
+    expect(state.version).toBe(16)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -47,8 +47,8 @@ describe('createInitialGameState', () => {
       files: [{ kind: 'text', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' }],
     })
     expect(state.player.localDevice.installedSoftware).toEqual([
-      { id: 'nodescan', name: 'NodeScan', version: '1.0', channel: 'standard' },
-      { id: 'basic-credential-toolkit', name: 'Basic Credential Toolkit', version: '1.0' },
+      { id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' },
+      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' },
     ])
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
