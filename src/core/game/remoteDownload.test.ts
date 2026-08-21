@@ -52,5 +52,17 @@ describe('remote download', () => {
     if (first.status !== 'downloaded') throw new Error('expected download')
     const duplicate = downloadRemoteFile(first.state, '/srv/readme.txt')
     expect(duplicate).toEqual({ status: 'destination_exists', state: first.state })
+
+    const blockedState = {
+      ...state,
+      player: {
+        ...state.player,
+        localDevice: {
+          ...state.player.localDevice,
+          filesystem: { files: [...state.player.localDevice.filesystem.files, { kind: 'text' as const, path: '/home/user/downloads', content: 'blocking ancestor' }] },
+        },
+      },
+    }
+    expect(downloadRemoteFile(blockedState, '/srv/readme.txt')).toEqual({ status: 'destination_conflict', state: blockedState })
   })
 })

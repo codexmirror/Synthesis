@@ -64,7 +64,26 @@ function RemoteFiles({ filesystem, downloadRemoteFile }: { filesystem: ActiveRem
     const downloadResult = downloadRemoteFile(selected)
     setFeedback(downloadResult.status === 'downloaded' ? undefined : downloadResult.status === 'destination_exists' ? 'DESTINATION ALREADY EXISTS' : downloadResult.status.toUpperCase().replaceAll('_', ' '))
   }
-  if (selected) return <section className="rack-files"><p>FILES</p><code>{selected}</code><button onClick={() => { setSelected(undefined); setFeedback(undefined) }}>← {path}</button>{result?.status === 'ok' && <>{downloadState === 'available' && <button onClick={download}>DOWNLOAD</button>}{downloadState === 'downloaded' && <div className="rack-download-state" role="status"><button disabled>DOWNLOADED ✓</button><dl><dt>LOCAL COPY</dt><dd>{destinationPath}</dd></dl></div>}{downloadState === 'occupied' && <div className="rack-download-state" role="status"><strong>LOCAL DESTINATION OCCUPIED</strong><code>{destinationPath}</code></div>}{feedback && <output role="status">{feedback}</output>}{result.file.kind === 'text' ? <pre>{result.file.content}</pre> : <div><p>SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p>{result.file.version} {titleCase(result.file.channel)}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>}</>}</section>
+  if (selected) return <section className="rack-files">
+    <p>FILES</p>
+    <code>{selected}</code>
+    <button onClick={() => { setSelected(undefined); setFeedback(undefined) }}>← {path}</button>
+    {result?.status === 'ok' && <>
+      {result.file.kind === 'text'
+        ? <pre>{result.file.content}</pre>
+        : <div><p>SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p>{result.file.version} {titleCase(result.file.channel)}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>}
+      {downloadState === 'available' && <button onClick={download}>DOWNLOAD</button>}
+      {downloadState === 'downloaded' && <div className="rack-download-state" role="status">
+        <button disabled>DOWNLOADED ✓</button>
+        <dl><dt>LOCAL COPY</dt><dd>{destinationPath}</dd></dl>
+      </div>}
+      {downloadState === 'occupied' && <div className="rack-download-state" role="status">
+        <strong>LOCAL DESTINATION OCCUPIED</strong>
+        <code>{destinationPath}</code>
+      </div>}
+      {feedback && <output role="status">{feedback}</output>}
+    </>}
+  </section>
   return <section className="rack-files"><p>FILES</p><code>{path}</code>{path !== '/' && <button onClick={() => setPath('/')}>../</button>}{listing.status === 'ok' && listing.entries.map((entry) => <button key={entry.name} onClick={() => entry.type === 'directory' ? setPath(`${path === '/' ? '' : path}/${entry.name}`) : setSelected(`${path === '/' ? '' : path}/${entry.name}`)}>{entry.type === 'directory' ? 'DIR ' : 'FILE '}{entry.name}</button>)}</section>
 }
 
