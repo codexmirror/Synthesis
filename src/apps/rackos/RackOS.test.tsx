@@ -72,7 +72,8 @@ describe('RACK-OS', () => {
     expect(document.body).toHaveTextContent('8.7 Nightly')
     expect(document.body).toHaveTextContent('RELEASE')
     expect(document.body).toHaveTextContent('canonical-package')
-    expect(screen.queryByRole('button', { name: /install|download|run/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /install|run/i })).not.toBeInTheDocument()
     expect(state.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })
     expect(state.process.processes).toEqual([])
   })
@@ -82,6 +83,33 @@ describe('RACK-OS', () => {
     await user.type(screen.getByLabelText('Remote command'), 'disconnect{enter}')
     expect(screen.queryByLabelText('STATE-OS remote operating environment')).not.toBeInTheDocument()
     expect((JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
+  })
+
+  it('downloads through the remote Terminal into canonical local Files', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await user.type(screen.getByLabelText('Remote command'), 'download /srv/proof.txt{enter}')
+    expect(document.body).toHaveTextContent('DOWNLOADED')
+    expect(document.body).toHaveTextContent('/home/user/downloads/proof.txt')
+    await user.type(screen.getByLabelText('Remote command'), 'disconnect{enter}')
+    await user.click(screen.getByRole('button', { name: 'Open Files' }))
+    await user.click(screen.getByRole('button', { name: 'downloads' }))
+    await user.click(screen.getByRole('button', { name: 'proof.txt' }))
+    expect(document.body).toHaveTextContent('Foreign canonical proof.')
+  })
+
+  it('downloads through remote Files with restrained duplicate feedback and the same local truth', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR srv' }))
+    await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
+    await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
+    expect(screen.getByRole('status')).toHaveTextContent('DOWNLOADED · /home/user/downloads/proof.txt')
+    await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
+    expect(screen.getByRole('status')).toHaveTextContent('DESTINATION ALREADY EXISTS')
+    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    await user.click(screen.getByRole('button', { name: 'Open Files' }))
+    await user.click(screen.getByRole('button', { name: 'downloads' }))
+    expect(screen.getByRole('button', { name: 'proof.txt' })).toBeInTheDocument()
   })
 
   it('preserves the same Scan Device detail across CONNECT and DISCONNECT', async () => {

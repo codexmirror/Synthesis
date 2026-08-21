@@ -1,11 +1,12 @@
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
+import type { DownloadRemoteFileResult } from '../../core/game/remoteDownload'
 
 export type RemoteCommandResult = { readonly output: readonly string[]; readonly clear?: boolean; readonly disconnect?: boolean }
 
-export function runRemoteCommand(context: ActiveRemoteTarget, source: string): RemoteCommandResult {
+export function runRemoteCommand(context: ActiveRemoteTarget, source: string, downloadRemoteFile: (path: string) => DownloadRemoteFileResult): RemoteCommandResult {
   const [name = '', ...args] = source.trim().split(/\s+/)
-  if (name === 'help') return { output: ['help  clear  ip  ls  cat  disconnect'] }
+  if (name === 'help') return { output: ['help  clear  ip  ls  cat  download  disconnect'] }
   if (name === 'clear') return { output: [], clear: true }
   if (name === 'ip') return { output: [context.target.ip] }
   if (name === 'disconnect') return { output: [], disconnect: true }
@@ -19,6 +20,15 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string): R
     const result = readTextFile(context.target.filesystem!, args[0])
     if (result.status === 'not_text_file') return { output: ['NOT A TEXT FILE'] }
     return { output: result.status === 'ok' ? [result.content] : [result.status.toUpperCase().replaceAll('_', ' ')] }
+  }
+  if (name === 'download') {
+    if (!args[0] || args.length !== 1) return { output: ['USAGE: download /absolute/file/path'] }
+    const result = downloadRemoteFile(args[0])
+    if (result.status === 'downloaded') return { output: ['DOWNLOADED', result.sourcePath, `→ ${result.destinationPath}`] }
+    const failures: Record<Exclude<DownloadRemoteFileResult['status'], 'downloaded'>, string> = {
+      session_unavailable: 'SESSION UNAVAILABLE', invalid_path: 'INVALID PATH', source_not_found: 'FILE NOT FOUND', source_not_file: 'NOT A FILE', destination_exists: 'DESTINATION ALREADY EXISTS', destination_conflict: 'DESTINATION CONFLICT',
+    }
+    return { output: [failures[result.status]] }
   }
   return { output: ['COMMAND NOT FOUND'] }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { getFilesystemFile, listDirectory, readTextFile } from './filesystem'
+import { copyFilesystemFileToPath, getFilesystemFile, listDirectory, readTextFile } from './filesystem'
 
 const filesystem = createInitialGameState().player.localDevice.filesystem
 
@@ -35,5 +35,29 @@ describe('filesystem reads', () => {
     expect(readTextFile(files, '/local')).toEqual({ status: 'not_file' })
     expect(readTextFile(files, '/local/nodescan-copy.txt')).toEqual({ status: 'not_text_file' })
     expect(readTextFile(files, '/readable.pkg')).toEqual({ status: 'ok', content: 'Still text.' })
+  })
+})
+
+describe('filesystem copies', () => {
+  it('preserves text and package semantics while changing only the path', () => {
+    const text = { kind: 'text' as const, path: '/remote/readme.pkg', content: 'Canonical text.' }
+    const packageFile = { kind: 'software_package' as const, path: '/remote/tool.txt', releaseId: 'release-1', productId: 'tool', name: 'Tool', version: '1.2', channel: 'test' }
+    const first = copyFilesystemFileToPath(text, { files: [] }, '/home/user/downloads/readme.pkg')
+    expect(first).toEqual({ status: 'copied', filesystem: { files: [{ ...text, path: '/home/user/downloads/readme.pkg' }] }, file: { ...text, path: '/home/user/downloads/readme.pkg' } })
+    if (first.status !== 'copied') throw new Error('expected copy')
+    const second = copyFilesystemFileToPath(packageFile, first.filesystem, '/home/user/downloads/tool.txt')
+    expect(second).toMatchObject({ status: 'copied', file: { ...packageFile, path: '/home/user/downloads/tool.txt' } })
+    expect(text).toEqual({ kind: 'text', path: '/remote/readme.pkg', content: 'Canonical text.' })
+    expect(packageFile.releaseId).toBe('release-1')
+  })
+
+  it('rejects existing destinations, derived directories, and blocking ancestors without mutation', () => {
+    const source = { kind: 'text' as const, path: '/source', content: 'new' }
+    const existing = { files: [{ kind: 'text' as const, path: '/home/user/downloads/file', content: 'old' }] }
+    expect(copyFilesystemFileToPath(source, existing, '/home/user/downloads/file')).toEqual({ status: 'destination_exists' })
+    expect(copyFilesystemFileToPath(source, existing, '/home/user/downloads')).toEqual({ status: 'destination_conflict' })
+    const blocked = { files: [{ kind: 'text' as const, path: '/home/user/downloads', content: 'block' }] }
+    expect(copyFilesystemFileToPath(source, blocked, '/home/user/downloads/file')).toEqual({ status: 'destination_conflict' })
+    expect(existing.files).toHaveLength(1); expect(blocked.files).toHaveLength(1)
   })
 })

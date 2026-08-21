@@ -24,6 +24,10 @@ export type GetFilesystemFileResult =
   | { readonly status: 'not_found' }
   | { readonly status: 'not_file' }
 
+export type CopyFilesystemFileResult =
+  | { readonly status: 'copied'; readonly filesystem: FilesystemState; readonly file: FilesystemFile }
+  | { readonly status: 'invalid_path' | 'destination_exists' | 'destination_conflict' }
+
 function normalizeAbsolutePath(path: string): string | undefined {
   if (!path.startsWith('/') || path.includes('//') || path.includes('/./') || path.includes('/../') || path.endsWith('/.') || path.endsWith('/..')) return undefined
   return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
@@ -73,4 +77,22 @@ export function getFilesystemFile(filesystem: FilesystemState, path: string): Ge
   if (file) return { status: 'ok', file }
   if (isDirectory(filesystem, normalized)) return { status: 'not_file' }
   return { status: 'not_found' }
+}
+
+/** Copy one represented file without deriving its semantics from its path. */
+export function copyFilesystemFileToPath(sourceFile: FilesystemFile, destinationFilesystem: FilesystemState, destinationPath: string): CopyFilesystemFileResult {
+  const normalized = normalizeAbsolutePath(destinationPath)
+  if (!normalized || normalized === '/') return { status: 'invalid_path' }
+  if (destinationFilesystem.files.some(({ path }) => path === normalized)) return { status: 'destination_exists' }
+  if (destinationFilesystem.files.some(({ path }) => path.startsWith(`${normalized}/`))) return { status: 'destination_conflict' }
+
+  const segments = normalized.slice(1).split('/')
+  let ancestor = ''
+  for (const segment of segments.slice(0, -1)) {
+    ancestor += `/${segment}`
+    if (destinationFilesystem.files.some(({ path }) => path === ancestor)) return { status: 'destination_conflict' }
+  }
+
+  const file = { ...sourceFile, path: normalized }
+  return { status: 'copied', filesystem: { files: [...destinationFilesystem.files, file] }, file }
 }
