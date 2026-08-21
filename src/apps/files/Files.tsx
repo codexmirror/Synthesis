@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useGameState } from '../../app/GameContext'
-import { listDirectory, readTextFile } from '../../core/game/filesystem'
+import { getFilesystemFile, listDirectory } from '../../core/game/filesystem'
 
 const INITIAL_PATH = '/home/user'
 
@@ -9,13 +9,16 @@ export function Files() {
   const [path, setPath] = useState(INITIAL_PATH)
   const [selectedFile, setSelectedFile] = useState<string>()
   const listing = listDirectory(filesystem, path)
-  const selected = selectedFile ? readTextFile(filesystem, selectedFile) : undefined
+  const selected = selectedFile ? getFilesystemFile(filesystem, selectedFile) : undefined
 
   if (selectedFile) return <section className="app-content">
     <p className="eyebrow">LOCAL FILES</p>
     <div className="path">{selectedFile}</div>
     <button className="file-back" type="button" onClick={() => setSelectedFile(undefined)}>Back to {path}</button>
-    {selected?.status === 'ok' ? <pre className="file-content">{selected.content}</pre> : <p className="muted">FILE NOT FOUND</p>}
+    {selected?.status === 'ok' ? selected.file.kind === 'text'
+      ? <><p className="eyebrow">TEXT</p><pre className="file-content">{selected.file.content}</pre></>
+      : <div className="file-package"><p className="eyebrow">SOFTWARE PACKAGE</p><h2>{selected.file.name}</h2><p>{selected.file.version} {titleCase(selected.file.channel)}</p><dl><dt>PACKAGE</dt><dd>{selected.file.packageId}</dd><dt>PATH</dt><dd>{selected.file.path}</dd></dl></div>
+      : <p className="muted">FILE NOT FOUND</p>}
   </section>
 
   return <section className="app-content">
@@ -29,3 +32,5 @@ export function Files() {
     }) : <p className="muted">DIRECTORY NOT FOUND</p>}
   </section>
 }
+
+function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 14
+export const GAME_STATE_VERSION = 15
 
 export function createInitialGameState(): GameState {
   return {
@@ -12,7 +12,7 @@ export function createInitialGameState(): GameState {
         displayName: 'node-01',
         firmware: { id: 'firmware-node-os-v1', name: 'NODE-OS', version: '1.0' },
         filesystem: {
-          files: [{ path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' }],
+          files: [{ kind: 'text', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' }],
         },
         network: { ip: '198.51.100.23' },
         hardware: {
@@ -51,7 +51,10 @@ export function createInitialGameState(): GameState {
             online: true,
             role: 'server',
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
-            filesystem: { files: [{ path: '/srv/readme.txt', content: 'Service workspace.' }] },
+            filesystem: { files: [
+              { kind: 'text', path: '/srv/readme.txt', content: 'Service workspace.' },
+              { kind: 'software_package', path: '/opt/packages/nodescan-exp-1.1.pkg', packageId: 'nodescan-exp-1.1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+            ] },
             services: [
               { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
               { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
