@@ -71,6 +71,14 @@ function normalState(hostHeight: number): EditingViewportState {
   return { hostHeight, editTop: 0, editHeight: hostHeight, editing: false }
 }
 
+function healthyHostHeight(snapshot: ViewportSensorSnapshot): number {
+  return Math.max(
+    1,
+    Math.round(snapshot.offsetTop + snapshot.visualHeight),
+    Math.round(snapshot.clientHeight),
+  )
+}
+
 function statesMatch(a: EditingViewportState, b: EditingViewportState): boolean {
   return a.hostHeight === b.hostHeight && a.editTop === b.editTop &&
     a.editHeight === b.editHeight && a.editing === b.editing
@@ -110,7 +118,7 @@ export function useEditingViewport(): EditingViewportState {
       setState((current) => statesMatch(current, next) ? current : next)
     }
     const acceptNormal = (snapshot: ViewportSensorSnapshot) => {
-      const height = Math.max(1, Math.round(snapshot.visualHeight))
+      const height = healthyHostHeight(snapshot)
       const accepted = { ...snapshot, hostHeight: height }
       acceptedNormalSnapshot = accepted
       transitionBaseline = accepted
@@ -141,14 +149,25 @@ export function useEditingViewport(): EditingViewportState {
       if (classification.kind === 'invalid') return
       if (classification.kind === 'pending') {
         if (classification.reason === 'hard-contradiction') { clearWeakSampling(); return }
-        if (phase === 'recovering') return
-        if (phase === 'normal' || suppressUntilNewFocus || !editableFocused) return
+        const weakRecovery = classification.reason === 'weak-recovery'
+        const mayConfirmRecovery = weakRecovery && (
+          phase === 'recovering' || phase === 'editing' ||
+          (phase === 'normal' && !editableFocused)
+        )
+        const mayConfirmOpening = !weakRecovery && phase === 'awaiting-geometry' &&
+          editableFocused && !suppressUntilNewFocus
+        if (!mayConfirmRecovery && !mayConfirmOpening) return
         if (weakCandidate && viewportSnapshotsAreEquivalent(weakCandidate, snapshot)) weakConfirmations += 1
         else { weakCandidate = snapshot; weakConfirmations = 1; weakFramesRemaining = WEAK_FOLLOW_UP_FRAMES }
         if (weakConfirmations >= WEAK_CONFIRMATIONS_REQUIRED) {
-          const geometry = deriveEditingViewportGeometry(snapshot)
           clearWeakSampling()
-          acceptEditing(snapshot, geometry.editTop, geometry.editHeight)
+          if (weakRecovery) {
+            suppressUntilNewFocus = editableFocused
+            acceptNormal(snapshot)
+          } else {
+            const geometry = deriveEditingViewportGeometry(snapshot)
+            acceptEditing(snapshot, geometry.editTop, geometry.editHeight)
+          }
           return
         }
         if (weakFramesRemaining > 0 && !weakFrame) {
@@ -188,8 +207,8 @@ export function useEditingViewport(): EditingViewportState {
       editableFocused = true
       suppressUntilNewFocus = false
       advanceEpoch()
-      if (phase === 'editing' || phase === 'recovering') phase = 'editing'
-      else { phase = 'awaiting-geometry'; transitionBaseline = acceptedNormalSnapshot }
+      phase = 'awaiting-geometry'
+      transitionBaseline = acceptedNormalSnapshot
       schedule()
     }
     const onFocusOut = (event: FocusEvent) => {
@@ -197,6 +216,11 @@ export function useEditingViewport(): EditingViewportState {
       editableFocused = false
       advanceEpoch()
       if (phase === 'editing') phase = 'recovering'
+      else if (phase === 'awaiting-geometry') {
+        phase = 'normal'
+        transitionBaseline = acceptedNormalSnapshot
+        publishAccepted(normalState(acceptedNormalSnapshot.hostHeight))
+      }
       schedule(); cancelCloseProbe()
       const timerEpoch = epoch
       closeTimer = setTimeout(() => { closeTimer = undefined; if (timerEpoch === epoch) schedule() }, CLOSE_PROBE_DELAY)
@@ -208,10 +232,16 @@ export function useEditingViewport(): EditingViewportState {
       if (!isValidViewportSensorSnapshot(raw)) return
       const rebasedHeight = Math.max(1, raw.offsetTop + raw.visualHeight, raw.clientHeight)
       const rebased = { ...raw, hostHeight: rebasedHeight }
-      acceptedNormalSnapshot = rebased
-      transitionBaseline = rebased
-      if (phase === 'normal') acceptNormal(rebased)
-      else processSnapshot(rebased, epoch)
+      if (phase === 'normal') {
+        processSnapshot(rebased, epoch)
+      } else {
+        acceptedNormalSnapshot = {
+          ...acceptedNormalSnapshot,
+          hostHeight: rebasedHeight,
+        }
+        transitionBaseline = acceptedNormalSnapshot
+        processSnapshot(rebased, epoch)
+      }
     }
     const onOrientationChange = () => {
       if (orientationTimer !== undefined) clearTimeout(orientationTimer)

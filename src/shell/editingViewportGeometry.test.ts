@@ -102,6 +102,32 @@ describe('editing viewport geometry', () => {
     })
   })
 
+  it('keeps a no-position reduction weak even after innerHeight changes', () => {
+    expect(classify({ visualHeight: 455, innerHeight: 455 })).toEqual({
+      kind: 'pending', reason: 'weak-candidate',
+    })
+  })
+
+  it('holds a height-first partial recovery until another sensor family settles', () => {
+    const editing = {
+      ...normal,
+      visualHeight: 455,
+      offsetTop: 320,
+      pageTop: 320,
+      innerHeight: 455,
+      scrollY: 320,
+    }
+    expect(classifyViewportSensorSnapshot({
+      ...editing,
+      visualHeight: 775,
+    }, editing)).toEqual({ kind: 'pending', reason: 'weak-recovery' })
+    expect(classifyViewportSensorSnapshot({
+      ...editing,
+      visualHeight: 775,
+      innerHeight: 775,
+    }, editing).kind).toBe('recovered')
+  })
+
   it('does not impose a pageTop = scrollY + offsetTop identity', () => {
     expect(classify({ visualHeight: 455, offsetTop: 320, pageTop: 320, innerHeight: 455, scrollY: 320 }).kind).toBe('ready')
   })

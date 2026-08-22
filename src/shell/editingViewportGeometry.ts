@@ -29,7 +29,10 @@ export interface EditingViewportGeometryInput {
 
 export type ViewportSnapshotClassification =
   | { kind: 'invalid' }
-  | { kind: 'pending'; reason: 'hard-contradiction' | 'weak-candidate' }
+  | {
+      kind: 'pending'
+      reason: 'hard-contradiction' | 'weak-candidate' | 'weak-recovery'
+    }
   | { kind: 'ready'; geometry: EditingViewportGeometry }
   | { kind: 'recovered' }
 
@@ -89,17 +92,21 @@ export function classifyViewportSensorSnapshot(
     return { kind: 'pending', reason: 'hard-contradiction' }
   }
 
-  if (
-    hasEditingViewportRecovered(snapshot.hostHeight, snapshot.visualHeight)
-  ) return { kind: 'recovered' }
-
   const positionCorroborates =
     materiallyChanged(snapshot.offsetTop, transitionBaseline.offsetTop) ||
     materiallyChanged(snapshot.pageTop, transitionBaseline.pageTop)
   const layoutCorroborates =
-    materiallyChanged(snapshot.innerHeight, transitionBaseline.innerHeight)
+    materiallyChanged(snapshot.innerHeight, transitionBaseline.innerHeight) ||
+    materiallyChanged(snapshot.hostHeight, transitionBaseline.hostHeight)
 
-  if (!positionCorroborates && !layoutCorroborates) {
+  if (hasEditingViewportRecovered(snapshot.hostHeight, snapshot.visualHeight)) {
+    if (!positionCorroborates && !layoutCorroborates) {
+      return { kind: 'pending', reason: 'weak-recovery' }
+    }
+    return { kind: 'recovered' }
+  }
+
+  if (!positionCorroborates) {
     return { kind: 'pending', reason: 'weak-candidate' }
   }
 
