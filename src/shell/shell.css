@@ -181,6 +181,42 @@
 .system-bar strong { color: #cad3cd; }
 .online strong { color: var(--green); }
 
+.remote-handoff {
+  grid-row: 1 / -1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: rgba(8, 11, 9, .98);
+}
+
+.remote-handoff__header {
+  min-height: 54px;
+  padding: 0 clamp(18px, 4vw, 42px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  color: #68736c;
+  font-size: .68rem;
+  letter-spacing: .14em;
+}
+
+.remote-handoff__header strong { color: var(--green); font-weight: 500; }
+.remote-handoff__panel { width: min(620px, 100%); margin: auto; padding: clamp(24px, 6vw, 56px); }
+.remote-handoff__status { margin: 0 0 24px; color: var(--green); font-size: .78rem; letter-spacing: .16em; }
+.remote-handoff dl { margin: 0; }
+.remote-handoff dl div { padding: 10px 0; display: grid; grid-template-columns: minmax(150px, .7fr) minmax(0, 1fr); border-top: 1px solid var(--line); }
+.remote-handoff dt { color: #68736c; font-size: .62rem; letter-spacing: .12em; }
+.remote-handoff dd { margin: 0; overflow-wrap: anywhere; color: #cbd4ce; font-size: .72rem; }
+.remote-handoff__release { margin: 20px 0 0; color: #7f8b84; font-size: .62rem; letter-spacing: .12em; }
+.remote-handoff__actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px; }
+.remote-handoff__actions button { min-height: 44px; padding: 0 18px; border: 1px solid var(--line); background: transparent; cursor: pointer; font: inherit; font-size: .68rem; letter-spacing: .1em; }
+.remote-handoff__enter { color: var(--green); }
+.remote-handoff__disconnect { color: #9aa49e; }
+.remote-handoff__actions button:disabled { color: #4f5953; cursor: default; }
+.remote-handoff__actions button:not(:disabled):focus-visible,
+.remote-handoff__actions button:not(:disabled):hover { outline: 1px solid var(--green); outline-offset: -2px; background: #111a15; }
+
 .app-view {
   min-height: 0;
   display: grid;
@@ -372,6 +408,8 @@
   .connection i { margin-right: 0; }
 
   .home { padding: 20px 12px; }
+  .remote-handoff__panel { margin: 0 auto; overflow: auto; padding: 28px 16px max(28px, env(safe-area-inset-bottom)); }
+  .remote-handoff dl div { grid-template-columns: minmax(125px, .8fr) minmax(0, 1fr); }
 
   .app-grid {
     grid-template-columns: repeat(2, 1fr);

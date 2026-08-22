@@ -1,14 +1,15 @@
 import './shell.css'
-import { type CSSProperties, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import { appRegistry, type AppId } from './appRegistry'
 import { Home } from './Home'
 import { StatusBar } from './StatusBar'
 import { SystemBar } from './SystemBar'
 import { useEditingViewport } from './useEditingViewport'
 import { ViewportDebug } from './ViewportDebug'
-import { useGameState } from '../app/GameContext'
+import { useGameActions, useGameState } from '../app/GameContext'
 import { resolveActiveRemoteTarget } from '../core/game/remoteSession'
 import { RackOS } from '../apps/rackos/RackOS'
+import { RemoteSessionHandoff } from './RemoteSessionHandoff'
 
 type ShellStyle = CSSProperties & {
   '--node-host-height': string
@@ -31,7 +32,10 @@ function isStandalonePresentation(): boolean {
 
 export function Shell() {
   const [activeAppId, setActiveAppId] = useState<AppId | null>(null)
+  const [enteredRemoteSessionId, setEnteredRemoteSessionId] = useState<string | null>(null)
   const remoteTarget = resolveActiveRemoteTarget(useGameState())
+  const remoteSessionId = remoteTarget?.session.id
+  const { disconnectRemoteSession } = useGameActions()
   const activeApp = activeAppId ? appRegistry[activeAppId] : null
   const ActiveComponent = activeApp?.component
   const viewport = useEditingViewport()
@@ -41,6 +45,12 @@ export function Shell() {
     '--node-edit-top': `${viewport.editTop}px`,
     '--node-edit-height': `${viewport.editHeight}px`,
   }
+
+  useEffect(() => {
+    if (!remoteSessionId) return
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) activeElement.blur()
+  }, [remoteSessionId])
 
   function finishEditing() {
     const activeElement = document.activeElement
@@ -89,7 +99,17 @@ export function Shell() {
       )}
       <SystemBar />
       </div>
-      {remoteTarget && <RackOS key={remoteTarget.session.id} context={remoteTarget} />}
+      {remoteTarget && enteredRemoteSessionId !== remoteTarget.session.id && (
+        <RemoteSessionHandoff
+          context={remoteTarget}
+          ready={!viewport.editing}
+          onEnter={() => setEnteredRemoteSessionId(remoteTarget.session.id)}
+          onDisconnect={disconnectRemoteSession}
+        />
+      )}
+      {remoteTarget && enteredRemoteSessionId === remoteTarget.session.id && (
+        <RackOS key={remoteTarget.session.id} context={remoteTarget} />
+      )}
       <ViewportDebug viewport={viewport} />
     </div>
   )

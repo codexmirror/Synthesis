@@ -6,6 +6,8 @@ import hook from './useEditingViewport.ts?raw'
 import rackCss from '../apps/rackos/rackos.css?raw'
 import terminalInteraction from '../apps/terminal/useTerminalInteraction.ts?raw'
 import nodeCommandAdapter from '../apps/terminal/nodeCommandAdapter.ts?raw'
+import shellSource from './Shell.tsx?raw'
+import handoffSource from './RemoteSessionHandoff.tsx?raw'
 
 describe('mobile editing presentation contract', () => {
   it('keeps normal editing absolute and overrides only standalone with fixed', () => {
@@ -27,6 +29,11 @@ describe('mobile editing presentation contract', () => {
     // Two timer declarations and two calls are the existing focus-close and
     // orientation-rebase behavior. Diagnostics live outside this hook.
     expect(hook.match(/setTimeout/g)).toHaveLength(4)
+  })
+
+  it('keeps the remote handoff free of fake duration and viewport manipulation', () => {
+    const handoffBoundary = shellSource + handoffSource
+    expect(handoffBoundary).not.toMatch(/setTimeout|setInterval|visualViewport|window\.scrollTo|scrollIntoView/)
   })
 
   it('keeps the terminal input mounted as the final terminal grid row', () => {
