@@ -299,8 +299,8 @@ describe('Terminal remote session', () => {
 describe('Terminal local installation', () => {
   it('installs through GameActions, reports the represented release, and updates Help without exposing Inspect', async () => {
     const base = createInitialGameState()
-    const packageFile = { kind: 'software_package' as const, path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }
-    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { files: [...base.player.localDevice.filesystem.files, packageFile] } } } }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 50, files: [...base.player.localDevice.filesystem.files, packageFile] } } } }
     render(<GameProvider initialState={state}><Terminal /><StateControls /></GameProvider>)
     const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
     await user.type(input, `install ${packageFile.path}{enter}`)

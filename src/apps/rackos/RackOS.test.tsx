@@ -26,7 +26,7 @@ function discoveredAccessState(): GameState {
 function connectedState(): GameState {
   const base = createInitialGameState()
   const host = base.world.network.hosts[0]
-  const altered = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, displayName: 'live-server', ip: '192.0.2.99', firmware: { id: 'firmware-test', name: 'STATE-OS', version: '7.4' }, filesystem: { files: [{ kind: 'text' as const, path: '/srv/proof.txt', content: 'Foreign canonical proof.' }] } }, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-test', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-http-001', privilege: 'USER' as const }] } }
+  const altered = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, displayName: 'live-server', ip: '192.0.2.99', firmware: { id: 'firmware-test', name: 'STATE-OS', version: '7.4' }, filesystem: { nextFileId: 50, files: [{ kind: 'text' as const, id: 'file-fixture-text', path: '/srv/proof.txt', content: 'Foreign canonical proof.' }] } }, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-test', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-http-001', privilege: 'USER' as const }] } }
   const connected = connectRemoteFromObservation(altered, { targetDeviceId: host.id, address: '192.0.2.99' }).state
   return { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '198.51.100.47' } } }
 }
@@ -91,8 +91,8 @@ describe('RACK-OS', () => {
   it('navigates and presents canonical package metadata while cat rejects the artifact', async () => {
     const initial = connectedState()
     const host = initial.world.network.hosts[0]
-    const packageFile = { kind: 'software_package' as const, path: '/opt/packages/scanner.release', releaseId: 'canonical-package', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly' }
-    const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/packages/scanner.release', releaseId: 'canonical-package', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly', sizeBytes: 1_000 }
+    const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={state}><Shell /><StateSnapshot /></GameProvider>)
     const user = userEvent.setup()
     await enterRemote(user)
@@ -114,7 +114,7 @@ describe('RACK-OS', () => {
     expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
     expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('LOCAL COPY/home/user/downloads/scanner.release')
     const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(current.player.localDevice.filesystem.files.at(-1)).toEqual({ ...packageFile, path: '/home/user/downloads/scanner.release' })
+    expect(current.player.localDevice.filesystem.files.at(-1)).toEqual({ ...packageFile, id: 'file-0002', path: '/home/user/downloads/scanner.release' })
     expect(current.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })
     expect(current.process.processes).toEqual([])
     expect(screen.queryByRole('button', { name: /install|run/i })).not.toBeInTheDocument()
@@ -138,8 +138,8 @@ describe('RACK-OS', () => {
     expect(document.body).toHaveTextContent('DESTINATION ALREADY EXISTS')
     await user.type(screen.getByLabelText('Remote command'), 'disconnect{enter}')
     await user.click(screen.getByRole('button', { name: 'Open Files' }))
-    await user.click(screen.getByRole('button', { name: 'downloads' }))
-    await user.click(screen.getByRole('button', { name: 'proof.txt' }))
+    await user.click(screen.getByRole('button', { name: /downloads/ }))
+    await user.click(screen.getByRole('button', { name: /proof.txt/ }))
     expect(document.body).toHaveTextContent('Foreign canonical proof.')
   })
 
@@ -160,13 +160,13 @@ describe('RACK-OS', () => {
     expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/proof.txt')
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     await user.click(screen.getByRole('button', { name: 'Open Files' }))
-    await user.click(screen.getByRole('button', { name: 'downloads' }))
-    expect(screen.getByRole('button', { name: 'proof.txt' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /downloads/ }))
+    expect(screen.getByRole('button', { name: /proof.txt/ })).toBeInTheDocument()
   })
 
   it('shows a truthful collision and no action for a different artifact at the destination', async () => {
     const initial = connectedState()
-    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, { kind: 'text' as const, path: '/home/user/downloads/proof.txt', content: 'Different artifact.' }] } } } }
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, { kind: 'text' as const, id: 'file-fixture-text', path: '/home/user/downloads/proof.txt', content: 'Different artifact.' }] } } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
     await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' }))
@@ -179,8 +179,8 @@ describe('RACK-OS', () => {
 
   it('derives an existing package copy by full canonical metadata, not its filename', async () => {
     const initial = connectedState(); const host = initial.world.network.hosts[0]
-    const packageFile = { kind: 'software_package' as const, path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }
-    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, { ...packageFile, path: '/home/user/downloads/weird.txt' }] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, { ...packageFile, id: 'file-local-package', path: '/home/user/downloads/weird.txt' }] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
     await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR opt' })); await user.click(screen.getByRole('button', { name: 'FILE weird.txt' }))
@@ -193,9 +193,9 @@ describe('RACK-OS', () => {
     ['changed metadata for the same release', { version: '9.9' }],
   ])('presents a package collision for %s', async (_description, changed) => {
     const initial = connectedState(); const host = initial.world.network.hosts[0]
-    const packageFile = { kind: 'software_package' as const, path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }
-    const localFile = { ...packageFile, ...changed, path: '/home/user/downloads/weird.txt' }
-    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, localFile] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const localFile = { ...packageFile, ...changed, id: 'file-local-package', path: '/home/user/downloads/weird.txt' }
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, localFile] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
     await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR opt' })); await user.click(screen.getByRole('button', { name: 'FILE weird.txt' }))

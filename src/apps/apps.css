@@ -75,6 +75,10 @@
   color: var(--green);
 }
 
+.files-app { max-width: 880px; }
+.files-header .eyebrow { margin-bottom: 0; }
+.file-list { border-top: 1px solid var(--line); }
+
 .file-row,
 .system-row {
   min-height: 58px;
@@ -95,6 +99,11 @@
   cursor: pointer;
 }
 
+.file-icon { color: var(--green); }
+.file-row-copy { display: grid; gap: 5px; }
+.file-row-copy strong { font-weight: 500; }
+.file-row-copy small { color: #78827c; font-size: .62rem; letter-spacing: .1em; }
+
 .file-back {
   margin: 18px 0;
   padding: 0;
@@ -109,6 +118,17 @@
   white-space: pre-wrap;
   font: inherit;
 }
+
+.file-details { max-width: 680px; }
+.file-facts,
+.file-kind-details dl { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 10px 24px; margin: 12px 0 28px; }
+.file-facts dt,
+.file-kind-details dt { color: #78827c; font-size: .64rem; letter-spacing: .12em; }
+.file-facts dd,
+.file-kind-details dd { margin: 0; overflow-wrap: anywhere; }
+.file-kind-details { padding-top: 24px; border-top: 1px solid var(--line); }
+.file-kind-details button { min-height: 42px; padding: 0 22px; border: 1px solid #52705e; background: transparent; color: var(--green); }
+.file-kind-details button:disabled { color: #78827c; border-color: var(--line); }
 
 .system-list {
   max-width: 600px;

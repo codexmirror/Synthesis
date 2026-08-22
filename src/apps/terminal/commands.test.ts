@@ -87,7 +87,7 @@ describe('command dispatcher', () => {
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
   it('reads altered filesystem state through narrow ls and cat operations', () => {
-    const filesystem = { files: [{ kind: 'text' as const, path: '/home/user/proof.txt', content: 'line one\nline two\nline three' }] }
+    const filesystem = { nextFileId: 2, files: [{ kind: 'text' as const, id: 'file-fixture-text', path: '/home/user/proof.txt', content: 'line one\nline two\nline three' }] }
     const filesystemContext: CommandContext = {
       ...context,
       filesystem: {

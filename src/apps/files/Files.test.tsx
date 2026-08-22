@@ -7,6 +7,30 @@ import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 
 describe('Files', () => {
+  it('navigates canonical directories and presents file kinds, sizes, and executable details without future actions', async () => {
+    const state = createInitialGameState()
+    const files = [
+      { kind: 'text' as const, id: 'file-text', path: '/home/user/docs/café.txt', content: 'café 🚀' },
+      { kind: 'software_package' as const, id: 'file-package', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
+      { kind: 'executable' as const, id: 'file-executable', path: '/home/user/tool.bin', programId: 'diagnostic-tool', releaseId: 'diagnostic-tool-2', name: 'Diagnostic Tool', version: '2.0', sizeBytes: 4_096 },
+    ]
+    render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 4, files } } } }}><Files /></GameProvider>)
+    expect(screen.getByText('/home/user')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /nodescan\.pkg.*SOFTWARE PACKAGE.*18\.4 MB/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /tool\.bin.*EXECUTABLE.*4\.1 KB/ })).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /docs.*DIRECTORY/ }))
+    expect(screen.getByText('/home/user/docs')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /café\.txt.*TEXT.*10 B/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /tool\.bin/ }))
+    expect(screen.getByText('Diagnostic Tool (diagnostic-tool)')).toBeInTheDocument()
+    expect(screen.getByText('diagnostic-tool-2')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'RUN' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'UPLOAD' })).not.toBeInTheDocument()
+  })
+
   it('presents one supplied canonical filesystem through both Files and Terminal', async () => {
     const state = createInitialGameState()
     const initialState = {
@@ -15,7 +39,7 @@ describe('Files', () => {
         ...state.player,
         localDevice: {
           ...state.player.localDevice,
-          filesystem: { files: [{ kind: 'text' as const, path: '/home/user/proof.txt', content: 'line one\nline two\nline three' }] },
+          filesystem: { nextFileId: 50, files: [{ kind: 'text' as const, id: 'file-fixture-text', path: '/home/user/proof.txt', content: 'line one\nline two\nline three' }] },
         },
       },
     }
@@ -42,8 +66,8 @@ describe('Files', () => {
 
   it('installs a supported local package through canonical state and derives the installed presentation on reopen', async () => {
     const state = createInitialGameState()
-    const packageFile = { kind: 'software_package' as const, path: '/home/user/release.bin', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing' }
-    const initialState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { files: [packageFile] } } } }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/release.bin', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing', sizeBytes: 1_000 }
+    const initialState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [packageFile] } } } }
     render(<GameProvider initialState={initialState}><Files /><Terminal /></GameProvider>)
 
     const user = userEvent.setup()
@@ -70,8 +94,8 @@ describe('Files', () => {
 
   it('does not expose install for an unsupported represented package', async () => {
     const state = createInitialGameState()
-    const file = { kind: 'software_package' as const, path: '/home/user/other.bin', releaseId: 'opaque', productId: 'other', name: 'Other', version: '1', channel: 'test' }
-    render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { files: [file] } } } }}><Files /></GameProvider>)
+    const file = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/other.bin', releaseId: 'opaque', productId: 'other', name: 'Other', version: '1', channel: 'test', sizeBytes: 1_000 }
+    render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [file] } } } }}><Files /></GameProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: /other\.bin/ }))
     expect(screen.getByText('UNSUPPORTED PACKAGE')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()

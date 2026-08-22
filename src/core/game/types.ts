@@ -79,23 +79,39 @@ export interface FirmwareState {
 
 export interface TextFile {
   readonly kind: 'text'
+  readonly id: string
   readonly path: string
   readonly content: string
 }
 
 export interface SoftwarePackageFile {
   readonly kind: 'software_package'
+  readonly id: string
   readonly path: string
   readonly releaseId: string
   readonly productId: string
   readonly name: string
   readonly version: string
   readonly channel: string
+  readonly sizeBytes: number
 }
 
-export type FilesystemFile = TextFile | SoftwarePackageFile
+export interface ExecutableFile {
+  readonly kind: 'executable'
+  readonly id: string
+  readonly path: string
+  readonly programId: string
+  readonly releaseId: string
+  readonly name: string
+  readonly version: string
+  readonly sizeBytes: number
+}
+
+export type FilesystemFile = TextFile | SoftwarePackageFile | ExecutableFile
 
 export interface FilesystemState {
+  /** Next filesystem-local concrete copy identity. Cross-device references also require the Device ID. */
+  readonly nextFileId: number
   readonly files: readonly FilesystemFile[]
 }
 

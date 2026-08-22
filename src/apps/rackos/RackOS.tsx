@@ -71,7 +71,9 @@ function RemoteFiles({ filesystem, downloadRemoteFile }: { filesystem: ActiveRem
     {result?.status === 'ok' && <>
       {result.file.kind === 'text'
         ? <pre>{result.file.content}</pre>
-        : <div><p>SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p>{result.file.version} {titleCase(result.file.channel)}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>}
+        : result.file.kind === 'software_package'
+          ? <div><p>SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p>{result.file.version} {titleCase(result.file.channel)}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>
+          : <div><p>EXECUTABLE</p><h2>{result.file.name}</h2><p>{result.file.version}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>}
       {downloadState === 'available' && <button onClick={download}>DOWNLOAD</button>}
       {downloadState === 'downloaded' && <div className="rack-download-state" role="status">
         <button disabled>DOWNLOADED ✓</button>
