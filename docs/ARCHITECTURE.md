@@ -702,6 +702,21 @@ Mobile Safari/iPhone is a first-class presentation target.
 Viewport and Editing-presentation coordination belongs to the Shell boundary,
 not to gameplay or Terminal domain logic.
 
+Raw browser viewport values are sensor observations, not Shell geometry. The
+mobile editing controller follows this acceptance path:
+
+```text
+MEASURE
+→ VALIDATE
+→ CLASSIFY
+→ ACCEPT OR HOLD
+→ PUBLISH
+```
+
+Only controller-accepted geometry may be published to the Shell. Invalid,
+contradictory, or otherwise transitional observations preserve the last
+accepted geometry.
+
 Individual scrollable application regions own their scrolling.
 
 Do not move browser viewport state into `core/game`.
