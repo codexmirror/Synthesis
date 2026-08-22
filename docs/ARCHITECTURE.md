@@ -717,6 +717,19 @@ Only controller-accepted geometry may be published to the Shell. Invalid,
 contradictory, or otherwise transitional observations preserve the last
 accepted geometry.
 
+Editing presentation is separate from accepted editing geometry. Shell-owned
+editable focus activates the Editing presentation immediately and recovery
+keeps it active until coherent normal geometry is accepted. A HOLD may
+therefore preserve the last accepted numeric geometry while the Shell already
+presents editing intent.
+
+In browser tabs, the Shell may map its existing NODE or foreign-Firmware
+surface into document space using the rendered displacement of the unchanged
+Shell. This transient mapping keeps the focused surface in visible browser
+space and may constrain its presentation height during a sensor HOLD. Rendered
+Shell displacement is presentation input only: it must never become accepted
+`editTop`, `editHeight`, recovery geometry, or gameplay truth.
+
 Individual scrollable application regions own their scrolling.
 
 Do not move browser viewport state into `core/game`.

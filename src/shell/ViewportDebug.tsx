@@ -39,6 +39,7 @@ const DOCUMENT_EVENTS = [
 ] as const
 
 const RECTS = [
+  ['shell', '.os-shell'],
   ['app', '.app-view'],
   ['term', '.terminal'],
   ['term-in', '.terminal-input'],
@@ -185,7 +186,8 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
         <span className={entry.kind === 'RAW EVENT' ? 'viewport-debug-raw' : 'viewport-debug-hook'} key={entry.id}>
           <b>+{entry.elapsed.toFixed(1)}ms {entry.kind}</b> {entry.name}
           {'\n'}RAW vv h={compact(entry.raw.visualHeight)} off={compact(entry.raw.visualOffsetTop)} page={compact(entry.raw.visualPageTop)}/{compact(entry.raw.visualPageLeft)} s={compact(entry.raw.visualScale)} win={entry.raw.innerHeight}/{entry.raw.clientHeight} y={compact(entry.raw.scrollY)}
-          {'\n'}HOOK host/top/h={entry.hook.hostHeight}/{entry.hook.editTop}/{entry.hook.editHeight} edit={String(entry.hook.editing)} active={entry.raw.activeElement} target={entry.raw.target}
+          {'\n'}PRESENT phase={entry.hook.presentationPhase} active={String(entry.hook.editingPresentation)} target={entry.hook.targetViewportTop} shell={entry.hook.shellTop}/{entry.hook.shellBottom} plane={entry.hook.presentationTop}/{entry.hook.presentationHeight}
+          {'\n'}GEOMETRY host/top/h={entry.hook.hostHeight}/{entry.hook.editTop}/{entry.hook.editHeight} edit={String(entry.hook.editing)} ready={String(entry.hook.recoveryReady)} active={entry.raw.activeElement} target={entry.raw.target}
           {'\n'}RECT {RECTS.map(([label]) => `${label}=${entry.raw.rects[label]}`).join(' ')}
         </span>
       ))}

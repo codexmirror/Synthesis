@@ -303,49 +303,49 @@
     font-size: 16px;
   }
 
-  .os-shell[data-editing="true"] > .node-workspace > .status-bar,
-  .os-shell[data-editing="true"] > .node-workspace > .system-bar {
+  .os-shell[data-editing-presentation="true"] > .node-workspace > .status-bar,
+  .os-shell[data-editing-presentation="true"] > .node-workspace > .system-bar {
     visibility: hidden;
     opacity: 0;
     pointer-events: none;
   }
 
-  .os-shell[data-editing="true"] .app-view {
+  .os-shell[data-standalone="false"][data-editing-presentation="true"] .app-view {
     position: absolute;
     z-index: 5;
     inset-inline: 0;
-    top: var(--node-edit-top, 0px);
-    height: var(--node-edit-height, var(--node-host-height, 100dvh));
+    top: var(--node-presentation-top, 0px);
+    height: var(--node-presentation-height, var(--node-host-height, 100dvh));
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
     overflow: hidden;
     animation: none;
   }
 
-  .os-shell[data-editing="true"] .app-header {
+  .os-shell[data-editing-presentation="true"] .app-header {
     min-height: calc(44px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 8px;
   }
 
-  .os-shell[data-editing="true"] .back { display: none; }
+  .os-shell[data-editing-presentation="true"] .back { display: none; }
 
-  .os-shell[data-editing="true"] .app-title {
+  .os-shell[data-editing-presentation="true"] .app-title {
     justify-self: start;
     gap: 8px;
   }
 
-  .os-shell[data-editing="true"] .app-header h1 {
+  .os-shell[data-editing-presentation="true"] .app-header h1 {
     font-size: .82rem;
     letter-spacing: .12em;
   }
 
-  .os-shell[data-editing="true"] .app-mode { color: var(--green); }
+  .os-shell[data-editing-presentation="true"] .app-mode { color: var(--green); }
 }
 
 @media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
-  .os-shell[data-standalone="true"][data-editing="true"] .app-view {
+  .os-shell[data-standalone="true"][data-editing-geometry="true"] .app-view {
     position: fixed;
     top: var(--node-edit-top, 0px);
     height: var(--node-edit-height, var(--node-host-height, 100dvh));
@@ -457,7 +457,7 @@
   .back span { display: none; }
   .app-content { padding: 24px 16px; }
 
-  .os-shell[data-editing="true"] .app-title {
+  .os-shell[data-editing-presentation="true"] .app-title {
     flex-direction: row;
     align-items: baseline;
   }
