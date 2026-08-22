@@ -43,7 +43,8 @@ export function useEditingVisualAnchor(
 ): EditingVisualAnchor {
   const viewportStateRef = useRef(viewportState)
   const active = useRef(false)
-  const provisional = useRef(false)
+  const armedKind = useRef<'direct' | 'focus' | 'recovery'>()
+  const armedTarget = useRef<HTMLElement>()
   const suspendedByScale = useRef(false)
   const targetTop = useRef<number>()
   const measuredTop = useRef<number>()
@@ -95,7 +96,8 @@ export function useEditingVisualAnchor(
   const release = () => {
     invalidateFrame()
     active.current = false
-    provisional.current = false
+    armedKind.current = undefined
+    armedTarget.current = undefined
     suspendedByScale.current = false
     targetTop.current = undefined
     measuredTop.current = undefined
@@ -103,12 +105,16 @@ export function useEditingVisualAnchor(
     writeTranslation(0)
   }
 
-  const acquire = (isProvisional: boolean) => {
+  const acquire = (
+    kind: NonNullable<typeof armedKind.current>,
+    target?: HTMLElement,
+  ) => {
     const shell = shellRef.current
     if (!shell) return
     invalidateFrame()
     active.current = true
-    provisional.current = isProvisional
+    armedKind.current = kind
+    armedTarget.current = target
     suspendedByScale.current = false
     targetTop.current = shell.getBoundingClientRect().top
     measuredTop.current = targetTop.current
@@ -129,7 +135,8 @@ export function useEditingVisualAnchor(
       invalidateFrame()
       suspendedByScale.current = true
       active.current = false
-      provisional.current = false
+      armedKind.current = undefined
+      armedTarget.current = undefined
       targetTop.current = undefined
       measuredTop.current = undefined
       rawTop.current = undefined
@@ -153,7 +160,7 @@ export function useEditingVisualAnchor(
   const schedule = () => {
     const state = viewportStateRef.current
     if (!active.current || suspendedByScale.current ||
-      (!provisional.current && !state.holding)) return
+      (!armedKind.current && !state.holding)) return
     if (!frame.current) {
       const scheduledEpoch = epoch.current
       frame.current = requestAnimationFrame(() => measure(scheduledEpoch))
@@ -170,7 +177,8 @@ export function useEditingVisualAnchor(
     if (viewportState.phase === 'editing') {
       const shell = shellRef.current
       active.current = Boolean(shell)
-      provisional.current = false
+      armedKind.current = undefined
+      armedTarget.current = undefined
       suspendedByScale.current = false
       targetTop.current = shell?.getBoundingClientRect().top
       measuredTop.current = targetTop.current
@@ -179,7 +187,8 @@ export function useEditingVisualAnchor(
       updateSnapshot()
     } else if (viewportState.phase === 'normal') {
       active.current = false
-      provisional.current = false
+      armedKind.current = undefined
+      armedTarget.current = undefined
       targetTop.current = undefined
       measuredTop.current = undefined
       rawTop.current = undefined
@@ -192,7 +201,11 @@ export function useEditingVisualAnchor(
 
   useLayoutEffect(() => {
     updateSnapshot()
-    if (viewportState.holding) schedule()
+    if (viewportState.holding) {
+      armedKind.current = undefined
+      armedTarget.current = undefined
+      schedule()
+    }
     // Phase/HOLD publication does not change accepted geometry, but it can
     // activate stabilization after the geometry listener classified an event.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,23 +218,33 @@ export function useEditingVisualAnchor(
 
     const onDirectStart = (event: Event) => {
       if (!isEditable(event.target) || !shell.contains(event.target)) {
-        if (provisional.current) release()
+        if (armedKind.current === 'direct') release()
         return
       }
-      if (active.current && provisional.current && targetTop.current !== undefined) return
-      acquire(true)
+      const state = viewportStateRef.current
+      if (event.target === document.activeElement &&
+        state.phase === 'editing' && !state.holding) return
+      if (armedKind.current === 'direct' && armedTarget.current === event.target &&
+        targetTop.current !== undefined) return
+      acquire('direct', event.target)
     }
     const onFocusIn = (event: FocusEvent) => {
       if (!isEditable(event.target) || !shell.contains(event.target)) return
-      if (!active.current) acquire(false)
-      else {
-        provisional.current = false
-        updateSnapshot()
-      }
+      // Focus confirms the direct interaction, but geometry HOLD may not have
+      // committed yet. Remain armed through that handoff.
+      acquire('focus', event.target)
     }
     const onFocusOut = (event: FocusEvent) => {
       if (!isEditable(event.target) || !shell.contains(event.target)) return
-      acquire(false)
+      // Recovery browser motion can begin before React publishes RECOVERING.
+      acquire('recovery', event.target)
+    }
+    const cancelUnconfirmedDirect = () => {
+      if (armedKind.current === 'direct') release()
+    }
+    const onSelectionChange = () => {
+      if (armedKind.current === 'direct' &&
+        document.activeElement !== armedTarget.current) release()
     }
     const onOrientationChange = () => {
       release()
@@ -233,6 +256,11 @@ export function useEditingVisualAnchor(
     shell.addEventListener('touchstart', onDirectStart, { capture: true, passive: true })
     shell.addEventListener('focusin', onFocusIn)
     shell.addEventListener('focusout', onFocusOut)
+    shell.addEventListener('click', cancelUnconfirmedDirect, true)
+    shell.addEventListener('pointercancel', cancelUnconfirmedDirect, true)
+    shell.addEventListener('touchcancel', cancelUnconfirmedDirect, true)
+    shell.addEventListener('contextmenu', cancelUnconfirmedDirect, true)
+    document.addEventListener('selectionchange', onSelectionChange)
     visualViewport?.addEventListener('resize', schedule)
     visualViewport?.addEventListener('scroll', schedule)
     if (!visualViewport) window.addEventListener('resize', schedule)
@@ -242,6 +270,11 @@ export function useEditingVisualAnchor(
       shell.removeEventListener('touchstart', onDirectStart, true)
       shell.removeEventListener('focusin', onFocusIn)
       shell.removeEventListener('focusout', onFocusOut)
+      shell.removeEventListener('click', cancelUnconfirmedDirect, true)
+      shell.removeEventListener('pointercancel', cancelUnconfirmedDirect, true)
+      shell.removeEventListener('touchcancel', cancelUnconfirmedDirect, true)
+      shell.removeEventListener('contextmenu', cancelUnconfirmedDirect, true)
+      document.removeEventListener('selectionchange', onSelectionChange)
       visualViewport?.removeEventListener('resize', schedule)
       visualViewport?.removeEventListener('scroll', schedule)
       if (!visualViewport) window.removeEventListener('resize', schedule)
