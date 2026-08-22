@@ -60,9 +60,11 @@ describe('mobile editing presentation contract', () => {
   it('keeps wrapped NODE-OS chrome hidden and gives RACK-OS the Shell edit geometry', () => {
     expect(css).toContain('.os-shell[data-editing="true"] > .node-workspace > .status-bar')
     expect(css).toContain('.os-shell[data-editing="true"] > .node-workspace > .system-bar')
-    expect(rackCss).toMatch(/data-editing="true"[^}]+\.rack-os\s*{[^}]+position: absolute;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/)
-    expect(rackCss).toMatch(/data-standalone="true"[^}]+data-editing="true"[^}]+\.rack-os\s*{[^}]+position: fixed;/)
+    expect(rackCss).toMatch(/data-editing="true"[^}]+data-reduced-editing-geometry="true"[^}]+\.rack-os\s*{[^}]+position: absolute;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/)
+    expect(rackCss).toMatch(/data-standalone="true"[^}]+data-editing="true"[^}]+data-reduced-editing-geometry="true"[^}]+\.rack-os\s*{[^}]+position: fixed;/)
+    expect(rackCss).not.toMatch(/\.os-shell\[data-editing="true"\]\s+\.rack-os/)
     expect(rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView|setInterval/)
+    expect(shellSource).not.toMatch(/setTimeout|setInterval|visualViewport|window\.scrollTo|scrollIntoView/)
     expect(css).toMatch(/\.os-shell input,[\s\S]*?font-size: 16px;/)
   })
 })

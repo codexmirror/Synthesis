@@ -289,6 +289,7 @@ describe('dedicated editing viewport', () => {
     await user.click(input)
 
     expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveAttribute('data-reduced-editing-geometry', 'false')
     expect(shell).toHaveStyle({
       '--node-host-height': '844px',
       '--node-edit-top': '0px',
@@ -316,6 +317,7 @@ describe('dedicated editing viewport', () => {
         '--node-edit-height': '538px',
       }),
     )
+    expect(shell).toHaveAttribute('data-reduced-editing-geometry', 'true')
   })
 
   it('maps Safari top pan to editTop without changing host height', async () => {

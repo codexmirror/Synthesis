@@ -39,6 +39,9 @@ export function Shell() {
   const activeApp = activeAppId ? appRegistry[activeAppId] : null
   const ActiveComponent = activeApp?.component
   const viewport = useEditingViewport()
+  const hasReducedEditingGeometry = viewport.editing && (
+    viewport.editTop > 0 || viewport.editHeight < viewport.hostHeight
+  )
   const standalonePresentation = isStandalonePresentation()
   const shellStyle: ShellStyle = {
     '--node-host-height': `${viewport.hostHeight}px`,
@@ -62,6 +65,7 @@ export function Shell() {
       className="os-shell"
       data-testid="os-shell"
       data-editing={viewport.editing ? 'true' : 'false'}
+      data-reduced-editing-geometry={hasReducedEditingGeometry ? 'true' : 'false'}
       data-standalone={standalonePresentation ? 'true' : 'false'}
       style={shellStyle}
     >
