@@ -176,6 +176,22 @@ export function useEditingViewport(): EditingViewportState {
       })
     }
 
+    const beginEditingIfReduced = (
+      measurement: ViewportMeasurement,
+    ): boolean => {
+      if (
+        hasEditingViewportRecovered(
+          hostHeightRef.current,
+          measurement.visualHeight,
+        )
+      ) return false
+
+      editingLatched = true
+      reducedGeometryObserved = true
+      publishEditing(measurement)
+      return true
+    }
+
     const stopEditing = (healthyHeight: number) => {
       editingLatched = false
       reducedGeometryObserved = false
@@ -230,8 +246,9 @@ export function useEditingViewport(): EditingViewportState {
       }
 
       if (editableFocused && !suppressUntilNewFocus) {
-        editingLatched = true
-        publishEditing(measurement)
+        if (!beginEditingIfReduced(measurement)) {
+          publishNormal(measurement.healthyHeight)
+        }
         return
       }
 
@@ -260,8 +277,7 @@ export function useEditingViewport(): EditingViewportState {
       const measurement = readMeasurement()
 
       if (supportsEditingPresentation() && measurement) {
-        editingLatched = true
-        publishEditing(measurement)
+        beginEditingIfReduced(measurement)
       }
 
       schedule()
@@ -309,8 +325,9 @@ export function useEditingViewport(): EditingViewportState {
       }
 
       if (editableFocused && !suppressUntilNewFocus) {
-        editingLatched = true
-        publishEditing(rebasedMeasurement)
+        if (!beginEditingIfReduced(rebasedMeasurement)) {
+          publishNormal(rebasedHeight)
+        }
         return
       }
 
