@@ -25,10 +25,12 @@ export interface EditingViewportState {
   presentationTop: number
   presentationHeight: number
   recoveryReady: boolean
+  viewportLifecycle: ViewportLifecycle
 }
 
 type EditingPhase = 'normal' | 'awaiting-geometry' | 'editing' | 'recovering'
 export type EditingPresentationPhase = 'normal' | 'entering' | 'editing' | 'recovering'
+export type ViewportLifecycle = 'active' | 'suspended' | 'resume-acquisition'
 type MeasurementSource = 'browser-event' | 'follow-up'
 type TouchAxis = 'pending' | 'horizontal' | 'vertical'
 
@@ -87,6 +89,7 @@ function normalState(hostHeight: number): EditingViewportState {
     editingPresentation: false, presentationPhase: 'normal',
     targetViewportTop: 0, shellTop: 0, shellBottom: hostHeight,
     presentationTop: 0, presentationHeight: hostHeight, recoveryReady: true,
+    viewportLifecycle: 'active',
   }
 }
 
@@ -107,7 +110,8 @@ function statesMatch(a: EditingViewportState, b: EditingViewportState): boolean 
     a.shellTop === b.shellTop && a.shellBottom === b.shellBottom &&
     a.presentationTop === b.presentationTop &&
     a.presentationHeight === b.presentationHeight &&
-    a.recoveryReady === b.recoveryReady
+    a.recoveryReady === b.recoveryReady &&
+    a.viewportLifecycle === b.viewportLifecycle
 }
 
 interface EditingViewportOptions {
@@ -150,6 +154,8 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     let presentationTop = 0
     let presentationHeight = initialAccepted.hostHeight
     let focusExitToken = 0
+    let suspended = false
+    let viewportLifecycle: ViewportLifecycle = 'active'
 
     const publish = () => {
       const geometry = lastAcceptedGeometry.current
@@ -163,6 +169,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         presentationTop,
         presentationHeight,
         recoveryReady: presentationPhase === 'normal' && !geometry.editing,
+        viewportLifecycle,
       }
       setState((current) => statesMatch(current, next) ? current : next)
     }
@@ -177,6 +184,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       shellBottom = lastAcceptedGeometry.current.hostHeight
       presentationTop = 0
       presentationHeight = lastAcceptedGeometry.current.hostHeight
+      viewportLifecycle = 'active'
       publish()
     }
     const updatePresentationMapping = () => {
@@ -223,6 +231,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     const acceptEditing = (snapshot: ViewportSensorSnapshot, editTop: number, editHeight: number) => {
       phase = presentationPhase === 'recovering' ? 'recovering' : 'editing'
       if (presentationPhase !== 'recovering') presentationPhase = 'editing'
+      viewportLifecycle = 'active'
       weakCandidate = undefined
       publishAccepted({ hostHeight: transitionBaseline.hostHeight, editTop, editHeight, editing: true })
       // The accepted sensor state is the baseline for subsequent editing updates.
@@ -302,6 +311,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       }
     }
     const measure = (measurementEpoch = epoch) => {
+      if (measurementEpoch !== epoch || suspended) return
       frame = 0
       const snapshot = readSnapshot(transitionBaseline.hostHeight)
       processSnapshot(
@@ -309,15 +319,93 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         measurementEpoch,
         'browser-event',
       )
+      if (measurementEpoch !== epoch || suspended) return
       updatePresentationMapping()
       maybeFinishPresentationRecovery(snapshot)
     }
     const schedule = () => {
+      if (suspended) return
       if (!frame) { const scheduledEpoch = epoch; frame = requestAnimationFrame(() => measure(scheduledEpoch)) }
     }
     const cancelCloseProbe = () => { if (closeTimer !== undefined) clearTimeout(closeTimer); closeTimer = undefined }
 
+    const capturePresentationBaseline = (shell: HTMLElement) => {
+      if (standalone) return
+      const rect = shell.getBoundingClientRect()
+      targetViewportTop = rect.top
+      shellTop = rect.top
+      shellBottom = rect.bottom
+      presentationTop = 0
+      presentationHeight = Number.isFinite(rect.height) && rect.height > 0
+        ? rect.height
+        : lastAcceptedGeometry.current.hostHeight
+    }
+
+    const reconcileFocusedEditingIntent = (
+      shell: HTMLElement,
+      lifecycle: ViewportLifecycle,
+    ) => {
+      const hadPresentation = presentationPhase !== 'normal'
+      editableFocused = true
+      suppressUntilNewFocus = false
+      advanceEpoch()
+      phase = 'awaiting-geometry'
+      transitionBaseline = acceptedNormalSnapshot
+      presentationPhase = lastAcceptedGeometry.current.editing ? 'editing' : 'entering'
+      viewportLifecycle = lifecycle
+      if (!hadPresentation) capturePresentationBaseline(shell)
+      publish()
+      schedule()
+    }
+
+    const onSuspend = () => {
+      if (suspended) return
+      suspended = true
+      viewportLifecycle = 'suspended'
+      focusExitToken += 1
+      if (frame) cancelAnimationFrame(frame)
+      frame = 0
+      advanceEpoch()
+      cancelCloseProbe()
+      resetTouchGesture()
+      publish()
+    }
+
+    const onResume = () => {
+      if (!suspended) return
+      suspended = false
+      const shell = shellRef.current
+      const active = document.activeElement
+      if (shell && isEditable(active) && shell.contains(active as Node) &&
+        supportsEditingPresentation()) {
+        reconcileFocusedEditingIntent(shell, 'resume-acquisition')
+        return
+      }
+      advanceEpoch()
+      editableFocused = false
+      viewportLifecycle = 'active'
+      if (presentationPhase !== 'normal' || lastAcceptedGeometry.current.editing) {
+        phase = 'recovering'
+        presentationPhase = 'recovering'
+        publish()
+        schedule()
+        return
+      }
+      phase = 'normal'
+      finishPresentation()
+      schedule()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') onSuspend()
+      else onResume()
+    }
+
+    const onPageHide = () => onSuspend()
+    const onPageShow = () => onResume()
+
     const onFocusIn = (event: FocusEvent) => {
+      if (suspended) return
       const shell = shellRef.current
       if (!supportsEditingPresentation() || !isEditable(event.target) ||
         !shell?.contains(event.target as Node)) return
@@ -349,20 +437,12 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       phase = 'awaiting-geometry'
       presentationPhase = 'entering'
       transitionBaseline = acceptedNormalSnapshot
-      if (!standalone) {
-        const rect = shell.getBoundingClientRect()
-        targetViewportTop = rect.top
-        shellTop = rect.top
-        shellBottom = rect.bottom
-        presentationTop = 0
-        presentationHeight = Number.isFinite(rect.height) && rect.height > 0
-          ? rect.height
-          : lastAcceptedGeometry.current.hostHeight
-      }
+      capturePresentationBaseline(shell)
       publish()
       schedule()
     }
     const onFocusOut = (event: FocusEvent) => {
+      if (suspended) return
       const shell = shellRef.current
       if (!isEditable(event.target) || !shell?.contains(event.target as Node)) return
       if (!supportsEditingPresentation()) {
@@ -430,9 +510,20 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       event.preventDefault()
     }
 
+    const onMediaChange = () => {
+      if (suspended) return
+      const shell = shellRef.current
+      const active = document.activeElement
+      if (mediaQuery?.matches && shell && isEditable(active) && shell.contains(active as Node)) {
+        reconcileFocusedEditingIntent(shell, 'active')
+      } else schedule()
+    }
+
     viewport?.addEventListener('resize', schedule); viewport?.addEventListener('scroll', schedule)
     window.addEventListener('resize', schedule); window.addEventListener('scroll', schedule)
-    mediaQuery?.addEventListener('change', schedule)
+    mediaQuery?.addEventListener('change', onMediaChange)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', onPageHide); window.addEventListener('pageshow', onPageShow)
     document.addEventListener('focusin', onFocusIn); document.addEventListener('focusout', onFocusOut)
     document.addEventListener('touchstart', onTouchStart, { passive: true }); document.addEventListener('touchmove', onTouchMove, { passive: false })
     document.addEventListener('touchend', resetTouchGesture, { passive: true }); document.addEventListener('touchcancel', resetTouchGesture, { passive: true })
@@ -440,7 +531,9 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     return () => {
       viewport?.removeEventListener('resize', schedule); viewport?.removeEventListener('scroll', schedule)
       window.removeEventListener('resize', schedule); window.removeEventListener('scroll', schedule)
-      mediaQuery?.removeEventListener('change', schedule)
+      mediaQuery?.removeEventListener('change', onMediaChange)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', onPageHide); window.removeEventListener('pageshow', onPageShow)
       document.removeEventListener('focusin', onFocusIn); document.removeEventListener('focusout', onFocusOut)
       document.removeEventListener('touchstart', onTouchStart); document.removeEventListener('touchmove', onTouchMove)
       document.removeEventListener('touchend', resetTouchGesture); document.removeEventListener('touchcancel', resetTouchGesture)

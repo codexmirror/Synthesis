@@ -47,6 +47,7 @@ beforeEach(() => {
     editingPresentation: false, presentationPhase: 'normal',
     targetViewportTop: 0, shellTop: 0, shellBottom: 780,
     presentationTop: 0, presentationHeight: 780, recoveryReady: true,
+    viewportLifecycle: 'active',
   }
 })
 

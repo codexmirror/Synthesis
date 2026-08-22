@@ -71,6 +71,7 @@ export function Shell() {
       data-editing-presentation={viewport.editingPresentation ? 'true' : 'false'}
       data-editing-phase={viewport.presentationPhase}
       data-recovery-ready={viewport.recoveryReady ? 'true' : 'false'}
+      data-viewport-lifecycle={viewport.viewportLifecycle}
       data-standalone={standalonePresentation ? 'true' : 'false'}
       style={shellStyle}
     >

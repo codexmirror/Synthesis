@@ -731,6 +731,14 @@ space and may constrain its presentation height during a sensor HOLD. Rendered
 Shell displacement is presentation input only: it must never become accepted
 `editTop`, `editHeight`, recovery geometry, or gameplay truth.
 
+Browser suspension invalidates the current sensor-acquisition epoch without
+invalidating Shell-owned focus intent, accepted geometry, or the mounted
+editing surface. On a real foreground resume, the Shell reconciles the actual
+active element and begins a fresh acquisition when the same Shell editable is
+still focused. A transient normal-looking resume snapshot is not focus-exit
+recovery; accepted editing geometry remains latched until fresh editing
+geometry is accepted or actual focus loss proceeds through normal recovery.
+
 Individual scrollable application regions own their scrolling.
 
 Do not move browser viewport state into `core/game`.
