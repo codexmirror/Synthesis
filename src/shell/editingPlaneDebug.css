@@ -1,0 +1,53 @@
+.editing-plane-debug {
+  z-index: 1000;
+  width: min(382px, calc(100vw - 8px));
+  padding: 6px;
+  border: 1px solid #52ff91;
+  background: rgba(4, 8, 6, .94);
+  color: #cbd4ce;
+  font: 10px/1.25 monospace;
+}
+
+.editing-plane-debug--fixed {
+  position: fixed;
+  top: 4px;
+  left: 4px;
+}
+
+.editing-plane-debug--visual {
+  position: absolute;
+  top: var(--editing-plane-top);
+  left: var(--editing-plane-left);
+}
+
+.editing-plane-debug label,
+.editing-plane-debug output,
+.editing-plane-debug output span {
+  display: block;
+}
+
+.editing-plane-debug label {
+  color: #52ff91;
+  letter-spacing: .08em;
+}
+
+.editing-plane-debug input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 30px;
+  margin-top: 4px;
+  border: 1px solid #526158;
+  border-radius: 0;
+  background: #0b110e;
+  color: #fff;
+  font: 16px monospace;
+}
+
+.editing-plane-debug output {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.editing-plane-debug output span + span {
+  border-top: 1px solid #26342c;
+}
