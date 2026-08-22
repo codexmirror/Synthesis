@@ -131,17 +131,6 @@
   animation: terminal-cursor-blink .72s steps(1, end) infinite;
 }
 
-.terminal-cursor {
-  width: .55em;
-  color: var(--green);
-  line-height: 1;
-  animation: terminal-cursor-blink 1.05s steps(1, end) infinite;
-}
-
-.terminal-input:focus-within .terminal-cursor {
-  display: none;
-}
-
 @keyframes terminal-cursor-blink {
   0%,
   46% {
@@ -155,7 +144,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .terminal-cursor,
   .scan-pending-cursor {
     animation: none;
   }

@@ -44,6 +44,14 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
 afterEach(() => vi.restoreAllMocks())
 
 describe('Terminal interaction controller', () => {
+  it('uses only the native input caret in the command form', () => {
+    const input = renderTerminal(vi.fn())
+    const form = input.closest('.terminal-input')
+
+    expect(form).toBeInTheDocument()
+    expect(form?.querySelector('.terminal-cursor')).not.toBeInTheDocument()
+  })
+
   it('does not autofocus, prevents composed Enter submission, and restores the live history draft', async () => {
     const scanTarget = vi.fn()
     const input = renderTerminal(scanTarget)
