@@ -42,7 +42,13 @@ function Capture() {
 }
 
 beforeEach(() => {
-  viewport = { hostHeight: 780, editTop: 0, editHeight: 780, editing: false }
+  viewport = {
+    hostHeight: 780, editTop: 0, editHeight: 780, editing: false,
+    editingPresentation: false, presentationPhase: 'normal',
+    targetViewportTop: 0, shellTop: 0, shellBottom: 780,
+    presentationTop: 0, presentationHeight: 780, recoveryReady: true,
+    viewportLifecycle: 'active',
+  }
 })
 
 describe('Remote Session handoff', () => {
@@ -61,7 +67,7 @@ describe('Remote Session handoff', () => {
   })
 
   it('releases focused local editing once and waits for editing recovery before entry', async () => {
-    viewport = { ...viewport, editing: true }
+    viewport = { ...viewport, editing: true, editingPresentation: true, presentationPhase: 'editing', recoveryReady: false }
     const initial = accessedState()
     const view = render(<GameProvider initialState={initial}><input aria-label="Local editor" /><Shell /><Capture /></GameProvider>)
     const editor = screen.getByLabelText('Local editor')
@@ -76,7 +82,7 @@ describe('Remote Session handoff', () => {
     view.rerender(<GameProvider initialState={initial}><input aria-label="Local editor" /><Shell /><Capture /></GameProvider>)
     expect(blur).toHaveBeenCalledTimes(1)
 
-    viewport = { ...viewport, editing: false }
+    viewport = { ...viewport, editing: false, editingPresentation: false, presentationPhase: 'normal', recoveryReady: true }
     view.rerender(<GameProvider initialState={initial}><input aria-label="Local editor" /><Shell /><Capture /></GameProvider>)
     expect(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' })).toBeEnabled()
   })

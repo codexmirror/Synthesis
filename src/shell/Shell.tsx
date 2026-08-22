@@ -1,5 +1,5 @@
 import './shell.css'
-import { type CSSProperties, useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { appRegistry, type AppId } from './appRegistry'
 import { Home } from './Home'
 import { StatusBar } from './StatusBar'
@@ -38,8 +38,9 @@ export function Shell() {
   const { disconnectRemoteSession } = useGameActions()
   const activeApp = activeAppId ? appRegistry[activeAppId] : null
   const ActiveComponent = activeApp?.component
-  const viewport = useEditingViewport()
   const standalonePresentation = isStandalonePresentation()
+  const shellRef = useRef<HTMLDivElement>(null)
+  const viewport = useEditingViewport({ shellRef, standalone: standalonePresentation })
   const shellStyle: ShellStyle = {
     '--node-host-height': `${viewport.hostHeight}px`,
     '--node-edit-top': `${viewport.editTop}px`,
@@ -60,8 +61,13 @@ export function Shell() {
   return (
     <div
       className="os-shell"
+      ref={shellRef}
       data-testid="os-shell"
-      data-editing={viewport.editing ? 'true' : 'false'}
+      data-editing-geometry={viewport.editing ? 'true' : 'false'}
+      data-editing-presentation={viewport.editingPresentation ? 'true' : 'false'}
+      data-editing-phase={viewport.presentationPhase}
+      data-recovery-ready={viewport.recoveryReady ? 'true' : 'false'}
+      data-viewport-lifecycle={viewport.viewportLifecycle}
       data-standalone={standalonePresentation ? 'true' : 'false'}
       style={shellStyle}
     >
@@ -78,10 +84,10 @@ export function Shell() {
               ← <span>HOME</span>
             </button>
             <div className="app-title">
-              {viewport.editing && <span className="app-mode">EDITING</span>}
+              {viewport.editingPresentation && <span className="app-mode">EDITING</span>}
               <h1>{activeApp.label}</h1>
             </div>
-            {viewport.editing ? (
+            {viewport.editingPresentation ? (
               <button
                 className="done"
                 type="button"
@@ -102,7 +108,7 @@ export function Shell() {
       {remoteTarget && enteredRemoteSessionId !== remoteTarget.session.id && (
         <RemoteSessionHandoff
           context={remoteTarget}
-          ready={!viewport.editing}
+          ready={viewport.recoveryReady}
           onEnter={() => setEnteredRemoteSessionId(remoteTarget.session.id)}
           onDisconnect={disconnectRemoteSession}
         />

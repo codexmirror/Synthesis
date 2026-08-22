@@ -18,17 +18,20 @@ describe('mobile editing presentation contract', () => {
     expect(opacity).toBeGreaterThanOrEqual(.55)
   })
 
-  it('keeps normal editing absolute and overrides only standalone with fixed', () => {
+  it('uses presentation mapping in browser tabs and accepted geometry for standalone fixed', () => {
     expect(css).toMatch(
-      /@media \(max-width: 700px\)[\s\S]*?data-editing="true"[^}]+position: absolute;/,
+      /data-standalone="false"[^}]+data-editing-presentation="true"[^}]+\.app-view\s*{[^}]+position: absolute;/,
     )
     expect(css).toMatch(
-      /@media \(max-width: 700px\)[\s\S]*?data-standalone="true"[^}]+position: fixed;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/,
+      /data-standalone="true"[^}]+data-editing-geometry="true"[^}]+\.app-view\s*{[^}]+position: fixed;[^}]+inset-inline: 0;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/,
     )
-    expect(css).toContain('top: var(--node-edit-top, 0px)')
+    expect(css).toContain('top: var(--node-presentation-top, 0px)')
     expect(css).toContain(
-      'height: var(--node-edit-height, var(--node-host-height, 100dvh))',
+      'height: var(--node-presentation-height, var(--node-host-height, 100dvh))',
     )
+    expect(hook).toContain("shell.style.setProperty('--node-presentation-top'")
+    expect(hook).toContain("shell.style.setProperty('--node-presentation-height'")
+    expect(shellSource).not.toMatch(/'--node-presentation-(?:top|height)'\s*:/)
   })
 
   it('does not add timer or polling state to useEditingViewport', () => {
@@ -66,10 +69,10 @@ describe('mobile editing presentation contract', () => {
   })
 
   it('keeps wrapped NODE-OS chrome hidden and gives RACK-OS the Shell edit geometry', () => {
-    expect(css).toContain('.os-shell[data-editing="true"] > .node-workspace > .status-bar')
-    expect(css).toContain('.os-shell[data-editing="true"] > .node-workspace > .system-bar')
-    expect(rackCss).toMatch(/data-editing="true"[^}]+\.rack-os\s*{[^}]+position: absolute;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/)
-    expect(rackCss).toMatch(/data-standalone="true"[^}]+data-editing="true"[^}]+\.rack-os\s*{[^}]+position: fixed;/)
+    expect(css).toContain('.os-shell[data-editing-presentation="true"] > .node-workspace > .status-bar')
+    expect(css).toContain('.os-shell[data-editing-presentation="true"] > .node-workspace > .system-bar')
+    expect(rackCss).toMatch(/data-editing-presentation="true"[^}]+\.rack-os\s*{[^}]+position: absolute;[^}]+top: var\(--node-presentation-top, 0px\);[^}]+height: var\(--node-presentation-height/)
+    expect(rackCss).toMatch(/data-standalone="true"[^}]+data-editing-geometry="true"[^}]+\.rack-os\s*{[^}]+position: fixed;[^}]+inset-inline: 0;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/)
     expect(shellSource + rackCss).not.toContain('data-reduced-editing-geometry')
     expect(rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView|setInterval/)
     expect(shellSource).not.toMatch(/setTimeout|setInterval|visualViewport|window\.scrollTo|scrollIntoView/)

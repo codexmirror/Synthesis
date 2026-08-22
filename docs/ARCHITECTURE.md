@@ -717,6 +717,32 @@ Only controller-accepted geometry may be published to the Shell. Invalid,
 contradictory, or otherwise transitional observations preserve the last
 accepted geometry.
 
+Editing presentation is separate from accepted editing geometry. Shell-owned
+editable focus activates the Editing presentation immediately and recovery
+keeps it active until coherent normal geometry is accepted and browser-tab
+Shell displacement has returned to its captured visual baseline. A HOLD may
+therefore preserve the last accepted numeric geometry while the Shell already
+presents editing intent.
+
+In browser tabs, the Shell may map its existing NODE or foreign-Firmware
+surface into document space using the rendered displacement of the unchanged
+Shell. This transient mapping keeps the focused surface in visible browser
+space and may constrain its presentation height during a sensor HOLD. Rendered
+Shell displacement is presentation input only: it must never become accepted
+`editTop`, `editHeight`, recovery geometry, or gameplay truth.
+The editing presentation controller may synchronously write its Shell-owned
+transient CSS mapping on browser movement events; React retains diagnostic
+state but must not compete for ownership of those presentation variables.
+Accepted geometry continues through the scheduled validation pipeline.
+
+Browser suspension invalidates the current sensor-acquisition epoch without
+invalidating Shell-owned focus intent, accepted geometry, or the mounted
+editing surface. On a real foreground resume, the Shell reconciles the actual
+active element and begins a fresh acquisition when the same Shell editable is
+still focused. A transient normal-looking resume snapshot is not focus-exit
+recovery; accepted editing geometry remains latched until fresh editing
+geometry is accepted or actual focus loss proceeds through normal recovery.
+
 Individual scrollable application regions own their scrolling.
 
 Do not move browser viewport state into `core/game`.
