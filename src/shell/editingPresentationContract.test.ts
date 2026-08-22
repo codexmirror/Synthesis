@@ -8,6 +8,7 @@ import terminalInteraction from '../apps/terminal/useTerminalInteraction.ts?raw'
 import nodeCommandAdapter from '../apps/terminal/nodeCommandAdapter.ts?raw'
 import shellSource from './Shell.tsx?raw'
 import handoffSource from './RemoteSessionHandoff.tsx?raw'
+import visualAnchor from './useEditingVisualAnchor.ts?raw'
 
 describe('mobile editing presentation contract', () => {
   it('keeps viewport diagnostics tap-transparent and visibly translucent', () => {
@@ -63,6 +64,16 @@ describe('mobile editing presentation contract', () => {
     expect(terminalSource).not.toContain('aria-live="polite"')
     expect(terminalCss).not.toContain('72px')
     expect(terminalCss).toContain('touch-action: pan-y pinch-zoom')
+  })
+
+  it('keeps visual transition anchoring Shell-owned and event-driven', () => {
+    expect(shellSource).toContain('useEditingVisualAnchor(shellRef, viewport)')
+    expect(visualAnchor).toContain("shell.style.transform = `translate3d(0, ${next}px, 0)`")
+    expect(visualAnchor).toContain("shell.style.removeProperty('transform')")
+    expect(visualAnchor).not.toMatch(/setInterval|setTimeout|window\.scrollTo|scrollIntoView/)
+    expect(visualAnchor).not.toMatch(/Safari|Chrome|userAgent|navigator\.platform/)
+    expect(terminalSource + rackCss).not.toContain('useEditingVisualAnchor')
+    expect(css).not.toMatch(/\.os-shell\s*{[^}]*transform:/)
   })
 
   it('keeps wrapped NODE-OS chrome hidden and gives RACK-OS the Shell edit geometry', () => {

@@ -717,6 +717,25 @@ Only controller-accepted geometry may be published to the Shell. Invalid,
 contradictory, or otherwise transitional observations preserve the last
 accepted geometry.
 
+The Shell owns a separate visual-anchor controller for those HOLD intervals.
+It observes the rendered Shell position and transiently neutralizes external
+browser translation so HOLD preserves the last accepted presentation in visual
+viewport space, not only its numeric React geometry. The anchor neither
+classifies browser geometry nor creates editing geometry, and it releases its
+compensation before a newly accepted presentation is painted.
+
+```text
+ACCEPTED GEOMETRY CONTROLLER
+raw sensors → validate → classify → accept or hold → publish
+
+VISUAL ANCHOR CONTROLLER
+accepted visual frame → observe rendered drift → transiently hold → release on acceptance
+```
+
+Visual anchoring remains Shell-owned. Terminal, RACK-OS, and individual
+applications do not coordinate the global viewport or compensate browser page
+motion.
+
 Individual scrollable application regions own their scrolling.
 
 Do not move browser viewport state into `core/game`.

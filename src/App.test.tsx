@@ -12,6 +12,7 @@ import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
 import { ViewportDebug } from './shell/ViewportDebug'
 import { createInitialGameState } from './core/game/initialState'
+import type { EditingVisualAnchor } from './shell/useEditingVisualAnchor'
 
 class ViewportStub extends EventTarget {
   height = 844
@@ -64,6 +65,13 @@ const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'
 
 const EDITING_PRESENTATION_QUERY =
   '(max-width: 700px), (max-width: 900px) and (pointer: coarse)'
+
+const idleVisualAnchor: EditingVisualAnchor = {
+  getSnapshot: () => ({
+    phase: 'normal', holding: false, appliedY: 0, epoch: 0,
+    acceptanceRevision: 0, suspendedByScale: false,
+  }),
+}
 
 interface MediaQueryMatches {
   editingPresentation?: boolean
@@ -203,6 +211,20 @@ async function openTerminal() {
   }
 }
 
+function mockShellTop(shell: HTMLElement, initialTop = 0) {
+  let rawTop = initialTop
+  vi.spyOn(shell, 'getBoundingClientRect').mockImplementation(() => {
+    const match = shell.style.transform.match(/translate3d\(0,\s*([\d.-]+)px,\s*0\)/)
+    const applied = match ? Number(match[1]) : 0
+    return {
+      x: 0, y: rawTop + applied, top: rawTop + applied, left: 0,
+      right: 390, bottom: rawTop + applied + 775, width: 390, height: 775,
+      toJSON: () => ({}),
+    }
+  })
+  return { setRawTop: (next: number) => { rawTop = next } }
+}
+
 async function command(name: string) {
   const { user, input } = await openTerminal()
   await user.type(input, `${name}{enter}`)
@@ -250,11 +272,13 @@ describe('standalone presentation contract', () => {
     installMediaQueries()
     render(
       <ViewportDebug
+        visualAnchor={idleVisualAnchor}
         viewport={{
           hostHeight: 844,
           editTop: 0,
           editHeight: 844,
           editing: false,
+          phase: 'normal', holding: false, acceptanceRevision: 0,
         }}
       />,
     )
@@ -275,11 +299,12 @@ describe('standalone presentation contract', () => {
     const scrollY = vi.spyOn(window, 'scrollY', 'get').mockReturnValue(291)
 
     render(
-      <ViewportDebug viewport={{
+      <ViewportDebug visualAnchor={idleVisualAnchor} viewport={{
         hostHeight: 775,
         editTop: 0,
         editHeight: 455,
         editing: true,
+        phase: 'editing', holding: false, acceptanceRevision: 1,
       }} />,
     )
     await screen.findByLabelText('Viewport diagnostics')
@@ -302,11 +327,12 @@ describe('standalone presentation contract', () => {
     let now = 0
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
     render(
-      <ViewportDebug viewport={{
+      <ViewportDebug visualAnchor={idleVisualAnchor} viewport={{
         hostHeight: 844,
         editTop: 0,
         editHeight: 844,
         editing: false,
+        phase: 'normal', holding: false, acceptanceRevision: 0,
       }} />,
     )
     await screen.findByLabelText('Viewport diagnostics')
@@ -333,16 +359,18 @@ describe('standalone presentation contract', () => {
       editTop: 0,
       editHeight: 844,
       editing: false,
+      phase: 'normal' as const, holding: false, acceptanceRevision: 0,
     }
     const current = {
       hostHeight: 873,
       editTop: 386,
       editHeight: 487,
       editing: true,
+      phase: 'editing' as const, holding: false, acceptanceRevision: 1,
     }
     const { rerender } = render(
       <div className="os-shell" data-standalone="true">
-        <ViewportDebug viewport={initial} />
+        <ViewportDebug viewport={initial} visualAnchor={idleVisualAnchor} />
       </div>,
     )
     await screen.findByLabelText('Viewport diagnostics')
@@ -354,7 +382,7 @@ describe('standalone presentation contract', () => {
 
     rerender(
       <div className="os-shell" data-standalone="true">
-        <ViewportDebug viewport={current} />
+        <ViewportDebug viewport={current} visualAnchor={idleVisualAnchor} />
       </div>,
     )
     await waitFor(() =>
@@ -391,11 +419,13 @@ describe('dedicated editing viewport', () => {
     Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 775 })
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
     const { user, input, shell } = await openTerminal()
+    const shellRect = mockShellTop(shell)
     await user.click(input)
 
     viewport.height = 455
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 455 })
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 320 })
+    shellRect.setRawTop(-320)
     act(() => viewport.dispatchEvent(new Event('resize')))
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await new Promise((resolve) => requestAnimationFrame(resolve))
@@ -403,12 +433,19 @@ describe('dedicated editing viewport', () => {
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await new Promise((resolve) => requestAnimationFrame(resolve))
     expect(shell).toHaveAttribute('data-editing', 'false')
+    expect(shell).toHaveAttribute('data-editing-phase', 'awaiting-geometry')
+    expect(shell).toHaveAttribute('data-editing-holding', 'true')
     expect(shell).toHaveStyle({ '--node-edit-height': '775px', '--node-edit-top': '0px' })
+    expect(shell.style.transform).toBe('translate3d(0, 320px, 0)')
+    expect(shell.getBoundingClientRect().top).toBe(0)
 
     viewport.offsetTop = viewport.pageTop = 320
     await updateViewport(viewport, {})
     expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveAttribute('data-editing-phase', 'editing')
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing-holding', 'false'))
     expect(shell).toHaveStyle({ '--node-edit-height': '455px', '--node-edit-top': '320px' })
+    expect(shell.style.transform).toBe('')
   })
 
   it('holds a Chrome height-only candidate before accepting coherent sensors', async () => {
@@ -420,18 +457,53 @@ describe('dedicated editing viewport', () => {
     Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 745 })
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
     const { user, input, shell } = await openTerminal()
+    const shellRect = mockShellTop(shell)
     await user.click(input)
     viewport.height = 437
+    shellRect.setRawTop(-311)
     act(() => viewport.dispatchEvent(new Event('resize')))
     await new Promise((resolve) => requestAnimationFrame(resolve))
     expect(shell).toHaveAttribute('data-editing', 'false')
+    expect(shell).toHaveAttribute('data-editing-holding', 'true')
+    expect(shell.style.transform).toBe('translate3d(0, 311px, 0)')
+    expect(shell.getBoundingClientRect().top).toBe(0)
 
     viewport.offsetTop = viewport.pageTop = 308
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 437 })
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 308 })
     await updateViewport(viewport, {})
     expect(shell).toHaveAttribute('data-editing', 'true')
+    await waitFor(() => expect(shell).toHaveAttribute('data-editing-holding', 'false'))
     expect(shell).toHaveStyle({ '--node-edit-height': '437px', '--node-edit-top': '308px' })
+    expect(shell.style.transform).toBe('')
+  })
+
+  it('invalidates translation compensation when visual scale changes', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 775
+    installViewport(viewport)
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 775 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 775 })
+    const { user, input, shell } = await openTerminal()
+    const shellRect = mockShellTop(shell)
+    await user.click(input)
+
+    shellRect.setRawTop(-90)
+    viewport.scale = 1.2
+    act(() => viewport.dispatchEvent(new Event('resize')))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
+    expect(shell).toHaveAttribute('data-editing-holding', 'true')
+    expect(shell.style.transform).toBe('')
+
+    shellRect.setRawTop(-140)
+    viewport.scale = 1
+    act(() => viewport.dispatchEvent(new Event('scroll')))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    expect(shell.style.transform).toBe('')
   })
 
   it('holds a partial close and accepts coherent recovery at a new position', async () => {
@@ -443,6 +515,7 @@ describe('dedicated editing viewport', () => {
     Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 775 })
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
     const { user, input, shell } = await openTerminal()
+    const shellRect = mockShellTop(shell)
     await user.click(input)
 
     viewport.height = 455
@@ -454,6 +527,7 @@ describe('dedicated editing viewport', () => {
     fireEvent.blur(input)
 
     viewport.height = 775
+    shellRect.setRawTop(120)
     act(() => viewport.dispatchEvent(new Event('resize')))
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await new Promise((resolve) => requestAnimationFrame(resolve))
@@ -461,14 +535,20 @@ describe('dedicated editing viewport', () => {
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await new Promise((resolve) => requestAnimationFrame(resolve))
     expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveAttribute('data-editing-phase', 'recovering')
+    expect(shell).toHaveAttribute('data-editing-holding', 'true')
     expect(shell).toHaveStyle({ '--node-edit-height': '455px', '--node-edit-top': '320px' })
+    expect(shell.style.transform).toBe('translate3d(0, -120px, 0)')
+    expect(shell.getBoundingClientRect().top).toBe(0)
 
+    shellRect.setRawTop(0)
     viewport.offsetTop = viewport.pageTop = 40
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 775 })
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 40 })
     await updateViewport(viewport, {})
     expect(shell).toHaveAttribute('data-editing', 'false')
     expect(shell).toHaveStyle({ '--node-host-height': '815px', '--node-edit-height': '815px' })
+    expect(shell.style.transform).toBe('')
   })
 
   it('accepts a stable no-position opening only after bounded confirmation', async () => {
@@ -511,8 +591,10 @@ describe('dedicated editing viewport', () => {
     viewport.height = 455
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 455 })
     act(() => viewport.dispatchEvent(new Event('resize')))
-    expect(queuedFrames).toHaveLength(1)
+    expect(queuedFrames).toHaveLength(2)
 
+    act(() => queuedFrames.shift()!(performance.now()))
+    expect(queuedFrames).toHaveLength(2)
     act(() => queuedFrames.shift()!(performance.now()))
     expect(queuedFrames).toHaveLength(1)
     viewport.height = 451

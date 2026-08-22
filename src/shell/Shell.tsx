@@ -1,5 +1,5 @@
 import './shell.css'
-import { type CSSProperties, useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { appRegistry, type AppId } from './appRegistry'
 import { Home } from './Home'
 import { StatusBar } from './StatusBar'
@@ -10,6 +10,7 @@ import { useGameActions, useGameState } from '../app/GameContext'
 import { resolveActiveRemoteTarget } from '../core/game/remoteSession'
 import { RackOS } from '../apps/rackos/RackOS'
 import { RemoteSessionHandoff } from './RemoteSessionHandoff'
+import { useEditingVisualAnchor } from './useEditingVisualAnchor'
 
 type ShellStyle = CSSProperties & {
   '--node-host-height': string
@@ -39,6 +40,8 @@ export function Shell() {
   const activeApp = activeAppId ? appRegistry[activeAppId] : null
   const ActiveComponent = activeApp?.component
   const viewport = useEditingViewport()
+  const shellRef = useRef<HTMLDivElement>(null)
+  const visualAnchor = useEditingVisualAnchor(shellRef, viewport)
   const standalonePresentation = isStandalonePresentation()
   const shellStyle: ShellStyle = {
     '--node-host-height': `${viewport.hostHeight}px`,
@@ -59,9 +62,12 @@ export function Shell() {
 
   return (
     <div
+      ref={shellRef}
       className="os-shell"
       data-testid="os-shell"
       data-editing={viewport.editing ? 'true' : 'false'}
+      data-editing-phase={viewport.phase}
+      data-editing-holding={viewport.holding ? 'true' : 'false'}
       data-standalone={standalonePresentation ? 'true' : 'false'}
       style={shellStyle}
     >
@@ -110,7 +116,7 @@ export function Shell() {
       {remoteTarget && enteredRemoteSessionId === remoteTarget.session.id && (
         <RackOS key={remoteTarget.session.id} context={remoteTarget} />
       )}
-      <ViewportDebug viewport={viewport} />
+      <ViewportDebug viewport={viewport} visualAnchor={visualAnchor} />
     </div>
   )
 }

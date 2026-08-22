@@ -13,9 +13,12 @@ export interface EditingViewportState {
   editTop: number
   editHeight: number
   editing: boolean
+  phase: EditingPhase
+  holding: boolean
+  acceptanceRevision: number
 }
 
-type EditingPhase = 'normal' | 'awaiting-geometry' | 'editing' | 'recovering'
+export type EditingPhase = 'normal' | 'awaiting-geometry' | 'editing' | 'recovering'
 type MeasurementSource = 'browser-event' | 'follow-up'
 type TouchAxis = 'pending' | 'horizontal' | 'vertical'
 
@@ -69,7 +72,10 @@ function initialSnapshot(): ViewportSensorSnapshot {
 }
 
 function normalState(hostHeight: number): EditingViewportState {
-  return { hostHeight, editTop: 0, editHeight: hostHeight, editing: false }
+  return {
+    hostHeight, editTop: 0, editHeight: hostHeight, editing: false,
+    phase: 'normal', holding: false, acceptanceRevision: 0,
+  }
 }
 
 function healthyHostHeight(snapshot: ViewportSensorSnapshot): number {
@@ -82,7 +88,9 @@ function healthyHostHeight(snapshot: ViewportSensorSnapshot): number {
 
 function statesMatch(a: EditingViewportState, b: EditingViewportState): boolean {
   return a.hostHeight === b.hostHeight && a.editTop === b.editTop &&
-    a.editHeight === b.editHeight && a.editing === b.editing
+    a.editHeight === b.editHeight && a.editing === b.editing &&
+    a.phase === b.phase && a.holding === b.holding &&
+    a.acceptanceRevision === b.acceptanceRevision
 }
 
 export function useEditingViewport(): EditingViewportState {
@@ -114,9 +122,31 @@ export function useEditingViewport(): EditingViewportState {
     let touchAxis: TouchAxis = 'pending'
     let touchScrollOwner: HTMLElement | null = null
 
-    const publishAccepted = (next: EditingViewportState) => {
-      lastAcceptedGeometry.current = next
-      setState((current) => statesMatch(current, next) ? current : next)
+    const publishLifecycle = (nextPhase: EditingPhase, holding: boolean) => {
+      setState((current) => {
+        const next = { ...current, phase: nextPhase, holding }
+        return statesMatch(current, next) ? current : next
+      })
+    }
+    const publishAccepted = (
+      geometry: Pick<EditingViewportState, 'hostHeight' | 'editTop' | 'editHeight' | 'editing'>,
+      acceptedPhase: Extract<EditingPhase, 'normal' | 'editing'>,
+    ) => {
+      setState((current) => {
+        const changed = current.hostHeight !== geometry.hostHeight ||
+          current.editTop !== geometry.editTop || current.editHeight !== geometry.editHeight ||
+          current.editing !== geometry.editing || current.phase !== acceptedPhase || current.holding
+        const next = {
+          ...geometry,
+          phase: acceptedPhase,
+          holding: false,
+          acceptanceRevision: changed
+            ? current.acceptanceRevision + 1
+            : current.acceptanceRevision,
+        }
+        lastAcceptedGeometry.current = next
+        return statesMatch(current, next) ? current : next
+      })
     }
     const acceptNormal = (snapshot: ViewportSensorSnapshot) => {
       const height = healthyHostHeight(snapshot)
@@ -125,12 +155,18 @@ export function useEditingViewport(): EditingViewportState {
       transitionBaseline = accepted
       phase = 'normal'
       weakCandidate = undefined
-      publishAccepted(normalState(height))
+      publishAccepted(
+        { hostHeight: height, editTop: 0, editHeight: height, editing: false },
+        'normal',
+      )
     }
     const acceptEditing = (snapshot: ViewportSensorSnapshot, editTop: number, editHeight: number) => {
       phase = 'editing'
       weakCandidate = undefined
-      publishAccepted({ hostHeight: transitionBaseline.hostHeight, editTop, editHeight, editing: true })
+      publishAccepted(
+        { hostHeight: transitionBaseline.hostHeight, editTop, editHeight, editing: true },
+        'editing',
+      )
       // The accepted sensor state is the baseline for subsequent editing updates.
       transitionBaseline = snapshot
     }
@@ -151,8 +187,14 @@ export function useEditingViewport(): EditingViewportState {
         return
       }
       const classification = classifyViewportSensorSnapshot(snapshot, transitionBaseline)
-      if (classification.kind === 'invalid') return
+      if (classification.kind === 'invalid') {
+        if (phase !== 'normal') publishLifecycle(phase, true)
+        return
+      }
       if (classification.kind === 'pending') {
+        const unchangedAcceptedEditing = phase === 'editing' &&
+          viewportSnapshotsAreEquivalent(snapshot, transitionBaseline)
+        if (!unchangedAcceptedEditing) publishLifecycle(phase, phase !== 'normal')
         if (classification.reason === 'hard-contradiction') { clearWeakSampling(); return }
         const weakRecovery = classification.reason === 'weak-recovery'
         // A height-first recovery cannot become accepted merely because the
@@ -218,6 +260,7 @@ export function useEditingViewport(): EditingViewportState {
       suppressUntilNewFocus = false
       advanceEpoch()
       phase = 'awaiting-geometry'
+      publishLifecycle(phase, true)
       transitionBaseline = acceptedNormalSnapshot
       schedule()
     }
@@ -225,11 +268,19 @@ export function useEditingViewport(): EditingViewportState {
       if (!isEditable(event.target)) return
       editableFocused = false
       advanceEpoch()
-      if (phase === 'editing') phase = 'recovering'
+      if (phase === 'editing') {
+        phase = 'recovering'
+        publishLifecycle(phase, true)
+      }
       else if (phase === 'awaiting-geometry') {
         phase = 'normal'
         transitionBaseline = acceptedNormalSnapshot
-        publishAccepted(normalState(acceptedNormalSnapshot.hostHeight))
+        publishAccepted({
+          hostHeight: acceptedNormalSnapshot.hostHeight,
+          editTop: 0,
+          editHeight: acceptedNormalSnapshot.hostHeight,
+          editing: false,
+        }, 'normal')
       }
       schedule(); cancelCloseProbe()
       const timerEpoch = epoch
@@ -256,6 +307,7 @@ export function useEditingViewport(): EditingViewportState {
     const onOrientationChange = () => {
       if (orientationTimer !== undefined) clearTimeout(orientationTimer)
       const timerEpoch = advanceEpoch()
+      publishLifecycle(phase, phase !== 'normal')
       orientationTimer = setTimeout(() => rebaseAfterOrientation(timerEpoch), ORIENTATION_REBASE_DELAY)
     }
 

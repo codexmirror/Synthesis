@@ -42,7 +42,10 @@ function Capture() {
 }
 
 beforeEach(() => {
-  viewport = { hostHeight: 780, editTop: 0, editHeight: 780, editing: false }
+  viewport = {
+    hostHeight: 780, editTop: 0, editHeight: 780, editing: false,
+    phase: 'normal', holding: false, acceptanceRevision: 0,
+  }
 })
 
 describe('Remote Session handoff', () => {

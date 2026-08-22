@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { EditingViewportState } from './useEditingViewport'
+import type { EditingVisualAnchor, EditingVisualAnchorSnapshot } from './useEditingVisualAnchor'
 
 type EntryKind = 'RAW EVENT' | 'HOOK COMMIT'
 
@@ -15,6 +17,7 @@ interface BrowserSample {
   activeElement: string
   target: string
   rects: Record<string, string>
+  anchor: EditingVisualAnchorSnapshot
 }
 
 interface TimelineEntry {
@@ -61,7 +64,10 @@ function rectSummary(element: Element | null): string {
   return `${rect.top.toFixed(0)}/${rect.bottom.toFixed(0)}/${rect.height.toFixed(0)}`
 }
 
-function browserSample(target: EventTarget | null): BrowserSample {
+function browserSample(
+  target: EventTarget | null,
+  visualAnchor: EditingVisualAnchor,
+): BrowserSample {
   const visual = window.visualViewport
   return {
     visualHeight: visual?.height ?? '—',
@@ -80,6 +86,7 @@ function browserSample(target: EventTarget | null): BrowserSample {
         rectSummary(document.querySelector(selector)),
       ]),
     ),
+    anchor: visualAnchor.getSnapshot(),
   }
 }
 
@@ -91,7 +98,13 @@ function compact(value: number | '—'): string {
   return typeof value === 'number' ? value.toFixed(1).replace(/\.0$/, '') : value
 }
 
-export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) {
+export function ViewportDebug({
+  viewport,
+  visualAnchor,
+}: {
+  viewport: EditingViewportState
+  visualAnchor: EditingVisualAnchor
+}) {
   const enabled = isDebugEnabled()
   const committedViewport = useRef(viewport)
   const startTime = useRef(0)
@@ -119,7 +132,7 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
       kind,
       name,
       elapsed: now - startTime.current,
-      raw: browserSample(target),
+      raw: browserSample(target, visualAnchor),
       hook: { ...hook },
     }
     setTimeline((entries) => {
@@ -178,7 +191,7 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
 
   if (!enabled || timeline.length === 0) return null
 
-  return (
+  return createPortal(
     <output className="viewport-debug" aria-label="Viewport diagnostics">
       <strong>VIEWPORT TRANSITIONS · NEWEST FIRST ({timeline.length}/{VIEWPORT_DEBUG_TIMELINE_LIMIT})</strong>
       {[...timeline].reverse().map((entry) => (
@@ -186,9 +199,11 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
           <b>+{entry.elapsed.toFixed(1)}ms {entry.kind}</b> {entry.name}
           {'\n'}RAW vv h={compact(entry.raw.visualHeight)} off={compact(entry.raw.visualOffsetTop)} page={compact(entry.raw.visualPageTop)}/{compact(entry.raw.visualPageLeft)} s={compact(entry.raw.visualScale)} win={entry.raw.innerHeight}/{entry.raw.clientHeight} y={compact(entry.raw.scrollY)}
           {'\n'}HOOK host/top/h={entry.hook.hostHeight}/{entry.hook.editTop}/{entry.hook.editHeight} edit={String(entry.hook.editing)} active={entry.raw.activeElement} target={entry.raw.target}
+          {'\n'}ANCHOR phase={entry.raw.anchor.phase} hold={String(entry.raw.anchor.holding)} target/raw/measured={compact(entry.raw.anchor.targetTop ?? '—')}/{compact(entry.raw.anchor.rawTop ?? '—')}/{compact(entry.raw.anchor.measuredTop ?? '—')} y={compact(entry.raw.anchor.appliedY)} epoch/rev={entry.raw.anchor.epoch}/{entry.raw.anchor.acceptanceRevision} scale-suspended={String(entry.raw.anchor.suspendedByScale)}
           {'\n'}RECT {RECTS.map(([label]) => `${label}=${entry.raw.rects[label]}`).join(' ')}
         </span>
       ))}
-    </output>
+    </output>,
+    document.body,
   )
 }
