@@ -280,42 +280,43 @@ describe('standalone presentation contract', () => {
 })
 
 describe('dedicated editing viewport', () => {
-  it('enters editing immediately on focus before keyboard geometry changes', async () => {
+  it('keeps normal presentation on focus until keyboard geometry changes', async () => {
     const viewport = new ViewportStub()
+    viewport.height = 775
     installViewport(viewport)
     installEditingPresentation()
     const { user, input, shell } = await openTerminal()
 
     await user.click(input)
 
-    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveAttribute('data-editing', 'false')
     expect(shell).toHaveStyle({
-      '--node-host-height': '844px',
+      '--node-host-height': '775px',
       '--node-edit-top': '0px',
-      '--node-edit-height': '844px',
+      '--node-edit-height': '775px',
     })
-    expect(screen.getByText('EDITING')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /finish editing/i })).toHaveTextContent(
-      'DONE',
-    )
+    expect(screen.queryByText('EDITING')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /finish editing/i })).not.toBeInTheDocument()
   })
 
-  it('keeps the 844px host while the editing plane follows a 538px viewport', async () => {
+  it('starts editing with the first genuinely reduced keyboard geometry', async () => {
     const viewport = new ViewportStub()
+    viewport.height = 775
     installViewport(viewport)
     installEditingPresentation()
     const { user, input, shell } = await openTerminal()
     await user.click(input)
 
-    await updateViewport(viewport, { height: 538 })
+    await updateViewport(viewport, { height: 455, offsetTop: 320 })
 
     await waitFor(() =>
       expect(shell).toHaveStyle({
-        '--node-host-height': '844px',
-        '--node-edit-top': '0px',
-        '--node-edit-height': '538px',
+        '--node-host-height': '775px',
+        '--node-edit-top': '320px',
+        '--node-edit-height': '455px',
       }),
     )
+    expect(shell).toHaveAttribute('data-editing', 'true')
   })
 
   it('maps Safari top pan to editTop without changing host height', async () => {
@@ -338,6 +339,26 @@ describe('dedicated editing viewport', () => {
         '--node-edit-height': '514px',
       }),
     )
+  })
+
+  it('keeps editing active when focus moves while keyboard geometry is already reduced', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await updateViewport(viewport, { height: 538, offsetTop: 306 })
+
+    const secondInput = document.createElement('input')
+    input.parentElement!.append(secondInput)
+    await user.click(secondInput)
+
+    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveStyle({
+      '--node-host-height': '844px',
+      '--node-edit-top': '306px',
+      '--node-edit-height': '538px',
+    })
   })
 
   it('does not mistake Safari chrome movement for keyboard recovery', async () => {
@@ -373,6 +394,7 @@ describe('dedicated editing viewport', () => {
     installEditingPresentation()
     const { user, input } = await openTerminal()
     await user.click(input)
+    await updateViewport(viewport, { height: 538 })
 
     const header = screen.getByText(/terminal/i, { selector: 'h1' }).closest(
       '.app-header',
@@ -393,6 +415,7 @@ describe('dedicated editing viewport', () => {
     installEditingPresentation()
     const { user, input } = await openTerminal()
     await user.click(input)
+    await updateViewport(viewport, { height: 538 })
     const output = document.querySelector('.terminal-output') as HTMLDivElement
     expect(output).toHaveAttribute('data-editing-scroll-owner')
     expect(input.closest('.terminal-input')).not.toContainElement(output)
@@ -472,8 +495,9 @@ describe('dedicated editing viewport', () => {
 
     input.blur()
     await user.click(input)
-    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveAttribute('data-editing', 'false')
     await updateViewport(viewport, { height: 538 })
+    expect(shell).toHaveAttribute('data-editing', 'true')
     expect(shell).toHaveStyle({
       '--node-host-height': '844px',
       '--node-edit-height': '538px',
@@ -616,9 +640,10 @@ describe('dedicated editing viewport', () => {
     await user.type(notes, 'abc')
     const shell = screen.getByTestId('os-shell')
 
-    expect(shell).toHaveAttribute('data-editing', 'true')
+    expect(shell).toHaveAttribute('data-editing', 'false')
     expect(screen.getByLabelText('Note character count')).toHaveTextContent('3 CHR')
     await updateViewport(viewport, { height: 538 })
+    expect(shell).toHaveAttribute('data-editing', 'true')
     expect(shell).toHaveStyle({ '--node-edit-height': '538px' })
 
     await user.click(screen.getByRole('button', { name: /finish editing/i }))

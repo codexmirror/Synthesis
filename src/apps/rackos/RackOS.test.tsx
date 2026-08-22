@@ -9,6 +9,8 @@ import type { GameState } from '../../core/game/types'
 import { rememberScan } from '../../core/game/discovery'
 import { scanNetworkTarget } from '../../core/game/scan'
 import { Terminal } from '../terminal/Terminal'
+import rackSource from './RackOS.tsx?raw'
+import rackCss from './rackos.css?raw'
 
 function StateSnapshot() { return <output data-testid="game-state">{JSON.stringify(useGameState())}</output> }
 
@@ -34,6 +36,34 @@ async function enterRemote(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('RACK-OS', () => {
+  it('owns editing scroll in its output and configures the remote command for mobile entry', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await enterRemote(user)
+
+    const output = document.querySelector('.rack-output')
+    expect(output).toHaveAttribute('data-editing-scroll-owner')
+    expect(document.querySelectorAll('.rack-os [data-editing-scroll-owner]')).toHaveLength(1)
+    expect(output).not.toBeNull()
+    expect(output!.parentElement).toHaveClass('rack-terminal')
+
+    expect(screen.getByLabelText('Remote command')).toHaveAttribute('autocapitalize', 'none')
+    expect(screen.getByLabelText('Remote command')).toHaveAttribute('autocomplete', 'off')
+    expect(screen.getByLabelText('Remote command')).toHaveAttribute('autocorrect', 'off')
+    expect(screen.getByLabelText('Remote command')).toHaveAttribute('spellcheck', 'false')
+    expect(screen.getByLabelText('Remote command')).toHaveAttribute('enterkeyhint', 'send')
+    expect(screen.getByLabelText('Remote command')).not.toHaveAttribute('autofocus')
+  })
+
+  it('keeps the compact prompt while enforcing mobile input and output geometry', () => {
+    expect(rackCss).toMatch(/\.rack-terminal label\s*{[^}]*font-size:\s*\.76rem;/)
+    expect(rackCss).toMatch(/@media \(max-width: 700px\), \(max-width: 900px\) and \(pointer: coarse\)[\s\S]*?\.rack-terminal input\s*{\s*font-size:\s*16px;\s*}/)
+    expect(rackCss).toMatch(/\.rack-output\s*{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*overscroll-behavior-y:\s*contain;[^}]*touch-action:\s*pan-y pinch-zoom;[^}]*-webkit-overflow-scrolling:\s*touch;/)
+  })
+
+  it('keeps viewport correction logic out of the RACK boundary', () => {
+    expect(rackSource + rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView/)
+  })
+
   it('presents live canonical identity, authority, access path, and one filesystem through Files and Terminal', async () => {
     const user = userEvent.setup(); const initial = connectedState(); const discoveryBefore = initial.discovery; const knowledgeBefore = initial.knowledge
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
