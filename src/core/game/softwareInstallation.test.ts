@@ -4,11 +4,11 @@ import { installLocalSoftwarePackage } from './softwareInstallation'
 import type { GameState, SoftwarePackageFile } from './types'
 
 const path = '/home/user/downloads/nodescan.weird'
-const packageFile: SoftwarePackageFile = { kind: 'software_package', path, releaseId: 'build-a91f7', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental' }
+const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path, releaseId: 'build-a91f7', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
 
 function withFiles(files: GameState['player']['localDevice']['filesystem']['files']): GameState {
   const state = createInitialGameState()
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { files } } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files } } } }
 }
 
 describe('installLocalSoftwarePackage', () => {
@@ -17,12 +17,12 @@ describe('installLocalSoftwarePackage', () => {
     ['/missing.pkg', 'package_not_found'],
     ['/home', 'package_not_file'],
   ] as const)('returns %s without mutation', (requestedPath, status) => {
-    const state = withFiles([{ kind: 'text', path: '/home/user/readme.txt', content: '' }])
+    const state = withFiles([{ kind: 'text', id: 'file-fixture-text', path: '/home/user/readme.txt', content: '' }])
     expect(installLocalSoftwarePackage(state, requestedPath)).toEqual({ status, state })
   })
 
   it('validates canonical file kind and product identity rather than filename or display name', () => {
-    const text = withFiles([{ kind: 'text', path: '/home/user/nodescan.pkg', content: '' }])
+    const text = withFiles([{ kind: 'text', id: 'file-fixture-text', path: '/home/user/nodescan.pkg', content: '' }])
     expect(installLocalSoftwarePackage(text, '/home/user/nodescan.pkg')).toEqual({ status: 'not_software_package', state: text })
     const unsupportedFile = { ...packageFile, productId: 'other-product' }
     const unsupported = withFiles([unsupportedFile])
