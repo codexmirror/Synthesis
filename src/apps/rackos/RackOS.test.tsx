@@ -29,10 +29,15 @@ function connectedState(): GameState {
   return { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '198.51.100.47' } } }
 }
 
+async function enterRemote(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /^ENTER .+ →$/ }))
+}
+
 describe('RACK-OS', () => {
   it('presents live canonical identity, authority, access path, and one filesystem through Files and Terminal', async () => {
     const user = userEvent.setup(); const initial = connectedState(); const discoveryBefore = initial.discovery; const knowledgeBefore = initial.knowledge
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
     expect(screen.getByLabelText('STATE-OS remote operating environment')).toHaveTextContent('STATE-OS 7.4')
     expect(document.body).toHaveTextContent('live-server · 192.0.2.99')
     expect(document.querySelector('.node-workspace')).toHaveAttribute('hidden')
@@ -60,6 +65,7 @@ describe('RACK-OS', () => {
     const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={state}><Shell /><StateSnapshot /></GameProvider>)
     const user = userEvent.setup()
+    await enterRemote(user)
 
     await user.type(screen.getByLabelText('Remote command'), 'cat /opt/packages/scanner.release{enter}')
     expect(document.body).toHaveTextContent('NOT A TEXT FILE')
@@ -86,6 +92,7 @@ describe('RACK-OS', () => {
 
   it('disconnects from the remote Terminal through canonical Session state', async () => {
     const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
     await user.type(screen.getByLabelText('Remote command'), 'disconnect{enter}')
     expect(screen.queryByLabelText('STATE-OS remote operating environment')).not.toBeInTheDocument()
     expect((JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
@@ -93,6 +100,7 @@ describe('RACK-OS', () => {
 
   it('downloads through the remote Terminal into canonical local Files', async () => {
     const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await enterRemote(user)
     await user.type(screen.getByLabelText('Remote command'), 'download /srv/proof.txt{enter}')
     expect(document.body).toHaveTextContent('DOWNLOADED')
     expect(document.body).toHaveTextContent('/home/user/downloads/proof.txt')
@@ -107,6 +115,7 @@ describe('RACK-OS', () => {
 
   it('derives graphical Download, successful, and reopened states from canonical local truth', async () => {
     const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' }))
     await user.click(screen.getByRole('button', { name: 'DIR srv' }))
     await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
@@ -129,6 +138,7 @@ describe('RACK-OS', () => {
     const initial = connectedState()
     const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, { kind: 'text' as const, path: '/home/user/downloads/proof.txt', content: 'Different artifact.' }] } } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' }))
     await user.click(screen.getByRole('button', { name: 'DIR srv' }))
     await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
@@ -142,6 +152,7 @@ describe('RACK-OS', () => {
     const packageFile = { kind: 'software_package' as const, path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' }
     const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, { ...packageFile, path: '/home/user/downloads/weird.txt' }] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR opt' })); await user.click(screen.getByRole('button', { name: 'FILE weird.txt' }))
     expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/weird.txt')
@@ -156,6 +167,7 @@ describe('RACK-OS', () => {
     const localFile = { ...packageFile, ...changed, path: '/home/user/downloads/weird.txt' }
     const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { files: [...initial.player.localDevice.filesystem.files, localFile] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR opt' })); await user.click(screen.getByRole('button', { name: 'FILE weird.txt' }))
     expect(screen.getByRole('status')).toHaveTextContent('LOCAL DESTINATION OCCUPIED')
     expect(screen.queryByRole('button', { name: /DOWNLOAD/ })).not.toBeInTheDocument()
@@ -169,6 +181,7 @@ describe('RACK-OS', () => {
     await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
     expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /CONNECT/ }))
+    await enterRemote(user)
     expect(screen.getByLabelText('RACK-OS remote operating environment')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
