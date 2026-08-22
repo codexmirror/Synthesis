@@ -10,6 +10,14 @@ import shellSource from './Shell.tsx?raw'
 import handoffSource from './RemoteSessionHandoff.tsx?raw'
 
 describe('mobile editing presentation contract', () => {
+  it('keeps viewport diagnostics tap-transparent and visibly translucent', () => {
+    const debugRule = css.match(/\.viewport-debug\s*\{([^}]+)\}/)?.[1] ?? ''
+    expect(debugRule).toMatch(/pointer-events:\s*none/)
+    const opacity = Number(debugRule.match(/background:\s*rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/)?.[1])
+    expect(opacity).toBeLessThan(.88)
+    expect(opacity).toBeGreaterThanOrEqual(.55)
+  })
+
   it('keeps normal editing absolute and overrides only standalone with fixed', () => {
     expect(css).toMatch(
       /@media \(max-width: 700px\)[\s\S]*?data-editing="true"[^}]+position: absolute;/,
