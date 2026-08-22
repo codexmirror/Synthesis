@@ -177,6 +177,16 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       lastAcceptedGeometry.current = { ...lastAcceptedGeometry.current, ...next }
       publish()
     }
+    const writePresentationVariables = (shell: HTMLElement) => {
+      shell.style.setProperty('--node-presentation-top', `${presentationTop}px`)
+      shell.style.setProperty('--node-presentation-height', `${presentationHeight}px`)
+    }
+    const clearPresentationVariables = () => {
+      const shell = shellRef.current
+      if (!shell) return
+      shell.style.removeProperty('--node-presentation-top')
+      shell.style.removeProperty('--node-presentation-height')
+    }
     const finishPresentation = () => {
       presentationPhase = 'normal'
       targetViewportTop = 0
@@ -185,6 +195,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       presentationTop = 0
       presentationHeight = lastAcceptedGeometry.current.hostHeight
       viewportLifecycle = 'active'
+      clearPresentationVariables()
       publish()
     }
     const updatePresentationMapping = () => {
@@ -206,6 +217,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       shellBottom = rect.bottom
       presentationTop = plane.presentationTop
       presentationHeight = plane.presentationHeight
+      writePresentationVariables(shell)
       publish()
     }
     const maybeFinishPresentationRecovery = (snapshot: ViewportSensorSnapshot) => {
@@ -339,6 +351,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       presentationHeight = Number.isFinite(rect.height) && rect.height > 0
         ? rect.height
         : lastAcceptedGeometry.current.hostHeight
+      writePresentationVariables(shell)
     }
 
     const reconcileFocusedEditingIntent = (
@@ -519,8 +532,13 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       } else schedule()
     }
 
-    viewport?.addEventListener('resize', schedule); viewport?.addEventListener('scroll', schedule)
-    window.addEventListener('resize', schedule); window.addEventListener('scroll', schedule)
+    const onViewportMovement = () => {
+      if (!suspended) updatePresentationMapping()
+      schedule()
+    }
+
+    viewport?.addEventListener('resize', onViewportMovement); viewport?.addEventListener('scroll', onViewportMovement)
+    window.addEventListener('resize', onViewportMovement); window.addEventListener('scroll', onViewportMovement)
     mediaQuery?.addEventListener('change', onMediaChange)
     document.addEventListener('visibilitychange', onVisibilityChange)
     window.addEventListener('pagehide', onPageHide); window.addEventListener('pageshow', onPageShow)
@@ -529,8 +547,8 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     document.addEventListener('touchend', resetTouchGesture, { passive: true }); document.addEventListener('touchcancel', resetTouchGesture, { passive: true })
     window.addEventListener('orientationchange', onOrientationChange); schedule()
     return () => {
-      viewport?.removeEventListener('resize', schedule); viewport?.removeEventListener('scroll', schedule)
-      window.removeEventListener('resize', schedule); window.removeEventListener('scroll', schedule)
+      viewport?.removeEventListener('resize', onViewportMovement); viewport?.removeEventListener('scroll', onViewportMovement)
+      window.removeEventListener('resize', onViewportMovement); window.removeEventListener('scroll', onViewportMovement)
       mediaQuery?.removeEventListener('change', onMediaChange)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('pagehide', onPageHide); window.removeEventListener('pageshow', onPageShow)
@@ -539,6 +557,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       document.removeEventListener('touchend', resetTouchGesture); document.removeEventListener('touchcancel', resetTouchGesture)
       window.removeEventListener('orientationchange', onOrientationChange)
       cancelAnimationFrame(frame); clearWeakSampling(); cancelCloseProbe()
+      clearPresentationVariables()
       if (orientationTimer !== undefined) clearTimeout(orientationTimer)
     }
   }, [])

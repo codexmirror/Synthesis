@@ -730,6 +730,10 @@ Shell. This transient mapping keeps the focused surface in visible browser
 space and may constrain its presentation height during a sensor HOLD. Rendered
 Shell displacement is presentation input only: it must never become accepted
 `editTop`, `editHeight`, recovery geometry, or gameplay truth.
+The editing presentation controller may synchronously write its Shell-owned
+transient CSS mapping on browser movement events; React retains diagnostic
+state but must not compete for ownership of those presentation variables.
+Accepted geometry continues through the scheduled validation pipeline.
 
 Browser suspension invalidates the current sensor-acquisition epoch without
 invalidating Shell-owned focus intent, accepted geometry, or the mounted

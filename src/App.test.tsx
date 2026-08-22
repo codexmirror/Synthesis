@@ -452,6 +452,63 @@ describe('dedicated editing viewport', () => {
     expect(screen.getByLabelText('Command input')).toBe(originalInput)
   })
 
+  it('maps browser-tab opening synchronously before the geometry frame', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 775
+    installViewport(viewport)
+    installEditingPresentation()
+    const { input, shell } = await openTerminal()
+    let shellTop = 0
+    vi.spyOn(shell, 'getBoundingClientRect').mockImplementation(() => ({
+      x: 0, y: shellTop, top: shellTop, bottom: shellTop + 775, left: 0, right: 390,
+      width: 390, height: 775, toJSON: () => ({}),
+    }))
+    const queuedFrames: FrameRequestCallback[] = []
+    const animationFrame = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+      queuedFrames.push(callback)
+      return queuedFrames.length
+    })
+    act(() => input.focus())
+    shellTop = -320
+    viewport.height = 455
+    act(() => viewport.dispatchEvent(new Event('resize')))
+
+    expect(queuedFrames).toHaveLength(1)
+    expect(shell).toHaveStyle({ '--node-presentation-top': '320px', '--node-presentation-height': '455px' })
+    expect(shell).toHaveAttribute('data-editing-geometry', 'false')
+    expect(shellTop + Number(shell.style.getPropertyValue('--node-presentation-top').replace('px', ''))).toBe(0)
+    animationFrame.mockRestore()
+  })
+
+  it('maps browser-tab closing synchronously before the recovery geometry frame', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 775
+    installViewport(viewport)
+    installEditingPresentation()
+    const { input, shell } = await openTerminal()
+    let shellTop = 0
+    vi.spyOn(shell, 'getBoundingClientRect').mockImplementation(() => ({
+      x: 0, y: shellTop, top: shellTop, bottom: shellTop + 775, left: 0, right: 390,
+      width: 390, height: 775, toJSON: () => ({}),
+    }))
+    act(() => input.focus())
+    shellTop = -320
+    viewport.height = 455
+    viewport.offsetTop = viewport.pageTop = 320
+    await updateViewport(viewport, {})
+    expect(shell).toHaveAttribute('data-editing-geometry', 'true')
+
+    act(() => input.blur())
+    await Promise.resolve()
+    shellTop = 0
+    viewport.height = 775
+    viewport.offsetTop = viewport.pageTop = 0
+    act(() => viewport.dispatchEvent(new Event('resize')))
+
+    expect(shell).toHaveStyle({ '--node-presentation-top': '0px', '--node-presentation-height': '455px' })
+    expect(shell).toHaveAttribute('data-editing-geometry', 'true')
+  })
+
   it('holds a Chrome height-only candidate before accepting coherent sensors', async () => {
     const viewport = new ViewportStub()
     viewport.height = 745
@@ -567,7 +624,8 @@ describe('dedicated editing viewport', () => {
     expect(shell).toHaveAttribute('data-editing-presentation', 'false')
     expect(shell).toHaveAttribute('data-editing-phase', 'normal')
     expect(shell).toHaveAttribute('data-recovery-ready', 'true')
-    expect(shell).toHaveStyle({ '--node-presentation-top': '0px', '--node-presentation-height': '775px' })
+    expect(shell.style.getPropertyValue('--node-presentation-top')).toBe('')
+    expect(shell.style.getPropertyValue('--node-presentation-height')).toBe('')
     expect(screen.queryByText('EDITING')).not.toBeInTheDocument()
   })
 
@@ -619,6 +677,7 @@ describe('dedicated editing viewport', () => {
     scrollY = 320
     viewport.height = 455
     act(() => viewport.dispatchEvent(new Event('resize')))
+    expect(shell).toHaveStyle({ '--node-presentation-top': '320px', '--node-presentation-height': '455px' })
     await new Promise((resolve) => requestAnimationFrame(resolve))
     expect(shell).toHaveAttribute('data-editing-geometry', 'true')
     expect(shell).toHaveAttribute('data-viewport-lifecycle', 'resume-acquisition')
@@ -733,12 +792,13 @@ describe('dedicated editing viewport', () => {
     viewport.offsetTop = viewport.pageTop = 0
     act(() => viewport.dispatchEvent(new Event('resize')))
     expect(queuedFrames).toHaveLength(1)
+    expect(shell).toHaveStyle({ '--node-presentation-top': '100px', '--node-presentation-height': '455px' })
 
     act(() => window.dispatchEvent(new Event('pagehide')))
     act(() => queuedFrames.shift()!(performance.now()))
     expect(shell).toHaveAttribute('data-editing-geometry', 'true')
     expect(shell).toHaveAttribute('data-viewport-lifecycle', 'suspended')
-    expect(shell).toHaveStyle({ '--node-presentation-top': '320px', '--node-presentation-height': '455px' })
+    expect(shell).toHaveStyle({ '--node-presentation-top': '100px', '--node-presentation-height': '455px' })
 
     act(() => window.dispatchEvent(new Event('pageshow')))
     expect(queuedFrames).toHaveLength(1)
@@ -1238,7 +1298,8 @@ describe('dedicated editing viewport', () => {
 
     expect(shell).toHaveAttribute('data-standalone', 'true')
     expect(shell).toHaveAttribute('data-editing-presentation', 'true')
-    expect(shell).toHaveStyle({ '--node-presentation-top': '0px', '--node-presentation-height': '775px' })
+    expect(shell.style.getPropertyValue('--node-presentation-top')).toBe('')
+    expect(shell.style.getPropertyValue('--node-presentation-height')).toBe('')
   })
 
   it('performs one bounded final orientation rebase', async () => {

@@ -15,8 +15,6 @@ type ShellStyle = CSSProperties & {
   '--node-host-height': string
   '--node-edit-top': string
   '--node-edit-height': string
-  '--node-presentation-top': string
-  '--node-presentation-height': string
 }
 
 type NavigatorWithStandalone = Navigator & {
@@ -47,8 +45,6 @@ export function Shell() {
     '--node-host-height': `${viewport.hostHeight}px`,
     '--node-edit-top': `${viewport.editTop}px`,
     '--node-edit-height': `${viewport.editHeight}px`,
-    '--node-presentation-top': `${viewport.presentationTop}px`,
-    '--node-presentation-height': `${viewport.presentationHeight}px`,
   }
 
   useEffect(() => {

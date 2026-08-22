@@ -29,6 +29,9 @@ describe('mobile editing presentation contract', () => {
     expect(css).toContain(
       'height: var(--node-presentation-height, var(--node-host-height, 100dvh))',
     )
+    expect(hook).toContain("shell.style.setProperty('--node-presentation-top'")
+    expect(hook).toContain("shell.style.setProperty('--node-presentation-height'")
+    expect(shellSource).not.toMatch(/'--node-presentation-(?:top|height)'\s*:/)
   })
 
   it('does not add timer or polling state to useEditingViewport', () => {
