@@ -218,7 +218,6 @@ export function Terminal() {
       </div>
 <form className="terminal-input" onSubmit={interaction.submit}>
   <label className="prompt" htmlFor="command-input">user@node:~$</label>
-  <span className="terminal-cursor" aria-hidden="true">▌</span>
   <input
           id="command-input"
           ref={interaction.inputRef}
