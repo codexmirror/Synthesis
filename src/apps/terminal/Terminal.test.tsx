@@ -60,7 +60,16 @@ describe('Terminal interaction controller', () => {
 
     fireEvent.change(input, { target: { value: 'hello' } })
     input.focus()
-    input.blur()
+    input.setSelectionRange(2, 2)
+    fireEvent.select(input)
+    expect(field).toHaveAttribute('data-caret-mode', 'custom')
+    expect(measure).toHaveTextContent('he')
+
+    // A native blur boundary is authoritative even if activeElement and the
+    // selection still expose their focused values while that event runs.
+    fireEvent.blur(input)
+    expect(document.activeElement).toBe(input)
+    expect(input.selectionStart).toBe(2)
     expect(field).toHaveAttribute('data-caret-mode', 'idle')
     expect(measure).toHaveTextContent('hello')
   })

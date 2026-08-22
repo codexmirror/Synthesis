@@ -8,6 +8,11 @@ type CaretPresentation = {
   x: number
 }
 
+type RefreshOptions = {
+  focused?: boolean
+  composing?: boolean
+}
+
 const initialPresentation: CaretPresentation = { mode: 'idle', prefix: '', x: 0 }
 
 export function useTerminalCaret(
@@ -19,13 +24,14 @@ export function useTerminalCaret(
   const [presentation, setPresentation] = useState(initialPresentation)
   const composingRef = useRef(false)
 
-  const refresh = useCallback((composing = false) => {
+  const refresh = useCallback((options: RefreshOptions = {}) => {
     const input = inputRef.current
     const field = fieldRef.current
     const measure = measureRef.current
     if (!input || !field || !measure) return
 
-    const focused = document.activeElement === input
+    const focused = options.focused ?? document.activeElement === input
+    const composing = options.composing ?? composingRef.current
     const selectionStart = input.selectionStart ?? input.value.length
     const selectionEnd = input.selectionEnd ?? selectionStart
     const mode: TerminalCaretMode = focused
@@ -51,15 +57,17 @@ export function useTerminalCaret(
   useLayoutEffect(() => {
     const input = inputRef.current
     if (!input) return
-    const update = () => refresh(composingRef.current)
-    const startComposition = () => { composingRef.current = true; refresh(true) }
-    const endComposition = () => { composingRef.current = false; refresh(false) }
+    const update = () => refresh()
+    const focus = () => refresh({ focused: true })
+    const blur = () => refresh({ focused: false })
+    const startComposition = () => { composingRef.current = true; refresh({ composing: true }) }
+    const endComposition = () => { composingRef.current = false; refresh({ composing: false }) }
     const selectionChanged = () => {
       if (document.activeElement === input) update()
     }
 
-    input.addEventListener('focus', update)
-    input.addEventListener('blur', update)
+    input.addEventListener('focus', focus)
+    input.addEventListener('blur', blur)
     input.addEventListener('input', update)
     input.addEventListener('select', update)
     input.addEventListener('scroll', update)
@@ -68,11 +76,11 @@ export function useTerminalCaret(
     document.addEventListener('selectionchange', selectionChanged)
     const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
     resizeObserver?.observe(input)
-    refresh(false)
+    refresh()
 
     return () => {
-      input.removeEventListener('focus', update)
-      input.removeEventListener('blur', update)
+      input.removeEventListener('focus', focus)
+      input.removeEventListener('blur', blur)
       input.removeEventListener('input', update)
       input.removeEventListener('select', update)
       input.removeEventListener('scroll', update)
@@ -83,7 +91,7 @@ export function useTerminalCaret(
     }
   }, [inputRef, refresh])
 
-  useLayoutEffect(() => { refresh(composingRef.current) }, [refresh, value])
+  useLayoutEffect(() => { refresh() }, [refresh, value])
 
   return { ...presentation, refresh }
 }
