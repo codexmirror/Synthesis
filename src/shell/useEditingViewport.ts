@@ -162,7 +162,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         shellBottom,
         presentationTop,
         presentationHeight,
-        recoveryReady: presentationPhase === 'normal',
+        recoveryReady: presentationPhase === 'normal' && !geometry.editing,
       }
       setState((current) => statesMatch(current, next) ? current : next)
     }
@@ -200,6 +200,17 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       presentationHeight = plane.presentationHeight
       publish()
     }
+    const maybeFinishPresentationRecovery = (snapshot: ViewportSensorSnapshot) => {
+      if (presentationPhase !== 'recovering' || editableFocused ||
+        lastAcceptedGeometry.current.editing ||
+        !isValidViewportSensorSnapshot(snapshot) ||
+        !hasEditingViewportRecovered(snapshot.hostHeight, snapshot.visualHeight)) return
+      if (!standalone) {
+        const shell = shellRef.current
+        if (!shell || Math.abs(shell.getBoundingClientRect().top - targetViewportTop) > RECOVERY_TOLERANCE) return
+      }
+      finishPresentation()
+    }
     const acceptNormal = (snapshot: ViewportSensorSnapshot) => {
       const height = healthyHostHeight(snapshot)
       const accepted = { ...snapshot, hostHeight: height }
@@ -230,7 +241,10 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     ) => {
       if (measurementEpoch !== epoch) return
       if (!supportsEditingPresentation()) {
+        editableFocused = false
+        phase = 'normal'
         if (isValidViewportSensorSnapshot(snapshot)) acceptNormal(snapshot)
+        finishPresentation()
         return
       }
       const classification = classifyViewportSensorSnapshot(snapshot, transitionBaseline)
@@ -242,13 +256,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         // same incomplete sensor state survived several animation frames.
         if (weakRecovery) {
           clearWeakSampling()
-          const shell = shellRef.current
-          const shellReturned = shell && Math.abs(shell.getBoundingClientRect().top - targetViewportTop) <= RECOVERY_TOLERANCE
-          if (phase === 'recovering' && !editableFocused && shellReturned &&
-            hasEditingViewportRecovered(snapshot.hostHeight, snapshot.visualHeight)) {
-            acceptNormal(snapshot)
-            finishPresentation()
-          }
+          maybeFinishPresentationRecovery(snapshot)
           return
         }
         const mayConfirmOpening = phase === 'awaiting-geometry' &&
@@ -284,7 +292,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         if (phase === 'recovering' || phase === 'editing') {
           suppressUntilNewFocus = editableFocused
           acceptNormal(snapshot)
-          if (!editableFocused) finishPresentation()
+          maybeFinishPresentationRecovery(snapshot)
         } else if (phase === 'normal' && !editableFocused) acceptNormal(snapshot)
         return
       }
@@ -295,12 +303,14 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     }
     const measure = (measurementEpoch = epoch) => {
       frame = 0
+      const snapshot = readSnapshot(transitionBaseline.hostHeight)
       processSnapshot(
-        readSnapshot(transitionBaseline.hostHeight),
+        snapshot,
         measurementEpoch,
         'browser-event',
       )
       updatePresentationMapping()
+      maybeFinishPresentationRecovery(snapshot)
     }
     const schedule = () => {
       if (!frame) { const scheduledEpoch = epoch; frame = requestAnimationFrame(() => measure(scheduledEpoch)) }
@@ -355,6 +365,10 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     const onFocusOut = (event: FocusEvent) => {
       const shell = shellRef.current
       if (!isEditable(event.target) || !shell?.contains(event.target as Node)) return
+      if (!supportsEditingPresentation()) {
+        editableFocused = false
+        return
+      }
       const related = event.relatedTarget
       if (isEditable(related) && shell.contains(related as Node)) return
       const token = ++focusExitToken

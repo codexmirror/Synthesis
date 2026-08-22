@@ -519,6 +519,57 @@ describe('dedicated editing viewport', () => {
     expect(shell).toHaveStyle({ '--node-host-height': '815px', '--node-edit-height': '815px' })
   })
 
+  it('keeps recovering presentation mapped until accepted normal geometry and Shell displacement both recover', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 775
+    installViewport(viewport)
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 775 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 775 })
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    const { user, input, shell } = await openTerminal()
+    let shellTop = 0
+    vi.spyOn(shell, 'getBoundingClientRect').mockImplementation(() => ({
+      x: 0, y: shellTop, top: shellTop, bottom: shellTop + 775, left: 0, right: 390,
+      width: 390, height: 775, toJSON: () => ({}),
+    }))
+    await user.click(input)
+
+    shellTop = -320
+    viewport.height = 455
+    viewport.offsetTop = viewport.pageTop = 320
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 455 })
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 320 })
+    await updateViewport(viewport, {})
+    expect(shell).toHaveAttribute('data-editing-geometry', 'true')
+
+    act(() => input.blur())
+    await Promise.resolve()
+    shellTop = -120
+    viewport.height = 775
+    viewport.offsetTop = viewport.pageTop = 0
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 775 })
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    await updateViewport(viewport, {})
+
+    expect(shell).toHaveAttribute('data-editing-geometry', 'false')
+    expect(shell).toHaveAttribute('data-editing-presentation', 'true')
+    expect(shell).toHaveAttribute('data-editing-phase', 'recovering')
+    expect(shell).toHaveAttribute('data-recovery-ready', 'false')
+    expect(shell).toHaveStyle({ '--node-presentation-top': '120px', '--node-presentation-height': '655px' })
+    expect(screen.getByText('EDITING')).toBeInTheDocument()
+
+    shellTop = 0
+    act(() => window.dispatchEvent(new Event('scroll')))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
+    expect(shell).toHaveAttribute('data-editing-presentation', 'false')
+    expect(shell).toHaveAttribute('data-editing-phase', 'normal')
+    expect(shell).toHaveAttribute('data-recovery-ready', 'true')
+    expect(shell).toHaveStyle({ '--node-presentation-top': '0px', '--node-presentation-height': '775px' })
+    expect(screen.queryByText('EDITING')).not.toBeInTheDocument()
+  })
+
   it('accepts a stable no-position opening only after bounded confirmation', async () => {
     const viewport = new ViewportStub()
     viewport.height = 775
@@ -1090,6 +1141,23 @@ describe('dedicated editing viewport', () => {
     await updateViewport(viewport, { height: 538 })
 
     expect(shell).toHaveAttribute('data-editing-geometry', 'false')
+  })
+
+  it('releases an active presentation when the mobile editing media query stops matching', async () => {
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    const editingQuery = installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    expect(shell).toHaveAttribute('data-editing-presentation', 'true')
+
+    editingQuery.matches = false
+    act(() => editingQuery.dispatchEvent(new Event('change')))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
+    expect(shell).toHaveAttribute('data-editing-presentation', 'false')
+    expect(shell).toHaveAttribute('data-editing-geometry', 'false')
+    expect(shell).toHaveAttribute('data-recovery-ready', 'true')
   })
 
   it('shares the editing viewport with Notes and restores after DONE', async () => {

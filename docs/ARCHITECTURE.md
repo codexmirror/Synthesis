@@ -719,7 +719,8 @@ accepted geometry.
 
 Editing presentation is separate from accepted editing geometry. Shell-owned
 editable focus activates the Editing presentation immediately and recovery
-keeps it active until coherent normal geometry is accepted. A HOLD may
+keeps it active until coherent normal geometry is accepted and browser-tab
+Shell displacement has returned to its captured visual baseline. A HOLD may
 therefore preserve the last accepted numeric geometry while the Shell already
 presents editing intent.
 

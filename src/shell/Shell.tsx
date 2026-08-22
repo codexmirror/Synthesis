@@ -69,6 +69,8 @@ export function Shell() {
       data-testid="os-shell"
       data-editing-geometry={viewport.editing ? 'true' : 'false'}
       data-editing-presentation={viewport.editingPresentation ? 'true' : 'false'}
+      data-editing-phase={viewport.presentationPhase}
+      data-recovery-ready={viewport.recoveryReady ? 'true' : 'false'}
       data-standalone={standalonePresentation ? 'true' : 'false'}
       style={shellStyle}
     >
