@@ -400,6 +400,8 @@ describe('dedicated editing viewport', () => {
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
     expect(shell).toHaveAttribute('data-editing', 'false')
     expect(shell).toHaveStyle({ '--node-edit-height': '775px', '--node-edit-top': '0px' })
 
@@ -454,6 +456,10 @@ describe('dedicated editing viewport', () => {
     viewport.height = 775
     act(() => viewport.dispatchEvent(new Event('resize')))
     await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
     expect(shell).toHaveAttribute('data-editing', 'true')
     expect(shell).toHaveStyle({ '--node-edit-height': '455px', '--node-edit-top': '320px' })
 
@@ -483,6 +489,41 @@ describe('dedicated editing viewport', () => {
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'true'))
     expect(shell).toHaveStyle({ '--node-edit-top': '0px', '--node-edit-height': '455px' })
+  })
+
+  it('does not replenish a changing weak opening sampling burst', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 775
+    installViewport(viewport)
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 775 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 775 })
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
+    const queuedFrames: FrameRequestCallback[] = []
+    const animationFrame = vi.spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        queuedFrames.push(callback)
+        return queuedFrames.length
+      })
+    viewport.height = 455
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 455 })
+    act(() => viewport.dispatchEvent(new Event('resize')))
+    expect(queuedFrames).toHaveLength(1)
+
+    act(() => queuedFrames.shift()!(performance.now()))
+    expect(queuedFrames).toHaveLength(1)
+    viewport.height = 451
+    act(() => queuedFrames.shift()!(performance.now()))
+    expect(queuedFrames).toHaveLength(1)
+    viewport.height = 447
+    act(() => queuedFrames.shift()!(performance.now()))
+
+    expect(queuedFrames).toHaveLength(0)
+    expect(shell).toHaveAttribute('data-editing', 'false')
+    animationFrame.mockRestore()
   })
 
   it('returns awaiting geometry to normal when focus leaves before acceptance', async () => {
@@ -738,6 +779,7 @@ describe('dedicated editing viewport', () => {
     await updateViewport(viewport, { height: 538 })
     fireEvent.blur(input)
 
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 820 })
     await updateViewport(viewport, { height: 820, offsetTop: 0 })
 
     await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
@@ -756,6 +798,7 @@ describe('dedicated editing viewport', () => {
     await user.click(input)
     await updateViewport(viewport, { height: 538 })
 
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
     await updateViewport(viewport, { height: 844 })
     await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
     expect(input).toHaveFocus()
@@ -772,13 +815,15 @@ describe('dedicated editing viewport', () => {
     const { user, input, shell } = await openTerminal()
     await user.click(input)
     await updateViewport(viewport, { height: 538 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
     await updateViewport(viewport, { height: 844 })
     await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
 
     input.blur()
-    await user.click(input)
+    input.focus()
     expect(shell).toHaveAttribute('data-editing', 'false')
-    await updateViewport(viewport, { height: 538 })
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await updateViewport(viewport, { height: 538, offsetTop: 306 })
     await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'true'))
     expect(shell).toHaveStyle({
       '--node-host-height': '844px',
@@ -792,6 +837,7 @@ describe('dedicated editing viewport', () => {
     installEditingPresentation()
     render(<App />)
 
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 })
     await updateViewport(viewport, { height: 900 })
 
     await waitFor(() =>
@@ -930,6 +976,7 @@ describe('dedicated editing viewport', () => {
 
     await user.click(screen.getByRole('button', { name: /finish editing/i }))
     expect(shell).toHaveAttribute('data-editing', 'true')
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
     await updateViewport(viewport, { height: 844 })
     await waitFor(() => expect(shell).toHaveAttribute('data-editing', 'false'))
   })

@@ -16,6 +16,7 @@ export interface EditingViewportState {
 }
 
 type EditingPhase = 'normal' | 'awaiting-geometry' | 'editing' | 'recovering'
+type MeasurementSource = 'browser-event' | 'follow-up'
 type TouchAxis = 'pending' | 'horizontal' | 'vertical'
 
 const EDITING_PRESENTATION_QUERY =
@@ -139,7 +140,11 @@ export function useEditingViewport(): EditingViewportState {
     }
     const advanceEpoch = () => { epoch += 1; clearWeakSampling(); return epoch }
 
-    const processSnapshot = (snapshot: ViewportSensorSnapshot, measurementEpoch: number) => {
+    const processSnapshot = (
+      snapshot: ViewportSensorSnapshot,
+      measurementEpoch: number,
+      source: MeasurementSource,
+    ) => {
       if (measurementEpoch !== epoch) return
       if (!supportsEditingPresentation()) {
         if (isValidViewportSensorSnapshot(snapshot)) acceptNormal(snapshot)
@@ -150,24 +155,21 @@ export function useEditingViewport(): EditingViewportState {
       if (classification.kind === 'pending') {
         if (classification.reason === 'hard-contradiction') { clearWeakSampling(); return }
         const weakRecovery = classification.reason === 'weak-recovery'
-        const mayConfirmRecovery = weakRecovery && (
-          phase === 'recovering' || phase === 'editing' ||
-          (phase === 'normal' && !editableFocused)
-        )
-        const mayConfirmOpening = !weakRecovery && phase === 'awaiting-geometry' &&
+        // A height-first recovery cannot become accepted merely because the
+        // same incomplete sensor state survived several animation frames.
+        if (weakRecovery) { clearWeakSampling(); return }
+        const mayConfirmOpening = phase === 'awaiting-geometry' &&
           editableFocused && !suppressUntilNewFocus
-        if (!mayConfirmRecovery && !mayConfirmOpening) return
+        if (!mayConfirmOpening) return
+        if (source === 'browser-event') {
+          weakFramesRemaining = WEAK_FOLLOW_UP_FRAMES
+        }
         if (weakCandidate && viewportSnapshotsAreEquivalent(weakCandidate, snapshot)) weakConfirmations += 1
-        else { weakCandidate = snapshot; weakConfirmations = 1; weakFramesRemaining = WEAK_FOLLOW_UP_FRAMES }
+        else { weakCandidate = snapshot; weakConfirmations = 1 }
         if (weakConfirmations >= WEAK_CONFIRMATIONS_REQUIRED) {
           clearWeakSampling()
-          if (weakRecovery) {
-            suppressUntilNewFocus = editableFocused
-            acceptNormal(snapshot)
-          } else {
-            const geometry = deriveEditingViewportGeometry(snapshot)
-            acceptEditing(snapshot, geometry.editTop, geometry.editHeight)
-          }
+          const geometry = deriveEditingViewportGeometry(snapshot)
+          acceptEditing(snapshot, geometry.editTop, geometry.editHeight)
           return
         }
         if (weakFramesRemaining > 0 && !weakFrame) {
@@ -175,7 +177,11 @@ export function useEditingViewport(): EditingViewportState {
           const scheduledEpoch = epoch
           weakFrame = requestAnimationFrame(() => {
             weakFrame = 0
-            processSnapshot(readSnapshot(transitionBaseline.hostHeight), scheduledEpoch)
+            processSnapshot(
+              readSnapshot(transitionBaseline.hostHeight),
+              scheduledEpoch,
+              'follow-up',
+            )
           })
         }
         return
@@ -194,7 +200,11 @@ export function useEditingViewport(): EditingViewportState {
     }
     const measure = (measurementEpoch = epoch) => {
       frame = 0
-      processSnapshot(readSnapshot(transitionBaseline.hostHeight), measurementEpoch)
+      processSnapshot(
+        readSnapshot(transitionBaseline.hostHeight),
+        measurementEpoch,
+        'browser-event',
+      )
     }
     const schedule = () => {
       if (!frame) { const scheduledEpoch = epoch; frame = requestAnimationFrame(() => measure(scheduledEpoch)) }
@@ -233,14 +243,14 @@ export function useEditingViewport(): EditingViewportState {
       const rebasedHeight = Math.max(1, raw.offsetTop + raw.visualHeight, raw.clientHeight)
       const rebased = { ...raw, hostHeight: rebasedHeight }
       if (phase === 'normal') {
-        processSnapshot(rebased, epoch)
+        processSnapshot(rebased, epoch, 'browser-event')
       } else {
         acceptedNormalSnapshot = {
           ...acceptedNormalSnapshot,
           hostHeight: rebasedHeight,
         }
         transitionBaseline = acceptedNormalSnapshot
-        processSnapshot(rebased, epoch)
+        processSnapshot(rebased, epoch, 'browser-event')
       }
     }
     const onOrientationChange = () => {
