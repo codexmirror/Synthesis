@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type FocusEvent, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import './editingPlaneDebug.css'
 
@@ -58,10 +58,10 @@ export function EditingPlaneDebug() {
   const enabled = isEnabled()
   const nextId = useRef(0)
   const [logs, setLogs] = useState<Record<Strategy, PlaneSample[]>>({ fixed: [], visual: [] })
-  const [visualPosition, setVisualPosition] = useState(() => ({
+  const initialVisualPosition = useRef({
     left: window.visualViewport?.pageLeft ?? window.scrollX,
     top: window.visualViewport?.pageTop ?? window.scrollY,
-  }))
+  })
 
   useEffect(() => {
     if (!enabled) return
@@ -78,10 +78,15 @@ export function EditingPlaneDebug() {
     }
     const positionFromVisualViewport = () => {
       const viewport = window.visualViewport
-      setVisualPosition({
-        left: viewport?.pageLeft ?? window.scrollX,
-        top: viewport?.pageTop ?? window.scrollY,
-      })
+      const plane = document.querySelector<HTMLElement>('[data-editing-plane="visual"]')
+      plane?.style.setProperty(
+        '--editing-plane-left',
+        `${(viewport?.pageLeft ?? window.scrollX) + 4}px`,
+      )
+      plane?.style.setProperty(
+        '--editing-plane-top',
+        `${(viewport?.pageTop ?? window.scrollY) + 164}px`,
+      )
     }
     const handleDocument = (event: Event) => record(event.type)
     const handleWindowResize = () => {
@@ -118,17 +123,18 @@ export function EditingPlaneDebug() {
   if (!enabled) return null
 
   const visualStyle = {
-    '--editing-plane-left': `${visualPosition.left + 4}px`,
-    '--editing-plane-top': `${visualPosition.top + 164}px`,
+    '--editing-plane-left': `${initialVisualPosition.current.left + 4}px`,
+    '--editing-plane-top': `${initialVisualPosition.current.top + 164}px`,
   } as CSSProperties
+  const containFocusEvent = (event: FocusEvent<HTMLElement>) => event.stopPropagation()
 
   return createPortal(
     <>
-      <aside className="editing-plane-debug editing-plane-debug--fixed" data-editing-plane="fixed">
+      <aside className="editing-plane-debug editing-plane-debug--fixed" data-editing-plane="fixed" onFocusCapture={containFocusEvent} onBlurCapture={containFocusEvent}>
         <label>FIXED BODY PLANE<input aria-label="Fixed plane input" /></label>
         <output>{logs.fixed.map((entry) => <span key={entry.id}>{format(entry)}</span>)}</output>
       </aside>
-      <aside className="editing-plane-debug editing-plane-debug--visual" data-editing-plane="visual" style={visualStyle}>
+      <aside className="editing-plane-debug editing-plane-debug--visual" data-editing-plane="visual" style={visualStyle} onFocusCapture={containFocusEvent} onBlurCapture={containFocusEvent}>
         <label>VISUAL VIEWPORT PLANE<input aria-label="Visual viewport plane input" /></label>
         <output>{logs.visual.map((entry) => <span key={entry.id}>{format(entry)}</span>)}</output>
       </aside>
