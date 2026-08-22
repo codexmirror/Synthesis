@@ -232,6 +232,12 @@ export function useEditingVisualAnchor(
       if (!isEditable(event.target) || !shell.contains(event.target)) return
       // Focus confirms the direct interaction, but geometry HOLD may not have
       // committed yet. Remain armed through that handoff.
+      if (active.current && armedKind.current === 'direct' &&
+        armedTarget.current === event.target && targetTop.current !== undefined) {
+        armedKind.current = 'focus'
+        updateSnapshot()
+        return
+      }
       acquire('focus', event.target)
     }
     const onFocusOut = (event: FocusEvent) => {

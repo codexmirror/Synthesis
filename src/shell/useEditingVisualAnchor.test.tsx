@@ -72,6 +72,25 @@ async function nextFrame() {
 }
 
 describe('Shell editing visual anchor lifecycle', () => {
+  it('preserves the direct pre-pan target when matching focus arrives after drift', async () => {
+    const visualViewport = new VisualViewportStub()
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: visualViewport })
+    render(<Harness viewport={state('normal', false, 0)} />)
+    const shell = screen.getByTestId('anchor-shell')
+    const setRawTop = installShellRect(shell)
+    const input = screen.getByLabelText('Remote command A')
+
+    setRawTop(0)
+    fireEvent.pointerDown(input)
+    setRawTop(-80)
+    fireEvent.focusIn(input)
+    act(() => visualViewport.dispatchEvent(new Event('resize')))
+    await nextFrame()
+
+    expect(shell.style.transform).toBe('translate3d(0, 80px, 0)')
+    expect(shell.getBoundingClientRect().top).toBe(0)
+  })
+
   it('keeps direct pre-acquisition armed until opening HOLD is published', async () => {
     const visualViewport = new VisualViewportStub()
     Object.defineProperty(window, 'visualViewport', { configurable: true, value: visualViewport })
