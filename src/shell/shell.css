@@ -347,6 +347,7 @@
 @media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
   .os-shell[data-standalone="true"][data-editing-geometry="true"] .app-view {
     position: fixed;
+    inset-inline: 0;
     top: var(--node-edit-top, 0px);
     height: var(--node-edit-height, var(--node-host-height, 100dvh));
   }

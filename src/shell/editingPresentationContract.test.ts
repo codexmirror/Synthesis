@@ -23,7 +23,7 @@ describe('mobile editing presentation contract', () => {
       /data-standalone="false"[^}]+data-editing-presentation="true"[^}]+\.app-view\s*{[^}]+position: absolute;/,
     )
     expect(css).toMatch(
-      /data-standalone="true"[^}]+data-editing-geometry="true"[^}]+\.app-view\s*{[^}]+position: fixed;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/,
+      /data-standalone="true"[^}]+data-editing-geometry="true"[^}]+\.app-view\s*{[^}]+position: fixed;[^}]+inset-inline: 0;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/,
     )
     expect(css).toContain('top: var(--node-presentation-top, 0px)')
     expect(css).toContain(
@@ -69,7 +69,7 @@ describe('mobile editing presentation contract', () => {
     expect(css).toContain('.os-shell[data-editing-presentation="true"] > .node-workspace > .status-bar')
     expect(css).toContain('.os-shell[data-editing-presentation="true"] > .node-workspace > .system-bar')
     expect(rackCss).toMatch(/data-editing-presentation="true"[^}]+\.rack-os\s*{[^}]+position: absolute;[^}]+top: var\(--node-presentation-top, 0px\);[^}]+height: var\(--node-presentation-height/)
-    expect(rackCss).toMatch(/data-standalone="true"[^}]+data-editing-geometry="true"[^}]+\.rack-os\s*{[^}]+position: fixed;/)
+    expect(rackCss).toMatch(/data-standalone="true"[^}]+data-editing-geometry="true"[^}]+\.rack-os\s*{[^}]+position: fixed;[^}]+inset-inline: 0;[^}]+top: var\(--node-edit-top, 0px\);[^}]+height: var\(--node-edit-height/)
     expect(shellSource + rackCss).not.toContain('data-reduced-editing-geometry')
     expect(rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView|setInterval/)
     expect(shellSource).not.toMatch(/setTimeout|setInterval|visualViewport|window\.scrollTo|scrollIntoView/)
