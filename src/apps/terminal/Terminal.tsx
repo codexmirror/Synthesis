@@ -1,5 +1,5 @@
 import './terminal.css'
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { useTerminalInteraction } from './useTerminalInteraction'
 import { dispatchNodeCommand } from './nodeCommandAdapter'
@@ -7,6 +7,7 @@ import type { TerminalLine } from './commandTypes'
 import type { GameProcess } from '../../core/game/types'
 import { TargetToken } from './TargetToken'
 import { deriveResourceUsage } from '../../core/game/processes'
+import { useTerminalCaret } from './useTerminalCaret'
 
 type CompletedProjection =
   | { kind: 'service_analysis'; label: string; endpoint: string; result: 'weaknesses_detected'; vulnerabilityLabels: readonly string[] }
@@ -183,6 +184,9 @@ export function Terminal() {
     entries,
     gameState.process.processes,
   )
+  const inputFieldRef = useRef<HTMLDivElement>(null)
+  const caretMeasureRef = useRef<HTMLSpanElement>(null)
+  const caret = useTerminalCaret(interaction.inputRef, inputFieldRef, caretMeasureRef, interaction.input)
 
   return (
     <section className="terminal" aria-label="Terminal">
@@ -218,7 +222,8 @@ export function Terminal() {
       </div>
 <form className="terminal-input" onSubmit={interaction.submit}>
   <label className="prompt" htmlFor="command-input">user@node:~$</label>
-  <input
+  <div className="terminal-input-field" ref={inputFieldRef} data-caret-mode={caret.mode}>
+    <input
           id="command-input"
           ref={interaction.inputRef}
           value={interaction.input}
@@ -233,6 +238,9 @@ export function Terminal() {
           enterKeyHint="send"
           aria-label="Command input"
         />
+    <span ref={caretMeasureRef} className="terminal-caret-measure" aria-hidden="true">{caret.prefix}</span>
+    <span className="terminal-custom-caret" aria-hidden="true" style={{ '--terminal-caret-x': `${caret.x}px` } as CSSProperties} />
+  </div>
       </form>
     </section>
   )

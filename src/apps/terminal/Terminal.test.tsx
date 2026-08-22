@@ -38,18 +38,70 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
   vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
   render(<Terminal />)
-  return screen.getByLabelText('Command input')
+  return screen.getByLabelText('Command input') as HTMLInputElement
 }
 
 afterEach(() => vi.restoreAllMocks())
 
 describe('Terminal interaction controller', () => {
-  it('uses only the native input caret in the command form', () => {
+  it('places an accessible-hidden idle caret after the empty and blurred draft values', () => {
     const input = renderTerminal(vi.fn())
     const form = input.closest('.terminal-input')
+    const field = form?.querySelector('.terminal-input-field')
+    const measure = form?.querySelector('.terminal-caret-measure')
+    const caret = form?.querySelector('.terminal-custom-caret')
 
     expect(form).toBeInTheDocument()
     expect(form?.querySelector('.terminal-cursor')).not.toBeInTheDocument()
+    expect(field).toHaveAttribute('data-caret-mode', 'idle')
+    expect(measure).toHaveAttribute('aria-hidden', 'true')
+    expect(caret).toHaveAttribute('aria-hidden', 'true')
+    expect(measure).toHaveTextContent('')
+
+    fireEvent.change(input, { target: { value: 'hello' } })
+    input.focus()
+    input.blur()
+    expect(field).toHaveAttribute('data-caret-mode', 'idle')
+    expect(measure).toHaveTextContent('hello')
+  })
+
+  it('tracks collapsed selections, uses native fallback for ranges and composition, and subtracts horizontal scroll', () => {
+    const input = renderTerminal(vi.fn()) as HTMLInputElement
+    const field = input.closest('.terminal-input-field') as HTMLDivElement
+    const measure = field.querySelector('.terminal-caret-measure') as HTMLSpanElement
+    const caret = field.querySelector('.terminal-custom-caret') as HTMLSpanElement
+    Object.defineProperty(input, 'clientLeft', { configurable: true, value: 1 })
+    Object.defineProperty(input, 'scrollLeft', { configurable: true, writable: true, value: 20 })
+    vi.spyOn(input, 'getBoundingClientRect').mockReturnValue({ left: 110 } as DOMRect)
+    vi.spyOn(field, 'getBoundingClientRect').mockReturnValue({ left: 100 } as DOMRect)
+    vi.spyOn(measure, 'getBoundingClientRect').mockImplementation(() => ({ width: measure.textContent!.length * 10 }) as DOMRect)
+
+    fireEvent.change(input, { target: { value: 'hello' } })
+    input.focus()
+    input.setSelectionRange(2, 2)
+    fireEvent.select(input)
+    expect(document.activeElement).toBe(input)
+    expect(field).toHaveAttribute('data-caret-mode', 'custom')
+    expect(measure).toHaveTextContent('he')
+    expect(caret.style.getPropertyValue('--terminal-caret-x')).toBe('11px')
+
+    input.setSelectionRange(5, 5)
+    fireEvent.select(input)
+    expect(measure).toHaveTextContent('hello')
+    expect(caret.style.getPropertyValue('--terminal-caret-x')).toBe('41px')
+
+    input.setSelectionRange(1, 4)
+    fireEvent.select(input)
+    expect(field).toHaveAttribute('data-caret-mode', 'native')
+    expect(input.selectionStart).toBe(1)
+    expect(input.selectionEnd).toBe(4)
+
+    input.setSelectionRange(3, 3)
+    fireEvent.compositionStart(input)
+    expect(field).toHaveAttribute('data-caret-mode', 'native')
+    fireEvent.compositionEnd(input)
+    expect(field).toHaveAttribute('data-caret-mode', 'custom')
+    expect(measure).toHaveTextContent('hel')
   })
 
   it('does not autofocus, prevents composed Enter submission, and restores the live history draft', async () => {
@@ -74,8 +126,12 @@ describe('Terminal interaction controller', () => {
     await user.type(input, 'ip{enter}analy')
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('ip')
+    expect(input.selectionStart).toBe(2)
+    expect(input.closest('.terminal-input-field')?.querySelector('.terminal-caret-measure')).toHaveTextContent('ip')
     await user.keyboard('{ArrowDown}')
     expect(input).toHaveValue('analy')
+    expect(input.selectionStart).toBe(5)
+    expect(input.closest('.terminal-input-field')?.querySelector('.terminal-caret-measure')).toHaveTextContent('analy')
   })
 
   it('keeps history after clear and isolates history between Terminal instances', async () => {
@@ -163,6 +219,7 @@ describe('Terminal asynchronous Scan submission', () => {
     })
     expect(pendingView).toHaveTextContent('SCANNING')
     expect(pendingView).toHaveTextContent('home-net')
+    expect(pendingView.querySelector('.scan-pending-cursor')).toBeInTheDocument()
 
     await user.type(input, 'inspect home-net{enter}')
     expect(input).toHaveValue('inspect home-net')

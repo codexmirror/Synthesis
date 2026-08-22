@@ -144,6 +144,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .terminal-custom-caret,
   .scan-pending-cursor {
     animation: none;
   }
@@ -161,9 +162,16 @@
   border-top-color: #52705e;
 }
 
-.terminal-input input {
+.terminal-input-field {
   flex: 1;
   min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-input input {
+  width: 100%;
+  display: block;
   min-height: 32px;
   padding: 0;
   border: 0;
@@ -171,6 +179,37 @@
   color: #e3ebe6;
   background: transparent;
   caret-color: var(--green);
+}
+
+.terminal-input-field[data-caret-mode="custom"] input {
+  caret-color: transparent;
+}
+
+.terminal-caret-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.terminal-custom-caret {
+  --terminal-caret-angle: 13deg;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 1.1em;
+  background: var(--green);
+  pointer-events: none;
+  transform: translateX(var(--terminal-caret-x)) translateY(-50%) rotate(var(--terminal-caret-angle));
+  transform-origin: center;
+  animation: terminal-cursor-blink 1.05s steps(1, end) infinite;
+}
+
+.terminal-input-field[data-caret-mode="native"] .terminal-custom-caret {
+  display: none;
 }
 
 @media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
