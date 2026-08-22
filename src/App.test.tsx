@@ -252,6 +252,69 @@ describe('standalone presentation contract', () => {
     expect(screen.queryByLabelText('Viewport diagnostics')).not.toBeInTheDocument()
   })
 
+  it('captures independent visual viewport page coordinates and scrollend events', async () => {
+    installMediaQueries()
+    window.history.replaceState(null, '', '/?viewportDebug=1')
+    const viewport = new ViewportStub()
+    viewport.height = 455
+    viewport.offsetTop = 0
+    viewport.pageTop = 320
+    viewport.pageLeft = 17
+    viewport.scale = 1.25
+    installViewport(viewport)
+    const scrollY = vi.spyOn(window, 'scrollY', 'get').mockReturnValue(291)
+
+    render(
+      <ViewportDebug viewport={{
+        hostHeight: 775,
+        editTop: 0,
+        editHeight: 455,
+        editing: true,
+      }} />,
+    )
+    await screen.findByLabelText('Viewport diagnostics')
+
+    act(() => viewport.dispatchEvent(new Event('resize')))
+    act(() => viewport.dispatchEvent(new Event('scrollend')))
+
+    const diagnostics = screen.getByLabelText('Viewport diagnostics')
+    expect(diagnostics).toHaveTextContent('RAW EVENT visualViewport.resize')
+    expect(diagnostics).toHaveTextContent('RAW EVENT visualViewport.scrollend')
+    expect(diagnostics).toHaveTextContent(
+      /RAW vv h=455 off=0 page=320\/17 s=1\.3 win=\d+\/\d+ y=291/,
+    )
+    scrollY.mockRestore()
+  })
+
+  it('starts one fresh timeline for pointerdown and touchstart from the same tap', async () => {
+    installMediaQueries()
+    window.history.replaceState(null, '', '/?viewportDebug=1')
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    render(
+      <ViewportDebug viewport={{
+        hostHeight: 844,
+        editTop: 0,
+        editHeight: 844,
+        editing: false,
+      }} />,
+    )
+    await screen.findByLabelText('Viewport diagnostics')
+
+    now = 100
+    act(() => document.dispatchEvent(new Event('selectionchange')))
+    now = 400
+    act(() => document.dispatchEvent(new Event('pointerdown')))
+    act(() => document.dispatchEvent(new Event('touchstart')))
+
+    const diagnostics = screen.getByLabelText('Viewport diagnostics')
+    expect(diagnostics).not.toHaveTextContent('selectionchange')
+    expect(diagnostics.querySelectorAll('span')).toHaveLength(2)
+    expect(diagnostics).toHaveTextContent('+0.0ms RAW EVENT pointerdown')
+    expect(diagnostics).toHaveTextContent('+0.0ms RAW EVENT touchstart')
+    clock.mockRestore()
+  })
+
   it('records raw events and Hook commits as separate bounded timeline entries', async () => {
     installMediaQueries()
     window.history.replaceState(null, '', '/?viewportDebug=1')
