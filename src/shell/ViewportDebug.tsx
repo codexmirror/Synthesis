@@ -1,32 +1,34 @@
 import { useEffect, useRef, useState } from 'react'
 import type { EditingViewportState } from './useEditingViewport'
 
-interface DebugSnapshot {
-  event: string
-  timestamp: string
-  eventHistory: string[]
-  standaloneDisplayMode: boolean
-  navigatorStandalone: boolean | 'unavailable'
-  visualHeight: number | 'unavailable'
-  visualOffsetTop: number | 'unavailable'
-  visualScale: number | 'unavailable'
+type EntryKind = 'RAW EVENT' | 'HOOK COMMIT'
+
+interface BrowserSample {
+  visualHeight: number | '—'
+  visualOffsetTop: number | '—'
+  visualScale: number | '—'
   innerHeight: number
   clientHeight: number
   scrollY: number
-  cssHostHeight: string
-  cssEditTop: string
-  cssEditHeight: string
-  appViewRect: string
-  terminalInputRect: string
   activeElement: string
-  hookHostHeight: number
-  hookEditTop: number
-  hookEditHeight: number
-  hookEditing: boolean
-  shellStandalone: string
+  target: string
+  rects: Record<string, string>
 }
 
-const DEBUG_EVENTS = [
+interface TimelineEntry {
+  id: number
+  kind: EntryKind
+  name: string
+  elapsed: number
+  raw: BrowserSample
+  hook: EditingViewportState
+}
+
+export const VIEWPORT_DEBUG_TIMELINE_LIMIT = 20
+
+const DOCUMENT_EVENTS = [
+  'pointerdown',
+  'touchstart',
   'focusin',
   'focusout',
   'selectionchange',
@@ -34,147 +36,150 @@ const DEBUG_EVENTS = [
   'input',
 ] as const
 
+const RECTS = [
+  ['app', '.app-view'],
+  ['term', '.terminal'],
+  ['term-in', '.terminal-input'],
+  ['rack', '.rack-os'],
+  ['rack-term', '.rack-terminal'],
+  ['rack-out', '.rack-output'],
+  ['rack-in', '.rack-terminal input[aria-label="Remote command"]'],
+] as const
+
+function elementSummary(element: Element | null): string {
+  if (!element) return '—'
+  const id = element.id ? `#${element.id}` : ''
+  const className = element.classList.length ? `.${element.classList[0]}` : ''
+  return `${element.tagName.toLowerCase()}${id}${className}`
+}
+
 function rectSummary(element: Element | null): string {
-  if (!element) return 'unavailable'
+  if (!element) return '—'
   const rect = element.getBoundingClientRect()
-  return `top=${rect.top.toFixed(1)} bottom=${rect.bottom.toFixed(1)} height=${rect.height.toFixed(1)}`
+  return `${rect.top.toFixed(0)}/${rect.bottom.toFixed(0)}/${rect.height.toFixed(0)}`
+}
+
+function browserSample(target: EventTarget | null): BrowserSample {
+  const visual = window.visualViewport
+  return {
+    visualHeight: visual?.height ?? '—',
+    visualOffsetTop: visual?.offsetTop ?? '—',
+    visualScale: visual?.scale ?? '—',
+    innerHeight: window.innerHeight,
+    clientHeight: document.documentElement.clientHeight,
+    scrollY: window.scrollY,
+    activeElement: elementSummary(document.activeElement),
+    target: target instanceof Element ? elementSummary(target) : '—',
+    rects: Object.fromEntries(
+      RECTS.map(([label, selector]) => [
+        label,
+        rectSummary(document.querySelector(selector)),
+      ]),
+    ),
+  }
 }
 
 function isDebugEnabled(): boolean {
   return new URLSearchParams(window.location.search).get('viewportDebug') === '1'
 }
 
-export function ViewportDebug({
-  viewport,
-}: {
-  viewport: EditingViewportState
-}) {
+function compact(value: number | '—'): string {
+  return typeof value === 'number' ? value.toFixed(1).replace(/\.0$/, '') : value
+}
+
+export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) {
   const enabled = isDebugEnabled()
-  const viewportRef = useRef(viewport)
-  viewportRef.current = viewport
-  const [snapshot, setSnapshot] = useState<DebugSnapshot | null>(null)
+  const committedViewport = useRef(viewport)
+  const startTime = useRef(0)
+  const lastInteractionStart = useRef(Number.NEGATIVE_INFINITY)
+  const nextId = useRef(0)
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([])
+
+  const append = (
+    kind: EntryKind,
+    name: string,
+    hook: EditingViewportState,
+    target: EventTarget | null,
+  ) => {
+    const now = performance.now()
+    if (
+      kind === 'RAW EVENT' &&
+      (name === 'pointerdown' || name === 'touchstart') &&
+      now - lastInteractionStart.current > 250
+    ) {
+      startTime.current = now
+      lastInteractionStart.current = now
+    }
+    const entry: TimelineEntry = {
+      id: nextId.current++,
+      kind,
+      name,
+      elapsed: now - startTime.current,
+      raw: browserSample(target),
+      hook: { ...hook },
+    }
+    setTimeline((entries) =>
+      [...entries, entry].slice(-VIEWPORT_DEBUG_TIMELINE_LIMIT),
+    )
+  }
 
   useEffect(() => {
     if (!enabled) return
+    startTime.current = performance.now()
 
-    const eventHistory: string[] = []
-    let frame = 0
-    let delayedSnapshot: ReturnType<typeof setTimeout> | undefined
+    const handleDocumentEvent = (event: Event) =>
+      append('RAW EVENT', event.type, committedViewport.current, event.target)
+    const handleWindowResize = (event: Event) =>
+      append('RAW EVENT', 'window.resize', committedViewport.current, event.target)
+    const handleOrientation = (event: Event) =>
+      append('RAW EVENT', 'orientationchange', committedViewport.current, event.target)
+    const handleVisualResize = (event: Event) =>
+      append('RAW EVENT', 'visualViewport.resize', committedViewport.current, event.target)
+    const handleVisualScroll = (event: Event) =>
+      append('RAW EVENT', 'visualViewport.scroll', committedViewport.current, event.target)
 
-    const sample = (event: string) => {
-      const timestamp = new Date().toISOString()
-      eventHistory.push(`${event} @ ${timestamp}`)
-      if (eventHistory.length > 12) eventHistory.shift()
-
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        const shell = document.querySelector<HTMLElement>('.os-shell')
-        const currentViewport = viewportRef.current
-        const computed = shell ? getComputedStyle(shell) : null
-        const visual = window.visualViewport
-        const active = document.activeElement
-        const navigatorWithStandalone = navigator as Navigator & {
-          standalone?: boolean
-        }
-
-        setSnapshot({
-          event,
-          timestamp,
-          eventHistory: [...eventHistory],
-          standaloneDisplayMode: window.matchMedia(
-            '(display-mode: standalone)',
-          ).matches,
-          navigatorStandalone:
-            typeof navigatorWithStandalone.standalone === 'boolean'
-              ? navigatorWithStandalone.standalone
-              : 'unavailable',
-          visualHeight: visual ? visual.height : 'unavailable',
-          visualOffsetTop: visual ? visual.offsetTop : 'unavailable',
-          visualScale: visual ? visual.scale : 'unavailable',
-          innerHeight: window.innerHeight,
-          clientHeight: document.documentElement.clientHeight,
-          scrollY: window.scrollY,
-          cssHostHeight:
-            computed?.getPropertyValue('--node-host-height').trim() ||
-            'unavailable',
-          cssEditTop:
-            computed?.getPropertyValue('--node-edit-top').trim() ||
-            'unavailable',
-          cssEditHeight:
-            computed?.getPropertyValue('--node-edit-height').trim() ||
-            'unavailable',
-          appViewRect: rectSummary(document.querySelector('.app-view')),
-          terminalInputRect: rectSummary(
-            document.querySelector('.terminal-input'),
-          ),
-          activeElement: active
-            ? `${active.tagName.toLowerCase()}${active.id ? `#${active.id}` : ''}`
-            : 'none',
-          hookHostHeight: currentViewport.hostHeight,
-          hookEditTop: currentViewport.editTop,
-          hookEditHeight: currentViewport.editHeight,
-          hookEditing: currentViewport.editing,
-          shellStandalone: shell?.dataset.standalone || 'unavailable',
-        })
-      })
-    }
-
-    const record = (name: string) => {
-      sample(name)
-      clearTimeout(delayedSnapshot)
-      delayedSnapshot = setTimeout(() => sample(`${name} +100ms`), 100)
-    }
-    const handleDocumentEvent = (event: Event) => record(event.type)
-    const handleWindowResize = () => record('window.resize')
-    const handleVisualResize = () => record('visualViewport.resize')
-    const handleVisualScroll = () => record('visualViewport.scroll')
-
-    DEBUG_EVENTS.forEach((event) =>
-      document.addEventListener(event, handleDocumentEvent, true),
+    DOCUMENT_EVENTS.forEach((name) =>
+      document.addEventListener(name, handleDocumentEvent, true),
     )
     window.addEventListener('resize', handleWindowResize)
+    window.addEventListener('orientationchange', handleOrientation)
     window.visualViewport?.addEventListener('resize', handleVisualResize)
     window.visualViewport?.addEventListener('scroll', handleVisualScroll)
-    sample('debug-enabled')
 
     return () => {
-      DEBUG_EVENTS.forEach((event) =>
-        document.removeEventListener(event, handleDocumentEvent, true),
+      DOCUMENT_EVENTS.forEach((name) =>
+        document.removeEventListener(name, handleDocumentEvent, true),
       )
       window.removeEventListener('resize', handleWindowResize)
+      window.removeEventListener('orientationchange', handleOrientation)
       window.visualViewport?.removeEventListener('resize', handleVisualResize)
       window.visualViewport?.removeEventListener('scroll', handleVisualScroll)
-      cancelAnimationFrame(frame)
-      clearTimeout(delayedSnapshot)
     }
+    // Instrumentation is intentionally installed only when the URL flag changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled])
 
-  if (!enabled || !snapshot) return null
+  useEffect(() => {
+    if (!enabled) return
+    committedViewport.current = viewport
+    append('HOOK COMMIT', 'viewport', viewport, null)
+    // Each viewport identity represents a committed Hook state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, viewport])
+
+  if (!enabled || timeline.length === 0) return null
 
   return (
     <output className="viewport-debug" aria-label="Viewport diagnostics">
-      <strong>VIEWPORT DEBUG</strong>{' '}
-      <span>standalone match: {String(snapshot.standaloneDisplayMode)}</span>{' '}
-      <span>navigator.standalone: {String(snapshot.navigatorStandalone)}</span>{' '}
-      <span>shell data-standalone: {snapshot.shellStandalone}</span>{' '}
-      <span>latest: {snapshot.event} @ {snapshot.timestamp}</span>{' '}
-      <span>visualViewport.height: {snapshot.visualHeight}</span>{' '}
-      <span>visualViewport.offsetTop: {snapshot.visualOffsetTop}</span>{' '}
-      <span>visualViewport.scale: {snapshot.visualScale}</span>{' '}
-      <span>window.innerHeight: {snapshot.innerHeight}</span>{' '}
-      <span>documentElement.clientHeight: {snapshot.clientHeight}</span>{' '}
-      <span>window.scrollY: {snapshot.scrollY}</span>{' '}
-      <span>hook.hostHeight: {snapshot.hookHostHeight}</span>{' '}
-      <span>hook.editTop: {snapshot.hookEditTop}</span>{' '}
-      <span>hook.editHeight: {snapshot.hookEditHeight}</span>{' '}
-      <span>hook.editing: {String(snapshot.hookEditing)}</span>{' '}
-      <span>CSS --node-host-height: {snapshot.cssHostHeight}</span>{' '}
-      <span>CSS --node-edit-top: {snapshot.cssEditTop}</span>{' '}
-      <span>CSS --node-edit-height: {snapshot.cssEditHeight}</span>{' '}
-      <span>.app-view rect: {snapshot.appViewRect}</span>{' '}
-      <span>.terminal-input rect: {snapshot.terminalInputRect}</span>{' '}
-      <span>active element: {snapshot.activeElement}</span>{' '}
-      <span>events: {snapshot.eventHistory.join(' | ')}</span>
+      <strong>VIEWPORT TRANSITIONS · NEWEST FIRST ({timeline.length}/{VIEWPORT_DEBUG_TIMELINE_LIMIT})</strong>
+      {[...timeline].reverse().map((entry) => (
+        <span className={entry.kind === 'RAW EVENT' ? 'viewport-debug-raw' : 'viewport-debug-hook'} key={entry.id}>
+          <b>+{entry.elapsed.toFixed(1)}ms {entry.kind}</b> {entry.name}
+          {'\n'}RAW vv={compact(entry.raw.visualHeight)}/{compact(entry.raw.visualOffsetTop)} s={compact(entry.raw.visualScale)} win={entry.raw.innerHeight}/{entry.raw.clientHeight} y={compact(entry.raw.scrollY)}
+          {'\n'}HOOK host/top/h={entry.hook.hostHeight}/{entry.hook.editTop}/{entry.hook.editHeight} edit={String(entry.hook.editing)} active={entry.raw.activeElement} target={entry.raw.target}
+          {'\n'}RECT {RECTS.map(([label]) => `${label}=${entry.raw.rects[label]}`).join(' ')}
+        </span>
+      ))}
     </output>
   )
 }

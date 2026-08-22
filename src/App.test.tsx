@@ -236,7 +236,23 @@ describe('standalone presentation contract', () => {
     )
   })
 
-  it('samples the current viewport prop in diagnostics', async () => {
+  it('does not install viewport diagnostics without the query flag', () => {
+    installMediaQueries()
+    render(
+      <ViewportDebug
+        viewport={{
+          hostHeight: 844,
+          editTop: 0,
+          editHeight: 844,
+          editing: false,
+        }}
+      />,
+    )
+    act(() => document.dispatchEvent(new Event('selectionchange')))
+    expect(screen.queryByLabelText('Viewport diagnostics')).not.toBeInTheDocument()
+  })
+
+  it('records raw events and Hook commits as separate bounded timeline entries', async () => {
     installMediaQueries()
     window.history.replaceState(null, '', '/?viewportDebug=1')
     const initial = {
@@ -258,24 +274,37 @@ describe('standalone presentation contract', () => {
     )
     await screen.findByLabelText('Viewport diagnostics')
 
+    const diagnostics = screen.getByLabelText('Viewport diagnostics')
+    expect(diagnostics).toHaveTextContent('HOOK COMMIT viewport')
+
+    act(() => document.dispatchEvent(new Event('selectionchange')))
+
     rerender(
       <div className="os-shell" data-standalone="true">
         <ViewportDebug viewport={current} />
       </div>,
     )
-    act(() => document.dispatchEvent(new Event('selectionchange')))
-
     await waitFor(() =>
-      expect(screen.getByLabelText('Viewport diagnostics')).toHaveTextContent(
-        'hook.editTop: 386',
+      expect(diagnostics).toHaveTextContent(
+        'HOOK host/top/h=873/386/487 edit=true',
       ),
     )
-    expect(screen.getByLabelText('Viewport diagnostics')).toHaveTextContent(
-      'hook.editHeight: 487',
-    )
-    expect(screen.getByLabelText('Viewport diagnostics')).toHaveTextContent(
-      'shell data-standalone: true',
-    )
+    expect(diagnostics).toHaveTextContent('RAW EVENT selectionchange')
+    const rows = diagnostics.querySelectorAll('span')
+    expect(Array.from(rows).some((row) =>
+      row.textContent?.includes('RAW EVENT selectionchange') &&
+      row.textContent.includes('edit=false'),
+    )).toBe(true)
+    expect(Array.from(rows).some((row) =>
+      row.textContent?.includes('HOOK COMMIT viewport') && row.textContent.includes('edit=true'),
+    )).toBe(true)
+
+    for (let index = 0; index < 25; index += 1) {
+      act(() => document.dispatchEvent(new Event('input')))
+    }
+    expect(diagnostics.querySelectorAll('span')).toHaveLength(20)
+    expect(diagnostics).toHaveTextContent('app=—')
+    expect(diagnostics).toHaveTextContent('rack=—')
   })
 })
 
