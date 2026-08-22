@@ -6,6 +6,8 @@ type EntryKind = 'RAW EVENT' | 'HOOK COMMIT'
 interface BrowserSample {
   visualHeight: number | '—'
   visualOffsetTop: number | '—'
+  visualPageTop: number | '—'
+  visualPageLeft: number | '—'
   visualScale: number | '—'
   innerHeight: number
   clientHeight: number
@@ -64,6 +66,8 @@ function browserSample(target: EventTarget | null): BrowserSample {
   return {
     visualHeight: visual?.height ?? '—',
     visualOffsetTop: visual?.offsetTop ?? '—',
+    visualPageTop: visual?.pageTop ?? '—',
+    visualPageLeft: visual?.pageLeft ?? '—',
     visualScale: visual?.scale ?? '—',
     innerHeight: window.innerHeight,
     clientHeight: document.documentElement.clientHeight,
@@ -102,11 +106,11 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
     target: EventTarget | null,
   ) => {
     const now = performance.now()
-    if (
+    const startsInteraction =
       kind === 'RAW EVENT' &&
       (name === 'pointerdown' || name === 'touchstart') &&
       now - lastInteractionStart.current > 250
-    ) {
+    if (startsInteraction) {
       startTime.current = now
       lastInteractionStart.current = now
     }
@@ -118,9 +122,10 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
       raw: browserSample(target),
       hook: { ...hook },
     }
-    setTimeline((entries) =>
-      [...entries, entry].slice(-VIEWPORT_DEBUG_TIMELINE_LIMIT),
-    )
+    setTimeline((entries) => {
+      const currentInteraction = startsInteraction ? [] : entries
+      return [...currentInteraction, entry].slice(-VIEWPORT_DEBUG_TIMELINE_LIMIT)
+    })
   }
 
   useEffect(() => {
@@ -137,6 +142,8 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
       append('RAW EVENT', 'visualViewport.resize', committedViewport.current, event.target)
     const handleVisualScroll = (event: Event) =>
       append('RAW EVENT', 'visualViewport.scroll', committedViewport.current, event.target)
+    const handleVisualScrollEnd = (event: Event) =>
+      append('RAW EVENT', 'visualViewport.scrollend', committedViewport.current, event.target)
 
     DOCUMENT_EVENTS.forEach((name) =>
       document.addEventListener(name, handleDocumentEvent, true),
@@ -145,6 +152,7 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
     window.addEventListener('orientationchange', handleOrientation)
     window.visualViewport?.addEventListener('resize', handleVisualResize)
     window.visualViewport?.addEventListener('scroll', handleVisualScroll)
+    window.visualViewport?.addEventListener('scrollend', handleVisualScrollEnd)
 
     return () => {
       DOCUMENT_EVENTS.forEach((name) =>
@@ -154,6 +162,7 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
       window.removeEventListener('orientationchange', handleOrientation)
       window.visualViewport?.removeEventListener('resize', handleVisualResize)
       window.visualViewport?.removeEventListener('scroll', handleVisualScroll)
+      window.visualViewport?.removeEventListener('scrollend', handleVisualScrollEnd)
     }
     // Instrumentation is intentionally installed only when the URL flag changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,7 +184,7 @@ export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) 
       {[...timeline].reverse().map((entry) => (
         <span className={entry.kind === 'RAW EVENT' ? 'viewport-debug-raw' : 'viewport-debug-hook'} key={entry.id}>
           <b>+{entry.elapsed.toFixed(1)}ms {entry.kind}</b> {entry.name}
-          {'\n'}RAW vv={compact(entry.raw.visualHeight)}/{compact(entry.raw.visualOffsetTop)} s={compact(entry.raw.visualScale)} win={entry.raw.innerHeight}/{entry.raw.clientHeight} y={compact(entry.raw.scrollY)}
+          {'\n'}RAW vv h={compact(entry.raw.visualHeight)} off={compact(entry.raw.visualOffsetTop)} page={compact(entry.raw.visualPageTop)}/{compact(entry.raw.visualPageLeft)} s={compact(entry.raw.visualScale)} win={entry.raw.innerHeight}/{entry.raw.clientHeight} y={compact(entry.raw.scrollY)}
           {'\n'}HOOK host/top/h={entry.hook.hostHeight}/{entry.hook.editTop}/{entry.hook.editHeight} edit={String(entry.hook.editing)} active={entry.raw.activeElement} target={entry.raw.target}
           {'\n'}RECT {RECTS.map(([label]) => `${label}=${entry.raw.rects[label]}`).join(' ')}
         </span>
