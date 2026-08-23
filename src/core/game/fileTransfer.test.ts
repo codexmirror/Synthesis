@@ -435,7 +435,7 @@ describe('interaction with Process runtime', () => {
     const state = connectedState()
     const started = startRemoteFileDownload(state, NODESCAN_PATH)
     if (started.status !== 'started') throw new Error('expected started')
-    const withProcess = startProcess(started.state.process, started.state.player.localDevice.hardware, started.state.player.localDevice.runtime, { label: 'Test work', executorDeviceId: started.state.player.localDevice.id, workRequired: 10, ramRequiredMiB: 100 })
+    const withProcess = startProcess(started.state.process, started.state.player.localDevice, { label: 'Test work', workRequired: 10, ramRequiredMiB: 100 })
     if (withProcess.status !== 'started') throw new Error('expected process started')
     const combined: GameState = { ...started.state, process: withProcess.state }
 

@@ -115,6 +115,14 @@ describe('GameProvider service-analysis actions', () => {
     expect(state.player).toEqual(initial.player)
     expect(state.wallet).toEqual(initial.wallet)
   })
+  it('keeps completed remote history when NODE-OS clears local history', () => {
+    const base = createInitialGameState()
+    const local = { kind: 'generic' as const, id: 'process-local', label: 'Local', executorDeviceId: base.player.localDevice.id, status: 'completed' as const, workRequired: 1, workCompleted: 1, ramRequiredMiB: 1 }
+    const remote = { ...local, id: 'process-remote', label: 'Remote', executorDeviceId: 'host-lan-001' }
+    render(<GameProvider initialState={{ ...base, process: { nextId: 3, processes: [local, remote] } }}><ClearHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'clear' }))
+    expect((JSON.parse(screen.getByRole('status').textContent ?? '') as GameState).process.processes).toEqual([remote])
+  })
   it('does not rerender consumers when there is no completed history', () => {
     let renders = 0
     render(<GameProvider><ClearHarness onRender={() => { renders += 1 }} /></GameProvider>)

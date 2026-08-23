@@ -51,7 +51,7 @@ describe('Initial credential access', () => {
     const running = start(); const process = running.process.processes.at(-1)!
     expect(process).toMatchObject({ kind: 'credential_access', executorDeviceId: running.player.localDevice.id, targetDeviceId: observation.targetDeviceId, serviceId: observation.serviceId, startedEndpoint: observation.endpoint, workRequired: CREDENTIAL_ACCESS_WORK_REQUIRED, workCompleted: 0, ramRequiredMiB: CREDENTIAL_ACCESS_RAM_REQUIRED_MIB })
     expect(running.deviceAccess.established).toEqual([])
-    expect(deriveResourceUsage(running.player.localDevice.hardware, running.player.localDevice.runtime, running.process).processRamMiB).toBe(CREDENTIAL_ACCESS_RAM_REQUIRED_MIB)
+    expect(deriveResourceUsage(running.player.localDevice, running.process).processRamMiB).toBe(CREDENTIAL_ACCESS_RAM_REQUIRED_MIB)
     expect(startCredentialAccessAttemptFromObservation(running, observation).status).toBe('already_running')
   })
 
@@ -63,7 +63,7 @@ describe('Initial credential access', () => {
     const credential = start(state)
     const analysis = startServiceAnalysis(credential, observation.targetDeviceId, observation.serviceId)
     if (analysis.status !== 'started') throw Error(analysis.status)
-    const usage = deriveResourceUsage(analysis.state.player.localDevice.hardware, analysis.state.player.localDevice.runtime, analysis.state.process)
+    const usage = deriveResourceUsage(analysis.state.player.localDevice, analysis.state.process)
     expect(Object.values(usage.cpuAllocationByProcess)).toEqual([41, 41])
     const advanced = advanceGameState(analysis.state, 1000)
     expect(advanced.process.processes.find(({ kind }) => kind === 'credential_access')?.workCompleted).toBe(41)
@@ -94,7 +94,7 @@ describe('Initial credential access', () => {
 
   it('keeps DeviceAccess, Discovery, and Knowledge when completed Process history is cleared', () => {
     const done = advanceGameState(start(), 30_000)
-    const cleared = { ...done, process: clearCompletedProcesses(done.process) }
+    const cleared = { ...done, process: clearCompletedProcesses(done.process, done.player.localDevice.id) }
     expect(cleared.process.processes).toEqual([])
     expect(cleared.deviceAccess).toBe(done.deviceAccess)
     expect(cleared.discovery).toBe(done.discovery)
