@@ -61,7 +61,7 @@ function serviceFingerprintsFor(host: Readonly<NetworkHost>, knownServiceIds: Re
       serviceId: service.id,
       inspect: {
         implementation: { name: service.implementation.name, version: service.implementation.version },
-        ...(service.name === 'SSH' && service.credentialAccess
+        ...(service.credentialAccess
           ? { authentication: service.credentialAccess.secondFactorRequired ? 'Credential + Additional Verification' as const : 'Credential' as const }
           : {}),
       },

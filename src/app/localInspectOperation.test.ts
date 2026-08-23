@@ -120,6 +120,32 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     })
   })
 
+  it('derives authentication from credential access when the Service display name changes', () => {
+    let state = withNodeScan11(scannedState())
+    const host = state.world.network.hosts[0]
+    state = {
+      ...state,
+      world: {
+        network: {
+          ...state.world.network,
+          hosts: [{
+            ...host,
+            services: host.services?.map((service) => service.id === 'service-ssh-001'
+              ? { ...service, name: 'Remote Login' }
+              : service),
+          }, ...state.world.network.hosts.slice(1)],
+        },
+      },
+    }
+    const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+
+    inspect('198.51.100.47')
+
+    expect(state.discovery.devices[0].services.find(({ id }) => id === 'service-ssh-001')?.inspect).toEqual({
+      implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential',
+    })
+  })
+
   it('keeps historical Service observations until a successful enhanced re-inspection refreshes them', () => {
     let state = withNodeScan11(scannedState()); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
     inspect('198.51.100.47')
