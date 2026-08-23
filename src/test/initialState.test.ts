@@ -29,12 +29,12 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 28', () => {
+  it('separates identities and seeds canonical local-device state in schema version 29', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(28)
+    expect(GAME_STATE_VERSION).toBe(29)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
-    expect(state.version).toBe(28)
+    expect(state.version).toBe(29)
     expect(state.wallet).toEqual({ balance: 1250 })
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
@@ -62,6 +62,7 @@ describe('createInitialGameState', () => {
       { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' },
     ])
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
+    expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'gate-ssh' }))
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })
@@ -77,8 +78,8 @@ describe('createInitialGameState', () => {
           { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
         ] },
         services: [
-          { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
-          { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
+          { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
+          { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', name: 'Basic HTTP', version: '1.0' } },
         ],
         authenticationHistory: { nextId: 1, records: [] },
       },
@@ -90,7 +91,7 @@ describe('createInitialGameState', () => {
         runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
         filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] },
         services: [
-          { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER', secondFactorRequired: true }, vulnerabilities: [{ id: 'vulnerability-ssh-002', label: 'Weak authentication configuration' }] },
+          { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
         ],
         authenticationHistory: { nextId: 1, records: [] },
       },
@@ -120,8 +121,8 @@ describe('createInitialGameState', () => {
     expect(shallowTrainingHosts.every((host) => !host.displayName && !host.firmware && !host.filesystem && !host.hardware && !host.runtime)).toBe(true)
     expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
     expect(server?.services).toEqual([
-      { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
-      { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
+      { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
+      { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', name: 'Basic HTTP', version: '1.0' } },
     ])
   })
 
@@ -133,9 +134,18 @@ describe('createInitialGameState', () => {
     expect(server).toMatchObject({ displayName: 'srv-02', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] } })
     expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
     expect(server?.services).toEqual([
-      { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER', secondFactorRequired: true }, vulnerabilities: [{ id: 'vulnerability-ssh-002', label: 'Weak authentication configuration' }] },
+      { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
     ])
     expect(server?.id).not.toBe('host-lan-001')
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
+  })
+
+  it('seeds both SSH services with the same vulnerable GateSSH release identity', () => {
+    const ssh = createInitialGameState().world.network.hosts.flatMap((host) => host.services ?? []).filter((service) => service.name === 'SSH')
+    expect(ssh).toHaveLength(2)
+    expect(ssh.map(({ implementation }) => implementation)).toEqual([
+      { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' },
+      { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' },
+    ])
   })
 })

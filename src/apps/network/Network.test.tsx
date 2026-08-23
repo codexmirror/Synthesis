@@ -122,7 +122,7 @@ describe('Scan workspace', () => {
     if (analysis.status !== 'started') throw Error(analysis.status)
     known = advanceGameState(analysis.state, 20_000)
     const host = known.world.network.hosts[0]
-    known = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, vulnerabilities: [] } : service) }, ...known.world.network.hosts.slice(1)] } } }
+    known = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...known.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup()
     render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
     await navigateToServices(user)
@@ -188,7 +188,7 @@ describe('Scan workspace', () => {
     expect(screen.queryByText('ENDPOINT')).not.toBeInTheDocument()
     expect(screen.queryByText('KNOWLEDGE')).not.toBeInTheDocument()
     expect(screen.getAllByText('Not analyzed')).toHaveLength(2)
-    expect(document.body.textContent).not.toMatch(/service-ssh-001|host-lan-001|vulnerability-ssh-001/)
+    expect(document.body.textContent).not.toMatch(/service-ssh-001|host-lan-001|AUTH-017/)
   })
 
   it('inspects remembered objects through the shared action and browsing does not observe again', async () => {
@@ -400,7 +400,7 @@ describe('Scan workspace', () => {
     const movedServices = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []
     canonical = {
       ...canonical,
-      world: { network: { ...canonical.world.network, hosts: [{ ...host, services: [...movedServices, { id: 'service-replacement', name: 'REPLACEMENT', port: 22, protocol: 'TCP', open: true }] }, ...canonical.world.network.hosts.slice(1)] } },
+      world: { network: { ...canonical.world.network, hosts: [{ ...host, services: [...movedServices, { id: 'service-replacement', name: 'REPLACEMENT', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'replacement', releaseId: 'replacement-1.0', name: 'Replacement', version: '1.0' } }] }, ...canonical.world.network.hosts.slice(1)] } },
       process: { nextId: 3, processes: [
         { kind: 'service_analysis', id: 'process-0001', label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'running', workRequired: 1000, workCompleted: 400, ramRequiredMiB: 768, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:2222' },
         { kind: 'service_analysis', id: 'process-0002', label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'completed', workRequired: 1000, workCompleted: 1000, ramRequiredMiB: 768, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:2222', result: { status: 'weaknesses_detected', vulnerabilities: [] } },
@@ -474,7 +474,7 @@ describe('Scan workspace', () => {
     const first = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (first.status !== 'started') throw Error(first.status)
     const learned = advanceGameState(first.state, 20_000)
     const host = learned.world.network.hosts[0]
-    const changed = { ...learned, world: { network: { ...learned.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, vulnerabilities: [] } : service) }, ...learned.world.network.hosts.slice(1)] } } }
+    const changed = { ...learned, world: { network: { ...learned.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...learned.world.network.hosts.slice(1)] } } }
     const second = startServiceAnalysisAtEndpoint(changed, '198.51.100.47:22'); if (second.status !== 'started') throw Error(second.status)
     const completed = advanceGameState(second.state, 20_000)
     const user = userEvent.setup()
@@ -510,7 +510,7 @@ describe('Scan workspace', () => {
     const ssh = host.services![0]
     const state = {
       ...base,
-      world: { network: { ...base.world.network, hosts: base.world.network.hosts.map((candidate) => candidate.id === host.id ? { ...candidate, services: candidate.services?.map((service) => service.id === ssh.id ? { ...service, vulnerabilities: [] } : service) } : candidate) } },
+      world: { network: { ...base.world.network, hosts: base.world.network.hosts.map((candidate) => candidate.id === host.id ? { ...candidate, services: candidate.services?.map((service) => service.id === ssh.id ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) } : candidate) } },
       knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'historical', targetDeviceId: host.id, serviceId: ssh.id, observedLabel: 'Weak authentication configuration' }] },
     }
     const user = userEvent.setup()

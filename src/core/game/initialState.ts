@@ -1,7 +1,7 @@
 import { NODE_MINER_1_0_CHANNEL, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, NODE_MINER_1_0_PUBLISHER } from './nodeMiner'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 28
+export const GAME_STATE_VERSION = 29
 
 export function createInitialGameState(): GameState {
   return {
@@ -77,8 +77,8 @@ export function createInitialGameState(): GameState {
               { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
             ] },
             services: [
-              { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
-              { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
+              { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
+              { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', name: 'Basic HTTP', version: '1.0' } },
             ],
             authenticationHistory: { nextId: 1, records: [] },
           },
@@ -96,7 +96,7 @@ export function createInitialGameState(): GameState {
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
             ] },
             services: [
-              { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER', secondFactorRequired: true }, vulnerabilities: [{ id: 'vulnerability-ssh-002', label: 'Weak authentication configuration' }] },
+              { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
             ],
             authenticationHistory: { nextId: 1, records: [] },
           },

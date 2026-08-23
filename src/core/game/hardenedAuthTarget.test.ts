@@ -14,7 +14,7 @@ import type { CredentialAccessProcess, GameState } from './types'
  * authentication condition the Basic Credential Toolkit's exploit cannot
  * satisfy. "The weakness is known" must not mean "access follows".
  */
-const observation = { endpoint: '198.51.100.53:22', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', vulnerabilityId: 'vulnerability-ssh-002', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }
+const observation = { endpoint: '198.51.100.53:22', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', vulnerabilityId: 'AUTH-017', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }
 
 function prepared(): GameState {
   let state = createInitialGameState()
@@ -52,9 +52,9 @@ describe('Hardened Authentication Target (srv-02 / host-lan-002)', () => {
   it('still exposes and discovers the real weak-authentication vulnerability via Service Analysis', () => {
     const state = prepared()
     const analyzed = state.process.processes.at(-1)
-    expect(analyzed).toMatchObject({ kind: 'service_analysis', status: 'completed', result: { status: 'weaknesses_detected', vulnerabilities: [{ vulnerabilityId: 'vulnerability-ssh-002', observedLabel: 'Weak authentication configuration' }] } })
+    expect(analyzed).toMatchObject({ kind: 'service_analysis', status: 'completed', result: { status: 'weaknesses_detected', vulnerabilities: [{ vulnerabilityId: 'AUTH-017', observedLabel: 'Weak authentication configuration' }] } })
     expect(state.knowledge.discoveredVulnerabilities).toEqual([
-      { vulnerabilityId: 'vulnerability-ssh-002', observedLabel: 'Weak authentication configuration', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002' },
+      { vulnerabilityId: 'AUTH-017', observedLabel: 'Weak authentication configuration', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002' },
     ])
   })
 

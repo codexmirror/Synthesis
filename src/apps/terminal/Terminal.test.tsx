@@ -228,7 +228,7 @@ describe('Terminal asynchronous Scan submission', () => {
 function knownCredentialState(): GameState {
   const state = createInitialGameState()
   const discovery = rememberScan(state.discovery, scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '198.51.100.47'), state.player.localDevice.id)
-  return { ...state, discovery, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'vulnerability-ssh-001', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
+  return { ...state, discovery, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
 }
 
 function StateControls() {
@@ -251,7 +251,7 @@ describe('Terminal credential access', () => {
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
     expect(startCredentialAccessAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
       endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001',
-      vulnerabilityId: 'vulnerability-ssh-001', toolId: 'basic-credential-toolkit',
+      vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit',
     })
     expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
   })
@@ -259,7 +259,7 @@ describe('Terminal credential access', () => {
   it('starts from stale Knowledge and later fails against patched current World truth', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const known = knownCredentialState(); const host = known.world.network.hosts[0]
-    const patched = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, vulnerabilities: [] } : service) }, ...known.world.network.hosts.slice(1)] } } }
+    const patched = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...known.world.network.hosts.slice(1)] } } }
     function Snapshot() { return <output data-testid="attack-state">{JSON.stringify(useGameState())}</output> }
     render(<GameProvider initialState={patched}><Terminal /><Snapshot /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
