@@ -109,7 +109,7 @@ describe('Remote Session handoff', () => {
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
-    expect(GAME_STATE_VERSION).toBe(20)
+    expect(GAME_STATE_VERSION).toBe(21)
   })
 
   it('switches between an entered remote context and usable NODE-OS without changing canonical session authority', async () => {
@@ -146,7 +146,9 @@ describe('Remote Session handoff', () => {
 
   it('keeps a Download active across a local/remote context switch and survives disconnect', async () => {
     const user = userEvent.setup()
-    render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)
+    const base = connectedState()
+    const slowDownload: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, network: { ...base.player.localDevice.network, transferCapacity: { ...base.player.localDevice.network.transferCapacity, downloadBytesPerSecond: 1 } } } } }
+    render(<GameProvider initialState={slowDownload}><Shell /><Capture /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
     act(() => { actions.startRemoteFileDownload('/srv/readme.txt') })
     const activeTransfer = (JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).fileTransfer.active
@@ -167,7 +169,7 @@ describe('Remote Session handoff', () => {
     expect(screen.queryByRole('button', { name: 'REMOTE · truth-server' })).not.toBeInTheDocument()
 
     // game advancement continues the Download post-disconnect through to completion.
-    const advanced = advanceGameState(current, 1_000)
+    const advanced = advanceGameState(current, 100_000)
     expect(advanced.fileTransfer.active).toBeNull()
     expect(advanced.player.localDevice.filesystem.files.filter((file) => file.path === '/home/user/downloads/readme.txt')).toHaveLength(1)
   })
