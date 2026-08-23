@@ -289,6 +289,11 @@ Prefer tests that prove source-of-truth behavior.
 For example, if a UI value must derive from canonical state, an altered-state
 test is stronger than a test that only asserts the default literal value.
 
+A pull request targeting `main` automatically runs `npm test` and
+`npm run build` via GitHub Actions before human merge. This automated check
+does not deploy GitHub Pages and does not replace diff review, behavior
+review, or human acceptance.
+
 
 ## 9. Mobile validation
 
