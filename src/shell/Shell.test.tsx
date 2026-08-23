@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameActions, useGameState, type GameActions } from '../app/GameContext'
 import { connectRemoteFromObservation } from '../core/game/remoteSession'
+import { advanceGameState } from '../core/game/gameAdvancement'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
 import { Shell } from './Shell'
@@ -108,7 +109,7 @@ describe('Remote Session handoff', () => {
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
-    expect(GAME_STATE_VERSION).toBe(19)
+    expect(GAME_STATE_VERSION).toBe(20)
   })
 
   it('switches between an entered remote context and usable NODE-OS without changing canonical session authority', async () => {
@@ -143,25 +144,32 @@ describe('Remote Session handoff', () => {
     expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toEqual(session)
   })
 
-  it('keeps a Session-bound Download while local and aborts it only on actual disconnect', async () => {
+  it('keeps a Download active across a local/remote context switch and survives disconnect', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
     act(() => { actions.startRemoteFileDownload('/srv/readme.txt') })
     const activeTransfer = (JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).fileTransfer.active
     expect(activeTransfer).not.toBeNull()
+    expect(activeTransfer).not.toHaveProperty('sessionId')
 
     await user.click(screen.getByRole('button', { name: 'LOCAL · NODE-OS' }))
     let current = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
-    expect(current.remoteSession.active?.id).toBe(activeTransfer?.sessionId)
+    expect(current.deviceAccess.established.map(({ id }) => id)).toContain(activeTransfer?.accessId)
     expect(current.fileTransfer.active?.id).toBe(activeTransfer?.id)
 
     await user.click(screen.getByRole('button', { name: 'REMOTE · truth-server' }))
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     current = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
     expect(current.remoteSession.active).toBeNull()
-    expect(current.fileTransfer.active).toBeNull()
+    expect(current.deviceAccess.established.map(({ id }) => id)).toContain(activeTransfer?.accessId)
+    expect(current.fileTransfer.active?.id).toBe(activeTransfer?.id)
     expect(screen.queryByRole('button', { name: 'REMOTE · truth-server' })).not.toBeInTheDocument()
+
+    // game advancement continues the Download post-disconnect through to completion.
+    const advanced = advanceGameState(current, 1_000)
+    expect(advanced.fileTransfer.active).toBeNull()
+    expect(advanced.player.localDevice.filesystem.files.filter((file) => file.path === '/home/user/downloads/readme.txt')).toHaveLength(1)
   })
 
   it('releases remote editing and waits for existing viewport recovery before showing local context', async () => {

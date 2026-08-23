@@ -272,8 +272,8 @@ export interface RemoteSessionState { readonly nextId: number; readonly active: 
  */
 export interface FileTransfer {
   readonly id: string
-  /** The RemoteSession that authorized this transfer; work only continues while it remains the current active Session. */
-  readonly sessionId: string
+  /** The DeviceAccess that admitted this transfer; it runs as its own network runtime independent of any RemoteSession once admitted. */
+  readonly accessId: string
   readonly sourceDeviceId: string
   readonly sourceFileId: string
   readonly destinationDeviceId: string

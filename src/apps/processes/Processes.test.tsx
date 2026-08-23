@@ -27,13 +27,17 @@ const completedAnalysis = (serviceId = 'service-ssh-001') => {
   if (result.status !== 'started') throw Error(result.status)
   return advanceGameState(result.state, 20_000)
 }
-/** Canonical remote-authority chain for the one currently represented transfer. */
-const withDownload = (base: GameState = createInitialGameState(), transfer: Partial<FileTransfer> = {}): GameState => ({
+/**
+ * Canonical DeviceAccess authority for the one currently represented
+ * transfer. `withActiveSession` is false by default: presentation must not
+ * require a RemoteSession, so most tests deliberately omit one.
+ */
+const withDownload = (base: GameState = createInitialGameState(), transfer: Partial<FileTransfer> = {}, withActiveSession = false): GameState => ({
   ...base,
   deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
-  remoteSession: { nextId: 2, active: { id: 'session-0001', accessId: 'access-0001', connectedAddress: '198.51.100.47' } },
+  remoteSession: withActiveSession ? { nextId: 2, active: { id: 'session-0001', accessId: 'access-0001', connectedAddress: '198.51.100.47' } } : { nextId: 1, active: null },
   fileTransfer: { nextId: 2, active: {
-    id: 'transfer-0001', sessionId: 'session-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
+    id: 'transfer-0001', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
     destinationDeviceId: base.player.localDevice.id, destinationPath: '/home/user/downloads/nodescan-exp-1.1.pkg',
     bytesTotal: 18_400_000, bytesTransferred: 4_600_000, ...transfer,
   } },
@@ -286,6 +290,49 @@ describe('Activity Monitor aggregation', () => {
     expect(screen.getByRole('button', { name: 'Remove completed PROCESS process' })).toBeInTheDocument()
     const removeRule = processesCss.match(/\.am-remove\s*\{([^}]+)\}/)?.[1] ?? ''
     expect(removeRule).toMatch(/min-height:\s*44px/)
+  })
+
+  it('displays the active Download and derives correct source/progress/rate with no active RemoteSession', () => {
+    render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
+    const download = card('DOWNLOAD')
+    expect(within(download).getByText('srv-01 → node-01')).toBeInTheDocument()
+    expect(fact(download, 'RATE')).toBe('2 MiB/s')
+    expect(fact(download, 'TRANSFERRED')).toBe('4.6 / 18.4 MB')
+  })
+
+  it('presents the same active Download whether or not a RemoteSession happens to be active', () => {
+    const { unmount } = render(<GameProvider initialState={withDownload(createInitialGameState(), {}, true)}><Processes /></GameProvider>)
+    const withSession = card('DOWNLOAD').textContent
+    unmount()
+    render(<GameProvider initialState={withDownload(createInitialGameState(), {}, false)}><Processes /></GameProvider>)
+    expect(card('DOWNLOAD').textContent).toBe(withSession)
+  })
+
+  it('offers CANCEL, not REMOVE, on the running FileTransfer card, and invokes the canonical GameAction', () => {
+    render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
+    const download = card('DOWNLOAD')
+    expect(within(download).getByRole('button', { name: 'Cancel active DOWNLOAD' })).toBeInTheDocument()
+    expect(within(download).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
+
+    fireEvent.click(within(download).getByRole('button', { name: 'Cancel active DOWNLOAD' }))
+    expect(screen.queryByText('DOWNLOAD')).not.toBeInTheDocument()
+    expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
+  })
+
+  it('CANCEL preserves DeviceAccess and does not create a GameProcess', () => {
+    const initial = withDownload()
+    function Snapshot() {
+      const state = useGameState()
+      return <output>{JSON.stringify({ accessCount: state.deviceAccess.established.length, processCount: state.process.processes.length, nextId: state.fileTransfer.nextId })}</output>
+    }
+    render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel active DOWNLOAD' }))
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual({ accessCount: 1, processCount: 0, nextId: 2 })
+  })
+
+  it('keeps CANCEL touch-safe', () => {
+    const cancelRule = processesCss.match(/\.am-cancel\s*\{([^}]+)\}/)?.[1] ?? ''
+    expect(cancelRule).toMatch(/min-height:\s*44px/)
   })
 
   it('represents only currently implemented activity types', () => {
