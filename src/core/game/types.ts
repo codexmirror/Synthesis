@@ -219,13 +219,23 @@ export interface DiscoveredServiceSnapshot {
   readonly endpoint: string
 }
 
+/**
+ * Reconnaissance-friendly fingerprint available only through a NodeScan
+ * release capable of enhanced Inspect (currently 1.1 Experimental). Compute
+ * class is a derived presentation tier, not a stored raw simulation value.
+ */
+export interface EnhancedInspectEvidence {
+  readonly firmware: { readonly name: string; readonly version: string }
+  readonly computeClass: 'LOW' | 'STANDARD' | 'HIGH'
+}
+
 export interface DiscoveredDeviceSnapshot {
   readonly id: string
   readonly address: string
   readonly scope: 'lan' | 'remote'
   readonly servicesObserved: boolean
   readonly services: readonly DiscoveredServiceSnapshot[]
-  readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server' }
+  readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server'; readonly enhanced?: EnhancedInspectEvidence }
 }
 
 export interface DiscoveryState {

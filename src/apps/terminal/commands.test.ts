@@ -248,4 +248,22 @@ describe('individual commands', () => {
     })
     expect(inspectTarget).toHaveBeenCalledExactlyOnceWith('192.0.2.44')
   })
+
+  it('presents NodeScan 1.1 Experimental enhanced evidence through the same inspect command', () => {
+    const inspectTarget = vi.fn(() => ({
+      status: 'device' as const, targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' as const, networkStatus: 'ONLINE' as const,
+      deviceKind: 'server' as const, enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'HIGH' as const },
+    }))
+    expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['198.51.100.47'])).toEqual({
+      type: 'output',
+      lines: ['SERVER', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE', 'Firmware: RACK-OS 1.0', 'Compute:  HIGH'],
+    })
+  })
+
+  it('does not render enhanced evidence for shallow NodeScan 1.0 Standard results', () => {
+    expect(dispatch('inspect 198.51.100.47')).toEqual({
+      type: 'output',
+      lines: ['SERVER', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE'],
+    })
+  })
 })

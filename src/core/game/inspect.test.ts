@@ -97,6 +97,44 @@ describe('inspectNetworkTarget inward inspection', () => {
   })
 })
 
+describe('enhanced Inspect depth', () => {
+  it('omits enhanced evidence at shallow depth, the default', () => {
+    const result = inspectNetworkTarget(targets, '198.51.100.47')
+    expect(result).not.toHaveProperty('enhanced')
+    expect(inspectNetworkTarget(targets, '198.51.100.47', 'shallow')).not.toHaveProperty('enhanced')
+  })
+
+  it('derives a firmware fingerprint and compute classification from represented state at enhanced depth', () => {
+    const result = inspectNetworkTarget(targets, '198.51.100.47', 'enhanced')
+    expect(result).toMatchObject({
+      status: 'device', deviceKind: 'server',
+      enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'HIGH' },
+    })
+
+    const weaker = inspectNetworkTarget(targets, '198.51.100.53', 'enhanced')
+    expect(weaker).toMatchObject({ enhanced: { computeClass: 'STANDARD' } })
+  })
+
+  it('derives the compute classification from represented compute capacity rather than a hardcoded value', () => {
+    const hosts = targets.network.hosts.map((host) => host.id === 'host-lan-001'
+      ? { ...host, hardware: { ...host.hardware!, cpu: { name: host.hardware!.cpu.name, computeCapacity: 40 } } }
+      : host)
+    const result = inspectNetworkTarget({ ...targets, network: { ...targets.network, hosts } }, '198.51.100.47', 'enhanced')
+    expect(result).toMatchObject({ enhanced: { computeClass: 'LOW' } })
+  })
+
+  it('reports no enhanced evidence for a target with no represented Firmware or hardware', () => {
+    const result = inspectNetworkTarget(targets, '203.0.113.42', 'enhanced')
+    expect(result).toMatchObject({ status: 'device', deviceKind: 'device' })
+    expect(result).not.toHaveProperty('enhanced')
+  })
+
+  it('does not expose enhanced evidence for SELF, which already reports exact hardware', () => {
+    const result = inspectNetworkTarget(targets, '198.51.100.23', 'enhanced')
+    expect(result).not.toHaveProperty('enhanced')
+  })
+})
+
 describe('inspectKnownTarget selector validation', () => {
   const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
 
@@ -135,5 +173,12 @@ describe('inspectKnownTarget selector validation', () => {
   it('keeps hidden selectors unknown and preserves SELF inspection', () => {
     expect(inspectKnownTarget(targets, discovery, '203.0.113.42')).toEqual({ status: 'unknown_target', input: '203.0.113.42' })
     expect(inspectKnownTarget(targets, discovery, state.player.localDevice.network.ip)).toMatchObject({ status: 'device', scope: 'self' })
+  })
+
+  it('threads Inspect depth through remembered-selector resolution', () => {
+    expect(inspectKnownTarget(targets, discovery, '198.51.100.47')).not.toHaveProperty('enhanced')
+    expect(inspectKnownTarget(targets, discovery, '198.51.100.47', 'enhanced')).toMatchObject({
+      enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'HIGH' },
+    })
   })
 })
