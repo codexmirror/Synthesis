@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useRef, useState 
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
 import { startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation, type EndpointAnalysisResult, type ObservedServiceTarget, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
-import { clearCompletedProcesses as clearCompletedProcessState } from '../core/game/processes'
+import { clearCompletedProcesses as clearCompletedProcessState, removeCompletedProcess as removeCompletedProcessState } from '../core/game/processes'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
@@ -25,6 +25,7 @@ export interface GameActions {
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   clearCompletedProcesses(): void
+  removeCompletedProcess(processId: string): void
 }
 const GameActionsContext = createContext<GameActions | null>(null)
 
@@ -107,6 +108,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, clearCompletedProcesses() {
     const state = currentState.current
     const process = clearCompletedProcessState(state.process)
+    if (process === state.process) return
+    const nextState = { ...state, process }
+    currentState.current = nextState
+    setGameState(nextState)
+  }, removeCompletedProcess(processId) {
+    const state = currentState.current
+    const process = removeCompletedProcessState(state.process, processId)
     if (process === state.process) return
     const nextState = { ...state, process }
     currentState.current = nextState

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { advanceProcesses, clearCompletedProcesses, deriveResourceUsage, startProcess } from './processes'
+import { advanceProcesses, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess, startProcess } from './processes'
 
 const game = createInitialGameState(); const hardware = game.player.localDevice.hardware; const runtime = game.player.localDevice.runtime
 const input = (label = 'Analysis', ramRequiredMiB = 512, workRequired = 1000) => ({ label, ramRequiredMiB, workRequired, executorDeviceId: game.player.localDevice.id })
@@ -30,6 +30,16 @@ describe('process resource domain', () => {
     expect(cleared.processes.map(({ id }) => id)).toEqual(['process-0001', 'process-0003'])
     expect(cleared.processes.every(({ status }) => status === 'running')).toBe(true)
     expect(mixed).toEqual(snapshot)
+  })
+  it('removes only the selected completion and refuses to remove running work', () => {
+    const base = started(input('Running'), input('First done'), input('Second done'))
+    const mixed = { ...base, processes: base.processes.map((process) => process.id === 'process-0001' ? process : { ...process, status: 'completed' as const, workCompleted: process.workRequired }) }
+    const removed = removeCompletedProcess(mixed, 'process-0002')
+    expect(removed.nextId).toBe(4)
+    expect(removed.processes.map(({ id }) => id)).toEqual(['process-0001', 'process-0003'])
+    expect(removed.processes[0].status).toBe('running')
+    expect(removed.processes[1].status).toBe('completed')
+    expect(removeCompletedProcess(removed, 'process-0001')).toBe(removed)
   })
   it('creates stable IDs with explicit executors and admits without mutation', () => {
     const original = structuredClone(game.process); const first = startProcess(game.process, hardware, runtime, input())
