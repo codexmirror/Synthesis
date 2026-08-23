@@ -42,7 +42,7 @@ export function createInitialGameState(): GameState {
     world: {
       network: {
         localNetworks: [
-          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'] },
+          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001', 'host-lan-002'] },
         ],
         hosts: [
           {
@@ -59,6 +59,20 @@ export function createInitialGameState(): GameState {
             services: [
               { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
               { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
+            ],
+          },
+          {
+            id: 'host-lan-002',
+            displayName: 'srv-02',
+            ip: '198.51.100.53',
+            online: true,
+            role: 'server',
+            firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
+            filesystem: { nextFileId: 2, files: [
+              { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
+            ] },
+            services: [
+              { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-002', label: 'Weak authentication configuration' }] },
             ],
           },
           { id: 'host-training-001', ip: '203.0.113.42', online: true },
