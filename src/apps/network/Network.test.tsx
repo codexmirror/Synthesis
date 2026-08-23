@@ -271,6 +271,33 @@ describe('Scan workspace', () => {
     expect(screen.queryByText(/1\.4\.0|Additional Verification/)).not.toBeInTheDocument()
   })
 
+  it('presents a fingerprinted Service with second-factor authentication in a structured card rather than one crowded row', async () => {
+    const base = discoveredState()
+    const observed = {
+      ...base,
+      discovery: {
+        ...base.discovery,
+        devices: base.discovery.devices.map((device) => device.id === 'host-lan-001' ? {
+          ...device,
+          services: device.services.map((service) => service.id === 'service-ssh-001' ? {
+            ...service, inspect: { implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential + Additional Verification' as const },
+          } : service),
+        } : device),
+      },
+    }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={observed}><Network /></GameProvider>)
+    await navigateToServices(user)
+    const serviceButton = screen.getByRole('button', { name: 'Open SSH service' })
+    const mainRow = serviceButton.querySelector('.service-row-main')
+    expect(mainRow?.textContent).not.toMatch(/GateSSH|Authentication/)
+    const fingerprint = serviceButton.querySelector('.service-row-fingerprint')
+    expect(fingerprint).not.toBeNull()
+    expect(fingerprint?.textContent).toContain('GateSSH 1.3.2')
+    expect(screen.getByText('Authentication: Credential + Additional Verification')).toBeInTheDocument()
+    expect(serviceButton.querySelector('.service-row-secondary')?.textContent).toContain('Not analyzed')
+  })
+
   it('does not present enhanced evidence for NodeScan 1.0 Standard', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)

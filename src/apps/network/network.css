@@ -36,6 +36,8 @@ button.atlas-row:hover,.atlas-open:hover,.interaction-action:hover { border-colo
 .service-row-main,.service-row-secondary,.analysis-running>div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .service-row-main strong { min-width:0; flex:1; color:#e2e9e5; font:600 .82rem Inter,system-ui,sans-serif; overflow-wrap:anywhere; }
 .service-row-main>span:not(.node-chip) { color:#9ba8a0; font-size:.65rem; white-space:nowrap; }
+.service-row-fingerprint { margin-top:6px; display:grid; gap:3px; color:#8b9990; font-size:.62rem; line-height:1.4; }
+.service-row-fingerprint span { display:block; overflow-wrap:anywhere; }
 .service-row-secondary { margin-top:6px; color:#708078; font-size:.59rem; line-height:1.35; }
 .service-row-secondary>span:first-child { min-width:0; overflow-wrap:anywhere; }
 .service-row-arrow { flex:none; color:#73bd8e; font-size:.9rem; }
