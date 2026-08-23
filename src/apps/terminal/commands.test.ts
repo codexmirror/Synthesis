@@ -40,9 +40,9 @@ const labeledTarget = (label: string, value: string, scope: 'local' | 'external'
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(12)
+    expect(new Set(Object.values(commands)).size).toBe(13)
   })
 
   it('groups current commands by their concrete provider', () => {
@@ -57,10 +57,10 @@ describe('command dispatcher', () => {
         'install — <local-absolute-file-path>  Install a local software package',
         'connect — <ipv4>  Open a remote session using established access', 'disconnect — Close the active remote session',
         '', 'NODESCAN 1.0 STANDARD', '', 'scan — Discover devices, relationships, and exposed services',
+        'inspect — Examine current properties of a device or network',
         'analyze — Investigate a service endpoint', '', 'BASIC CREDENTIAL TOOLKIT 1.0', '',
         'attack — Attempt a known attack method against an observed service',
       ])
-      expect(JSON.stringify(result.lines)).not.toContain('inspect')
     }
   })
   it('derives provider help from installed software and omits absent providers', () => {
@@ -79,8 +79,8 @@ describe('command dispatcher', () => {
     expect(commands.connect.description).toBe('<ipv4>  Open a remote session using established access')
     expect(commands.disconnect.description).toBe('Close the active remote session')
   })
-  it('treats inspect as an unknown player command', () => {
-    expect(dispatch('inspect 198.51.100.47')).toEqual({ type: 'output', lines: ['Command not found: inspect. Type "help" for available commands.'] })
+  it('dispatches inspect as a direct player verb', () => {
+    expect(dispatch('inspect 198.51.100.47')).toMatchObject({ type: 'output', lines: ['SERVER', expect.any(Array), 'Scope:   LAN', 'Status:  ONLINE'] })
   })
   it('dispatches ip with the player-visible address marked as a local target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23', 'local')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))

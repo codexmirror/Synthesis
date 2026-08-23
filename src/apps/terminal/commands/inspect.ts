@@ -8,6 +8,7 @@ export const inspectCommand: TerminalCommand = {
 
     if (isIpv4EndpointSyntax(args[0])) return { type: 'output', lines: ['INVALID TARGET TYPE', '', `${args[0]} is a service endpoint.`, '', 'inspect operates on devices and networks.'] }
     const result = operations.inspectTarget(args[0])
+    if (result.status === 'software_unavailable') return { type: 'output', lines: ['INSPECT UNAVAILABLE', '', 'NodeScan is not installed.'] }
     if (result.status === 'unknown_target') {
       return { type: 'output', lines: [`Unknown inspect target: ${result.input}`] }
     }

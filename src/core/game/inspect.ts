@@ -1,4 +1,5 @@
 import { isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
+import type { DiscoveryState } from './types'
 
 export type InspectTargets = NetworkTargets
 
@@ -59,4 +60,20 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
       deviceKind: resolved.entity.role === 'server' ? 'server' : 'device',
     }
     : { status: 'no_response', address: input }
+}
+
+/** Inspect only SELF or an identity already justified by canonical player memory. */
+export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery: DiscoveryState, input: string): InspectResult {
+  if (input === targets.localDevice.network.ip) return inspectNetworkTarget(targets, input)
+  if (!isValidIpv4(input)) {
+    const remembered = discovery.networks.find(({ name }) => name === input)
+    if (!remembered) return { status: 'unknown_target', input }
+    const current = targets.network.localNetworks.find(({ id }) => id === remembered.id)
+    return current ? { status: 'network', networkId: current.id, networkName: current.name, connected: current.memberDeviceIds.includes(targets.localDevice.id) } : { status: 'no_response', address: input }
+  }
+  const remembered = discovery.devices.find(({ address }) => address === input)
+  if (!remembered) return { status: 'unknown_target', input }
+  const host = targets.network.hosts.find(({ id }) => id === remembered.id)
+  if (!host?.online) return { status: 'no_response', address: input }
+  return { status: 'device', targetId: host.id, address: host.ip, scope: remembered.scope, networkStatus: 'ONLINE', deviceKind: host.role === 'server' ? 'server' : 'device' }
 }

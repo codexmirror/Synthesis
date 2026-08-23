@@ -25,6 +25,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
   const unavailable = { status: 'unavailable' as const, state }
   const actions: GameActions = {
     scanTarget,
+    inspectTarget: vi.fn(),
     startServiceAnalysis: () => unavailable,
     startServiceAnalysisAtEndpoint: () => unavailable,
     startServiceAnalysisFromObservation: () => unavailable,
@@ -239,7 +240,7 @@ describe('Terminal credential access', () => {
     const startCredentialAccessAttemptFromObservation = vi.fn(() => ({ status: 'started' as const, processId: 'process-test', state }))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      scanTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
+      scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
       startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(), removeCompletedProcess: vi.fn(), cancelFileTransfer: vi.fn(),
     })
     render(<Terminal />)
@@ -297,7 +298,7 @@ describe('Terminal remote session', () => {
 })
 
 describe('Terminal local installation', () => {
-  it('installs through GameActions, reports the represented release, and updates Help without exposing Inspect', async () => {
+  it('installs through GameActions, reports the represented release, and updates Help with baseline Inspect', async () => {
     const base = createInitialGameState()
     const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
     const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 50, files: [...base.player.localDevice.filesystem.files, packageFile] } } } }
@@ -309,7 +310,7 @@ describe('Terminal local installation', () => {
     await user.type(input, 'help{enter}')
     expect(screen.getByText('NODESCAN 1.1 EXPERIMENTAL')).toBeInTheDocument()
     expect(screen.getByText('install — <local-absolute-file-path> Install a local software package')).toBeInTheDocument()
-    expect(screen.queryByText(/inspect —/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/inspect —/i)).toBeInTheDocument()
     await user.type(input, `install ${packageFile.path}{enter}`)
     expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
     const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware

@@ -5,6 +5,7 @@ import { startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnaly
 import { clearCompletedProcesses as clearCompletedProcessState, removeCompletedProcess as removeCompletedProcessState } from '../core/game/processes'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
+import { createLocalInspectTarget, type InspectTargetOperation } from './localInspectOperation'
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
@@ -16,6 +17,7 @@ export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { 
 export type NodeScanEndpointAnalysisResult = EndpointAnalysisResult | { status: 'software_unavailable'; state: GameState }
 export interface GameActions {
   scanTarget: ScanTargetOperation
+  inspectTarget: InspectTargetOperation
   startServiceAnalysis(targetDeviceId: string, serviceId: string): NodeScanStartServiceAnalysisResult
   startServiceAnalysisAtEndpoint(endpoint: string): NodeScanEndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
@@ -38,6 +40,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     currentState.current = nextState
     setGameState(nextState)
   }))
+  const [inspectTarget] = useState(() => createLocalInspectTarget(() => currentState.current, (nextState) => {
+    currentState.current = nextState
+    setGameState(nextState)
+  }))
   useEffect(() => {
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
@@ -49,7 +55,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     }, 250)
     return () => window.clearInterval(timer)
   }, [])
-  const actions: GameActions = { scanTarget, startServiceAnalysis(targetDeviceId, serviceId) {
+  const actions: GameActions = { scanTarget, inspectTarget, startServiceAnalysis(targetDeviceId, serviceId) {
     const state = currentState.current
     if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
     const result = startServiceAnalysis(state, targetDeviceId, serviceId)

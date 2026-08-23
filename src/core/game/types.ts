@@ -207,6 +207,7 @@ export interface DiscoveredNetworkSnapshot {
   readonly id: string
   readonly name: string
   readonly membersObserved: boolean
+  readonly inspect?: { readonly connected: boolean }
 }
 
 export interface DiscoveredServiceSnapshot {
@@ -224,6 +225,7 @@ export interface DiscoveredDeviceSnapshot {
   readonly scope: 'lan' | 'remote'
   readonly servicesObserved: boolean
   readonly services: readonly DiscoveredServiceSnapshot[]
+  readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server' }
 }
 
 export interface DiscoveryState {
