@@ -1,0 +1,196 @@
+import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
+import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
+import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
+import type { DeviceAccess, GameProcess, GameState, NetworkTransferCapacity } from '../../core/game/types'
+import { formatByteProgress, formatTransferRate } from '../byteFormat'
+
+/**
+ * Pure presentation adapter for the Activity Monitor.
+ *
+ * It aggregates the runtime domains that currently exist — canonical
+ * `ProcessState` (compute/RAM work) and the canonical `FileTransfer` network
+ * runtime — into one player-facing activity list. It owns no gameplay state,
+ * stores nothing, and never merges those domains: a transfer stays a transfer
+ * and is never represented as a `GameProcess`.
+ */
+
+export type ActivityCategory = 'operation' | 'transfer'
+export type ActivityFilterId = 'all' | 'operations' | 'transfers'
+
+export const ACTIVITY_FILTERS = [
+  { id: 'all', label: 'ALL', accessibleName: 'All activity' },
+  { id: 'operations', label: 'OPERATIONS', accessibleName: 'Operations' },
+  { id: 'transfers', label: 'TRANSFERS', accessibleName: 'Transfers' },
+] as const satisfies readonly { readonly id: ActivityFilterId; readonly label: string; readonly accessibleName: string }[]
+
+export interface ActivityFact { readonly label: string; readonly value: string }
+
+export interface ActivityOutcome {
+  readonly tone: 'positive' | 'neutral' | 'negative'
+  readonly headline: string
+  readonly details: readonly string[]
+}
+
+export interface MonitorActivity {
+  readonly id: string
+  readonly category: ActivityCategory
+  /** Runtime type of this activity, e.g. SERVICE ANALYSIS or DOWNLOAD. */
+  readonly kindLabel: string
+  readonly titleLabel?: string
+  readonly title: string
+  /** Endpoint relationship, currently only meaningful for a transfer. */
+  readonly route?: string
+  readonly status: 'running' | 'completed'
+  readonly progressPercent: number
+  /** Compact metrics meaningful to this runtime type; never padded out. */
+  readonly facts: readonly ActivityFact[]
+  /** Wide rows for long values such as filesystem paths. */
+  readonly details: readonly ActivityFact[]
+  readonly outcome?: ActivityOutcome
+}
+
+export interface MonitorNetworkUsage {
+  /** Current derived transfer usage; not stored canonical state. */
+  readonly downloadBytesPerSecond: number
+  readonly uploadBytesPerSecond: number
+  readonly capacity: NetworkTransferCapacity
+}
+
+export interface MonitorSummary {
+  readonly cpuPercent: number
+  readonly baselineCpuPercent: number
+  readonly ramUsedMiB: number
+  readonly ramAvailableMiB: number
+  readonly ramCapacityMiB: number
+  readonly ramPercent: number
+  readonly activeCount: number
+  readonly network: MonitorNetworkUsage
+}
+
+export interface ActivityMonitor {
+  readonly summary: MonitorSummary
+  readonly activities: readonly MonitorActivity[]
+}
+
+export function deriveActivityMonitor(state: GameState): ActivityMonitor {
+  const device = state.player.localDevice
+  const usage = deriveResourceUsage(device.hardware, device.runtime, state.process)
+  const operations = state.process.processes.map((process) => toOperationActivity(process, usage, state.deviceAccess.established))
+  const transfer = deriveTransferPresentation(state)
+  const activities = transfer ? [...operations, transfer.activity] : operations
+  return {
+    summary: {
+      cpuPercent: usage.totalCpuLoad,
+      baselineCpuPercent: usage.baselineCpuLoad,
+      ramUsedMiB: usage.baselineRamMiB + usage.processRamMiB,
+      ramAvailableMiB: usage.availableRamMiB,
+      ramCapacityMiB: usage.ramCapacityMiB,
+      ramPercent: usage.totalRamUsage,
+      activeCount: activities.filter((activity) => activity.status === 'running').length,
+      network: {
+        downloadBytesPerSecond: transfer?.rateBytesPerSecond ?? 0,
+        uploadBytesPerSecond: 0,
+        capacity: device.network.transferCapacity,
+      },
+    },
+    activities,
+  }
+}
+
+export function filterActivities(activities: readonly MonitorActivity[], filter: ActivityFilterId): readonly MonitorActivity[] {
+  if (filter === 'operations') return activities.filter((activity) => activity.category === 'operation')
+  if (filter === 'transfers') return activities.filter((activity) => activity.category === 'transfer')
+  return activities
+}
+
+function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[]): MonitorActivity {
+  const running = process.status === 'running'
+  const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
+  return {
+    id: process.id,
+    category: 'operation',
+    kindLabel: process.kind === 'generic' ? 'PROCESS' : process.label,
+    titleLabel: process.kind === 'generic' ? undefined : 'TARGET',
+    title: process.kind === 'generic' ? process.label : process.startedEndpoint,
+    status: process.status,
+    progressPercent,
+    facts: [
+      { label: 'PROGRESS', value: `${progressPercent}%` },
+      { label: 'CPU', value: `${Math.round(usage.cpuAllocationByProcess[process.id] ?? 0)}%` },
+      { label: 'RAM', value: `${running ? process.ramRequiredMiB : 0} MiB` },
+    ],
+    details: [],
+    outcome: toOperationOutcome(process, access),
+  }
+}
+
+function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[]): ActivityOutcome | undefined {
+  if (process.kind === 'service_analysis') {
+    if (process.result?.status === 'weaknesses_detected') {
+      return { tone: 'positive', headline: 'WEAKNESS DETECTED', details: process.result.vulnerabilities.map(({ observedLabel }) => observedLabel) }
+    }
+    if (process.result?.status === 'no_weakness_detected') return { tone: 'neutral', headline: 'NO WEAKNESS DETECTED', details: [] }
+    if (process.result?.status === 'service_unavailable') return { tone: 'negative', headline: 'SERVICE UNAVAILABLE', details: [] }
+    return undefined
+  }
+  if (process.kind === 'credential_access') {
+    if (process.result?.status === 'access_established') {
+      const { accessId } = process.result
+      const established = access.find(({ id }) => id === accessId)
+      return { tone: 'positive', headline: 'ACCESS ESTABLISHED', details: established ? [`${established.privilege} PRIVILEGE`] : [] }
+    }
+    if (process.result?.status === 'attempt_failed') return { tone: 'negative', headline: 'ATTEMPT FAILED', details: [process.result.message] }
+  }
+  return undefined
+}
+
+interface TransferPresentation {
+  readonly activity: MonitorActivity
+  readonly rateBytesPerSecond: number
+}
+
+/**
+ * Present the single active `FileTransfer`. Source identity, the source
+ * artifact, and the current effective rate are resolved only through the
+ * Session -> DeviceAccess -> target Device authority chain that authorized the
+ * transfer, so nothing here reveals more than the transfer's own runtime does.
+ */
+function deriveTransferPresentation(state: GameState): TransferPresentation | undefined {
+  const transfer = state.fileTransfer.active
+  if (!transfer) return undefined
+  const device = state.player.localDevice
+  const remote = resolveActiveRemoteTarget(state)
+  const source = remote?.session.id === transfer.sessionId && remote?.target.id === transfer.sourceDeviceId ? remote.target : undefined
+  const sourceFile = source?.filesystem?.files.find(({ id }) => id === transfer.sourceFileId)
+  const sourceCapacity = source?.transferCapacity
+  const online = device.runtime.networkStatus === 'ONLINE' && source?.online === true
+  const rateBytesPerSecond = online && sourceCapacity && isValidNetworkTransferCapacity(sourceCapacity) && isValidNetworkTransferCapacity(device.network.transferCapacity)
+    ? deriveEffectiveTransferRateBytesPerSecond(sourceCapacity, device.network.transferCapacity)
+    : 0
+  // Floor rather than round: running work must never read as 100% complete.
+  const progressPercent = transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0
+  return {
+    rateBytesPerSecond,
+    activity: {
+      id: transfer.id,
+      category: 'transfer',
+      kindLabel: 'DOWNLOAD',
+      titleLabel: 'ARTIFACT',
+      title: basename(transfer.destinationPath),
+      route: source ? `${source.displayName ?? source.ip} → ${device.displayName}` : undefined,
+      status: 'running',
+      progressPercent,
+      facts: [
+        { label: 'PROGRESS', value: `${progressPercent}%` },
+        { label: 'TRANSFERRED', value: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal) },
+        ...(rateBytesPerSecond > 0 ? [{ label: 'RATE', value: formatTransferRate(rateBytesPerSecond) }] : []),
+      ],
+      details: [
+        ...(sourceFile ? [{ label: 'SOURCE', value: sourceFile.path }] : []),
+        { label: 'DESTINATION', value: transfer.destinationPath },
+      ],
+    },
+  }
+}
+
+function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
