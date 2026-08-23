@@ -152,6 +152,34 @@ capabilities, and one product may support multiple interface verbs.
 Capabilities should arise from represented conditions rather than permanent
 command-unlock flags where practical.
 
+A concrete Device instance, a Device Model, a Firmware family, and a Firmware
+release are separate identities.
+
+A Device Model may eventually describe defaults, compatibility, physical or
+product constraints, and supported upgrade limits for Devices of that model.
+It must not become the canonical owner of the concrete Device’s current
+hardware, network capacity, runtime state, filesystem, or installed software.
+
+Likewise, a Firmware family may have multiple releases without becoming Device
+identity.
+
+Conceptually:
+
+```text
+DEVICE MODEL
+    ↓ constrains / defaults
+DEVICE INSTANCE
+    ├── concrete Hardware
+    ├── concrete Network state
+    ├── concrete Runtime
+    ├── Filesystem
+    └── installed Firmware release
+                ↓
+         FIRMWARE FAMILY
+
+This separation must allow multiple Device models to use one Firmware family
+and must not require every Device in Synthesis to run NODE-OS. 
+
 
 ### A07 — Device, Firmware, Software, and Session are separate
 
@@ -248,6 +276,26 @@ processed through the same sequence.
 
 A Process represents elapsed work and resource consumption.
 
+The canonical `GameProcess` runtime is only one possible kind of Device runtime
+activity.
+
+A player-facing Processes / Activity Monitor interface may derive one coherent
+Device-runtime view from multiple canonical runtime domains, such as
+`GameProcess` and `FileTransfer`, without merging those domains or creating a
+second canonical activity list.
+
+Therefore:
+
+```text
+GameProcess ────┐
+                ├── derived Processes / Activity Monitor presentation
+FileTransfer ───┘
+does not imply:
+FileTransfer = GameProcess
+
+The Processes interface is a Device runtime command center, not a universal
+job framework.
+
 Processes may have:
 
 - stable identity
@@ -272,6 +320,15 @@ canonical simulation truth.
 
 Clearing disposable Process presentation or completed history must not undo
 consequences already stored in other canonical state.
+
+```md
+Retained completed Process entries are disposable runtime history for the
+operator. They are not an audit log, forensic record, or source of gameplay
+truth.
+
+Removing completed Process history must not erase independently represented
+logs, evidence, access relationships, knowledge, filesystem state, economic
+effects, or other consequences.
 
 
 ### A11 — Mutate causes; derive consequences
@@ -312,6 +369,35 @@ Likewise, future connectivity may depend on concrete interfaces, routes,
 connections, firewall state, availability, and current position rather than a
 single `reachable` unlock flag.
 
+Attack surface, weakness, technique, and resulting authority must remain
+separate concepts.
+
+Conceptually:
+
+```text
+REACHABILITY
+      +
+ATTACK SURFACE
+      +
+WEAKNESS / CREDENTIAL / TRUST CONDITION
+      +
+ACTOR KNOWLEDGE
+      +
+ACTOR CAPABILITY
+      ↓
+ATTEMPT
+      ↓
+CONCRETE STATE EFFECTS
+
+A discovered vulnerability does not itself grant DeviceAccess.
+
+A successful technique may result in access, execution, filesystem mutation,
+network activity, knowledge, or another represented effect depending on the
+concrete mechanic.
+
+Player-owned Devices should participate in the same security ontology as other
+represented Devices where practical. Player ownership must not require a
+separate generic playerHack mechanic.
 
 ### A12 — Actions are defined by state transitions
 
@@ -360,6 +446,35 @@ Do not manufacture fake logs or evidence solely for atmosphere.
 Artifacts can later become observable information and influence player
 decisions through normal simulation boundaries.
 
+When concrete logging exists, audit history should be canonical, Device-owned,
+and produced by the gameplay operation or represented event that actually
+occurred.
+
+Audit history must be bounded by a concrete retention rule rather than growing
+without limit. Architecture does not prescribe a specific capacity today.
+
+A Device audit log and a forensic trace are not necessarily the same artifact.
+
+Conceptually:
+
+```text
+REPRESENTED EVENT
+      │
+      ├── runtime effect
+      ├── Device audit record
+      └── other forensic trace / evidence
+      
+One event may therefore produce several independently represented observable
+consequences.
+
+Removing one visible log entry must not automatically erase every other trace
+of the event unless a concrete mechanic explicitly causes those other state
+changes as well.
+
+Likewise, clearing completed Process history is not log deletion.
+
+Logs, traces, evidence, and their retention or manipulation must not be
+fabricated by presentation code merely to create atmosphere.
 
 ### A14 — Shared-world authority remains explicit
 
@@ -615,7 +730,11 @@ to be physically nested in one object.
 | DeviceAccess | relationship state | hacked flag or active Session |
 | Session | operating-context state | replacement for Device identity |
 | Filesystem | represented Device | Files/Terminal private data |
-| Processes | canonical simulation state with executor identity | UI timers or app-local jobs |
+| GameProcess runtime | canonical simulation state with executor identity | universal activity/job framework |
+| Processes / Activity Monitor | derived presentation over canonical Device runtime domains | second canonical activity list |
+| Device Model | represented product/platform definition | concrete Device runtime truth |
+| Device audit history | represented Device/event-owned audit state | completed Process presentation history |
+| Forensic trace / evidence | represented consequence of concrete events | automatic synonym for one visible log entry |
 | Shell navigation | Shell presentation state | gameplay state |
 | Terminal output | Terminal presentation state | canonical game history |
 | Target highlighting | presentation metadata | entity type or gameplay state |

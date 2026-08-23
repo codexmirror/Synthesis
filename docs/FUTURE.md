@@ -245,6 +245,69 @@ recolor NODE-OS.
 Returning to NODE-OS after operating unfamiliar environments should feel like
 returning to the player’s own machine.
 
+### Device models and Firmware families
+
+Long-term, concrete Device instances may belong to represented Device models.
+
+A model can give a machine a recognizable product identity and may eventually
+influence:
+
+- default hardware
+- supported hardware ranges or upgrade limits
+- network capability ranges
+- physical or product constraints
+- compatible Firmware families
+- other concrete represented properties
+
+For example, working product concepts might eventually include:
+
+```text
+NODE Standard
+NODE Premium
+as different Device models while both remain capable of running releases from the NODE-OS Firmware family.
+Firmware itself may grow into families and releases:
+NODE-OS
+├── NODE-OS 1.x
+├── experimental releases
+├── NODE-OS 2.x
+└── later releases
+Other Firmware families may target substantially different operating roles, such as specialized financial, cryptocurrency, infrastructure, investigative, or other environments.
+These are product directions, not locked models, names, schemas, tiers, or monetization rules.
+The important direction is that:
+WHO / WHAT DEVICE IS THIS?
+        ≠
+WHICH FIRMWARE IS INSTALLED?
+        ≠
+WHAT HARDWARE IS CURRENTLY PRESENT?
+A player’s capabilities should continue to emerge from represented Devices, hardware, Firmware, software, information, access, and position rather than a permanent character-class flag.
+Ich würde **Monetarisierung hier bewusst noch nicht reinschreiben**. Alternative Starts/Devices können später Monetarisierung berühren, aber das ist noch keine bestätigte Architekturregel.
+
+—
+
+### Unter `## Multiple approaches instead of one hacking pipeline`
+
+Nach dem bestehenden Teil über verschiedene Wege ergänzen:
+
+```md
+A useful long-term mental model is:
+
+```text
+REACHABILITY
+      +
+ATTACK SURFACE
+      +
+CURRENT WEAKNESS
+      +
+PLAYER INFORMATION
+      +
+AVAILABLE CAPABILITY
+      ↓
+ATTEMPT
+      ↓
+SYSTEMIC EFFECTS
+An attack surface might eventually arise from concrete services, Firmware, installed software, configuration, files, trust relationships, credentials, network position, or other represented state.
+The weakness and the technique used against it should not be permanently identical.
+Different techniques may exploit the same weakness, and one technique may have different consequences depending on the target and current world state.
 
 ## Remote operating contexts
 
@@ -574,6 +637,288 @@ This creates the possibility of an ecosystem in which offensive, malicious,
 defensive, and diagnostic software interact through shared Device and World
 state rather than bespoke counters.
 
+## Processes, audit logs, and forensic investigation
+Processes should grow into the runtime command center of a Device.
+Its central question is:
+```text
+WHAT IS HAPPENING ON THIS DEVICE RIGHT NOW?
+
+It may eventually present several kinds of real Device activity, including:
+
+* compute work
+* file transfers
+* software execution
+* cracking work
+* miners
+* services
+* malware
+* other represented runtime activity
+
+The player-facing Processes application does not require all of those mechanics
+to share one canonical runtime type.
+
+Active work should remain distinct from retained completed runtime history.
+
+Completed Process history is primarily operator convenience and may be removed.
+It is not intended to become the permanent forensic record of a Device.
+
+Audit logs
+
+A future Device-owned audit/logging system should answer a different question:
+
+WHAT HAPPENED ON THIS DEVICE?
+
+Concrete gameplay operations may eventually create records for events such as:
+
+SESSION OPENED
+AUTHENTICATION ATTEMPT
+FILE READ
+FILE TRANSFER
+PROCESS STARTED
+PROCESS COMPLETED
+SOFTWARE INSTALLED
+FILE MODIFIED
+SESSION CLOSED
+
+This is illustrative rather than a locked event taxonomy.
+
+Audit history should be bounded rather than infinite.
+
+Different Devices, Firmware, software, or future configuration may eventually
+influence retention, but no exact capacity model is selected yet.
+
+Logs should arise from represented gameplay operations and state changes rather
+than being fabricated by an interface merely for atmosphere.
+
+Runtime activity and logs may coexist
+
+A single action may legitimately appear in more than one system.
+
+For example, if another actor transfers data from a Device:
+
+WHILE ACTIVE
+→ network/runtime activity may be observable through Processes or related
+  system telemetry
+EVENT HISTORY
+→ represented audit records may remain after the transfer ends
+
+This is not duplicated truth when each representation describes a distinct
+consequence of the same represented event.
+
+Processes answers what is happening now.
+
+Logs answer what happened.
+
+The same represented action may therefore produce both runtime effects and
+audit evidence without making either system the owner of the other.
+
+Logs and forensic traces
+
+A visible Device log is not necessarily the complete forensic footprint of an
+action.
+
+An operation may eventually leave evidence across several represented systems,
+for example:
+
+* local Device logs
+* remote Device logs
+* network infrastructure
+* filesystem artifacts
+* Process activity
+* configuration changes
+* credentials or authentication artifacts
+* software state
+* other concrete traces
+
+Deleting or modifying one log must therefore not automatically erase unrelated
+evidence.
+
+Conceptually:
+
+REPRESENTED ACTION
+        ↓
+MULTIPLE SYSTEM EFFECTS
+        │
+        ├── runtime activity
+        ├── Device audit records
+        ├── filesystem changes
+        ├── network evidence
+        └── other forensic traces
+
+Removing one visible record only changes the represented artifact that was
+actually removed unless a concrete mechanic also changes the other evidence.
+
+This creates the long-term possibility of forensic gameplay based on the same
+systems used by offensive gameplay:
+
+ACTION
+  ↓
+TRACES / LOGS / STATE CHANGES
+  ↓
+CLEANUP ATTEMPT
+  ↓
+REMAINING EVIDENCE
+  ↓
+INVESTIGATION
+
+A player may successfully remove one obvious log while leaving evidence
+elsewhere.
+
+Likewise, a defender or investigator may reconstruct activity from several
+independent pieces of evidence instead of relying on one universal detection
+meter.
+
+Malware and visibility
+
+Malware should interact with the same Device runtime, logging, filesystem,
+network, and resource systems as legitimate software where practical.
+
+For example, represented malware might eventually:
+
+* execute on a Device
+* consume CPU or RAM
+* access or modify files
+* create network traffic
+* establish persistence
+* interact with credentials
+* start other runtime work
+* create audit records
+* attempt to remove or alter audit records
+* leave other forensic evidence
+
+Malware must not require a separate arbitrary consequence system when existing
+Device mechanics can express its behavior.
+
+Conceptually:
+
+MALWARE
+   ↓
+REAL DEVICE ACTIVITY
+   │
+   ├── CPU / RAM use
+   ├── Processes / runtime activity
+   ├── filesystem effects
+   ├── network activity
+   ├── access or credential effects
+   ├── logs
+   └── forensic traces
+
+Whether malicious activity is visible in Processes should eventually depend on
+the represented mechanism rather than on a permanent rule that all malware is
+always visible or always hidden.
+
+Future stealth or defensive mechanics may affect how easily runtime activity,
+logs, or traces can be observed without changing the underlying canonical
+activity itself.
+
+Remote actors and Device activity
+
+Actions performed by another actor against or through a Device should use the
+same systemic boundaries.
+
+For example, if another player has access to a Device and downloads one of its
+files:
+
+REMOTE ACTOR
+    ↓
+AUTHORIZED OR EXPLOITED ACCESS
+    ↓
+FILE TRANSFER
+    │
+    ├── active network/resource effect on the Device
+    ├── possible runtime observability
+    ├── Device audit records
+    └── possible forensic traces
+
+The active physical effect and its historical evidence are separate concerns.
+
+A remote transfer may therefore affect Device telemetry while active and leave
+audit or forensic evidence afterward.
+
+This should not require a special playerAttackLog, playerTransfer, or other
+parallel ontology merely because the actor is another player.
+
+Bounded history
+
+Persistent or online worlds must not require unbounded Device history.
+
+Audit/log retention should therefore be bounded by represented policy or
+capacity.
+
+A simple future implementation may retain only a finite number of recent
+records and discard the oldest retained entries when capacity is exceeded.
+
+The exact retention mechanism is intentionally not selected yet.
+
+Possible future contributors could include:
+
+* Device model
+* Firmware
+* logging software
+* storage configuration
+* administrative policy
+* other represented systems
+
+These possibilities must not be implemented merely because they are listed
+here.
+
+The durable direction is only:
+
+DEVICE AUDIT HISTORY
+= REPRESENTED
++ CANONICAL
++ BOUNDED
+
+rather than an infinite global event list.
+
+Completed Processes are not audit history
+
+Completed Process entries shown in the Processes application remain disposable
+operator-facing runtime history.
+
+They may be cleared or individually removed without undoing consequences that
+already exist elsewhere.
+
+For example, removing a completed Credential Access entry must not remove:
+
+* established DeviceAccess
+* discovered Knowledge
+* filesystem changes
+* Wallet or economic effects
+* Device logs
+* forensic evidence
+* other canonical consequences
+
+Likewise, clearing Processes must never become a shortcut for clearing forensic
+evidence.
+
+Long-term forensic direction
+
+The long-term goal is not a separate scripted “forensics minigame”.
+
+Forensic gameplay should increasingly emerge from normal represented systems.
+
+Conceptually:
+
+ATTACK / OPERATION
+        ↓
+REAL STATE CHANGES
+        ↓
+LOGS + TRACES + RUNTIME EFFECTS
+        ↓
+ATTACKER CLEANUP
+        ↓
+WHAT REMAINS?
+        ↓
+DEFENDER / INVESTIGATOR OBSERVATION
+        ↓
+INFORMATION
+        ↓
+RECONSTRUCTION / RESPONSE
+
+This allows offensive, defensive, malware, cleanup, investigation, and
+multiplayer mechanics to interact with one shared simulated world instead of
+maintaining separate scripted versions of the same events.
 
 ## Economy and markets
 
