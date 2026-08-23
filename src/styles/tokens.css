@@ -1,1 +1,53 @@
-:root { font-family: 'IBM Plex Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace; color: #d7dfda; background: #050706; font-synthesis: none; --green: #8cffb2; --line: #25302a; --panel: #0c100e; }
+/*
+ * Synthesis presentation tokens.
+ *
+ * These are visual values only. They encode no gameplay rule and no
+ * simulation truth. The values below are the ones the mature NODE-OS
+ * surfaces (NodeScan, Activity Monitor) already used literally; naming them
+ * lets every other NODE-OS surface reach the same language instead of
+ * re-inventing a slightly different one.
+ *
+ * RACK-OS is deliberately a foreign Firmware presentation and owns its own
+ * palette in `apps/rackos/rackos.css`. It does not consume these tokens.
+ */
+:root {
+  font-family: 'IBM Plex Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  font-synthesis: none;
+  color: var(--text);
+  background: #050706;
+
+  /* Surfaces */
+  --surface: #080b09;
+  --surface-raised: #0a0e0c;
+  --surface-hover: #0d1410;
+
+  /* Structure */
+  --line: #25302a;
+  --line-strong: #28322c;
+  --line-quiet: #1b231e;
+  --line-accent: #3f6a51;
+
+  /* Text tiers, brightest to faintest */
+  --text-strong: #e2e9e5;
+  --text: #cbd5cf;
+  --text-secondary: #a3b1a9;
+  --text-muted: #78827c;
+  --text-quiet: #66736b;
+  --text-faint: #5a665f;
+
+  /* Accent — restrained mint green */
+  --green: #8cffb2;
+  --accent: #8fc6a3;
+  --accent-strong: #a8dabc;
+  --accent-mark: #73bd8e;
+  --accent-fill: #6ac58a;
+  --accent-rule: #64b881;
+
+  /* Caution — reserved for cancel, failure and unavailable state */
+  --caution: #cf9c6e;
+  --caution-line: #5c4433;
+
+  /* Type scale for technical labels */
+  --label-size: .55rem;
+  --label-tracking: .13em;
+}

@@ -1,0 +1,260 @@
+/*
+ * NODE-OS presentation primitives.
+ *
+ * These are the shared building blocks of the NODE-OS Firmware interface:
+ * section headings, key/value facts, list rows, chips, actions and empty
+ * states. They exist because the same components had been re-implemented per
+ * application with slightly different type, spacing and colour, which made one
+ * operating environment read as several prototypes.
+ *
+ * Scope note: this is NODE-OS presentation, not a universal Firmware
+ * framework. RACK-OS deliberately looks and behaves differently and does not
+ * consume these classes.
+ */
+
+/* Technical label. The shared small-caps eyebrow used by every application. */
+.eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  font-weight: 500;
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+}
+
+/*
+ * Application masthead: the application's current subject line. It answers
+ * "what am I looking at" directly under the Shell's application title.
+ */
+.node-masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--line);
+}
+
+.node-masthead-subject {
+  min-width: 0;
+  color: var(--text-strong);
+  font-size: .78rem;
+  overflow-wrap: anywhere;
+}
+
+.node-masthead-meta {
+  flex: none;
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+/* Section heading: left label, optional right-hand count or note. */
+.node-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 19px 0 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+  color: #819087;
+  font-size: .58rem;
+  letter-spacing: .14em;
+}
+
+.node-masthead + .node-section { margin-top: 12px; }
+
+.node-section > :last-child:not(:first-child) {
+  color: var(--text-faint);
+  letter-spacing: .05em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Key/value facts. One row per fact, label left, value right of it. */
+.node-facts {
+  margin: 0;
+  border-top: 1px solid var(--line-quiet);
+}
+
+.node-facts > div {
+  display: grid;
+  grid-template-columns: minmax(92px, 32%) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-quiet);
+}
+
+.node-facts dt {
+  color: var(--text-muted);
+  font-size: .52rem;
+  letter-spacing: var(--label-tracking);
+}
+
+.node-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: .7rem;
+  overflow-wrap: anywhere;
+}
+
+/* List rows. Shared by filesystem entries, inventory entries and similar. */
+.node-list { display: grid; gap: 6px; }
+
+.node-row {
+  width: 100%;
+  min-height: 58px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.node-row { cursor: pointer; }
+
+button.node-row:focus-visible {
+  border-color: var(--line-accent);
+  background: var(--surface-hover);
+  outline: 0;
+}
+
+/* Hover is opt-in so a tap does not leave a row visually selected. */
+@media (hover: hover) {
+  button.node-row:hover {
+    border-color: var(--line-accent);
+    background: var(--surface-hover);
+  }
+}
+
+.node-row-glyph { flex: none; color: var(--accent-mark); font-size: .8rem; }
+
+.node-row-copy { min-width: 0; flex: 1; display: grid; gap: 5px; }
+.node-row-copy strong { color: var(--text-strong); font: 600 .8rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.node-row-copy small { color: var(--text-muted); font-size: .58rem; letter-spacing: .1em; overflow-wrap: anywhere; }
+.node-row-arrow { flex: none; color: var(--accent-mark); font-size: .9rem; }
+
+/* Small state chip. */
+.node-chip {
+  flex: none;
+  padding: 4px 7px;
+  border: 1px solid var(--line-accent);
+  color: var(--accent);
+  font-size: .52rem;
+  letter-spacing: .12em;
+  white-space: nowrap;
+}
+
+.node-chip--quiet { border-color: var(--line-strong); color: var(--text-quiet); }
+
+/* Actions. Always touch-safe. */
+.node-action {
+  min-height: 44px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: .62rem;
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+
+.node-action:focus-visible:not(:disabled) {
+  border-color: var(--line-accent);
+  background: var(--surface-hover);
+  color: var(--accent-strong);
+  outline: 0;
+}
+
+@media (hover: hover) {
+  .node-action:hover:not(:disabled) {
+    border-color: var(--line-accent);
+    background: var(--surface-hover);
+    color: var(--accent-strong);
+  }
+}
+
+.node-action:disabled { color: var(--text-muted); cursor: default; }
+
+/* Back / breadcrumb control. */
+.node-back {
+  min-height: 44px;
+  margin-bottom: 12px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: .64rem;
+  cursor: pointer;
+}
+
+.node-back:hover,
+.node-back:focus-visible { color: var(--accent-strong); outline: 0; }
+
+/* Empty state. Silence is valid; it should still be explicit. */
+.node-empty {
+  padding: 14px 13px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line-quiet);
+  border-left: 2px solid #313b35;
+  background: var(--surface);
+}
+
+.node-empty strong { color: #8b9990; font-size: .59rem; letter-spacing: var(--label-tracking); }
+.node-empty span { color: var(--text-quiet); font-size: .66rem; line-height: 1.45; }
+
+/* Left-ruled note. Findings, results and inline feedback. */
+.node-note {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid #46564d;
+  color: #87958d;
+  font-size: .65rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.node-note--caution { border-left-color: var(--caution-line); color: var(--caution); }
+
+/* Thin progress rail shared by every NODE-OS runtime presentation. */
+.node-progress {
+  display: block;
+  width: 100%;
+  height: 3px;
+  border: 0;
+  background: var(--line-quiet);
+  accent-color: var(--accent-fill);
+}
+
+.node-progress::-webkit-progress-bar { background: var(--line-quiet); }
+.node-progress::-webkit-progress-value { background: var(--accent-fill); }
+.node-progress::-moz-progress-bar { background: var(--accent-fill); }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

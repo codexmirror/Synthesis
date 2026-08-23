@@ -21,7 +21,10 @@ export function Processes() {
   const empty = EMPTY_STATE[filter]
 
   return <section className="app-content activity-monitor" aria-label="Activity Monitor">
-    <header className="am-head"><p className="eyebrow">ACTIVITY MONITOR</p></header>
+    <header className="node-masthead">
+      <span className="node-masthead-subject">ACTIVITY MONITOR</span>
+      <span className="node-masthead-meta">LOCAL · {state.player.localDevice.displayName}</span>
+    </header>
 
     <div className="am-summary">
       <Stat label="CPU" value={`${Math.round(summary.cpuPercent)}%`} note={`${Math.round(summary.baselineCpuPercent)}% BASELINE`} percent={summary.cpuPercent} />
@@ -41,13 +44,13 @@ export function Processes() {
       </button>)}
     </div>
 
-    <div className="am-section"><span>RUNNING</span><span className="am-section-count">{running.length}</span></div>
+    <div className="node-section"><span>RUNNING</span><span className="am-section-count">{running.length}</span></div>
     {running.length > 0
       ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : undefined} />)}</div>
-      : <div className="am-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
+      : <div className="node-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
 
     {completed.length > 0 && <>
-      <div className="am-section am-section-quiet">
+      <div className="node-section am-section-quiet">
         <span>COMPLETED</span>
         <button className="am-clear" type="button" aria-label="Clear completed processes" onClick={() => { if (window.confirm('Clear completed process history?')) clearCompletedProcesses() }}>CLEAR</button>
       </div>
