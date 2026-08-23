@@ -11,6 +11,11 @@ function knownState(): GameState {
   return { ...state, discovery }
 }
 
+function scannedState(address = '198.51.100.47'): GameState {
+  const state = knownState()
+  return { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, address), state.player.localDevice.id) }
+}
+
 function withNodeScan11(state: GameState): GameState {
   return {
     ...state,
@@ -84,11 +89,79 @@ describe('player-facing Inspect operation', () => {
 
 describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
   it('keeps NodeScan 1.0 Standard on shallow Inspect evidence only', () => {
-    let state = knownState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+    let state = scannedState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
     const result = inspect('198.51.100.47')
     expect(result).toMatchObject({ status: 'device', targetId: 'host-lan-001', deviceKind: 'server' })
     expect(result).not.toHaveProperty('enhanced')
     expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toEqual({ networkStatus: 'ONLINE', deviceKind: 'server' })
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.services.every((service) => service.inspect === undefined)).toBe(true)
+  })
+
+  it('fingerprints only already-known SSH and HTTP services without revealing weaknesses', () => {
+    let state = withNodeScan11(scannedState()); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+    inspect('198.51.100.47')
+    expect(state.discovery.devices[0].services).toMatchObject([
+      { name: 'SSH', inspect: { implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential' } },
+      { name: 'HTTP', inspect: { implementation: { name: 'Basic HTTP', version: '1.0' } } },
+    ])
+    expect(state.knowledge.discoveredVulnerabilities).toEqual([])
+    expect(JSON.stringify(state.discovery)).not.toContain('AUTH-017')
+
+    let shallow = withNodeScan11(knownState()); const shallowInspect = createLocalInspectTarget(() => shallow, (next) => { shallow = next })
+    shallowInspect('198.51.100.47')
+    expect(shallow.discovery.devices[0].services).toEqual([])
+  })
+
+  it('observes the same GateSSH release with Additional Verification on srv-02', () => {
+    let state = withNodeScan11(scannedState('198.51.100.53')); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+    inspect('198.51.100.53')
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-002')?.services[0].inspect).toEqual({
+      implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential + Additional Verification',
+    })
+  })
+
+  it('derives authentication from credential access when the Service display name changes', () => {
+    let state = withNodeScan11(scannedState())
+    const host = state.world.network.hosts[0]
+    state = {
+      ...state,
+      world: {
+        network: {
+          ...state.world.network,
+          hosts: [{
+            ...host,
+            services: host.services?.map((service) => service.id === 'service-ssh-001'
+              ? { ...service, name: 'Remote Login' }
+              : service),
+          }, ...state.world.network.hosts.slice(1)],
+        },
+      },
+    }
+    const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+
+    inspect('198.51.100.47')
+
+    expect(state.discovery.devices[0].services.find(({ id }) => id === 'service-ssh-001')?.inspect).toEqual({
+      implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential',
+    })
+  })
+
+  it('keeps historical Service observations until a successful enhanced re-inspection refreshes them', () => {
+    let state = withNodeScan11(scannedState()); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+    inspect('198.51.100.47')
+    const host = state.world.network.hosts[0]
+    const services = host.services!.map((service) => service.id === 'service-ssh-001'
+      ? { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }, credentialAccess: { privilege: 'USER' as const, secondFactorRequired: true } }
+      : service)
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, services }, ...state.world.network.hosts.slice(1)] } } }
+    expect(state.discovery.devices[0].services[0].inspect).toMatchObject({ implementation: { version: '1.3.2' }, authentication: 'Credential' })
+    inspect('198.51.100.47')
+    expect(state.discovery.devices[0].services[0].inspect).toMatchObject({ implementation: { version: '1.4.0' }, authentication: 'Credential + Additional Verification' })
+
+    const remembered = structuredClone(state.discovery)
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...state.world.network.hosts[0], online: false }, ...state.world.network.hosts.slice(1)] } } }
+    expect(inspect('198.51.100.47')).toEqual({ status: 'no_response', address: '198.51.100.47' })
+    expect(state.discovery).toEqual(remembered)
   })
 
   it('uses the same Inspect operation to return and remember richer evidence once 1.1 Experimental is installed', () => {

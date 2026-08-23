@@ -39,7 +39,8 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       const previous = devices[index]
       const services = [...(previous?.services ?? [])]
       for (const service of result.services) {
-        const observed = { ...service, endpoint: `${result.address}:${service.port}` }
+        const previousService = services.find((item) => item.id === service.id)
+        const observed = { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}) }
         const serviceIndex = services.findIndex((item) => item.id === service.id)
         if (serviceIndex < 0) services.push(observed); else services[serviceIndex] = observed
       }
@@ -64,6 +65,11 @@ export function rememberInspect(discovery: DiscoveryState, result: InspectResult
   if (index < 0) return discovery
   const devices = [...discovery.devices]
   const previousEnhanced = devices[index].inspect?.enhanced
-  devices[index] = { ...devices[index], address: result.address, scope: result.scope, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(result.enhanced ? { enhanced: result.enhanced } : previousEnhanced ? { enhanced: previousEnhanced } : {}) } }
+  const fingerprints = new Map(result.serviceFingerprints?.map(({ serviceId, inspect }) => [serviceId, inspect]))
+  const services = devices[index].services.map((service) => {
+    const inspect = fingerprints.get(service.id)
+    return inspect ? { ...service, inspect } : service
+  })
+  devices[index] = { ...devices[index], address: result.address, scope: result.scope, services, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(result.enhanced ? { enhanced: result.enhanced } : previousEnhanced ? { enhanced: previousEnhanced } : {}) } }
   return { ...discovery, devices }
 }
