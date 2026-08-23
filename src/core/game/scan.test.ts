@@ -25,9 +25,10 @@ describe('scanNetworkTarget outward discovery', () => {
       status: 'network', networkId: 'network-local-001', networkName: 'home-net', devices: [
         { targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' },
         { targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' },
+        { targetId: 'host-lan-002', address: '198.51.100.53', scope: 'lan' },
       ],
     })
-    const offlineHosts = targets.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, online: false } : host)
+    const offlineHosts = targets.network.hosts.map((host) => host.id === 'host-lan-001' || host.id === 'host-lan-002' ? { ...host, online: false } : host)
     expect(scanNetworkTarget({ ...targets, network: { ...targets.network, hosts: offlineHosts } }, 'home-net')).toMatchObject({
       devices: [{ targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' }],
     })
