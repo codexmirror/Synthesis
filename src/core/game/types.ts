@@ -321,7 +321,15 @@ export interface NetworkService {
   readonly protocol: 'TCP' | 'UDP'
   readonly open: boolean
   readonly vulnerabilities?: readonly Vulnerability[]
-  readonly credentialAccess?: { readonly privilege: 'USER' }
+  /**
+   * Present only when this Service concretely grants credential-based
+   * access. `secondFactorRequired` is a real authentication condition on
+   * the Service, independent of any represented vulnerability: it is not
+   * discovered by Service Analysis and must not be revealed by ordinary
+   * Credential Access presentation, but it still gates whether a
+   * completing Credential Access attempt establishes access.
+   */
+  readonly credentialAccess?: { readonly privilege: 'USER'; readonly secondFactorRequired?: boolean }
 }
 
 export interface DiscoveredVulnerability {
