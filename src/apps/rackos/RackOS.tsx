@@ -8,7 +8,7 @@ import { runRemoteCommand } from './remoteCommands'
 
 type Section = 'terminal' | 'files' | 'system'
 
-export function RackOS({ context }: { context: ActiveRemoteTarget }) {
+export function RackOS({ context, onReturnLocal }: { context: ActiveRemoteTarget; onReturnLocal(): void }) {
   const { disconnectRemoteSession, startRemoteFileDownload } = useGameActions()
   const [section, setSection] = useState<Section>('terminal')
   const { target, access, service } = context
@@ -16,7 +16,7 @@ export function RackOS({ context }: { context: ActiveRemoteTarget }) {
     <header className="rack-header">
       <div><strong>{target.firmware!.name} {target.firmware!.version}</strong><span>REMOTE</span></div>
       <div><span>{target.displayName} · {target.ip}</span><span>{access.privilege}</span></div>
-      <button type="button" onClick={() => disconnectRemoteSession()}>DISCONNECT</button>
+      <div className="rack-header__actions"><button type="button" onPointerDown={onReturnLocal} onClick={onReturnLocal}>LOCAL · NODE-OS</button><button type="button" onClick={() => disconnectRemoteSession()}>DISCONNECT</button></div>
     </header>
     <nav className="rack-nav" aria-label={`${target.firmware!.name} sections`}>
       {(['terminal', 'files', 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => setSection(item)}>{item.toUpperCase()}</button>)}

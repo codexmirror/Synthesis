@@ -109,4 +109,72 @@ describe('Remote Session handoff', () => {
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
     expect(GAME_STATE_VERSION).toBe(19)
   })
+
+  it('switches between an entered remote context and usable NODE-OS without changing canonical session authority', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
+    const enteredState = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
+    const session = enteredState.remoteSession.active
+    const access = enteredState.deviceAccess
+
+    await user.click(screen.getByRole('button', { name: 'LOCAL · NODE-OS' }))
+    const localState = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
+    expect(localState.remoteSession.active).toEqual(session)
+    expect(localState.deviceAccess).toEqual(access)
+    expect(screen.queryByLabelText('TRUTH-OS remote operating environment')).not.toBeInTheDocument()
+    expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
+    expect(screen.getByRole('button', { name: 'Open Terminal' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'REMOTE · truth-server' })).toBeInTheDocument()
+
+    const beforeReturn = screen.getByTestId('state').textContent
+    await user.click(screen.getByRole('button', { name: 'REMOTE · truth-server' }))
+    expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Remote session handoff')).not.toBeInTheDocument()
+    expect(screen.getByTestId('state')).toHaveTextContent(beforeReturn ?? '')
+    expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toEqual(session)
+  })
+
+  it('keeps a Session-bound Download while local and aborts it only on actual disconnect', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
+    act(() => { actions.startRemoteFileDownload('/srv/readme.txt') })
+    const activeTransfer = (JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).fileTransfer.active
+    expect(activeTransfer).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'LOCAL · NODE-OS' }))
+    let current = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
+    expect(current.remoteSession.active?.id).toBe(activeTransfer?.sessionId)
+    expect(current.fileTransfer.active?.id).toBe(activeTransfer?.id)
+
+    await user.click(screen.getByRole('button', { name: 'REMOTE · truth-server' }))
+    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    current = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
+    expect(current.remoteSession.active).toBeNull()
+    expect(current.fileTransfer.active).toBeNull()
+    expect(screen.queryByRole('button', { name: 'REMOTE · truth-server' })).not.toBeInTheDocument()
+  })
+
+  it('releases remote editing and waits for existing viewport recovery before showing local context', async () => {
+    const user = userEvent.setup()
+    const view = render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
+    viewport = { ...viewport, editing: true, editingPresentation: true, presentationPhase: 'editing', recoveryReady: false }
+    view.rerender(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    const input = screen.getByLabelText('Remote command')
+    input.focus()
+    const blur = vi.spyOn(input, 'blur')
+
+    await user.click(screen.getByRole('button', { name: 'LOCAL · NODE-OS' }))
+    expect(blur).toHaveBeenCalledTimes(1)
+    expect(input).not.toHaveFocus()
+    expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBeInTheDocument()
+    expect(document.querySelector('.node-workspace')).toHaveAttribute('hidden')
+
+    viewport = { ...viewport, editing: false, editingPresentation: false, presentationPhase: 'normal', recoveryReady: true }
+    view.rerender(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    expect(screen.queryByLabelText('TRUTH-OS remote operating environment')).not.toBeInTheDocument()
+    expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
+  })
 })

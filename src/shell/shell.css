@@ -180,6 +180,9 @@
 
 .system-bar strong { color: #cad3cd; }
 .online strong { color: var(--green); }
+.remote-context { margin-left: auto; min-height: 36px; padding: 0 10px; border: 1px solid var(--line); background: transparent; color: var(--green); cursor: pointer; font: inherit; font-size: .66rem; letter-spacing: .08em; }
+.remote-context:hover,
+.remote-context:focus-visible { outline: 1px solid var(--green); outline-offset: -2px; background: #111a15; }
 
 .remote-handoff {
   grid-row: 1 / -1;

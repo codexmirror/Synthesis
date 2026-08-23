@@ -33,6 +33,8 @@ function isStandalonePresentation(): boolean {
 export function Shell() {
   const [activeAppId, setActiveAppId] = useState<AppId | null>(null)
   const [enteredRemoteSessionId, setEnteredRemoteSessionId] = useState<string | null>(null)
+  const [operatingContext, setOperatingContext] = useState<'local' | 'remote'>('local')
+  const [pendingOperatingContext, setPendingOperatingContext] = useState<'local' | 'remote' | null>(null)
   const remoteTarget = resolveActiveRemoteTarget(useGameState())
   const remoteSessionId = remoteTarget?.session.id
   const { disconnectRemoteSession } = useGameActions()
@@ -48,15 +50,36 @@ export function Shell() {
   }
 
   useEffect(() => {
-    if (!remoteSessionId) return
+    if (!remoteSessionId) {
+      setEnteredRemoteSessionId(null)
+      setOperatingContext('local')
+      setPendingOperatingContext(null)
+      return
+    }
     const activeElement = document.activeElement
     if (activeElement instanceof HTMLElement) activeElement.blur()
   }, [remoteSessionId])
+
+  useEffect(() => {
+    if (!pendingOperatingContext || !viewport.recoveryReady) return
+    setOperatingContext(pendingOperatingContext)
+    setPendingOperatingContext(null)
+  }, [pendingOperatingContext, viewport.recoveryReady])
 
   function finishEditing() {
     const activeElement = document.activeElement
     if (activeElement instanceof HTMLElement) activeElement.blur()
   }
+
+  function switchOperatingContext(destination: 'local' | 'remote') {
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) activeElement.blur()
+    setPendingOperatingContext(destination)
+  }
+
+  const remoteEntered = Boolean(remoteTarget && enteredRemoteSessionId === remoteTarget.session.id)
+  const presentingRemote = remoteEntered && operatingContext === 'remote'
+  const presentingHandoff = Boolean(remoteTarget && !remoteEntered)
 
   return (
     <div
@@ -71,7 +94,7 @@ export function Shell() {
       data-standalone={standalonePresentation ? 'true' : 'false'}
       style={shellStyle}
     >
-      <div className="node-workspace" hidden={Boolean(remoteTarget)}>
+      <div className="node-workspace" hidden={presentingHandoff || presentingRemote}>
       <StatusBar />
       {ActiveComponent && activeApp && activeAppId ? (
         <main className="app-view">
@@ -103,18 +126,21 @@ export function Shell() {
       ) : (
         <Home openApp={setActiveAppId} />
       )}
-      <SystemBar />
+      <SystemBar remoteContext={remoteEntered && !presentingRemote ? remoteTarget : undefined} onReturnRemote={() => switchOperatingContext('remote')} />
       </div>
       {remoteTarget && enteredRemoteSessionId !== remoteTarget.session.id && (
         <RemoteSessionHandoff
           context={remoteTarget}
           ready={viewport.recoveryReady}
-          onEnter={() => setEnteredRemoteSessionId(remoteTarget.session.id)}
+          onEnter={() => {
+            setEnteredRemoteSessionId(remoteTarget.session.id)
+            setOperatingContext('remote')
+          }}
           onDisconnect={disconnectRemoteSession}
         />
       )}
-      {remoteTarget && enteredRemoteSessionId === remoteTarget.session.id && (
-        <RackOS key={remoteTarget.session.id} context={remoteTarget} />
+      {remoteTarget && presentingRemote && (
+        <RackOS key={remoteTarget.session.id} context={remoteTarget} onReturnLocal={() => switchOperatingContext('local')} />
       )}
       <ViewportDebug viewport={viewport} />
     </div>
