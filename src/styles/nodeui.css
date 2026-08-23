@@ -197,6 +197,23 @@ button.node-row:focus-visible {
 
 .node-action:disabled { color: var(--text-muted); cursor: default; }
 
+/* Labeled text input, e.g. a configured NODE payout address. */
+.node-field { display: grid; gap: 6px; width: 100%; }
+.node-field > span { color: var(--text-quiet); font-size: .58rem; letter-spacing: var(--label-tracking); }
+
+.node-input {
+  min-height: 44px;
+  padding: 0 12px;
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: .68rem;
+}
+
+.node-input:focus-visible { border-color: var(--line-accent); outline: 0; }
+
 /* Back / breadcrumb control. */
 .node-back {
   min-height: 44px;

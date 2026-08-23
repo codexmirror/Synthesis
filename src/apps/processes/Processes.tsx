@@ -12,7 +12,7 @@ const EMPTY_STATE: Record<ActivityFilterId, { headline: string; note: string }> 
 
 export function Processes() {
   const state = useGameState()
-  const { clearCompletedProcesses, removeCompletedProcess, cancelFileTransfer } = useGameActions()
+  const { clearCompletedProcesses, removeCompletedProcess, cancelFileTransfer, stopNodeMiner } = useGameActions()
   const [filter, setFilter] = useState<ActivityFilterId>('all')
   const { summary, activities } = deriveActivityMonitor(state)
   const visible = filterActivities(activities, filter)
@@ -46,7 +46,7 @@ export function Processes() {
 
     <div className="node-section"><span>RUNNING</span><span className="am-section-count">{running.length}</span></div>
     {running.length > 0
-      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : undefined} />)}</div>
+      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : undefined} onStop={activity.stoppable ? () => stopNodeMiner(activity.id) : undefined} />)}</div>
       : <div className="node-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
 
     {completed.length > 0 && <>
@@ -68,7 +68,7 @@ function Stat({ label, value, note, percent }: { label: string; value: string; n
   </div>
 }
 
-function ActivityCard({ activity, onRemove, onCancel }: { activity: MonitorActivity; onRemove?: () => void; onCancel?: () => void }) {
+function ActivityCard({ activity, onRemove, onCancel, onStop }: { activity: MonitorActivity; onRemove?: () => void; onCancel?: () => void; onStop?: () => void }) {
   return <article className="am-activity" data-category={activity.category} data-status={activity.status}>
     <div className="am-activity-head">
       <span className="am-kind">{activity.kindLabel}</span>
@@ -76,6 +76,7 @@ function ActivityCard({ activity, onRemove, onCancel }: { activity: MonitorActiv
         <span className="am-state"><i aria-hidden="true" />{activity.status === 'running' ? 'RUNNING' : 'COMPLETED'}</span>
         {activity.status === 'completed' && activity.category === 'operation' && onRemove && <button className="am-remove" type="button" aria-label={`Remove completed ${activity.kindLabel} process`} onClick={onRemove}>REMOVE</button>}
         {activity.status === 'running' && activity.category === 'transfer' && onCancel && <button className="am-cancel" type="button" aria-label={`Cancel active ${activity.kindLabel}`} onClick={onCancel}>CANCEL</button>}
+        {activity.status === 'running' && activity.stoppable && onStop && <button className="am-cancel" type="button" aria-label={`Stop ${activity.kindLabel}`} onClick={onStop}>STOP</button>}
       </span>
     </div>
     <div className="am-title">
@@ -83,7 +84,7 @@ function ActivityCard({ activity, onRemove, onCancel }: { activity: MonitorActiv
       <strong>{activity.title}</strong>
       {activity.route && <span className="am-route">{activity.route}</span>}
     </div>
-    <progress aria-hidden="true" max={100} value={activity.progressPercent} />
+    {activity.progressPercent !== undefined && <progress aria-hidden="true" max={100} value={activity.progressPercent} />}
     <dl className="am-facts">{activity.facts.map(({ label, value }) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
     {activity.details.length > 0 && <dl className="am-details">{activity.details.map(({ label, value }) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
     {activity.outcome && <p className="am-outcome" data-tone={activity.outcome.tone}>

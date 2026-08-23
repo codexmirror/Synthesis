@@ -67,7 +67,7 @@ describe('Initial credential access', () => {
     const usage = deriveResourceUsage(analysis.state.player.localDevice, analysis.state.process)
     expect(Object.values(usage.cpuAllocationByProcess)).toEqual([41, 41])
     const advanced = advanceGameState(analysis.state, 1000)
-    expect(advanced.process.processes.find(({ kind }) => kind === 'credential_access')?.workCompleted).toBe(41)
+    expect(advanced.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.workCompleted).toBe(41)
   })
 
   it('resolves success once, derives USER from current auth context, and prevents duplicate access', () => {
