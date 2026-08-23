@@ -29,3 +29,6 @@ A work order must be re-checked against current main before execution.
 
 Do not implement a work order merely because it exists in this directory.
 Only execute one when the human operator explicitly selects it.
+
+# archived workorders
+Archived workorders can be old not used or already inplemented tasks
