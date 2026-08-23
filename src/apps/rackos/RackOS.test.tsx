@@ -267,6 +267,46 @@ describe('RACK-OS', () => {
     expect(current.fileTransfer.active).toBeNull()
   })
 
+  it('presents the current target Device authentication history in SYSTEM without exposing internal Device or Service IDs', async () => {
+    const user = userEvent.setup()
+    const initial = connectedState()
+    const host = initial.world.network.hosts[0]
+    const withHistory = {
+      ...initial,
+      world: {
+        network: {
+          ...initial.world.network,
+          hosts: [
+            { ...host, authenticationHistory: { nextId: 3, records: [
+              { id: 'auth-0001', serviceId: 'service-http-001', serviceName: 'HTTP', sourceAddress: '198.51.100.23', result: 'SUCCESS' as const },
+              { id: 'auth-0002', serviceId: 'service-http-001', serviceName: 'HTTP', sourceAddress: '203.0.113.7', result: 'FAILURE' as const },
+            ] } },
+            ...initial.world.network.hosts.slice(1),
+          ],
+        },
+      },
+    }
+    render(<GameProvider initialState={withHistory}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'SYSTEM' }))
+
+    expect(document.body).toHaveTextContent('AUTHENTICATION HISTORY')
+    expect(document.body).toHaveTextContent('SOURCE 198.51.100.23')
+    expect(document.body).toHaveTextContent('SUCCESS')
+    expect(document.body).toHaveTextContent('SOURCE 203.0.113.7')
+    expect(document.body).toHaveTextContent('FAILURE')
+    expect(document.body).not.toHaveTextContent(host.id)
+    expect(document.body).not.toHaveTextContent('service-http-001')
+  })
+
+  it('presents a deliberate compact empty state when the target Device has no authentication history', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'SYSTEM' }))
+    expect(document.body).toHaveTextContent('AUTHENTICATION HISTORY')
+    expect(document.body).toHaveTextContent('NO AUTHENTICATION HISTORY')
+  })
+
   it('keeps the existing NODE-OS Terminal bound to local address and filesystem during an active Session', async () => {
     const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Terminal /></GameProvider>)
     const input = screen.getByLabelText('Command input')

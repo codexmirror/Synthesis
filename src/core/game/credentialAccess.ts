@@ -2,6 +2,7 @@ import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
 import { findInstalledBasicCredentialToolkit } from './software'
+import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 
 export const BASIC_CREDENTIAL_TOOLKIT_ID = 'basic-credential-toolkit' as const
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
@@ -48,15 +49,39 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }
 
-export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess'] } {
+/**
+ * Current network address of the Process executor Device that actually owns
+ * `executorDeviceId`, for the authentication history source-address
+ * snapshot. Returns `undefined` when that identity does not legitimately
+ * resolve to a represented Device; callers must never substitute another
+ * Device's address in that case, as doing so would fabricate provenance.
+ */
+function resolveExecutorAddress(state: GameState, executorDeviceId: string): string | undefined {
+  if (executorDeviceId === state.player.localDevice.id) return state.player.localDevice.network.ip
+  return state.world.network.hosts.find(({ id }) => id === executorDeviceId)?.ip
+}
+
+export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess']; world: GameState['world'] } {
   const resolved = resolveServiceEndpoint(state, process.startedEndpoint)
   const host = state.world.network.hosts.find(({ id }) => id === process.targetDeviceId)
   const service = host?.services?.find(({ id }) => id === process.serviceId)
   const validEndpoint = resolved !== 'invalid' && resolved?.targetDeviceId === process.targetDeviceId && resolved.serviceId === process.serviceId
-  const valid = host?.online && service?.open && validEndpoint && service.vulnerabilities?.some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess
-  if (!valid) return { process: { ...process, result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' } }, deviceAccess: state.deviceAccess }
+  // The simulated target only "received" the attempt while the originally selected endpoint still resolves to the same online Device and open Service.
+  const reached = Boolean(host?.online && service?.open && validEndpoint)
+  const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Target no longer responds as expected.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
+  if (!reached || !service) return failedResult
+
+  const succeeds = Boolean(service.vulnerabilities?.some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess)
+  // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
+  // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
+  const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
+  const world = sourceAddress
+    ? appendAuthenticationHistoryForHost(state.world, process.targetDeviceId, { serviceId: service.id, serviceName: service.name, sourceAddress, result: succeeds ? 'SUCCESS' : 'FAILURE' })
+    : state.world
+  if (!succeeds) return { ...failedResult, world }
+
   const existing = state.deviceAccess.established.find((access) => access.sourceDeviceId === process.executorDeviceId && access.targetDeviceId === process.targetDeviceId && access.viaServiceId === process.serviceId)
-  if (existing) return { process: { ...process, result: { status: 'access_established', accessId: existing.id } }, deviceAccess: state.deviceAccess }
+  if (existing) return { process: { ...process, result: { status: 'access_established', accessId: existing.id } }, deviceAccess: state.deviceAccess, world }
   const id = `access-${String(state.deviceAccess.nextId).padStart(4, '0')}`
-  return { process: { ...process, result: { status: 'access_established', accessId: id } }, deviceAccess: { nextId: state.deviceAccess.nextId + 1, established: [...state.deviceAccess.established, { id, sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, viaServiceId: process.serviceId, privilege: service.credentialAccess.privilege }] } }
+  return { process: { ...process, result: { status: 'access_established', accessId: id } }, deviceAccess: { nextId: state.deviceAccess.nextId + 1, established: [...state.deviceAccess.established, { id, sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, viaServiceId: process.serviceId, privilege: service.credentialAccess!.privilege }] }, world }
 }

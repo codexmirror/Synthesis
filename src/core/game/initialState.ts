@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 23
+export const GAME_STATE_VERSION = 24
 
 export function createInitialGameState(): GameState {
   return {
@@ -64,6 +64,7 @@ export function createInitialGameState(): GameState {
               { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
               { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
             ],
+            authenticationHistory: { nextId: 1, records: [] },
           },
           {
             id: 'host-lan-002',
@@ -81,6 +82,7 @@ export function createInitialGameState(): GameState {
             services: [
               { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-002', label: 'Weak authentication configuration' }] },
             ],
+            authenticationHistory: { nextId: 1, records: [] },
           },
           { id: 'host-training-001', ip: '203.0.113.42', online: true },
           { id: 'host-training-002', ip: '203.0.113.99', online: false },

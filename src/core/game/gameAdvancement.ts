@@ -19,10 +19,12 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
   if (processState !== nextState.process) {
     let discoveries = nextState.knowledge.discoveredVulnerabilities
     let deviceAccess = nextState.deviceAccess
+    let world = nextState.world
     const processes = processState.processes.map((process) => {
       if (process.kind === 'credential_access' && process.status === 'completed' && !process.result) {
-        const resolved = resolveCompletedCredentialAccess({ ...nextState, deviceAccess }, process)
+        const resolved = resolveCompletedCredentialAccess({ ...nextState, deviceAccess, world }, process)
         deviceAccess = resolved.deviceAccess
+        world = resolved.world
         return resolved.process
       }
       if (process.kind !== 'service_analysis' || process.status !== 'completed' || process.result) return process
@@ -32,7 +34,7 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
       }
       return resolved.process
     })
-    nextState = { ...nextState, process: { ...processState, processes }, knowledge: discoveries === nextState.knowledge.discoveredVulnerabilities ? nextState.knowledge : { discoveredVulnerabilities: discoveries }, deviceAccess }
+    nextState = { ...nextState, process: { ...processState, processes }, knowledge: discoveries === nextState.knowledge.discoveredVulnerabilities ? nextState.knowledge : { discoveredVulnerabilities: discoveries }, deviceAccess, world }
   }
 
   return advanceFileTransfer(nextState, elapsedMs)

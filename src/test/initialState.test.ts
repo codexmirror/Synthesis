@@ -28,12 +28,12 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 23', () => {
+  it('separates identities and seeds canonical local-device state in schema version 24', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(23)
+    expect(GAME_STATE_VERSION).toBe(24)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
-    expect(state.version).toBe(23)
+    expect(state.version).toBe(24)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -67,6 +67,7 @@ describe('createInitialGameState', () => {
           { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
           { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, vulnerabilities: [] },
         ],
+        authenticationHistory: { nextId: 1, records: [] },
       },
       {
         id: 'host-lan-002', displayName: 'srv-02', ip: '198.51.100.53', online: true, role: 'server',
@@ -78,6 +79,7 @@ describe('createInitialGameState', () => {
         services: [
           { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-002', label: 'Weak authentication configuration' }] },
         ],
+        authenticationHistory: { nextId: 1, records: [] },
       },
       { id: 'host-training-001', ip: '203.0.113.42', online: true },
       { id: 'host-training-002', ip: '203.0.113.99', online: false },
