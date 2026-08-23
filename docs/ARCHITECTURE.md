@@ -467,11 +467,14 @@ Firmware and interface presentation state. Files, Terminal, and any other
 observation surfaces must derive their views from the same canonical
 filesystem rather than creating application-local file models.
 
-Directories are derived from file paths. Every concrete file copy has a stable
-filesystem-local ID, while its path is its current location. A cross-Device
-reference therefore requires `(deviceId, fileId)`; files do not duplicate their
-owning Device identity. Copying allocates a new destination ID while preserving
-the represented artifact semantics. Local and foreign interfaces remain bound
+Directories are derived from file paths. Every concrete file copy has an ID
+that is unique and stable within its owning filesystem, while its path is its
+current location. Raw file IDs may coincide across Devices, so a cross-Device
+reference requires `(deviceId, fileId)`; files do not duplicate their owning
+Device identity. Copying allocates only from the destination filesystem. It
+creates a new concrete copy identity even when its raw destination file ID is
+equal to the source file ID on another Device, while preserving the represented
+artifact semantics. Local and foreign interfaces remain bound
 to their respective Device-owned filesystem; this boundary does not imply a
 global file registry, generic virtual-filesystem framework, or remote
 filesystem authority.

@@ -58,6 +58,18 @@ describe('filesystem copies', () => {
     expect(destination).toEqual({ nextFileId: 42, files: [] })
   })
 
+  it('allocates a distinct identity when copying an existing file within one filesystem', () => {
+    const source = { ...text, id: 'file-0001', path: '/source.txt' }
+    const destination = { nextFileId: 2, files: [source] }
+    const result = copyFilesystemFileToPath(source, destination, '/copy.txt')
+    expect(result).toMatchObject({
+      status: 'copied',
+      file: { ...source, id: 'file-0002', path: '/copy.txt' },
+      filesystem: { nextFileId: 3 },
+    })
+    expect(destination).toEqual({ nextFileId: 2, files: [source] })
+  })
+
   it('preserves collision behavior without mutation', () => {
     const existing = { nextFileId: 2, files: [{ ...text, path: '/home/user/downloads/file' }] }
     expect(copyFilesystemFileToPath(text, existing, '/home/user/downloads/file')).toEqual({ status: 'destination_exists' })

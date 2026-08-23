@@ -37,8 +37,9 @@ describe('remote download', () => {
     if (result.status !== 'downloaded') throw new Error('expected download')
     expect(result.destinationPath).toBe('/home/user/downloads/nodescan-exp-1.1.pkg')
     const downloaded = result.state.player.localDevice.filesystem.files.at(-1)!
-    expect(downloaded).toEqual({ ...sourceFilesystem!.files[1], id: 'file-0003', path: result.destinationPath })
-    expect(downloaded.id).not.toBe(sourceFilesystem!.files[1].id)
+    expect(sourceFilesystem!.files[1].id).toBe('file-0002')
+    expect(downloaded).toEqual({ ...sourceFilesystem!.files[1], id: 'file-0002', path: result.destinationPath })
+    expect(result.state.player.localDevice.filesystem.nextFileId).toBe(3)
     expect(result.state.world.network.hosts[0].filesystem).toBe(sourceFilesystem)
     expect(result.state.player.localDevice.installedSoftware).toBe(installed)
     expect(result.state.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })

@@ -124,16 +124,11 @@ export function copyFilesystemFileToPath(sourceFile: FilesystemFile, destination
   }
 
   getFilesystemFileSizeBytes(sourceFile)
-  let allocatedNumber = destinationFilesystem.nextFileId
-  let allocatedId = `file-${String(allocatedNumber).padStart(4, '0')}`
-  if (allocatedId === sourceFile.id) {
-    allocatedNumber += 1
-    allocatedId = `file-${String(allocatedNumber).padStart(4, '0')}`
-  }
+  const allocatedId = `file-${String(destinationFilesystem.nextFileId).padStart(4, '0')}`
   const file = { ...sourceFile, id: allocatedId, path: normalized }
   return {
     status: 'copied',
-    filesystem: { nextFileId: allocatedNumber + 1, files: [...destinationFilesystem.files, file] },
+    filesystem: { nextFileId: destinationFilesystem.nextFileId + 1, files: [...destinationFilesystem.files, file] },
     file,
   }
 }
