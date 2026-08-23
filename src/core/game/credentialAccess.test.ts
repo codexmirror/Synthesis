@@ -93,7 +93,7 @@ describe('Initial credential access', () => {
     const running = start(); const discovery = running.discovery; const knowledge = running.knowledge
     const done = advanceGameState(changeService(running, (service) => ({ ...service, vulnerabilities: [] })), 30_000)
     expect(done.deviceAccess.established).toEqual([])
-    expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' }, startedEndpoint: observation.endpoint })
+    expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.' }, startedEndpoint: observation.endpoint })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
     const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
     expect(target?.authenticationHistory?.records).toEqual([{ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: done.player.localDevice.network.ip, result: 'FAILURE' }])
@@ -106,7 +106,7 @@ describe('Initial credential access', () => {
     const running = start(); const discovery = running.discovery; const knowledge = running.knowledge
     const done = advanceGameState(mutate(running), 30_000)
     expect(done.deviceAccess.established).toEqual([])
-    expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' }, startedEndpoint: observation.endpoint })
+    expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.' }, startedEndpoint: observation.endpoint })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
     const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
     expect(target?.authenticationHistory?.records ?? []).toEqual([])

@@ -47,6 +47,25 @@ const TARGET_B: TargetFixture = {
   endpoint: '198.51.100.53:22', filePath: '/srv/backup-manifest.txt', fileContent: 'Backup manifest for srv-02.', displayName: 'srv-02',
 }
 
+/** Test-only World fixture: keep srv-02 intact while removing its represented second-factor condition. */
+function withUnhardenedTargetB(state: GameState): GameState {
+  return {
+    ...state,
+    world: {
+      network: {
+        ...state.world.network,
+        hosts: state.world.network.hosts.map((host) => host.id !== TARGET_B.id ? host : {
+          ...host,
+          services: host.services?.map((service) => service.id !== TARGET_B.serviceId ? service : {
+            ...service,
+            credentialAccess: { privilege: 'USER' as const },
+          }),
+        }),
+      },
+    },
+  }
+}
+
 /** Walk the existing player-facing chain (scan -> discovery -> analysis -> credential access) against one target. */
 function discoverAndCredentialAccess(state: GameState, target: TargetFixture): GameState {
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
@@ -84,7 +103,7 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     expect(afterAttempt.deviceAccess.established).toEqual([])
     expect(afterAttempt.process.processes.at(-1)).toMatchObject({
       kind: 'credential_access', status: 'completed',
-      result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' },
+      result: { status: 'attempt_failed', message: 'Authentication attempt failed.' },
     })
 
     const target = afterAttempt.world.network.hosts.find(({ id }) => id === TARGET_B.id)
@@ -103,6 +122,34 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     expect(active?.target.displayName).toBe(TARGET_A.displayName)
     const downloaded = downloadRemoteFile(connected, TARGET_A.filePath)
     expect(downloaded.status).toBe('downloaded')
+  })
+
+  it('runs an unhardened Target B fixture through the shared access, RACK-OS, filesystem, and Download pipeline without crossing identities', () => {
+    let state = withUnhardenedTargetB(createInitialGameState())
+    state = discoverAndCredentialAccess(state, TARGET_A)
+    state = discoverAndCredentialAccess(state, TARGET_B)
+
+    expect(state.deviceAccess.established).toEqual([
+      expect.objectContaining({ id: 'access-0001', targetDeviceId: TARGET_A.id, viaServiceId: TARGET_A.serviceId }),
+      expect.objectContaining({ id: 'access-0002', targetDeviceId: TARGET_B.id, viaServiceId: TARGET_B.serviceId }),
+    ])
+
+    const connected = connectTo(state, TARGET_B)
+    const remote = resolveActiveRemoteTarget(connected)
+    expect(remote).toMatchObject({
+      access: { id: 'access-0002', targetDeviceId: TARGET_B.id },
+      target: { id: TARGET_B.id, displayName: TARGET_B.displayName, firmware: { name: 'RACK-OS' } },
+    })
+    expect(remote?.target.filesystem?.files).toContainEqual(expect.objectContaining({ path: TARGET_B.filePath, content: TARGET_B.fileContent }))
+
+    const downloaded = downloadRemoteFile(connected, TARGET_B.filePath)
+    if (downloaded.status !== 'downloaded') throw new Error('expected download from B')
+    expect(downloaded.state.player.localDevice.filesystem.files).toContainEqual(expect.objectContaining({
+      path: downloaded.destinationPath,
+      content: TARGET_B.fileContent,
+    }))
+    expect(downloaded.state.world.network.hosts.find(({ id }) => id === TARGET_A.id)?.filesystem?.files).toContainEqual(expect.objectContaining({ content: TARGET_A.fileContent }))
+    expect(downloaded.state.world.network.hosts.find(({ id }) => id === TARGET_B.id)?.filesystem?.files).toContainEqual(expect.objectContaining({ content: TARGET_B.fileContent }))
   })
 
   it('does not let Knowledge leak between A and B, and does not grant B DeviceAccess merely because A succeeded', () => {

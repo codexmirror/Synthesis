@@ -107,7 +107,7 @@ describe('Hardened Authentication Target (srv-02 / host-lan-002)', () => {
   it('does not reveal the hidden second-factor condition in the player-facing failure result', () => {
     const done = advanceGameState(start(), 30_000)
     const result = (done.process.processes.at(-1) as CredentialAccessProcess).result
-    expect(result).toEqual({ status: 'attempt_failed', message: 'Target no longer responds as expected.' })
+    expect(result).toEqual({ status: 'attempt_failed', message: 'Authentication attempt failed.' })
     const presented = JSON.stringify(result).toLowerCase()
     expect(presented).not.toContain('mfa')
     expect(presented).not.toContain('second factor')
