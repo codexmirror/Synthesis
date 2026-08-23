@@ -8,7 +8,7 @@ import { createLocalScanTarget, type ScanTargetOperation } from './localScanOper
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
-import { downloadRemoteFile, type DownloadRemoteFileResult } from '../core/game/remoteDownload'
+import { startRemoteFileDownload, type StartRemoteFileDownloadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } from '../core/game/softwareInstallation'
 
 const GameContext = createContext<GameState | null>(null)
@@ -22,7 +22,7 @@ export interface GameActions {
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
-  downloadRemoteFile(sourcePath: string): DownloadRemoteFileResult
+  startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   clearCompletedProcesses(): void
 }
@@ -90,9 +90,9 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     const result = disconnectRemoteSession(currentState.current)
     if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
     return result
-  }, downloadRemoteFile(sourcePath) {
-    const result = downloadRemoteFile(currentState.current, sourcePath)
-    if (result.status === 'downloaded') {
+  }, startRemoteFileDownload(sourcePath) {
+    const result = startRemoteFileDownload(currentState.current, sourcePath)
+    if (result.status === 'started') {
       currentState.current = result.state
       setGameState(result.state)
     }

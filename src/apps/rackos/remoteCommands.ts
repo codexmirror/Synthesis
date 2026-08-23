@@ -1,10 +1,10 @@
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
-import type { DownloadRemoteFileResult } from '../../core/game/remoteDownload'
+import type { StartRemoteFileDownloadResult } from '../../core/game/fileTransfer'
 
 export type RemoteCommandResult = { readonly output: readonly string[]; readonly clear?: boolean; readonly disconnect?: boolean }
 
-export function runRemoteCommand(context: ActiveRemoteTarget, source: string, downloadRemoteFile: (path: string) => DownloadRemoteFileResult): RemoteCommandResult {
+export function runRemoteCommand(context: ActiveRemoteTarget, source: string, startRemoteFileDownload: (path: string) => StartRemoteFileDownloadResult): RemoteCommandResult {
   const [name = '', ...args] = source.trim().split(/\s+/)
   if (name === 'help') return { output: ['help  clear  ip  ls  cat  download  disconnect'] }
   if (name === 'clear') return { output: [], clear: true }
@@ -23,10 +23,12 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string, do
   }
   if (name === 'download') {
     if (!args[0] || args.length !== 1) return { output: ['USAGE: download /absolute/file/path'] }
-    const result = downloadRemoteFile(args[0])
-    if (result.status === 'downloaded') return { output: ['DOWNLOADED', result.sourcePath, `→ ${result.destinationPath}`] }
-    const failures: Record<Exclude<DownloadRemoteFileResult['status'], 'downloaded'>, string> = {
-      session_unavailable: 'SESSION UNAVAILABLE', invalid_path: 'INVALID PATH', source_not_found: 'FILE NOT FOUND', source_not_file: 'NOT A FILE', destination_exists: 'DESTINATION ALREADY EXISTS', destination_conflict: 'DESTINATION CONFLICT',
+    const result = startRemoteFileDownload(args[0])
+    if (result.status === 'started') return { output: ['DOWNLOAD STARTED', result.sourcePath, `→ ${result.destinationPath}`] }
+    const failures: Record<Exclude<StartRemoteFileDownloadResult['status'], 'started'>, string> = {
+      session_unavailable: 'SESSION UNAVAILABLE', invalid_path: 'INVALID PATH', source_not_found: 'FILE NOT FOUND', source_not_file: 'NOT A FILE',
+      local_offline: 'LOCAL DEVICE OFFLINE', source_offline: 'SOURCE UNAVAILABLE', capacity_unavailable: 'TRANSFER CAPACITY UNAVAILABLE',
+      transfer_in_progress: 'TRANSFER IN PROGRESS', destination_exists: 'DESTINATION ALREADY EXISTS', destination_conflict: 'DESTINATION CONFLICT',
     }
     return { output: [failures[result.status]] }
   }

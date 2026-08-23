@@ -28,6 +28,8 @@ export type CopyFilesystemFileResult =
   | { readonly status: 'copied'; readonly filesystem: FilesystemState; readonly file: FilesystemFile }
   | { readonly status: 'invalid_path' | 'destination_exists' | 'destination_conflict' }
 
+export type DestinationPlacementStatus = 'ok' | 'invalid_path' | 'destination_exists' | 'destination_conflict'
+
 function normalizeAbsolutePath(path: string): string | undefined {
   if (!path.startsWith('/') || path.includes('//') || path.includes('/./') || path.includes('/../') || path.endsWith('/.') || path.endsWith('/..')) return undefined
   return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
@@ -109,23 +111,35 @@ export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: Filesys
   return false
 }
 
-/** Copy one represented file without deriving its semantics from its path. */
-export function copyFilesystemFileToPath(sourceFile: FilesystemFile, destinationFilesystem: FilesystemState, destinationPath: string): CopyFilesystemFileResult {
+/**
+ * Validate a destination location against existing collision/conflict rules
+ * without allocating or mutating anything. Shared by the copy operation
+ * itself and by callers that must confirm a destination stays free across an
+ * elapsed interval (e.g. FileTransfer start/completion admission).
+ */
+export function checkDestinationPlacement(destinationFilesystem: FilesystemState, destinationPath: string): DestinationPlacementStatus {
   const normalized = normalizeAbsolutePath(destinationPath)
-  if (!normalized || normalized === '/') return { status: 'invalid_path' }
-  if (destinationFilesystem.files.some(({ path }) => path === normalized)) return { status: 'destination_exists' }
-  if (destinationFilesystem.files.some(({ path }) => path.startsWith(`${normalized}/`))) return { status: 'destination_conflict' }
+  if (!normalized || normalized === '/') return 'invalid_path'
+  if (destinationFilesystem.files.some(({ path }) => path === normalized)) return 'destination_exists'
+  if (destinationFilesystem.files.some(({ path }) => path.startsWith(`${normalized}/`))) return 'destination_conflict'
 
   const segments = normalized.slice(1).split('/')
   let ancestor = ''
   for (const segment of segments.slice(0, -1)) {
     ancestor += `/${segment}`
-    if (destinationFilesystem.files.some(({ path }) => path === ancestor)) return { status: 'destination_conflict' }
+    if (destinationFilesystem.files.some(({ path }) => path === ancestor)) return 'destination_conflict'
   }
+  return 'ok'
+}
+
+/** Copy one represented file without deriving its semantics from its path. */
+export function copyFilesystemFileToPath(sourceFile: FilesystemFile, destinationFilesystem: FilesystemState, destinationPath: string): CopyFilesystemFileResult {
+  const placement = checkDestinationPlacement(destinationFilesystem, destinationPath)
+  if (placement !== 'ok') return { status: placement }
 
   getFilesystemFileSizeBytes(sourceFile)
   const allocatedId = `file-${String(destinationFilesystem.nextFileId).padStart(4, '0')}`
-  const file = { ...sourceFile, id: allocatedId, path: normalized }
+  const file = { ...sourceFile, id: allocatedId, path: normalizeAbsolutePath(destinationPath)! }
   return {
     status: 'copied',
     filesystem: { nextFileId: destinationFilesystem.nextFileId + 1, files: [...destinationFilesystem.files, file] },
