@@ -63,6 +63,25 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly result?: CredentialAccessResult
 }
 
+export type SoftwareInstallationResult =
+  | { readonly status: 'installed'; readonly executablePath?: string }
+  | { readonly status: 'install_path_occupied' }
+
+export interface SoftwareInstallationProcess extends ProcessBase {
+  readonly kind: 'software_installation'
+  readonly productId: 'nodescan' | 'node-miner'
+  readonly releaseId: string
+  readonly name: string
+  readonly version: string
+  readonly channel: string
+  readonly publisher?: string
+  readonly sourceFileId: string
+  readonly sourcePath: string
+  readonly destinationPath?: string
+  readonly previousReleaseId?: string
+  readonly result?: SoftwareInstallationResult
+}
+
 /**
  * Continuous Device-owned executable runtime. Unlike the finite GameProcess
  * kinds above, it never reaches `completed` from elapsed work: STOP removes
@@ -96,7 +115,7 @@ export interface NodeMinerProcess extends ProcessCommon {
   readonly workRemainder: number
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | NodeMinerProcess
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | SoftwareInstallationProcess | NodeMinerProcess
 
 export interface ProcessState {
   readonly nextId: number

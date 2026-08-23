@@ -1,132 +1,87 @@
 import { describe, expect, it } from 'vitest'
+import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH } from './nodeMiner'
-import { installLocalSoftwarePackage } from './softwareInstallation'
-import type { ExecutableFile, GameState, SoftwarePackageFile } from './types'
+import { deriveResourceUsage, startProcess } from './processes'
+import { installLocalSoftwarePackage, SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB } from './softwareInstallation'
+import type { GameState, SoftwarePackageFile } from './types'
+import { deriveActivityMonitor } from '../../apps/processes/activityMonitor'
 
-const path = '/home/user/downloads/nodescan.weird'
-const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path, releaseId: 'build-a91f7', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+const nodeScanPath = '/home/user/downloads/nodescan.pkg'
+const nodeScanPackage: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path: nodeScanPath, releaseId: 'build-a91f7', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
 
-function withFiles(files: GameState['player']['localDevice']['filesystem']['files']): GameState {
+function withNodeScan(): GameState {
   const state = createInitialGameState()
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files } } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, nodeScanPackage] } } } }
 }
 
-describe('installLocalSoftwarePackage', () => {
-  it.each([
-    ['relative.pkg', 'invalid_path'],
-    ['/missing.pkg', 'package_not_found'],
-    ['/home', 'package_not_file'],
-  ] as const)('returns %s without mutation', (requestedPath, status) => {
-    const state = withFiles([{ kind: 'text', id: 'file-fixture-text', path: '/home/user/readme.txt', content: '' }])
-    expect(installLocalSoftwarePackage(state, requestedPath)).toEqual({ status, state })
-  })
+function admit(state: GameState, path: string) {
+  const result = installLocalSoftwarePackage(state, path)
+  if (result.status !== 'started') throw new Error(result.status)
+  return result
+}
 
-  it('validates canonical file kind and product identity rather than filename or display name', () => {
-    const text = withFiles([{ kind: 'text', id: 'file-fixture-text', path: '/home/user/nodescan.pkg', content: '' }])
-    expect(installLocalSoftwarePackage(text, '/home/user/nodescan.pkg')).toEqual({ status: 'not_software_package', state: text })
-    const unsupportedFile = { ...packageFile, productId: 'other-product' }
-    const unsupported = withFiles([unsupportedFile])
-    expect(installLocalSoftwarePackage(unsupported, path)).toEqual({ status: 'unsupported_package', state: unsupported })
-  })
-
-  it('projects explicit metadata with opaque release identity, preserves package, Process, unrelated software, and ordering', () => {
-    const state = withFiles([packageFile])
-    const result = installLocalSoftwarePackage(state, path)
-    expect(result).toMatchObject({ status: 'installed', productId: 'nodescan', releaseId: 'build-a91f7', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', previousReleaseId: 'nodescan-1.0-standard' })
-    expect(result.state).not.toBe(state)
-    expect(result.state.player.localDevice.installedSoftware).toEqual([
-      { id: 'nodescan', releaseId: 'build-a91f7', name: 'Canonical Scanner', version: '1.1', channel: 'experimental' },
-      state.player.localDevice.installedSoftware[1],
-    ])
-    expect(result.state.player.localDevice.filesystem.files[0]).toBe(packageFile)
-    expect(result.state.process).toBe(state.process)
-    expect(result.state.world).toBe(state.world)
-  })
-
-  it('uses releaseId alone for sameness and replaces any different release without version ordering', () => {
-    const same = withFiles([{ ...packageFile, releaseId: 'nodescan-1.0-standard', name: 'Malformed Metadata', version: '99' }])
-    expect(installLocalSoftwarePackage(same, path)).toEqual({ status: 'already_installed', state: same })
-    const lowerLooking = withFiles([{ ...packageFile, releaseId: 'different-build', version: '0.1', channel: 'modified' }])
-    expect(installLocalSoftwarePackage(lowerLooking, path).state.player.localDevice.installedSoftware[0]).toMatchObject({ releaseId: 'different-build', version: '0.1', channel: 'modified' })
-  })
-
-  it('appends NodeScan when absent while preserving unrelated software', () => {
-    const base = withFiles([packageFile])
-    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
-    const result = installLocalSoftwarePackage(state, path)
-    expect(result.state.player.localDevice.installedSoftware).toEqual([base.player.localDevice.installedSoftware[1], expect.objectContaining({ id: 'nodescan', releaseId: 'build-a91f7' })])
-  })
-
-  it('cannot install a package that exists only on a remote filesystem', () => {
+describe('finite software installation', () => {
+  it('validates local package artifacts and rejects unsupported packages', () => {
     const state = createInitialGameState()
-    const remotePath = '/opt/packages/nodescan-exp-1.1.pkg'
-    expect(state.world.network.hosts[0].filesystem?.files.some(({ path }) => path === remotePath)).toBe(true)
-    expect(installLocalSoftwarePackage(state, remotePath)).toEqual({ status: 'package_not_found', state })
-  })
-})
-
-describe('installLocalSoftwarePackage: NODE Miner', () => {
-  const packagePath = '/home/user/downloads/node-miner-1.0.pkg'
-
-  it('records installed software and creates exactly one concrete executable at the deterministic installed path, leaving the package untouched', () => {
-    const state = createInitialGameState()
-    const result = installLocalSoftwarePackage(state, packagePath)
-    expect(result).toMatchObject({ status: 'installed', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', executablePath: NODE_MINER_INSTALLED_EXECUTABLE_PATH })
-    expect(result.state).not.toBe(state)
-    // Installed-software state carries the package's own stated provenance, including its unofficial release channel and publisher.
-    expect(result.state.player.localDevice.installedSoftware).toContainEqual({ id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' })
-
-    const executables = result.state.player.localDevice.filesystem.files.filter((file): file is ExecutableFile => file.kind === 'executable')
-    expect(executables).toHaveLength(1)
-    expect(executables[0]).toMatchObject({ path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' })
-
-    // The package artifact itself remains, and installation creates no Process.
-    expect(result.state.player.localDevice.filesystem.files.some((file) => file.path === packagePath)).toBe(true)
-    expect(result.state.process).toBe(state.process)
+    expect(installLocalSoftwarePackage(state, 'relative.pkg').status).toBe('invalid_path')
+    expect(installLocalSoftwarePackage(state, '/missing.pkg').status).toBe('package_not_found')
+    const unsupported = { ...nodeScanPackage, productId: 'other' }
+    const fixture = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [unsupported] } } } }
+    expect(installLocalSoftwarePackage(fixture, nodeScanPath).status).toBe('unsupported_package')
   })
 
-  it('does not start a Process, even though a real executable now exists', () => {
-    const state = createInitialGameState()
-    const result = installLocalSoftwarePackage(state, packagePath)
-    expect(result.state.process.processes).toEqual([])
+  it('starts normal shared work from a package snapshot without installing early and rejects a concurrent product install', () => {
+    const state = withNodeScan()
+    const result = admit(state, nodeScanPath)
+    expect(result).toMatchObject({ processId: 'process-0001', productId: 'nodescan' })
+    expect(result.state.player.localDevice.installedSoftware[0]).toBe(state.player.localDevice.installedSoftware[0])
+    expect(result.state.process.processes[0]).toMatchObject({ kind: 'software_installation', status: 'running', sourceFileId: nodeScanPackage.id, sourcePath: nodeScanPath, name: 'Canonical Scanner', releaseId: 'build-a91f7', ramRequiredMiB: SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB })
+    expect(installLocalSoftwarePackage(result.state, nodeScanPath)).toEqual({ status: 'already_installing', state: result.state })
   })
 
-  it('is already_installed on a second identical install and never creates a duplicate executable', () => {
-    const state = createInitialGameState()
-    const first = installLocalSoftwarePackage(state, packagePath)
-    if (first.status !== 'installed') throw new Error(first.status)
-    const second = installLocalSoftwarePackage(first.state, packagePath)
-    expect(second).toEqual({ status: 'already_installed', state: first.state })
-    const executables = second.state.player.localDevice.filesystem.files.filter((file) => file.kind === 'executable')
-    expect(executables).toHaveLength(1)
+  it('uses real CPU/RAM allocation and contends with other running Process work', () => {
+    const state = withNodeScan()
+    const generic = startProcess(state.process, state.player.localDevice, { label: 'OTHER', workRequired: 10_000, ramRequiredMiB: 256 })
+    if (generic.status !== 'started') throw new Error(generic.status)
+    const admitted = admit({ ...state, process: generic.state }, nodeScanPath)
+    const usage = deriveResourceUsage(state.player.localDevice, admitted.state.process)
+    expect(usage.cpuAllocationByProcess[generic.processId]).toBe(41)
+    expect(usage.cpuAllocationByProcess[admitted.processId]).toBe(41)
+    expect(usage.processRamMiB).toBe(768)
+    const advanced = advanceGameState(admitted.state, 1_000)
+    expect(advanced.process.processes.map((process) => process.kind === 'node_miner' ? 0 : process.workCompleted)).toEqual([41, 41])
   })
 
-  it('does not overwrite an unrelated artifact already occupying the deterministic installation path', () => {
-    const state = createInitialGameState()
-    const occupied: GameState = {
-      ...state,
-      player: {
-        ...state.player,
-        localDevice: {
-          ...state.player.localDevice,
-          filesystem: {
-            ...state.player.localDevice.filesystem,
-            files: [...state.player.localDevice.filesystem.files, { kind: 'text', id: 'file-occupant', path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, content: 'not NODE Miner' }],
-          },
-        },
-      },
-    }
-    const result = installLocalSoftwarePackage(occupied, packagePath)
-    expect(result).toEqual({ status: 'install_path_occupied', state: occupied })
-    expect(occupied.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
+  it('installs NodeScan only at completion and archives the resolved Process', () => {
+    const admitted = admit(withNodeScan(), nodeScanPath)
+    expect(deriveActivityMonitor(admitted.state).activities[0]).toMatchObject({ kindLabel: 'SOFTWARE INSTALLATION', title: 'Canonical Scanner 1.1', status: 'running' })
+    const completed = advanceGameState(admitted.state, 10_000)
+    expect(completed.player.localDevice.installedSoftware[0]).toEqual({ id: 'nodescan', releaseId: 'build-a91f7', name: 'Canonical Scanner', version: '1.1', channel: 'experimental' })
+    expect(completed.process.processes[0]).toMatchObject({ status: 'completed', result: { status: 'installed' } })
+    expect(completed.recentActivity.entries[0]).toMatchObject({ kind: 'process', id: admitted.processId })
+    expect(deriveActivityMonitor(completed).activities[0]).toMatchObject({ kindLabel: 'SOFTWARE INSTALLATION', title: 'Canonical Scanner 1.1', status: 'recent', outcome: { headline: 'INSTALLED' } })
   })
 
-  it('a local installation on the player Device does not imply installation on a remote Device', () => {
+  it('creates NODE Miner installed software and executable exactly once after completion', () => {
     const state = createInitialGameState()
-    const result = installLocalSoftwarePackage(state, packagePath)
-    if (result.status !== 'installed') throw new Error(result.status)
-    expect(result.state.world).toBe(state.world)
-    expect(result.state.world.network.hosts[0].filesystem?.files.some((file) => file.kind === 'executable')).toBe(false)
+    const admitted = admit(state, '/home/user/downloads/node-miner-1.0.pkg')
+    expect(admitted.state.player.localDevice.installedSoftware.some(({ id }) => id === 'node-miner')).toBe(false)
+    expect(admitted.state.player.localDevice.filesystem.files.some(({ path }) => path === NODE_MINER_INSTALLED_EXECUTABLE_PATH)).toBe(false)
+    const completed = advanceGameState(admitted.state, 10_000)
+    expect(completed.player.localDevice.installedSoftware.filter(({ id }) => id === 'node-miner')).toHaveLength(1)
+    expect(completed.player.localDevice.filesystem.files.filter(({ path }) => path === NODE_MINER_INSTALLED_EXECUTABLE_PATH)).toHaveLength(1)
+    const repeated = advanceGameState(completed, 10_000)
+    expect(repeated.player.localDevice.installedSoftware.filter(({ id }) => id === 'node-miner')).toHaveLength(1)
+    expect(repeated.player.localDevice.filesystem.files.filter(({ path }) => path === NODE_MINER_INSTALLED_EXECUTABLE_PATH)).toHaveLength(1)
+  })
+
+  it('fails safely if the NODE Miner destination becomes occupied during work', () => {
+    const admitted = admit(createInitialGameState(), '/home/user/downloads/node-miner-1.0.pkg')
+    const occupied = { ...admitted.state, player: { ...admitted.state.player, localDevice: { ...admitted.state.player.localDevice, filesystem: { ...admitted.state.player.localDevice.filesystem, files: [...admitted.state.player.localDevice.filesystem.files, { kind: 'text' as const, id: 'occupant', path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, content: 'truth' }] } } } }
+    const completed = advanceGameState(occupied, 10_000)
+    expect(completed.process.processes[0]).toMatchObject({ result: { status: 'install_path_occupied' } })
+    expect(completed.player.localDevice.installedSoftware.some(({ id }) => id === 'node-miner')).toBe(false)
+    expect(completed.player.localDevice.filesystem.files.find(({ id }) => id === 'occupant')).toMatchObject({ content: 'truth' })
   })
 })

@@ -5,6 +5,7 @@ import { advanceFileTransfer } from './fileTransfer'
 import { resolveNodeMinerProduction } from './nodeMiner'
 import type { GameState } from './types'
 import { archiveProcess } from './recentActivity'
+import { resolveCompletedSoftwareInstallation } from './softwareInstallation'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -23,6 +24,11 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
     let deviceAccess = nextState.deviceAccess
     let world = nextState.world
     const processes = processState.processes.map((process) => {
+      if (process.kind === 'software_installation' && process.status === 'completed' && !process.result) {
+        const resolved = resolveCompletedSoftwareInstallation(nextState, process)
+        nextState = resolved.state
+        return resolved.process
+      }
       if (process.kind === 'credential_access' && process.status === 'completed' && !process.result) {
         const resolved = resolveCompletedCredentialAccess({ ...nextState, deviceAccess, world }, process)
         deviceAccess = resolved.deviceAccess

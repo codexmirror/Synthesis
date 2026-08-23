@@ -122,8 +122,8 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
     id: process.id,
     category: 'operation',
     kindLabel: process.kind === 'generic' ? 'PROCESS' : process.label,
-    titleLabel: process.kind === 'generic' ? undefined : 'TARGET',
-    title: process.kind === 'generic' ? process.label : process.startedEndpoint,
+    titleLabel: process.kind === 'generic' ? undefined : process.kind === 'software_installation' ? 'RELEASE' : 'TARGET',
+    title: process.kind === 'generic' ? process.label : process.kind === 'software_installation' ? `${process.name} ${process.version}` : process.startedEndpoint,
     status: recent ? 'recent' : 'running',
     progressPercent,
     facts: [
@@ -171,6 +171,11 @@ function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, ex
 }
 
 function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[]): ActivityOutcome | undefined {
+  if (process.kind === 'software_installation') {
+    if (process.result?.status === 'installed') return { tone: 'positive', headline: 'INSTALLED', details: [] }
+    if (process.result?.status === 'install_path_occupied') return { tone: 'negative', headline: 'INSTALL PATH OCCUPIED', details: [] }
+    return undefined
+  }
   if (process.kind === 'service_analysis') {
     if (process.result?.status === 'weaknesses_detected') {
       return { tone: 'positive', headline: 'WEAKNESS DETECTED', details: process.result.vulnerabilities.map(({ observedLabel }) => observedLabel) }

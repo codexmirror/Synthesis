@@ -4,11 +4,11 @@ import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '..
 import { findRunningLocalNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
-import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, NodeMinerProcess, SoftwarePackageFile } from '../../core/game/types'
+import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
 
-type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'UNSUPPORTED'
+type PackageState = 'INSTALLED' | 'INSTALLING' | 'INSTALLABLE' | 'UNSUPPORTED'
 
 export function Files() {
   const state = useGameState()
@@ -21,13 +21,14 @@ export function Files() {
   const selected = selectedFile ? getFilesystemFile(filesystem, selectedFile) : undefined
   const incoming = deriveIncomingArtifact(state.fileTransfer.active, localDevice.id, path)
   const localNodeMinerProcess = findRunningLocalNodeMiner(state)
+  const installations = state.process.processes.filter((process): process is SoftwareInstallationProcess => process.kind === 'software_installation' && process.status === 'running' && process.executorDeviceId === localDevice.id)
 
   if (selectedFile) return <section className="app-content files-app">
     <button className="node-back" type="button" onClick={() => setSelectedFile(undefined)} aria-label={`Back to ${path}`}>
       <span aria-hidden="true">←</span> {path}
     </button>
     {selected?.status === 'ok'
-      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} />
+      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} installations={installations} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} />
       : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
   </section>
 
@@ -52,7 +53,7 @@ export function Files() {
           const entryPath = joinPath(path, entry.name)
           const result = entry.type === 'file' ? getFilesystemFile(filesystem, entryPath) : undefined
           const file = result?.status === 'ok' ? result.file : undefined
-          const packageState = file?.kind === 'software_package' ? derivePackageState(file, localDevice.installedSoftware) : undefined
+          const packageState = file?.kind === 'software_package' ? derivePackageState(file, localDevice.installedSoftware, installations) : undefined
           return <button className="node-row" type="button" key={entry.name} onClick={() => entry.type === 'directory' ? setPath(entryPath) : setSelectedFile(entryPath)}>
             <span className="node-row-glyph" aria-hidden="true">{entry.type === 'directory' ? '▰' : '▱'}</span>
             <span className="node-row-copy">
@@ -102,9 +103,10 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, installedSoftware, install, nodeWalletAddress, runNodeMiner, runningProcess }: {
+function FileDetails({ file, installedSoftware, installations, install, nodeWalletAddress, runNodeMiner, runningProcess }: {
   file: FilesystemFile
   installedSoftware: readonly InstalledSoftware[]
+  installations: readonly SoftwareInstallationProcess[]
   install: (path: string) => unknown
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
@@ -123,14 +125,14 @@ function FileDetails({ file, installedSoftware, install, nodeWalletAddress, runN
       <div className="node-section"><span>CONTENT</span></div>
       <pre className="file-content">{file.content}</pre>
     </section>
-      : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} install={install} />
+      : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} installations={installations} install={install} />
         : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
   </div>
 }
 
-function PackageDetails({ file, installedSoftware, install }: { file: SoftwarePackageFile; installedSoftware: readonly InstalledSoftware[]; install: (path: string) => unknown }) {
+function PackageDetails({ file, installedSoftware, installations, install }: { file: SoftwarePackageFile; installedSoftware: readonly InstalledSoftware[]; installations: readonly SoftwareInstallationProcess[]; install: (path: string) => unknown }) {
   const current = installedSoftware.find(({ id }) => id === file.productId)
-  const packageState = derivePackageState(file, installedSoftware)
+  const packageState = derivePackageState(file, installedSoftware, installations)
   return <section className="file-kind-details">
     <div className="node-section"><span>SOFTWARE</span><span>{packageState}</span></div>
     <h2>{file.name}</h2>
@@ -147,7 +149,9 @@ function PackageDetails({ file, installedSoftware, install }: { file: SoftwarePa
             <button className="node-action" type="button" disabled>INSTALLED ✓</button>
             <p className="node-note">INSTALLED RELEASE · {file.releaseId}</p>
           </div>
-        : <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => install(file.path)}>INSTALL</button></div>}
+        : packageState === 'INSTALLING'
+          ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>INSTALLING</button></div>
+          : <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => install(file.path)}>INSTALL</button></div>}
   </section>
 }
 
@@ -210,8 +214,9 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
   return result.status.toUpperCase().replaceAll('_', ' ')
 }
 
-function derivePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[]): PackageState {
+function derivePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[], installations: readonly SoftwareInstallationProcess[]): PackageState {
   if (file.productId !== 'nodescan' && file.productId !== NODE_MINER_PROGRAM_ID) return 'UNSUPPORTED'
+  if (installations.some(({ productId }) => productId === file.productId)) return 'INSTALLING'
   return installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId ? 'INSTALLED' : 'INSTALLABLE'
 }
 

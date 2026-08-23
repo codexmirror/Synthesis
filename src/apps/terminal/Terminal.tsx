@@ -59,7 +59,7 @@ function CompletedProcessProjection({ completed }: { completed: CompletedProject
 }
 
 function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess; gameState: ReturnType<typeof useGameState>; cpu: number }) {
-  if (!process || process.kind === 'generic' || process.kind === 'node_miner') return <div className="process-projection"><strong>PROCESS UNAVAILABLE</strong></div>
+  if (!process || process.kind === 'generic' || process.kind === 'node_miner' || process.kind === 'software_installation') return <div className="process-projection"><strong>PROCESS UNAVAILABLE</strong></div>
   const progress = Math.min(100, Math.floor(process.workCompleted / process.workRequired * 100))
   const filled = Math.round(progress / 10)
   const accessId = process.kind === 'credential_access' && process.result?.status === 'access_established' ? process.result.accessId : undefined
@@ -95,7 +95,7 @@ export function Terminal() {
       const next = current.map((entry): Entry => {
         if (!('processId' in entry) || entry.completed) return entry
         const process = gameState.process.processes.find(({ id }) => id === entry.processId)
-        if (!process || process.kind === 'generic' || process.status !== 'completed' || !process.result) return entry
+        if (!process || process.kind === 'generic' || process.kind === 'node_miner' || process.kind === 'software_installation' || process.status !== 'completed' || !process.result) return entry
         let completed: CompletedProjection
         if (process.kind === 'service_analysis') {
           completed = process.result.status === 'weaknesses_detected'

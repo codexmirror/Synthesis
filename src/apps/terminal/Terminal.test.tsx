@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { advanceGameState } from '../../core/game/gameAdvancement'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as GameContext from '../../app/GameContext'
@@ -325,9 +326,10 @@ describe('Terminal NODE Miner CLI', () => {
   /** A local Device with NODE Miner already installed (skipping typed `install`, which its own test covers) so RUN/STATUS/STOP scenarios stay well under the test timeout. */
   function installedState(): GameState {
     const base = createInitialGameState()
-    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
-    if (installed.status !== 'installed') throw new Error(installed.status)
-    return installed.state
+    const admission = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (admission.status !== 'started') throw new Error(admission.status)
+    const installed = advanceGameState(admission.state, 10_000)
+    return installed
   }
 
   it('is unavailable before installation and absent from help, then appears after install with IDLE status', async () => {

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { advanceGameState } from '../../core/game/gameAdvancement'
 import { describe, expect, it } from 'vitest'
 import { GameProvider } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
@@ -46,9 +47,10 @@ describe('System', () => {
 
   it('presents the installed NODE Miner release as unofficial third-party software', () => {
     const base = createInitialGameState()
-    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
-    if (installed.status !== 'installed') throw new Error(installed.status)
-    render(<GameProvider initialState={installed.state}><System /></GameProvider>)
+    const admission = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (admission.status !== 'started') throw new Error(admission.status)
+    const installed = advanceGameState(admission.state, 10_000)
+    render(<GameProvider initialState={installed}><System /></GameProvider>)
 
     expect(screen.getByText('NODE Miner')).toBeInTheDocument()
     expect(screen.getByText('1.0 · UNOFFICIAL · nm-dev · node-miner-1.0')).toBeInTheDocument()
