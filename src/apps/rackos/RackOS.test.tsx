@@ -124,7 +124,7 @@ describe('RACK-OS', () => {
     expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
     expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('LOCAL COPY/home/user/downloads/scanner.release')
     const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(current.player.localDevice.filesystem.files.at(-1)).toEqual({ ...packageFile, id: 'file-0002', path: '/home/user/downloads/scanner.release' })
+    expect(current.player.localDevice.filesystem.files.at(-1)).toEqual({ ...packageFile, id: 'file-0003', path: '/home/user/downloads/scanner.release' })
     expect(current.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })
     expect(current.process.processes).toEqual([])
     expect(current.fileTransfer.active).toBeNull()

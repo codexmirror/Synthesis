@@ -79,8 +79,9 @@ export interface NodeMinerProcess extends ProcessCommon {
   readonly releaseId: string
   /** Configured explicitly at RUN. Not Player, Device, or Wallet identity. */
   readonly payoutAddress: string
-  readonly producedNode: number
-  readonly creditedNode: number
+  /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
+  readonly producedNodeUnits: number
+  readonly creditedNodeUnits: number
   readonly workRemainder: number
 }
 
@@ -166,7 +167,14 @@ export interface BasicCredentialToolkitInstallation {
   readonly version: string
 }
 
-export type InstalledSoftware = NodeScanInstallation | BasicCredentialToolkitInstallation
+export interface NodeMinerInstallation {
+  readonly id: 'node-miner'
+  readonly releaseId: string
+  readonly name: string
+  readonly version: string
+}
+
+export type InstalledSoftware = NodeScanInstallation | BasicCredentialToolkitInstallation | NodeMinerInstallation
 
 export interface LocalDeviceState {
   /** Stable device identity; unlike its simulated IP, this value does not change. */
@@ -194,7 +202,8 @@ export interface WalletState {
 export interface NodeWalletState {
   readonly id: string
   readonly address: string
-  readonly balanceNode: number
+  /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
+  readonly balanceNodeUnits: number
 }
 
 export interface NetworkHost {

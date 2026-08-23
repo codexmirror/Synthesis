@@ -11,14 +11,14 @@ const executable: ExecutableFile = { kind: 'executable', id: 'file-executable', 
 describe('filesystem reads and identity', () => {
   it('derives only direct directory children from canonical paths', () => {
     expect(listDirectory(filesystem, '/')).toEqual({ status: 'ok', entries: [{ name: 'home', type: 'directory' }] })
-    expect(listDirectory(filesystem, '/home/user')).toEqual({ status: 'ok', entries: [{ name: 'welcome.txt', type: 'file' }] })
+    expect(listDirectory(filesystem, '/home/user')).toEqual({ status: 'ok', entries: [{ name: 'downloads', type: 'directory' }, { name: 'welcome.txt', type: 'file' }] })
   })
 
   it('initializes deterministic, stable filesystem-local IDs', () => {
     const first = createInitialGameState()
     const second = createInitialGameState()
     expect(first.player.localDevice.filesystem.files.map(({ id }) => id).every(Boolean)).toBe(true)
-    expect(first.world.network.hosts[0].filesystem!.files.map(({ id }) => id)).toEqual(['file-0001', 'file-0002', 'file-0003'])
+    expect(first.world.network.hosts[0].filesystem!.files.map(({ id }) => id)).toEqual(['file-0001', 'file-0002'])
     expect(first.player.localDevice.filesystem).toEqual(second.player.localDevice.filesystem)
   })
 

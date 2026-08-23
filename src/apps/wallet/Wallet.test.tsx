@@ -17,19 +17,33 @@ describe('Wallet', () => {
 
   it('derives both balances from canonical GameState rather than owning its own presentation truth', () => {
     const base = createInitialGameState()
-    const state: GameState = { ...base, wallet: { balance: 42 }, nodeWallet: { ...base.nodeWallet, balanceNode: 7 } }
+    const state: GameState = { ...base, wallet: { balance: 42 }, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 7 } }
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
     expect(screen.getByText('$42')).toBeInTheDocument()
-    expect(screen.getByText('7 NODE')).toBeInTheDocument()
+    expect(screen.getByText('0.000007 NODE')).toBeInTheDocument()
     expect(screen.queryByText('$1,250')).not.toBeInTheDocument()
+  })
+
+  it('formats the canonical integer atomic NODE balance as human-readable NODE without floating-point loss', () => {
+    const base = createInitialGameState()
+    const state: GameState = { ...base, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 4_281 } }
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+    expect(screen.getByText('0.004281 NODE')).toBeInTheDocument()
+  })
+
+  it('presents a balance of exactly whole NODE without a spurious fraction', () => {
+    const base = createInitialGameState()
+    const state: GameState = { ...base, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 2_000_000 } }
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+    expect(screen.getByText('2 NODE')).toBeInTheDocument()
   })
 
   it('keeps Dollar and NODE visually distinguishable', () => {
     const base = createInitialGameState()
-    const state: GameState = { ...base, wallet: { balance: 42 }, nodeWallet: { ...base.nodeWallet, balanceNode: 7 } }
+    const state: GameState = { ...base, wallet: { balance: 42 }, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 7 } }
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
     const dollarBalance = screen.getByText('$42')
-    const nodeBalance = screen.getByText('7 NODE')
+    const nodeBalance = screen.getByText('0.000007 NODE')
     expect(dollarBalance.className).not.toBe(nodeBalance.className)
   })
 })

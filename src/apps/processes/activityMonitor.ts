@@ -1,7 +1,7 @@
 import { resolveFileTransferSource } from '../../core/game/fileTransfer'
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
-import { NODE_MINER_COMPUTE_SECONDS_PER_NODE } from '../../core/game/nodeMiner'
+import { NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
 import type { DeviceAccess, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess } from '../../core/game/types'
 import { formatByteProgress, formatTransferRate } from '../byteFormat'
 
@@ -137,7 +137,7 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
 function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, executorComputeCapacity: number): MonitorActivity {
   const cpuPercent = usage.cpuAllocationByProcess[process.id] ?? 0
   const allocatedCompute = executorComputeCapacity * cpuPercent / 100
-  const nodePerSecond = allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_NODE
+  const unitsPerSecond = allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_UNIT
   return {
     id: process.id,
     category: 'operation',
@@ -148,12 +148,12 @@ function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, ex
     facts: [
       { label: 'CPU', value: `${Math.round(cpuPercent)}%` },
       { label: 'RAM', value: `${process.ramRequiredMiB} MiB` },
-      { label: 'PRODUCED', value: `${process.producedNode} NODE` },
-      { label: 'CREDITED', value: `${process.creditedNode} NODE` },
+      { label: 'PRODUCED', value: `${process.producedNodeUnits.toLocaleString('en-US')} units` },
+      { label: 'CREDITED', value: `${process.creditedNodeUnits.toLocaleString('en-US')} units` },
     ],
     details: [
       { label: 'PAYOUT', value: process.payoutAddress },
-      ...(nodePerSecond > 0 ? [{ label: 'RATE', value: `${nodePerSecond.toFixed(2)} NODE/s` }] : []),
+      ...(unitsPerSecond > 0 ? [{ label: 'RATE', value: `${Math.round(unitsPerSecond).toLocaleString('en-US')} units/s` }] : []),
     ],
     stoppable: true,
   }

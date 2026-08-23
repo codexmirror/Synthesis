@@ -124,7 +124,7 @@ describe('continuous (NodeMinerProcess) work shares the same executor advancemen
     return {
       kind: 'node_miner', id, label: 'NODE MINER', executorDeviceId: zeroBaselineExecutor.id, status: 'running',
       ramRequiredMiB: 1, programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'addr',
-      producedNode: 0, creditedNode: 0, workRemainder: 0, ...overrides,
+      producedNodeUnits: 0, creditedNodeUnits: 0, workRemainder: 0, ...overrides,
     }
   }
 

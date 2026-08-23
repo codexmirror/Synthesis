@@ -1,12 +1,18 @@
 import { getFilesystemFile } from './filesystem'
 import { deriveResourceUsage } from './processes'
-import type { GameState, NodeMinerProcess, NodeWalletState, ProcessState } from './types'
+import { findInstalledNodeMiner } from './software'
+import type { ExecutableFile, FilesystemState, GameState, LocalDeviceState, NodeMinerProcess, NodeWalletState, ProcessState } from './types'
 
 export const NODE_MINER_PROGRAM_ID = 'node-miner' as const
 export const NODE_MINER_RELEASE_ID = 'node-miner-1.0' as const
 export const NODE_MINER_RAM_REQUIRED_MIB = 512
-/** V1 tuning constant: 100 compute-seconds of actual allocated compute produce 1 whole NODE. */
-export const NODE_MINER_COMPUTE_SECONDS_PER_NODE = 100
+/** V1 tuning constant: 1 compute-second of actual allocated compute produces 1 atomic NODE unit. */
+export const NODE_MINER_COMPUTE_SECONDS_PER_UNIT = 1
+/** `1 NODE = 1,000,000 atomic NODE units`. Canonical economic truth is always the integer atomic unit. */
+export const NODE_UNITS_PER_NODE = 1_000_000
+/** Deterministic Device-local installed-program path created by installing the NODE Miner package. */
+export const NODE_MINER_INSTALLED_EXECUTABLE_PATH = '/usr/local/bin/node-miner'
+export const NODE_MINER_EXECUTABLE_SIZE_BYTES = 2_100_000
 
 export type StartNodeMinerResult =
   | { readonly status: 'started'; readonly state: GameState; readonly processId: string }
@@ -14,7 +20,7 @@ export type StartNodeMinerResult =
   | { readonly status: 'insufficient_memory'; readonly state: GameState; readonly requiredMiB: number; readonly availableMiB: number }
 
 /**
- * RUN admission for a locally downloaded NODE Miner executable copy. The
+ * RUN admission for a locally installed NODE Miner executable copy. The
  * executable artifact must exist and be a supported program at admission
  * time; once the Process is created it retains its own stable
  * program/release provenance and no longer depends on that source file, so
@@ -55,8 +61,8 @@ export function startNodeMiner(state: GameState, sourceFilePath: string, payoutA
     programId: NODE_MINER_PROGRAM_ID,
     releaseId: NODE_MINER_RELEASE_ID,
     payoutAddress,
-    producedNode: 0,
-    creditedNode: 0,
+    producedNodeUnits: 0,
+    creditedNodeUnits: 0,
     workRemainder: 0,
   }
   return {
@@ -88,30 +94,51 @@ export function stopNodeMiner(state: GameState, processId: string): StopNodeMine
 /**
  * Converts each running Miner's newly accumulated fractional compute-work
  * (`workRemainder`, produced by the shared executor advancement in
- * `processes.ts`) into whole NODE, then separately resolves that Miner's
- * own configured `payoutAddress` against the current represented NODE
- * Wallet address. Production and credit are deliberately distinct events:
- * a Miner always accumulates `producedNode` from its own compute regardless
- * of payout match, and only the newly produced amount is ever checked
- * against the Wallet address at the moment it is produced. Unmatched
- * production is never retroactively credited later, and there is no
- * fallback that credits this Wallet when the configured address does not
- * currently match — an unmatched Miner still runs and still produces NODE.
+ * `processes.ts`) into whole atomic NODE units, then separately resolves
+ * that Miner's own configured `payoutAddress` against the current
+ * represented NODE Wallet address. Production and credit are deliberately
+ * distinct events: a Miner always accumulates `producedNodeUnits` from its
+ * own compute regardless of payout match, and only the newly produced
+ * amount is ever checked against the Wallet address at the moment it is
+ * produced. Unmatched production is never retroactively credited later, and
+ * there is no fallback that credits this Wallet when the configured address
+ * does not currently match — an unmatched Miner still runs and still
+ * produces NODE.
  */
 export function resolveNodeMinerProduction(processState: ProcessState, nodeWallet: NodeWalletState): { processState: ProcessState; nodeWallet: NodeWalletState } {
   let changed = false
-  let balanceNode = nodeWallet.balanceNode
+  let balanceNodeUnits = nodeWallet.balanceNodeUnits
   const processes = processState.processes.map((process) => {
-    if (process.kind !== 'node_miner' || process.workRemainder < NODE_MINER_COMPUTE_SECONDS_PER_NODE) return process
-    const wholeNode = Math.floor(process.workRemainder / NODE_MINER_COMPUTE_SECONDS_PER_NODE)
+    if (process.kind !== 'node_miner' || process.workRemainder < NODE_MINER_COMPUTE_SECONDS_PER_UNIT) return process
+    const wholeUnits = Math.floor(process.workRemainder / NODE_MINER_COMPUTE_SECONDS_PER_UNIT)
     changed = true
-    const workRemainder = process.workRemainder - wholeNode * NODE_MINER_COMPUTE_SECONDS_PER_NODE
+    const workRemainder = process.workRemainder - wholeUnits * NODE_MINER_COMPUTE_SECONDS_PER_UNIT
     const matches = process.payoutAddress === nodeWallet.address
-    if (matches) balanceNode += wholeNode
-    return { ...process, workRemainder, producedNode: process.producedNode + wholeNode, creditedNode: matches ? process.creditedNode + wholeNode : process.creditedNode }
+    if (matches) balanceNodeUnits += wholeUnits
+    return { ...process, workRemainder, producedNodeUnits: process.producedNodeUnits + wholeUnits, creditedNodeUnits: matches ? process.creditedNodeUnits + wholeUnits : process.creditedNodeUnits }
   })
   return {
     processState: changed ? { ...processState, processes } : processState,
-    nodeWallet: balanceNode !== nodeWallet.balanceNode ? { ...nodeWallet, balanceNode } : nodeWallet,
+    nodeWallet: balanceNodeUnits !== nodeWallet.balanceNodeUnits ? { ...nodeWallet, balanceNodeUnits } : nodeWallet,
   }
+}
+
+/** The real, currently present local NODE Miner 1.0 executable artifact, if any. Not tied to a specific path: a future move remains discoverable by program/release identity. */
+export function findNodeMinerExecutable(filesystem: FilesystemState): ExecutableFile | undefined {
+  return filesystem.files.find((file): file is ExecutableFile => file.kind === 'executable' && file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID)
+}
+
+/**
+ * Strongest truthful V1 rule for exposing the `node-miner` CLI: NODE Miner
+ * must be installed on this Device AND a real supported executable artifact
+ * must currently exist on it. Installed metadata alone can never make the
+ * command available once its executable is gone.
+ */
+export function isNodeMinerAvailable(device: LocalDeviceState): boolean {
+  return findInstalledNodeMiner(device) !== undefined && findNodeMinerExecutable(device.filesystem) !== undefined
+}
+
+/** The local NODE Miner Process currently running on the player's own Device, if any. */
+export function findRunningLocalNodeMiner(state: GameState): NodeMinerProcess | undefined {
+  return state.process.processes.find((process): process is NodeMinerProcess => process.kind === 'node_miner' && process.status === 'running' && process.executorDeviceId === state.player.localDevice.id)
 }

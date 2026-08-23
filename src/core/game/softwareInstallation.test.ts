@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
+import { NODE_MINER_INSTALLED_EXECUTABLE_PATH } from './nodeMiner'
 import { installLocalSoftwarePackage } from './softwareInstallation'
-import type { GameState, SoftwarePackageFile } from './types'
+import type { ExecutableFile, GameState, SoftwarePackageFile } from './types'
 
 const path = '/home/user/downloads/nodescan.weird'
 const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path, releaseId: 'build-a91f7', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
@@ -62,5 +63,69 @@ describe('installLocalSoftwarePackage', () => {
     const remotePath = '/opt/packages/nodescan-exp-1.1.pkg'
     expect(state.world.network.hosts[0].filesystem?.files.some(({ path }) => path === remotePath)).toBe(true)
     expect(installLocalSoftwarePackage(state, remotePath)).toEqual({ status: 'package_not_found', state })
+  })
+})
+
+describe('installLocalSoftwarePackage: NODE Miner', () => {
+  const packagePath = '/home/user/downloads/node-miner-1.0.pkg'
+
+  it('records installed software and creates exactly one concrete executable at the deterministic installed path, leaving the package untouched', () => {
+    const state = createInitialGameState()
+    const result = installLocalSoftwarePackage(state, packagePath)
+    expect(result).toMatchObject({ status: 'installed', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', executablePath: NODE_MINER_INSTALLED_EXECUTABLE_PATH })
+    expect(result.state).not.toBe(state)
+    expect(result.state.player.localDevice.installedSoftware).toContainEqual({ id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' })
+
+    const executables = result.state.player.localDevice.filesystem.files.filter((file): file is ExecutableFile => file.kind === 'executable')
+    expect(executables).toHaveLength(1)
+    expect(executables[0]).toMatchObject({ path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' })
+
+    // The package artifact itself remains, and installation creates no Process.
+    expect(result.state.player.localDevice.filesystem.files.some((file) => file.path === packagePath)).toBe(true)
+    expect(result.state.process).toBe(state.process)
+  })
+
+  it('does not start a Process, even though a real executable now exists', () => {
+    const state = createInitialGameState()
+    const result = installLocalSoftwarePackage(state, packagePath)
+    expect(result.state.process.processes).toEqual([])
+  })
+
+  it('is already_installed on a second identical install and never creates a duplicate executable', () => {
+    const state = createInitialGameState()
+    const first = installLocalSoftwarePackage(state, packagePath)
+    if (first.status !== 'installed') throw new Error(first.status)
+    const second = installLocalSoftwarePackage(first.state, packagePath)
+    expect(second).toEqual({ status: 'already_installed', state: first.state })
+    const executables = second.state.player.localDevice.filesystem.files.filter((file) => file.kind === 'executable')
+    expect(executables).toHaveLength(1)
+  })
+
+  it('does not overwrite an unrelated artifact already occupying the deterministic installation path', () => {
+    const state = createInitialGameState()
+    const occupied: GameState = {
+      ...state,
+      player: {
+        ...state.player,
+        localDevice: {
+          ...state.player.localDevice,
+          filesystem: {
+            ...state.player.localDevice.filesystem,
+            files: [...state.player.localDevice.filesystem.files, { kind: 'text', id: 'file-occupant', path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, content: 'not NODE Miner' }],
+          },
+        },
+      },
+    }
+    const result = installLocalSoftwarePackage(occupied, packagePath)
+    expect(result).toEqual({ status: 'install_path_occupied', state: occupied })
+    expect(occupied.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
+  })
+
+  it('a local installation on the player Device does not imply installation on a remote Device', () => {
+    const state = createInitialGameState()
+    const result = installLocalSoftwarePackage(state, packagePath)
+    if (result.status !== 'installed') throw new Error(result.status)
+    expect(result.state.world).toBe(state.world)
+    expect(result.state.world.network.hosts[0].filesystem?.files.some((file) => file.kind === 'executable')).toBe(false)
   })
 })

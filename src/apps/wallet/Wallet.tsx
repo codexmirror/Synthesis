@@ -1,4 +1,5 @@
 import { useGameState } from '../../app/GameContext'
+import { formatNodeUnitsAsNode } from '../nodeFormat'
 
 export function Wallet() {
   const { wallet, nodeWallet } = useGameState()
@@ -8,7 +9,7 @@ export function Wallet() {
     <p className="node-note">Virtual account · No transactions yet</p>
 
     <div className="node-section"><span>NODE</span></div>
-    <p className="balance balance--node">{nodeWallet.balanceNode.toLocaleString('en-US')} NODE</p>
+    <p className="balance balance--node">{formatNodeUnitsAsNode(nodeWallet.balanceNodeUnits)} NODE</p>
     <dl className="node-facts">
       <div><dt>PAYOUT ADDRESS</dt><dd>{nodeWallet.address}</dd></div>
     </dl>

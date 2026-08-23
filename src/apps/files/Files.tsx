@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
-import { NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
+import { findRunningLocalNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatByteProgress, formatBytes } from '../byteFormat'
-import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, SoftwarePackageFile } from '../../core/game/types'
+import { formatNodeUnitsAsNode } from '../nodeFormat'
+import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, NodeMinerProcess, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
 
@@ -19,13 +20,14 @@ export function Files() {
   const listing = listDirectory(filesystem, path)
   const selected = selectedFile ? getFilesystemFile(filesystem, selectedFile) : undefined
   const incoming = deriveIncomingArtifact(state.fileTransfer.active, localDevice.id, path)
+  const localNodeMinerProcess = findRunningLocalNodeMiner(state)
 
   if (selectedFile) return <section className="app-content files-app">
     <button className="node-back" type="button" onClick={() => setSelectedFile(undefined)} aria-label={`Back to ${path}`}>
       <span aria-hidden="true">←</span> {path}
     </button>
     {selected?.status === 'ok'
-      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} />
+      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} />
       : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
   </section>
 
@@ -100,12 +102,13 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, installedSoftware, install, nodeWalletAddress, runNodeMiner }: {
+function FileDetails({ file, installedSoftware, install, nodeWalletAddress, runNodeMiner, runningProcess }: {
   file: FilesystemFile
   installedSoftware: readonly InstalledSoftware[]
   install: (path: string) => unknown
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
+  runningProcess: NodeMinerProcess | undefined
 }) {
   return <div className="file-details">
     <header className="node-masthead">
@@ -121,7 +124,7 @@ function FileDetails({ file, installedSoftware, install, nodeWalletAddress, runN
       <pre className="file-content">{file.content}</pre>
     </section>
       : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} install={install} />
-        : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} />}
+        : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
   </div>
 }
 
@@ -134,7 +137,7 @@ function PackageDetails({ file, installedSoftware, install }: { file: SoftwarePa
     <p className="package-release">{file.version} {titleCase(file.channel)}</p>
     <dl className="node-facts">
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
-      <div><dt>CURRENT</dt><dd>{current && current.id === 'nodescan' ? `${current.name} ${current.version} ${titleCase(current.channel)}` : 'NOT INSTALLED'}</dd></div>
+      <div><dt>CURRENT</dt><dd>{current ? describeInstalledSoftware(current) : 'NOT INSTALLED'}</dd></div>
     </dl>
     {packageState === 'UNSUPPORTED'
       ? <p className="node-note node-note--caution">UNSUPPORTED PACKAGE</p>
@@ -147,10 +150,11 @@ function PackageDetails({ file, installedSoftware, install }: { file: SoftwarePa
   </section>
 }
 
-function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner }: {
+function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess }: {
   file: ExecutableFile
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
+  runningProcess: NodeMinerProcess | undefined
 }) {
   const supported = file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID
   const [payoutAddress, setPayoutAddress] = useState(nodeWalletAddress)
@@ -168,24 +172,36 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner }: {
       <div><dt>VERSION</dt><dd>{file.version}</dd></div>
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
     </dl>
-    {supported && <div className="file-kind-actions">
-      <label className="node-field">
-        <span>PAYOUT ADDRESS</span>
-        <input
-          className="node-input"
-          value={payoutAddress}
-          onChange={(event) => setPayoutAddress(event.target.value)}
-          aria-label="NODE payout address"
-          autoCapitalize="none"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-        />
-      </label>
-      <button className="node-action" type="button" onClick={run}>RUN</button>
-      {feedback && <p className="node-note node-note--caution">{feedback}</p>}
-    </div>}
+    {supported && (runningProcess
+      ? <div className="file-kind-actions">
+          <p className="node-note"><strong>RUNNING</strong><br />PROCESS {runningProcess.id}</p>
+          <dl className="node-facts">
+            <div><dt>PAYOUT</dt><dd>{runningProcess.payoutAddress}</dd></div>
+            <div><dt>PRODUCED</dt><dd>{formatNodeUnitsAsNode(runningProcess.producedNodeUnits)} NODE</dd></div>
+          </dl>
+        </div>
+      : <div className="file-kind-actions">
+          <label className="node-field">
+            <span>PAYOUT ADDRESS</span>
+            <input
+              className="node-input"
+              value={payoutAddress}
+              onChange={(event) => setPayoutAddress(event.target.value)}
+              aria-label="NODE payout address"
+              autoCapitalize="none"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </label>
+          <button className="node-action" type="button" onClick={run}>RUN</button>
+          {feedback && <p className="node-note node-note--caution">{feedback}</p>}
+        </div>)}
   </section>
+}
+
+function describeInstalledSoftware(software: InstalledSoftware): string {
+  return software.id === 'nodescan' ? `${software.name} ${software.version} ${titleCase(software.channel)}` : `${software.name} ${software.version}`
 }
 
 function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'started' }>): string {
@@ -194,7 +210,7 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
 }
 
 function derivePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[]): PackageState {
-  if (file.productId !== 'nodescan') return 'UNSUPPORTED'
+  if (file.productId !== 'nodescan' && file.productId !== NODE_MINER_PROGRAM_ID) return 'UNSUPPORTED'
   return installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId ? 'INSTALLED' : 'INSTALLABLE'
 }
 
