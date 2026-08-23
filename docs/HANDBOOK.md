@@ -43,7 +43,7 @@ Examples:
 „What architecture must remain true?“
 → docs/ARCHITECTURE.md
 
-„What should Codex implement in this task?“
+„What should the implementation agent do in this task?“
 → selected work order
 
 „How do we review and integrate the result?“
@@ -157,9 +157,9 @@ Experimental output is not canonical merely because it exists.
 A tested implementation may become canonical after review and integration.
 
 
-## 5. Codex
+## 5. Implementation agents
 
-Codex is the repository implementation agent.
+Codex and Claude Code may be used as repository implementation agents.
 
 Typical responsibilities include:
 
@@ -174,10 +174,14 @@ Typical responsibilities include:
 - reporting completion and remaining concerns
 
 For exact implementation-agent rules, prohibitions, repository boundaries, and
-validation expectations, `AGENTS.md` is authoritative.
+validation expectations, `AGENTS.md` is authoritative. `CLAUDE.md` is a thin
+Claude-Code-specific adapter onto that same contract and does not restate it.
 
-Codex does not gain Git lifecycle authority merely by being asked to implement a
-task.
+Neither implementation agent gains Git lifecycle authority merely by being
+asked to implement a task.
+
+The human operator may choose which implementation agent or model to use
+according to task complexity and available resources.
 
 
 ## 6. Work-order execution
