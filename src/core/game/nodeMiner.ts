@@ -27,7 +27,8 @@ export const NODE_MINER_EXECUTABLE_SIZE_BYTES = 2_100_000
  * policy registry, or configurable mining framework.
  */
 export const NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS = 'node-addr-9f31c7a4d2'
-export const NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT = 10
+export const NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT = 33
+export const NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS = 1_000
 export const NODE_MINER_1_0_CHANNEL = 'unofficial'
 export const NODE_MINER_1_0_PUBLISHER = 'nm-dev'
 
@@ -112,12 +113,9 @@ export function stopNodeMiner(state: GameState, processId: string): StopNodeMine
 /**
  * Cumulative deterministic integer allocation of gross production.
  *
- * The developer share is computed from the Miner's cumulative gross total
- * rather than from each tick's newly produced units, so the totals depend
- * only on how much has been produced in all and never on how that
- * production was chunked across advancement calls: `advance(1000)` and
- * `4 x advance(250)` allocate identically. Canonical currency stays integer
- * atomic NODE units throughout.
+ * Only completed fixed-size gross batches are allocated, so totals and
+ * economic events depend only on cumulative production and never on how
+ * advancement was chunked. Canonical currency stays integer throughout.
  *
  * Only the unofficial NODE Miner 1.0 release diverts anything, and only it
  * carries an embedded developer address; any other release routes its full
@@ -159,19 +157,26 @@ export function resolveNodeMinerProduction(state: GameState): GameState {
     changed = true
     const workRemainder = process.workRemainder - wholeUnits * NODE_MINER_COMPUTE_SECONDS_PER_UNIT
     const producedNodeUnits = process.producedNodeUnits + wholeUnits
-    const developer = releaseDeveloperPayout(process.releaseId, producedNodeUnits)
-    const developerFeeNodeUnits = developer?.feeNodeUnits ?? 0
-    const payoutNodeUnits = producedNodeUnits - developerFeeNodeUnits
+    const previouslyPaidGross = process.payoutNodeUnits + process.developerFeeNodeUnits
+    const completedGross = Math.floor(producedNodeUnits / NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS) * NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS
+    const completedBatches = (completedGross - previouslyPaidGross) / NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS
+    const developer = releaseDeveloperPayout(process.releaseId, NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS)
+    const developerPerBatch = developer?.feeNodeUnits ?? 0
+    const payoutPerBatch = NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS - developerPerBatch
 
-    recipients = creditNodeAddress(recipients, process.payoutAddress, payoutNodeUnits - process.payoutNodeUnits)
-    if (developer && developerFeeNodeUnits > process.developerFeeNodeUnits) {
-      recipients = creditNodeAddress(recipients, developer.address, developerFeeNodeUnits - process.developerFeeNodeUnits)
+    // Route batches individually so Wallet activity represents payout events,
+    // independent of how elapsed simulation time was chunked.
+    for (let batch = 0; batch < completedBatches; batch += 1) {
+      recipients = creditNodeAddress(recipients, process.payoutAddress, payoutPerBatch)
+      if (developer) recipients = creditNodeAddress(recipients, developer.address, developerPerBatch)
     }
+    const payoutNodeUnits = process.payoutNodeUnits + completedBatches * payoutPerBatch
+    const developerFeeNodeUnits = process.developerFeeNodeUnits + completedBatches * developerPerBatch
     // V1 admits Miners only onto the local Device; a remote-execution slice must extend this to the executing Device's own filesystem.
-    if (process.executorDeviceId === state.player.localDevice.id) {
+    if (completedBatches > 0 && process.executorDeviceId === state.player.localDevice.id) {
       filesystem = recordNodeMinerPayout(filesystem, {
         processId: process.id,
-        grossNodeUnits: producedNodeUnits,
+        grossNodeUnits: payoutNodeUnits + developerFeeNodeUnits,
         payoutAddress: process.payoutAddress,
         payoutNodeUnits,
         ...(developer ? { developerAddress: developer.address, developerFeeNodeUnits } : {}),

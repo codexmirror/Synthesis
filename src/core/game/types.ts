@@ -85,7 +85,8 @@ export interface NodeMinerProcess extends ProcessCommon {
    * nodeMiner.ts. `producedNodeUnits` is gross production from this
    * Process's own allocated compute and is never redefined downward by the
    * running release's payout behavior; the two allocation totals below
-   * describe where that gross production was routed and always sum to it.
+   * describe completed payout batches, while their difference from gross is
+   * production still pending the next batch.
    */
   readonly producedNodeUnits: number
   /** Cumulative gross production routed to this Process's configured `payoutAddress`. */

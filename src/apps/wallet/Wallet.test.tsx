@@ -63,7 +63,7 @@ describe('Wallet', () => {
     const state = minedState(10_000)
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
     expect(screen.getByText('NODE ACTIVITY')).toBeInTheDocument()
-    expect(screen.getByText('+900 units')).toBeInTheDocument()
+    expect(screen.getByText('+670 units')).toBeInTheDocument()
     expect(screen.getByText('MINING PAYOUT')).toBeInTheDocument()
     expect(screen.queryByText('NO NODE ACTIVITY')).not.toBeInTheDocument()
   })
@@ -71,9 +71,9 @@ describe('Wallet', () => {
   it('derives activity from canonical Wallet state, newest first', () => {
     const state = advanceGameState(minedState(10_000), 20_000)
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
-    expect(state.nodeWallet.activity.records.map(({ amountNodeUnits }) => amountNodeUnits)).toEqual([900, 1800])
+    expect(state.nodeWallet.activity.records.map(({ amountNodeUnits }) => amountNodeUnits)).toEqual([670, 670, 670])
     const amounts = screen.getAllByText(/^\+[\d,]+ units$/).map((element) => element.textContent)
-    expect(amounts).toEqual(['+1,800 units', '+900 units'])
+    expect(amounts).toEqual(['+670 units', '+670 units', '+670 units'])
   })
 
   it('reports no NODE activity when this Wallet has received nothing', () => {
@@ -85,7 +85,7 @@ describe('Wallet', () => {
     const state = minedState(10_000)
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
     const wallet = document.querySelector('.wallet-app') as HTMLElement
-    expect(state.nodeEconomy.accounts[0].balanceNodeUnits).toBe(100)
+    expect(state.nodeEconomy.accounts[0].balanceNodeUnits).toBe(330)
     expect(wallet.textContent).not.toContain(NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS)
     expect(wallet.textContent).not.toMatch(/DEVELOPER|FEE|STOLEN|1,000 units/i)
   })

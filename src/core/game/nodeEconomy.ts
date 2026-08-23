@@ -37,21 +37,24 @@ export function creditNodeWalletMiningPayout(nodeWallet: NodeWalletState, amount
 }
 
 function creditNodeAccounts(accounts: readonly NodeAccount[], address: string, amountNodeUnits: number): readonly NodeAccount[] | undefined {
-  if (!accounts.some((account) => account.address === address)) return undefined
+  if (accounts.filter((account) => account.address === address).length !== 1) return undefined
   return accounts.map((account) => account.address === address ? { ...account, balanceNodeUnits: account.balanceNodeUnits + amountNodeUnits } : account)
 }
 
 /**
  * Credits atomic NODE units to whichever represented economic recipient
  * currently holds `address` by exact string match: the local Wallet, or one
- * represented NODE account. When no represented recipient holds that
- * address nothing is credited — there is deliberately no fallback recipient
+ * represented NODE account. The match must be unique across all represented
+ * recipients; zero or multiple matches credit nobody. There is no fallback recipient
  * and, in particular, the local Wallet is never credited for an address it
  * does not hold.
  */
 export function creditNodeAddress(recipients: NodeRecipients, address: string, amountNodeUnits: number): NodeRecipients {
   if (amountNodeUnits <= 0) return recipients
-  if (recipients.nodeWallet.address === address) return { ...recipients, nodeWallet: creditNodeWalletMiningPayout(recipients.nodeWallet, amountNodeUnits) }
+  const walletMatches = recipients.nodeWallet.address === address ? 1 : 0
+  const accountMatches = recipients.nodeEconomy.accounts.filter((account) => account.address === address).length
+  if (walletMatches + accountMatches !== 1) return recipients
+  if (walletMatches === 1) return { ...recipients, nodeWallet: creditNodeWalletMiningPayout(recipients.nodeWallet, amountNodeUnits) }
   const accounts = creditNodeAccounts(recipients.nodeEconomy.accounts, address, amountNodeUnits)
   return accounts ? { ...recipients, nodeEconomy: { ...recipients.nodeEconomy, accounts } } : recipients
 }
