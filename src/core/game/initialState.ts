@@ -1,7 +1,7 @@
 import { NODE_MINER_1_0_CHANNEL, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, NODE_MINER_1_0_PUBLISHER } from './nodeMiner'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 30
+export const GAME_STATE_VERSION = 31
 
 export function createInitialGameState(): GameState {
   return {
@@ -56,6 +56,7 @@ export function createInitialGameState(): GameState {
     deviceAccess: { nextId: 1, established: [] },
     remoteSession: { nextId: 1, active: null },
     fileTransfer: { nextId: 1, active: null },
+    recentActivity: { entries: [] },
     world: {
       network: {
         localNetworks: [

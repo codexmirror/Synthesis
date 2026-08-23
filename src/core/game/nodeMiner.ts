@@ -4,6 +4,7 @@ import { recordNodeMinerPayout } from './nodeMinerPayoutLog'
 import { deriveResourceUsage } from './processes'
 import { findInstalledNodeMiner } from './software'
 import type { ExecutableFile, FilesystemState, GameState, LocalDeviceState, NodeMinerProcess } from './types'
+import { archiveProcess } from './recentActivity'
 
 export const NODE_MINER_PROGRAM_ID = 'node-miner' as const
 export const NODE_MINER_RELEASE_ID = 'node-miner-1.0' as const
@@ -96,18 +97,16 @@ export type StopNodeMinerResult = { readonly status: 'stopped' | 'not_found'; re
 /**
  * STOP removes the running Miner immediately: zero elapsed simulation time,
  * zero additional mining work, no hidden final reward, and immediate
- * release of its RAM/CPU allocation. It does not transition through a
- * generic completed/stopped history state; global Process ID progression is
+ * release of its RAM/CPU allocation. A final observation is archived without
+ * keeping it in the scheduler; global Process ID progression is
  * untouched, so a later RUN receives a new Process identity. This local
  * operation only stops a Miner executing on the player's local Device.
  */
 export function stopNodeMiner(state: GameState, processId: string): StopNodeMinerResult {
   const process = state.process.processes.find(({ id }) => id === processId)
   if (!process || process.kind !== 'node_miner' || process.status !== 'running' || process.executorDeviceId !== state.player.localDevice.id) return { status: 'not_found', state }
-  return {
-    status: 'stopped',
-    state: { ...state, process: { ...state.process, processes: state.process.processes.filter(({ id }) => id !== processId) } },
-  }
+  const withoutRuntime = { ...state, process: { ...state.process, processes: state.process.processes.filter(({ id }) => id !== processId) } }
+  return { status: 'stopped', state: archiveProcess(withoutRuntime, process) }
 }
 
 /**

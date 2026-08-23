@@ -18,12 +18,12 @@ function ActionHarness({ onRender }: { onRender?: () => void }) {
 function ClearHarness({ onRender }: { onRender?: () => void }) {
   const actions = useGameActions(); const state = useGameState()
   onRender?.()
-  return <><button onClick={actions.clearCompletedProcesses}>clear</button><output>{JSON.stringify(state)}</output></>
+  return <><button onClick={actions.clearRecentActivity}>clear</button><output>{JSON.stringify(state)}</output></>
 }
 
 function RemoveHarness({ processId }: { processId: string }) {
   const actions = useGameActions(); const state = useGameState()
-  return <><button onClick={() => actions.removeCompletedProcess(processId)}>remove</button><output>{JSON.stringify(state)}</output></>
+  return <><button onClick={() => actions.removeRecentActivity(processId)}>remove</button><output>{JSON.stringify(state)}</output></>
 }
 
 function EndpointHarness() {

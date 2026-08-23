@@ -2,7 +2,7 @@ import { resolveFileTransferSource } from '../../core/game/fileTransfer'
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
 import { NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
-import type { DeviceAccess, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess } from '../../core/game/types'
+import type { DeviceAccess, FileTransfer, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess, RecentActivityEntry } from '../../core/game/types'
 import { formatByteProgress, formatTransferRate } from '../byteFormat'
 
 /**
@@ -41,7 +41,7 @@ export interface MonitorActivity {
   readonly title: string
   /** Endpoint relationship, currently only meaningful for a transfer. */
   readonly route?: string
-  readonly status: 'running' | 'completed'
+  readonly status: 'running' | 'recent'
   /** Absent for continuous runtime with no finite completion threshold (e.g. NODE Miner): never rendered as a fake 0-100% bar. */
   readonly progressPercent?: number
   /** Compact metrics meaningful to this runtime type; never padded out. */
@@ -79,9 +79,16 @@ export interface ActivityMonitor {
 export function deriveActivityMonitor(state: GameState): ActivityMonitor {
   const device = state.player.localDevice
   const usage = deriveResourceUsage(device, state.process)
-  const operations = state.process.processes.filter((process) => process.executorDeviceId === device.id).map((process) => toOperationActivity(process, usage, state.deviceAccess.established, device.hardware.cpu.computeCapacity))
+  const archivedProcessIds = new Set(state.recentActivity.entries.filter((entry) => entry.kind === 'process').map(({ id }) => id))
+  const operations = state.process.processes
+    .filter((process) => process.executorDeviceId === device.id && (process.status === 'running' || !archivedProcessIds.has(process.id)))
+    .map((process) => toOperationActivity(process, usage, state.deviceAccess.established, device.hardware.cpu.computeCapacity, process.status === 'completed'))
   const transfer = deriveTransferPresentation(state)
-  const activities = transfer ? [...operations, transfer.activity] : operations
+  const recent = state.recentActivity.entries
+    .filter((entry) => entry.kind === 'file_transfer' || entry.process.executorDeviceId === device.id)
+    .map((entry) => toRecentActivity(entry, state, usage))
+    .reverse()
+  const activities = [...(transfer ? [...operations, transfer.activity] : operations), ...recent]
   return {
     summary: {
       cpuPercent: usage.totalCpuLoad,
@@ -107,8 +114,8 @@ export function filterActivities(activities: readonly MonitorActivity[], filter:
   return activities
 }
 
-function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], executorComputeCapacity: number): MonitorActivity {
-  if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity)
+function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], executorComputeCapacity: number, recent: boolean): MonitorActivity {
+  if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity, recent)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
   return {
@@ -117,7 +124,7 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
     kindLabel: process.kind === 'generic' ? 'PROCESS' : process.label,
     titleLabel: process.kind === 'generic' ? undefined : 'TARGET',
     title: process.kind === 'generic' ? process.label : process.startedEndpoint,
-    status: process.status,
+    status: recent ? 'recent' : 'running',
     progressPercent,
     facts: [
       { label: 'PROGRESS', value: `${progressPercent}%` },
@@ -139,8 +146,8 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
  * the difference is not runtime the Activity Monitor observes, so it is not
  * presented here.
  */
-function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, executorComputeCapacity: number): MonitorActivity {
-  const cpuPercent = usage.cpuAllocationByProcess[process.id] ?? 0
+function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, executorComputeCapacity: number, recent: boolean): MonitorActivity {
+  const cpuPercent = recent ? 0 : usage.cpuAllocationByProcess[process.id] ?? 0
   const allocatedCompute = executorComputeCapacity * cpuPercent / 100
   const unitsPerSecond = allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_UNIT
   return {
@@ -149,10 +156,9 @@ function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, ex
     kindLabel: process.label,
     titleLabel: 'RELEASE',
     title: process.releaseId,
-    status: 'running',
+    status: recent ? 'recent' : 'running',
     facts: [
-      { label: 'CPU', value: `${Math.round(cpuPercent)}%` },
-      { label: 'RAM', value: `${process.ramRequiredMiB} MiB` },
+      ...(!recent ? [{ label: 'CPU', value: `${Math.round(cpuPercent)}%` }, { label: 'RAM', value: `${process.ramRequiredMiB} MiB` }] : []),
       { label: 'PRODUCED', value: `${process.producedNodeUnits.toLocaleString('en-US')} units` },
       { label: 'PENDING', value: `${(process.producedNodeUnits % NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS).toLocaleString('en-US')} / ${NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS.toLocaleString('en-US')} units` },
     ],
@@ -160,7 +166,7 @@ function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, ex
       { label: 'ADDRESS', value: process.payoutAddress },
       ...(unitsPerSecond > 0 ? [{ label: 'RATE', value: `${Math.round(unitsPerSecond).toLocaleString('en-US')} units/s` }] : []),
     ],
-    stoppable: true,
+    stoppable: !recent,
   }
 }
 
@@ -232,6 +238,21 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
         { label: 'DESTINATION', value: transfer.destinationPath },
       ],
     },
+  }
+}
+
+function toRecentActivity(entry: RecentActivityEntry, state: GameState, usage: ResourceUsage): MonitorActivity {
+  if (entry.kind === 'process') return toOperationActivity(entry.process, usage, state.deviceAccess.established, state.player.localDevice.hardware.cpu.computeCapacity, true)
+  return toTransferActivity(entry.transfer, entry.sourcePath, entry.route)
+}
+
+function toTransferActivity(transfer: FileTransfer, sourcePath?: string, route?: string): MonitorActivity {
+  const progressPercent = transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0
+  return {
+    id: transfer.id, category: 'transfer', kindLabel: 'DOWNLOAD', titleLabel: 'ARTIFACT', title: basename(transfer.destinationPath), route,
+    status: 'recent', progressPercent,
+    facts: [{ label: 'PROGRESS', value: `${progressPercent}%` }, { label: 'TRANSFERRED', value: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal) }],
+    details: [...(sourcePath ? [{ label: 'SOURCE', value: sourcePath }] : []), { label: 'DESTINATION', value: transfer.destinationPath }],
   }
 }
 

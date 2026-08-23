@@ -254,6 +254,7 @@ describe('NODE Miner STOP', () => {
     const stopped = stopNodeMiner(started.state, started.processId)
     expect(stopped.status).toBe('stopped')
     expect(stopped.state.process.processes).toHaveLength(0)
+    expect(stopped.state.recentActivity.entries).toEqual([{ kind: 'process', id: started.processId, process: expect.objectContaining({ payoutAddress: state.nodeWallet.address, producedNodeUnits: 0, payoutNodeUnits: 0 }) }])
     const usageAfter = deriveResourceUsage(stopped.state.player.localDevice, stopped.state.process)
     expect(usageAfter.availableRamMiB).toBe(usageBefore.availableRamMiB)
     expect(usageAfter.processCpuLoad).toBe(0)
