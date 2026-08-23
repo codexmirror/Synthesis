@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 20
+export const GAME_STATE_VERSION = 21
 
 export function createInitialGameState(): GameState {
   return {
@@ -54,6 +54,8 @@ export function createInitialGameState(): GameState {
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 },
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
+            hardware: { cpu: { name: 'Server CPU', computeCapacity: 160 }, ram: { name: '8 GB', capacityMiB: 8192 } },
+            runtime: { baselineCpuLoad: 12, baselineRamUsage: 18 },
             filesystem: { nextFileId: 3, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
               { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
@@ -71,6 +73,8 @@ export function createInitialGameState(): GameState {
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
+            hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
+            runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
             filesystem: { nextFileId: 2, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
             ] },

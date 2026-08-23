@@ -6,7 +6,7 @@ export function Home({ openApp }: { openApp: (app: AppId) => void }) {
   const state = useGameState()
   const device = state.player.localDevice
   const runningProcesses = state.process.processes.filter(
-    (process) => process.status === 'running',
+    (process) => process.status === 'running' && process.executorDeviceId === state.player.localDevice.id,
   ).length
   const secondary: Partial<Record<AppId, string>> = {
     terminal: 'LOCAL SHELL',

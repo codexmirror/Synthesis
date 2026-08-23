@@ -21,6 +21,11 @@ function ClearHarness({ onRender }: { onRender?: () => void }) {
   return <><button onClick={actions.clearCompletedProcesses}>clear</button><output>{JSON.stringify(state)}</output></>
 }
 
+function RemoveHarness({ processId }: { processId: string }) {
+  const actions = useGameActions(); const state = useGameState()
+  return <><button onClick={() => actions.removeCompletedProcess(processId)}>remove</button><output>{JSON.stringify(state)}</output></>
+}
+
 function EndpointHarness() {
   const actions = useGameActions(); const state = useGameState()
   return <><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:22').status }}>old</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:2222').status }}>current</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('invalid').status }}>invalid</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisFromObservation({ endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' }).status }}>observed old SSH</button><output>{JSON.stringify(state.process)}</output></>
@@ -114,6 +119,21 @@ describe('GameProvider service-analysis actions', () => {
     expect(state.world).toEqual(initial.world)
     expect(state.player).toEqual(initial.player)
     expect(state.wallet).toEqual(initial.wallet)
+  })
+  it('keeps completed remote history when NODE-OS clears local history', () => {
+    const base = createInitialGameState()
+    const local = { kind: 'generic' as const, id: 'process-local', label: 'Local', executorDeviceId: base.player.localDevice.id, status: 'completed' as const, workRequired: 1, workCompleted: 1, ramRequiredMiB: 1 }
+    const remote = { ...local, id: 'process-remote', label: 'Remote', executorDeviceId: 'host-lan-001' }
+    render(<GameProvider initialState={{ ...base, process: { nextId: 3, processes: [local, remote] } }}><ClearHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'clear' }))
+    expect((JSON.parse(screen.getByRole('status').textContent ?? '') as GameState).process.processes).toEqual([remote])
+  })
+  it('refuses to remove completed history owned by a remote executor', () => {
+    const base = createInitialGameState()
+    const remote = { kind: 'generic' as const, id: 'process-remote', label: 'Remote', executorDeviceId: 'host-lan-001', status: 'completed' as const, workRequired: 1, workCompleted: 1, ramRequiredMiB: 1 }
+    render(<GameProvider initialState={{ ...base, process: { nextId: 2, processes: [remote] } }}><RemoveHarness processId={remote.id} /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'remove' }))
+    expect((JSON.parse(screen.getByRole('status').textContent ?? '') as GameState).process.processes).toEqual([remote])
   })
   it('does not rerender consumers when there is no completed history', () => {
     let renders = 0

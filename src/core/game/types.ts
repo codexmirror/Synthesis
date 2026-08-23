@@ -171,6 +171,9 @@ export interface NetworkHost {
   /** Device-owned operating environment and filesystem, when represented. */
   readonly firmware?: FirmwareState
   readonly filesystem?: FilesystemState
+  /** Device-owned compute resources, present only for concretely represented resource-capable hosts. */
+  readonly hardware?: HardwareState
+  readonly runtime?: Pick<RuntimeState, 'baselineCpuLoad' | 'baselineRamUsage'>
   /** Present only when the represented device has a concrete server role. */
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */

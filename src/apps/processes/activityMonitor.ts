@@ -74,8 +74,8 @@ export interface ActivityMonitor {
 
 export function deriveActivityMonitor(state: GameState): ActivityMonitor {
   const device = state.player.localDevice
-  const usage = deriveResourceUsage(device.hardware, device.runtime, state.process)
-  const operations = state.process.processes.map((process) => toOperationActivity(process, usage, state.deviceAccess.established))
+  const usage = deriveResourceUsage(device, state.process)
+  const operations = state.process.processes.filter((process) => process.executorDeviceId === device.id).map((process) => toOperationActivity(process, usage, state.deviceAccess.established))
   const transfer = deriveTransferPresentation(state)
   const activities = transfer ? [...operations, transfer.activity] : operations
   return {

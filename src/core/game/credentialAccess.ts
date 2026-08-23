@@ -36,8 +36,8 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   if (state.process.processes.some((process) => process.kind === 'credential_access' && process.status === 'running' && process.targetDeviceId === observed.targetDeviceId && process.serviceId === observed.serviceId && process.toolId === observed.toolId)) return { status: 'already_running', state }
   const endpoint = resolveServiceEndpoint(state, observed.endpoint)
   if (!endpoint || endpoint === 'invalid' || endpoint.targetDeviceId !== observed.targetDeviceId || endpoint.serviceId !== observed.serviceId) return { status: 'endpoint_not_found', state }
-  const started = startProcess(state.process, state.player.localDevice.hardware, state.player.localDevice.runtime, {
-    label: 'CREDENTIAL ACCESS', executorDeviceId: state.player.localDevice.id,
+  const started = startProcess(state.process, state.player.localDevice, {
+    label: 'CREDENTIAL ACCESS',
     workRequired: CREDENTIAL_ACCESS_WORK_REQUIRED, ramRequiredMiB: CREDENTIAL_ACCESS_RAM_REQUIRED_MIB,
   })
   if (started.status === 'insufficient_memory') return { ...started, state }

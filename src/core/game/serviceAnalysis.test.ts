@@ -34,8 +34,8 @@ describe('Service Analysis', () => {
   })
   it('uses real shared CPU and cumulative RAM', () => {
     const one = started(); const second = start(one, 'service-http-001'); if (second.status !== 'started') throw Error(second.status)
-    const oneUsage = deriveResourceUsage(one.player.localDevice.hardware, one.player.localDevice.runtime, one.process)
-    const twoUsage = deriveResourceUsage(second.state.player.localDevice.hardware, second.state.player.localDevice.runtime, second.state.process)
+    const oneUsage = deriveResourceUsage(one.player.localDevice, one.process)
+    const twoUsage = deriveResourceUsage(second.state.player.localDevice, second.state.process)
     expect(oneUsage.cpuAllocationByProcess['process-0001']).toBe(82); expect(twoUsage.cpuAllocationByProcess['process-0001']).toBe(41)
     expect(twoUsage.processRamMiB).toBe(SERVICE_ANALYSIS_RAM_REQUIRED_MIB * 2)
     expect(advanceGameState(one, 1000).process.processes[0].workCompleted).toBeGreaterThan(advanceGameState(second.state, 1000).process.processes[0].workCompleted)
@@ -53,7 +53,7 @@ describe('Service Analysis', () => {
   })
   it('allows re-analysis after history is cleared while retained knowledge does not bypass the running duplicate guard', () => {
     const done = advanceGameState(started(), 20_000)
-    const cleared = { ...done, process: clearCompletedProcesses(done.process) }
+    const cleared = { ...done, process: clearCompletedProcesses(done.process, done.player.localDevice.id) }
     expect(cleared.process.processes).toEqual([])
     expect(cleared.knowledge).toBe(done.knowledge)
     const again = start(cleared); expect(again.status).toBe('started')

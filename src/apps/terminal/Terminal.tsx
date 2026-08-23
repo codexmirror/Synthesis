@@ -86,7 +86,7 @@ function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess;
 export function Terminal() {
   const gameState = useGameState()
   const actions = useGameActions()
-  const usage = deriveResourceUsage(gameState.player.localDevice.hardware, gameState.player.localDevice.runtime, gameState.process)
+  const usage = deriveResourceUsage(gameState.player.localDevice, gameState.process)
   const [entries, setEntries] = useState<Entry[]>([])
 
   useEffect(() => {

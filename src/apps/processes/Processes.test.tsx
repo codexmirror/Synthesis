@@ -71,6 +71,19 @@ describe('Processes application integration', () => {
     expect(screen.queryByRole('button', { name: 'Clear completed processes' })).not.toBeInTheDocument()
   })
 
+  it('does not observe or clear remote Process runtime from NODE-OS', () => {
+    const base = createInitialGameState()
+    const remote = { kind: 'generic' as const, id: 'process-remote', label: 'REMOTE WORK', executorDeviceId: 'host-lan-001', status: 'completed' as const, workRequired: 100, workCompleted: 100, ramRequiredMiB: 2048 }
+    const initial = { ...base, process: { nextId: 2, processes: [remote] } }
+    function Snapshot() { return <output>{JSON.stringify(useGameState().process.processes)}</output> }
+    render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
+    expect(screen.queryByText('REMOTE WORK')).not.toBeInTheDocument()
+    expect(within(stat('CPU')).getByText('18%')).toBeInTheDocument()
+    expect(within(stat('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear completed processes' })).not.toBeInTheDocument()
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual([remote])
+  })
+
   it('renders running Service Analysis target, progress, CPU allocation, and RAM requirement', () => {
     render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
     const analysis = card('SERVICE ANALYSIS')

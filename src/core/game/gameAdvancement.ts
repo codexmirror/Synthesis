@@ -14,7 +14,8 @@ import type { GameState } from './types'
 export function advanceGameState(state: GameState, elapsedMs: number): GameState {
   let nextState = state
 
-  const processState = advanceProcesses(nextState.process, nextState.player.localDevice.hardware, nextState.player.localDevice.runtime, elapsedMs)
+  const executors = [nextState.player.localDevice, ...nextState.world.network.hosts.filter((host) => host.hardware && host.runtime).map((host) => ({ id: host.id, hardware: host.hardware!, runtime: host.runtime! }))]
+  const processState = advanceProcesses(nextState.process, executors, elapsedMs)
   if (processState !== nextState.process) {
     let discoveries = nextState.knowledge.discoveredVulnerabilities
     let deviceAccess = nextState.deviceAccess

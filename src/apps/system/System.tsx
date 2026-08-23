@@ -3,7 +3,7 @@ import { deriveResourceUsage } from '../../core/game/processes'
 
 export function System() {
   const state = useGameState(); const { localDevice } = state.player
-  const usage = deriveResourceUsage(localDevice.hardware, localDevice.runtime, state.process)
+  const usage = deriveResourceUsage(localDevice, state.process)
   const rows = [
     ['Device', localDevice.displayName],
     ['Firmware', localDevice.firmware.name],

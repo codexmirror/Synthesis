@@ -112,14 +112,14 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, clearCompletedProcesses() {
     const state = currentState.current
-    const process = clearCompletedProcessState(state.process)
+    const process = clearCompletedProcessState(state.process, state.player.localDevice.id)
     if (process === state.process) return
     const nextState = { ...state, process }
     currentState.current = nextState
     setGameState(nextState)
   }, removeCompletedProcess(processId) {
     const state = currentState.current
-    const process = removeCompletedProcessState(state.process, processId)
+    const process = removeCompletedProcessState(state.process, processId, state.player.localDevice.id)
     if (process === state.process) return
     const nextState = { ...state, process }
     currentState.current = nextState
