@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
+import { formatBytes } from '../byteFormat'
 import type { ExecutableFile, FilesystemFile, InstalledSoftware, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
@@ -78,10 +79,4 @@ function ExecutableDetails({ file }: { file: ExecutableFile }) {
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
 function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : 'EXECUTABLE' }
-export function formatBytes(bytes: number) {
-  if (bytes < 1_000) return `${bytes} B`
-  if (bytes < 1_000_000) return `${stripZero((bytes / 1_000).toFixed(1))} KB`
-  return `${stripZero((bytes / 1_000_000).toFixed(1))} MB`
-}
-function stripZero(value: string) { return value.endsWith('.0') ? value.slice(0, -2) : value }
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }
