@@ -79,7 +79,15 @@ export function getFilesystemFile(filesystem: FilesystemState, path: string): Ge
   return { status: 'not_found' }
 }
 
-/** Compare the complete represented artifact while deliberately excluding its location. */
+export function getFilesystemFileSizeBytes(file: FilesystemFile): number {
+  if (file.kind === 'text') return new TextEncoder().encode(file.content).byteLength
+  if (!Number.isSafeInteger(file.sizeBytes) || file.sizeBytes <= 0) {
+    throw new RangeError('Represented artifact size must be a positive safe integer')
+  }
+  return file.sizeBytes
+}
+
+/** Compare represented artifact semantics while deliberately excluding concrete copy ID and location. */
 export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: FilesystemFile): boolean {
   if (a.kind !== b.kind) return false
   if (a.kind === 'text' && b.kind === 'text') return a.content === b.content
@@ -89,6 +97,14 @@ export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: Filesys
       && a.name === b.name
       && a.version === b.version
       && a.channel === b.channel
+      && a.sizeBytes === b.sizeBytes
+  }
+  if (a.kind === 'executable' && b.kind === 'executable') {
+    return a.programId === b.programId
+      && a.releaseId === b.releaseId
+      && a.name === b.name
+      && a.version === b.version
+      && a.sizeBytes === b.sizeBytes
   }
   return false
 }
@@ -107,6 +123,12 @@ export function copyFilesystemFileToPath(sourceFile: FilesystemFile, destination
     if (destinationFilesystem.files.some(({ path }) => path === ancestor)) return { status: 'destination_conflict' }
   }
 
-  const file = { ...sourceFile, path: normalized }
-  return { status: 'copied', filesystem: { files: [...destinationFilesystem.files, file] }, file }
+  getFilesystemFileSizeBytes(sourceFile)
+  const allocatedId = `file-${String(destinationFilesystem.nextFileId).padStart(4, '0')}`
+  const file = { ...sourceFile, id: allocatedId, path: normalized }
+  return {
+    status: 'copied',
+    filesystem: { nextFileId: destinationFilesystem.nextFileId + 1, files: [...destinationFilesystem.files, file] },
+    file,
+  }
 }

@@ -467,10 +467,23 @@ Firmware and interface presentation state. Files, Terminal, and any other
 observation surfaces must derive their views from the same canonical
 filesystem rather than creating application-local file models.
 
-The current filesystem implementation is deliberately read-only. Directories
-are derived from file paths. Local and foreign interfaces remain bound to their
-respective Device-owned filesystem; this boundary does not imply a generic
-virtual-filesystem framework or remote filesystem authority.
+Directories are derived from file paths. Every concrete file copy has an ID
+that is unique and stable within its owning filesystem, while its path is its
+current location. Raw file IDs may coincide across Devices, so a cross-Device
+reference requires `(deviceId, fileId)`; files do not duplicate their owning
+Device identity. Copying allocates only from the destination filesystem. It
+creates a new concrete copy identity even when its raw destination file ID is
+equal to the source file ID on another Device, while preserving the represented
+artifact semantics. Local and foreign interfaces remain bound
+to their respective Device-owned filesystem; this boundary does not imply a
+global file registry, generic virtual-filesystem framework, or remote
+filesystem authority.
+
+The concrete represented artifact kinds are text, software package, and
+executable. Text size is derived from UTF-8 content, while package and
+executable sizes are explicit positive byte counts because their payload bytes
+are not represented. Size does not imply storage-capacity simulation: disk
+capacity, usage, and admission remain intentionally unrepresented.
 
 ### A18 — Wallet, currency, Device, and wallet software are separate
 
