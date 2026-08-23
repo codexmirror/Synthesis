@@ -6,8 +6,15 @@ import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
 import { BASIC_CREDENTIAL_TOOLKIT_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, resolveActiveRemoteTarget } from './remoteSession'
-import { downloadRemoteFile } from './remoteDownload'
+import { startRemoteFileDownload } from './fileTransfer'
 import type { GameState } from './types'
+
+/** Start a Download and advance simulation time well past its derived completion, mirroring the prior atomic-download test shape. */
+function downloadRemoteFile(state: GameState, sourcePath: string) {
+  const started = startRemoteFileDownload(state, sourcePath)
+  if (started.status !== 'started') return { status: started.status, state: started.state } as const
+  return { status: 'downloaded' as const, state: advanceGameState(started.state, 60_000), sourcePath: started.sourcePath, destinationPath: started.destinationPath }
+}
 
 /**
  * N=2 architecture proof: srv-01 (host-lan-001) and the second interactive

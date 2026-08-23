@@ -266,6 +266,24 @@ export interface RemoteSession {
 
 export interface RemoteSessionState { readonly nextId: number; readonly active: RemoteSession | null }
 
+/**
+ * Canonical network file-transfer runtime. Distinct from GameProcess: it is
+ * not compute/RAM-driven work and must never be represented as one.
+ */
+export interface FileTransfer {
+  readonly id: string
+  /** The RemoteSession that authorized this transfer; work only continues while it remains the current active Session. */
+  readonly sessionId: string
+  readonly sourceDeviceId: string
+  readonly sourceFileId: string
+  readonly destinationDeviceId: string
+  readonly destinationPath: string
+  readonly bytesTotal: number
+  readonly bytesTransferred: number
+}
+
+export interface FileTransferState { readonly nextId: number; readonly active: FileTransfer | null }
+
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
@@ -276,4 +294,5 @@ export interface GameState {
   readonly discovery: DiscoveryState
   readonly deviceAccess: DeviceAccessState
   readonly remoteSession: RemoteSessionState
+  readonly fileTransfer: FileTransferState
 }

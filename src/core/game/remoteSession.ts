@@ -52,7 +52,17 @@ export function connectRemoteFromObservation(state: GameState, observation: Remo
 
 export type DisconnectRemoteResult = { readonly status: 'disconnected' | 'not_connected'; readonly state: GameState }
 
+/**
+ * Disconnecting ends this Session's authority immediately. Any FileTransfer
+ * still bound to it must stop with it in the same step, rather than waiting
+ * for the next simulation-advancement tick to notice; DeviceAccess is left
+ * untouched.
+ */
 export function disconnectRemoteSession(state: GameState): DisconnectRemoteResult {
-  if (!state.remoteSession.active) return { status: 'not_connected', state }
-  return { status: 'disconnected', state: { ...state, remoteSession: { ...state.remoteSession, active: null } } }
+  const activeSession = state.remoteSession.active
+  if (!activeSession) return { status: 'not_connected', state }
+  const fileTransfer = state.fileTransfer.active?.sessionId === activeSession.id
+    ? { ...state.fileTransfer, active: null }
+    : state.fileTransfer
+  return { status: 'disconnected', state: { ...state, remoteSession: { ...state.remoteSession, active: null }, fileTransfer } }
 }

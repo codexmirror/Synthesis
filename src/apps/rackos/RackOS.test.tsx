@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 import { createInitialGameState } from '../../core/game/initialState'
@@ -34,6 +34,8 @@ function connectedState(): GameState {
 async function enterRemote(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /^ENTER .+ →$/ }))
 }
+
+afterEach(() => vi.useRealTimers())
 
 describe('RACK-OS', () => {
   it('owns editing scroll in its output and configures the remote command for mobile entry', async () => {
@@ -89,12 +91,13 @@ describe('RACK-OS', () => {
   })
 
   it('navigates and presents canonical package metadata while cat rejects the artifact', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const initial = connectedState()
     const host = initial.world.network.hosts[0]
     const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/packages/scanner.release', releaseId: 'canonical-package', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly', sizeBytes: 1_000 }
     const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={state}><Shell /><StateSnapshot /></GameProvider>)
-    const user = userEvent.setup()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await enterRemote(user)
 
     await user.type(screen.getByLabelText('Remote command'), 'cat /opt/packages/scanner.release{enter}')
@@ -111,12 +114,15 @@ describe('RACK-OS', () => {
     expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /install|run/i })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOAD STARTED' })).toBeDisabled()
+    await act(async () => { vi.advanceTimersByTime(1_000) })
     expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
     expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('LOCAL COPY/home/user/downloads/scanner.release')
     const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
     expect(current.player.localDevice.filesystem.files.at(-1)).toEqual({ ...packageFile, id: 'file-0002', path: '/home/user/downloads/scanner.release' })
     expect(current.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })
     expect(current.process.processes).toEqual([])
+    expect(current.fileTransfer.active).toBeNull()
     expect(screen.queryByRole('button', { name: /install|run/i })).not.toBeInTheDocument()
   })
 
@@ -129,11 +135,14 @@ describe('RACK-OS', () => {
   })
 
   it('downloads through the remote Terminal into canonical local Files', async () => {
-    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await enterRemote(user)
     await user.type(screen.getByLabelText('Remote command'), 'download /srv/proof.txt{enter}')
-    expect(document.body).toHaveTextContent('DOWNLOADED')
+    expect(document.body).toHaveTextContent('DOWNLOAD STARTED')
     expect(document.body).toHaveTextContent('/home/user/downloads/proof.txt')
+    await act(async () => { vi.advanceTimersByTime(1_000) })
     await user.type(screen.getByLabelText('Remote command'), 'download /srv/proof.txt{enter}')
     expect(document.body).toHaveTextContent('DESTINATION ALREADY EXISTS')
     await user.type(screen.getByLabelText('Remote command'), 'disconnect{enter}')
@@ -144,13 +153,17 @@ describe('RACK-OS', () => {
   })
 
   it('derives graphical Download, successful, and reopened states from canonical local truth', async () => {
-    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await enterRemote(user)
     await user.click(screen.getByRole('button', { name: 'FILES' }))
     await user.click(screen.getByRole('button', { name: 'DIR srv' }))
     await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
     expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOAD STARTED' })).toBeDisabled()
+    await act(async () => { vi.advanceTimersByTime(1_000) })
     expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent('LOCAL COPY/home/user/downloads/proof.txt')
     expect(screen.queryByRole('button', { name: 'DOWNLOAD' })).not.toBeInTheDocument()
@@ -221,7 +234,8 @@ describe('RACK-OS', () => {
   })
 
   it('enters, presents, and downloads from the second interactive target (host-lan-002) through its own stable identity', async () => {
-    const user = userEvent.setup()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     const base = createInitialGameState()
     const access = { id: 'access-b', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
     const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
@@ -240,10 +254,12 @@ describe('RACK-OS', () => {
     expect(rackOs).not.toHaveTextContent('Service workspace.')
 
     await user.type(input, 'download /srv/backup-manifest.txt{enter}')
-    expect(rackOs).toHaveTextContent('DOWNLOADED')
+    expect(rackOs).toHaveTextContent('DOWNLOAD STARTED')
     expect(rackOs).toHaveTextContent('/home/user/downloads/backup-manifest.txt')
+    await act(async () => { vi.advanceTimersByTime(1_000) })
     const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
     expect(current.player.localDevice.filesystem.files.at(-1)).toMatchObject({ path: '/home/user/downloads/backup-manifest.txt', content: 'Backup manifest for srv-02.' })
+    expect(current.fileTransfer.active).toBeNull()
   })
 
   it('keeps the existing NODE-OS Terminal bound to local address and filesystem during an active Session', async () => {
