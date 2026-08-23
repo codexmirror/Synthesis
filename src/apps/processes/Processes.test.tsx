@@ -94,6 +94,19 @@ describe('Processes application integration', () => {
     expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
   })
 
+  it('counts only active activity in badges while retaining completed operations in filtered history', () => {
+    const completed = withProcesses()
+    const completedOnly = { ...completed, process: { ...completed.process, processes: completed.process.processes.filter(({ status }) => status === 'completed') } }
+    const { unmount } = render(<GameProvider initialState={completedOnly}><Processes /></GameProvider>)
+    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual(['ALL0', 'OPERATIONS0', 'TRANSFERS0'])
+    fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
+    expect(screen.getByText('Finished analysis')).toBeInTheDocument()
+    unmount()
+
+    render(<GameProvider initialState={withDownload(withProcesses())}><Processes /></GameProvider>)
+    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual(['ALL2', 'OPERATIONS1', 'TRANSFERS1'])
+  })
+
   it('advances at the provider boundary even when the app is not mounted', () => {
     vi.useFakeTimers()
     function Snapshot() { const value = useGameState().process.processes[0].workCompleted; return <output>{value}</output> }
@@ -152,6 +165,21 @@ describe('Processes application integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear completed processes' }))
     expect(screen.queryByText('WEAKNESS DETECTED')).not.toBeInTheDocument()
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'vulnerability-ssh-001' }] } })
+  })
+
+  it('removes one completed Process through GameActions without changing gameplay truth or other work', () => {
+    const base = completedAnalysis()
+    const first = base.process.processes[0]
+    const initial: GameState = { ...base, process: { nextId: 3, processes: [first, { ...first, id: 'process-0002', label: 'SECOND COMPLETION' }] } }
+    const truth = { world: initial.world, knowledge: initial.knowledge, deviceAccess: initial.deviceAccess, filesystem: initial.player.localDevice.filesystem }
+    function Snapshot() {
+      const state = useGameState()
+      return <output>{JSON.stringify({ ids: state.process.processes.map(({ id }) => id), nextId: state.process.nextId, worldSame: state.world === truth.world, knowledgeSame: state.knowledge === truth.knowledge, accessSame: state.deviceAccess === truth.deviceAccess, filesystemSame: state.player.localDevice.filesystem === truth.filesystem })}</output>
+    }
+    render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove completed SERVICE ANALYSIS process' })[0])
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual({ ids: ['process-0002'], nextId: 3, worldSame: true, knowledgeSame: true, accessSame: true, filesystemSame: true })
+    expect(screen.getByText('SECOND COMPLETION')).toBeInTheDocument()
   })
 
   it('does not rewrite the historical target when the current service port changes', () => {
@@ -249,6 +277,15 @@ describe('Activity Monitor aggregation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
     expect(screen.queryByText('COMPLETED')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear completed processes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Remove completed/ })).not.toBeInTheDocument()
+  })
+
+  it('offers individual removal only on completed Process cards', () => {
+    render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
+    expect(within(card('PROCESS')).queryByRole('button', { name: /Remove completed/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove completed PROCESS process' })).toBeInTheDocument()
+    const removeRule = processesCss.match(/\.am-remove\s*\{([^}]+)\}/)?.[1] ?? ''
+    expect(removeRule).toMatch(/min-height:\s*44px/)
   })
 
   it('represents only currently implemented activity types', () => {

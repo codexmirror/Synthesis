@@ -12,7 +12,7 @@ const EMPTY_STATE: Record<ActivityFilterId, { headline: string; note: string }> 
 
 export function Processes() {
   const state = useGameState()
-  const { clearCompletedProcesses } = useGameActions()
+  const { clearCompletedProcesses, removeCompletedProcess } = useGameActions()
   const [filter, setFilter] = useState<ActivityFilterId>('all')
   const { summary, activities } = deriveActivityMonitor(state)
   const visible = filterActivities(activities, filter)
@@ -37,7 +37,7 @@ export function Processes() {
 
     <div className="am-filters" role="group" aria-label="Activity filter">
       {ACTIVITY_FILTERS.map(({ id, label, accessibleName }) => <button className="am-filter" type="button" key={id} aria-label={accessibleName} aria-pressed={filter === id} onClick={() => setFilter(id)}>
-        <span>{label}</span><span className="am-filter-count">{filterActivities(activities, id).length}</span>
+        <span>{label}</span><span className="am-filter-count">{filterActivities(activities, id).filter((activity) => activity.status === 'running').length}</span>
       </button>)}
     </div>
 
@@ -51,7 +51,7 @@ export function Processes() {
         <span>COMPLETED</span>
         <button className="am-clear" type="button" aria-label="Clear completed processes" onClick={() => { if (window.confirm('Clear completed process history?')) clearCompletedProcesses() }}>CLEAR</button>
       </div>
-      <div className="am-list">{completed.map((activity) => <ActivityCard activity={activity} key={activity.id} />)}</div>
+      <div className="am-list">{completed.map((activity) => <ActivityCard activity={activity} key={activity.id} onRemove={() => removeCompletedProcess(activity.id)} />)}</div>
     </>}
   </section>
 }
@@ -65,11 +65,14 @@ function Stat({ label, value, note, percent }: { label: string; value: string; n
   </div>
 }
 
-function ActivityCard({ activity }: { activity: MonitorActivity }) {
+function ActivityCard({ activity, onRemove }: { activity: MonitorActivity; onRemove?: () => void }) {
   return <article className="am-activity" data-category={activity.category} data-status={activity.status}>
     <div className="am-activity-head">
       <span className="am-kind">{activity.kindLabel}</span>
-      <span className="am-state"><i aria-hidden="true" />{activity.status === 'running' ? 'RUNNING' : 'COMPLETED'}</span>
+      <span className="am-activity-controls">
+        <span className="am-state"><i aria-hidden="true" />{activity.status === 'running' ? 'RUNNING' : 'COMPLETED'}</span>
+        {activity.status === 'completed' && activity.category === 'operation' && onRemove && <button className="am-remove" type="button" aria-label={`Remove completed ${activity.kindLabel} process`} onClick={onRemove}>REMOVE</button>}
+      </span>
     </div>
     <div className="am-title">
       {activity.titleLabel && <span className="am-title-label">{activity.titleLabel}</span>}

@@ -33,7 +33,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     disconnectRemoteSession: () => ({ status: 'not_connected', state }),
     startRemoteFileDownload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(),
-    clearCompletedProcesses: () => {},
+    clearCompletedProcesses: () => {}, removeCompletedProcess: () => {},
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
   vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
@@ -240,7 +240,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(), removeCompletedProcess: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()

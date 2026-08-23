@@ -43,6 +43,13 @@ export function clearCompletedProcesses(state: ProcessState): ProcessState {
   return { ...state, processes: state.processes.filter((process) => process.status === 'running') }
 }
 
+/** Removes one disposable completion record without affecting running work or ID progression. */
+export function removeCompletedProcess(state: ProcessState, processId: string): ProcessState {
+  const process = state.processes.find(({ id }) => id === processId)
+  if (!process || process.status !== 'completed') return state
+  return { ...state, processes: state.processes.filter(({ id }) => id !== processId) }
+}
+
 export function startProcess(state: ProcessState, hardware: HardwareState, runtime: RuntimeState, input: StartProcessInput): StartProcessResult {
   const availableMiB = deriveResourceUsage(hardware, runtime, state).availableRamMiB
   if (input.ramRequiredMiB > availableMiB) return { status: 'insufficient_memory', state, requiredMiB: input.ramRequiredMiB, availableMiB }
