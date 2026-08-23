@@ -49,10 +49,16 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }
 
-/** Current network address of a Process executor Device, for the authentication history source-address snapshot. */
-function resolveExecutorAddress(state: GameState, executorDeviceId: string): string {
+/**
+ * Current network address of the Process executor Device that actually owns
+ * `executorDeviceId`, for the authentication history source-address
+ * snapshot. Returns `undefined` when that identity does not legitimately
+ * resolve to a represented Device; callers must never substitute another
+ * Device's address in that case, as doing so would fabricate provenance.
+ */
+function resolveExecutorAddress(state: GameState, executorDeviceId: string): string | undefined {
   if (executorDeviceId === state.player.localDevice.id) return state.player.localDevice.network.ip
-  return state.world.network.hosts.find(({ id }) => id === executorDeviceId)?.ip ?? state.player.localDevice.network.ip
+  return state.world.network.hosts.find(({ id }) => id === executorDeviceId)?.ip
 }
 
 export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess']; world: GameState['world'] } {
@@ -66,11 +72,12 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   if (!reached || !service) return failedResult
 
   const succeeds = Boolean(service.vulnerabilities?.some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess)
-  const world = appendAuthenticationHistoryForHost(state.world, process.targetDeviceId, {
-    serviceId: service.id, serviceName: service.name,
-    sourceAddress: resolveExecutorAddress(state, process.executorDeviceId),
-    result: succeeds ? 'SUCCESS' : 'FAILURE',
-  })
+  // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
+  // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
+  const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
+  const world = sourceAddress
+    ? appendAuthenticationHistoryForHost(state.world, process.targetDeviceId, { serviceId: service.id, serviceName: service.name, sourceAddress, result: succeeds ? 'SUCCESS' : 'FAILURE' })
+    : state.world
   if (!succeeds) return { ...failedResult, world }
 
   const existing = state.deviceAccess.established.find((access) => access.sourceDeviceId === process.executorDeviceId && access.targetDeviceId === process.targetDeviceId && access.viaServiceId === process.serviceId)

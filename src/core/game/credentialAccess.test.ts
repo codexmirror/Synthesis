@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { rememberScan } from './discovery'
 import { createInitialGameState } from './initialState'
-import { clearCompletedProcesses, deriveResourceUsage } from './processes'
+import { clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess } from './processes'
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { BASIC_CREDENTIAL_TOOLKIT_ID, canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, startCredentialAccessAttemptFromObservation } from './credentialAccess'
-import type { GameState } from './types'
+import { BASIC_CREDENTIAL_TOOLKIT_ID, canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
+import type { CredentialAccessProcess, GameState } from './types'
 
 const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'vulnerability-ssh-001', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }
 
@@ -126,5 +127,53 @@ describe('Initial credential access', () => {
     const movedSource = { ...done, player: { ...done.player, localDevice: { ...done.player.localDevice, network: { ...done.player.localDevice.network, ip: '203.0.113.9' } } } }
     const target = movedSource.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
     expect(target?.authenticationHistory?.records[0]?.sourceAddress).toBe('198.51.100.23')
+  })
+
+  it('never fabricates another Device\'s address as source provenance when the Process executor identity is unresolvable', () => {
+    const running = start()
+    const runningProcess = running.process.processes.at(-1) as CredentialAccessProcess
+    const staleProcess: CredentialAccessProcess = { ...runningProcess, status: 'completed', executorDeviceId: 'device-ghost-executor' }
+    const resolved = resolveCompletedCredentialAccess(running, staleProcess)
+
+    // The impossible/stale executor identity does not stop the represented authentication outcome itself from resolving...
+    expect(resolved.process.result).toEqual({ status: 'access_established', accessId: 'access-0001' })
+    // ...but it must not fabricate a source address, so no history record is appended at all.
+    const target = resolved.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
+    expect(target?.authenticationHistory?.records ?? []).toEqual([])
+  })
+
+  it("keeps an existing Authentication History record's serviceName and sourceAddress snapshots unchanged across disconnect, Process cleanup, DeviceAccess changes, and later mutable presentation/Service-name changes", () => {
+    const done = advanceGameState(start(), 30_000)
+    const originalRecord = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory?.records[0]
+    expect(originalRecord).toEqual({ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: '198.51.100.23', result: 'SUCCESS' })
+    const recordAfter = (state: GameState) => state.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory?.records[0]
+
+    // RemoteSession connect, then disconnect.
+    const connected = connectRemoteFromObservation(done, { targetDeviceId: observation.targetDeviceId, address: '198.51.100.47' })
+    if (connected.status !== 'connected') throw new Error(connected.status)
+    const disconnected = disconnectRemoteSession(connected.state).state
+    expect(recordAfter(disconnected)).toEqual(originalRecord)
+
+    // Removing the one completed credential_access Process that produced the record.
+    const completedProcessId = done.process.processes.at(-1)!.id
+    const processRemoved = { ...done, process: removeCompletedProcess(done.process, completedProcessId, done.player.localDevice.id) }
+    expect(processRemoved.process.processes.some(({ id }) => id === completedProcessId)).toBe(false)
+    expect(recordAfter(processRemoved)).toEqual(originalRecord)
+
+    // Clearing completed Process history.
+    const cleared = { ...done, process: clearCompletedProcesses(done.process, done.player.localDevice.id) }
+    expect(recordAfter(cleared)).toEqual(originalRecord)
+
+    // DeviceAccess later removed.
+    const accessRemoved = { ...done, deviceAccess: { nextId: 1, established: [] } }
+    expect(recordAfter(accessRemoved)).toEqual(originalRecord)
+
+    // Target Device's mutable presentation (display name, address) changes.
+    const renamedTarget: GameState = { ...done, world: { network: { ...done.world.network, hosts: done.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, displayName: 'renamed-server', ip: '192.0.2.77' } : host) } } }
+    expect(recordAfter(renamedTarget)).toEqual(originalRecord)
+
+    // The represented Service's own name changes after the event.
+    const renamedService = changeService(done, (service) => ({ ...service, name: 'SSH-RENAMED' }))
+    expect(recordAfter(renamedService)).toEqual(originalRecord)
   })
 })
