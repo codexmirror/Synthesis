@@ -20,6 +20,12 @@ function downloadRemoteFile(state: GameState, sourcePath: string) {
  * N=2 architecture proof: srv-01 (host-lan-001) and the second interactive
  * target srv-02 (host-lan-002) must resolve independently through every
  * existing shared gameplay operation, using only stable identity.
+ *
+ * srv-02 also proves that a discovered weakness does not guarantee access:
+ * its SSH service owns the same real Weak Authentication vulnerability as
+ * srv-01, but its authentication also requires a second factor the Basic
+ * Credential Toolkit cannot satisfy, so the attempt still fails after the
+ * weakness is known.
  */
 interface TargetFixture {
   readonly id: string
@@ -67,31 +73,29 @@ function connectTo(state: GameState, target: TargetFixture): GameState {
 }
 
 describe('Second interactive target (srv-02 / host-lan-002)', () => {
-  it('completes SCAN -> discovery -> analysis -> credential access -> DeviceAccess -> RemoteSession -> RACK-OS -> download against Target B alone', () => {
-    const withAccess = discoverAndCredentialAccess(createInitialGameState(), TARGET_B)
+  it('discovers the same real weak-authentication vulnerability as srv-01, but the Basic Credential Toolkit still fails to establish access', () => {
+    const afterAttempt = discoverAndCredentialAccess(createInitialGameState(), TARGET_B)
 
-    expect(withAccess.discovery.devices.find((device) => device.id === TARGET_B.id)?.services.map((service) => service.id)).toEqual([TARGET_B.serviceId])
-    expect(withAccess.knowledge.discoveredVulnerabilities).toEqual([
+    expect(afterAttempt.discovery.devices.find((device) => device.id === TARGET_B.id)?.services.map((service) => service.id)).toEqual([TARGET_B.serviceId])
+    expect(afterAttempt.knowledge.discoveredVulnerabilities).toEqual([
       { vulnerabilityId: TARGET_B.vulnerabilityId, observedLabel: 'Weak authentication configuration', targetDeviceId: TARGET_B.id, serviceId: TARGET_B.serviceId },
     ])
-    expect(withAccess.deviceAccess.established).toEqual([
-      { id: 'access-0001', sourceDeviceId: withAccess.player.localDevice.id, targetDeviceId: TARGET_B.id, viaServiceId: TARGET_B.serviceId, privilege: 'USER' },
+
+    expect(afterAttempt.deviceAccess.established).toEqual([])
+    expect(afterAttempt.process.processes.at(-1)).toMatchObject({
+      kind: 'credential_access', status: 'completed',
+      result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' },
+    })
+
+    const target = afterAttempt.world.network.hosts.find(({ id }) => id === TARGET_B.id)
+    expect(target?.authenticationHistory?.records).toEqual([
+      { id: 'auth-0001', serviceId: TARGET_B.serviceId, serviceName: 'SSH', sourceAddress: afterAttempt.player.localDevice.network.ip, result: 'FAILURE' },
     ])
 
-    const connected = connectTo(withAccess, TARGET_B)
-    const active = resolveActiveRemoteTarget(connected)
-    expect(active?.target.id).toBe(TARGET_B.id)
-    expect(active?.target.displayName).toBe(TARGET_B.displayName)
-    expect(active?.target.firmware).toEqual({ id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' })
-
-    const downloaded = downloadRemoteFile(connected, TARGET_B.filePath)
-    expect(downloaded.status).toBe('downloaded')
-    if (downloaded.status !== 'downloaded') throw new Error('expected download')
-    expect(downloaded.destinationPath).toBe('/home/user/downloads/backup-manifest.txt')
-    expect(downloaded.state.player.localDevice.filesystem.files.find((file) => file.path === downloaded.destinationPath)).toMatchObject({ kind: 'text', content: TARGET_B.fileContent })
+    expect(connectRemoteFromObservation(afterAttempt, { targetDeviceId: TARGET_B.id, address: TARGET_B.ip }).status).toBe('access_required')
   })
 
-  it('keeps Target A fully working, unweakened, alongside Target B', () => {
+  it('keeps Target A fully working, unweakened, alongside hardened Target B', () => {
     const withAccess = discoverAndCredentialAccess(createInitialGameState(), TARGET_A)
     const connected = connectTo(withAccess, TARGET_A)
     const active = resolveActiveRemoteTarget(connected)
@@ -101,7 +105,7 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     expect(downloaded.status).toBe('downloaded')
   })
 
-  it('does not let Knowledge or DeviceAccess for A leak into B, or vice versa', () => {
+  it('does not let Knowledge leak between A and B, and does not grant B DeviceAccess merely because A succeeded', () => {
     let state = createInitialGameState()
     state = discoverAndCredentialAccess(state, TARGET_A)
     state = discoverAndCredentialAccess(state, TARGET_B)
@@ -109,59 +113,10 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     expect(state.knowledge.discoveredVulnerabilities.some((known) => known.targetDeviceId === TARGET_A.id && known.vulnerabilityId === TARGET_B.vulnerabilityId)).toBe(false)
     expect(state.knowledge.discoveredVulnerabilities.some((known) => known.targetDeviceId === TARGET_B.id && known.vulnerabilityId === TARGET_A.vulnerabilityId)).toBe(false)
 
-    expect(state.deviceAccess.established).toHaveLength(2)
+    expect(state.deviceAccess.established).toHaveLength(1)
     const accessA = state.deviceAccess.established.find((access) => access.targetDeviceId === TARGET_A.id)
-    const accessB = state.deviceAccess.established.find((access) => access.targetDeviceId === TARGET_B.id)
-    expect(accessA?.id).not.toBe(accessB?.id)
-    expect(accessA?.viaServiceId).toBe(TARGET_A.serviceId)
-    expect(accessB?.viaServiceId).toBe(TARGET_B.serviceId)
-  })
-
-  it('resolves RemoteSession to A and to B by stable identity, one at a time, never confusing the two', () => {
-    let state = createInitialGameState()
-    state = discoverAndCredentialAccess(state, TARGET_A)
-    state = discoverAndCredentialAccess(state, TARGET_B)
-
-    const connectedA = connectTo(state, TARGET_A)
-    expect(resolveActiveRemoteTarget(connectedA)?.target.id).toBe(TARGET_A.id)
-    expect(connectRemoteFromObservation(connectedA, { targetDeviceId: TARGET_B.id, address: TARGET_B.ip }).status).toBe('session_active')
-
-    const disconnected = disconnectRemoteSession(connectedA).state
-    const connectedB = connectTo(disconnected, TARGET_B)
-    expect(resolveActiveRemoteTarget(connectedB)?.target.id).toBe(TARGET_B.id)
-  })
-
-  it("downloading from B copies B's selected artifact, never A's, and both concrete local copies persist together with distinct IDs", () => {
-    let state = createInitialGameState()
-    state = discoverAndCredentialAccess(state, TARGET_A)
-    state = discoverAndCredentialAccess(state, TARGET_B)
-
-    const connectedA = connectTo(state, TARGET_A)
-    const downloadedA = downloadRemoteFile(connectedA, TARGET_A.filePath)
-    if (downloadedA.status !== 'downloaded') throw new Error('expected download from A')
-
-    // Continue from the state the successful download from A actually produced,
-    // rather than re-deriving a disconnect from before the download happened.
-    const disconnected = disconnectRemoteSession(downloadedA.state).state
-    const connectedB = connectTo(disconnected, TARGET_B)
-    const downloadedB = downloadRemoteFile(connectedB, TARGET_B.filePath)
-    if (downloadedB.status !== 'downloaded') throw new Error('expected download from B')
-
-    const finalFiles = downloadedB.state.player.localDevice.filesystem.files
-    const copyFromA = finalFiles.find((file) => file.path === downloadedA.destinationPath)
-    const copyFromB = finalFiles.find((file) => file.path === downloadedB.destinationPath)
-
-    // Both concrete downloaded copies coexist in the final local filesystem.
-    expect(copyFromA).toMatchObject({ content: TARGET_A.fileContent })
-    expect(copyFromB).toMatchObject({ content: TARGET_B.fileContent })
-    expect(copyFromA).not.toMatchObject({ content: TARGET_B.fileContent })
-    expect(copyFromB).not.toMatchObject({ content: TARGET_A.fileContent })
-    expect(copyFromA?.path).not.toBe(copyFromB?.path)
-
-    // Their concrete local file-copy identities are distinct and were both allocated.
-    expect(copyFromA?.id).toBeDefined()
-    expect(copyFromB?.id).toBeDefined()
-    expect(copyFromA?.id).not.toBe(copyFromB?.id)
+    expect(accessA).toMatchObject({ targetDeviceId: TARGET_A.id, viaServiceId: TARGET_A.serviceId })
+    expect(state.deviceAccess.established.some((access) => access.targetDeviceId === TARGET_B.id)).toBe(false)
   })
 
   it('rejects credential access and CONNECT to B using knowledge and access proven only against A', () => {
@@ -185,6 +140,8 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
 
     const scanResultB = scanNetworkTarget({ localDevice: reordered.player.localDevice, network: reordered.world.network }, TARGET_B.ip)
     expect(scanResultB).toMatchObject({ status: 'device', targetId: TARGET_B.id })
+    // B's hardened outcome is unaffected by hosts[] array order: still no DeviceAccess.
+    expect(reordered.deviceAccess.established.some((access) => access.targetDeviceId === TARGET_B.id)).toBe(false)
 
     const connectedA = connectTo(reordered, TARGET_A)
     expect(resolveActiveRemoteTarget(connectedA)?.target.id).toBe(TARGET_A.id)
@@ -193,14 +150,10 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     expect(downloadedA.state.player.localDevice.filesystem.files.find((file) => file.path === downloadedA.destinationPath)).toMatchObject({ content: TARGET_A.fileContent })
 
     const disconnected = disconnectRemoteSession(connectedA).state
-    const connectedB = connectTo(disconnected, TARGET_B)
-    expect(resolveActiveRemoteTarget(connectedB)?.target.id).toBe(TARGET_B.id)
-    const downloadedB = downloadRemoteFile(connectedB, TARGET_B.filePath)
-    if (downloadedB.status !== 'downloaded') throw new Error('expected download from B')
-    expect(downloadedB.state.player.localDevice.filesystem.files.find((file) => file.path === downloadedB.destinationPath)).toMatchObject({ content: TARGET_B.fileContent })
+    expect(disconnected.remoteSession.active).toBeNull()
   })
 
-  it("changing B's presentation attributes (IP, display name) does not substitute for its stable identity", () => {
+  it("changing B's presentation attributes (IP, display name) does not substitute for its stable identity, and does not grant the missing DeviceAccess", () => {
     let state = createInitialGameState()
     state = discoverAndCredentialAccess(state, TARGET_A)
     state = discoverAndCredentialAccess(state, TARGET_B)
@@ -209,12 +162,13 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
       ...state,
       world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === TARGET_B.id ? { ...host, ip: '192.0.2.200', displayName: 'renamed-server' } : host) } },
     }
-    // Connecting with the old address no longer matches current presentation truth.
-    expect(connectRemoteFromObservation(renamed, { targetDeviceId: TARGET_B.id, address: TARGET_B.ip }).status).toBe('target_not_available')
-    // DeviceAccess and Knowledge remain valid because they are keyed by stable identity, not by address or name.
-    expect(renamed.deviceAccess.established.some((access) => access.targetDeviceId === TARGET_B.id)).toBe(true)
-    const connected = connectRemoteFromObservation(renamed, { targetDeviceId: TARGET_B.id, address: '192.0.2.200' }).state
-    expect(resolveActiveRemoteTarget(connected)?.target.id).toBe(TARGET_B.id)
-    expect(resolveActiveRemoteTarget(connected)?.target.displayName).toBe('renamed-server')
+    // Knowledge remains valid because it is keyed by stable identity, not by address or name.
+    expect(renamed.knowledge.discoveredVulnerabilities.some((known) => known.targetDeviceId === TARGET_B.id && known.vulnerabilityId === TARGET_B.vulnerabilityId)).toBe(true)
+    // B never established DeviceAccess in the first place, so renaming cannot substitute for it either.
+    expect(connectRemoteFromObservation(renamed, { targetDeviceId: TARGET_B.id, address: '192.0.2.200' }).status).toBe('access_required')
+
+    // A's DeviceAccess and identity remain intact and address-driven, independent of B's renaming.
+    const connected = connectTo(renamed, TARGET_A)
+    expect(resolveActiveRemoteTarget(connected)?.target.id).toBe(TARGET_A.id)
   })
 })
