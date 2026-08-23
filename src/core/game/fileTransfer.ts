@@ -3,6 +3,18 @@ import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapaci
 import { resolveActiveRemoteTarget } from './remoteSession'
 import type { FileTransfer, GameState, NetworkHost, NetworkTransferCapacity } from './types'
 
+/**
+ * Resolve the current remote source through the same canonical authority
+ * chain as every other remote operation (RemoteSession -> DeviceAccess ->
+ * target Device), then confirm that authority still matches this transfer's
+ * recorded stable identities rather than trusting them on their own.
+ */
+function resolveAuthorizedTransferSource(state: GameState, transfer: FileTransfer): NetworkHost | undefined {
+  const remote = resolveActiveRemoteTarget(state)
+  if (!remote || remote.session.id !== transfer.sessionId || remote.target.id !== transfer.sourceDeviceId) return undefined
+  return remote.target
+}
+
 export function deriveDownloadDestinationPath(sourcePath: string): string {
   const basename = sourcePath.slice(sourcePath.lastIndexOf('/') + 1)
   return `/home/user/downloads/${basename}`
@@ -79,10 +91,10 @@ export function startRemoteFileDownload(state: GameState, sourcePath: string): S
 }
 
 function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): { readonly sourceHost: NetworkHost; readonly sourceCapacity: NetworkTransferCapacity } | undefined {
-  if (state.remoteSession.active?.id !== transfer.sessionId) return undefined
+  if (state.player.localDevice.id !== transfer.destinationDeviceId) return undefined
   if (state.player.localDevice.runtime.networkStatus !== 'ONLINE') return undefined
 
-  const sourceHost = state.world.network.hosts.find((host) => host.id === transfer.sourceDeviceId)
+  const sourceHost = resolveAuthorizedTransferSource(state, transfer)
   if (!sourceHost?.online || !sourceHost.filesystem) return undefined
   if (!sourceHost.filesystem.files.some((file) => file.id === transfer.sourceFileId)) return undefined
 
