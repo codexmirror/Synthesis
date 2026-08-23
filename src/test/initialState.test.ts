@@ -29,12 +29,12 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 27', () => {
+  it('separates identities and seeds canonical local-device state in schema version 28', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(27)
+    expect(GAME_STATE_VERSION).toBe(28)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
-    expect(state.version).toBe(27)
+    expect(state.version).toBe(28)
     expect(state.wallet).toEqual({ balance: 1250 })
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.

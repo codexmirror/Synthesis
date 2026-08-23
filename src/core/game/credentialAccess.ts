@@ -68,7 +68,7 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const validEndpoint = resolved !== 'invalid' && resolved?.targetDeviceId === process.targetDeviceId && resolved.serviceId === process.serviceId
   // The simulated target only "received" the attempt while the originally selected endpoint still resolves to the same online Device and open Service.
   const reached = Boolean(host?.online && service?.open && validEndpoint)
-  const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Target no longer responds as expected.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
+  const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
   if (!reached || !service) return failedResult
 
   // A represented second factor is a real authentication condition, resolved against current World

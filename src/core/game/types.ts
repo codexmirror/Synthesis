@@ -27,7 +27,7 @@ export type ServiceAnalysisResult =
 
 export type CredentialAccessResult =
   | { readonly status: 'access_established'; readonly accessId: string }
-  | { readonly status: 'attempt_failed'; readonly message: 'Target no longer responds as expected.' }
+  | { readonly status: 'attempt_failed'; readonly message: 'Authentication attempt failed.' }
 
 interface ProcessCommon {
   readonly id: string

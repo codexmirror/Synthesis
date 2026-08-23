@@ -268,9 +268,9 @@ describe('Terminal credential access', () => {
     expect(screen.getByText('Basic Credential Toolkit')).toBeInTheDocument()
     await act(async () => { vi.advanceTimersByTime(20_000) })
     expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS completed' })).toHaveTextContent('ATTEMPT FAILED')
-    expect(screen.getByText('Target no longer responds as expected.')).toBeInTheDocument()
+    expect(screen.getByText('Authentication attempt failed.')).toBeInTheDocument()
     const state = JSON.parse(screen.getByTestId('attack-state').textContent ?? '') as GameState
-    expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'completed', result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' } })
+    expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'completed', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } })
     expect(state.deviceAccess.established).toEqual([])
     expect(state.knowledge).toEqual(patched.knowledge)
   })
