@@ -59,7 +59,7 @@ function CompletedProcessProjection({ completed }: { completed: CompletedProject
 }
 
 function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess; gameState: ReturnType<typeof useGameState>; cpu: number }) {
-  if (!process || process.kind === 'generic') return <div className="process-projection"><strong>PROCESS UNAVAILABLE</strong></div>
+  if (!process || process.kind === 'generic' || process.kind === 'node_miner') return <div className="process-projection"><strong>PROCESS UNAVAILABLE</strong></div>
   const progress = Math.min(100, Math.floor(process.workCompleted / process.workRequired * 100))
   const filled = Math.round(progress / 10)
   const accessId = process.kind === 'credential_access' && process.result?.status === 'access_established' ? process.result.accessId : undefined

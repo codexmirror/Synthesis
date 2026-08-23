@@ -10,6 +10,7 @@ import monitorSource from './activityMonitor.ts?raw'
 import processesSource from './Processes.tsx?raw'
 import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
 import { advanceGameState } from '../../core/game/gameAdvancement'
+import { startNodeMiner } from '../../core/game/nodeMiner'
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
@@ -126,7 +127,11 @@ describe('Processes application integration', () => {
 
   it('advances at the provider boundary even when the app is not mounted', () => {
     vi.useFakeTimers()
-    function Snapshot() { const value = useGameState().process.processes[0].workCompleted; return <output>{value}</output> }
+    function Snapshot() {
+      const process = useGameState().process.processes[0]
+      if (process.kind === 'node_miner') throw new Error('unexpected node_miner process')
+      return <output>{process.workCompleted}</output>
+    }
     render(<GameProvider initialState={withProcesses()}><Snapshot /></GameProvider>)
     expect(screen.getByText('25')).toBeInTheDocument()
     act(() => vi.advanceTimersByTime(500))
@@ -352,8 +357,8 @@ describe('Activity Monitor aggregation', () => {
     render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
     expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent))
       .toEqual(['ALL2', 'OPERATIONS1', 'TRANSFERS1'])
-    expect(monitor().textContent).not.toMatch(/UPLOAD|MINER|MINING|CRACK|MALWARE/i)
-    expect(monitorSource + processesSource).not.toMatch(/miner|cracking|malware/i)
+    expect(monitor().textContent).not.toMatch(/UPLOAD|CRACK|MALWARE/i)
+    expect(monitorSource + processesSource).not.toMatch(/cracking|malware/i)
   })
 
   it('keeps the filter row compact and touch-safe without horizontal overflow', () => {
@@ -363,5 +368,71 @@ describe('Activity Monitor aggregation', () => {
     expect(filterRule).toMatch(/min-width:\s*0/)
     expect(processesCss).toMatch(/\.am-filters\s*\{[^}]*display:\s*flex/)
     expect(processesSource + monitorSource).not.toMatch(/scrollIntoView|window\.scrollTo|visualViewport/)
+  })
+})
+
+describe('Activity Monitor: continuous NODE Miner runtime', () => {
+  const minerState = (payoutAddress?: string): GameState => {
+    const base = createInitialGameState()
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const withFile: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 50, files: [...base.player.localDevice.filesystem.files, minerFile] } } } }
+    const started = startNodeMiner(withFile, minerFile.path, payoutAddress ?? withFile.nodeWallet.address)
+    if (started.status !== 'started') throw new Error(started.status)
+    return started.state
+  }
+
+  it('shows continuous runtime with real CPU/RAM/payout facts and no misleading completion bar', () => {
+    render(<GameProvider initialState={minerState()}><Processes /></GameProvider>)
+    const minerCard = card('NODE MINER')
+    expect(within(minerCard).getByText('RUNNING')).toBeInTheDocument()
+    expect(minerCard.querySelector('progress')).not.toBeInTheDocument()
+    expect(fact(minerCard, 'CPU')).toBe('82%')
+    expect(fact(minerCard, 'RAM')).toBe('512 MiB')
+    expect(fact(minerCard, 'PRODUCED')).toBe('0 NODE')
+    expect(fact(minerCard, 'CREDITED')).toBe('0 NODE')
+    expect(within(minerCard).getByText('node-wallet-addr-0001')).toBeInTheDocument()
+    expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
+  })
+
+  it('derives produced and credited NODE from real deterministic elapsed compute', () => {
+    const advanced = advanceGameState(minerState(), 3000)
+    render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
+    const minerCard = card('NODE MINER')
+    expect(fact(minerCard, 'PRODUCED')).not.toBe('0 NODE')
+    expect(fact(minerCard, 'PRODUCED')).toBe(fact(minerCard, 'CREDITED'))
+  })
+
+  it('shows zero credited NODE when the configured payout address does not match the represented Wallet', () => {
+    const advanced = advanceGameState(minerState('an-unmatched-fictional-address'), 3000)
+    render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
+    const minerCard = card('NODE MINER')
+    expect(fact(minerCard, 'PRODUCED')).not.toBe('0 NODE')
+    expect(fact(minerCard, 'CREDITED')).toBe('0 NODE')
+  })
+
+  it('STOP invokes the canonical operation, removing the Process and releasing its resources', () => {
+    render(<GameProvider initialState={minerState()}><Processes /></GameProvider>)
+    const minerCard = card('NODE MINER')
+    fireEvent.click(within(minerCard).getByRole('button', { name: 'Stop NODE MINER' }))
+    expect(screen.queryByText('NODE MINER')).not.toBeInTheDocument()
+    expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
+    expect(within(stat('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
+  })
+
+  it('STOP preserves Process ID progression, so a later RUN receives a new identity', () => {
+    const state = minerState()
+    const originalId = state.process.processes[0].id
+    function Snapshot() { return <output>{JSON.stringify({ ids: useGameState().process.processes.map(({ id }) => id), nextId: useGameState().process.nextId })}</output> }
+    render(<GameProvider initialState={state}><Processes /><Snapshot /></GameProvider>)
+    fireEvent.click(within(card('NODE MINER')).getByRole('button', { name: 'Stop NODE MINER' }))
+    const afterStop = JSON.parse(screen.getByRole('status').textContent ?? '')
+    expect(afterStop).toEqual({ ids: [], nextId: state.process.nextId })
+
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner-2', path: '/home/user/node-miner-again.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const withFile: GameState = { ...state, process: { nextId: state.process.nextId, processes: [] }, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 51, files: [...state.player.localDevice.filesystem.files, minerFile] } } } }
+    const restarted = startNodeMiner(withFile, minerFile.path, withFile.nodeWallet.address)
+    if (restarted.status !== 'started') throw new Error(restarted.status)
+    expect(restarted.processId).not.toBe(originalId)
+    expect(restarted.state.process.nextId).toBe(state.process.nextId + 1)
   })
 })

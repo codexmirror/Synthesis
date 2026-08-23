@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { advanceProcesses, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess, startProcess } from './processes'
+import type { GameProcess, NodeMinerProcess } from './types'
+
+/** These fixtures only ever create finite work; this fails loudly rather than silently if that assumption ever breaks. */
+function workCompletedOf(process: GameProcess): number {
+  if (process.kind === 'node_miner') throw new Error('unexpected node_miner process in finite-work fixture')
+  return process.workCompleted
+}
 
 const game = createInitialGameState(); const executor = game.player.localDevice; const hardware = executor.hardware; const runtime = executor.runtime
 const input = (label = 'Analysis', ramRequiredMiB = 512, workRequired = 1000) => ({ label, ramRequiredMiB, workRequired })
@@ -23,7 +30,7 @@ describe('process resource domain', () => {
   })
   it('removes only completed jobs while preserving running order and nextId', () => {
     const base = started(input('First'), input('Done', 100, 1), input('Last'))
-    const mixed = { ...base, processes: base.processes.map((process) => process.id === 'process-0002' ? { ...process, status: 'completed' as const, workCompleted: process.workRequired } : process) }
+    const mixed = { ...base, processes: base.processes.map((process) => process.id === 'process-0002' && process.kind === 'generic' ? { ...process, status: 'completed' as const, workCompleted: process.workRequired } : process) }
     const snapshot = structuredClone(mixed)
     const cleared = clearCompletedProcesses(mixed, executor.id)
     expect(cleared.nextId).toBe(4)
@@ -33,7 +40,7 @@ describe('process resource domain', () => {
   })
   it('removes only the selected completion and refuses to remove running work', () => {
     const base = started(input('Running'), input('First done'), input('Second done'))
-    const mixed = { ...base, processes: base.processes.map((process) => process.id === 'process-0001' ? process : { ...process, status: 'completed' as const, workCompleted: process.workRequired }) }
+    const mixed = { ...base, processes: base.processes.map((process) => process.id === 'process-0001' || process.kind !== 'generic' ? process : { ...process, status: 'completed' as const, workCompleted: process.workRequired }) }
     const removed = removeCompletedProcess(mixed, 'process-0002', executor.id)
     expect(removed.nextId).toBe(4)
     expect(removed.processes.map(({ id }) => id)).toEqual(['process-0001', 'process-0003'])
@@ -58,13 +65,13 @@ describe('process resource domain', () => {
     expect(deriveResourceUsage(executor, one).cpuAllocationByProcess['process-0001']).toBe(82)
     expect(deriveResourceUsage(executor, two)).toMatchObject({ totalCpuLoad: 100, processRamMiB: 1024 })
     expect(deriveResourceUsage(executor, two).cpuAllocationByProcess['process-0001']).toBe(41)
-    expect(advanceProcesses(one, [executor], 1000).processes[0].workCompleted).toBe(82)
-    expect(advanceProcesses(two, [executor], 1000).processes[0].workCompleted).toBe(41)
+    expect(workCompletedOf(advanceProcesses(one, [executor], 1000).processes[0])).toBe(82)
+    expect(workCompletedOf(advanceProcesses(two, [executor], 1000).processes[0])).toBe(41)
   })
   it('CPU buys speed while RAM buys admission but not speed', () => {
     const state = started(input()); const fast = { ...hardware, cpu: { ...hardware.cpu, computeCapacity: 200 } }; const moreRam = { ...hardware, ram: { ...hardware.ram, capacityMiB: 8192 } }
-    expect(advanceProcesses(state, [{ ...executor, hardware: fast }], 1000).processes[0].workCompleted).toBeGreaterThan(advanceProcesses(state, [executor], 1000).processes[0].workCompleted)
-    expect(advanceProcesses(state, [{ ...executor, hardware: moreRam }], 1000).processes[0].workCompleted).toBe(advanceProcesses(state, [executor], 1000).processes[0].workCompleted)
+    expect(workCompletedOf(advanceProcesses(state, [{ ...executor, hardware: fast }], 1000).processes[0])).toBeGreaterThan(workCompletedOf(advanceProcesses(state, [executor], 1000).processes[0]))
+    expect(workCompletedOf(advanceProcesses(state, [{ ...executor, hardware: moreRam }], 1000).processes[0])).toBe(workCompletedOf(advanceProcesses(state, [executor], 1000).processes[0]))
     expect(startProcess(game.process, executor, input('Large', 4000)).status).toBe('insufficient_memory'); expect(startProcess(game.process, { ...executor, hardware: moreRam }, input('Large', 4000)).status).toBe('started')
   })
   it('clamps completion, releases resources, and does no further work', () => {
@@ -72,7 +79,7 @@ describe('process resource domain', () => {
   })
   it('is tick-equivalent and redistributes CPU after a mid-tick completion', () => {
     const state = started(input('Short', 100, 20.5), input('Long', 100, 1000)); const once = advanceProcesses(state, [executor], 1000); const chunked = advanceProcesses(advanceProcesses(state, [executor], 500), [executor], 500)
-    expect(once.processes[1].workCompleted).toBeCloseTo(61.5); expect(once).toEqual(chunked)
+    expect(workCompletedOf(once.processes[1])).toBeCloseTo(61.5); expect(once).toEqual(chunked)
   })
   it('does not mutate inputs', () => { const state = started(input()); const snapshot = structuredClone(state); deriveResourceUsage(executor, state); advanceProcesses(state, [executor], 500); expect(state).toEqual(snapshot) })
   it('preserves identity when advancement cannot change work', () => {
@@ -100,7 +107,7 @@ describe('process resource domain', () => {
     expect(startProcess(state, srv02, input('Fits B', 1)).status).toBe('started')
 
     const advanced = advanceProcesses(state, [executor, srv01, srv02], 1000)
-    expect(advanced.processes.map(({ workCompleted }) => workCompleted)).toEqual([82, 100, 100, 50])
+    expect(advanced.processes.map(workCompletedOf)).toEqual([82, 100, 100, 50])
   })
 
   it('does not charge or advance unresolved and shallow executors', () => {
@@ -108,5 +115,43 @@ describe('process resource domain', () => {
     const state = { nextId: 2, processes: [unresolved] }
     expect(deriveResourceUsage(executor, state)).toMatchObject({ processCpuLoad: 0, processRamMiB: 0 })
     expect(advanceProcesses(state, [executor], 1000)).toBe(state)
+  })
+})
+
+describe('continuous (NodeMinerProcess) work shares the same executor advancement as finite work', () => {
+  const zeroBaselineExecutor = { ...executor, runtime: { ...runtime, baselineCpuLoad: 0 } }
+  function miner(id: string, overrides: Partial<NodeMinerProcess> = {}): NodeMinerProcess {
+    return {
+      kind: 'node_miner', id, label: 'NODE MINER', executorDeviceId: zeroBaselineExecutor.id, status: 'running',
+      ramRequiredMiB: 1, programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'addr',
+      producedNode: 0, creditedNode: 0, workRemainder: 0, ...overrides,
+    }
+  }
+
+  it('never reaches completed from elapsed work and never affects finite completion', () => {
+    const state = { nextId: 2, processes: [miner('process-0001')] }
+    const advanced = advanceProcesses(state, [zeroBaselineExecutor], 1_000_000)
+    expect((advanced.processes[0] as NodeMinerProcess).status).toBe('running')
+    expect((advanced.processes[0] as NodeMinerProcess).workRemainder).toBeCloseTo(100_000)
+  })
+
+  it('accumulates its exact fractional share of allocated compute, redistributed the instant a finite process completes mid-interval', () => {
+    const started = startProcess({ nextId: 1, processes: [] }, zeroBaselineExecutor, { label: 'Short', workRequired: 25, ramRequiredMiB: 1 })
+    if (started.status !== 'started') throw Error(started.status)
+    const state = { nextId: 2, processes: [...started.state.processes, miner('process-0002')] }
+    // computeCapacity 100 shared 50/50 until the finite process finishes at t=0.5s (25 work / 50 rate); the Miner alone gets the full 100 for the remaining 0.5s.
+    const advanced = advanceProcesses(state, [zeroBaselineExecutor], 1000)
+    const finite = advanced.processes.find(({ id }) => id === 'process-0001')!
+    const minerProcess = advanced.processes.find(({ id }) => id === 'process-0002') as NodeMinerProcess
+    expect(finite.status).toBe('completed')
+    expect(minerProcess.status).toBe('running')
+    expect(minerProcess.workRemainder).toBeCloseTo(75)
+  })
+
+  it('is tick-size independent: equal elapsed time in different chunk sizes yields equal accumulated compute-work', () => {
+    const state = { nextId: 2, processes: [miner('process-0001')] }
+    const once = advanceProcesses(state, [zeroBaselineExecutor], 1000)
+    const chunked = advanceProcesses(advanceProcesses(state, [zeroBaselineExecutor], 250), [zeroBaselineExecutor], 750)
+    expect(once).toEqual(chunked)
   })
 })

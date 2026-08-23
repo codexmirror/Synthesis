@@ -75,6 +75,9 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* NODE is a distinct economic concern from Dollars; keep it visually distinct. */
+.balance--node { color: var(--caution); }
+
 /* Files */
 
 .files-app,

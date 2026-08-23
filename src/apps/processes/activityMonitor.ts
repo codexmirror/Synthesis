@@ -1,7 +1,8 @@
 import { resolveFileTransferSource } from '../../core/game/fileTransfer'
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
-import type { DeviceAccess, GameProcess, GameState, NetworkTransferCapacity } from '../../core/game/types'
+import { NODE_MINER_COMPUTE_SECONDS_PER_NODE } from '../../core/game/nodeMiner'
+import type { DeviceAccess, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess } from '../../core/game/types'
 import { formatByteProgress, formatTransferRate } from '../byteFormat'
 
 /**
@@ -41,12 +42,15 @@ export interface MonitorActivity {
   /** Endpoint relationship, currently only meaningful for a transfer. */
   readonly route?: string
   readonly status: 'running' | 'completed'
-  readonly progressPercent: number
+  /** Absent for continuous runtime with no finite completion threshold (e.g. NODE Miner): never rendered as a fake 0-100% bar. */
+  readonly progressPercent?: number
   /** Compact metrics meaningful to this runtime type; never padded out. */
   readonly facts: readonly ActivityFact[]
   /** Wide rows for long values such as filesystem paths. */
   readonly details: readonly ActivityFact[]
   readonly outcome?: ActivityOutcome
+  /** True only for runtime that STOP (rather than CANCEL/REMOVE) can terminate, e.g. NODE Miner. */
+  readonly stoppable?: boolean
 }
 
 export interface MonitorNetworkUsage {
@@ -75,7 +79,7 @@ export interface ActivityMonitor {
 export function deriveActivityMonitor(state: GameState): ActivityMonitor {
   const device = state.player.localDevice
   const usage = deriveResourceUsage(device, state.process)
-  const operations = state.process.processes.filter((process) => process.executorDeviceId === device.id).map((process) => toOperationActivity(process, usage, state.deviceAccess.established))
+  const operations = state.process.processes.filter((process) => process.executorDeviceId === device.id).map((process) => toOperationActivity(process, usage, state.deviceAccess.established, device.hardware.cpu.computeCapacity))
   const transfer = deriveTransferPresentation(state)
   const activities = transfer ? [...operations, transfer.activity] : operations
   return {
@@ -103,7 +107,8 @@ export function filterActivities(activities: readonly MonitorActivity[], filter:
   return activities
 }
 
-function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[]): MonitorActivity {
+function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], executorComputeCapacity: number): MonitorActivity {
+  if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
   return {
@@ -121,6 +126,36 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
     ],
     details: [],
     outcome: toOperationOutcome(process, access),
+  }
+}
+
+/**
+ * Continuous NODE Miner runtime has no finite completion threshold, so it
+ * deliberately carries no `progressPercent`: rendering a 0-100% bar for
+ * indefinite work would misrepresent it as approaching completion.
+ */
+function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, executorComputeCapacity: number): MonitorActivity {
+  const cpuPercent = usage.cpuAllocationByProcess[process.id] ?? 0
+  const allocatedCompute = executorComputeCapacity * cpuPercent / 100
+  const nodePerSecond = allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_NODE
+  return {
+    id: process.id,
+    category: 'operation',
+    kindLabel: process.label,
+    titleLabel: 'RELEASE',
+    title: process.releaseId,
+    status: 'running',
+    facts: [
+      { label: 'CPU', value: `${Math.round(cpuPercent)}%` },
+      { label: 'RAM', value: `${process.ramRequiredMiB} MiB` },
+      { label: 'PRODUCED', value: `${process.producedNode} NODE` },
+      { label: 'CREDITED', value: `${process.creditedNode} NODE` },
+    ],
+    details: [
+      { label: 'PAYOUT', value: process.payoutAddress },
+      ...(nodePerSecond > 0 ? [{ label: 'RATE', value: `${nodePerSecond.toFixed(2)} NODE/s` }] : []),
+    ],
+    stoppable: true,
   }
 }
 

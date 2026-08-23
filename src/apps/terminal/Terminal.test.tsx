@@ -35,6 +35,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     startRemoteFileDownload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(),
     clearCompletedProcesses: () => {}, removeCompletedProcess: () => {}, cancelFileTransfer: () => ({ status: 'not_found', state }),
+    runNodeMiner: () => ({ status: 'source_not_found', state }), stopNodeMiner: () => ({ status: 'not_found', state }),
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
   vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
@@ -241,7 +242,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(), removeCompletedProcess: vi.fn(), cancelFileTransfer: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(), removeCompletedProcess: vi.fn(), cancelFileTransfer: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()

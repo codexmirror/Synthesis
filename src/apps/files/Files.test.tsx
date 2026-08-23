@@ -6,6 +6,7 @@ import { createInitialGameState } from '../../core/game/initialState'
 import type { FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
+import { Processes } from '../processes/Processes'
 
 describe('Files', () => {
   it('navigates canonical directories and presents file kinds, sizes, and executable details without future actions', async () => {
@@ -100,6 +101,56 @@ describe('Files', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /other\.bin/ }))
     expect(screen.getByText('UNSUPPORTED PACKAGE')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Files NODE Miner RUN', () => {
+  const withMiner = (path = '/home/user/node-miner-1.0.bin') => {
+    const state = createInitialGameState()
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner', path, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [minerFile] } } } }
+  }
+
+  it('prefills the represented NODE Wallet address and RUN starts a real continuous Process', async () => {
+    const state = withMiner()
+    render(<GameProvider initialState={state}><Files /><Processes /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.bin/ }))
+    expect(screen.getByText('NODE Miner (node-miner)')).toBeInTheDocument()
+    const addressInput = screen.getByLabelText('NODE payout address') as HTMLInputElement
+    expect(addressInput.value).toBe(state.nodeWallet.address)
+    await user.click(screen.getByRole('button', { name: 'RUN' }))
+    const card = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
+    expect(within(card).getByText('RUNNING')).toBeInTheDocument()
+  })
+
+  it('does not offer RUN for an unsupported executable program', async () => {
+    const state = createInitialGameState()
+    const file = { kind: 'executable' as const, id: 'file-fixture-exe', path: '/home/user/tool.bin', programId: 'diagnostic-tool', releaseId: 'diagnostic-tool-2', name: 'Diagnostic Tool', version: '2.0', sizeBytes: 4_096 }
+    render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [file] } } } }}><Files /></GameProvider>)
+    await userEvent.setup().click(screen.getByRole('button', { name: /tool\.bin/ }))
+    expect(screen.getByText('UNSUPPORTED')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'RUN' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('NODE payout address')).not.toBeInTheDocument()
+  })
+
+  it('rejects RUN with an empty payout address and shows the admission failure', async () => {
+    render(<GameProvider initialState={withMiner()}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.bin/ }))
+    const addressInput = screen.getByLabelText('NODE payout address')
+    await user.clear(addressInput)
+    await user.click(screen.getByRole('button', { name: 'RUN' }))
+    expect(screen.getByText('INVALID PAYOUT ADDRESS')).toBeInTheDocument()
+  })
+
+  it('rejects a duplicate RUN while one Miner is already running on this executor', async () => {
+    render(<GameProvider initialState={withMiner()}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.bin/ }))
+    await user.click(screen.getByRole('button', { name: 'RUN' }))
+    await user.click(screen.getByRole('button', { name: 'RUN' }))
+    expect(screen.getByText('ALREADY RUNNING')).toBeInTheDocument()
   })
 })
 

@@ -20,9 +20,11 @@ describe('advanceGameState Device runtime ownership', () => {
 
     expect(deriveResourceUsage(state.player.localDevice, state.process)).toMatchObject({ processCpuLoad: 0, processRamMiB: 0 })
     const advanced = advanceGameState(state, 1000)
+    const process = advanced.process.processes[0]
+    if (process.kind === 'node_miner') throw new Error('unexpected node_miner process')
 
     // srv-01 owns 160 compute with 12% baseline load: 160 * 0.88.
-    expect(advanced.process.processes[0].workCompleted).toBeCloseTo(140.8)
+    expect(process.workCompleted).toBeCloseTo(140.8)
     expect(deriveResourceUsage(advanced.player.localDevice, advanced.process)).toMatchObject({ processCpuLoad: 0, processRamMiB: 0 })
     expect(advanced.player.localDevice).toBe(state.player.localDevice)
   })

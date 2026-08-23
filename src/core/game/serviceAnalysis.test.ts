@@ -38,7 +38,10 @@ describe('Service Analysis', () => {
     const twoUsage = deriveResourceUsage(second.state.player.localDevice, second.state.process)
     expect(oneUsage.cpuAllocationByProcess['process-0001']).toBe(82); expect(twoUsage.cpuAllocationByProcess['process-0001']).toBe(41)
     expect(twoUsage.processRamMiB).toBe(SERVICE_ANALYSIS_RAM_REQUIRED_MIB * 2)
-    expect(advanceGameState(one, 1000).process.processes[0].workCompleted).toBeGreaterThan(advanceGameState(second.state, 1000).process.processes[0].workCompleted)
+    const first = advanceGameState(one, 1000).process.processes[0]
+    const secondProcess = advanceGameState(second.state, 1000).process.processes[0]
+    if (first.kind === 'node_miner' || secondProcess.kind === 'node_miner') throw new Error('unexpected node_miner process')
+    expect(first.workCompleted).toBeGreaterThan(secondProcess.workCompleted)
     const constrained = { ...createInitialGameState(), player: { ...createInitialGameState().player, localDevice: { ...createInitialGameState().player.localDevice, hardware: { ...createInitialGameState().player.localDevice.hardware, ram: { ...createInitialGameState().player.localDevice.hardware.ram, capacityMiB: 990 } } } } }
     expect(startServiceAnalysis(constrained, 'host-lan-001', 'service-ssh-001')).toMatchObject({ status: 'insufficient_memory' })
   })
