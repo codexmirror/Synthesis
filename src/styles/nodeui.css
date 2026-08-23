@@ -10,9 +10,13 @@
  * Scope note: this is NODE-OS presentation, not a universal Firmware
  * framework. RACK-OS deliberately looks and behaves differently and does not
  * consume these classes.
+ *
+ * These primitives are composed where they apply, not imposed everywhere. An
+ * application that already presents something well keeps its own presentation.
  */
 
-/* Technical label. The shared small-caps eyebrow used by every application. */
+/* Technical label. Used where an application labels a control rather than a
+   section; section headings use `.node-section`. */
 .eyebrow {
   margin: 0;
   color: var(--text-muted);
@@ -24,7 +28,12 @@
 
 /*
  * Application masthead: the application's current subject line. It answers
- * "what am I looking at" directly under the Shell's application title.
+ * "what am I looking at" directly under the Shell's application title, so it
+ * is carried by the applications whose subject varies or whose operating
+ * context needs stating — Files, System, Terminal and the Activity Monitor.
+ * Wallet and Notes are their own subject, and NodeScan's breadcrumb and object
+ * heading already identify the browsed object; none of them take a masthead
+ * for uniformity alone.
  */
 .node-masthead {
   display: flex;

@@ -1,3 +1,11 @@
+/*
+ * Terminal is the one declared exception to the shared `.app-content` gutter.
+ * It is a full-bleed grid rather than a scrolling document, so it owns its own
+ * padding: safe-area aware because the prompt sits at the bottom edge under
+ * the software keyboard, and switched at the established editing breakpoint
+ * rather than at the `.app-content` density breakpoint. It still matches the
+ * shared gutter wherever that distinction does not apply.
+ */
 .terminal {
   min-height: 0;
   padding: clamp(18px, 4vw, 40px);
