@@ -2,7 +2,6 @@ import type { GameActions } from '../../app/GameContext'
 import type { GameState } from '../../core/game/types'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
-import { inspectNetworkTarget } from '../../core/game/inspect'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
@@ -26,14 +25,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
     },
     operations: {
       scanTarget: actions.scanTarget,
-      inspectTarget: (target) =>
-        inspectNetworkTarget(
-          {
-            localDevice: gameState.player.localDevice,
-            network: gameState.world.network,
-          },
-          target,
-        ),
+      inspectTarget: actions.inspectTarget,
       analyzeEndpoint: (endpoint) => {
         const resolved = resolveServiceEndpoint(gameState, endpoint)
         if (resolved === 'invalid') return { status: 'invalid_endpoint' }

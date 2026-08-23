@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 21
+export const GAME_STATE_VERSION = 22
 
 export function createInitialGameState(): GameState {
   return {

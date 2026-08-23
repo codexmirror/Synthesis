@@ -25,7 +25,7 @@ export interface CommandContext {
   }
   readonly operations: {
     readonly scanTarget: (target: string) => ScanResult | { status: 'software_unavailable' } | Promise<ScanResult | { status: 'software_unavailable' }>
-    readonly inspectTarget: (target: string) => InspectResult
+    readonly inspectTarget: (target: string) => InspectResult | { status: 'software_unavailable' }
     readonly analyzeEndpoint: (endpoint: string) => TerminalAnalyzeResult
     readonly knownWeaknesses: (targetDeviceId: string, serviceId: string) => readonly string[]
     readonly attackEndpoint: (endpoint: string) => TerminalAttackResult

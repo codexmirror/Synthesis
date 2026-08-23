@@ -1,4 +1,5 @@
 import type { ScanResult } from './scan'
+import type { InspectResult } from './inspect'
 import type { DiscoveryState } from './types'
 
 export const createEmptyDiscovery = (): DiscoveryState => ({ networks: [], devices: [], networkDeviceRelations: [] })
@@ -15,7 +16,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
   const rememberNetwork = (id: string, name: string, membersObserved: boolean) => {
     const index = networks.findIndex((item) => item.id === id)
     const previous = networks[index]
-    const next = { id, name, membersObserved: membersObserved || previous?.membersObserved === true }
+    const next = { id, name, membersObserved: membersObserved || previous?.membersObserved === true, ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
     if (index < 0) networks.push(next); else networks[index] = next
   }
   if (result.status === 'network') {
@@ -25,7 +26,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       if (observed.targetId === selfDeviceId) continue
       const index = devices.findIndex((item) => item.id === observed.targetId)
       const previous = devices[index]
-      const next = { id: observed.targetId, address: observed.address, scope: observed.scope === 'self' ? 'lan' as const : observed.scope, servicesObserved: previous?.servicesObserved ?? false, services: previous?.services ?? [] }
+      const next = { id: observed.targetId, address: observed.address, scope: observed.scope === 'self' ? 'lan' as const : observed.scope, servicesObserved: previous?.servicesObserved ?? false, services: previous?.services ?? [], ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
       if (index < 0) devices.push(next); else devices[index] = next
     }
   } else {
@@ -42,9 +43,26 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
         const serviceIndex = services.findIndex((item) => item.id === service.id)
         if (serviceIndex < 0) services.push(observed); else services[serviceIndex] = observed
       }
-      const next = { id: result.targetId, address: result.address, scope: result.scope === 'self' ? 'lan' as const : result.scope, servicesObserved: true, services }
+      const next = { id: result.targetId, address: result.address, scope: result.scope === 'self' ? 'lan' as const : result.scope, servicesObserved: true, services, ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
       if (index < 0) devices.push(next); else devices[index] = next
     }
   }
   return { networks, devices, networkDeviceRelations: relations }
+}
+
+/** Merge only a successful positive Inspect observation; failures never erase memory. */
+export function rememberInspect(discovery: DiscoveryState, result: InspectResult, _selfDeviceId: string): DiscoveryState {
+  if (result.status === 'no_response' || result.status === 'unknown_target' || (result.status === 'device' && result.scope === 'self')) return discovery
+  if (result.status === 'network') {
+    const index = discovery.networks.findIndex(({ id }) => id === result.networkId)
+    if (index < 0) return discovery
+    const networks = [...discovery.networks]
+    networks[index] = { ...networks[index], name: result.networkName, inspect: { connected: result.connected } }
+    return { ...discovery, networks }
+  }
+  const index = discovery.devices.findIndex(({ id }) => id === result.targetId)
+  if (index < 0) return discovery
+  const devices = [...discovery.devices]
+  devices[index] = { ...devices[index], address: result.address, scope: result.scope, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind } }
+  return { ...discovery, devices }
 }
