@@ -66,6 +66,11 @@ describe('RACK-OS', () => {
     expect(rackSource + rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView/)
   })
 
+  it('keeps its narrow header context actions touch-safe', () => {
+    expect(rackCss).toMatch(/\.rack-header__actions\s*{[^}]*width:\s*100%;[^}]*flex-wrap:\s*wrap;/)
+    expect(rackCss).toMatch(/\.rack-header button\s*{[^}]*min-height:\s*44px;/)
+  })
+
   it('presents live canonical identity, authority, access path, and one filesystem through Files and Terminal', async () => {
     const user = userEvent.setup(); const initial = connectedState(); const discoveryBefore = initial.discovery; const knowledgeBefore = initial.knowledge
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)

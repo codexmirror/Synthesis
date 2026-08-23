@@ -139,8 +139,8 @@ export function Shell() {
           onDisconnect={disconnectRemoteSession}
         />
       )}
-      {remoteTarget && presentingRemote && (
-        <RackOS key={remoteTarget.session.id} context={remoteTarget} onReturnLocal={() => switchOperatingContext('local')} />
+      {remoteTarget && remoteEntered && (
+        <RackOS key={remoteTarget.session.id} context={remoteTarget} hidden={!presentingRemote} onReturnLocal={() => switchOperatingContext('local')} />
       )}
       <ViewportDebug viewport={viewport} />
     </div>
