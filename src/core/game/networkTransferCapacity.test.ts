@@ -7,19 +7,19 @@ function findHost(state: ReturnType<typeof createInitialGameState>, id: string) 
 }
 
 describe('canonical represented endpoint capacities', () => {
-  it('gives node-01 1 MiB/s transmit and 2 MiB/s receive', () => {
+  it('gives node-01 1 MiB/s upload and 2 MiB/s download', () => {
     const state = createInitialGameState()
-    expect(state.player.localDevice.network.transferCapacity).toEqual({ txBytesPerSecond: 1_048_576, rxBytesPerSecond: 2_097_152 })
+    expect(state.player.localDevice.network.transferCapacity).toEqual({ uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 })
   })
 
-  it('gives srv-01 symmetric 8 MiB/s transmit and receive', () => {
+  it('gives srv-01 symmetric 8 MiB/s upload and download', () => {
     const state = createInitialGameState()
-    expect(findHost(state, 'host-lan-001').transferCapacity).toEqual({ txBytesPerSecond: 8_388_608, rxBytesPerSecond: 8_388_608 })
+    expect(findHost(state, 'host-lan-001').transferCapacity).toEqual({ uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 })
   })
 
-  it('gives srv-02 symmetric 1 MiB/s transmit and receive, distinct from srv-01', () => {
+  it('gives srv-02 symmetric 1 MiB/s upload and download, distinct from srv-01', () => {
     const state = createInitialGameState()
-    expect(findHost(state, 'host-lan-002').transferCapacity).toEqual({ txBytesPerSecond: 1_048_576, rxBytesPerSecond: 1_048_576 })
+    expect(findHost(state, 'host-lan-002').transferCapacity).toEqual({ uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 })
     expect(findHost(state, 'host-lan-002').transferCapacity).not.toEqual(findHost(state, 'host-lan-001').transferCapacity)
   })
 
@@ -38,19 +38,19 @@ describe('canonical represented endpoint capacities', () => {
 })
 
 describe('deriveEffectiveTransferRateBytesPerSecond', () => {
-  it('is the narrower of source transmit and destination receive capacity', () => {
+  it('is the narrower of source upload and destination download capacity', () => {
     expect(deriveEffectiveTransferRateBytesPerSecond(
-      { txBytesPerSecond: 10_485_760, rxBytesPerSecond: 999 },
-      { txBytesPerSecond: 999, rxBytesPerSecond: 3_145_728 },
+      { uploadBytesPerSecond: 10_485_760, downloadBytesPerSecond: 999 },
+      { uploadBytesPerSecond: 999, downloadBytesPerSecond: 3_145_728 },
     )).toBe(3_145_728)
 
     expect(deriveEffectiveTransferRateBytesPerSecond(
-      { txBytesPerSecond: 1_048_576, rxBytesPerSecond: 999 },
-      { txBytesPerSecond: 999, rxBytesPerSecond: 9_437_184 },
+      { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 999 },
+      { uploadBytesPerSecond: 999, downloadBytesPerSecond: 9_437_184 },
     )).toBe(1_048_576)
   })
 
-  it('derives the canonical srv-01 -> node-01 rate as node-01\'s narrower receive capacity', () => {
+  it('derives the canonical srv-01 -> node-01 rate as node-01\'s narrower download capacity', () => {
     const state = createInitialGameState()
     const rate = deriveEffectiveTransferRateBytesPerSecond(
       findHost(state, 'host-lan-001').transferCapacity!,
@@ -59,7 +59,7 @@ describe('deriveEffectiveTransferRateBytesPerSecond', () => {
     expect(rate).toBe(2_097_152)
   })
 
-  it('derives the canonical node-01 -> srv-01 rate as node-01\'s narrower transmit capacity', () => {
+  it('derives the canonical node-01 -> srv-01 rate as node-01\'s narrower upload capacity', () => {
     const state = createInitialGameState()
     const rate = deriveEffectiveTransferRateBytesPerSecond(
       state.player.localDevice.network.transferCapacity,
@@ -68,7 +68,7 @@ describe('deriveEffectiveTransferRateBytesPerSecond', () => {
     expect(rate).toBe(1_048_576)
   })
 
-  it('derives the canonical srv-02 -> node-01 rate as srv-02\'s narrower transmit capacity', () => {
+  it('derives the canonical srv-02 -> node-01 rate as srv-02\'s narrower upload capacity', () => {
     const state = createInitialGameState()
     const rate = deriveEffectiveTransferRateBytesPerSecond(
       findHost(state, 'host-lan-002').transferCapacity!,
@@ -78,21 +78,21 @@ describe('deriveEffectiveTransferRateBytesPerSecond', () => {
   })
 
   it('deterministically rejects zero, negative, and non-finite capacity values', () => {
-    const valid = { txBytesPerSecond: 1_048_576, rxBytesPerSecond: 1_048_576 }
+    const valid = { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 }
     for (const invalid of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-      expect(() => deriveEffectiveTransferRateBytesPerSecond({ ...valid, txBytesPerSecond: invalid }, valid)).toThrow(RangeError)
-      expect(() => deriveEffectiveTransferRateBytesPerSecond(valid, { ...valid, rxBytesPerSecond: invalid })).toThrow(RangeError)
+      expect(() => deriveEffectiveTransferRateBytesPerSecond({ ...valid, uploadBytesPerSecond: invalid }, valid)).toThrow(RangeError)
+      expect(() => deriveEffectiveTransferRateBytesPerSecond(valid, { ...valid, downloadBytesPerSecond: invalid })).toThrow(RangeError)
     }
-    expect(isValidNetworkTransferCapacity({ txBytesPerSecond: 0, rxBytesPerSecond: 1 })).toBe(false)
-    expect(isValidNetworkTransferCapacity({ txBytesPerSecond: -1, rxBytesPerSecond: 1 })).toBe(false)
-    expect(isValidNetworkTransferCapacity({ txBytesPerSecond: Number.NaN, rxBytesPerSecond: 1 })).toBe(false)
-    expect(isValidNetworkTransferCapacity({ txBytesPerSecond: Number.POSITIVE_INFINITY, rxBytesPerSecond: 1 })).toBe(false)
+    expect(isValidNetworkTransferCapacity({ uploadBytesPerSecond: 0, downloadBytesPerSecond: 1 })).toBe(false)
+    expect(isValidNetworkTransferCapacity({ uploadBytesPerSecond: -1, downloadBytesPerSecond: 1 })).toBe(false)
+    expect(isValidNetworkTransferCapacity({ uploadBytesPerSecond: Number.NaN, downloadBytesPerSecond: 1 })).toBe(false)
+    expect(isValidNetworkTransferCapacity({ uploadBytesPerSecond: Number.POSITIVE_INFINITY, downloadBytesPerSecond: 1 })).toBe(false)
   })
 
   it('does not depend on IP, Device ID, Session, file kind, filename, or Process state; only the two capacity values', () => {
     expect(deriveEffectiveTransferRateBytesPerSecond(
-      { txBytesPerSecond: 4_000_000, rxBytesPerSecond: 1 },
-      { txBytesPerSecond: 1, rxBytesPerSecond: 2_000_000 },
+      { uploadBytesPerSecond: 4_000_000, downloadBytesPerSecond: 1 },
+      { uploadBytesPerSecond: 1, downloadBytesPerSecond: 2_000_000 },
     )).toBe(2_000_000)
   })
 })
@@ -102,9 +102,9 @@ describe('availability remains distinct from capacity', () => {
     const state = createInitialGameState()
     const host = findHost(state, 'host-lan-001')
     const offlineButCapable = { ...host, online: false }
-    expect(offlineButCapable.transferCapacity).toEqual({ txBytesPerSecond: 8_388_608, rxBytesPerSecond: 8_388_608 })
-    expect(offlineButCapable.transferCapacity!.txBytesPerSecond).not.toBe(0)
-    expect(offlineButCapable.transferCapacity!.rxBytesPerSecond).not.toBe(0)
+    expect(offlineButCapable.transferCapacity).toEqual({ uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 })
+    expect(offlineButCapable.transferCapacity!.uploadBytesPerSecond).not.toBe(0)
+    expect(offlineButCapable.transferCapacity!.downloadBytesPerSecond).not.toBe(0)
   })
 
   it('online remains a separate boolean attribute unaffected by reading capacity', () => {

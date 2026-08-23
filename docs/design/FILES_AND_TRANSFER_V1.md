@@ -34,8 +34,9 @@ Terminal + GUI
 
 File size is represented (derived for text, explicit for package and
 executable artifacts), and represented transfer-capable Devices now own
-canonical TX/RX network transfer capacity (`NetworkTransferCapacity`) plus a
-pure `deriveEffectiveTransferRateBytesPerSecond` helper. Download remains
+canonical Upload/Download network transfer capacity (`NetworkTransferCapacity`,
+interpreted from the owning Device's own perspective) plus a pure
+`deriveEffectiveTransferRateBytesPerSecond` helper. Download remains
 immediate/atomic in V1 only because FileTransfer runtime — duration,
 progress, and a completion lifecycle built from those causes — has not yet
 been introduced. Download still creates no Process.

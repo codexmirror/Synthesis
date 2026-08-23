@@ -72,10 +72,10 @@ export interface ProcessState {
  * carries no availability, usage, or runtime state.
  */
 export interface NetworkTransferCapacity {
-  /** Maximum bytes this endpoint can send per second. */
-  readonly txBytesPerSecond: number
-  /** Maximum bytes this endpoint can receive per second. */
-  readonly rxBytesPerSecond: number
+  /** Maximum bytes this endpoint can upload (send) per second. */
+  readonly uploadBytesPerSecond: number
+  /** Maximum bytes this endpoint can download (receive) per second. */
+  readonly downloadBytesPerSecond: number
 }
 
 export interface DeviceNetworkState {

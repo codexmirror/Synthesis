@@ -39,7 +39,7 @@ describe('createInitialGameState', () => {
     expect(state.player.localDevice).toMatchObject({
       displayName: 'node-01',
       firmware: { id: 'firmware-node-os-v1', name: 'NODE-OS', version: '1.0' },
-      network: { ip: '198.51.100.23', transferCapacity: { txBytesPerSecond: 1_048_576, rxBytesPerSecond: 2_097_152 } },
+      network: { ip: '198.51.100.23', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
       hardware: { cpu: { name: 'Basic CPU', computeCapacity: 100 }, ram: { name: '4 GB', capacityMiB: 4096 } },
       runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
     })
@@ -57,7 +57,7 @@ describe('createInitialGameState', () => {
     expect(state.world.network.hosts).toEqual([
       {
         id: 'host-lan-001', displayName: 'srv-01', ip: '198.51.100.47', online: true, role: 'server',
-        transferCapacity: { txBytesPerSecond: 8_388_608, rxBytesPerSecond: 8_388_608 },
+        transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 },
         firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
         filesystem: { nextFileId: 3, files: [{ kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' }, { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 }] },
         services: [
@@ -67,7 +67,7 @@ describe('createInitialGameState', () => {
       },
       {
         id: 'host-lan-002', displayName: 'srv-02', ip: '198.51.100.53', online: true, role: 'server',
-        transferCapacity: { txBytesPerSecond: 1_048_576, rxBytesPerSecond: 1_048_576 },
+        transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
         firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
         filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] },
         services: [
