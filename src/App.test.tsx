@@ -1560,9 +1560,9 @@ describe('NODE-OS shell and applications', () => {
 
     await user.click(screen.getByRole('button', { name: /open system/i }))
 
-    expect(screen.getByText('Device').parentElement).toHaveTextContent('test-device')
-    expect(screen.getByText('Firmware').parentElement).toHaveTextContent('TEST-OS')
-    expect(screen.getByText('Version').parentElement).toHaveTextContent('7.4')
+    expect(screen.getByText('DEVICE').parentElement).toHaveTextContent('test-device')
+    expect(screen.getByText('FIRMWARE').parentElement).toHaveTextContent('TEST-OS')
+    expect(screen.getByText('VERSION').parentElement).toHaveTextContent('7.4')
   })
 })
 
@@ -1630,7 +1630,7 @@ describe('Terminal', () => {
     const { user, input } = await openTerminal()
     input.focus()
     input.blur()
-    await user.click(screen.getByText(/terminal · Type/i))
+    await user.click(screen.getByText(/to begin/i))
     expect(input).not.toHaveFocus()
   })
 

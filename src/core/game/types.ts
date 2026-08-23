@@ -171,6 +171,9 @@ export interface NetworkHost {
   /** Device-owned operating environment and filesystem, when represented. */
   readonly firmware?: FirmwareState
   readonly filesystem?: FilesystemState
+  /** Device-owned compute resources, present only for concretely represented resource-capable hosts. */
+  readonly hardware?: HardwareState
+  readonly runtime?: Pick<RuntimeState, 'baselineCpuLoad' | 'baselineRamUsage'>
   /** Present only when the represented device has a concrete server role. */
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */
@@ -272,8 +275,8 @@ export interface RemoteSessionState { readonly nextId: number; readonly active: 
  */
 export interface FileTransfer {
   readonly id: string
-  /** The RemoteSession that authorized this transfer; work only continues while it remains the current active Session. */
-  readonly sessionId: string
+  /** The DeviceAccess that admitted this transfer; it runs as its own network runtime independent of any RemoteSession once admitted. */
+  readonly accessId: string
   readonly sourceDeviceId: string
   readonly sourceFileId: string
   readonly destinationDeviceId: string

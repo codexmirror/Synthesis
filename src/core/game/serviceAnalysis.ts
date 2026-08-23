@@ -34,8 +34,8 @@ export function startServiceAnalysis(state: GameState, targetDeviceId: string, s
   if (!current.online || !current.hostIp || !current.service?.open) return { status: 'unavailable', state }
   const startedEndpoint = `${current.hostIp}:${current.service.port}`
   if (state.process.processes.some((process) => process.kind === 'service_analysis' && process.status === 'running' && process.targetDeviceId === targetDeviceId && process.serviceId === serviceId)) return { status: 'already_running', state }
-  const started = startProcess(state.process, state.player.localDevice.hardware, state.player.localDevice.runtime, {
-    label: 'SERVICE ANALYSIS', executorDeviceId: state.player.localDevice.id,
+  const started = startProcess(state.process, state.player.localDevice, {
+    label: 'SERVICE ANALYSIS',
     workRequired: SERVICE_ANALYSIS_WORK_REQUIRED, ramRequiredMiB: SERVICE_ANALYSIS_RAM_REQUIRED_MIB,
   })
   if (started.status === 'insufficient_memory') return { ...started, state }

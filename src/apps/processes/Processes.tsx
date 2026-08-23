@@ -12,7 +12,7 @@ const EMPTY_STATE: Record<ActivityFilterId, { headline: string; note: string }> 
 
 export function Processes() {
   const state = useGameState()
-  const { clearCompletedProcesses, removeCompletedProcess } = useGameActions()
+  const { clearCompletedProcesses, removeCompletedProcess, cancelFileTransfer } = useGameActions()
   const [filter, setFilter] = useState<ActivityFilterId>('all')
   const { summary, activities } = deriveActivityMonitor(state)
   const visible = filterActivities(activities, filter)
@@ -21,7 +21,10 @@ export function Processes() {
   const empty = EMPTY_STATE[filter]
 
   return <section className="app-content activity-monitor" aria-label="Activity Monitor">
-    <header className="am-head"><p className="eyebrow">ACTIVITY MONITOR</p></header>
+    <header className="node-masthead">
+      <span className="node-masthead-subject">ACTIVITY MONITOR</span>
+      <span className="node-masthead-meta">LOCAL · {state.player.localDevice.displayName}</span>
+    </header>
 
     <div className="am-summary">
       <Stat label="CPU" value={`${Math.round(summary.cpuPercent)}%`} note={`${Math.round(summary.baselineCpuPercent)}% BASELINE`} percent={summary.cpuPercent} />
@@ -41,13 +44,13 @@ export function Processes() {
       </button>)}
     </div>
 
-    <div className="am-section"><span>RUNNING</span><span className="am-section-count">{running.length}</span></div>
+    <div className="node-section"><span>RUNNING</span><span className="am-section-count">{running.length}</span></div>
     {running.length > 0
-      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} />)}</div>
-      : <div className="am-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
+      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : undefined} />)}</div>
+      : <div className="node-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
 
     {completed.length > 0 && <>
-      <div className="am-section am-section-quiet">
+      <div className="node-section am-section-quiet">
         <span>COMPLETED</span>
         <button className="am-clear" type="button" aria-label="Clear completed processes" onClick={() => { if (window.confirm('Clear completed process history?')) clearCompletedProcesses() }}>CLEAR</button>
       </div>
@@ -65,13 +68,14 @@ function Stat({ label, value, note, percent }: { label: string; value: string; n
   </div>
 }
 
-function ActivityCard({ activity, onRemove }: { activity: MonitorActivity; onRemove?: () => void }) {
+function ActivityCard({ activity, onRemove, onCancel }: { activity: MonitorActivity; onRemove?: () => void; onCancel?: () => void }) {
   return <article className="am-activity" data-category={activity.category} data-status={activity.status}>
     <div className="am-activity-head">
       <span className="am-kind">{activity.kindLabel}</span>
       <span className="am-activity-controls">
         <span className="am-state"><i aria-hidden="true" />{activity.status === 'running' ? 'RUNNING' : 'COMPLETED'}</span>
         {activity.status === 'completed' && activity.category === 'operation' && onRemove && <button className="am-remove" type="button" aria-label={`Remove completed ${activity.kindLabel} process`} onClick={onRemove}>REMOVE</button>}
+        {activity.status === 'running' && activity.category === 'transfer' && onCancel && <button className="am-cancel" type="button" aria-label={`Cancel active ${activity.kindLabel}`} onClick={onCancel}>CANCEL</button>}
       </span>
     </div>
     <div className="am-title">

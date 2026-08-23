@@ -1,6 +1,6 @@
+import { resolveFileTransferSource } from '../../core/game/fileTransfer'
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
-import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
 import type { DeviceAccess, GameProcess, GameState, NetworkTransferCapacity } from '../../core/game/types'
 import { formatByteProgress, formatTransferRate } from '../byteFormat'
 
@@ -74,8 +74,8 @@ export interface ActivityMonitor {
 
 export function deriveActivityMonitor(state: GameState): ActivityMonitor {
   const device = state.player.localDevice
-  const usage = deriveResourceUsage(device.hardware, device.runtime, state.process)
-  const operations = state.process.processes.map((process) => toOperationActivity(process, usage, state.deviceAccess.established))
+  const usage = deriveResourceUsage(device, state.process)
+  const operations = state.process.processes.filter((process) => process.executorDeviceId === device.id).map((process) => toOperationActivity(process, usage, state.deviceAccess.established))
   const transfer = deriveTransferPresentation(state)
   const activities = transfer ? [...operations, transfer.activity] : operations
   return {
@@ -152,15 +152,17 @@ interface TransferPresentation {
 /**
  * Present the single active `FileTransfer`. Source identity, the source
  * artifact, and the current effective rate are resolved only through the
- * Session -> DeviceAccess -> target Device authority chain that authorized the
- * transfer, so nothing here reveals more than the transfer's own runtime does.
+ * transfer's own snapshotted DeviceAccess authority (the same
+ * `resolveFileTransferSource` helper runtime advancement uses), never
+ * through any RemoteSession, so a transfer keeps presenting correctly after
+ * disconnect and nothing here reveals more than the transfer's own runtime
+ * does.
  */
 function deriveTransferPresentation(state: GameState): TransferPresentation | undefined {
   const transfer = state.fileTransfer.active
   if (!transfer) return undefined
   const device = state.player.localDevice
-  const remote = resolveActiveRemoteTarget(state)
-  const source = remote?.session.id === transfer.sessionId && remote?.target.id === transfer.sourceDeviceId ? remote.target : undefined
+  const source = resolveFileTransferSource(state, transfer)
   const sourceFile = source?.filesystem?.files.find(({ id }) => id === transfer.sourceFileId)
   const sourceCapacity = source?.transferCapacity
   const online = device.runtime.networkStatus === 'ONLINE' && source?.online === true

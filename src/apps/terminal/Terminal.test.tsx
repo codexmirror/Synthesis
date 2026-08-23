@@ -33,7 +33,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     disconnectRemoteSession: () => ({ status: 'not_connected', state }),
     startRemoteFileDownload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(),
-    clearCompletedProcesses: () => {}, removeCompletedProcess: () => {},
+    clearCompletedProcesses: () => {}, removeCompletedProcess: () => {}, cancelFileTransfer: () => ({ status: 'not_found', state }),
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
   vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
@@ -240,7 +240,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(), removeCompletedProcess: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(), removeCompletedProcess: vi.fn(), cancelFileTransfer: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
@@ -386,12 +386,12 @@ describe('Terminal live Process projection', () => {
 
     await user.type(input, 'analyze 198.51.100.47:22{enter}')
     const singleState = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    const singleUsage = deriveResourceUsage(singleState.player.localDevice.hardware, singleState.player.localDevice.runtime, singleState.process)
+    const singleUsage = deriveResourceUsage(singleState.player.localDevice, singleState.process)
     expect(screen.getByRole('region', { name: 'SERVICE ANALYSIS running' })).toHaveTextContent(`CPU ${Math.round(singleUsage.cpuAllocationByProcess[singleState.process.processes[0].id])}%`)
 
     await user.type(input, 'analyze 198.51.100.47:80{enter}')
     const sharedState = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    const sharedUsage = deriveResourceUsage(sharedState.player.localDevice.hardware, sharedState.player.localDevice.runtime, sharedState.process)
+    const sharedUsage = deriveResourceUsage(sharedState.player.localDevice, sharedState.process)
     expect(new Set(sharedState.process.processes.map(({ id }) => id)).size).toBe(2)
     const projections = screen.getAllByRole('region', { name: 'SERVICE ANALYSIS running' })
     expect(projections).toHaveLength(2)

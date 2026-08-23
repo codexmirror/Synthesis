@@ -86,7 +86,7 @@ function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess;
 export function Terminal() {
   const gameState = useGameState()
   const actions = useGameActions()
-  const usage = deriveResourceUsage(gameState.player.localDevice.hardware, gameState.player.localDevice.runtime, gameState.process)
+  const usage = deriveResourceUsage(gameState.player.localDevice, gameState.process)
   const [entries, setEntries] = useState<Entry[]>([])
 
   useEffect(() => {
@@ -186,13 +186,17 @@ export function Terminal() {
 
   return (
     <section className="terminal" aria-label="Terminal">
+      <header className="node-masthead terminal-masthead">
+        <span className="node-masthead-subject">{gameState.player.localDevice.displayName} · {gameState.player.localDevice.network.ip}</span>
+        <span className="node-masthead-meta">LOCAL SHELL</span>
+      </header>
       <div
         className="terminal-output"
         data-editing-scroll-owner
         ref={interaction.outputRef}
         onScroll={interaction.onOutputScroll}
       >
-        <p className="muted">{gameState.player.localDevice.firmware.name} terminal · Type <strong>help</strong> to begin.</p>
+        <p className="muted">Type <strong>help</strong> to begin.</p>
         {entries.map((entry, index) => (
           <div className="terminal-entry" key={`${entry.command}-${index}`}>
             <div><span className="prompt">user@node:~$</span> {entry.command}</div>

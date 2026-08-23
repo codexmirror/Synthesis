@@ -52,7 +52,11 @@ describe('mobile editing presentation contract', () => {
     expect(terminalSource.lastIndexOf('className="terminal-input"')).toBeGreaterThan(
       terminalSource.lastIndexOf('className="terminal-output"'),
     )
-    expect(terminalCss).toMatch(/\.terminal\s*{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto;/)
+    // Output and prompt are placed on explicit rows so the masthead, which the
+    // editing presentation hides, can never reflow them into each other.
+    expect(terminalCss).toMatch(/\.terminal\s*{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\) auto;/)
+    expect(terminalCss).toMatch(/\.terminal-output\s*{[^}]*grid-row:\s*2;/)
+    expect(terminalCss).toMatch(/\.terminal-input\s*{[^}]*grid-row:\s*3;/)
   })
 
   it('keeps viewport manipulation out of Terminal', () => {

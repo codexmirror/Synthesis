@@ -1,20 +1,41 @@
 .node-workspace { grid-row: 1 / -1; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; }
 .node-workspace[hidden] { display: none; }
 .rack-os { grid-row: 1 / -1; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr); background: #101416; color: #d6dddf; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rack-os[hidden] { display: none; }
 .rack-header { padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); border-bottom: 1px solid #394246; display: grid; gap: 7px; }
 .rack-header div { display: flex; justify-content: space-between; gap: 12px; }
 .rack-header strong { letter-spacing: .12em; }.rack-header span { font-size: .72rem; color: #aab5b9; }
-.rack-header button { justify-self: end; border: 0; background: none; color: #d6dddf; font: inherit; font-size: .7rem; letter-spacing: .1em; }
+.rack-header__actions { width: 100%; justify-self: end; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; }
+.rack-header button { min-height: 44px; padding: 0 8px; border: 0; background: none; color: #d6dddf; font: inherit; font-size: .7rem; letter-spacing: .1em; }
 .rack-nav { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid #394246; }
-.rack-nav button { padding: 13px 4px; border: 0; border-right: 1px solid #394246; background: #151b1e; color: #879398; font: 700 .68rem ui-monospace, monospace; letter-spacing: .1em; }
+.rack-nav button { min-height: 44px; padding: 13px 4px; border: 0; border-right: 1px solid #394246; background: #151b1e; color: #879398; font: 700 .68rem ui-monospace, monospace; letter-spacing: .1em; }
 .rack-nav button[aria-current] { color: #edf3f4; background: #20282b; }
-.rack-body,.rack-terminal { min-height: 0; overflow: hidden; }.rack-terminal { height: 100%; display: grid; grid-template-rows: minmax(0,1fr) auto; padding: 16px; }
+.rack-body,.rack-terminal { min-height: 0; overflow: hidden; }.rack-body { display: grid; }.rack-terminal { height: 100%; display: grid; grid-template-rows: minmax(0,1fr) auto; padding: 16px; }
 .rack-output { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; -webkit-overflow-scrolling: touch; white-space: pre-wrap; font-size: .78rem; line-height: 1.7; }.rack-command { color: #9eabad; margin-top: 8px; }
 .rack-terminal form { border-top: 1px solid #394246; padding: 12px 0 max(0px, env(safe-area-inset-bottom)); }.rack-terminal label { display: flex; gap: 8px; align-items: center; font-size: .76rem; white-space: nowrap; }
 .rack-terminal input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #fff; font: inherit; }
-.rack-files { padding: 18px; display: grid; align-content: start; gap: 10px; }.rack-files p { letter-spacing: .12em; }.rack-files button { padding: 10px; text-align: left; border: 1px solid #394246; background: transparent; color: inherit; font: inherit; }.rack-files pre { white-space: pre-wrap; }
-.rack-files button:disabled { color: #aab5b9; }.rack-download-state { display: grid; gap: 8px; }.rack-download-state dl { margin: 0; }.rack-download-state dt,.rack-download-state strong { color: #aab5b9; font-size: .7rem; letter-spacing: .1em; }.rack-download-state dd { margin: 5px 0 0; overflow-wrap: anywhere; }
-.rack-system { margin: 0; padding: 18px; display: grid; gap: 18px; }.rack-system div { border-bottom: 1px solid #394246; padding-bottom: 10px; }.rack-system dt { color: #879398; font-size: .65rem; letter-spacing: .12em; }.rack-system dd { margin: 5px 0 0; }
+/* Shared RACK-OS panel grammar. Deliberately not NODE-OS: flat rows, cool
+   grey-blue structure, wide type, no mint accents. */
+.rack-panel { padding: 18px; display: grid; align-content: start; gap: 14px; overflow: auto; -webkit-overflow-scrolling: touch; }
+.rack-path { display: flex; align-items: baseline; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #394246; }
+.rack-path span { flex: none; color: #879398; font-size: .62rem; letter-spacing: .12em; }
+.rack-path code { min-width: 0; color: #edf3f4; font: inherit; font-size: .76rem; overflow-wrap: anywhere; }
+.rack-file-list { display: grid; gap: 4px; }
+.rack-file-row { min-height: 46px; padding: 8px 10px; display: flex; align-items: center; gap: 10px; border: 1px solid #394246; background: transparent; color: inherit; font: inherit; text-align: left; }
+.rack-file-row:hover, .rack-file-row:focus-visible { background: #1a2124; outline: 0; }
+.rack-file-tag { flex: none; min-width: 34px; color: #879398; font-size: .62rem; letter-spacing: .1em; }
+.rack-file-name { min-width: 0; font-size: .78rem; overflow-wrap: anywhere; }
+.rack-back { min-height: 44px; padding: 0; justify-self: start; border: 0; background: transparent; color: #aab5b9; font: inherit; font-size: .72rem; }
+.rack-empty { margin: 0; padding: 12px 0; color: #879398; font-size: .72rem; letter-spacing: .1em; }
+.rack-file-content { margin: 0; padding: 12px; border: 1px solid #394246; background: #151b1e; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .76rem; line-height: 1.6; }
+.rack-artifact { display: grid; gap: 6px; }
+.rack-artifact-kind { margin: 0; color: #879398; font-size: .62rem; letter-spacing: .12em; }
+.rack-artifact h2 { margin: 0; font: 600 .95rem ui-monospace, monospace; overflow-wrap: anywhere; }
+.rack-artifact-release { margin: 0 0 6px; color: #aab5b9; font-size: .74rem; }
+.rack-primary { min-height: 44px; padding: 0 16px; justify-self: start; border: 1px solid #4d5a5f; background: transparent; color: #edf3f4; font: inherit; font-size: .72rem; letter-spacing: .1em; }
+.rack-primary:disabled { border-color: #394246; color: #aab5b9; }
+.rack-download-state { display: grid; gap: 8px; }.rack-download-state dl { margin: 0; }.rack-download-state strong { color: #aab5b9; font-size: .7rem; letter-spacing: .1em; }
+.rack-facts { margin: 0; display: grid; gap: 14px; }.rack-facts div { border-bottom: 1px solid #394246; padding-bottom: 10px; }.rack-facts dt { color: #879398; font-size: .65rem; letter-spacing: .12em; }.rack-facts dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: .78rem; }
 @media (max-width: 700px) { .rack-os { height: var(--node-host-height,100dvh); }.rack-header { padding-inline: max(12px,env(safe-area-inset-left)); } }
 @media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
   .os-shell[data-standalone="false"][data-editing-presentation="true"] .rack-os { position: absolute; z-index: 5; inset-inline: 0; top: var(--node-presentation-top, 0px); height: var(--node-presentation-height, var(--node-host-height, 100dvh)); min-height: 0; }
