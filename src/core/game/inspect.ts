@@ -1,7 +1,10 @@
 import { isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
-import type { DiscoveryState } from './types'
+import type { DiscoveryState, EnhancedInspectEvidence, NetworkHost } from './types'
 
 export type InspectTargets = NetworkTargets
+
+/** Legitimate observation depth of the current player-facing Inspect operation, set by the installed NodeScan release. */
+export type InspectDepth = 'shallow' | 'enhanced'
 
 export type InspectResult =
   | {
@@ -19,6 +22,7 @@ export type InspectResult =
     readonly scope: 'lan' | 'remote'
     readonly networkStatus: 'ONLINE'
     readonly deviceKind: 'device' | 'server'
+    readonly enhanced?: EnhancedInspectEvidence
   }
   | {
     readonly status: 'network'
@@ -29,8 +33,27 @@ export type InspectResult =
   | { readonly status: 'no_response'; readonly address: string }
   | { readonly status: 'unknown_target'; readonly input: string }
 
+/**
+ * NodeScan 1.1 Experimental compute tier, derived from represented CPU
+ * compute capacity rather than exposing the raw simulation value.
+ */
+function classifyComputeCapacity(computeCapacity: number): 'LOW' | 'STANDARD' | 'HIGH' {
+  if (computeCapacity > 150) return 'HIGH'
+  if (computeCapacity > 100) return 'STANDARD'
+  return 'LOW'
+}
+
+/** Enhanced evidence exists only when the target's own Firmware and hardware are concretely represented. */
+function enhancedEvidenceFor(host: Readonly<NetworkHost>): EnhancedInspectEvidence | undefined {
+  if (!host.firmware || !host.hardware) return undefined
+  return {
+    firmware: { name: host.firmware.name, version: host.firmware.version },
+    computeClass: classifyComputeCapacity(host.hardware.cpu.computeCapacity),
+  }
+}
+
 /** Look inward at one supported device or local network and report its properties without mutation. */
-export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: string): InspectResult {
+export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: string, depth: InspectDepth = 'shallow'): InspectResult {
   if (!isValidIpv4(input)) {
     const network = resolveLocalNetwork(targets.network, input)
     return network
@@ -54,17 +77,18 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
       }
       : { status: 'no_response', address: input }
   }
-  return resolved.entity.online
-    ? {
-      status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE',
-      deviceKind: resolved.entity.role === 'server' ? 'server' : 'device',
-    }
-    : { status: 'no_response', address: input }
+  if (!resolved.entity.online) return { status: 'no_response', address: input }
+  const enhanced = depth === 'enhanced' ? enhancedEvidenceFor(resolved.entity) : undefined
+  return {
+    status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE',
+    deviceKind: resolved.entity.role === 'server' ? 'server' : 'device',
+    ...(enhanced ? { enhanced } : {}),
+  }
 }
 
 /** Inspect only SELF or an identity already justified by canonical player memory. */
-export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery: DiscoveryState, input: string): InspectResult {
-  if (input === targets.localDevice.network.ip) return inspectNetworkTarget(targets, input)
+export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery: DiscoveryState, input: string, depth: InspectDepth = 'shallow'): InspectResult {
+  if (input === targets.localDevice.network.ip) return inspectNetworkTarget(targets, input, depth)
   if (!isValidIpv4(input)) {
     const remembered = discovery.networks.find(({ name }) => name === input)
     if (!remembered) return { status: 'unknown_target', input }
@@ -79,5 +103,10 @@ export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery:
   if (!current || current.scope === 'self' || current.entity.id !== remembered.id || !current.entity.online) {
     return { status: 'no_response', address: input }
   }
-  return { status: 'device', targetId: current.entity.id, address: input, scope: current.scope, networkStatus: 'ONLINE', deviceKind: current.entity.role === 'server' ? 'server' : 'device' }
+  const enhanced = depth === 'enhanced' ? enhancedEvidenceFor(current.entity) : undefined
+  return {
+    status: 'device', targetId: current.entity.id, address: input, scope: current.scope, networkStatus: 'ONLINE',
+    deviceKind: current.entity.role === 'server' ? 'server' : 'device',
+    ...(enhanced ? { enhanced } : {}),
+  }
 }

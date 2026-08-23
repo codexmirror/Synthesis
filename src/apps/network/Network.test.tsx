@@ -210,6 +210,40 @@ describe('Scan workspace', () => {
     expect(state.knowledge.discoveredVulnerabilities).toEqual([])
   })
 
+  it('presents NodeScan 1.1 Experimental enhanced evidence through the same INSPECT DEVICE action', async () => {
+    const user = userEvent.setup()
+    const state = discoveredState()
+    const withNodeScan11 = {
+      ...state,
+      player: {
+        ...state.player,
+        localDevice: {
+          ...state.player.localDevice,
+          installedSoftware: state.player.localDevice.installedSoftware.map((software) =>
+            software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software),
+        },
+      },
+    }
+    render(<GameProvider initialState={withNodeScan11}><Network /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'INSPECT DEVICE' }))
+    expect(screen.getByText('FIRMWARE')).toBeInTheDocument()
+    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
+    expect(screen.getByText('COMPUTE')).toBeInTheDocument()
+    expect(screen.getByText('HIGH')).toBeInTheDocument()
+  })
+
+  it('does not present enhanced evidence for NodeScan 1.0 Standard', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'INSPECT DEVICE' }))
+    expect(screen.queryByText('FIRMWARE')).not.toBeInTheDocument()
+    expect(screen.queryByText('COMPUTE')).not.toBeInTheDocument()
+  })
+
   it('opens a Known Space area without scanning', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
