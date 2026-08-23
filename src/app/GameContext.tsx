@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useRef, useState 
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
 import { startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation, type EndpointAnalysisResult, type ObservedServiceTarget, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
-import { clearCompletedProcesses as clearCompletedProcessState, removeCompletedProcess as removeCompletedProcessState } from '../core/game/processes'
+import { clearRecentActivity, removeRecentActivity } from '../core/game/recentActivity'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { createLocalInspectTarget, type InspectTargetOperation } from './localInspectOperation'
@@ -30,8 +30,8 @@ export interface GameActions {
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
   stopNodeMiner(processId: string): StopNodeMinerResult
-  clearCompletedProcesses(): void
-  removeCompletedProcess(processId: string): void
+  clearRecentActivity(): void
+  removeRecentActivity(activityId: string): void
 }
 const GameActionsContext = createContext<GameActions | null>(null)
 
@@ -133,18 +133,16 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       setGameState(result.state)
     }
     return result
-  }, clearCompletedProcesses() {
+  }, clearRecentActivity() {
     const state = currentState.current
-    const process = clearCompletedProcessState(state.process, state.player.localDevice.id)
-    if (process === state.process) return
-    const nextState = { ...state, process }
+    const nextState = clearRecentActivity(state, state.player.localDevice.id)
+    if (nextState === state) return
     currentState.current = nextState
     setGameState(nextState)
-  }, removeCompletedProcess(processId) {
+  }, removeRecentActivity(activityId) {
     const state = currentState.current
-    const process = removeCompletedProcessState(state.process, processId, state.player.localDevice.id)
-    if (process === state.process) return
-    const nextState = { ...state, process }
+    const nextState = removeRecentActivity(state, activityId, state.player.localDevice.id)
+    if (nextState === state) return
     currentState.current = nextState
     setGameState(nextState)
   } }

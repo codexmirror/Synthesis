@@ -36,7 +36,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     disconnectRemoteSession: () => ({ status: 'not_connected', state }),
     startRemoteFileDownload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(),
-    clearCompletedProcesses: () => {}, removeCompletedProcess: () => {}, cancelFileTransfer: () => ({ status: 'not_found', state }),
+    clearRecentActivity: () => {}, removeRecentActivity: () => {}, cancelFileTransfer: () => ({ status: 'not_found', state }),
     runNodeMiner: () => ({ status: 'source_not_found', state }), stopNodeMiner: () => ({ status: 'not_found', state }),
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
@@ -234,7 +234,7 @@ function knownCredentialState(): GameState {
 function StateControls() {
   const state = useGameState()
   const actions = useGameActions()
-  return <><button onClick={actions.clearCompletedProcesses}>Clear process history</button><output data-testid="game-state">{JSON.stringify(state)}</output></>
+  return <><button onClick={actions.clearRecentActivity}>Clear process history</button><output data-testid="game-state">{JSON.stringify(state)}</output></>
 }
 
 describe('Terminal credential access', () => {
@@ -244,7 +244,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearCompletedProcesses: vi.fn(), removeCompletedProcess: vi.fn(), cancelFileTransfer: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), installLocalSoftwarePackage: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
@@ -380,7 +380,7 @@ describe('Terminal NODE Miner CLI', () => {
 
     await user.type(input, 'node-miner stop{enter}')
     expect(screen.getByText('STOPPED')).toBeInTheDocument()
-    expect(screen.queryByText('NODE MINER')).not.toBeInTheDocument()
+    expect((screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement).dataset.status).toBe('recent')
 
     await user.type(input, 'node-miner status{enter}')
     expect(screen.getByText('STATUS IDLE')).toBeInTheDocument()

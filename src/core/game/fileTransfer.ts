@@ -2,6 +2,7 @@ import { checkDestinationPlacement, copyFilesystemFileToPath, getFilesystemFile,
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import type { FileTransfer, GameState, NetworkHost, NetworkTransferCapacity } from './types'
+import { archiveFileTransfer } from './recentActivity'
 
 export function deriveDownloadDestinationPath(sourcePath: string): string {
   const basename = sourcePath.slice(sourcePath.lastIndexOf('/') + 1)
@@ -126,7 +127,7 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
   if (!transfer) return state
 
   const endpoints = resolveTransferEndpoints(state, transfer)
-  if (!endpoints) return { ...state, fileTransfer: { ...state.fileTransfer, active: null } }
+  if (!endpoints) return archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, transfer)
 
   const rate = deriveEffectiveTransferRateBytesPerSecond(endpoints.sourceCapacity, state.player.localDevice.network.transferCapacity)
   const elapsedSeconds = Math.max(0, elapsedMs) / 1000
@@ -138,13 +139,13 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
 
   const sourceFile = endpoints.sourceHost.filesystem!.files.find((file) => file.id === transfer.sourceFileId)!
   const copied = copyFilesystemFileToPath(sourceFile, state.player.localDevice.filesystem, transfer.destinationPath)
-  if (copied.status !== 'copied') return { ...state, fileTransfer: { ...state.fileTransfer, active: null } }
+  if (copied.status !== 'copied') return archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, { ...transfer, bytesTransferred })
 
-  return {
+  return archiveFileTransfer({
     ...state,
     player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: copied.filesystem } },
     fileTransfer: { ...state.fileTransfer, active: null },
-  }
+  }, { ...transfer, bytesTransferred })
 }
 
 export type CancelFileTransferResult = { readonly status: 'cancelled' | 'not_found'; readonly state: GameState }
@@ -157,5 +158,5 @@ export type CancelFileTransferResult = { readonly status: 'cancelled' | 'not_fou
  */
 export function cancelFileTransfer(state: GameState, transferId: string): CancelFileTransferResult {
   if (state.fileTransfer.active?.id !== transferId) return { status: 'not_found', state }
-  return { status: 'cancelled', state: { ...state, fileTransfer: { ...state.fileTransfer, active: null } } }
+  return { status: 'cancelled', state: archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, state.fileTransfer.active) }
 }

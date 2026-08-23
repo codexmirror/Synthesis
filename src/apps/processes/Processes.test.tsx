@@ -69,7 +69,7 @@ describe('Processes application integration', () => {
     expect(within(stat('ACTIVE')).getByText('0')).toBeInTheDocument()
     expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
     expect(cards()).toHaveLength(0)
-    expect(screen.queryByRole('button', { name: 'Clear completed processes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear recent activity' })).not.toBeInTheDocument()
   })
 
   it('does not observe or clear remote Process runtime from NODE-OS', () => {
@@ -81,7 +81,7 @@ describe('Processes application integration', () => {
     expect(screen.queryByText('REMOTE WORK')).not.toBeInTheDocument()
     expect(within(stat('CPU')).getByText('18%')).toBeInTheDocument()
     expect(within(stat('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear completed processes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear recent activity' })).not.toBeInTheDocument()
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual([remote])
   })
 
@@ -105,8 +105,9 @@ describe('Processes application integration', () => {
     expect(fact(running, 'CPU')).toBe('82%')
     expect(fact(running, 'RAM')).toBe('512 MiB')
     const finished = within(monitor()).getByText('Finished analysis').closest('.am-activity') as HTMLElement
-    expect(finished.dataset.status).toBe('completed')
-    expect(within(finished).getByText('COMPLETED')).toBeInTheDocument()
+    expect(finished.dataset.status).toBe('recent')
+    expect(within(finished).queryByText(/COMPLETED|STOPPED|CANCELLED/)).not.toBeInTheDocument()
+    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
     expect(fact(finished, 'CPU')).toBe('0%')
     expect(fact(finished, 'RAM')).toBe('0 MiB')
     expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
@@ -169,9 +170,9 @@ describe('Processes application integration', () => {
   it('confirms before clearing completed cards while running work remains visible', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
-    const clear = screen.getByRole('button', { name: 'Clear completed processes' })
+    const clear = screen.getByRole('button', { name: 'Clear recent activity' })
     fireEvent.click(clear)
-    expect(confirm).toHaveBeenLastCalledWith('Clear completed process history?')
+    expect(confirm).toHaveBeenLastCalledWith('Clear recent activity?')
     expect(screen.getByText('Finished analysis')).toBeInTheDocument()
     fireEvent.click(clear)
     expect(screen.queryByText('Finished analysis')).not.toBeInTheDocument()
@@ -184,7 +185,7 @@ describe('Processes application integration', () => {
     function Snapshot() { const state = useGameState(); return <output>{JSON.stringify({ worldSame: state.world === world, knowledgeSame: state.knowledge === knowledge, knowledge: state.knowledge })}</output> }
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
-    fireEvent.click(screen.getByRole('button', { name: 'Clear completed processes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clear recent activity' }))
     expect(screen.queryByText('WEAKNESS DETECTED')).not.toBeInTheDocument()
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017' }] } })
   })
@@ -199,7 +200,7 @@ describe('Processes application integration', () => {
       return <output>{JSON.stringify({ ids: state.process.processes.map(({ id }) => id), nextId: state.process.nextId, worldSame: state.world === truth.world, knowledgeSame: state.knowledge === truth.knowledge, accessSame: state.deviceAccess === truth.deviceAccess, filesystemSame: state.player.localDevice.filesystem === truth.filesystem })}</output>
     }
     render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Remove completed SERVICE ANALYSIS process' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove recent SERVICE ANALYSIS activity' })[0])
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual({ ids: ['process-0002'], nextId: 3, worldSame: true, knowledgeSame: true, accessSame: true, filesystemSame: true })
     expect(screen.getByText('SECOND COMPLETION')).toBeInTheDocument()
   })
@@ -289,7 +290,7 @@ describe('Activity Monitor aggregation', () => {
     expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
     expect(screen.getByText('NO ACTIVE TRANSFER')).toBeInTheDocument()
-    expect(screen.getByText('Completed transfers are not recorded.')).toBeInTheDocument()
+    expect(screen.getByText('No transfer is currently running.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
     expect(screen.getByText('NO RUNNING OPERATIONS')).toBeInTheDocument()
   })
@@ -298,14 +299,14 @@ describe('Activity Monitor aggregation', () => {
     render(<GameProvider initialState={withDownload(withProcesses())}><Processes /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
     expect(screen.queryByText('COMPLETED')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear completed processes' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Remove completed/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear recent activity' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Remove recent/ })).not.toBeInTheDocument()
   })
 
   it('offers individual removal only on completed Process cards', () => {
     render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
-    expect(within(card('PROCESS')).queryByRole('button', { name: /Remove completed/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove completed PROCESS process' })).toBeInTheDocument()
+    expect(within(card('PROCESS')).queryByRole('button', { name: /Remove recent/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove recent PROCESS activity' })).toBeInTheDocument()
     const removeRule = processesCss.match(/\.am-remove\s*\{([^}]+)\}/)?.[1] ?? ''
     expect(removeRule).toMatch(/min-height:\s*44px/)
   })
@@ -333,8 +334,8 @@ describe('Activity Monitor aggregation', () => {
     expect(within(download).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
 
     fireEvent.click(within(download).getByRole('button', { name: 'Cancel active DOWNLOAD' }))
-    expect(screen.queryByText('DOWNLOAD')).not.toBeInTheDocument()
-    expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
+    expect(card('DOWNLOAD').dataset.status).toBe('recent')
+    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
   })
 
   it('CANCEL preserves DeviceAccess and does not create a GameProcess', () => {
@@ -423,8 +424,8 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
     render(<GameProvider initialState={minerState()}><Processes /></GameProvider>)
     const minerCard = card('NODE MINER')
     fireEvent.click(within(minerCard).getByRole('button', { name: 'Stop NODE MINER' }))
-    expect(screen.queryByText('NODE MINER')).not.toBeInTheDocument()
-    expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
+    expect(card('NODE MINER').dataset.status).toBe('recent')
+    expect(within(card('NODE MINER')).queryByText(/STOPPED|COMPLETED|CANCELLED/)).not.toBeInTheDocument()
     expect(within(stat('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
   })
 

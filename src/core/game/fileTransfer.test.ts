@@ -102,6 +102,7 @@ describe('starting a remote Download', () => {
     if (first.status !== 'started') throw new Error('expected started')
     const completed = advanceFileTransfer(first.state, 60_000)
     expect(completed.fileTransfer.active).toBeNull()
+    expect(completed.recentActivity.entries.at(-1)).toMatchObject({ kind: 'file_transfer', id: first.transferId, transfer: { bytesTransferred: first.state.fileTransfer.active!.bytesTotal }, sourcePath: '/srv/readme.txt', route: 'srv-01 → node-01' })
     const duplicate = startRemoteFileDownload(completed, '/srv/readme.txt')
     expect(duplicate).toEqual({ status: 'destination_exists', state: completed })
   })
@@ -371,6 +372,8 @@ describe('cancelFileTransfer', () => {
     const result = cancelFileTransfer(started.state, started.transferId)
     expect(result.status).toBe('cancelled')
     expect(result.state.fileTransfer.active).toBeNull()
+    expect(result.state.recentActivity.entries).toHaveLength(1)
+    expect(result.state.recentActivity.entries[0]).toMatchObject({ kind: 'file_transfer', id: started.transferId, transfer: { bytesTransferred: 0, destinationPath: '/home/user/downloads/nodescan-exp-1.1.pkg' } })
   })
 
   it('is a no-op for an unknown or stale transfer ID', () => {

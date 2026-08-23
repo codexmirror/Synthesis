@@ -7,17 +7,17 @@ import { ACTIVITY_FILTERS, deriveActivityMonitor, filterActivities, type Activit
 const EMPTY_STATE: Record<ActivityFilterId, { headline: string; note: string }> = {
   all: { headline: 'SYSTEM IDLE', note: 'No operation or transfer is currently running.' },
   operations: { headline: 'NO RUNNING OPERATIONS', note: 'Service Analysis and Credential Access appear here while they run.' },
-  transfers: { headline: 'NO ACTIVE TRANSFER', note: 'Completed transfers are not recorded.' },
+  transfers: { headline: 'NO ACTIVE TRANSFER', note: 'No transfer is currently running.' },
 }
 
 export function Processes() {
   const state = useGameState()
-  const { clearCompletedProcesses, removeCompletedProcess, cancelFileTransfer, stopNodeMiner } = useGameActions()
+  const { clearRecentActivity, removeRecentActivity, cancelFileTransfer, stopNodeMiner } = useGameActions()
   const [filter, setFilter] = useState<ActivityFilterId>('all')
   const { summary, activities } = deriveActivityMonitor(state)
   const visible = filterActivities(activities, filter)
   const running = visible.filter((activity) => activity.status === 'running')
-  const completed = visible.filter((activity) => activity.status === 'completed')
+  const recent = visible.filter((activity) => activity.status === 'recent')
   const empty = EMPTY_STATE[filter]
 
   return <section className="app-content activity-monitor" aria-label="Activity Monitor">
@@ -49,12 +49,12 @@ export function Processes() {
       ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : undefined} onStop={activity.stoppable ? () => stopNodeMiner(activity.id) : undefined} />)}</div>
       : <div className="node-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
 
-    {completed.length > 0 && <>
+    {recent.length > 0 && <>
       <div className="node-section am-section-quiet">
-        <span>COMPLETED</span>
-        <button className="am-clear" type="button" aria-label="Clear completed processes" onClick={() => { if (window.confirm('Clear completed process history?')) clearCompletedProcesses() }}>CLEAR</button>
+        <span>RECENT ACTIVITY</span>
+        <button className="am-clear" type="button" aria-label="Clear recent activity" onClick={() => { if (window.confirm('Clear recent activity?')) clearRecentActivity() }}>CLEAR</button>
       </div>
-      <div className="am-list">{completed.map((activity) => <ActivityCard activity={activity} key={activity.id} onRemove={() => removeCompletedProcess(activity.id)} />)}</div>
+      <div className="am-list">{recent.map((activity) => <ActivityCard activity={activity} key={`${activity.category}-${activity.id}`} onRemove={() => removeRecentActivity(activity.id)} />)}</div>
     </>}
   </section>
 }
@@ -73,8 +73,8 @@ function ActivityCard({ activity, onRemove, onCancel, onStop }: { activity: Moni
     <div className="am-activity-head">
       <span className="am-kind">{activity.kindLabel}</span>
       <span className="am-activity-controls">
-        <span className="am-state"><i aria-hidden="true" />{activity.status === 'running' ? 'RUNNING' : 'COMPLETED'}</span>
-        {activity.status === 'completed' && activity.category === 'operation' && onRemove && <button className="am-remove" type="button" aria-label={`Remove completed ${activity.kindLabel} process`} onClick={onRemove}>REMOVE</button>}
+        {activity.status === 'running' && <span className="am-state"><i aria-hidden="true" />RUNNING</span>}
+        {activity.status === 'recent' && onRemove && <button className="am-remove" type="button" aria-label={`Remove recent ${activity.kindLabel} activity`} onClick={onRemove}>REMOVE</button>}
         {activity.status === 'running' && activity.category === 'transfer' && onCancel && <button className="am-cancel" type="button" aria-label={`Cancel active ${activity.kindLabel}`} onClick={onCancel}>CANCEL</button>}
         {activity.status === 'running' && activity.stoppable && onStop && <button className="am-cancel" type="button" aria-label={`Stop ${activity.kindLabel}`} onClick={onStop}>STOP</button>}
       </span>

@@ -454,6 +454,19 @@ export interface FileTransfer {
 
 export interface FileTransferState { readonly nextId: number; readonly active: FileTransfer | null }
 
+export type RecentActivityEntry =
+  | { readonly kind: 'process'; readonly id: string; readonly process: GameProcess }
+  | {
+      readonly kind: 'file_transfer'
+      readonly id: string
+      readonly transfer: FileTransfer
+      /** Presentation facts captured while the transfer still had resolvable endpoints. */
+      readonly sourcePath?: string
+      readonly route?: string
+    }
+
+export interface RecentActivityState { readonly entries: readonly RecentActivityEntry[] }
+
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
@@ -467,4 +480,6 @@ export interface GameState {
   readonly deviceAccess: DeviceAccessState
   readonly remoteSession: RemoteSessionState
   readonly fileTransfer: FileTransferState
+  /** Bounded Device-runtime observations; not a world event history. */
+  readonly recentActivity: RecentActivityState
 }
