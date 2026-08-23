@@ -44,7 +44,7 @@ describe('scanNetworkTarget outward discovery', () => {
   })
 
   it('uses the current SELF address and returns no response when SELF is offline', () => {
-    const movedDevice = { ...targets.localDevice, network: { ip: '192.0.2.44' } }
+    const movedDevice = { ...targets.localDevice, network: { ip: '192.0.2.44', transferCapacity: targets.localDevice.network.transferCapacity } }
     expect(scanNetworkTarget({ ...targets, localDevice: movedDevice }, '192.0.2.44')).toMatchObject({
       status: 'device', targetId: movedDevice.id, address: '192.0.2.44', scope: 'self',
     })
@@ -123,6 +123,19 @@ describe('scanNetworkTarget outward discovery', () => {
     for (const input of ['garbage', 'unknown-net', '999.999.999.999', '1.2.3', '01.2.3.4']) {
       expect(scanNetworkTarget(targets, input)).toEqual({ status: 'unknown_target', input })
     }
+  })
+
+  it('does not expose canonical World Truth network transfer capacity through Scan', () => {
+    const selfResult = scanNetworkTarget(targets, '198.51.100.23')
+    expect(selfResult).not.toHaveProperty('transferCapacity')
+    expect(JSON.stringify(selfResult)).not.toContain('transferCapacity')
+
+    const hostResult = scanNetworkTarget(targets, '198.51.100.47')
+    expect(hostResult).not.toHaveProperty('transferCapacity')
+    expect(JSON.stringify(hostResult)).not.toContain('transferCapacity')
+
+    const networkResult = scanNetworkTarget(targets, 'home-net')
+    expect(JSON.stringify(networkResult)).not.toContain('transferCapacity')
   })
 
   it('does not mutate supplied state', () => {

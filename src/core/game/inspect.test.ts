@@ -58,7 +58,7 @@ describe('inspectNetworkTarget inward inspection', () => {
 
   it('resolves SELF from its current address while retaining stable device identity', () => {
     const previousAddress = targets.localDevice.network.ip
-    const localDevice = { ...targets.localDevice, network: { ip: '192.0.2.44' } }
+    const localDevice = { ...targets.localDevice, network: { ip: '192.0.2.44', transferCapacity: targets.localDevice.network.transferCapacity } }
 
     expect(inspectNetworkTarget({ ...targets, localDevice }, localDevice.network.ip)).toMatchObject({
       status: 'device', targetId: targets.localDevice.id, address: '192.0.2.44', scope: 'self',
