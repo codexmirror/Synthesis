@@ -3,18 +3,6 @@ import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapaci
 import { resolveActiveRemoteTarget } from './remoteSession'
 import type { FileTransfer, GameState, NetworkHost, NetworkTransferCapacity } from './types'
 
-/**
- * Resolve the current remote source through the same canonical authority
- * chain as every other remote operation (RemoteSession -> DeviceAccess ->
- * target Device), then confirm that authority still matches this transfer's
- * recorded stable identities rather than trusting them on their own.
- */
-function resolveAuthorizedTransferSource(state: GameState, transfer: FileTransfer): NetworkHost | undefined {
-  const remote = resolveActiveRemoteTarget(state)
-  if (!remote || remote.session.id !== transfer.sessionId || remote.target.id !== transfer.sourceDeviceId) return undefined
-  return remote.target
-}
-
 export function deriveDownloadDestinationPath(sourcePath: string): string {
   const basename = sourcePath.slice(sourcePath.lastIndexOf('/') + 1)
   return `/home/user/downloads/${basename}`
@@ -38,8 +26,12 @@ export type StartRemoteFileDownloadResult =
     }
 
 /**
- * Start a canonical FileTransfer for the current Remote Session's exact
- * source file. This only admits the transfer: it does not copy the
+ * Start a canonical FileTransfer through the current Remote Session's exact
+ * source file. A RemoteSession is required only for this admission step:
+ * admitting the transfer snapshots the concrete DeviceAccess relationship
+ * that authorized it (`accessId`), and the resulting FileTransfer then runs
+ * as its own network runtime, independent of the interactive RemoteSession
+ * that started it. This only admits the transfer: it does not copy the
  * destination artifact, allocate a destination file ID, or create a
  * GameProcess. See `advanceFileTransfer` for elapsed-time progress and
  * completion.
@@ -72,7 +64,7 @@ export function startRemoteFileDownload(state: GameState, sourcePath: string): S
   const transferId = `transfer-${String(state.fileTransfer.nextId).padStart(4, '0')}`
   const transfer: FileTransfer = {
     id: transferId,
-    sessionId: remote.session.id,
+    accessId: remote.access.id,
     sourceDeviceId: remote.target.id,
     sourceFileId: source.file.id,
     destinationDeviceId: localDevice.id,
@@ -90,11 +82,25 @@ export function startRemoteFileDownload(state: GameState, sourcePath: string): S
   }
 }
 
+/**
+ * Resolve a FileTransfer's current source Device through its snapshotted
+ * DeviceAccess authority, re-validated against current canonical state,
+ * rather than through any RemoteSession. Shared by runtime advancement and
+ * by Activity Monitor presentation so both derive the same canonical
+ * source/authority truth instead of maintaining two implementations.
+ */
+export function resolveFileTransferSource(state: GameState, transfer: FileTransfer): NetworkHost | undefined {
+  const access = state.deviceAccess.established.find(({ id }) => id === transfer.accessId)
+  if (!access) return undefined
+  if (access.sourceDeviceId !== transfer.destinationDeviceId || access.targetDeviceId !== transfer.sourceDeviceId) return undefined
+  return state.world.network.hosts.find(({ id }) => id === access.targetDeviceId)
+}
+
 function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): { readonly sourceHost: NetworkHost; readonly sourceCapacity: NetworkTransferCapacity } | undefined {
   if (state.player.localDevice.id !== transfer.destinationDeviceId) return undefined
   if (state.player.localDevice.runtime.networkStatus !== 'ONLINE') return undefined
 
-  const sourceHost = resolveAuthorizedTransferSource(state, transfer)
+  const sourceHost = resolveFileTransferSource(state, transfer)
   if (!sourceHost?.online || !sourceHost.filesystem) return undefined
   if (!sourceHost.filesystem.files.some((file) => file.id === transfer.sourceFileId)) return undefined
 
@@ -109,7 +115,11 @@ function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): { r
  * Pure elapsed-time advancement for the single active FileTransfer. This is
  * a distinct runtime from ProcessState: it never consumes CPU compute
  * capacity or RAM, and completion never creates a GameProcess. Effective
- * rate is derived fresh on every call rather than stored.
+ * rate is derived fresh on every call rather than stored. Advancement never
+ * depends on any RemoteSession: ongoing validity derives solely from the
+ * transfer's snapshotted DeviceAccess authority and current canonical
+ * Device/filesystem state, so the transfer survives disconnect, local/remote
+ * context switches, and even a later unrelated RemoteSession.
  */
 export function advanceFileTransfer(state: GameState, elapsedMs: number): GameState {
   const transfer = state.fileTransfer.active
@@ -135,4 +145,17 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
     player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: copied.filesystem } },
     fileTransfer: { ...state.fileTransfer, active: null },
   }
+}
+
+export type CancelFileTransferResult = { readonly status: 'cancelled' | 'not_found'; readonly state: GameState }
+
+/**
+ * Narrow user-initiated cancellation of the current active FileTransfer.
+ * Only ever clears `fileTransfer.active`: it must never create a
+ * destination artifact, consume a filesystem ID, or touch DeviceAccess,
+ * RemoteSession, or GameProcess state.
+ */
+export function cancelFileTransfer(state: GameState, transferId: string): CancelFileTransferResult {
+  if (state.fileTransfer.active?.id !== transferId) return { status: 'not_found', state }
+  return { status: 'cancelled', state: { ...state, fileTransfer: { ...state.fileTransfer, active: null } } }
 }

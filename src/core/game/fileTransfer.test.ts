@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { connectRemoteFromObservation, disconnectRemoteSession, resolveActiveRemoteTarget } from './remoteSession'
-import { advanceFileTransfer, deriveDownloadDestinationPath, startRemoteFileDownload } from './fileTransfer'
+import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
+import { advanceFileTransfer, cancelFileTransfer, deriveDownloadDestinationPath, resolveFileTransferSource, startRemoteFileDownload } from './fileTransfer'
 import { advanceGameState } from './gameAdvancement'
 import { deriveEffectiveTransferRateBytesPerSecond } from './networkTransferCapacity'
 import { getFilesystemFile } from './filesystem'
 import { startProcess } from './processes'
 import type { GameState } from './types'
 
+const ACCESS_ID = 'access-download'
+
 function connectedState(): GameState {
   const base = createInitialGameState()
-  const access = { id: 'access-download', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }
+  const access = { id: ACCESS_ID, sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }
   const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
   return connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '198.51.100.47' }).state
 }
@@ -46,6 +48,14 @@ describe('starting a remote Download', () => {
     expect(result.state.process).toBe(state.process)
   })
 
+  it('records the admitting DeviceAccess identity rather than a sessionId', () => {
+    const state = connectedState()
+    const result = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (result.status !== 'started') throw new Error('expected started')
+    expect(result.state.fileTransfer.active).toMatchObject({ accessId: ACCESS_ID })
+    expect(result.state.fileTransfer.active).not.toHaveProperty('sessionId')
+  })
+
   it('records stable sourceDeviceId and sourceFileId rather than path or IP', () => {
     const state = connectedState()
     const result = startRemoteFileDownload(state, NODESCAN_PATH)
@@ -74,7 +84,7 @@ describe('starting a remote Download', () => {
     const result = startRemoteFileDownload(state, NODESCAN_PATH)
     if (result.status !== 'started') throw new Error('expected started')
     expect(Object.keys(result.state.fileTransfer.active!).sort()).toEqual(
-      ['bytesTotal', 'bytesTransferred', 'destinationDeviceId', 'destinationPath', 'id', 'sessionId', 'sourceDeviceId', 'sourceFileId'].sort(),
+      ['accessId', 'bytesTotal', 'bytesTransferred', 'destinationDeviceId', 'destinationPath', 'id', 'sourceDeviceId', 'sourceFileId'].sort(),
     )
   })
 
@@ -103,7 +113,7 @@ describe('starting a remote Download', () => {
     expect(startRemoteFileDownload(state, '/opt').status).toBe('source_not_file')
   })
 
-  it('requires a current resolvable Session', () => {
+  it('requires a current resolvable Session to start', () => {
     const base = createInitialGameState()
     expect(startRemoteFileDownload(base, '/srv/readme.txt')).toEqual({ status: 'session_unavailable', state: base })
   })
@@ -180,49 +190,67 @@ describe('elapsed advancement', () => {
     if (started.status !== 'started') throw new Error('expected started')
     expect(started.state.fileTransfer.active?.bytesTotal).toBe(new TextEncoder().encode('Service workspace.').byteLength)
   })
+
+  it('derives the effective rate fresh from current capacities on every advancement, so a capacity change changes throughput', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const throttled: GameState = { ...started.state, player: { ...started.state.player, localDevice: { ...started.state.player.localDevice, network: { ...started.state.player.localDevice.network, transferCapacity: { ...started.state.player.localDevice.network.transferCapacity, downloadBytesPerSecond: 1_048_576 } } } } }
+    const advanced = advanceFileTransfer(throttled, 1_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBeCloseTo(1_048_576, 0)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBeLessThan(NODESCAN_RATE)
+  })
 })
 
-describe('session continuity', () => {
-  it('aborts without creating a file when the player disconnects, but preserves DeviceAccess', () => {
+describe('continuity across the interactive RemoteSession lifecycle', () => {
+  it('preserves the active transfer across disconnect and advances it with no RemoteSession present', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const disconnected = disconnectRemoteSession(started.state)
+    expect(disconnected.status).toBe('disconnected')
+    expect(disconnected.state.remoteSession.active).toBeNull()
+    expect(disconnected.state.fileTransfer.active?.id).toBe(started.transferId)
+
+    const advanced = advanceFileTransfer(disconnected.state, 2_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBeGreaterThan(0)
+  })
+
+  it('preserves DeviceAccess across disconnect while the transfer remains active', () => {
     const state = connectedState()
     const started = startRemoteFileDownload(state, NODESCAN_PATH)
     if (started.status !== 'started') throw new Error('expected started')
     const disconnected = disconnectRemoteSession(started.state).state
-    const advanced = advanceFileTransfer(disconnected, 60_000)
-    expect(advanced.fileTransfer.active).toBeNull()
-    expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
-    expect(advanced.deviceAccess.established).toEqual(disconnected.deviceAccess.established)
-    expect(advanced.deviceAccess.established).toHaveLength(1)
+    expect(disconnected.deviceAccess.established).toEqual(started.state.deviceAccess.established)
+    expect(disconnected.deviceAccess.established).toHaveLength(1)
   })
 
-  it('clears the bound transfer immediately as part of disconnect itself, before any advancement runs', () => {
-    const state = connectedState()
-    const started = startRemoteFileDownload(state, NODESCAN_PATH)
-    if (started.status !== 'started') throw new Error('expected started')
-    const result = disconnectRemoteSession(started.state)
-    expect(result.status).toBe('disconnected')
-    expect(result.state.remoteSession.active).toBeNull()
-    expect(result.state.fileTransfer.active).toBeNull()
-    expect(result.state.deviceAccess.established).toEqual(started.state.deviceAccess.established)
-    expect(getFilesystemFile(result.state.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
-  })
-
-  it('does not resume the old transfer after reconnecting', () => {
+  it('completes successfully after disconnect, allocating exactly one destination artifact and file ID', () => {
     const state = connectedState()
     const started = startRemoteFileDownload(state, NODESCAN_PATH)
     if (started.status !== 'started') throw new Error('expected started')
     const disconnected = disconnectRemoteSession(started.state).state
-    const aborted = advanceFileTransfer(disconnected, 1_000)
-    expect(aborted.fileTransfer.active).toBeNull()
+    const beforeId = disconnected.player.localDevice.filesystem.nextFileId
+    const completed = advanceFileTransfer(disconnected, NODESCAN_COMPLETE_MS + 1_000)
+    expect(completed.fileTransfer.active).toBeNull()
+    expect(completed.player.localDevice.filesystem.files.filter((file) => file.path === started.destinationPath)).toHaveLength(1)
+    expect(completed.player.localDevice.filesystem.nextFileId).toBe(beforeId + 1)
+  })
 
-    const reconnected = connectRemoteFromObservation(aborted, { targetDeviceId: 'host-lan-001', address: '198.51.100.47' }).state
-    expect(reconnected.fileTransfer.active).toBeNull()
-    const advanced = advanceFileTransfer(reconnected, 60_000)
-    expect(advanced.fileTransfer.active).toBeNull()
-    expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
+  it('is unaffected by a later different RemoteSession connecting to another target', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const disconnected = disconnectRemoteSession(started.state).state
 
-    const startedAgain = startRemoteFileDownload(reconnected, NODESCAN_PATH)
-    expect(startedAgain.status).toBe('started')
+    const otherAccess = { id: 'access-other', sourceDeviceId: disconnected.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
+    const withOtherAccess = { ...disconnected, deviceAccess: { nextId: 3, established: [...disconnected.deviceAccess.established, otherAccess] } }
+    const reconnectedElsewhere = connectRemoteFromObservation(withOtherAccess, { targetDeviceId: 'host-lan-002', address: '198.51.100.53' }).state
+    expect(reconnectedElsewhere.remoteSession.active?.accessId).toBe('access-other')
+    expect(reconnectedElsewhere.fileTransfer.active?.id).toBe(started.transferId)
+
+    const advanced = advanceFileTransfer(reconnectedElsewhere, 2_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBeGreaterThan(0)
   })
 })
 
@@ -259,7 +287,19 @@ describe('endpoint availability', () => {
     expect(getFilesystemFile(completed.player.localDevice.filesystem, started.destinationPath)).toMatchObject({ status: 'ok', file: { content: 'Service workspace.' } })
   })
 
-  it('aborts safely with no destination artifact if the source can no longer be resolved before completion', () => {
+  it('does not retarget an active transfer when the source file path changes while its stable ID remains', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, '/srv/readme.txt')
+    if (started.status !== 'started') throw new Error('expected started')
+    const host = started.state.world.network.hosts[0]
+    const moved: GameState = { ...started.state, world: { network: { ...started.state.world.network, hosts: [{ ...host, filesystem: { ...host.filesystem!, files: host.filesystem!.files.map((file) => file.id === 'file-0001' ? { ...file, path: '/srv/moved-readme.txt' } : file) } }, ...started.state.world.network.hosts.slice(1)] } } }
+    const completed = advanceFileTransfer(moved, 60_000)
+    expect(completed.fileTransfer.active).toBeNull()
+    // The already-snapshotted destinationPath is kept even though the source moved.
+    expect(getFilesystemFile(completed.player.localDevice.filesystem, started.destinationPath)).toMatchObject({ status: 'ok', file: { content: 'Service workspace.' } })
+  })
+
+  it('aborts safely with no destination artifact if the source file is removed before completion', () => {
     const state = connectedState()
     const started = startRemoteFileDownload(state, '/srv/readme.txt')
     if (started.status !== 'started') throw new Error('expected started')
@@ -282,30 +322,30 @@ describe('endpoint availability', () => {
   })
 })
 
-describe('re-established RemoteSession authority (Session -> DeviceAccess -> target Device)', () => {
-  it('aborts when the DeviceAccess underlying the active Session is removed', () => {
+describe('DeviceAccess authority (accessId -> DeviceAccess -> source Device)', () => {
+  it('aborts when the admitting DeviceAccess is removed/revoked', () => {
     const state = connectedState()
     const started = startRemoteFileDownload(state, NODESCAN_PATH)
     if (started.status !== 'started') throw new Error('expected started')
     const accessRemoved: GameState = { ...started.state, deviceAccess: { ...started.state.deviceAccess, established: [] } }
+    expect(resolveFileTransferSource(accessRemoved, accessRemoved.fileTransfer.active!)).toBeUndefined()
     const advanced = advanceFileTransfer(accessRemoved, 60_000)
     expect(advanced.fileTransfer.active).toBeNull()
     expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
   })
 
-  it('aborts when the current Session no longer resolves to the transfer\'s recorded source Device', () => {
+  it('aborts when the DeviceAccess no longer matches the transfer\'s recorded source/destination identities', () => {
     const state = connectedState()
     const started = startRemoteFileDownload(state, NODESCAN_PATH)
     if (started.status !== 'started') throw new Error('expected started')
-    // DeviceAccess now authorizes a different target Device while the Session's accessId is unchanged.
     const retargeted: GameState = {
       ...started.state,
       deviceAccess: {
         ...started.state.deviceAccess,
-        established: started.state.deviceAccess.established.map((access) => access.id === 'access-download' ? { ...access, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002' } : access),
+        established: started.state.deviceAccess.established.map((access) => access.id === ACCESS_ID ? { ...access, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002' } : access),
       },
     }
-    expect(resolveActiveRemoteTarget(retargeted)?.target.id).toBe('host-lan-002')
+    expect(resolveFileTransferSource(retargeted, retargeted.fileTransfer.active!)).toBeUndefined()
     const advanced = advanceFileTransfer(retargeted, 60_000)
     expect(advanced.fileTransfer.active).toBeNull()
     expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
@@ -320,6 +360,73 @@ describe('re-established RemoteSession authority (Session -> DeviceAccess -> tar
     const advanced = advanceFileTransfer(rehomed, 60_000)
     expect(advanced.fileTransfer.active).toBeNull()
     expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
+  })
+})
+
+describe('cancelFileTransfer', () => {
+  it('clears the active transfer for the correct active transfer ID', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const result = cancelFileTransfer(started.state, started.transferId)
+    expect(result.status).toBe('cancelled')
+    expect(result.state.fileTransfer.active).toBeNull()
+  })
+
+  it('is a no-op for an unknown or stale transfer ID', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    expect(cancelFileTransfer(started.state, 'transfer-9999')).toEqual({ status: 'not_found', state: started.state })
+    expect(cancelFileTransfer(state, started.transferId)).toEqual({ status: 'not_found', state })
+  })
+
+  it('does not create a destination file or consume the filesystem nextFileId', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const beforeNextFileId = started.state.player.localDevice.filesystem.nextFileId
+    const result = cancelFileTransfer(started.state, started.transferId)
+    expect(result.state.player.localDevice.filesystem).toBe(started.state.player.localDevice.filesystem)
+    expect(result.state.player.localDevice.filesystem.nextFileId).toBe(beforeNextFileId)
+    expect(getFilesystemFile(result.state.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
+  })
+
+  it('preserves FileTransferState.nextId', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const result = cancelFileTransfer(started.state, started.transferId)
+    expect(result.state.fileTransfer.nextId).toBe(started.state.fileTransfer.nextId)
+  })
+
+  it('preserves DeviceAccess and RemoteSession untouched', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const result = cancelFileTransfer(started.state, started.transferId)
+    expect(result.state.deviceAccess).toBe(started.state.deviceAccess)
+    expect(result.state.remoteSession).toBe(started.state.remoteSession)
+  })
+
+  it('creates no GameProcess and no completion history', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const result = cancelFileTransfer(started.state, started.transferId)
+    expect(result.state.process).toBe(started.state.process)
+    expect(result.state.process.processes).toEqual([])
+  })
+
+  it('cancelling after disconnect still works because the transfer no longer depends on the Session', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const disconnected = disconnectRemoteSession(started.state).state
+    const result = cancelFileTransfer(disconnected, started.transferId)
+    expect(result.status).toBe('cancelled')
+    expect(result.state.fileTransfer.active).toBeNull()
+    expect(getFilesystemFile(result.state.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
   })
 })
 
@@ -343,6 +450,16 @@ describe('interaction with Process runtime', () => {
     if (started.status !== 'started') throw new Error('expected started')
     expect(started.state.process.processes).toEqual([])
     const advanced = advanceGameState(started.state, 1_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBeGreaterThan(0)
+  })
+
+  it('progresses FileTransfer through advanceGameState with no RemoteSession present', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const disconnected = disconnectRemoteSession(started.state).state
+    const advanced = advanceGameState(disconnected, 1_000)
+    expect(advanced.remoteSession.active).toBeNull()
     expect(advanced.fileTransfer.active?.bytesTransferred).toBeGreaterThan(0)
   })
 

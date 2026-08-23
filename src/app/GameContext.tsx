@@ -8,7 +8,7 @@ import { createLocalScanTarget, type ScanTargetOperation } from './localScanOper
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
-import { startRemoteFileDownload, type StartRemoteFileDownloadResult } from '../core/game/fileTransfer'
+import { cancelFileTransfer, startRemoteFileDownload, type CancelFileTransferResult, type StartRemoteFileDownloadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } from '../core/game/softwareInstallation'
 
 const GameContext = createContext<GameState | null>(null)
@@ -23,6 +23,7 @@ export interface GameActions {
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
+  cancelFileTransfer(transferId: string): CancelFileTransferResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   clearCompletedProcesses(): void
   removeCompletedProcess(processId: string): void
@@ -97,6 +98,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       currentState.current = result.state
       setGameState(result.state)
     }
+    return result
+  }, cancelFileTransfer(transferId) {
+    const result = cancelFileTransfer(currentState.current, transferId)
+    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
     return result
   }, installLocalSoftwarePackage(path) {
     const result = installLocalSoftwarePackage(currentState.current, path)
