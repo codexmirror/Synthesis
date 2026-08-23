@@ -200,6 +200,12 @@ filesystem, or other simulation truth.
 
 Installed software is not Firmware.
 
+A network Service's concrete implementation is Device-owned World Truth and is
+not `InstalledSoftware`. Where a vulnerability belongs to a concrete product
+release, its presence is derived from the Service's current implementation;
+target-specific player Knowledge remains historical information and must not
+rewrite itself when that hidden World Truth changes.
+
 Established access is not an active Session.
 
 The concrete V1 `RemoteSession` is canonical active-connection state created

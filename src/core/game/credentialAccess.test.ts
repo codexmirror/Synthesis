@@ -9,7 +9,7 @@ import { BASIC_CREDENTIAL_TOOLKIT_ID, canFormCredentialAccessAttempt, CREDENTIAL
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import type { CredentialAccessProcess, GameState } from './types'
 
-const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'vulnerability-ssh-001', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }
+const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }
 
 function prepared(): GameState {
   let state = createInitialGameState()
@@ -40,10 +40,13 @@ describe('Initial credential access', () => {
     const noTool = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [] } } }
     expect(canFormCredentialAccessAttempt(noTool, observation)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation(noTool, observation).status).toBe('not_available')
+    const unrelated = { ...observation, vulnerabilityId: 'UNRELATED-001' }
+    const unrelatedKnown = { ...state, knowledge: { discoveredVulnerabilities: [{ ...state.knowledge.discoveredVulnerabilities[0], vulnerabilityId: unrelated.vulnerabilityId }] } }
+    expect(canFormCredentialAccessAttempt(unrelatedKnown, unrelated)).toBe(false)
   })
 
   it('does not consult secretly changed weakness truth for known feasibility or start admission', () => {
-    const patched = changeService(prepared(), (service) => ({ ...service, vulnerabilities: [] }))
+    const patched = changeService(prepared(), (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } }))
     expect(canFormCredentialAccessAttempt(patched, observation)).toBe(true)
     expect(startCredentialAccessAttemptFromObservation(patched, observation).status).toBe('started')
   })
@@ -91,7 +94,7 @@ describe('Initial credential access', () => {
 
   it('appends a FAILURE record, and creates no DeviceAccess, when the Service is reached but its weakness is gone', () => {
     const running = start(); const discovery = running.discovery; const knowledge = running.knowledge
-    const done = advanceGameState(changeService(running, (service) => ({ ...service, vulnerabilities: [] })), 30_000)
+    const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } })), 30_000)
     expect(done.deviceAccess.established).toEqual([])
     expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.' }, startedEndpoint: observation.endpoint })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)

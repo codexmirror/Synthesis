@@ -39,11 +39,11 @@ interface TargetFixture {
 }
 
 const TARGET_A: TargetFixture = {
-  id: 'host-lan-001', ip: '198.51.100.47', serviceId: 'service-ssh-001', vulnerabilityId: 'vulnerability-ssh-001',
+  id: 'host-lan-001', ip: '198.51.100.47', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017',
   endpoint: '198.51.100.47:22', filePath: '/srv/readme.txt', fileContent: 'Service workspace.', displayName: 'srv-01',
 }
 const TARGET_B: TargetFixture = {
-  id: 'host-lan-002', ip: '198.51.100.53', serviceId: 'service-ssh-002', vulnerabilityId: 'vulnerability-ssh-002',
+  id: 'host-lan-002', ip: '198.51.100.53', serviceId: 'service-ssh-002', vulnerabilityId: 'AUTH-017',
   endpoint: '198.51.100.53:22', filePath: '/srv/backup-manifest.txt', fileContent: 'Backup manifest for srv-02.', displayName: 'srv-02',
 }
 
@@ -157,8 +157,8 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     state = discoverAndCredentialAccess(state, TARGET_A)
     state = discoverAndCredentialAccess(state, TARGET_B)
 
-    expect(state.knowledge.discoveredVulnerabilities.some((known) => known.targetDeviceId === TARGET_A.id && known.vulnerabilityId === TARGET_B.vulnerabilityId)).toBe(false)
-    expect(state.knowledge.discoveredVulnerabilities.some((known) => known.targetDeviceId === TARGET_B.id && known.vulnerabilityId === TARGET_A.vulnerabilityId)).toBe(false)
+    expect(state.knowledge.discoveredVulnerabilities.filter((known) => known.targetDeviceId === TARGET_A.id && known.serviceId === TARGET_A.serviceId && known.vulnerabilityId === 'AUTH-017')).toHaveLength(1)
+    expect(state.knowledge.discoveredVulnerabilities.filter((known) => known.targetDeviceId === TARGET_B.id && known.serviceId === TARGET_B.serviceId && known.vulnerabilityId === 'AUTH-017')).toHaveLength(1)
 
     expect(state.deviceAccess.established).toHaveLength(1)
     const accessA = state.deviceAccess.established.find((access) => access.targetDeviceId === TARGET_A.id)

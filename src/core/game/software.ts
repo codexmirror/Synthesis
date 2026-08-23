@@ -13,6 +13,11 @@ export function findInstalledBasicCredentialToolkit(device: LocalDeviceState): B
   return device.installedSoftware.find((software): software is BasicCredentialToolkitInstallation => software.id === 'basic-credential-toolkit')
 }
 
+/** Concrete technique support supplied by Basic Credential Toolkit 1.0. */
+export function basicCredentialToolkitSupports(installation: BasicCredentialToolkitInstallation, vulnerabilityId: string): boolean {
+  return installation.releaseId === 'basic-credential-toolkit-1.0' && vulnerabilityId === 'AUTH-017'
+}
+
 export function findInstalledNodeMiner(device: LocalDeviceState): NodeMinerInstallation | undefined {
   return device.installedSoftware.find((software): software is NodeMinerInstallation => software.id === 'node-miner')
 }

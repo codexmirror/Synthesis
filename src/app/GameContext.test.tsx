@@ -66,7 +66,7 @@ describe('GameProvider service-analysis actions', () => {
   it('atomically resolves player-visible endpoints against the latest world state', () => {
     const base = createInitialGameState(); const host = base.world.network.hosts[0]
     const services = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []
-    const moved: GameState = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: [...services, { id: 'replacement', name: 'OTHER', port: 22, protocol: 'TCP', open: true }] }, ...base.world.network.hosts.slice(1)] } } }
+    const moved: GameState = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: [...services, { id: 'replacement', name: 'OTHER', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'other', releaseId: 'other-1.0', name: 'Other', version: '1.0' } }] }, ...base.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={moved}><EndpointHarness /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'observed old SSH' }))
     expect(document.body.dataset.endpointResult).toBe('endpoint_not_found')
@@ -110,7 +110,7 @@ describe('GameProvider service-analysis actions', () => {
     const base = createInitialGameState()
     const completed = { kind: 'generic' as const, id: 'process-0012', label: 'Done', executorDeviceId: 'device-local-v0', status: 'completed' as const, workRequired: 1, workCompleted: 1, ramRequiredMiB: 10 }
     const running = { ...completed, id: 'process-0013', label: 'Running', status: 'running' as const, workCompleted: 0 }
-    const initial: GameState = { ...base, process: { nextId: 14, processes: [completed, running] }, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'vulnerability-ssh-001', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
+    const initial: GameState = { ...base, process: { nextId: 14, processes: [completed, running] }, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
     render(<GameProvider initialState={initial}><ClearHarness /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'clear' }))
     const state = JSON.parse(screen.getByRole('status').textContent ?? '') as GameState

@@ -1,7 +1,8 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
-import { findInstalledBasicCredentialToolkit } from './software'
+import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit } from './software'
+import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 
 export const BASIC_CREDENTIAL_TOOLKIT_ID = 'basic-credential-toolkit' as const
@@ -20,7 +21,8 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const tool = Boolean(findInstalledBasicCredentialToolkit(state.player.localDevice))
+  const installation = findInstalledBasicCredentialToolkit(state.player.localDevice)
+  const tool = Boolean(installation && basicCredentialToolkitSupports(installation, observed.vulnerabilityId))
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   return Boolean(service && known && tool && !accessed)
 }
@@ -75,7 +77,7 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   // Truth like everything else here: the Basic Credential Toolkit's weak-authentication exploit alone
   // cannot satisfy it, so it still yields the same generic attempt_failed presentation as any other
   // failure below rather than a distinct, knowledge-revealing outcome.
-  const succeeds = Boolean(service.vulnerabilities?.some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess && !service.credentialAccess.secondFactorRequired)
+  const succeeds = Boolean(vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess && !service.credentialAccess.secondFactorRequired)
   // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
   // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
   const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)

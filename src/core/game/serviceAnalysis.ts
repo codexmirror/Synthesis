@@ -1,6 +1,7 @@
 import { startProcess } from './processes'
 import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
+import { vulnerabilitiesForService } from './serviceImplementations'
 
 export const SERVICE_ANALYSIS_WORK_REQUIRED = 1000
 export const SERVICE_ANALYSIS_RAM_REQUIRED_MIB = 768
@@ -72,7 +73,7 @@ export function startServiceAnalysisFromObservation(state: GameState, observed: 
 export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
   if (!current.online || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
-  const vulnerabilities = current.service.vulnerabilities ?? []
+  const vulnerabilities = vulnerabilitiesForService(current.service)
   if (!vulnerabilities.length) return { process: { ...process, result: { status: 'no_weakness_detected' } }, discoveries: [] }
   const found = vulnerabilities.map(({ id, label }) => ({ vulnerabilityId: id, observedLabel: label }))
   return {

@@ -320,7 +320,13 @@ export interface NetworkService {
   readonly port: number
   readonly protocol: 'TCP' | 'UDP'
   readonly open: boolean
-  readonly vulnerabilities?: readonly Vulnerability[]
+  /** Device-owned implementation World Truth. This is not InstalledSoftware. */
+  readonly implementation: {
+    readonly productId: string
+    readonly releaseId: string
+    readonly name: string
+    readonly version: string
+  }
   /**
    * Present only when this Service concretely grants credential-based
    * access. `secondFactorRequired` is a real authentication condition on
