@@ -63,6 +63,7 @@ export function rememberInspect(discovery: DiscoveryState, result: InspectResult
   const index = discovery.devices.findIndex(({ id }) => id === result.targetId)
   if (index < 0) return discovery
   const devices = [...discovery.devices]
-  devices[index] = { ...devices[index], address: result.address, scope: result.scope, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(result.enhanced ? { enhanced: result.enhanced } : {}) } }
+  const previousEnhanced = devices[index].inspect?.enhanced
+  devices[index] = { ...devices[index], address: result.address, scope: result.scope, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(result.enhanced ? { enhanced: result.enhanced } : previousEnhanced ? { enhanced: previousEnhanced } : {}) } }
   return { ...discovery, devices }
 }

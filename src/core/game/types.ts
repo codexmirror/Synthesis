@@ -222,7 +222,9 @@ export interface DiscoveredServiceSnapshot {
 /**
  * Reconnaissance-friendly fingerprint available only through a NodeScan
  * release capable of enhanced Inspect (currently 1.1 Experimental). Compute
- * class is a derived presentation tier, not a stored raw simulation value.
+ * class is a derived reconnaissance classification stored as positive player
+ * information in Discovery. It is neither raw World Truth nor a universal
+ * hardware-tier entity.
  */
 export interface EnhancedInspectEvidence {
   readonly firmware: { readonly name: string; readonly version: string }

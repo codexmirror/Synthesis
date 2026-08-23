@@ -25,6 +25,20 @@ function withNodeScan11(state: GameState): GameState {
   }
 }
 
+function withNodeScan10(state: GameState): GameState {
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      localDevice: {
+        ...state.player.localDevice,
+        installedSoftware: state.player.localDevice.installedSoftware.map((software) =>
+          software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.0-standard', version: '1.0', channel: 'standard' } : software),
+      },
+    },
+  }
+}
+
 describe('player-facing Inspect operation', () => {
   it('rejects hidden addresses without revealing whether World Truth contains a host', () => {
     const state = createInitialGameState(); const write = vi.fn()
@@ -101,16 +115,29 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     expect(state.discovery).toEqual(remembered)
   })
 
-  it('refreshes remembered evidence on a legitimate re-inspection with 1.1 Experimental', () => {
+  it('preserves enhanced memory through a shallow re-inspection and refreshes it on a later enhanced re-inspection', () => {
     let state = withNodeScan11(knownState()); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
     inspect('198.51.100.47')
 
-    const host = state.world.network.hosts[0]
-    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, firmware: { id: 'firmware-changed', name: 'CHANGED-OS', version: '9.9' } }, ...state.world.network.hosts.slice(1)] } } }
-    inspect('198.51.100.47')
+    const originalEnhanced = state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect?.enhanced
+    state = withNodeScan10(state)
 
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toMatchObject({
-      enhanced: { firmware: { name: 'CHANGED-OS', version: '9.9' } },
+    const host = state.world.network.hosts[0]
+    const hardware = host.hardware!
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, firmware: { id: 'firmware-changed', name: 'CHANGED-OS', version: '9.9' }, hardware: { ...hardware, cpu: { ...hardware.cpu, computeCapacity: 100 } } }, ...state.world.network.hosts.slice(1)] } } }
+    const shallowResult = inspect('198.51.100.47')
+
+    expect(shallowResult).not.toHaveProperty('enhanced')
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect?.enhanced).toEqual(originalEnhanced)
+
+    state = withNodeScan11(state)
+    const enhancedResult = inspect('198.51.100.47')
+
+    expect(enhancedResult).toMatchObject({
+      enhanced: { firmware: { name: 'CHANGED-OS', version: '9.9' }, computeClass: 'LOW' },
+    })
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect?.enhanced).toEqual({
+      firmware: { name: 'CHANGED-OS', version: '9.9' }, computeClass: 'LOW',
     })
   })
 
