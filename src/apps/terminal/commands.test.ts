@@ -24,6 +24,7 @@ const context: CommandContext = {
     list: (path) => listDirectory(state.player.localDevice.filesystem, path),
     readText: (path) => readTextFile(state.player.localDevice.filesystem, path),
   },
+  nodeMiner: { available: false },
   operations: {
     scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
@@ -33,6 +34,9 @@ const context: CommandContext = {
     connectAddress: () => ({ status: 'target_not_known' }),
     disconnectRemote: () => ({ status: 'not_connected' }),
     installLocalSoftwarePackage: () => ({ status: 'package_not_found' }),
+    runLocalNodeMiner: () => ({ status: 'unavailable' }),
+    localNodeMinerStatus: () => ({ status: 'idle' }),
+    stopLocalNodeMiner: () => ({ status: 'not_running' }),
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context) as CommandResult
@@ -40,9 +44,9 @@ const labeledTarget = (label: string, value: string, scope: 'local' | 'external'
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect', 'node-miner'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(13)
+    expect(new Set(Object.values(commands)).size).toBe(14)
   })
 
   it('groups current commands by their concrete provider', () => {
@@ -265,5 +269,87 @@ describe('individual commands', () => {
       type: 'output',
       lines: ['SERVER', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE'],
     })
+  })
+})
+
+describe('node-miner command', () => {
+  it('is unavailable before installation, regardless of subcommand', () => {
+    const unavailable = { ...context, nodeMiner: { available: false } }
+    for (const input of ['node-miner', 'node-miner help', 'node-miner status', 'node-miner run --payout addr', 'node-miner stop']) {
+      expect(dispatchCommand(parseCommand(input), unavailable)).toEqual({ type: 'output', lines: ['Command not found: node-miner. Type "help" for available commands.'] })
+    }
+  })
+
+  it('omits NODE Miner from help before installation and includes it once available', () => {
+    expect(JSON.stringify(dispatch('help'))).not.toContain('NODE MINER')
+
+    const available = {
+      ...context,
+      nodeMiner: { available: true },
+      localDevice: { ...context.localDevice, installedSoftware: [...context.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' }] },
+    }
+    const helpOutput = JSON.stringify(dispatchCommand(parseCommand('help'), available))
+    expect(helpOutput).toContain('NODE MINER 1.0')
+    expect(helpOutput).toContain('node-miner — Control the locally installed NODE Miner')
+  })
+
+  it('describes only the V1 subcommands', () => {
+    const available = { ...context, nodeMiner: { available: true } }
+    expect(dispatchCommand(parseCommand('node-miner help'), available)).toEqual({
+      type: 'output',
+      lines: ['NODE MINER', '', 'node-miner help', 'node-miner run --payout <address>', 'node-miner status', 'node-miner stop'],
+    })
+    expect(dispatchCommand(parseCommand('node-miner'), available)).toEqual(dispatchCommand(parseCommand('node-miner help'), available))
+  })
+
+  it('requires a non-empty --payout value for run and delegates through the canonical operation on success', () => {
+    const available = { ...context, nodeMiner: { available: true } }
+    expect(dispatchCommand(parseCommand('node-miner run'), available)).toEqual({ type: 'output', lines: ['Usage: node-miner run --payout <address>'] })
+    expect(dispatchCommand(parseCommand('node-miner run --payout'), available)).toEqual({ type: 'output', lines: ['Usage: node-miner run --payout <address>'] })
+    expect(dispatchCommand(parseCommand('node-miner run --payout   '), available)).toEqual({ type: 'output', lines: ['Usage: node-miner run --payout <address>'] })
+
+    const runLocalNodeMiner = vi.fn(() => ({ status: 'started' as const, processId: 'process-0004', payoutAddress: 'addr-1' }))
+    const result = dispatchCommand(parseCommand('node-miner run --payout addr-1'), { ...available, operations: { ...available.operations, runLocalNodeMiner } })
+    expect(runLocalNodeMiner).toHaveBeenCalledExactlyOnceWith('addr-1')
+    expect(result).toEqual({ type: 'output', lines: ['NODE MINER STARTED', 'PROCESS  process-0004', 'PAYOUT   addr-1'] })
+  })
+
+  it('maps every canonical RUN admission result to concise output', () => {
+    const available = { ...context, nodeMiner: { available: true } }
+    const cases = [
+      [{ status: 'already_running' as const }, ['ALREADY RUNNING']],
+      [{ status: 'invalid_payout_address' as const }, ['INVALID PAYOUT ADDRESS']],
+      [{ status: 'insufficient_memory' as const, requiredMiB: 512, availableMiB: 100.4 }, ['INSUFFICIENT MEMORY', '512 MiB required', '100 MiB available']],
+    ] as const
+    for (const [operationResult, lines] of cases) {
+      const runLocalNodeMiner = vi.fn(() => operationResult)
+      expect(dispatchCommand(parseCommand('node-miner run --payout addr'), { ...available, operations: { ...available.operations, runLocalNodeMiner } })).toEqual({ type: 'output', lines })
+    }
+  })
+
+  it('reads status through the narrow local operation rather than owning Terminal state', () => {
+    const available = { ...context, nodeMiner: { available: true } }
+    expect(dispatchCommand(parseCommand('node-miner status'), { ...available, operations: { ...available.operations, localNodeMinerStatus: () => ({ status: 'idle' }) } }))
+      .toEqual({ type: 'output', lines: ['STATUS  IDLE'] })
+
+    const localNodeMinerStatus = vi.fn(() => ({
+      status: 'running' as const, processId: 'process-0004', cpuPercent: 82.4, ramMiB: 512,
+      payoutAddress: 'addr-1', producedUnits: 4281, creditedUnits: 4281, ratePerSecondUnits: 82.3,
+    }))
+    const result = dispatchCommand(parseCommand('node-miner status'), { ...available, operations: { ...available.operations, localNodeMinerStatus } })
+    expect(localNodeMinerStatus).toHaveBeenCalledOnce()
+    expect(result).toEqual({
+      type: 'output',
+      lines: ['STATUS   RUNNING', 'PROCESS  process-0004', 'CPU      82%', 'RAM      512 MiB', 'PAYOUT   addr-1', 'PRODUCED 4,281 units', 'CREDITED 4,281 units', 'RATE     82 units/s'],
+    })
+  })
+
+  it('invokes the canonical STOP operation rather than removing the Process itself', () => {
+    const available = { ...context, nodeMiner: { available: true } }
+    const stopLocalNodeMiner = vi.fn(() => ({ status: 'stopped' as const, processId: 'process-0004' }))
+    expect(dispatchCommand(parseCommand('node-miner stop'), { ...available, operations: { ...available.operations, stopLocalNodeMiner } })).toEqual({ type: 'output', lines: ['STOPPED', 'PROCESS  process-0004'] })
+    expect(stopLocalNodeMiner).toHaveBeenCalledOnce()
+
+    expect(dispatchCommand(parseCommand('node-miner stop'), { ...available, operations: { ...available.operations, stopLocalNodeMiner: () => ({ status: 'not_running' }) } })).toEqual({ type: 'output', lines: ['NOT RUNNING'] })
   })
 })

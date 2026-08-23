@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as GameContext from '../../app/GameContext'
@@ -12,6 +12,8 @@ import type { GameState } from '../../core/game/types'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { useGameActions } from '../../app/GameContext'
 import { deriveResourceUsage } from '../../core/game/processes'
+import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
+import { Processes } from '../processes/Processes'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -316,6 +318,97 @@ describe('Terminal local installation', () => {
     expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
     const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
     expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }, { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0' }])
+  })
+})
+
+describe('Terminal NODE Miner CLI', () => {
+  /** A local Device with NODE Miner already installed (skipping typed `install`, which its own test covers) so RUN/STATUS/STOP scenarios stay well under the test timeout. */
+  function installedState(): GameState {
+    const base = createInitialGameState()
+    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (installed.status !== 'installed') throw new Error(installed.status)
+    return installed.state
+  }
+
+  it('is unavailable before installation and absent from help, then appears after install with IDLE status', async () => {
+    const state = createInitialGameState()
+    render(<GameProvider initialState={state}><Terminal /></GameProvider>)
+    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+
+    await user.type(input, 'node-miner status{enter}')
+    expect(screen.getByText('Command not found: node-miner. Type "help" for available commands.')).toBeInTheDocument()
+    await user.type(input, 'help{enter}')
+    expect(screen.queryByText('NODE MINER 1.0')).not.toBeInTheDocument()
+
+    await user.type(input, 'install /home/user/downloads/node-miner-1.0.pkg{enter}')
+    expect(screen.getByText('INSTALLED')).toBeInTheDocument()
+
+    await user.type(input, 'help{enter}')
+    expect(screen.getByText('NODE MINER 1.0')).toBeInTheDocument()
+
+    await user.type(input, 'node-miner status{enter}')
+    expect(screen.getByText('STATUS IDLE')).toBeInTheDocument()
+  }, 15_000)
+
+  it('RUN invokes the canonical operation, is immediately visible through Processes, and rejects a duplicate', async () => {
+    const state = installedState()
+    render(<GameProvider initialState={state}><Terminal /><Processes /></GameProvider>)
+    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+
+    await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
+    expect(screen.getByText('NODE MINER STARTED')).toBeInTheDocument()
+    expect(screen.getByText('PROCESS process-0001')).toBeInTheDocument()
+    expect(screen.getByText(`PAYOUT ${state.nodeWallet.address}`)).toBeInTheDocument()
+
+    // The very same Process is immediately visible through Processes.
+    const minerCard = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
+    expect(within(minerCard).getByText('RUNNING')).toBeInTheDocument()
+
+    await user.type(input, 'node-miner run --payout other{enter}')
+    expect(screen.getByText('ALREADY RUNNING')).toBeInTheDocument()
+  }, 15_000)
+
+  it('STATUS reflects RUNNING with real resource facts, and STOP invokes canonical STOP visible in Processes and later STATUS', async () => {
+    const state = installedState()
+    render(<GameProvider initialState={state}><Terminal /><Processes /></GameProvider>)
+    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+
+    await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
+    await user.type(input, 'node-miner status{enter}')
+    expect(screen.getByText('STATUS RUNNING')).toBeInTheDocument()
+    expect(screen.getAllByText('PROCESS process-0001').length).toBeGreaterThan(0)
+
+    await user.type(input, 'node-miner stop{enter}')
+    expect(screen.getByText('STOPPED')).toBeInTheDocument()
+    expect(screen.queryByText('NODE MINER')).not.toBeInTheDocument()
+
+    await user.type(input, 'node-miner status{enter}')
+    expect(screen.getByText('STATUS IDLE')).toBeInTheDocument()
+
+    await user.type(input, 'node-miner stop{enter}')
+    expect(screen.getByText('NOT RUNNING')).toBeInTheDocument()
+  }, 15_000)
+
+  it('becomes unavailable again once the installed executable is deleted, even though an already-running Process continues independently', async () => {
+    const state = createInitialGameState()
+    const minerProcess = {
+      kind: 'node_miner' as const, id: 'process-0001', label: 'NODE MINER', executorDeviceId: state.player.localDevice.id, status: 'running' as const,
+      ramRequiredMiB: 512, programId: 'node-miner' as const, releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, producedNodeUnits: 10, creditedNodeUnits: 10, workRemainder: 0,
+    }
+    const runningWithoutExecutable: GameState = {
+      ...state,
+      player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' }] } },
+      process: { nextId: 2, processes: [minerProcess] },
+    }
+    render(<GameProvider initialState={runningWithoutExecutable}><Terminal /><Processes /></GameProvider>)
+
+    // The already-running Process is independent of its source executable and still shows in Processes.
+    const minerCard = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
+    expect(within(minerCard).getByText('RUNNING')).toBeInTheDocument()
+
+    // But installed metadata alone cannot conjure the missing executable back into CLI availability.
+    await userEvent.setup().type(screen.getByLabelText('Command input'), 'node-miner status{enter}')
+    expect(screen.getByText('Command not found: node-miner. Type "help" for available commands.')).toBeInTheDocument()
   })
 })
 

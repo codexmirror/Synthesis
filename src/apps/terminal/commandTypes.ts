@@ -13,6 +13,28 @@ export type TerminalAnalyzeResult =
   | { status: 'invalid_endpoint' | 'endpoint_not_found' | 'software_unavailable' | 'unavailable' | 'already_running' }
   | { status: 'insufficient_memory'; requiredMiB: number; availableMiB: number }
 
+export type TerminalNodeMinerRunResult =
+  | { readonly status: 'started'; readonly processId: string; readonly payoutAddress: string }
+  | { readonly status: 'invalid_payout_address' | 'already_running' | 'unavailable' }
+  | { readonly status: 'insufficient_memory'; readonly requiredMiB: number; readonly availableMiB: number }
+
+export type TerminalNodeMinerStatusResult =
+  | { readonly status: 'idle' }
+  | {
+      readonly status: 'running'
+      readonly processId: string
+      readonly cpuPercent: number
+      readonly ramMiB: number
+      readonly payoutAddress: string
+      readonly producedUnits: number
+      readonly creditedUnits: number
+      readonly ratePerSecondUnits: number
+    }
+
+export type TerminalNodeMinerStopResult =
+  | { readonly status: 'stopped'; readonly processId: string }
+  | { readonly status: 'not_running' }
+
 export interface CommandContext {
   readonly localDevice: {
     readonly ip: string
@@ -23,6 +45,10 @@ export interface CommandContext {
     readonly list: (path: string) => ListDirectoryResult
     readonly readText: (path: string) => ReadTextFileResult
   }
+  /** Device-local NODE Miner CLI capability, derived from represented installed-software and executable state — never globally available merely because the command exists. */
+  readonly nodeMiner: {
+    readonly available: boolean
+  }
   readonly operations: {
     readonly scanTarget: (target: string) => ScanResult | { status: 'software_unavailable' } | Promise<ScanResult | { status: 'software_unavailable' }>
     readonly inspectTarget: (target: string) => InspectResult | { status: 'software_unavailable' }
@@ -32,6 +58,9 @@ export interface CommandContext {
     readonly connectAddress: (address: string) => Omit<ConnectRemoteResult, 'state'> | { status: 'target_not_known' }
     readonly disconnectRemote: () => Omit<DisconnectRemoteResult, 'state'>
     readonly installLocalSoftwarePackage: (path: string) => WithoutState<InstallLocalSoftwarePackageResult>
+    readonly runLocalNodeMiner: (payoutAddress: string) => TerminalNodeMinerRunResult
+    readonly localNodeMinerStatus: () => TerminalNodeMinerStatusResult
+    readonly stopLocalNodeMiner: () => TerminalNodeMinerStopResult
   }
 }
 

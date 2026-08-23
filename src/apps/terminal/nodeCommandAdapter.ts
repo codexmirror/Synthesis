@@ -5,6 +5,7 @@ import { parseCommand } from './parser'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
+import { findNodeMinerExecutable, findRunningLocalNodeMiner, isNodeMinerAvailable, NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
 import type { deriveResourceUsage } from '../../core/game/processes'
 
 type ResourceUsage = ReturnType<typeof deriveResourceUsage>
@@ -23,6 +24,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
       ramUsage: Math.round(usage.totalRamUsage),
       networkStatus: gameState.player.localDevice.runtime.networkStatus,
     },
+    nodeMiner: { available: isNodeMinerAvailable(gameState.player.localDevice) },
     operations: {
       scanTarget: actions.scanTarget,
       inspectTarget: actions.inspectTarget,
@@ -93,6 +95,37 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
       installLocalSoftwarePackage: (path) => {
         const { state: _state, ...result } = actions.installLocalSoftwarePackage(path)
         return result
+      },
+      runLocalNodeMiner: (payoutAddress) => {
+        const executable = findNodeMinerExecutable(gameState.player.localDevice.filesystem)
+        if (!executable) return { status: 'unavailable' }
+        const result = actions.runNodeMiner(executable.path, payoutAddress)
+        if (result.status === 'started') return { status: 'started', processId: result.processId, payoutAddress }
+        if (result.status === 'insufficient_memory') return { status: 'insufficient_memory', requiredMiB: result.requiredMiB, availableMiB: result.availableMiB }
+        if (result.status === 'invalid_payout_address' || result.status === 'already_running') return { status: result.status }
+        return { status: 'unavailable' }
+      },
+      localNodeMinerStatus: () => {
+        const process = findRunningLocalNodeMiner(gameState)
+        if (!process) return { status: 'idle' }
+        const cpuPercent = usage.cpuAllocationByProcess[process.id] ?? 0
+        const allocatedCompute = gameState.player.localDevice.hardware.cpu.computeCapacity * cpuPercent / 100
+        return {
+          status: 'running',
+          processId: process.id,
+          cpuPercent,
+          ramMiB: process.ramRequiredMiB,
+          payoutAddress: process.payoutAddress,
+          producedUnits: process.producedNodeUnits,
+          creditedUnits: process.creditedNodeUnits,
+          ratePerSecondUnits: allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_UNIT,
+        }
+      },
+      stopLocalNodeMiner: () => {
+        const process = findRunningLocalNodeMiner(gameState)
+        if (!process) return { status: 'not_running' }
+        const result = actions.stopNodeMiner(process.id)
+        return result.status === 'stopped' ? { status: 'stopped', processId: process.id } : { status: 'not_running' }
       },
     },
   })

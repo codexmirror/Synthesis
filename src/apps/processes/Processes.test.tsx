@@ -388,26 +388,27 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
     expect(minerCard.querySelector('progress')).not.toBeInTheDocument()
     expect(fact(minerCard, 'CPU')).toBe('82%')
     expect(fact(minerCard, 'RAM')).toBe('512 MiB')
-    expect(fact(minerCard, 'PRODUCED')).toBe('0 NODE')
-    expect(fact(minerCard, 'CREDITED')).toBe('0 NODE')
+    expect(fact(minerCard, 'PRODUCED')).toBe('0 units')
+    expect(fact(minerCard, 'CREDITED')).toBe('0 units')
     expect(within(minerCard).getByText('node-wallet-addr-0001')).toBeInTheDocument()
     expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
   })
 
-  it('derives produced and credited NODE from real deterministic elapsed compute', () => {
+  it('derives produced and credited atomic NODE units from real deterministic elapsed compute', () => {
     const advanced = advanceGameState(minerState(), 3000)
     render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
     const minerCard = card('NODE MINER')
-    expect(fact(minerCard, 'PRODUCED')).not.toBe('0 NODE')
+    // node-01: computeCapacity 100, baseline 18% -> ~82 atomic NODE units/s allocated while running alone.
+    expect(fact(minerCard, 'PRODUCED')).toBe('246 units')
     expect(fact(minerCard, 'PRODUCED')).toBe(fact(minerCard, 'CREDITED'))
   })
 
-  it('shows zero credited NODE when the configured payout address does not match the represented Wallet', () => {
+  it('shows zero credited units when the configured payout address does not match the represented Wallet', () => {
     const advanced = advanceGameState(minerState('an-unmatched-fictional-address'), 3000)
     render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
     const minerCard = card('NODE MINER')
-    expect(fact(minerCard, 'PRODUCED')).not.toBe('0 NODE')
-    expect(fact(minerCard, 'CREDITED')).toBe('0 NODE')
+    expect(fact(minerCard, 'PRODUCED')).not.toBe('0 units')
+    expect(fact(minerCard, 'CREDITED')).toBe('0 units')
   })
 
   it('STOP invokes the canonical operation, removing the Process and releasing its resources', () => {

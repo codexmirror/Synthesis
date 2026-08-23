@@ -104,6 +104,35 @@ describe('Files', () => {
   })
 })
 
+describe('Files NODE Miner installation', () => {
+  it('installs the starting local NODE Miner package into real installed software and a concrete executable, then RUN works through it', async () => {
+    const state = createInitialGameState()
+    render(<GameProvider initialState={state}><Files /><Processes /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
+    expect(screen.getByText('CURRENT')).toBeInTheDocument()
+    expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^usr.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^local.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^bin.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^node-miner.*EXECUTABLE/ }))
+    expect(screen.getByText('NODE Miner (node-miner)')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'RUN' }))
+    expect(within(document.querySelector('.files-app') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
+    expect(within(screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
+  })
+})
+
 describe('Files NODE Miner RUN', () => {
   const withMiner = (path = '/home/user/node-miner-1.0.bin') => {
     const state = createInitialGameState()
@@ -111,7 +140,7 @@ describe('Files NODE Miner RUN', () => {
     return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [minerFile] } } } }
   }
 
-  it('prefills the represented NODE Wallet address and RUN starts a real continuous Process', async () => {
+  it('prefills the represented NODE Wallet address and RUN starts a real continuous Process, showing immediate feedback derived from canonical runtime', async () => {
     const state = withMiner()
     render(<GameProvider initialState={state}><Files /><Processes /></GameProvider>)
     const user = userEvent.setup()
@@ -120,8 +149,32 @@ describe('Files NODE Miner RUN', () => {
     const addressInput = screen.getByLabelText('NODE payout address') as HTMLInputElement
     expect(addressInput.value).toBe(state.nodeWallet.address)
     await user.click(screen.getByRole('button', { name: 'RUN' }))
+
+    // Files itself must show immediate success feedback on the very first click, derived from canonical ProcessState.
+    expect(within(document.querySelector('.files-app') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
+    expect(screen.getByText(/PROCESS process-0001/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'RUN' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('NODE payout address')).not.toBeInTheDocument()
+
     const card = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
     expect(within(card).getByText('RUNNING')).toBeInTheDocument()
+  })
+
+  it('never re-offers a normal RUN action while the same local Miner is already running, even across a different copy of the executable', async () => {
+    const state = withMiner()
+    const otherCopy = { kind: 'executable' as const, id: 'file-fixture-miner-2', path: '/home/user/node-miner-copy.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const withCopies = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, otherCopy] } } } }
+    render(<GameProvider initialState={withCopies}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.bin/ }))
+    await user.click(screen.getByRole('button', { name: 'RUN' }))
+    expect(screen.getByText('RUNNING')).toBeInTheDocument()
+
+    // Navigate to the other represented copy: the same canonical runtime truth applies there too.
+    await user.click(screen.getByRole('button', { name: 'Back to /home/user' }))
+    await user.click(screen.getByRole('button', { name: /node-miner-copy\.bin/ }))
+    expect(screen.getByText('RUNNING')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'RUN' })).not.toBeInTheDocument()
   })
 
   it('does not offer RUN for an unsupported executable program', async () => {
@@ -144,13 +197,18 @@ describe('Files NODE Miner RUN', () => {
     expect(screen.getByText('INVALID PAYOUT ADDRESS')).toBeInTheDocument()
   })
 
-  it('rejects a duplicate RUN while one Miner is already running on this executor', async () => {
-    render(<GameProvider initialState={withMiner()}><Files /></GameProvider>)
+  it('returns to a runnable state once STOP elsewhere removes the canonical Process', async () => {
+    const state = withMiner()
+    render(<GameProvider initialState={state}><Files /><Processes /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.bin/ }))
     await user.click(screen.getByRole('button', { name: 'RUN' }))
-    await user.click(screen.getByRole('button', { name: 'RUN' }))
-    expect(screen.getByText('ALREADY RUNNING')).toBeInTheDocument()
+    expect(within(document.querySelector('.files-app') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Stop NODE MINER' }))
+    expect(within(document.querySelector('.files-app') as HTMLElement).queryByText('RUNNING')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'RUN' })).toBeInTheDocument()
+    expect(screen.getByLabelText('NODE payout address')).toBeInTheDocument()
   })
 })
 

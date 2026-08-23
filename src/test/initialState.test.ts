@@ -28,14 +28,14 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 25', () => {
+  it('separates identities and seeds canonical local-device state in schema version 26', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(25)
+    expect(GAME_STATE_VERSION).toBe(26)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
-    expect(state.version).toBe(25)
+    expect(state.version).toBe(26)
     expect(state.wallet).toEqual({ balance: 1250 })
-    expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNode: 0 })
+    expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0 })
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -47,13 +47,17 @@ describe('createInitialGameState', () => {
       runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
     })
     expect(state.player.localDevice.filesystem).toEqual({
-      nextFileId: 2,
-      files: [{ kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' }],
+      nextFileId: 3,
+      files: [
+        { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
+        { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'standard', sizeBytes: 3_400_000 },
+      ],
     })
     expect(state.player.localDevice.installedSoftware).toEqual([
       { id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' },
       { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' },
     ])
+    expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })
@@ -64,10 +68,9 @@ describe('createInitialGameState', () => {
         firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
         hardware: { cpu: { name: 'Server CPU', computeCapacity: 160 }, ram: { name: '8 GB', capacityMiB: 8192 } },
         runtime: { baselineCpuLoad: 12, baselineRamUsage: 18 },
-        filesystem: { nextFileId: 4, files: [
+        filesystem: { nextFileId: 3, files: [
           { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
           { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
-          { kind: 'executable', id: 'file-0003', path: '/opt/releases/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 },
         ] },
         services: [
           { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, credentialAccess: { privilege: 'USER' }, vulnerabilities: [{ id: 'vulnerability-ssh-001', label: 'Weak authentication configuration' }] },
@@ -103,11 +106,11 @@ describe('createInitialGameState', () => {
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')
 
     expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server' })
-    expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 4, files: [
+    expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 3, files: [
       { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
       { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
-      { kind: 'executable', id: 'file-0003', path: '/opt/releases/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 },
     ] } })
+    expect(server?.filesystem?.files.some((file) => file.kind === 'executable')).toBe(false)
     const shallowTrainingHosts = state.world.network.hosts.filter(({ id }) => id !== 'host-lan-001' && id !== 'host-lan-002')
     expect(shallowTrainingHosts.length).toBeGreaterThan(0)
     expect(shallowTrainingHosts.every((host) => !host.displayName && !host.firmware && !host.filesystem && !host.hardware && !host.runtime)).toBe(true)
