@@ -232,6 +232,43 @@ describe('Scan workspace', () => {
     expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
     expect(screen.getByText('COMPUTE')).toBeInTheDocument()
     expect(screen.getByText('HIGH')).toBeInTheDocument()
+    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
+    expect(screen.getByText('Authentication: Credential')).toBeInTheDocument()
+    expect(screen.getByText('Basic HTTP 1.0')).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/secondFactorRequired|AUTH-017/)
+  })
+
+  it('renders stored Service fingerprints rather than changed hidden World Truth', async () => {
+    const base = discoveredState()
+    const observed = {
+      ...base,
+      discovery: {
+        ...base.discovery,
+        devices: base.discovery.devices.map((device) => device.id === 'host-lan-001' ? {
+          ...device,
+          services: device.services.map((service) => service.id === 'service-ssh-001' ? {
+            ...service, inspect: { implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential' as const },
+          } : service),
+        } : device),
+      },
+      world: {
+        network: {
+          ...base.world.network,
+          hosts: base.world.network.hosts.map((host) => host.id === 'host-lan-001' ? {
+            ...host,
+            services: host.services?.map((service) => service.id === 'service-ssh-001' ? {
+              ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }, credentialAccess: { privilege: 'USER' as const, secondFactorRequired: true },
+            } : service),
+          } : host),
+        },
+      },
+    }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={observed}><Network /></GameProvider>)
+    await navigateToServices(user)
+    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
+    expect(screen.getByText('Authentication: Credential')).toBeInTheDocument()
+    expect(screen.queryByText(/1\.4\.0|Additional Verification/)).not.toBeInTheDocument()
   })
 
   it('does not present enhanced evidence for NodeScan 1.0 Standard', async () => {

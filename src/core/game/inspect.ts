@@ -1,5 +1,5 @@
 import { isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
-import type { DiscoveryState, EnhancedInspectEvidence, NetworkHost } from './types'
+import type { DiscoveryState, EnhancedInspectEvidence, NetworkHost, ServiceInspectSnapshot } from './types'
 
 export type InspectTargets = NetworkTargets
 
@@ -23,6 +23,7 @@ export type InspectResult =
     readonly networkStatus: 'ONLINE'
     readonly deviceKind: 'device' | 'server'
     readonly enhanced?: EnhancedInspectEvidence
+    readonly serviceFingerprints?: readonly { readonly serviceId: string; readonly inspect: ServiceInspectSnapshot }[]
   }
   | {
     readonly status: 'network'
@@ -50,6 +51,21 @@ function enhancedEvidenceFor(host: Readonly<NetworkHost>): EnhancedInspectEviden
     firmware: { name: host.firmware.name, version: host.firmware.version },
     computeClass: classifyComputeCapacity(host.hardware.cpu.computeCapacity),
   }
+}
+
+/** Observe only Services whose stable identities are already present in this Device's Discovery snapshot. */
+function serviceFingerprintsFor(host: Readonly<NetworkHost>, knownServiceIds: ReadonlySet<string>) {
+  return (host.services ?? [])
+    .filter(({ id }) => knownServiceIds.has(id))
+    .map((service) => ({
+      serviceId: service.id,
+      inspect: {
+        implementation: { name: service.implementation.name, version: service.implementation.version },
+        ...(service.name === 'SSH' && service.credentialAccess
+          ? { authentication: service.credentialAccess.secondFactorRequired ? 'Credential + Additional Verification' as const : 'Credential' as const }
+          : {}),
+      },
+    }))
 }
 
 /** Look inward at one supported device or local network and report its properties without mutation. */
@@ -104,9 +120,13 @@ export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery:
     return { status: 'no_response', address: input }
   }
   const enhanced = depth === 'enhanced' ? enhancedEvidenceFor(current.entity) : undefined
+  const serviceFingerprints = depth === 'enhanced'
+    ? serviceFingerprintsFor(current.entity, new Set(remembered.services.map(({ id }) => id)))
+    : undefined
   return {
     status: 'device', targetId: current.entity.id, address: input, scope: current.scope, networkStatus: 'ONLINE',
     deviceKind: current.entity.role === 'server' ? 'server' : 'device',
     ...(enhanced ? { enhanced } : {}),
+    ...(serviceFingerprints ? { serviceFingerprints } : {}),
   }
 }

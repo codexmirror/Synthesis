@@ -362,6 +362,14 @@ export interface DiscoveredServiceSnapshot {
   readonly protocol: 'TCP' | 'UDP'
   /** Endpoint captured by the service-depth observation, not reconstructed later. */
   readonly endpoint: string
+  /** Historical Service facts observed by Enhanced Inspect, never live World Truth. */
+  readonly inspect?: ServiceInspectSnapshot
+}
+
+/** Small, concrete Enhanced Inspect snapshot for one already-discovered Service. */
+export interface ServiceInspectSnapshot {
+  readonly implementation: { readonly name: string; readonly version: string }
+  readonly authentication?: 'Credential' | 'Credential + Additional Verification'
 }
 
 /**
