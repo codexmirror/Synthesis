@@ -1,44 +1,102 @@
 import { useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
-import { formatBytes } from '../byteFormat'
-import type { ExecutableFile, FilesystemFile, InstalledSoftware, SoftwarePackageFile } from '../../core/game/types'
+import { formatByteProgress, formatBytes } from '../byteFormat'
+import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
 
+type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'UNSUPPORTED'
+
 export function Files() {
-  const localDevice = useGameState().player.localDevice
+  const state = useGameState()
+  const localDevice = state.player.localDevice
   const filesystem = localDevice.filesystem
   const actions = useGameActions()
   const [path, setPath] = useState(INITIAL_PATH)
   const [selectedFile, setSelectedFile] = useState<string>()
   const listing = listDirectory(filesystem, path)
   const selected = selectedFile ? getFilesystemFile(filesystem, selectedFile) : undefined
+  const incoming = deriveIncomingArtifact(state.fileTransfer.active, localDevice.id, path)
 
   if (selectedFile) return <section className="app-content files-app">
-    <header className="files-header"><p className="eyebrow">FILES</p><div className="path">{selectedFile}</div></header>
-    <button className="file-back" type="button" onClick={() => setSelectedFile(undefined)}>Back to {path}</button>
+    <button className="node-back" type="button" onClick={() => setSelectedFile(undefined)} aria-label={`Back to ${path}`}>
+      <span aria-hidden="true">←</span> {path}
+    </button>
     {selected?.status === 'ok'
       ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} install={actions.installLocalSoftwarePackage} />
-      : <p className="muted">FILE NOT FOUND</p>}
+      : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
   </section>
 
   return <section className="app-content files-app">
-    <header className="files-header"><p className="eyebrow">FILES</p><div className="path">{path}</div></header>
-    <div className="file-list">
-      {path !== '/' && <button className="file-row" type="button" onClick={() => setPath(parentPath(path))}>
-        <span className="file-icon" aria-hidden="true">▰</span><span className="file-row-copy"><strong>../</strong><small>DIRECTORY</small></span>
-      </button>}
-      {listing.status === 'ok' ? listing.entries.map((entry) => {
-        const entryPath = `${path === '/' ? '' : path}/${entry.name}`
-        const result = entry.type === 'file' ? getFilesystemFile(filesystem, entryPath) : undefined
-        return <button className="file-row" type="button" key={entry.name} onClick={() => entry.type === 'directory' ? setPath(entryPath) : setSelectedFile(entryPath)}>
-          <span className="file-icon" aria-hidden="true">{entry.type === 'directory' ? '▰' : '▱'}</span>
-          <span className="file-row-copy"><strong>{entry.name}</strong><small>{entry.type === 'directory' ? 'DIRECTORY' : result?.status === 'ok' ? `${typeLabel(result.file)} · ${formatBytes(getFilesystemFileSizeBytes(result.file))}` : 'FILE'}</small></span>
-        </button>
-      }) : <p className="muted">DIRECTORY NOT FOUND</p>}
+    <header className="node-masthead">
+      <span className="node-masthead-subject">{path}</span>
+      <span className="node-masthead-meta">LOCAL · {localDevice.displayName}</span>
+    </header>
+
+    <div className="node-section">
+      <span>DIRECTORY</span>
+      <span>{listing.status === 'ok' ? `${listing.entries.length} ${listing.entries.length === 1 ? 'ENTRY' : 'ENTRIES'}` : 'UNRESOLVED'}</span>
     </div>
+
+    {listing.status === 'ok' ? <>
+      <div className="node-list">
+        {path !== '/' && <button className="node-row" type="button" onClick={() => setPath(parentPath(path))}>
+          <span className="node-row-glyph" aria-hidden="true">▲</span>
+          <span className="node-row-copy"><strong>../</strong><small>DIRECTORY</small></span>
+        </button>}
+        {listing.entries.map((entry) => {
+          const entryPath = joinPath(path, entry.name)
+          const result = entry.type === 'file' ? getFilesystemFile(filesystem, entryPath) : undefined
+          const file = result?.status === 'ok' ? result.file : undefined
+          const packageState = file?.kind === 'software_package' ? derivePackageState(file, localDevice.installedSoftware) : undefined
+          return <button className="node-row" type="button" key={entry.name} onClick={() => entry.type === 'directory' ? setPath(entryPath) : setSelectedFile(entryPath)}>
+            <span className="node-row-glyph" aria-hidden="true">{entry.type === 'directory' ? '▰' : '▱'}</span>
+            <span className="node-row-copy">
+              <strong>{entry.name}</strong>
+              <small>{entry.type === 'directory' ? 'DIRECTORY' : file ? `${typeLabel(file)} · ${formatBytes(getFilesystemFileSizeBytes(file))}` : 'FILE'}</small>
+            </span>
+            {packageState && <span className={packageState === 'INSTALLED' ? 'node-chip' : 'node-chip node-chip--quiet'}>{packageState}</span>}
+            {entry.type === 'directory' && <span className="node-row-arrow" aria-hidden="true">→</span>}
+          </button>
+        })}
+        {incoming && <div className="node-row node-row--incoming">
+          <span className="node-row-glyph" aria-hidden="true">↓</span>
+          <span className="node-row-copy">
+            <strong>{incoming.relativePath}</strong>
+            <small>INCOMING · {incoming.progressLabel} · {incoming.percent}%</small>
+            <progress className="node-progress" max={100} value={incoming.percent} aria-label={`Incoming transfer ${incoming.percent}% complete`} />
+          </span>
+        </div>}
+      </div>
+      {incoming && <p className="node-note">An incoming transfer is not written to this filesystem until it completes.</p>}
+    </> : <div className="node-empty"><strong>DIRECTORY NOT FOUND</strong><span>This path does not resolve on the local filesystem.</span></div>}
   </section>
+}
+
+interface IncomingArtifact {
+  readonly relativePath: string
+  readonly percent: number
+  readonly progressLabel: string
+}
+
+/**
+ * Present the single canonical active `FileTransfer` when it is inbound to
+ * this Device and lands inside the directory currently being browsed.
+ *
+ * This is deliberately not a filesystem entry: no destination artifact exists
+ * until the transfer completes, so it is never navigable, never counted as a
+ * directory entry, and never given a size or a type.
+ */
+function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string, path: string): IncomingArtifact | undefined {
+  if (!transfer || transfer.destinationDeviceId !== deviceId) return undefined
+  const prefix = path === '/' ? '/' : `${path}/`
+  if (!transfer.destinationPath.startsWith(prefix)) return undefined
+  return {
+    relativePath: transfer.destinationPath.slice(prefix.length),
+    percent: transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0,
+    progressLabel: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal),
+  }
 }
 
 function FileDetails({ file, installedSoftware, install }: {
@@ -47,13 +105,18 @@ function FileDetails({ file, installedSoftware, install }: {
   install: (path: string) => unknown
 }) {
   return <div className="file-details">
-    <dl className="file-facts">
-      <dt>NAME</dt><dd>{basename(file.path)}</dd>
-      <dt>TYPE</dt><dd>{typeLabel(file)}</dd>
-      <dt>SIZE</dt><dd>{formatBytes(getFilesystemFileSizeBytes(file))}</dd>
-      <dt>PATH</dt><dd>{file.path}</dd>
+    <header className="node-masthead">
+      <span className="node-masthead-subject">{basename(file.path)}</span>
+      <span className="node-masthead-meta">{typeLabel(file)}</span>
+    </header>
+    <dl className="node-facts">
+      <div><dt>PATH</dt><dd>{file.path}</dd></div>
+      <div><dt>SIZE</dt><dd>{formatBytes(getFilesystemFileSizeBytes(file))}</dd></div>
     </dl>
-    {file.kind === 'text' ? <section><p className="eyebrow">CONTENT</p><pre className="file-content">{file.content}</pre></section>
+    {file.kind === 'text' ? <section>
+      <div className="node-section"><span>CONTENT</span></div>
+      <pre className="file-content">{file.content}</pre>
+    </section>
       : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} install={install} />
         : <ExecutableDetails file={file} />}
   </div>
@@ -61,21 +124,43 @@ function FileDetails({ file, installedSoftware, install }: {
 
 function PackageDetails({ file, installedSoftware, install }: { file: SoftwarePackageFile; installedSoftware: readonly InstalledSoftware[]; install: (path: string) => unknown }) {
   const current = installedSoftware.find(({ id }) => id === file.productId)
-  const supported = file.productId === 'nodescan'
-  const alreadyInstalled = current?.releaseId === file.releaseId
+  const packageState = derivePackageState(file, installedSoftware)
   return <section className="file-kind-details">
-    <p className="eyebrow">PACKAGE</p><h2>{file.name}</h2>
-    <dl><dt>PRODUCT</dt><dd>{file.name}</dd><dt>VERSION</dt><dd>{file.version} {titleCase(file.channel)}</dd><dt>RELEASE</dt><dd>{file.releaseId}</dd><dt>CURRENT</dt><dd>{current && current.id === 'nodescan' ? `${current.name} ${current.version} ${titleCase(current.channel)}` : 'NOT INSTALLED'}</dd></dl>
-    {!supported ? <p className="muted">UNSUPPORTED PACKAGE</p> : alreadyInstalled
-      ? <><button type="button" disabled>INSTALLED ✓</button><p>INSTALLED RELEASE<br />{file.releaseId}</p></>
-      : <button type="button" onClick={() => install(file.path)}>INSTALL</button>}
+    <div className="node-section"><span>SOFTWARE</span><span>{packageState}</span></div>
+    <h2>{file.name}</h2>
+    <p className="package-release">{file.version} {titleCase(file.channel)}</p>
+    <dl className="node-facts">
+      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+      <div><dt>CURRENT</dt><dd>{current && current.id === 'nodescan' ? `${current.name} ${current.version} ${titleCase(current.channel)}` : 'NOT INSTALLED'}</dd></div>
+    </dl>
+    {packageState === 'UNSUPPORTED'
+      ? <p className="node-note node-note--caution">UNSUPPORTED PACKAGE</p>
+      : packageState === 'INSTALLED'
+        ? <div className="file-kind-actions">
+            <button className="node-action" type="button" disabled>INSTALLED ✓</button>
+            <p className="node-note">INSTALLED RELEASE · {file.releaseId}</p>
+          </div>
+        : <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => install(file.path)}>INSTALL</button></div>}
   </section>
 }
 
 function ExecutableDetails({ file }: { file: ExecutableFile }) {
-  return <section className="file-kind-details"><p className="eyebrow">EXECUTABLE</p><dl><dt>PROGRAM</dt><dd>{file.name} ({file.programId})</dd><dt>VERSION</dt><dd>{file.version}</dd><dt>RELEASE</dt><dd>{file.releaseId}</dd></dl></section>
+  return <section className="file-kind-details">
+    <div className="node-section"><span>PROGRAM</span></div>
+    <dl className="node-facts">
+      <div><dt>PROGRAM</dt><dd>{file.name} ({file.programId})</dd></div>
+      <div><dt>VERSION</dt><dd>{file.version}</dd></div>
+      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+    </dl>
+  </section>
 }
 
+function derivePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[]): PackageState {
+  if (file.productId !== 'nodescan') return 'UNSUPPORTED'
+  return installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId ? 'INSTALLED' : 'INSTALLABLE'
+}
+
+function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
 function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : 'EXECUTABLE' }

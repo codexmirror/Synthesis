@@ -1,32 +1,29 @@
+/*
+ * Application surface and the per-application layout that is genuinely
+ * specific to one NODE-OS application. Anything shared between applications
+ * belongs to `styles/nodeui.css`.
+ *
+ * `.app-content` owns the gutter for every scrolling NODE-OS application
+ * surface, so no individual application redeclares it. Terminal is the one
+ * deliberate exception: it is a full-bleed grid rather than a scrolling
+ * document, its padding must be safe-area aware because the prompt sits at
+ * the bottom edge under the software keyboard, and it switches at the
+ * established editing breakpoint rather than at the density breakpoint below.
+ */
+
 .app-content {
   min-height: 0;
-  padding: clamp(28px, 7vw, 80px);
+  padding: clamp(18px, 4vw, 40px);
+  padding-bottom: clamp(28px, 7vw, 60px);
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  color: var(--text);
 }
 
-.app-content h2 {
-  margin: 28px 0 8px;
-  font: 500 clamp(1.35rem, 3vw, 2rem) Inter, system-ui, sans-serif;
-}
+.muted { color: var(--text-muted); }
 
-.muted { color: #78827c; }
-
-.action {
-  margin-top: 30px;
-  min-width: 140px;
-  min-height: 48px;
-  border: 1px solid #39423d;
-  background: transparent;
-  color: #69736d;
-}
-
-.balance {
-  margin-top: 30px;
-  color: var(--green);
-  font: 500 clamp(2.5rem, 8vw, 5.5rem) Inter, system-ui, sans-serif;
-}
+/* Notes */
 
 .notes {
   display: grid;
@@ -42,11 +39,9 @@
   gap: 16px;
 }
 
-.notes-meta .eyebrow { margin: 0; }
-
 .notes-meta output {
-  color: #68736c;
-  font-size: .58rem;
+  color: var(--text-quiet);
+  font-size: var(--label-size);
   letter-spacing: .12em;
   white-space: nowrap;
 }
@@ -55,93 +50,79 @@
   width: 100%;
   min-height: 0;
   resize: none;
-  padding: 20px;
+  padding: 16px;
   border: 1px solid var(--line);
   outline: 0;
   overflow: auto;
   overscroll-behavior-y: none;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  background: #080b09;
-  color: #d7dfda;
+  background: var(--surface);
+  color: var(--text);
   line-height: 1.7;
 }
 
-.notes textarea:focus { border-color: #52705e; }
+.notes textarea:focus { border-color: var(--line-accent); }
 
-.path {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--line);
+/* Wallet */
+
+.wallet-app { max-width: 560px; }
+
+.balance {
+  margin: 18px 0 0;
   color: var(--green);
+  font: 500 clamp(1.7rem, 7vw, 2.4rem) Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
-.files-app { max-width: 880px; }
-.files-header .eyebrow { margin-bottom: 0; }
-.file-list { border-top: 1px solid var(--line); }
+/* Files */
 
-.file-row,
-.system-row {
-  min-height: 58px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 18px;
-  border-bottom: 1px solid var(--line);
-}
+.files-app,
+.system-app { max-width: 720px; }
 
-.file-row {
-  width: 100%;
-  padding: 0;
-  border-width: 0 0 1px;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.file-icon { color: var(--green); }
-.file-row-copy { display: grid; gap: 5px; }
-.file-row-copy strong { font-weight: 500; }
-.file-row-copy small { color: #78827c; font-size: .62rem; letter-spacing: .1em; }
-
-.file-back {
-  margin: 18px 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--green);
-  cursor: pointer;
-}
+.file-details { min-width: 0; }
 
 .file-content {
   margin: 12px 0 0;
+  padding: 12px 13px;
+  border: 1px solid var(--line-quiet);
+  background: var(--surface-raised);
+  color: var(--text);
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
   font: inherit;
+  font-size: .74rem;
+  line-height: 1.6;
 }
 
-.file-details { max-width: 680px; }
-.file-facts,
-.file-kind-details dl { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 10px 24px; margin: 12px 0 28px; }
-.file-facts dt,
-.file-kind-details dt { color: #78827c; font-size: .64rem; letter-spacing: .12em; }
-.file-facts dd,
-.file-kind-details dd { margin: 0; overflow-wrap: anywhere; }
-.file-kind-details { padding-top: 24px; border-top: 1px solid var(--line); }
-.file-kind-details button { min-height: 42px; padding: 0 22px; border: 1px solid #52705e; background: transparent; color: var(--green); }
-.file-kind-details button:disabled { color: #78827c; border-color: var(--line); }
-
-.system-list {
-  max-width: 600px;
-  margin-top: 28px;
+.file-kind-details h2 {
+  margin: 14px 0 0;
+  color: var(--text-strong);
+  font: 600 .95rem Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
 }
 
-.system-row { grid-template-columns: 1fr auto; }
-.system-row strong { color: var(--green); }
+.package-release {
+  margin: 5px 0 12px;
+  color: var(--text-secondary);
+  font-size: .68rem;
+}
+
+.file-kind-actions { margin-top: 14px; display: grid; gap: 4px; justify-items: start; }
+.file-kind-actions .node-note { width: 100%; }
+
+/* An inbound transfer is presented alongside entries but is not one. */
+.node-row--incoming { border-style: dashed; background: var(--surface); }
+.node-row--incoming .node-row-copy strong { color: var(--text-secondary); }
+.node-row--incoming .node-progress { margin-top: 2px; }
+
+/* One mobile gutter for every scrolling application surface. */
+@media (max-width: 480px) {
+  .app-content { padding: 16px 14px 30px; }
+}
 
 @media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
   .os-shell[data-editing-presentation="true"] .notes {
     padding: 12px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   }
-
-  .notes textarea { padding: 16px; }
 }

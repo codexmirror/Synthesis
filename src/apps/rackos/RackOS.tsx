@@ -24,11 +24,11 @@ export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemo
     <main className="rack-body">
       {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} startRemoteFileDownload={startRemoteFileDownload} />}
       {section === 'files' && <RemoteFiles targetDeviceId={target.id} filesystem={target.filesystem!} startRemoteFileDownload={startRemoteFileDownload} />}
-      {section === 'system' && <dl className="rack-system">
+      {section === 'system' && <section className="rack-panel"><dl className="rack-facts">
         <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
         <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>{target.role && <div><dt>ROLE</dt><dd>{target.role.toUpperCase()}</dd></div>}
         <div><dt>SESSION AUTHORITY</dt><dd>{access.privilege}</dd></div><div><dt>ACCESS PATH</dt><dd>{service.name}</dd></div>
-      </dl>}
+      </dl></section>}
     </main>
   </section>
 }
@@ -69,32 +69,46 @@ function RemoteFiles({ targetDeviceId, filesystem, startRemoteFileDownload }: { 
     const startResult = startRemoteFileDownload(selected)
     setFeedback(startResult.status === 'started' ? undefined : startResult.status === 'destination_exists' ? 'DESTINATION ALREADY EXISTS' : startResult.status.toUpperCase().replaceAll('_', ' '))
   }
-  if (selected) return <section className="rack-files">
-    <p>FILES</p>
-    <code>{selected}</code>
-    <button onClick={() => { setSelected(undefined); setFeedback(undefined) }}>← {path}</button>
-    {result?.status === 'ok' && <>
+  if (selected) return <section className="rack-panel rack-files">
+    <div className="rack-path"><span>PATH</span><code>{selected}</code></div>
+    <button className="rack-back" onClick={() => { setSelected(undefined); setFeedback(undefined) }}>← {path}</button>
+    {result?.status === 'ok' ? <>
       {result.file.kind === 'text'
-        ? <pre>{result.file.content}</pre>
+        ? <pre className="rack-file-content">{result.file.content}</pre>
         : result.file.kind === 'software_package'
-          ? <div><p>SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p>{result.file.version} {titleCase(result.file.channel)}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>
-          : <div><p>EXECUTABLE</p><h2>{result.file.name}</h2><p>{result.file.version}</p><dl><dt>RELEASE</dt><dd>{result.file.releaseId}</dd><dt>PATH</dt><dd>{result.file.path}</dd></dl></div>}
-      {downloadState === 'available' && <button onClick={download}>DOWNLOAD</button>}
+          ? <div className="rack-artifact"><p className="rack-artifact-kind">SOFTWARE PACKAGE</p><h2>{result.file.name}</h2><p className="rack-artifact-release">{result.file.version} {titleCase(result.file.channel)}</p><dl className="rack-facts"><div><dt>RELEASE</dt><dd>{result.file.releaseId}</dd></div></dl></div>
+          : <div className="rack-artifact"><p className="rack-artifact-kind">EXECUTABLE</p><h2>{result.file.name}</h2><p className="rack-artifact-release">{result.file.version}</p><dl className="rack-facts"><div><dt>RELEASE</dt><dd>{result.file.releaseId}</dd></div></dl></div>}
+      {downloadState === 'available' && <button className="rack-primary" onClick={download}>DOWNLOAD</button>}
       {downloadState === 'in_progress' && <div className="rack-download-state" role="status">
-        <button disabled>DOWNLOAD STARTED</button>
+        <button className="rack-primary" disabled>DOWNLOAD STARTED</button>
       </div>}
       {downloadState === 'downloaded' && <div className="rack-download-state" role="status">
-        <button disabled>DOWNLOADED ✓</button>
-        <dl><dt>LOCAL COPY</dt><dd>{destinationPath}</dd></dl>
+        <button className="rack-primary" disabled>DOWNLOADED ✓</button>
+        <dl className="rack-facts"><div><dt>LOCAL COPY</dt><dd>{destinationPath}</dd></div></dl>
       </div>}
       {downloadState === 'occupied' && <div className="rack-download-state" role="status">
         <strong>LOCAL DESTINATION OCCUPIED</strong>
         <code>{destinationPath}</code>
       </div>}
       {feedback && <output role="status">{feedback}</output>}
-    </>}
+    </> : <p className="rack-empty">FILE NOT FOUND</p>}
   </section>
-  return <section className="rack-files"><p>FILES</p><code>{path}</code>{path !== '/' && <button onClick={() => setPath('/')}>../</button>}{listing.status === 'ok' && listing.entries.map((entry) => <button key={entry.name} onClick={() => entry.type === 'directory' ? setPath(`${path === '/' ? '' : path}/${entry.name}`) : setSelected(`${path === '/' ? '' : path}/${entry.name}`)}>{entry.type === 'directory' ? 'DIR ' : 'FILE '}{entry.name}</button>)}</section>
+
+  return <section className="rack-panel rack-files">
+    <div className="rack-path"><span>PATH</span><code>{path}</code></div>
+    {listing.status === 'ok' ? <div className="rack-file-list">
+      {path !== '/' && <button className="rack-file-row" onClick={() => setPath(parentPath(path))}>
+        <span className="rack-file-tag">DIR</span>{' '}<span className="rack-file-name">../</span>
+      </button>}
+      {listing.entries.map((entry) => <button className="rack-file-row" key={entry.name} onClick={() => entry.type === 'directory' ? setPath(joinPath(path, entry.name)) : setSelected(joinPath(path, entry.name))}>
+        <span className="rack-file-tag">{entry.type === 'directory' ? 'DIR' : 'FILE'}</span>{' '}<span className="rack-file-name">{entry.name}</span>
+      </button>)}
+      {listing.entries.length === 0 && <p className="rack-empty">EMPTY DIRECTORY</p>}
+    </div> : <p className="rack-empty">DIRECTORY NOT FOUND</p>}
+  </section>
 }
+
+function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
+function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

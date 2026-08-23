@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { GameProvider } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
+import type { FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 
@@ -99,5 +100,58 @@ describe('Files', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /other\.bin/ }))
     expect(screen.getByText('UNSUPPORTED PACKAGE')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Files filesystem and software state', () => {
+  const withFiles = (files: FilesystemFile[]) => {
+    const state = createInitialGameState()
+    return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files } } } }
+  }
+
+  it('states an unresolved location rather than rendering nothing', () => {
+    render(<GameProvider initialState={withFiles([{ kind: 'text', id: 'file-elsewhere', path: '/srv/other.txt', content: 'x' }])}><Files /></GameProvider>)
+    expect(screen.getByText('DIRECTORY NOT FOUND')).toBeInTheDocument()
+    expect(screen.getByText('UNRESOLVED')).toBeInTheDocument()
+  })
+
+  it('derives package listing state from the Device-owned installed software', () => {
+    const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const state = withFiles([experimental])
+    const { unmount } = render(<GameProvider initialState={state}><Files /></GameProvider>)
+    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
+    unmount()
+
+    const installed = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } } }
+    render(<GameProvider initialState={installed}><Files /></GameProvider>)
+    expect(screen.getByText('INSTALLED')).toBeInTheDocument()
+    expect(screen.queryByText('INSTALLABLE')).not.toBeInTheDocument()
+  })
+
+  it('presents an inbound transfer as pending runtime rather than as a filesystem entry', () => {
+    const base = withFiles([{ kind: 'text', id: 'file-welcome', path: '/home/user/welcome.txt', content: 'hi' }])
+    const state: GameState = {
+      ...base,
+      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
+      fileTransfer: { nextId: 2, active: {
+        id: 'transfer-0001', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
+        destinationDeviceId: base.player.localDevice.id, destinationPath: '/home/user/downloads/nodescan-exp-1.1.pkg',
+        bytesTotal: 18_400_000, bytesTransferred: 13_800_000,
+      } },
+    }
+    render(<GameProvider initialState={state}><Files /></GameProvider>)
+
+    // Derived from canonical bytes, so a hardcoded percentage would fail here.
+    expect(screen.getByText(/INCOMING · 13\.8 \/ 18\.4 MB · 75%/)).toBeInTheDocument()
+    expect(screen.getByText('downloads/nodescan-exp-1.1.pkg')).toBeInTheDocument()
+    // It is not an entry: not navigable, not counted, and explicitly unwritten.
+    expect(screen.queryByRole('button', { name: /downloads\/nodescan/ })).not.toBeInTheDocument()
+    expect(screen.getByText('1 ENTRY')).toBeInTheDocument()
+    expect(screen.getByText(/not written to this filesystem until it completes/)).toBeInTheDocument()
+  })
+
+  it('shows no inbound transfer when none is represented', () => {
+    render(<GameProvider initialState={withFiles([{ kind: 'text', id: 'file-welcome', path: '/home/user/welcome.txt', content: 'hi' }])}><Files /></GameProvider>)
+    expect(screen.queryByText(/INCOMING/)).not.toBeInTheDocument()
   })
 })
