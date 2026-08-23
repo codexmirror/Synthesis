@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
+import { NODE_MINER_PROGRAM_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, SoftwarePackageFile } from '../../core/game/types'
 
@@ -24,7 +25,7 @@ export function Files() {
       <span aria-hidden="true">←</span> {path}
     </button>
     {selected?.status === 'ok'
-      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} install={actions.installLocalSoftwarePackage} />
+      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} />
       : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
   </section>
 
@@ -99,10 +100,12 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, installedSoftware, install }: {
+function FileDetails({ file, installedSoftware, install, nodeWalletAddress, runNodeMiner }: {
   file: FilesystemFile
   installedSoftware: readonly InstalledSoftware[]
   install: (path: string) => unknown
+  nodeWalletAddress: string
+  runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
 }) {
   return <div className="file-details">
     <header className="node-masthead">
@@ -118,7 +121,7 @@ function FileDetails({ file, installedSoftware, install }: {
       <pre className="file-content">{file.content}</pre>
     </section>
       : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} install={install} />
-        : <ExecutableDetails file={file} />}
+        : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} />}
   </div>
 }
 
@@ -144,15 +147,50 @@ function PackageDetails({ file, installedSoftware, install }: { file: SoftwarePa
   </section>
 }
 
-function ExecutableDetails({ file }: { file: ExecutableFile }) {
+function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner }: {
+  file: ExecutableFile
+  nodeWalletAddress: string
+  runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
+}) {
+  const supported = file.programId === NODE_MINER_PROGRAM_ID
+  const [payoutAddress, setPayoutAddress] = useState(nodeWalletAddress)
+  const [feedback, setFeedback] = useState<string>()
+
+  function run() {
+    const result = runNodeMiner(file.path, payoutAddress)
+    setFeedback(result.status === 'started' ? undefined : describeRunFailure(result))
+  }
+
   return <section className="file-kind-details">
-    <div className="node-section"><span>PROGRAM</span></div>
+    <div className="node-section"><span>PROGRAM</span>{!supported && <span className="node-chip node-chip--quiet">UNSUPPORTED</span>}</div>
     <dl className="node-facts">
       <div><dt>PROGRAM</dt><dd>{file.name} ({file.programId})</dd></div>
       <div><dt>VERSION</dt><dd>{file.version}</dd></div>
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
     </dl>
+    {supported && <div className="file-kind-actions">
+      <label className="node-field">
+        <span>PAYOUT ADDRESS</span>
+        <input
+          className="node-input"
+          value={payoutAddress}
+          onChange={(event) => setPayoutAddress(event.target.value)}
+          aria-label="NODE payout address"
+          autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </label>
+      <button className="node-action" type="button" onClick={run}>RUN</button>
+      {feedback && <p className="node-note node-note--caution">{feedback}</p>}
+    </div>}
   </section>
+}
+
+function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'started' }>): string {
+  if (result.status === 'insufficient_memory') return `INSUFFICIENT MEMORY · REQUIRES ${result.requiredMiB} MiB`
+  return result.status.toUpperCase().replaceAll('_', ' ')
 }
 
 function derivePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[]): PackageState {

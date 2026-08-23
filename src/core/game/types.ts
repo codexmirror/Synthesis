@@ -29,14 +29,17 @@ export type CredentialAccessResult =
   | { readonly status: 'access_established'; readonly accessId: string }
   | { readonly status: 'attempt_failed'; readonly message: 'Target no longer responds as expected.' }
 
-interface ProcessBase {
+interface ProcessCommon {
   readonly id: string
   readonly label: string
   readonly executorDeviceId: string
+  readonly ramRequiredMiB: number
+}
+
+interface ProcessBase extends ProcessCommon {
   readonly status: 'running' | 'completed'
   readonly workRequired: number
   readonly workCompleted: number
-  readonly ramRequiredMiB: number
 }
 
 export interface GenericProcess extends ProcessBase { readonly kind: 'generic' }
@@ -60,7 +63,28 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly result?: CredentialAccessResult
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess
+/**
+ * Continuous Device-owned executable runtime. Unlike the finite GameProcess
+ * kinds above, it never reaches `completed` from elapsed work: STOP removes
+ * it directly rather than transitioning it through a finished state.
+ * `workRemainder` is fractional allocated compute-seconds not yet converted
+ * to whole NODE; that conversion and Wallet credit are a distinct concern
+ * (see `resolveNodeMinerProduction` in `nodeMiner.ts`) so production and
+ * credit remain observably separate events.
+ */
+export interface NodeMinerProcess extends ProcessCommon {
+  readonly kind: 'node_miner'
+  readonly status: 'running'
+  readonly programId: 'node-miner'
+  readonly releaseId: string
+  /** Configured explicitly at RUN. Not Player, Device, or Wallet identity. */
+  readonly payoutAddress: string
+  readonly producedNode: number
+  readonly creditedNode: number
+  readonly workRemainder: number
+}
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | NodeMinerProcess
 
 export interface ProcessState {
   readonly nextId: number
@@ -159,6 +183,18 @@ export interface LocalDeviceState {
 
 export interface WalletState {
   readonly balance: number
+}
+
+/**
+ * Represented local NODE economic entity. Deliberately separate from
+ * `WalletState`: NODE and Dollar are independent canonical economic
+ * concerns (see ARCHITECTURE.md A18). `address` is a mutable-shaped
+ * addressing attribute, not stable Wallet identity.
+ */
+export interface NodeWalletState {
+  readonly id: string
+  readonly address: string
+  readonly balanceNode: number
 }
 
 export interface NetworkHost {
@@ -330,6 +366,7 @@ export interface GameState {
   readonly version: number
   readonly player: PlayerState
   readonly wallet: WalletState
+  readonly nodeWallet: NodeWalletState
   readonly world: WorldState
   readonly process: ProcessState
   readonly knowledge: KnowledgeState

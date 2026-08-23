@@ -2,6 +2,7 @@ import { advanceProcesses } from './processes'
 import { resolveCompletedServiceAnalysis } from './serviceAnalysis'
 import { resolveCompletedCredentialAccess } from './credentialAccess'
 import { advanceFileTransfer } from './fileTransfer'
+import { resolveNodeMinerProduction } from './nodeMiner'
 import type { GameState } from './types'
 
 /**
@@ -34,7 +35,9 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
       }
       return resolved.process
     })
-    nextState = { ...nextState, process: { ...processState, processes }, knowledge: discoveries === nextState.knowledge.discoveredVulnerabilities ? nextState.knowledge : { discoveredVulnerabilities: discoveries }, deviceAccess, world }
+    // Continuous NODE Miner production and Wallet credit are resolved every advancement step, not only at completion.
+    const mined = resolveNodeMinerProduction({ ...processState, processes }, nextState.nodeWallet)
+    nextState = { ...nextState, process: mined.processState, nodeWallet: mined.nodeWallet, knowledge: discoveries === nextState.knowledge.discoveredVulnerabilities ? nextState.knowledge : { discoveredVulnerabilities: discoveries }, deviceAccess, world }
   }
 
   return advanceFileTransfer(nextState, elapsedMs)

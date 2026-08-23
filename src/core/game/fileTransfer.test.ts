@@ -440,7 +440,9 @@ describe('interaction with Process runtime', () => {
     const combined: GameState = { ...started.state, process: withProcess.state }
 
     const advanced = advanceGameState(combined, 1_000)
-    expect(advanced.process.processes[0].workCompleted).toBeGreaterThan(0)
+    const process = advanced.process.processes[0]
+    if (process.kind === 'node_miner') throw new Error('unexpected node_miner process')
+    expect(process.workCompleted).toBeGreaterThan(0)
     expect(advanced.fileTransfer.active?.bytesTransferred).toBeGreaterThan(0)
   })
 

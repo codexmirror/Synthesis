@@ -11,6 +11,7 @@ import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemo
 import { findInstalledNodeScan } from '../core/game/software'
 import { cancelFileTransfer, startRemoteFileDownload, type CancelFileTransferResult, type StartRemoteFileDownloadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } from '../core/game/softwareInstallation'
+import { startNodeMiner, stopNodeMiner, type StartNodeMinerResult, type StopNodeMinerResult } from '../core/game/nodeMiner'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -27,6 +28,8 @@ export interface GameActions {
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
   cancelFileTransfer(transferId: string): CancelFileTransferResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
+  runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
+  stopNodeMiner(processId: string): StopNodeMinerResult
   clearCompletedProcesses(): void
   removeCompletedProcess(processId: string): void
 }
@@ -112,6 +115,20 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, installLocalSoftwarePackage(path) {
     const result = installLocalSoftwarePackage(currentState.current, path)
     if (result.status === 'installed') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, runNodeMiner(sourceFilePath, payoutAddress) {
+    const result = startNodeMiner(currentState.current, sourceFilePath, payoutAddress)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, stopNodeMiner(processId) {
+    const result = stopNodeMiner(currentState.current, processId)
+    if (result.status === 'stopped') {
       currentState.current = result.state
       setGameState(result.state)
     }

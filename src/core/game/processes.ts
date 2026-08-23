@@ -1,4 +1,11 @@
-import type { GameProcess, HardwareState, ProcessState, RuntimeState } from './types'
+import type { GameProcess, HardwareState, NodeMinerProcess, ProcessState, RuntimeState } from './types'
+
+/** Finite work: reaches `completed` from accumulated work. Excludes the continuous NodeMinerProcess kind. */
+type FiniteProcess = Exclude<GameProcess, NodeMinerProcess>
+
+function isFiniteWork(process: GameProcess): process is FiniteProcess {
+  return process.kind !== 'node_miner'
+}
 
 export interface ProcessExecutor {
   readonly id: string
@@ -75,6 +82,17 @@ export function advanceProcesses(state: ProcessState, executors: readonly Proces
   return changed ? { ...state, processes } : state
 }
 
+/**
+ * Advances every process an executor owns through one shared segmented CPU
+ * allocation. A segment ends the moment a finite process would complete,
+ * since completion changes how many processes share the executor's compute
+ * from that instant onward; a continuous process (NodeMinerProcess) never
+ * ends a segment on its own; it simply accumulates its exact fractional
+ * share of allocated compute into `workRemainder` for every segment it
+ * participates in, never rounded. This is the same loop and the same
+ * per-segment rate for finite and continuous work, so both observe
+ * identical contention: there is no second scheduler for continuous work.
+ */
 function advanceExecutorProcesses(processes: readonly GameProcess[], executor: ProcessExecutor, elapsedMs: number): readonly GameProcess[] {
   if (!processes.some((process) => process.status === 'running' && process.executorDeviceId === executor.id)) return processes
   const availableCompute = executor.hardware.cpu.computeCapacity * Math.max(0, 1 - executor.runtime.baselineCpuLoad / 100)
@@ -85,12 +103,14 @@ function advanceExecutorProcesses(processes: readonly GameProcess[], executor: P
     const running = next.filter((process) => process.status === 'running' && process.executorDeviceId === executor.id)
     if (!running.length) break
     const rate = availableCompute / running.length
-    const toCompletion = Math.min(...running.map((process) => (process.workRequired - process.workCompleted) / rate))
+    const finiteRunning = running.filter(isFiniteWork)
+    const toCompletion = finiteRunning.length ? Math.min(...finiteRunning.map((process) => (process.workRequired - process.workCompleted) / rate)) : Infinity
     const step = Math.min(remainingSeconds, toCompletion)
-    next = next.map((process) => process.status !== 'running' || process.executorDeviceId !== executor.id ? process : {
-      ...process,
-      workCompleted: Math.min(process.workRequired, process.workCompleted + rate * step),
-      status: process.workCompleted + rate * step >= process.workRequired - 1e-9 ? 'completed' : 'running',
+    next = next.map((process) => {
+      if (process.status !== 'running' || process.executorDeviceId !== executor.id) return process
+      if (!isFiniteWork(process)) return { ...process, workRemainder: process.workRemainder + rate * step }
+      const workCompleted = Math.min(process.workRequired, process.workCompleted + rate * step)
+      return { ...process, workCompleted, status: workCompleted >= process.workRequired - 1e-9 ? 'completed' : 'running' }
     })
     remainingSeconds -= step
     if (step <= 1e-10) break
