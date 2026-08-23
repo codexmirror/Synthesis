@@ -19,11 +19,11 @@ export function deriveEffectiveTransferRateBytesPerSecond(
   source: Readonly<NetworkTransferCapacity>,
   destination: Readonly<NetworkTransferCapacity>,
 ): number {
-  if (!isValidCapacityValue(source.uploadBytesPerSecond)) {
-    throw new RangeError('Source upload capacity must be a finite value greater than zero')
+  if (!isValidNetworkTransferCapacity(source)) {
+    throw new RangeError('Source capacity must have finite upload and download values greater than zero')
   }
-  if (!isValidCapacityValue(destination.downloadBytesPerSecond)) {
-    throw new RangeError('Destination download capacity must be a finite value greater than zero')
+  if (!isValidNetworkTransferCapacity(destination)) {
+    throw new RangeError('Destination capacity must have finite upload and download values greater than zero')
   }
   return Math.min(source.uploadBytesPerSecond, destination.downloadBytesPerSecond)
 }

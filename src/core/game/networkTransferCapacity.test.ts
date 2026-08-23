@@ -89,6 +89,20 @@ describe('deriveEffectiveTransferRateBytesPerSecond', () => {
     expect(isValidNetworkTransferCapacity({ uploadBytesPerSecond: Number.POSITIVE_INFINITY, downloadBytesPerSecond: 1 })).toBe(false)
   })
 
+  it('rejects a capacity object as a whole, including an invalid field the current direction does not consume', () => {
+    const validDestination = { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 2_097_152 }
+    expect(() => deriveEffectiveTransferRateBytesPerSecond(
+      { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: Number.NaN },
+      validDestination,
+    )).toThrow(RangeError)
+
+    const validSource = { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 }
+    expect(() => deriveEffectiveTransferRateBytesPerSecond(
+      validSource,
+      { uploadBytesPerSecond: 0, downloadBytesPerSecond: 2_097_152 },
+    )).toThrow(RangeError)
+  })
+
   it('does not depend on IP, Device ID, Session, file kind, filename, or Process state; only the two capacity values', () => {
     expect(deriveEffectiveTransferRateBytesPerSecond(
       { uploadBytesPerSecond: 4_000_000, downloadBytesPerSecond: 1 },

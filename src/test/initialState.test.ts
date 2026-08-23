@@ -28,7 +28,7 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 17', () => {
+  it('separates identities and seeds canonical local-device state in schema version 18', () => {
     const state = createInitialGameState()
     expect(GAME_STATE_VERSION).toBe(18)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
