@@ -1,7 +1,6 @@
-import { advanceProcesses, startProcess } from './processes'
+import { startProcess } from './processes'
 import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
-import { resolveCompletedCredentialAccess } from './credentialAccess'
 
 export const SERVICE_ANALYSIS_WORK_REQUIRED = 1000
 export const SERVICE_ANALYSIS_RAM_REQUIRED_MIB = 768
@@ -69,7 +68,8 @@ export function startServiceAnalysisFromObservation(state: GameState, observed: 
   return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId)
 }
 
-function resolveCompletedAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
+/** Owned by Service Analysis: resolves finished work against current world truth exactly once. */
+export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
   if (!current.online || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
   const vulnerabilities = current.service.vulnerabilities ?? []
@@ -79,26 +79,4 @@ function resolveCompletedAnalysis(state: GameState, process: ServiceAnalysisProc
     process: { ...process, result: { status: 'weaknesses_detected', vulnerabilities: found } },
     discoveries: found.map(({ vulnerabilityId, observedLabel }) => ({ vulnerabilityId, observedLabel, targetDeviceId: process.targetDeviceId, serviceId: process.serviceId })),
   }
-}
-
-/** Canonical advancement boundary: finished concrete work is resolved exactly once against current world truth. */
-export function advanceGameState(state: GameState, elapsedMs: number): GameState {
-  const processState = advanceProcesses(state.process, state.player.localDevice.hardware, state.player.localDevice.runtime, elapsedMs)
-  if (processState === state.process) return state
-  let discoveries = state.knowledge.discoveredVulnerabilities
-  let deviceAccess = state.deviceAccess
-  const processes = processState.processes.map((process) => {
-    if (process.kind === 'credential_access' && process.status === 'completed' && !process.result) {
-      const resolved = resolveCompletedCredentialAccess({ ...state, deviceAccess }, process)
-      deviceAccess = resolved.deviceAccess
-      return resolved.process
-    }
-    if (process.kind !== 'service_analysis' || process.status !== 'completed' || process.result) return process
-    const resolved = resolveCompletedAnalysis(state, process)
-    for (const discovery of resolved.discoveries) {
-      if (!discoveries.some((known) => known.vulnerabilityId === discovery.vulnerabilityId && known.targetDeviceId === discovery.targetDeviceId && known.serviceId === discovery.serviceId)) discoveries = [...discoveries, discovery]
-    }
-    return resolved.process
-  })
-  return { ...state, process: { ...processState, processes }, knowledge: discoveries === state.knowledge.discoveredVulnerabilities ? state.knowledge : { discoveredVulnerabilities: discoveries }, deviceAccess }
 }

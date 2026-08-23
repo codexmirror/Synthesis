@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { advanceGameState, SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from './serviceAnalysis'
+import { SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from './serviceAnalysis'
+import { advanceGameState } from './gameAdvancement'
 import { clearCompletedProcesses, deriveResourceUsage } from './processes'
 import type { GameProcess, ServiceAnalysisProcess } from './types'
 import { scanNetworkTarget } from './scan'

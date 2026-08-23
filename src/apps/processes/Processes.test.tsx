@@ -5,7 +5,8 @@ import { createInitialGameState } from '../../core/game/initialState'
 import type { GameState } from '../../core/game/types'
 import { appEntries, appRegistry } from '../../shell/appRegistry'
 import { Processes } from './Processes'
-import { advanceGameState, startServiceAnalysis } from '../../core/game/serviceAnalysis'
+import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
+import { advanceGameState } from '../../core/game/gameAdvancement'
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 const withProcesses = (): GameState => ({ ...createInitialGameState(), process: { nextId: 3, processes: [
