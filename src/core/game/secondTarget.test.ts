@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { scanNetworkTarget } from './scan'
 import { rememberScan } from './discovery'
-import { advanceGameState, startServiceAnalysis } from './serviceAnalysis'
+import { advanceGameState, startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, resolveActiveRemoteTarget } from './remoteSession'
 import { downloadRemoteFile } from './remoteDownload'
@@ -40,7 +40,7 @@ function discoverAndCredentialAccess(state: GameState, target: TargetFixture): G
   discovery = rememberScan(discovery, scanNetworkTarget(targets, target.ip), state.player.localDevice.id)
   let current: GameState = { ...state, discovery }
 
-  const analysis = startServiceAnalysis(current, target.id, target.serviceId)
+  const analysis = startServiceAnalysisFromObservation(current, { endpoint: target.endpoint, targetDeviceId: target.id, serviceId: target.serviceId })
   if (analysis.status !== 'started') throw new Error(`analysis: ${analysis.status}`)
   current = advanceGameState(analysis.state, 20_000)
 
@@ -123,7 +123,7 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     expect(resolveActiveRemoteTarget(connectedB)?.target.id).toBe(TARGET_B.id)
   })
 
-  it("downloading from B copies B's selected artifact, never A's, and the reverse also holds", () => {
+  it("downloading from B copies B's selected artifact, never A's, and both concrete local copies persist together with distinct IDs", () => {
     let state = createInitialGameState()
     state = discoverAndCredentialAccess(state, TARGET_A)
     state = discoverAndCredentialAccess(state, TARGET_B)
@@ -131,18 +131,29 @@ describe('Second interactive target (srv-02 / host-lan-002)', () => {
     const connectedA = connectTo(state, TARGET_A)
     const downloadedA = downloadRemoteFile(connectedA, TARGET_A.filePath)
     if (downloadedA.status !== 'downloaded') throw new Error('expected download from A')
-    const copyFromA = downloadedA.state.player.localDevice.filesystem.files.find((file) => file.path === downloadedA.destinationPath)
-    expect(copyFromA).toMatchObject({ content: TARGET_A.fileContent })
-    expect(copyFromA).not.toMatchObject({ content: TARGET_B.fileContent })
 
-    const disconnected = disconnectRemoteSession(connectedA).state
+    // Continue from the state the successful download from A actually produced,
+    // rather than re-deriving a disconnect from before the download happened.
+    const disconnected = disconnectRemoteSession(downloadedA.state).state
     const connectedB = connectTo(disconnected, TARGET_B)
     const downloadedB = downloadRemoteFile(connectedB, TARGET_B.filePath)
     if (downloadedB.status !== 'downloaded') throw new Error('expected download from B')
-    const copyFromB = downloadedB.state.player.localDevice.filesystem.files.find((file) => file.path === downloadedB.destinationPath)
+
+    const finalFiles = downloadedB.state.player.localDevice.filesystem.files
+    const copyFromA = finalFiles.find((file) => file.path === downloadedA.destinationPath)
+    const copyFromB = finalFiles.find((file) => file.path === downloadedB.destinationPath)
+
+    // Both concrete downloaded copies coexist in the final local filesystem.
+    expect(copyFromA).toMatchObject({ content: TARGET_A.fileContent })
     expect(copyFromB).toMatchObject({ content: TARGET_B.fileContent })
+    expect(copyFromA).not.toMatchObject({ content: TARGET_B.fileContent })
     expect(copyFromB).not.toMatchObject({ content: TARGET_A.fileContent })
     expect(copyFromA?.path).not.toBe(copyFromB?.path)
+
+    // Their concrete local file-copy identities are distinct and were both allocated.
+    expect(copyFromA?.id).toBeDefined()
+    expect(copyFromB?.id).toBeDefined()
+    expect(copyFromA?.id).not.toBe(copyFromB?.id)
   })
 
   it('rejects credential access and CONNECT to B using knowledge and access proven only against A', () => {
