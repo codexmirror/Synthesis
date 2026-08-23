@@ -6,7 +6,7 @@ export const installCommand: TerminalCommand = {
     if (args.length !== 1) return { type: 'output', lines: ['Usage: install <local-absolute-file-path>'] }
     const result = context.operations.installLocalSoftwarePackage(args[0])
     switch (result.status) {
-      case 'installed': return { type: 'output', lines: ['INSTALLED', result.productId === 'nodescan' ? `${result.name} ${result.version} ${titleCase(result.channel)}` : `${result.name} ${result.version}`] }
+      case 'installed': return { type: 'output', lines: ['INSTALLED', `${result.name} ${result.version} ${titleCase(result.channel)}`] }
       case 'already_installed': return { type: 'output', lines: ['ALREADY INSTALLED'] }
       case 'invalid_path': return { type: 'output', lines: ['INVALID PATH'] }
       case 'package_not_found': return { type: 'output', lines: ['FILE NOT FOUND'] }

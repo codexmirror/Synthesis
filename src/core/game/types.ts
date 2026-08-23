@@ -68,9 +68,10 @@ export interface CredentialAccessProcess extends ProcessBase {
  * kinds above, it never reaches `completed` from elapsed work: STOP removes
  * it directly rather than transitioning it through a finished state.
  * `workRemainder` is fractional allocated compute-seconds not yet converted
- * to whole NODE; that conversion and Wallet credit are a distinct concern
- * (see `resolveNodeMinerProduction` in `nodeMiner.ts`) so production and
- * credit remain observably separate events.
+ * to whole NODE; that conversion and the routing of produced NODE to
+ * represented economic recipients are a distinct concern (see
+ * `resolveNodeMinerProduction` in `nodeMiner.ts`) so production and payout
+ * remain observably separate events.
  */
 export interface NodeMinerProcess extends ProcessCommon {
   readonly kind: 'node_miner'
@@ -79,9 +80,18 @@ export interface NodeMinerProcess extends ProcessCommon {
   readonly releaseId: string
   /** Configured explicitly at RUN. Not Player, Device, or Wallet identity. */
   readonly payoutAddress: string
-  /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
+  /**
+   * Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in
+   * nodeMiner.ts. `producedNodeUnits` is gross production from this
+   * Process's own allocated compute and is never redefined downward by the
+   * running release's payout behavior; the two allocation totals below
+   * describe where that gross production was routed and always sum to it.
+   */
   readonly producedNodeUnits: number
-  readonly creditedNodeUnits: number
+  /** Cumulative gross production routed to this Process's configured `payoutAddress`. */
+  readonly payoutNodeUnits: number
+  /** Cumulative gross production diverted by the running release to its own embedded developer address. */
+  readonly developerFeeNodeUnits: number
   readonly workRemainder: number
 }
 
@@ -130,6 +140,8 @@ export interface SoftwarePackageFile {
   readonly name: string
   readonly version: string
   readonly channel: string
+  /** Provenance stated by the package itself; present only where the represented package claims one. */
+  readonly publisher?: string
   readonly sizeBytes: number
 }
 
@@ -172,6 +184,9 @@ export interface NodeMinerInstallation {
   readonly releaseId: string
   readonly name: string
   readonly version: string
+  readonly channel: string
+  /** Provenance projected from the installed package; absent when that package claimed none. */
+  readonly publisher?: string
 }
 
 export type InstalledSoftware = NodeScanInstallation | BasicCredentialToolkitInstallation | NodeMinerInstallation
@@ -194,6 +209,26 @@ export interface WalletState {
 }
 
 /**
+ * One record of NODE that actually reached the local Wallet. It is the
+ * Wallet's own truth about what it received, not a transaction ledger, a
+ * transfer network record, or a view of the payer's behavior: it never
+ * describes where the rest of a payer's production went.
+ */
+export interface NodeWalletActivityRecord {
+  /** Deterministic per-Wallet record identity and ordering. */
+  readonly id: string
+  readonly kind: 'mining_payout'
+  /** Canonical integer atomic NODE units actually received by this Wallet. */
+  readonly amountNodeUnits: number
+}
+
+export interface NodeWalletActivityState {
+  /** Per-Wallet monotonic record identity; never rewinds even as old records are evicted. */
+  readonly nextId: number
+  readonly records: readonly NodeWalletActivityRecord[]
+}
+
+/**
  * Represented local NODE economic entity. Deliberately separate from
  * `WalletState`: NODE and Dollar are independent canonical economic
  * concerns (see ARCHITECTURE.md A18). `address` is a mutable-shaped
@@ -204,6 +239,31 @@ export interface NodeWalletState {
   readonly address: string
   /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
   readonly balanceNodeUnits: number
+  /** Bounded history of NODE this Wallet actually received. */
+  readonly activity: NodeWalletActivityState
+}
+
+/**
+ * A represented NODE economic recipient other than the player's local
+ * Wallet, so that NODE routed away from that Wallet reaches somewhere real
+ * instead of disappearing. Stable `id` is its identity; `address` is a
+ * mutable addressing attribute (ARCHITECTURE.md A18).
+ */
+export interface NodeAccount {
+  readonly id: string
+  readonly address: string
+  /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
+  readonly balanceNodeUnits: number
+}
+
+/**
+ * The represented NODE economic recipients that exist besides the local
+ * Wallet. It is deliberately only a small collection of concrete accounts:
+ * not a ledger, blockchain, transaction network, address registry, or
+ * economy framework.
+ */
+export interface NodeEconomyState {
+  readonly accounts: readonly NodeAccount[]
 }
 
 export interface NetworkHost {
@@ -376,6 +436,7 @@ export interface GameState {
   readonly player: PlayerState
   readonly wallet: WalletState
   readonly nodeWallet: NodeWalletState
+  readonly nodeEconomy: NodeEconomyState
   readonly world: WorldState
   readonly process: ProcessState
   readonly knowledge: KnowledgeState

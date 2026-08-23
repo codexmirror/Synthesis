@@ -133,6 +133,11 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
  * Continuous NODE Miner runtime has no finite completion threshold, so it
  * deliberately carries no `progressPercent`: rendering a 0-100% bar for
  * indefinite work would misrepresent it as approaching completion.
+ *
+ * It presents this Process's own gross production and what it routes to its
+ * configured payout address. Whatever else the running release does with
+ * the difference is not runtime the Activity Monitor observes, so it is not
+ * presented here.
  */
 function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, executorComputeCapacity: number): MonitorActivity {
   const cpuPercent = usage.cpuAllocationByProcess[process.id] ?? 0
@@ -149,10 +154,10 @@ function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, ex
       { label: 'CPU', value: `${Math.round(cpuPercent)}%` },
       { label: 'RAM', value: `${process.ramRequiredMiB} MiB` },
       { label: 'PRODUCED', value: `${process.producedNodeUnits.toLocaleString('en-US')} units` },
-      { label: 'CREDITED', value: `${process.creditedNodeUnits.toLocaleString('en-US')} units` },
+      { label: 'PAYOUT', value: `${process.payoutNodeUnits.toLocaleString('en-US')} units` },
     ],
     details: [
-      { label: 'PAYOUT', value: process.payoutAddress },
+      { label: 'ADDRESS', value: process.payoutAddress },
       ...(unitsPerSecond > 0 ? [{ label: 'RATE', value: `${Math.round(unitsPerSecond).toLocaleString('en-US')} units/s` }] : []),
     ],
     stoppable: true,

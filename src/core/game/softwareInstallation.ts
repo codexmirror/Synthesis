@@ -4,7 +4,7 @@ import type { ExecutableFile, GameState, NodeScanInstallation, SoftwarePackageFi
 
 export type InstallLocalSoftwarePackageResult =
   | { readonly status: 'installed'; readonly state: GameState; readonly productId: 'nodescan'; readonly releaseId: string; readonly name: string; readonly version: string; readonly channel: string; readonly previousReleaseId?: string }
-  | { readonly status: 'installed'; readonly state: GameState; readonly productId: 'node-miner'; readonly releaseId: string; readonly name: string; readonly version: string; readonly executablePath: string; readonly previousReleaseId?: string }
+  | { readonly status: 'installed'; readonly state: GameState; readonly productId: 'node-miner'; readonly releaseId: string; readonly name: string; readonly version: string; readonly channel: string; readonly publisher?: string; readonly executablePath: string; readonly previousReleaseId?: string }
   | { readonly status: 'already_installed' | 'invalid_path' | 'package_not_found' | 'package_not_file' | 'not_software_package' | 'unsupported_package' | 'install_path_occupied'; readonly state: GameState }
 
 /** Install one represented package from the player's current local Device filesystem. */
@@ -73,7 +73,8 @@ function installNodeMinerPackage(state: GameState, packageFile: SoftwarePackageF
     sizeBytes: NODE_MINER_EXECUTABLE_SIZE_BYTES,
   }
 
-  const installation = { id: 'node-miner' as const, releaseId: packageFile.releaseId, name: packageFile.name, version: packageFile.version }
+  // Installed-software state keeps the package's own stated provenance (release channel and publisher) rather than presenting every installed product as first-party.
+  const installation = { id: 'node-miner' as const, releaseId: packageFile.releaseId, name: packageFile.name, version: packageFile.version, channel: packageFile.channel, ...(packageFile.publisher ? { publisher: packageFile.publisher } : {}) }
   const nextInstalledSoftware = existingIndex === -1
     ? [...installedSoftware, installation]
     : installedSoftware.map((software, index) => index === existingIndex ? installation : software)
@@ -89,5 +90,5 @@ function installNodeMinerPackage(state: GameState, packageFile: SoftwarePackageF
       },
     },
   }
-  return { status: 'installed', state: nextState, productId: 'node-miner', releaseId: installation.releaseId, name: installation.name, version: installation.version, executablePath: executable.path, ...(existing ? { previousReleaseId: existing.releaseId } : {}) }
+  return { status: 'installed', state: nextState, productId: 'node-miner', releaseId: installation.releaseId, name: installation.name, version: installation.version, channel: installation.channel, ...(installation.publisher ? { publisher: installation.publisher } : {}), executablePath: executable.path, ...(existing ? { previousReleaseId: existing.releaseId } : {}) }
 }
