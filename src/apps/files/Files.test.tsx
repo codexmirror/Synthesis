@@ -1,12 +1,14 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import type { FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 import { Processes } from '../processes/Processes'
+
+afterEach(() => vi.useRealTimers())
 
 describe('Files', () => {
   it('navigates canonical directories and presents file kinds, sizes, and executable details without future actions', async () => {
@@ -67,12 +69,13 @@ describe('Files', () => {
   })
 
   it('installs a supported local package through canonical state and derives the installed presentation on reopen', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const state = createInitialGameState()
     const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/release.bin', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing', sizeBytes: 1_000 }
     const initialState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [packageFile] } } } }
     render(<GameProvider initialState={initialState}><Files /><Terminal /></GameProvider>)
 
-    const user = userEvent.setup()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByRole('button', { name: /release\.bin/ }))
     expect(screen.getByText('SOFTWARE PACKAGE')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Canonical Scanner' })).toBeInTheDocument()
@@ -82,6 +85,13 @@ describe('Files', () => {
     expect(screen.getByText('CURRENT')).toBeInTheDocument()
     expect(screen.getByText('NodeScan 1.0 Standard')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+
+    // INSTALL admits real Process work, not instantaneous installation truth: the package state visibly transitions through INSTALLING first.
+    expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+
     expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
     expect(screen.getByText(/INSTALLED RELEASE/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Back to /home/user' }))
@@ -92,6 +102,7 @@ describe('Files', () => {
     expect(within(screen.getByRole('region', { name: 'Terminal' })).getByText('NOT A TEXT FILE')).toBeInTheDocument()
     expect(state.player.localDevice.installedSoftware[0]).toMatchObject({ name: 'NodeScan', version: '1.0', channel: 'standard' })
     expect(state.process.processes).toEqual([])
+    vi.useRealTimers()
   })
 
   it('does not expose install for an unsupported represented package', async () => {
@@ -106,9 +117,10 @@ describe('Files', () => {
 
 describe('Files NODE Miner installation', () => {
   it('installs the starting local NODE Miner package into real installed software and a concrete executable, then RUN works through it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const state = createInitialGameState()
     render(<GameProvider initialState={state}><Files /><Processes /></GameProvider>)
-    const user = userEvent.setup()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
     expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
@@ -116,6 +128,9 @@ describe('Files NODE Miner installation', () => {
     expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
+
+    await act(async () => { vi.advanceTimersByTime(20_000) })
     expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
@@ -130,6 +145,7 @@ describe('Files NODE Miner installation', () => {
     await user.click(screen.getByRole('button', { name: 'RUN' }))
     expect(within(document.querySelector('.files-app') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
     expect(within(screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
+    vi.useRealTimers()
   })
 })
 
@@ -235,6 +251,21 @@ describe('Files filesystem and software state', () => {
     render(<GameProvider initialState={installed}><Files /></GameProvider>)
     expect(screen.getByText('INSTALLED')).toBeInTheDocument()
     expect(screen.queryByText('INSTALLABLE')).not.toBeInTheDocument()
+  })
+
+  it('shows INSTALLING while a real installation Process runs and disables duplicate admission for that product', () => {
+    const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const base = withFiles([experimental])
+    const running: GameState = {
+      ...base,
+      process: { nextId: 2, processes: [
+        { kind: 'software_installation', id: 'process-0001', label: 'SOFTWARE INSTALLATION', executorDeviceId: base.player.localDevice.id, status: 'running', workRequired: 600, workCompleted: 100, ramRequiredMiB: 256, productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+      ] },
+    }
+    render(<GameProvider initialState={running}><Files /></GameProvider>)
+    expect(screen.getByText('INSTALLING')).toBeInTheDocument()
+    expect(screen.queryByText('INSTALLABLE')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /nodescan\.pkg/ }))
   })
 
   it('presents an inbound transfer as pending runtime rather than as a filesystem entry', () => {

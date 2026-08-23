@@ -1,7 +1,7 @@
 import { NODE_MINER_1_0_CHANNEL, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, NODE_MINER_1_0_PUBLISHER } from './nodeMiner'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 31
+export const GAME_STATE_VERSION = 32
 
 export function createInitialGameState(): GameState {
   return {

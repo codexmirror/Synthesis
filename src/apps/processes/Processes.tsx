@@ -6,7 +6,7 @@ import { ACTIVITY_FILTERS, deriveActivityMonitor, filterActivities, type Activit
 
 const EMPTY_STATE: Record<ActivityFilterId, { headline: string; note: string }> = {
   all: { headline: 'SYSTEM IDLE', note: 'No operation or transfer is currently running.' },
-  operations: { headline: 'NO RUNNING OPERATIONS', note: 'Service Analysis and Credential Access appear here while they run.' },
+  operations: { headline: 'NO RUNNING OPERATIONS', note: 'Service Analysis, Credential Access, and Software Installation appear here while they run.' },
   transfers: { headline: 'NO ACTIVE TRANSFER', note: 'No transfer is currently running.' },
 }
 

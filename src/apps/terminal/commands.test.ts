@@ -108,9 +108,9 @@ describe('command dispatcher', () => {
   })
   it('dispatches clear as a structured result', () => expect(dispatch('clear')).toEqual({ type: 'clear' }))
   it('delegates install through the shared narrow operation and presents canonical results', () => {
-    const installLocalSoftwarePackage = vi.fn(() => ({ status: 'installed' as const, productId: 'nodescan' as const, releaseId: 'opaque', name: 'Canonical Scanner', version: '1.1', channel: 'experimental' }))
+    const installLocalSoftwarePackage = vi.fn(() => ({ status: 'started' as const, processId: 'process-0001', productId: 'nodescan' as const, name: 'Canonical Scanner', version: '1.1', channel: 'experimental' }))
     const installContext = { ...context, operations: { ...context.operations, installLocalSoftwarePackage } }
-    expect(dispatchCommand(parseCommand('install /home/user/package.bin'), installContext)).toEqual({ type: 'output', lines: ['INSTALLED', 'Canonical Scanner 1.1 Experimental'] })
+    expect(dispatchCommand(parseCommand('install /home/user/package.bin'), installContext)).toEqual({ type: 'output', lines: ['INSTALLING', 'Canonical Scanner 1.1 Experimental', 'PROCESS process-0001'] })
     expect(installLocalSoftwarePackage).toHaveBeenCalledExactlyOnceWith('/home/user/package.bin')
     expect(dispatchCommand(parseCommand('install'), installContext)).toEqual({ type: 'output', lines: ['Usage: install <local-absolute-file-path>'] })
   })

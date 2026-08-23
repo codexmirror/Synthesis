@@ -316,27 +316,29 @@ describe('NODE Miner CLI availability', () => {
     expect(findNodeMinerExecutable(base.player.localDevice.filesystem)).toBeUndefined()
   })
 
-  it('becomes available only once the package is installed, producing the deterministic executable at the installed path', () => {
+  it('becomes available only once the installation Process completes, producing the deterministic executable at the installed path', () => {
     const base = createInitialGameState()
-    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
-    if (installed.status !== 'installed') throw new Error(installed.status)
-    expect(isNodeMinerAvailable(installed.state.player.localDevice)).toBe(true)
-    const executable = findNodeMinerExecutable(installed.state.player.localDevice.filesystem)
+    const started = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (started.status !== 'started') throw new Error(started.status)
+    expect(isNodeMinerAvailable(started.state.player.localDevice)).toBe(false)
+    const done = advanceGameState(started.state, 20_000)
+    expect(isNodeMinerAvailable(done.player.localDevice)).toBe(true)
+    const executable = findNodeMinerExecutable(done.player.localDevice.filesystem)
     expect(executable?.path).toBe(NODE_MINER_INSTALLED_EXECUTABLE_PATH)
-    expect(installed.state.process.processes).toHaveLength(0)
   })
 
   it('becomes unavailable again, without conjuring the Process, once the installed executable is deleted', () => {
     const base = createInitialGameState()
-    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
-    if (installed.status !== 'installed') throw new Error(installed.status)
+    const started = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (started.status !== 'started') throw new Error(started.status)
+    const installed = advanceGameState(started.state, 20_000)
     const withoutExecutable: GameState = {
-      ...installed.state,
+      ...installed,
       player: {
-        ...installed.state.player,
+        ...installed.player,
         localDevice: {
-          ...installed.state.player.localDevice,
-          filesystem: { ...installed.state.player.localDevice.filesystem, files: installed.state.player.localDevice.filesystem.files.filter((file) => file.path !== NODE_MINER_INSTALLED_EXECUTABLE_PATH) },
+          ...installed.player.localDevice,
+          filesystem: { ...installed.player.localDevice.filesystem, files: installed.player.localDevice.filesystem.files.filter((file) => file.path !== NODE_MINER_INSTALLED_EXECUTABLE_PATH) },
         },
       },
     }
@@ -368,9 +370,10 @@ describe('unofficial NODE Miner 1.0 payout behavior', () => {
     const packageFile = base.player.localDevice.filesystem.files.find((file) => file.kind === 'software_package' && file.productId === 'node-miner')
     expect(packageFile).toMatchObject({ kind: 'software_package', channel: 'unofficial', publisher: 'nm-dev' })
 
-    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
-    if (installed.status !== 'installed') throw new Error(installed.status)
-    expect(installed.state.player.localDevice.installedSoftware).toContainEqual({
+    const started = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (started.status !== 'started') throw new Error(started.status)
+    const installed = advanceGameState(started.state, 20_000)
+    expect(installed.player.localDevice.installedSoftware).toContainEqual({
       id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev',
     })
   })

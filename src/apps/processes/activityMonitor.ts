@@ -118,12 +118,14 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
   if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity, recent)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
+  const titleLabel = process.kind === 'generic' ? undefined : process.kind === 'software_installation' ? 'PACKAGE' : 'TARGET'
+  const title = process.kind === 'generic' ? process.label : process.kind === 'software_installation' ? `${process.name} ${process.version}` : process.startedEndpoint
   return {
     id: process.id,
     category: 'operation',
     kindLabel: process.kind === 'generic' ? 'PROCESS' : process.label,
-    titleLabel: process.kind === 'generic' ? undefined : 'TARGET',
-    title: process.kind === 'generic' ? process.label : process.startedEndpoint,
+    titleLabel,
+    title,
     status: recent ? 'recent' : 'running',
     progressPercent,
     facts: [
@@ -186,6 +188,10 @@ function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[
       return { tone: 'positive', headline: 'ACCESS ESTABLISHED', details: established ? [`${established.privilege} PRIVILEGE`] : [] }
     }
     if (process.result?.status === 'attempt_failed') return { tone: 'negative', headline: 'ATTEMPT FAILED', details: [process.result.message] }
+  }
+  if (process.kind === 'software_installation') {
+    if (process.result?.status === 'installed') return { tone: 'positive', headline: 'INSTALLED', details: [] }
+    if (process.result?.status === 'install_path_occupied') return { tone: 'negative', headline: 'INSTALLATION PATH OCCUPIED', details: [] }
   }
   return undefined
 }
