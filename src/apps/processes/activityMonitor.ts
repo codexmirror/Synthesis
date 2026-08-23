@@ -1,7 +1,7 @@
 import { resolveFileTransferSource } from '../../core/game/fileTransfer'
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
-import { NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
+import { NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
 import type { DeviceAccess, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess } from '../../core/game/types'
 import { formatByteProgress, formatTransferRate } from '../byteFormat'
 
@@ -154,7 +154,7 @@ function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, ex
       { label: 'CPU', value: `${Math.round(cpuPercent)}%` },
       { label: 'RAM', value: `${process.ramRequiredMiB} MiB` },
       { label: 'PRODUCED', value: `${process.producedNodeUnits.toLocaleString('en-US')} units` },
-      { label: 'PAYOUT', value: `${process.payoutNodeUnits.toLocaleString('en-US')} units` },
+      { label: 'PENDING', value: `${(process.producedNodeUnits % NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS).toLocaleString('en-US')} / ${NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS.toLocaleString('en-US')} units` },
     ],
     details: [
       { label: 'ADDRESS', value: process.payoutAddress },

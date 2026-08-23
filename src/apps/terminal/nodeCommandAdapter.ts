@@ -5,7 +5,7 @@ import { parseCommand } from './parser'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
-import { findNodeMinerExecutable, findRunningLocalNodeMiner, isNodeMinerAvailable, NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
+import { findNodeMinerExecutable, findRunningLocalNodeMiner, isNodeMinerAvailable, NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
 import type { deriveResourceUsage } from '../../core/game/processes'
 
 type ResourceUsage = ReturnType<typeof deriveResourceUsage>
@@ -117,7 +117,8 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
           ramMiB: process.ramRequiredMiB,
           payoutAddress: process.payoutAddress,
           producedUnits: process.producedNodeUnits,
-          payoutUnits: process.payoutNodeUnits,
+          pendingUnits: process.producedNodeUnits % NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS,
+          payoutBatchGrossUnits: NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS,
           ratePerSecondUnits: allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_UNIT,
         }
       },

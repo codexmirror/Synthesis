@@ -6,7 +6,7 @@ import { installLocalSoftwarePackage } from './softwareInstallation'
 import { listDirectory, readTextFile } from './filesystem'
 import {
   findNodeMinerExecutable, isNodeMinerAvailable, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS,
-  NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
+  NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT, NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
   NODE_MINER_RAM_REQUIRED_MIB, NODE_UNITS_PER_NODE, startNodeMiner, stopNodeMiner,
 } from './nodeMiner'
 import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_PATH } from './nodeMinerPayoutLog'
@@ -118,7 +118,7 @@ describe('NODE Miner execution admission', () => {
     const advanced = advanceGameState(started.state, 1000)
     expect(advanced.nodeWallet.balanceNodeUnits).toBe(0)
     expect(miner(advanced).producedNodeUnits).toBe(100)
-    expect(miner(advanced).payoutNodeUnits).toBe(90)
+    expect(miner(advanced).payoutNodeUnits).toBe(0)
   })
 
   it('rejects a duplicate RUN for the same program while one is already running on this executor', () => {
@@ -184,22 +184,22 @@ describe('NODE Miner continuous runtime and mining accounting', () => {
     const matched = run(base, base.nodeWallet.address)
     const advancedMatched = advanceGameState(matched.state, 1000)
     // The configured payout allocation, not gross production: this release keeps a tenth for itself.
-    expect(advancedMatched.nodeWallet.balanceNodeUnits).toBe(90)
+    expect(advancedMatched.nodeWallet.balanceNodeUnits).toBe(0)
     const matchedProcess = miner(advancedMatched)
     expect(matchedProcess.producedNodeUnits).toBe(100)
-    expect(matchedProcess.payoutNodeUnits).toBe(90)
+    expect(matchedProcess.payoutNodeUnits).toBe(0)
 
     const unmatched = run(readyState(), 'some-other-fictional-address')
     const advancedUnmatched = advanceGameState(unmatched.state, 1000)
     expect(advancedUnmatched.nodeWallet.balanceNodeUnits).toBe(0)
     const unmatchedProcess = miner(advancedUnmatched)
     expect(unmatchedProcess.producedNodeUnits).toBe(100)
-    expect(unmatchedProcess.payoutNodeUnits).toBe(90)
+    expect(unmatchedProcess.payoutNodeUnits).toBe(0)
   })
 
   it('never falls back to crediting the represented Wallet when the address does not match', () => {
     const unmatched = run(readyState(), 'nobody-owns-this-address')
-    const advanced = advanceGameState(unmatched.state, 5000)
+    const advanced = advanceGameState(unmatched.state, 10_000)
     expect(advanced.nodeWallet.balanceNodeUnits).toBe(0)
     expect(advanced.nodeWallet.activity.records).toHaveLength(0)
     const process = miner(advanced)
@@ -209,19 +209,19 @@ describe('NODE Miner continuous runtime and mining accounting', () => {
 
   it('never retroactively credits previously produced NODE if the Wallet address later happens to match', () => {
     const started = run(readyState(), 'unmatched-address')
-    const produced = advanceGameState(started.state, 1000)
+    const produced = advanceGameState(started.state, 10_000)
     const producedProcess = miner(produced)
-    expect(producedProcess.producedNodeUnits).toBe(100)
+    expect(producedProcess.producedNodeUnits).toBe(1000)
     expect(produced.nodeWallet.balanceNodeUnits).toBe(0)
 
     // The represented Wallet address happens to start matching the Miner's already-configured address.
     const walletNowMatches: GameState = { ...produced, nodeWallet: { ...produced.nodeWallet, address: 'unmatched-address' } }
-    const further = advanceGameState(walletNowMatches, 1000)
+    const further = advanceGameState(walletNowMatches, 10_000)
     const furtherProcess = miner(further)
     // Only the newly allocated payout from this next interval may credit; the earlier allocation stays uncredited forever.
-    expect(furtherProcess.producedNodeUnits).toBe(200)
-    expect(furtherProcess.payoutNodeUnits).toBe(180)
-    expect(further.nodeWallet.balanceNodeUnits).toBe(90)
+    expect(furtherProcess.producedNodeUnits).toBe(2000)
+    expect(furtherProcess.payoutNodeUnits).toBe(1340)
+    expect(further.nodeWallet.balanceNodeUnits).toBe(670)
   })
 
   it('leaves the Dollar Wallet balance completely unaffected by NODE mining', () => {
@@ -261,10 +261,10 @@ describe('NODE Miner STOP', () => {
 
   it('preserves already-credited NODE and generates no hidden final reward', () => {
     const started = run(readyState())
-    const produced = advanceGameState(started.state, 1000)
-    expect(produced.nodeWallet.balanceNodeUnits).toBe(90)
+    const produced = advanceGameState(started.state, 10_000)
+    expect(produced.nodeWallet.balanceNodeUnits).toBe(670)
     const stopped = stopNodeMiner(produced, produced.process.processes[0].id)
-    expect(stopped.state.nodeWallet.balanceNodeUnits).toBe(90)
+    expect(stopped.state.nodeWallet.balanceNodeUnits).toBe(670)
     expect(stopped.state.process.processes).toHaveLength(0)
   })
 
@@ -345,6 +345,23 @@ describe('NODE Miner CLI availability', () => {
 })
 
 describe('unofficial NODE Miner 1.0 payout behavior', () => {
+  it('keeps 999 gross units pending without creating a payout event', () => {
+    const advanced = advanceGameState(run(readyState()).state, 9_990)
+    expect(miner(advanced)).toMatchObject({ producedNodeUnits: 999, payoutNodeUnits: 0, developerFeeNodeUnits: 0 })
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(0)
+    expect(advanced.nodeWallet.activity.records).toHaveLength(0)
+    expect(payoutLog(advanced)).toBeUndefined()
+  })
+
+  it('pays two complete batches from 2,430 gross and leaves 430 pending', () => {
+    const advanced = advanceGameState(run(readyState()).state, 24_300)
+    expect(NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS).toBe(1_000)
+    expect(miner(advanced)).toMatchObject({ producedNodeUnits: 2430, payoutNodeUnits: 1340, developerFeeNodeUnits: 660 })
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(1340)
+    expect(developerBalance(advanced)).toBe(660)
+    expect(advanced.nodeWallet.activity.records.map(({ amountNodeUnits }) => amountNodeUnits)).toEqual([670, 670])
+  })
+
   it('is represented as an unofficial third-party release through its own package and installed-software provenance', () => {
     const base = createInitialGameState()
     const packageFile = base.player.localDevice.filesystem.files.find((file) => file.kind === 'software_package' && file.productId === 'node-miner')
@@ -357,18 +374,18 @@ describe('unofficial NODE Miner 1.0 payout behavior', () => {
     })
   })
 
-  it('splits real gross production into 90% configured payout and 10% embedded developer fee', () => {
+  it('splits each completed 1,000-unit batch into 670 configured payout and 330 embedded developer fee', () => {
     const started = run(readyState())
     const advanced = advanceGameState(started.state, 10_000)
     const process = miner(advanced)
-    expect(NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT).toBe(10)
+    expect(NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT).toBe(33)
     // Gross production stays derived from actual allocated compute and is never redefined downward.
     expect(process.producedNodeUnits).toBe(1000)
-    expect(process.payoutNodeUnits).toBe(900)
-    expect(process.developerFeeNodeUnits).toBe(100)
+    expect(process.payoutNodeUnits).toBe(670)
+    expect(process.developerFeeNodeUnits).toBe(330)
     expect(process.payoutNodeUnits + process.developerFeeNodeUnits).toBe(process.producedNodeUnits)
-    expect(advanced.nodeWallet.balanceNodeUnits).toBe(900)
-    expect(developerBalance(advanced)).toBe(100)
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(670)
+    expect(developerBalance(advanced)).toBe(330)
   })
 
   it('allocates identically however the same gross production is chunked across advancement calls', () => {
@@ -382,13 +399,36 @@ describe('unofficial NODE Miner 1.0 payout behavior', () => {
     expect(miner(chunked).developerFeeNodeUnits).toBe(miner(once).developerFeeNodeUnits)
     expect(chunked.nodeWallet.balanceNodeUnits).toBe(once.nodeWallet.balanceNodeUnits)
     expect(developerBalance(chunked)).toBe(developerBalance(once))
+    expect(chunked.nodeWallet.activity).toEqual(once.nodeWallet.activity)
+    expect(payoutLog(chunked)?.content).toBe(payoutLog(once)?.content)
+  })
+
+  it('credits nobody when a payout address has multiple represented recipients', () => {
+    const base = readyState()
+    const collisionAddress = base.nodeWallet.address
+    const collided: GameState = { ...base, nodeEconomy: { accounts: [...base.nodeEconomy.accounts, { id: 'node-account-collision', address: collisionAddress, balanceNodeUnits: 0 }] } }
+    const advanced = advanceGameState(run(collided, collisionAddress).state, 10_000)
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(0)
+    expect(advanced.nodeWallet.activity.records).toHaveLength(0)
+    expect(findNodeAccountByAddress(advanced.nodeEconomy, collisionAddress)?.balanceNodeUnits).toBe(0)
+  })
+
+  it('credits nobody when duplicate nodeEconomy accounts hold the payout address', () => {
+    const base = readyState()
+    const address = 'node-addr-duplicate'
+    const collided: GameState = { ...base, nodeEconomy: { accounts: [...base.nodeEconomy.accounts,
+      { id: 'node-account-collision-a', address, balanceNodeUnits: 0 },
+      { id: 'node-account-collision-b', address, balanceNodeUnits: 0 },
+    ] } }
+    const advanced = advanceGameState(run(collided, address).state, 10_000)
+    expect(advanced.nodeEconomy.accounts.filter((account) => account.address === address).map((account) => account.balanceNodeUnits)).toEqual([0, 0])
   })
 
   it('pays the developer into real represented economic state rather than presentation or log text alone', () => {
     const started = run(readyState())
     const advanced = advanceGameState(started.state, 10_000)
     const account = findNodeAccountByAddress(advanced.nodeEconomy, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS)
-    expect(account).toMatchObject({ id: 'node-account-nm-dev-v0', balanceNodeUnits: 100 })
+    expect(account).toMatchObject({ id: 'node-account-nm-dev-v0', balanceNodeUnits: 330 })
     // The developer account is a represented recipient with its own stable identity, not the local Wallet.
     expect(account?.id).not.toBe(advanced.nodeWallet.id)
     expect(account?.address).not.toBe(advanced.nodeWallet.address)
@@ -399,9 +439,9 @@ describe('unofficial NODE Miner 1.0 payout behavior', () => {
     const advanced = advanceGameState(started.state, 10_000)
     const process = miner(advanced)
     expect(process.producedNodeUnits).toBe(1000)
-    expect(process.payoutNodeUnits).toBe(900)
-    expect(process.developerFeeNodeUnits).toBe(100)
-    expect(developerBalance(advanced)).toBe(100)
+    expect(process.payoutNodeUnits).toBe(670)
+    expect(process.developerFeeNodeUnits).toBe(330)
+    expect(developerBalance(advanced)).toBe(330)
     expect(advanced.nodeWallet.balanceNodeUnits).toBe(0)
     expect(advanced.nodeWallet.activity.records).toHaveLength(0)
   })
@@ -410,8 +450,8 @@ describe('unofficial NODE Miner 1.0 payout behavior', () => {
     const base = readyState()
     const withAccount: GameState = { ...base, nodeEconomy: { accounts: [...base.nodeEconomy.accounts, { id: 'node-account-fixture', address: 'node-addr-fixture', balanceNodeUnits: 0 }] } }
     const advanced = advanceGameState(run(withAccount, 'node-addr-fixture').state, 10_000)
-    expect(findNodeAccountByAddress(advanced.nodeEconomy, 'node-addr-fixture')?.balanceNodeUnits).toBe(900)
-    expect(developerBalance(advanced)).toBe(100)
+    expect(findNodeAccountByAddress(advanced.nodeEconomy, 'node-addr-fixture')?.balanceNodeUnits).toBe(670)
+    expect(developerBalance(advanced)).toBe(330)
     expect(advanced.nodeWallet.balanceNodeUnits).toBe(0)
   })
 
@@ -419,8 +459,8 @@ describe('unofficial NODE Miner 1.0 payout behavior', () => {
     const started = run(readyState())
     const advanced = advanceGameState(advanceGameState(started.state, 10_000), 10_000)
     expect(advanced.nodeWallet.activity.records).toEqual([
-      { id: 'node-activity-0001', kind: 'mining_payout', amountNodeUnits: 900 },
-      { id: 'node-activity-0002', kind: 'mining_payout', amountNodeUnits: 900 },
+      { id: 'node-activity-0001', kind: 'mining_payout', amountNodeUnits: 670 },
+      { id: 'node-activity-0002', kind: 'mining_payout', amountNodeUnits: 670 },
     ])
     expect(advanced.nodeWallet.activity.records.reduce((sum, record) => sum + record.amountNodeUnits, 0)).toBe(advanced.nodeWallet.balanceNodeUnits)
     expect(advanced.nodeWallet.activity.nextId).toBe(3)
@@ -442,11 +482,18 @@ describe('NODE Miner payout artifact', () => {
     const log = payoutLog(advanced)
     expect(log).toBeDefined()
     expect(log?.content).toContain('gross=1000')
-    expect(log?.content).toContain('payout=900')
+    expect(log?.content).toContain('payout=670')
     expect(log?.content).toContain(`payout-address=${advanced.nodeWallet.address}`)
-    expect(log?.content).toContain('fee=100')
+    expect(log?.content).toContain('fee=330')
     expect(log?.content).toContain(`fee-address=${NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS}`)
     expect(log?.content).toContain(miner(advanced).id)
+  })
+
+  it('records only completed payout totals while unbatched production remains pending', () => {
+    const advanced = advanceGameState(run(readyState()).state, 24_300)
+    expect(payoutLog(advanced)?.content).toContain('gross=2000 payout=1340')
+    expect(payoutLog(advanced)?.content).toContain('fee=660')
+    expect(payoutLog(advanced)?.content).not.toContain('gross=2430')
   })
 
   it('rewrites one line per Miner run, so continuous mining never grows the artifact without limit', () => {
@@ -462,7 +509,7 @@ describe('NODE Miner payout artifact', () => {
     let state = readyState()
     for (let index = 0; index < NODE_MINER_PAYOUT_LOG_CAPACITY + 3; index += 1) {
       const started = run(state)
-      state = advanceGameState(started.state, 1000)
+      state = advanceGameState(started.state, 10_000)
       state = stopNodeMiner(state, started.processId).state
     }
     const lines = payoutLog(state)!.content.split('\n')
@@ -479,8 +526,8 @@ describe('NODE Miner payout artifact', () => {
     expect(stopped.process.processes).toHaveLength(0)
     expect(payoutLog(stopped)?.content).toContain('gross=1000')
     expect(stopped.nodeWallet.activity.records).toHaveLength(1)
-    expect(stopped.nodeWallet.balanceNodeUnits).toBe(900)
-    expect(developerBalance(stopped)).toBe(100)
+    expect(stopped.nodeWallet.balanceNodeUnits).toBe(670)
+    expect(developerBalance(stopped)).toBe(330)
   })
 
   it('never overwrites an unrelated Device artifact already occupying the payout-log path', () => {
@@ -496,8 +543,17 @@ describe('NODE Miner payout artifact', () => {
     const existing = advanced.player.localDevice.filesystem.files.find((file) => file.path === NODE_MINER_PAYOUT_LOG_PATH)
     expect(existing?.kind).toBe('executable')
     // The economic payouts themselves still happened.
-    expect(advanced.nodeWallet.balanceNodeUnits).toBe(900)
-    expect(developerBalance(advanced)).toBe(100)
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(670)
+    expect(developerBalance(advanced)).toBe(330)
+  })
+
+  it('never overwrites an unrelated TextFile at the payout-log path', () => {
+    const base = readyState()
+    const foreign: TextFile = { kind: 'text', id: 'file-0009', path: NODE_MINER_PAYOUT_LOG_PATH, content: 'UNRELATED LOG\nkeep this data' }
+    const occupied: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 10, files: [...base.player.localDevice.filesystem.files, foreign] } } } }
+    const advanced = advanceGameState(run(occupied).state, 10_000)
+    expect(advanced.player.localDevice.filesystem.files.find((file) => file.path === NODE_MINER_PAYOUT_LOG_PATH)).toEqual(foreign)
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(670)
   })
 })
 

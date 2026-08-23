@@ -55,7 +55,7 @@ export function recordNodeMinerPayout(filesystem: FilesystemState, record: NodeM
     return { nextFileId: filesystem.nextFileId + 1, files: [...filesystem.files, file] }
   }
 
-  if (existing.kind !== 'text') return filesystem
+  if (existing.kind !== 'text' || existing.content.split('\n')[0] !== NODE_MINER_PAYOUT_LOG_HEADER) return filesystem
   const previous = existing.content.split('\n').filter((entry) => entry && entry !== NODE_MINER_PAYOUT_LOG_HEADER)
   const runPrefix = `${record.processId} `
   const withoutRun = previous.filter((entry) => !entry.startsWith(runPrefix))

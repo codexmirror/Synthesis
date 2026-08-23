@@ -48,7 +48,7 @@ function statusSubcommand(context: CommandContext): CommandResult {
       `RAM      ${status.ramMiB} MiB`,
       `ADDRESS  ${status.payoutAddress}`,
       `PRODUCED ${status.producedUnits.toLocaleString('en-US')} units`,
-      `PAYOUT   ${status.payoutUnits.toLocaleString('en-US')} units`,
+      `PENDING  ${status.pendingUnits.toLocaleString('en-US')} / ${status.payoutBatchGrossUnits.toLocaleString('en-US')} units`,
       `RATE     ${Math.round(status.ratePerSecondUnits).toLocaleString('en-US')} units/s`,
     ],
   }
