@@ -75,29 +75,56 @@ describe('Initial credential access', () => {
     expect(done.deviceAccess.established).toEqual([{ id: 'access-0001', sourceDeviceId: 'device-local-v0', targetDeviceId: observation.targetDeviceId, viaServiceId: observation.serviceId, privilege: 'USER' }])
     expect(done.process.processes.at(-1)).toMatchObject({ status: 'completed', result: { status: 'access_established', accessId: 'access-0001' } })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
-    expect(advanceGameState(done, 30_000)).toBe(done)
+
+    const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
+    expect(target?.authenticationHistory?.records).toEqual([{ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: done.player.localDevice.network.ip, result: 'SUCCESS' }])
+
+    // Repeated advancement resolves the completed Process at most once and must never duplicate the history entry.
+    const advancedAgain = advanceGameState(done, 30_000)
+    expect(advancedAgain).toBe(done)
+    expect(advancedAgain.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory?.records).toHaveLength(1)
+
     expect(startCredentialAccessAttemptFromObservation(done, observation).status).toBe('access_established')
     expect(canFormCredentialAccessAttempt(done, observation)).toBe(false)
   })
 
+  it('appends a FAILURE record, and creates no DeviceAccess, when the Service is reached but its weakness is gone', () => {
+    const running = start(); const discovery = running.discovery; const knowledge = running.knowledge
+    const done = advanceGameState(changeService(running, (service) => ({ ...service, vulnerabilities: [] })), 30_000)
+    expect(done.deviceAccess.established).toEqual([])
+    expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' }, startedEndpoint: observation.endpoint })
+    expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
+    const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
+    expect(target?.authenticationHistory?.records).toEqual([{ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: done.player.localDevice.network.ip, result: 'FAILURE' }])
+  })
+
   it.each([
-    ['removed weakness', (state: GameState) => changeService(state, (service) => ({ ...service, vulnerabilities: [] }))],
     ['closed service', (state: GameState) => changeService(state, (service) => ({ ...service, open: false }))],
     ['reused endpoint', (state: GameState) => changeService(state, (service) => ({ ...service, port: 2222 }))],
-  ])('fails non-omnisciently against current truth when %s while retaining history', (_name, mutate) => {
+  ])('creates no authentication history when the target was never reached (%s)', (_name, mutate) => {
     const running = start(); const discovery = running.discovery; const knowledge = running.knowledge
     const done = advanceGameState(mutate(running), 30_000)
     expect(done.deviceAccess.established).toEqual([])
     expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Target no longer responds as expected.' }, startedEndpoint: observation.endpoint })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
+    const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
+    expect(target?.authenticationHistory?.records ?? []).toEqual([])
   })
 
-  it('keeps DeviceAccess, Discovery, and Knowledge when completed Process history is cleared', () => {
+  it('keeps DeviceAccess, Discovery, Knowledge, and authentication history when completed Process history is cleared', () => {
     const done = advanceGameState(start(), 30_000)
     const cleared = { ...done, process: clearCompletedProcesses(done.process, done.player.localDevice.id) }
     expect(cleared.process.processes).toEqual([])
     expect(cleared.deviceAccess).toBe(done.deviceAccess)
     expect(cleared.discovery).toBe(done.discovery)
     expect(cleared.knowledge).toBe(done.knowledge)
+    expect(cleared.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory?.records).toHaveLength(1)
+  })
+
+  it("does not rewrite an existing record's fictional source-address snapshot when the executor Device's address later changes", () => {
+    const done = advanceGameState(start(), 30_000)
+    const movedSource = { ...done, player: { ...done.player, localDevice: { ...done.player.localDevice, network: { ...done.player.localDevice.network, ip: '203.0.113.9' } } } }
+    const target = movedSource.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
+    expect(target?.authenticationHistory?.records[0]?.sourceAddress).toBe('198.51.100.23')
   })
 })

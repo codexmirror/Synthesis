@@ -4,6 +4,7 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { getFilesystemFile, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
 import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
+import type { AuthenticationHistoryRecord } from '../../core/game/types'
 import { runRemoteCommand } from './remoteCommands'
 
 type Section = 'terminal' | 'files' | 'system'
@@ -24,11 +25,14 @@ export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemo
     <main className="rack-body">
       {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} startRemoteFileDownload={startRemoteFileDownload} />}
       {section === 'files' && <RemoteFiles targetDeviceId={target.id} filesystem={target.filesystem!} startRemoteFileDownload={startRemoteFileDownload} />}
-      {section === 'system' && <section className="rack-panel"><dl className="rack-facts">
-        <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
-        <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>{target.role && <div><dt>ROLE</dt><dd>{target.role.toUpperCase()}</dd></div>}
-        <div><dt>SESSION AUTHORITY</dt><dd>{access.privilege}</dd></div><div><dt>ACCESS PATH</dt><dd>{service.name}</dd></div>
-      </dl></section>}
+      {section === 'system' && <section className="rack-panel">
+        <dl className="rack-facts">
+          <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
+          <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>{target.role && <div><dt>ROLE</dt><dd>{target.role.toUpperCase()}</dd></div>}
+          <div><dt>SESSION AUTHORITY</dt><dd>{access.privilege}</dd></div><div><dt>ACCESS PATH</dt><dd>{service.name}</dd></div>
+        </dl>
+        <AuthenticationHistory records={target.authenticationHistory?.records ?? []} />
+      </section>}
     </main>
   </section>
 }
@@ -106,6 +110,20 @@ function RemoteFiles({ targetDeviceId, filesystem, startRemoteFileDownload }: { 
       {listing.entries.length === 0 && <p className="rack-empty">EMPTY DIRECTORY</p>}
     </div> : <p className="rack-empty">DIRECTORY NOT FOUND</p>}
   </section>
+}
+
+/** Compact read-only projection of the target Device's own authentication history; never exposes internal Device/Service IDs. */
+function AuthenticationHistory({ records }: { records: readonly AuthenticationHistoryRecord[] }) {
+  return <div className="rack-history">
+    <span className="rack-history-label">AUTHENTICATION HISTORY</span>
+    {records.length > 0
+      ? <div className="rack-history-list">{records.map((record) => <div className="rack-history-row" key={record.id}>
+          <strong>{record.serviceName}</strong>
+          <span>SOURCE {record.sourceAddress}</span>
+          <span>{record.result}</span>
+        </div>)}</div>
+      : <p className="rack-empty">NO AUTHENTICATION HISTORY</p>}
+  </div>
 }
 
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }

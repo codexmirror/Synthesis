@@ -180,6 +180,31 @@ export interface NetworkHost {
   readonly services?: readonly NetworkService[]
   /** Present only for endpoints whose transfer capability is concretely represented. */
   readonly transferCapacity?: NetworkTransferCapacity
+  /** Device-owned authentication history, present only for concretely represented resource-capable hosts. */
+  readonly authenticationHistory?: AuthenticationHistoryState
+}
+
+/**
+ * One historical authentication-attempt record, owned by the target Device
+ * that actually received the attempt. Persists independently of the
+ * Process, DeviceAccess, and RemoteSession that produced it.
+ */
+export interface AuthenticationHistoryRecord {
+  /** Deterministic per-Device record identity and ordering. */
+  readonly id: string
+  /** Canonical internal service provenance; not player-facing. */
+  readonly serviceId: string
+  /** Player-presentable snapshot of the represented service name at resolution time. */
+  readonly serviceName: string
+  /** Fictional source address observed by the target at resolution time; a historical snapshot, not live state. */
+  readonly sourceAddress: string
+  readonly result: 'SUCCESS' | 'FAILURE'
+}
+
+export interface AuthenticationHistoryState {
+  /** Per-Device monotonic record identity; never rewinds even as old records are evicted. */
+  readonly nextId: number
+  readonly records: readonly AuthenticationHistoryRecord[]
 }
 
 export interface NetworkService {
