@@ -47,7 +47,7 @@ export function System() {
       ? <div className="node-list">{installedSoftware.map((software) => <div className="node-row" key={software.id}>
           <span className="node-row-copy">
             <strong>{software.name}</strong>
-            <small>{software.version}{'channel' in software ? ` · ${software.channel.toUpperCase()}` : ''} · {software.releaseId}</small>
+            <small>{software.version}{'channel' in software ? ` · ${software.channel.toUpperCase()}` : ''}{'publisher' in software && software.publisher ? ` · ${software.publisher}` : ''} · {software.releaseId}</small>
           </span>
         </div>)}</div>
       : <div className="node-empty"><strong>NO INSTALLED SOFTWARE</strong><span>This Device carries no installed software.</span></div>}

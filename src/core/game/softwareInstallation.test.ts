@@ -74,7 +74,8 @@ describe('installLocalSoftwarePackage: NODE Miner', () => {
     const result = installLocalSoftwarePackage(state, packagePath)
     expect(result).toMatchObject({ status: 'installed', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', executablePath: NODE_MINER_INSTALLED_EXECUTABLE_PATH })
     expect(result.state).not.toBe(state)
-    expect(result.state.player.localDevice.installedSoftware).toContainEqual({ id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' })
+    // Installed-software state carries the package's own stated provenance, including its unofficial release channel and publisher.
+    expect(result.state.player.localDevice.installedSoftware).toContainEqual({ id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' })
 
     const executables = result.state.player.localDevice.filesystem.files.filter((file): file is ExecutableFile => file.kind === 'executable')
     expect(executables).toHaveLength(1)

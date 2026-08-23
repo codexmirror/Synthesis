@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
+import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from '../core/game/nodeMiner'
 
 describe('createInitialGameState', () => {
   it('creates an independent local-device and world graph for every session', () => {
@@ -28,14 +29,17 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 26', () => {
+  it('separates identities and seeds canonical local-device state in schema version 27', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(26)
+    expect(GAME_STATE_VERSION).toBe(27)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
-    expect(state.version).toBe(26)
+    expect(state.version).toBe(27)
     expect(state.wallet).toEqual({ balance: 1250 })
-    expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0 })
+    expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
+    // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
+    expect(state.nodeEconomy).toEqual({ accounts: [{ id: 'node-account-nm-dev-v0', address: NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, balanceNodeUnits: 0 }] })
+    expect(state.nodeEconomy.accounts[0].address).not.toBe(state.nodeWallet.address)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)
@@ -50,7 +54,7 @@ describe('createInitialGameState', () => {
       nextFileId: 3,
       files: [
         { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
-        { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'standard', sizeBytes: 3_400_000 },
+        { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 },
       ],
     })
     expect(state.player.localDevice.installedSoftware).toEqual([

@@ -99,6 +99,7 @@ export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: Filesys
       && a.name === b.name
       && a.version === b.version
       && a.channel === b.channel
+      && a.publisher === b.publisher
       && a.sizeBytes === b.sizeBytes
   }
   if (a.kind === 'executable' && b.kind === 'executable') {

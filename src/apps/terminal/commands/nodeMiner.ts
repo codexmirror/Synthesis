@@ -46,9 +46,9 @@ function statusSubcommand(context: CommandContext): CommandResult {
       `PROCESS  ${status.processId}`,
       `CPU      ${Math.round(status.cpuPercent)}%`,
       `RAM      ${status.ramMiB} MiB`,
-      `PAYOUT   ${status.payoutAddress}`,
+      `ADDRESS  ${status.payoutAddress}`,
       `PRODUCED ${status.producedUnits.toLocaleString('en-US')} units`,
-      `CREDITED ${status.creditedUnits.toLocaleString('en-US')} units`,
+      `PAYOUT   ${status.payoutUnits.toLocaleString('en-US')} units`,
       `RATE     ${Math.round(status.ratePerSecondUnits).toLocaleString('en-US')} units/s`,
     ],
   }

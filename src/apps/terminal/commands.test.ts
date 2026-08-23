@@ -286,7 +286,7 @@ describe('node-miner command', () => {
     const available = {
       ...context,
       nodeMiner: { available: true },
-      localDevice: { ...context.localDevice, installedSoftware: [...context.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' }] },
+      localDevice: { ...context.localDevice, installedSoftware: [...context.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }] },
     }
     const helpOutput = JSON.stringify(dispatchCommand(parseCommand('help'), available))
     expect(helpOutput).toContain('NODE MINER 1.0')
@@ -334,13 +334,13 @@ describe('node-miner command', () => {
 
     const localNodeMinerStatus = vi.fn(() => ({
       status: 'running' as const, processId: 'process-0004', cpuPercent: 82.4, ramMiB: 512,
-      payoutAddress: 'addr-1', producedUnits: 4281, creditedUnits: 4281, ratePerSecondUnits: 82.3,
+      payoutAddress: 'addr-1', producedUnits: 4281, payoutUnits: 3852, ratePerSecondUnits: 82.3,
     }))
     const result = dispatchCommand(parseCommand('node-miner status'), { ...available, operations: { ...available.operations, localNodeMinerStatus } })
     expect(localNodeMinerStatus).toHaveBeenCalledOnce()
     expect(result).toEqual({
       type: 'output',
-      lines: ['STATUS   RUNNING', 'PROCESS  process-0004', 'CPU      82%', 'RAM      512 MiB', 'PAYOUT   addr-1', 'PRODUCED 4,281 units', 'CREDITED 4,281 units', 'RATE     82 units/s'],
+      lines: ['STATUS   RUNNING', 'PROCESS  process-0004', 'CPU      82%', 'RAM      512 MiB', 'ADDRESS  addr-1', 'PRODUCED 4,281 units', 'PAYOUT   3,852 units', 'RATE     82 units/s'],
     })
   })
 

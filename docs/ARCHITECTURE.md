@@ -631,6 +631,25 @@ authority.
 Currency balances, transfers, mining payouts, and later market activity must
 derive from canonical economic state rather than interface-local counters.
 
+More than one represented economic recipient now exists. Every destination
+that actually receives currency must be represented economic state with its
+own stable identity, separate from the mutable address that currently
+addresses it — a destination must not be reduced to interface text, a log
+line, or currency that simply disappears. Resolving a destination is an exact
+match against represented recipients: when no represented recipient holds an
+address, nothing is credited, and no fallback recipient may absorb it.
+
+A Wallet's own activity history is what that Wallet actually received. It is
+not a ledger of a payer's behavior and must not reveal a payer's other
+destinations. Where currency was routed is truth owned by whatever performed
+the routing, and reaches the player only through that thing's own represented
+consequences.
+
+Payout behavior can be a property of a concrete represented software release
+rather than a law of the economy: two releases of the same product may route
+production differently. This does not license a fee engine, payout-policy
+registry, ledger, transaction network, or generic economy framework.
+
 Conceptually:
 
 PLAYER

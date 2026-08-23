@@ -393,11 +393,11 @@ describe('Terminal NODE Miner CLI', () => {
     const state = createInitialGameState()
     const minerProcess = {
       kind: 'node_miner' as const, id: 'process-0001', label: 'NODE MINER', executorDeviceId: state.player.localDevice.id, status: 'running' as const,
-      ramRequiredMiB: 512, programId: 'node-miner' as const, releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, producedNodeUnits: 10, creditedNodeUnits: 10, workRemainder: 0,
+      ramRequiredMiB: 512, programId: 'node-miner' as const, releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, producedNodeUnits: 10, payoutNodeUnits: 9, developerFeeNodeUnits: 1, workRemainder: 0,
     }
     const runningWithoutExecutable: GameState = {
       ...state,
-      player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' }] } },
+      player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }] } },
       process: { nextId: 2, processes: [minerProcess] },
     }
     render(<GameProvider initialState={runningWithoutExecutable}><Terminal /><Processes /></GameProvider>)

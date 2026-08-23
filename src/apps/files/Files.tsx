@@ -137,6 +137,7 @@ function PackageDetails({ file, installedSoftware, install }: { file: SoftwarePa
     <p className="package-release">{file.version} {titleCase(file.channel)}</p>
     <dl className="node-facts">
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+      {file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}
       <div><dt>CURRENT</dt><dd>{current ? describeInstalledSoftware(current) : 'NOT INSTALLED'}</dd></div>
     </dl>
     {packageState === 'UNSUPPORTED'
@@ -201,7 +202,7 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProce
 }
 
 function describeInstalledSoftware(software: InstalledSoftware): string {
-  return software.id === 'nodescan' ? `${software.name} ${software.version} ${titleCase(software.channel)}` : `${software.name} ${software.version}`
+  return 'channel' in software ? `${software.name} ${software.version} ${titleCase(software.channel)}` : `${software.name} ${software.version}`
 }
 
 function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'started' }>): string {

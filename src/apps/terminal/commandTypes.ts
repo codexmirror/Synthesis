@@ -27,7 +27,7 @@ export type TerminalNodeMinerStatusResult =
       readonly ramMiB: number
       readonly payoutAddress: string
       readonly producedUnits: number
-      readonly creditedUnits: number
+      readonly payoutUnits: number
       readonly ratePerSecondUnits: number
     }
 

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { GameProvider } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
+import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
 import type { GameState } from '../../core/game/types'
 import { System } from './System'
 
@@ -41,6 +42,16 @@ describe('System', () => {
     expect(screen.getByText('NodeScan')).toBeInTheDocument()
     expect(screen.getByText('1.1 · EXPERIMENTAL · nodescan-1.1-experimental')).toBeInTheDocument()
     expect(screen.queryByText(/basic-credential-toolkit/)).not.toBeInTheDocument()
+  })
+
+  it('presents the installed NODE Miner release as unofficial third-party software', () => {
+    const base = createInitialGameState()
+    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (installed.status !== 'installed') throw new Error(installed.status)
+    render(<GameProvider initialState={installed.state}><System /></GameProvider>)
+
+    expect(screen.getByText('NODE Miner')).toBeInTheDocument()
+    expect(screen.getByText('1.0 · UNOFFICIAL · nm-dev · node-miner-1.0')).toBeInTheDocument()
   })
 
   it('states an absent inventory rather than implying software exists', () => {

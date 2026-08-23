@@ -1,6 +1,7 @@
+import { NODE_MINER_1_0_CHANNEL, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, NODE_MINER_1_0_PUBLISHER } from './nodeMiner'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 26
+export const GAME_STATE_VERSION = 27
 
 export function createInitialGameState(): GameState {
   return {
@@ -15,7 +16,7 @@ export function createInitialGameState(): GameState {
           nextFileId: 3,
           files: [
             { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
-            { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'standard', sizeBytes: 3_400_000 },
+            { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: NODE_MINER_1_0_CHANNEL, publisher: NODE_MINER_1_0_PUBLISHER, sizeBytes: 3_400_000 },
           ],
         },
         network: { ip: '198.51.100.23', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
@@ -41,6 +42,13 @@ export function createInitialGameState(): GameState {
       id: 'wallet-node-local-v0',
       address: 'node-wallet-addr-0001',
       balanceNodeUnits: 0,
+      activity: { nextId: 1, records: [] },
+    },
+    // The one represented NODE recipient that currently exists besides the local Wallet: the account the unofficial NODE Miner 1.0 build pays itself into.
+    nodeEconomy: {
+      accounts: [
+        { id: 'node-account-nm-dev-v0', address: NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, balanceNodeUnits: 0 },
+      ],
     },
     process: { nextId: 1, processes: [] },
     knowledge: { discoveredVulnerabilities: [] },

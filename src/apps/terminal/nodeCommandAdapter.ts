@@ -117,7 +117,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
           ramMiB: process.ramRequiredMiB,
           payoutAddress: process.payoutAddress,
           producedUnits: process.producedNodeUnits,
-          creditedUnits: process.creditedNodeUnits,
+          payoutUnits: process.payoutNodeUnits,
           ratePerSecondUnits: allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_UNIT,
         }
       },
