@@ -32,8 +32,14 @@ does not identify or retarget the Device.
 Terminal + GUI
 → same gameplay operation
 
-V1 transfer is immediate
-because file size / bandwidth do not yet exist
+File size is represented (derived for text, explicit for package and
+executable artifacts), and represented transfer-capable Devices now own
+canonical Upload/Download network transfer capacity (`NetworkTransferCapacity`,
+interpreted from the owning Device's own perspective) plus a pure
+`deriveEffectiveTransferRateBytesPerSecond` helper. Download remains
+immediate/atomic in V1 only because FileTransfer runtime — duration,
+progress, and a completion lifecycle built from those causes — has not yet
+been introduced. Download still creates no Process.
 
 All currently represented `FilesystemFile` kinds are downloadable. Download
 does not install software, change installed capabilities, or create a Process.

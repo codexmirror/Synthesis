@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 17
+export const GAME_STATE_VERSION = 18
 
 export function createInitialGameState(): GameState {
   return {
@@ -15,7 +15,7 @@ export function createInitialGameState(): GameState {
           nextFileId: 2,
           files: [{ kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' }],
         },
-        network: { ip: '198.51.100.23' },
+        network: { ip: '198.51.100.23', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
         hardware: {
           cpu: { name: 'Basic CPU', computeCapacity: 100 },
           ram: { name: '4 GB', capacityMiB: 4096 },
@@ -51,6 +51,7 @@ export function createInitialGameState(): GameState {
             ip: '198.51.100.47',
             online: true,
             role: 'server',
+            transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 },
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
             filesystem: { nextFileId: 3, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
@@ -67,6 +68,7 @@ export function createInitialGameState(): GameState {
             ip: '198.51.100.53',
             online: true,
             role: 'server',
+            transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
             filesystem: { nextFileId: 2, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },

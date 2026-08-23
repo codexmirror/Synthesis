@@ -67,8 +67,20 @@ export interface ProcessState {
   readonly processes: readonly GameProcess[]
 }
 
+/**
+ * Maximum endpoint transfer capability. This is a pure capability value: it
+ * carries no availability, usage, or runtime state.
+ */
+export interface NetworkTransferCapacity {
+  /** Maximum bytes this endpoint can upload (send) per second. */
+  readonly uploadBytesPerSecond: number
+  /** Maximum bytes this endpoint can download (receive) per second. */
+  readonly downloadBytesPerSecond: number
+}
+
 export interface DeviceNetworkState {
   readonly ip: string
+  readonly transferCapacity: NetworkTransferCapacity
 }
 
 export interface FirmwareState {
@@ -163,6 +175,8 @@ export interface NetworkHost {
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */
   readonly services?: readonly NetworkService[]
+  /** Present only for endpoints whose transfer capability is concretely represented. */
+  readonly transferCapacity?: NetworkTransferCapacity
 }
 
 export interface NetworkService {
