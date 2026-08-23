@@ -1,10 +1,12 @@
 .node-workspace { grid-row: 1 / -1; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; }
 .node-workspace[hidden] { display: none; }
 .rack-os { grid-row: 1 / -1; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr); background: #101416; color: #d6dddf; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rack-os[hidden] { display: none; }
 .rack-header { padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); border-bottom: 1px solid #394246; display: grid; gap: 7px; }
 .rack-header div { display: flex; justify-content: space-between; gap: 12px; }
 .rack-header strong { letter-spacing: .12em; }.rack-header span { font-size: .72rem; color: #aab5b9; }
-.rack-header button { justify-self: end; border: 0; background: none; color: #d6dddf; font: inherit; font-size: .7rem; letter-spacing: .1em; }
+.rack-header__actions { width: 100%; justify-self: end; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; }
+.rack-header button { min-height: 44px; padding: 0 8px; border: 0; background: none; color: #d6dddf; font: inherit; font-size: .7rem; letter-spacing: .1em; }
 .rack-nav { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid #394246; }
 .rack-nav button { padding: 13px 4px; border: 0; border-right: 1px solid #394246; background: #151b1e; color: #879398; font: 700 .68rem ui-monospace, monospace; letter-spacing: .1em; }
 .rack-nav button[aria-current] { color: #edf3f4; background: #20282b; }
