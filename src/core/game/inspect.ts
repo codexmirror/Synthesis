@@ -68,12 +68,16 @@ export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery:
   if (!isValidIpv4(input)) {
     const remembered = discovery.networks.find(({ name }) => name === input)
     if (!remembered) return { status: 'unknown_target', input }
-    const current = targets.network.localNetworks.find(({ id }) => id === remembered.id)
-    return current ? { status: 'network', networkId: current.id, networkName: current.name, connected: current.memberDeviceIds.includes(targets.localDevice.id) } : { status: 'no_response', address: input }
+    const current = resolveLocalNetwork(targets.network, input)
+    return current?.id === remembered.id
+      ? { status: 'network', networkId: current.id, networkName: current.name, connected: current.memberDeviceIds.includes(targets.localDevice.id) }
+      : { status: 'no_response', address: input }
   }
   const remembered = discovery.devices.find(({ address }) => address === input)
   if (!remembered) return { status: 'unknown_target', input }
-  const host = targets.network.hosts.find(({ id }) => id === remembered.id)
-  if (!host?.online) return { status: 'no_response', address: input }
-  return { status: 'device', targetId: host.id, address: host.ip, scope: remembered.scope, networkStatus: 'ONLINE', deviceKind: host.role === 'server' ? 'server' : 'device' }
+  const current = resolveNetworkTarget(targets, input)
+  if (!current || current.scope === 'self' || current.entity.id !== remembered.id || !current.entity.online) {
+    return { status: 'no_response', address: input }
+  }
+  return { status: 'device', targetId: current.entity.id, address: input, scope: current.scope, networkStatus: 'ONLINE', deviceKind: current.entity.role === 'server' ? 'server' : 'device' }
 }

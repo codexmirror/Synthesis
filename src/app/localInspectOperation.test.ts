@@ -31,6 +31,18 @@ describe('player-facing Inspect operation', () => {
     expect(state.knowledge.discoveredVulnerabilities).toEqual([])
   })
 
+  it('preserves positive memory when an online Device moves away from its remembered selector', () => {
+    let state = knownState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+    expect(inspect('198.51.100.47')).toMatchObject({ status: 'device', targetId: 'host-lan-001' })
+    const remembered = structuredClone(state.discovery)
+    const host = state.world.network.hosts[0]
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', online: true }, ...state.world.network.hosts.slice(1)] } } }
+
+    expect(inspect('198.51.100.47')).toEqual({ status: 'no_response', address: '198.51.100.47' })
+    expect(state.discovery).toEqual(remembered)
+    expect(JSON.stringify(state.discovery)).not.toContain('198.51.100.88')
+  })
+
   it('inspects a known network without members and keeps SELF intrinsic', () => {
     let state = knownState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
     const network = inspect('home-net')

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { inspectNetworkTarget, type InspectTargets } from './inspect'
+import { inspectKnownTarget, inspectNetworkTarget, type InspectTargets } from './inspect'
+import { rememberScan } from './discovery'
+import { scanNetworkTarget } from './scan'
 
 const state = createInitialGameState()
 const targets: InspectTargets = { localDevice: state.player.localDevice, network: state.world.network }
@@ -92,5 +94,46 @@ describe('inspectNetworkTarget inward inspection', () => {
     inspectNetworkTarget(targets, '198.51.100.23')
     inspectNetworkTarget(targets, 'home-net')
     expect(targets).toEqual(snapshot)
+  })
+})
+
+describe('inspectKnownTarget selector validation', () => {
+  const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
+
+  it('inspects unchanged remembered selectors normally', () => {
+    expect(inspectKnownTarget(targets, discovery, '198.51.100.47')).toMatchObject({
+      status: 'device', targetId: 'host-lan-001', address: '198.51.100.47', deviceKind: 'server',
+    })
+    expect(inspectKnownTarget(targets, discovery, 'home-net')).toEqual({
+      status: 'network', networkId: 'network-local-001', networkName: 'home-net', connected: true,
+    })
+  })
+
+  it('does not follow a remembered Device identity to its hidden changed address', () => {
+    const hosts = targets.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, ip: '198.51.100.88' } : host)
+    expect(inspectKnownTarget({ ...targets, network: { ...targets.network, hosts } }, discovery, '198.51.100.47')).toEqual({
+      status: 'no_response', address: '198.51.100.47',
+    })
+  })
+
+  it('does not retarget when another Device occupies a remembered address', () => {
+    const hosts = targets.network.hosts.map((host) => host.id === 'host-lan-001'
+      ? { ...host, ip: '198.51.100.88' }
+      : host.id === 'host-lan-002' ? { ...host, ip: '198.51.100.47' } : host)
+    const result = inspectKnownTarget({ ...targets, network: { ...targets.network, hosts } }, discovery, '198.51.100.47')
+    expect(result).toEqual({ status: 'no_response', address: '198.51.100.47' })
+    expect(JSON.stringify(result)).not.toContain('host-lan-002')
+  })
+
+  it('does not follow a remembered network identity to its hidden changed name', () => {
+    const localNetworks = [{ ...targets.network.localNetworks[0], name: 'renamed-net' }]
+    expect(inspectKnownTarget({ ...targets, network: { ...targets.network, localNetworks } }, discovery, 'home-net')).toEqual({
+      status: 'no_response', address: 'home-net',
+    })
+  })
+
+  it('keeps hidden selectors unknown and preserves SELF inspection', () => {
+    expect(inspectKnownTarget(targets, discovery, '203.0.113.42')).toEqual({ status: 'unknown_target', input: '203.0.113.42' })
+    expect(inspectKnownTarget(targets, discovery, state.player.localDevice.network.ip)).toMatchObject({ status: 'device', scope: 'self' })
   })
 })
