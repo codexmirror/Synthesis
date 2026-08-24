@@ -61,7 +61,6 @@ describe('command dispatcher', () => {
         'install — <local-absolute-file-path>  Install a local software package',
         'connect — <ipv4>  Open a remote session using established access', 'disconnect — Close the active remote session',
         '', 'NODESCAN 1.0 STANDARD', '', 'scan — Discover devices, relationships, and exposed services',
-        'inspect — Examine current properties of a device or network',
         'analyze — Investigate a service endpoint', '', 'BASIC CREDENTIAL TOOLKIT 1.0', '',
         'attack — Attempt a known attack method against an observed service',
       ])
@@ -71,6 +70,9 @@ describe('command dispatcher', () => {
     const nodeScanOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'opaque-preview', name: 'NodeScan', version: '2.4', channel: 'preview' }] } }
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).toContain('NODESCAN 2.4 PREVIEW')
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).not.toContain('BASIC CREDENTIAL TOOLKIT')
+    expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).not.toContain('inspect —')
+    const experimental = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } }
+    expect(JSON.stringify(dispatchCommand(parseCommand('help'), experimental))).toContain('inspect —')
     const builtInsOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [] } }
     const help = JSON.stringify(dispatchCommand(parseCommand('help'), builtInsOnly))
     expect(help).not.toContain('NODESCAN')
@@ -264,10 +266,10 @@ describe('individual commands', () => {
     })
   })
 
-  it('does not render enhanced evidence for shallow NodeScan 1.0 Standard results', () => {
-    expect(dispatch('inspect 198.51.100.47')).toEqual({
-      type: 'output',
-      lines: ['SERVER', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE'],
+  it('reports the shared capability failure compactly for NodeScan 1.0 Standard', () => {
+    const inspectTarget = vi.fn(() => ({ status: 'capability_unavailable' as const }))
+    expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['198.51.100.47'])).toEqual({
+      type: 'output', lines: ['INSPECT UNAVAILABLE', '', 'Installed NodeScan does not support Inspect.'],
     })
   })
 })
