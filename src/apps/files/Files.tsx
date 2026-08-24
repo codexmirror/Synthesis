@@ -7,6 +7,7 @@ import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
 import { SoftwareReleaseDocumentation } from '../SoftwareReleaseDocumentation'
 import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '../../core/game/fileTransfer'
+import { describeUploadFailure } from '../uploadFailure'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
 import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
 
@@ -161,7 +162,7 @@ function RemoteTransfer({ file, connectedAddress, upload, activeUpload }: { file
   const [feedback, setFeedback] = useState<string>()
   function start() {
     const result = upload(file.path, destination)
-    setFeedback(result.status === 'started' ? undefined : describeUploadFailure(result))
+    setFeedback(result.status === 'started' ? undefined : describeUploadFailure(result.status))
   }
   return <section className="file-kind-details">
     <div className="node-section"><span>REMOTE TRANSFER</span></div>
@@ -175,11 +176,6 @@ function RemoteTransfer({ file, connectedAddress, upload, activeUpload }: { file
       {feedback && <p className="node-note node-note--caution">{feedback}</p>}
     </>}
   </section>
-}
-
-function describeUploadFailure(result: Exclude<StartRemoteFileUploadResult, { status: 'started' }>): string {
-  const labels: Record<typeof result.status, string> = { session_unavailable: 'SESSION UNAVAILABLE', invalid_path: 'INVALID PATH', source_not_found: 'FILE NOT FOUND', source_not_file: 'NOT A FILE', local_offline: 'LOCAL DEVICE OFFLINE', destination_offline: 'DESTINATION UNAVAILABLE', capacity_unavailable: 'TRANSFER CAPACITY UNAVAILABLE', transfer_in_progress: 'TRANSFER IN PROGRESS', destination_exists: 'DESTINATION ALREADY EXISTS', destination_conflict: 'DESTINATION CONFLICT' }
-  return labels[result.status]
 }
 
 function PackageDetails({ file, installedSoftware, installingProductIds, removingProductIds, install }: {

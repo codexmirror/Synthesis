@@ -31,6 +31,15 @@ function connectedState(): GameState {
   return { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '198.51.100.47' } } }
 }
 
+/** `connectedState` plus a represented remote `/home/user` directory, so the
+ *  remote-first Upload workflow can start from a non-root remote directory. */
+function connectedStateWithRemoteHome(): GameState {
+  const base = connectedState()
+  const host = base.world.network.hosts[0]
+  const files = [...host.filesystem!.files, { kind: 'text' as const, id: 'file-fixture-remote-home', path: '/home/user/notes.txt', content: 'Remote workspace notes.' }]
+  return { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, filesystem: { nextFileId: 60, files } }, ...base.world.network.hosts.slice(1)] } } }
+}
+
 async function enterRemote(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /^ENTER .+ →$/ }))
 }
@@ -329,6 +338,161 @@ describe('RACK-OS', () => {
     await user.click(screen.getByRole('button', { name: 'SYSTEM' }))
     expect(document.body).toHaveTextContent('AUTHENTICATION HISTORY')
     expect(document.body).toHaveTextContent('NO AUTHENTICATION HISTORY')
+  })
+
+  it('offers UPLOAD from the remote directory itself and derives the destination from that directory and the chosen local file', async () => {
+    const user = userEvent.setup()
+    const initial = connectedStateWithRemoteHome()
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+
+    // A: the directory view itself carries UPLOAD; no remote file is opened.
+    expect(screen.getByRole('button', { name: 'UPLOAD' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '← /' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'DIR home' }))
+    await user.click(screen.getByRole('button', { name: 'DIR user' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    // B: the workflow opens inside RACK-OS; NODE-OS is never presented.
+    const workflow = screen.getByLabelText('Upload to remote')
+    expect(workflow).toHaveTextContent('/home/user')
+    expect(screen.getByLabelText('STATE-OS remote operating environment')).not.toHaveAttribute('hidden')
+    expect(document.querySelector('.node-workspace')).toHaveAttribute('hidden')
+
+    // C + D + E: the picker reads the canonical LOCAL filesystem, navigates
+    // local directories, and selects one concrete local file.
+    const localFiles = initial.player.localDevice.filesystem.files
+    expect(within(workflow).getByRole('button', { name: 'Select local file welcome.txt' })).toBeInTheDocument()
+    expect(workflow).not.toHaveTextContent('proof.txt')
+    await user.click(within(workflow).getByRole('button', { name: 'Open local directory downloads' }))
+    expect(screen.getByLabelText('Upload to remote')).toHaveTextContent('/home/user/downloads')
+    await user.click(screen.getByRole('button', { name: 'Select local file node-miner-1.0.pkg' }))
+
+    // F: remote directory + local basename, visible and editable.
+    const review = screen.getByLabelText('Upload to remote')
+    // The editing surface owns its own scrolling, and remains the only owner,
+    // so CANCEL/UPLOAD stay reachable under the software keyboard.
+    expect(review).toHaveAttribute('data-editing-scroll-owner')
+    expect(document.querySelectorAll('.rack-os [data-editing-scroll-owner]')).toHaveLength(1)
+    expect(screen.getByLabelText('Remote destination path')).toHaveValue('/home/user/node-miner-1.0.pkg')
+    expect(review).toHaveTextContent('/home/user/downloads/node-miner-1.0.pkg')
+    expect(review).toHaveTextContent('3.4 MB')
+    expect(review).toHaveTextContent('192.0.2.99')
+    const source = localFiles.find(({ path }) => path === '/home/user/downloads/node-miner-1.0.pkg')!
+
+    // G + H: exactly the edited destination is submitted, against the local
+    // source, never the other way round.
+    const destination = screen.getByLabelText('Remote destination path')
+    await user.clear(destination)
+    await user.type(destination, '/srv/custom-miner.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toMatchObject({
+      sourceDeviceId: initial.player.localDevice.id, sourceFileId: source.id,
+      destinationDeviceId: initial.world.network.hosts[0].id, destinationPath: '/srv/custom-miner.pkg',
+    })
+    // J + K: canonical FileTransfer only; no installation, no Process, and no
+    // remote artifact before completion.
+    expect(current.player.localDevice.installedSoftware).toEqual(initial.player.localDevice.installedSoftware)
+    expect(current.process.processes).toEqual([])
+    expect(current.world.network.hosts[0].filesystem!.files.some(({ path }) => path === '/srv/custom-miner.pkg')).toBe(false)
+    expect(current.player.localDevice.filesystem.files).toContainEqual(source)
+
+    // The player lands back in the remote directory they started from.
+    expect(screen.getByRole('button', { name: 'FILE notes.txt' })).toBeInTheDocument()
+    expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('UPLOAD STARTED')
+  })
+
+  it('reports canonical Upload admission failures without touching the remote filesystem', async () => {
+    const user = userEvent.setup()
+    const initial = connectedStateWithRemoteHome()
+    const remoteBefore = initial.world.network.hosts[0].filesystem
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'Select local file welcome.txt' }))
+
+    const destination = screen.getByLabelText('Remote destination path')
+    expect(destination).toHaveValue('/welcome.txt')
+    await user.clear(destination)
+    await user.type(destination, '/srv/proof.txt')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('DESTINATION ALREADY EXISTS')
+    let current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toBeNull()
+    expect(current.world.network.hosts[0].filesystem).toEqual(remoteBefore)
+
+    // A second, valid destination goes through the same shared action.
+    await user.clear(screen.getByLabelText('Remote destination path'))
+    await user.type(screen.getByLabelText('Remote destination path'), '/srv/copied-welcome.txt')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toMatchObject({ destinationPath: '/srv/copied-welcome.txt' })
+  })
+
+  it('presents the canonical single-transfer rejection rather than queueing an Upload', async () => {
+    const user = userEvent.setup()
+    const initial = connectedStateWithRemoteHome()
+    const slow: GameState = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, network: { ...initial.player.localDevice.network, transferCapacity: { ...initial.player.localDevice.network.transferCapacity, uploadBytesPerSecond: 1 } } } } }
+    render(<GameProvider initialState={slow}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await user.type(screen.getByLabelText('Remote command'), 'upload /home/user/welcome.txt /srv/first.txt{enter}')
+    expect(document.body).toHaveTextContent('UPLOAD STARTED')
+
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'Select local file welcome.txt' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('TRANSFER IN PROGRESS')
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toMatchObject({ destinationPath: '/srv/first.txt' })
+  })
+
+  it('reaches canonical FileTransfer from an established DeviceAccess through the remote-first workflow alone', async () => {
+    const user = userEvent.setup()
+    const initial = discoveredAccessState()
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open NodeScan' }))
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: /CONNECT/ }))
+    await enterRemote(user)
+
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR srv' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'Open local directory downloads' }))
+    await user.click(screen.getByRole('button', { name: 'Select local file node-miner-1.0.pkg' }))
+    expect(screen.getByLabelText('Remote destination path')).toHaveValue('/srv/node-miner-1.0.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const source = initial.player.localDevice.filesystem.files.find(({ path }) => path === '/home/user/downloads/node-miner-1.0.pkg')!
+    expect(current.fileTransfer.active).toMatchObject({
+      sourceDeviceId: initial.player.localDevice.id, sourceFileId: source.id,
+      destinationDeviceId: 'host-lan-001', destinationPath: '/srv/node-miner-1.0.pkg',
+    })
+    expect(current.process.processes).toEqual([])
+    expect(current.player.localDevice.installedSoftware).toEqual(initial.player.localDevice.installedSoftware)
+  })
+
+  it('keeps the Upload workflow usable under the software keyboard on mobile', () => {
+    // The destination field must not trigger Safari zoom, and the panel that
+    // owns it must own its own scrolling so CANCEL/UPLOAD stay reachable while
+    // that field is focused.
+    expect(rackCss).toMatch(/@media \(max-width: 700px\), \(max-width: 900px\) and \(pointer: coarse\)[\s\S]*?\.rack-input\s*{\s*font-size:\s*16px;\s*}/)
+    expect(rackCss).toMatch(/\.rack-panel\s*{[^}]*overflow:\s*auto;[^}]*overscroll-behavior-y:\s*contain;[^}]*touch-action:\s*pan-y pinch-zoom;/)
+    expect(rackCss).toMatch(/\.rack-input\s*{[^}]*min-width:\s*0;[^}]*width:\s*100%;[^}]*min-height:\s*44px;/)
+    expect(rackCss).toMatch(/\.rack-upload-entry\s*{[^}]*min-height:\s*44px;/)
+    expect(rackCss).toMatch(/\.rack-secondary\s*{[^}]*min-height:\s*44px;/)
+    // Long paths wrap inside the panel rather than widening the viewport.
+    expect(rackCss).toMatch(/\.rack-file-meta\s*{[^}]*overflow-wrap:\s*anywhere;/)
   })
 
   it('keeps the existing NODE-OS Terminal bound to local address and filesystem during an active Session', async () => {

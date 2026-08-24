@@ -1,6 +1,7 @@
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import type { StartRemoteFileDownloadResult, StartRemoteFileUploadResult } from '../../core/game/fileTransfer'
+import { describeUploadFailure } from '../uploadFailure'
 
 export type RemoteCommandResult = { readonly output: readonly string[]; readonly clear?: boolean; readonly disconnect?: boolean }
 
@@ -36,12 +37,7 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string, st
     if (args.length !== 2) return { output: ['USAGE: upload /absolute/local/file /absolute/remote/file'] }
     const result = startRemoteFileUpload(args[0], args[1])
     if (result.status === 'started') return { output: ['UPLOAD STARTED', result.sourcePath, `→ ${result.destinationPath}`] }
-    const failures: Record<Exclude<StartRemoteFileUploadResult['status'], 'started'>, string> = {
-      session_unavailable: 'SESSION UNAVAILABLE', invalid_path: 'INVALID PATH', source_not_found: 'FILE NOT FOUND', source_not_file: 'NOT A FILE',
-      local_offline: 'LOCAL DEVICE OFFLINE', destination_offline: 'DESTINATION UNAVAILABLE', capacity_unavailable: 'TRANSFER CAPACITY UNAVAILABLE',
-      transfer_in_progress: 'TRANSFER IN PROGRESS', destination_exists: 'DESTINATION ALREADY EXISTS', destination_conflict: 'DESTINATION CONFLICT',
-    }
-    return { output: [failures[result.status]] }
+    return { output: [describeUploadFailure(result.status)] }
   }
   return { output: ['COMMAND NOT FOUND'] }
 }
