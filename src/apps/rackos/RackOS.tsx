@@ -10,7 +10,7 @@ import { runRemoteCommand } from './remoteCommands'
 type Section = 'terminal' | 'files' | 'system'
 
 export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemoteTarget; hidden: boolean; onReturnLocal(): void }) {
-  const { disconnectRemoteSession, startRemoteFileDownload } = useGameActions()
+  const { disconnectRemoteSession, startRemoteFileDownload, startRemoteFileUpload } = useGameActions()
   const [section, setSection] = useState<Section>('terminal')
   const { target, access, service } = context
   return <section className="rack-os" hidden={hidden} aria-label={`${target.firmware!.name} remote operating environment`}>
@@ -23,7 +23,7 @@ export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemo
       {(['terminal', 'files', 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => setSection(item)}>{item.toUpperCase()}</button>)}
     </nav>
     <main className="rack-body">
-      {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} startRemoteFileDownload={startRemoteFileDownload} />}
+      {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} startRemoteFileDownload={startRemoteFileDownload} startRemoteFileUpload={startRemoteFileUpload} />}
       {section === 'files' && <RemoteFiles targetDeviceId={target.id} filesystem={target.filesystem!} startRemoteFileDownload={startRemoteFileDownload} />}
       {section === 'system' && <section className="rack-panel">
         <dl className="rack-facts">
@@ -37,12 +37,12 @@ export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemo
   </section>
 }
 
-function RemoteTerminal({ context, onDisconnect, startRemoteFileDownload }: { context: ActiveRemoteTarget; onDisconnect(): void; startRemoteFileDownload: ReturnType<typeof useGameActions>['startRemoteFileDownload'] }) {
+function RemoteTerminal({ context, onDisconnect, startRemoteFileDownload, startRemoteFileUpload }: { context: ActiveRemoteTarget; onDisconnect(): void; startRemoteFileDownload: ReturnType<typeof useGameActions>['startRemoteFileDownload']; startRemoteFileUpload: ReturnType<typeof useGameActions>['startRemoteFileUpload'] }) {
   const [input, setInput] = useState('')
   const [lines, setLines] = useState<readonly { command: string; output: readonly string[] }[]>([])
   function submit(event: FormEvent) {
     event.preventDefault(); const command = input.trim(); if (!command) return
-    const result = runRemoteCommand(context, command, startRemoteFileDownload); setInput('')
+    const result = runRemoteCommand(context, command, startRemoteFileDownload, startRemoteFileUpload); setInput('')
     if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
     if (result.disconnect) onDisconnect()
   }

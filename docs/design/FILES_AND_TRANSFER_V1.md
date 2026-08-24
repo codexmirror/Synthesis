@@ -19,7 +19,8 @@ UPLOAD CORE V1 reverses the same canonical runtime: an active RemoteSession
 admits an exact local artifact and explicit absolute remote destination path.
 The resulting FileTransfer remains bound to its `accessId`, local source file
 ID, and remote destination Device; completion creates one remote copy and
-leaves the local source unchanged. No Upload player surface is included yet.
+leaves the local source unchanged. Local Files and the RACK-OS terminal expose
+the shared Upload action with an explicit remote file destination.
 
 Download never silently overwrites and does not expose an arbitrary destination
 path. A represented destination, a destination that is already a derived

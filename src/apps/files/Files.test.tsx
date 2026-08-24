@@ -7,6 +7,7 @@ import type { FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 import { Processes } from '../processes/Processes'
+import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 
 afterEach(() => vi.useRealTimers())
 
@@ -66,6 +67,24 @@ describe('Files', () => {
     expect(terminal.getByText('line one')).toBeInTheDocument()
     expect(terminal.getByText('line two')).toBeInTheDocument()
     expect(terminal.getByText('line three')).toBeInTheDocument()
+  })
+
+  it('offers generic Upload only with a usable Session and submits the editable destination unchanged', async () => {
+    const base = createInitialGameState()
+    const access = { id: 'access-files-upload', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }
+    const connected = connectRemoteFromObservation({ ...base, deviceAccess: { nextId: 2, established: [access] } }, { targetDeviceId: access.targetDeviceId, address: '198.51.100.47' }).state
+    const retainedAddress = { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '203.0.113.77' } } }
+    render(<GameProvider initialState={retainedAddress}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    expect(screen.getByText('203.0.113.77')).toBeInTheDocument()
+    const destination = screen.getByLabelText('Remote destination')
+    expect(destination).toHaveValue('/home/user/node-miner-1.0.pkg')
+    await user.clear(destination); await user.type(destination, '/srv/exact-custom.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
+    expect(destination).toHaveValue('/srv/exact-custom.pkg')
   })
 
   it('installs a supported local package through canonical state and derives the installed presentation on reopen', async () => {

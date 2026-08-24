@@ -1,4 +1,4 @@
-import { resolveFileTransferSource } from '../../core/game/fileTransfer'
+import { deriveFileTransferDirection } from '../../core/game/fileTransfer'
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
 import { NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
@@ -99,8 +99,8 @@ export function deriveActivityMonitor(state: GameState): ActivityMonitor {
       ramPercent: usage.totalRamUsage,
       activeCount: activities.filter((activity) => activity.status === 'running').length,
       network: {
-        downloadBytesPerSecond: transfer?.rateBytesPerSecond ?? 0,
-        uploadBytesPerSecond: 0,
+        downloadBytesPerSecond: transfer?.direction === 'download' ? transfer.rateBytesPerSecond : 0,
+        uploadBytesPerSecond: transfer?.direction === 'upload' ? transfer.rateBytesPerSecond : 0,
         capacity: device.network.transferCapacity,
       },
     },
@@ -204,39 +204,44 @@ function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[
 interface TransferPresentation {
   readonly activity: MonitorActivity
   readonly rateBytesPerSecond: number
+  readonly direction: 'download' | 'upload'
 }
 
 /**
  * Present the single active `FileTransfer`. Source identity, the source
- * artifact, and the current effective rate are resolved only through the
- * transfer's own snapshotted DeviceAccess authority (the same
- * `resolveFileTransferSource` helper runtime advancement uses), never
- * through any RemoteSession, so a transfer keeps presenting correctly after
- * disconnect and nothing here reveals more than the transfer's own runtime
- * does.
+ * artifact and effective rate are resolved through the transfer's retained
+ * DeviceAccess authority. RemoteSession contributes only its retained address
+ * when it still matches; World identity is never used as a presentation label.
  */
 function deriveTransferPresentation(state: GameState): TransferPresentation | undefined {
   const transfer = state.fileTransfer.active
   if (!transfer) return undefined
   const device = state.player.localDevice
-  const source = resolveFileTransferSource(state, transfer)
-  const sourceFile = source?.filesystem?.files.find(({ id }) => id === transfer.sourceFileId)
-  const sourceCapacity = source?.transferCapacity
-  const online = device.runtime.networkStatus === 'ONLINE' && source?.online === true
-  const rateBytesPerSecond = online && sourceCapacity && isValidNetworkTransferCapacity(sourceCapacity) && isValidNetworkTransferCapacity(device.network.transferCapacity)
-    ? deriveEffectiveTransferRateBytesPerSecond(sourceCapacity, device.network.transferCapacity)
+  const direction = deriveFileTransferDirection(device.id, transfer)
+  if (!direction) return undefined
+  const access = state.deviceAccess.established.find(({ id }) => id === transfer.accessId)
+  const remoteDeviceId = direction === 'download' ? transfer.sourceDeviceId : transfer.destinationDeviceId
+  if (!access || access.sourceDeviceId !== device.id || access.targetDeviceId !== remoteDeviceId) return undefined
+  const remote = state.world.network.hosts.find(({ id }) => id === remoteDeviceId)
+  const sourceFile = (direction === 'upload' ? device.filesystem : remote?.filesystem)?.files.find(({ id }) => id === transfer.sourceFileId)
+  const sourceCapacity = direction === 'upload' ? device.network.transferCapacity : remote?.transferCapacity
+  const destinationCapacity = direction === 'upload' ? remote?.transferCapacity : device.network.transferCapacity
+  const online = device.runtime.networkStatus === 'ONLINE' && remote?.online === true
+  const rateBytesPerSecond = online && sourceCapacity && destinationCapacity && isValidNetworkTransferCapacity(sourceCapacity) && isValidNetworkTransferCapacity(destinationCapacity)
+    ? deriveEffectiveTransferRateBytesPerSecond(sourceCapacity, destinationCapacity)
     : 0
+  const connectedAddress = state.remoteSession.active?.accessId === transfer.accessId ? state.remoteSession.active.connectedAddress : undefined
   // Floor rather than round: running work must never read as 100% complete.
   const progressPercent = transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0
   return {
-    rateBytesPerSecond,
+    rateBytesPerSecond, direction,
     activity: {
       id: transfer.id,
       category: 'transfer',
-      kindLabel: 'DOWNLOAD',
+      kindLabel: direction.toUpperCase(),
       titleLabel: 'ARTIFACT',
       title: basename(transfer.destinationPath),
-      route: source ? `${source.displayName ?? source.ip} → ${device.displayName}` : undefined,
+      route: connectedAddress ? direction === 'upload' ? `${device.displayName} → ${connectedAddress}` : `${connectedAddress} → ${device.displayName}` : undefined,
       status: 'running',
       progressPercent,
       facts: [
@@ -254,13 +259,14 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
 
 function toRecentActivity(entry: RecentActivityEntry, state: GameState, usage: ResourceUsage): MonitorActivity {
   if (entry.kind === 'process') return toOperationActivity(entry.process, usage, state.deviceAccess.established, state.player.localDevice.hardware.cpu.computeCapacity, true)
-  return toTransferActivity(entry.transfer, entry.sourcePath, entry.route)
+  return toTransferActivity(entry.transfer, state.player.localDevice.id, entry.sourcePath, entry.route)
 }
 
-function toTransferActivity(transfer: FileTransfer, sourcePath?: string, route?: string): MonitorActivity {
+function toTransferActivity(transfer: FileTransfer, localDeviceId: string, sourcePath?: string, route?: string): MonitorActivity {
   const progressPercent = transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0
+  const direction = deriveFileTransferDirection(localDeviceId, transfer) ?? 'download'
   return {
-    id: transfer.id, category: 'transfer', kindLabel: 'DOWNLOAD', titleLabel: 'ARTIFACT', title: basename(transfer.destinationPath), route,
+    id: transfer.id, category: 'transfer', kindLabel: direction.toUpperCase(), titleLabel: 'ARTIFACT', title: basename(transfer.destinationPath), route,
     status: 'recent', progressPercent,
     facts: [{ label: 'PROGRESS', value: `${progressPercent}%` }, { label: 'TRANSFERRED', value: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal) }],
     details: [...(sourcePath ? [{ label: 'SOURCE', value: sourcePath }] : []), { label: 'DESTINATION', value: transfer.destinationPath }],
