@@ -46,6 +46,7 @@
   /* Caution — reserved for cancel, failure and unavailable state */
   --caution: #cf9c6e;
   --caution-line: #5c4433;
+  --danger: #b96363;
 
   /* Type scale for technical labels */
   --label-size: .55rem;

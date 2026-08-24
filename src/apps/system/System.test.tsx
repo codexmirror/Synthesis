@@ -41,7 +41,7 @@ describe('System', () => {
     ] })}><System /></GameProvider>)
 
     expect(screen.getByText('NodeScan')).toBeInTheDocument()
-    expect(screen.getByText('1.1 · EXPERIMENTAL · nodescan-1.1-experimental')).toBeInTheDocument()
+    expect(screen.getByText('1.1 · EXPERIMENTAL')).toBeInTheDocument()
     expect(screen.queryByText(/basic-credential-toolkit/)).not.toBeInTheDocument()
   })
 
@@ -53,7 +53,7 @@ describe('System', () => {
     render(<GameProvider initialState={installed}><System /></GameProvider>)
 
     expect(screen.getByText('NODE Miner')).toBeInTheDocument()
-    expect(screen.getByText('1.0 · UNOFFICIAL · nm-dev · node-miner-1.0')).toBeInTheDocument()
+    expect(screen.getByText('1.0 · UNOFFICIAL · nm-dev')).toBeInTheDocument()
   })
 
   it('states an absent inventory rather than implying software exists', () => {
