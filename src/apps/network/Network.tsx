@@ -336,12 +336,13 @@ function NetworkView({ network, release, pending, observationFeedback, onScan, o
       <dl className="node-facts"><div><dt>SELF CONNECTED</dt><dd>{network.observed.connected ? 'YES' : 'NO'}</dd></div></dl>
     </>}
 
-    <div className="node-section"><span>DEVICES</span><span>{network.membersObserved ? countLabel(network.members.length, 'known device') : 'Not observed'}</span></div>
-    {!network.membersObserved
-      ? <div className="node-empty"><strong>MEMBERSHIP NOT OBSERVED</strong><span>Scan this Network to observe its responding member Devices.</span></div>
-      : network.members.length === 0
+    <div className="node-section"><span>DEVICES</span><span>{network.members.length > 0 ? countLabel(network.members.length, 'known device') : network.membersObserved ? '0 known devices' : 'Not observed'}</span></div>
+    {!network.membersObserved && <p className="ns-quiet-note"><strong>MEMBERSHIP NOT FULLY OBSERVED</strong><br />Scan this Network to observe its responding member Devices.</p>}
+    {network.members.length === 0
+      ? network.membersObserved
         ? <div className="node-empty"><strong>NO RESPONDING DEVICES</strong><span>The last Scan of this Network observed no responding Devices.</span></div>
-        : <div className="ns-list">{network.members.map((member) => member.scope === 'self'
+        : null
+      : <div className="ns-list">{network.members.map((member) => member.scope === 'self'
           ? <article className="ns-row ns-row--static" key={member.id}>
             <span className="ns-dot ns-dot--self" aria-hidden="true" />
             <span className="ns-row-copy"><span className="ns-eyebrow">SELF</span><strong>{member.address}</strong></span>

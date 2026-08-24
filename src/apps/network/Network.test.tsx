@@ -652,7 +652,7 @@ describe('Scan workspace', () => {
     expect(screen.queryByText('198.51.100.47')).not.toBeInTheDocument()
 
     await user.click(network)
-    expect(screen.getByText('MEMBERSHIP NOT OBSERVED')).toBeInTheDocument()
+    expect(screen.getByText('MEMBERSHIP NOT FULLY OBSERVED')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Scan network home-net' }))
     expect(await screen.findByRole('button', { name: 'Open device 198.51.100.47' })).toBeInTheDocument()
     expect(screen.getByText('3 known devices')).toBeInTheDocument()
@@ -671,6 +671,38 @@ describe('Scan workspace', () => {
     const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
     expect(state.discovery.devices.map(({ address }) => address)).toEqual(['198.51.100.47', '198.51.100.53'])
     expect(state.knowledge.discoveredVulnerabilities).toEqual([])
+  })
+
+  it('keeps a directly discovered Device reachable through its partially known Network', async () => {
+    const base = createInitialGameState()
+    const targets = { localDevice: base.player.localDevice, network: base.world.network }
+    const direct = scanNetworkTarget(targets, '198.51.100.47')
+    const discovery = rememberScan(base.discovery, direct, base.player.localDevice.id)
+    const partial = { ...base, discovery }
+    const networkMemory = partial.discovery.networks.find(({ name }) => name === 'home-net')
+
+    expect(networkMemory).toMatchObject({ membersObserved: false })
+    expect(partial.discovery.networkDeviceRelations).toContainEqual({ networkId: networkMemory?.id, deviceId: 'host-lan-001' })
+
+    const user = userEvent.setup()
+    render(<GameProvider initialState={partial}><Network /></GameProvider>)
+    const network = screen.getByRole('button', { name: 'Open known area home-net' })
+    expect(network).toHaveTextContent('Members not observed')
+    expect(screen.queryByRole('button', { name: 'Open device 198.51.100.47' })).not.toBeInTheDocument()
+
+    await user.click(network)
+    expect(screen.getByText('MEMBERSHIP NOT FULLY OBSERVED')).toBeInTheDocument()
+    expect(screen.getByText('1 known device')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toHaveTextContent('2 known services')
+    expect(screen.queryByText('198.51.100.53')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    expect(screen.getByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Scan network home-net' }))
+    expect(await screen.findByRole('button', { name: 'Open device 198.51.100.53' })).toBeInTheDocument()
+    expect(screen.queryByText('MEMBERSHIP NOT FULLY OBSERVED')).not.toBeInTheDocument()
+    expect(screen.getByText('3 known devices')).toBeInTheDocument()
   })
 
   it('keeps NodeScan 1.1 capability while its removal Process runs and drops it only on completion', async () => {
