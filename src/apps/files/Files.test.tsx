@@ -92,11 +92,11 @@ describe('Files', () => {
 
     await act(async () => { vi.advanceTimersByTime(20_000) })
 
-    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
     expect(screen.getByText(/INSTALLED RELEASE/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Back to /home/user' }))
     await user.click(screen.getByRole('button', { name: /release\.bin/ }))
-    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Command input'), 'cat /home/user/release.bin{enter}')
     expect(within(screen.getByRole('region', { name: 'Terminal' })).getByText('NOT A TEXT FILE')).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('Files NODE Miner installation', () => {
     expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
 
     await act(async () => { vi.advanceTimersByTime(20_000) })
-    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
     await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
@@ -293,5 +293,54 @@ describe('Files filesystem and software state', () => {
   it('shows no inbound transfer when none is represented', () => {
     render(<GameProvider initialState={withFiles([{ kind: 'text', id: 'file-welcome', path: '/home/user/welcome.txt', content: 'hi' }])}><Files /></GameProvider>)
     expect(screen.queryByText(/INCOMING/)).not.toBeInTheDocument()
+  })
+})
+
+describe('Files software removal', () => {
+  const withFiles = (files: FilesystemFile[]) => {
+    const state = createInitialGameState()
+    return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files } } } }
+  }
+  const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+
+  it('represents the protected NodeScan 1.0 Standard baseline truthfully, with no destructive REMOVE action', async () => {
+    const baseline = { kind: 'software_package' as const, id: 'file-baseline', path: '/home/user/nodescan-1.0.pkg', releaseId: 'nodescan-1.0-standard', productId: 'nodescan', name: 'NodeScan', version: '1.0', channel: 'standard', sizeBytes: 1_000 }
+    render(<GameProvider initialState={withFiles([baseline])}><Files /></GameProvider>)
+    await userEvent.setup().click(screen.getByRole('button', { name: /nodescan-1\.0\.pkg/ }))
+    expect(screen.getByText('PROTECTED · SYSTEM BASELINE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
+  })
+
+  it('offers REMOVE for the installed NodeScan 1.1 Experimental override, transitions through REMOVING, and restores the NodeScan 1.0 baseline on completion', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const base = withFiles([experimental])
+    const installed = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } } }
+    render(<GameProvider initialState={installed}><Files /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.click(screen.getByRole('button', { name: /nodescan\.pkg/ }))
+    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'REMOVE' }))
+    expect(screen.getByRole('button', { name: 'REMOVING…' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
+
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
+    expect(screen.getByText('NodeScan 1.0 Standard')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('prevents duplicate removal admission for the same product while REMOVING', () => {
+    const base = withFiles([experimental])
+    const running: GameState = {
+      ...base,
+      player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } },
+      process: { nextId: 2, processes: [
+        { kind: 'software_removal', id: 'process-0001', label: 'SOFTWARE REMOVAL', executorDeviceId: base.player.localDevice.id, status: 'running', workRequired: 400, workCompleted: 100, ramRequiredMiB: 128, productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+      ] },
+    }
+    render(<GameProvider initialState={running}><Files /></GameProvider>)
+    expect(screen.getByText('REMOVING')).toBeInTheDocument()
+    expect(screen.queryByText('INSTALLED')).not.toBeInTheDocument()
   })
 })

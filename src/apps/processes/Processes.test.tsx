@@ -12,6 +12,7 @@ import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, startNodeMiner } from '../../core/game/nodeMiner'
 import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
+import { removeInstalledSoftware } from '../../core/game/softwareRemoval'
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
@@ -472,5 +473,45 @@ describe('Activity Monitor: Software Installation', () => {
     expect(installing.dataset.status).toBe('recent')
     expect(within(installing).getByText('INSTALLED')).toBeInTheDocument()
     expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
+  })
+})
+
+describe('Activity Monitor: Software Removal', () => {
+  const installedMiner = () => advanceGameState((() => {
+    const result = installLocalSoftwarePackage(createInitialGameState(), '/home/user/downloads/node-miner-1.0.pkg')
+    if (result.status !== 'started') throw Error(result.status)
+    return result.state
+  })(), 20_000)
+
+  const started = () => {
+    const result = removeInstalledSoftware(installedMiner(), 'node-miner')
+    if (result.status !== 'started') throw Error(result.status)
+    return result.state
+  }
+
+  it('shows a running removal Process with package, progress, CPU, and RAM under RUNNING', () => {
+    render(<GameProvider initialState={started()}><Processes /></GameProvider>)
+    const removing = card('SOFTWARE REMOVAL')
+    expect(within(removing).getByText('RUNNING')).toBeInTheDocument()
+    expect(within(removing).getByText('NODE Miner 1.0')).toBeInTheDocument()
+    expect(fact(removing, 'PROGRESS')).toBe('0%')
+    expect(fact(removing, 'RAM')).toBe('128 MiB')
+  })
+
+  it('appears in Recent Activity with a concrete REMOVED outcome once the Process ends', () => {
+    const done = advanceGameState(started(), 20_000)
+    render(<GameProvider initialState={done}><Processes /></GameProvider>)
+    const removing = card('SOFTWARE REMOVAL')
+    expect(removing.dataset.status).toBe('recent')
+    expect(within(removing).getByText('REMOVED')).toBeInTheDocument()
+    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
+  })
+
+  it('contends for shared Device CPU/RAM with another running local Process', () => {
+    const base = started()
+    const state: GameState = { ...base, process: { ...base.process, processes: [...base.process.processes, { kind: 'generic', id: 'process-contention', label: 'Other work', executorDeviceId: 'device-local-v0', status: 'running', workRequired: 100, workCompleted: 0, ramRequiredMiB: 100 }] } }
+    render(<GameProvider initialState={state}><Processes /></GameProvider>)
+    const removing = card('SOFTWARE REMOVAL')
+    expect(fact(removing, 'CPU')).toBe('41%')
   })
 })

@@ -118,8 +118,8 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
   if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity, recent)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
-  const titleLabel = process.kind === 'generic' ? undefined : process.kind === 'software_installation' ? 'PACKAGE' : 'TARGET'
-  const title = process.kind === 'generic' ? process.label : process.kind === 'software_installation' ? `${process.name} ${process.version}` : process.startedEndpoint
+  const titleLabel = process.kind === 'generic' ? undefined : process.kind === 'software_installation' || process.kind === 'software_removal' ? 'PACKAGE' : 'TARGET'
+  const title = process.kind === 'generic' ? process.label : process.kind === 'software_installation' || process.kind === 'software_removal' ? `${process.name} ${process.version}` : process.startedEndpoint
   return {
     id: process.id,
     category: 'operation',
@@ -192,6 +192,11 @@ function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[
   if (process.kind === 'software_installation') {
     if (process.result?.status === 'installed') return { tone: 'positive', headline: 'INSTALLED', details: [] }
     if (process.result?.status === 'install_path_occupied') return { tone: 'negative', headline: 'INSTALLATION PATH OCCUPIED', details: [] }
+  }
+  if (process.kind === 'software_removal') {
+    if (process.result?.status === 'baseline_restored') return { tone: 'positive', headline: 'BASELINE RESTORED', details: [] }
+    if (process.result?.status === 'removed') return { tone: 'positive', headline: 'REMOVED', details: [] }
+    if (process.result?.status === 'not_installed') return { tone: 'negative', headline: 'NOT INSTALLED', details: [] }
   }
   return undefined
 }

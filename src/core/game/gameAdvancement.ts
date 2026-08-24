@@ -4,6 +4,7 @@ import { resolveCompletedCredentialAccess } from './credentialAccess'
 import { advanceFileTransfer } from './fileTransfer'
 import { resolveNodeMinerProduction } from './nodeMiner'
 import { resolveCompletedSoftwareInstallations } from './softwareInstallation'
+import { resolveCompletedSoftwareRemovals } from './softwareRemoval'
 import type { GameState } from './types'
 import { archiveProcess } from './recentActivity'
 
@@ -46,6 +47,7 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
       world,
     })
     nextState = resolveCompletedSoftwareInstallations(nextState)
+    nextState = resolveCompletedSoftwareRemovals(nextState)
     const previouslyRunning = new Set(state.process.processes.filter((process) => process.status === 'running').map(({ id }) => id))
     for (const process of nextState.process.processes) {
       if (process.status === 'completed' && previouslyRunning.has(process.id)) nextState = archiveProcess(nextState, process)
