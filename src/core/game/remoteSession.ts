@@ -54,9 +54,10 @@ export type DisconnectRemoteResult = { readonly status: 'disconnected' | 'not_co
 
 /**
  * Disconnecting ends only this interactive Session's authority. Any
- * FileTransfer admitted through it was snapshotted with its own DeviceAccess
- * authority (`accessId`) at admission and now runs as an independent network
- * runtime, so disconnect must not clear it. DeviceAccess is left untouched.
+ * FileTransfer admitted through it stored its DeviceAccess identity (`accessId`)
+ * as a stable authorization reference and now runs as an independent network
+ * runtime that revalidates that relationship, so disconnect must not clear it.
+ * DeviceAccess is left untouched.
  */
 export function disconnectRemoteSession(state: GameState): DisconnectRemoteResult {
   const activeSession = state.remoteSession.active
