@@ -75,6 +75,9 @@ export interface NetworkMember {
   readonly scope: 'self' | 'lan' | 'remote'
   readonly servicesObserved: boolean
   readonly serviceCount: number
+  /** Remembered child observations available for inline relationship browsing. */
+  readonly services: readonly ServiceSummary[]
+  readonly accessPrivilege?: 'USER'
 }
 
 export interface NetworkWorkspace {
@@ -202,9 +205,19 @@ export function selectNetworkWorkspace(information: PlayerInformation, networkId
   const members = information.discovery.networkDeviceRelations
     .filter((relation) => relation.networkId === network.id)
     .map((relation): NetworkMember | undefined => {
-      if (relation.deviceId === localDevice.id) return { id: localDevice.id, address: localDevice.network.ip, scope: 'self', servicesObserved: true, serviceCount: 0 }
+      if (relation.deviceId === localDevice.id) return { id: localDevice.id, address: localDevice.network.ip, scope: 'self', servicesObserved: true, serviceCount: 0, services: [] }
       const device = information.discovery.devices.find(({ id }) => id === relation.deviceId)
-      return device ? { id: device.id, address: device.address, scope: device.scope, servicesObserved: device.servicesObserved, serviceCount: device.services.length } : undefined
+      if (!device) return undefined
+      const workspace = selectDeviceWorkspace(information, device.id)
+      return {
+        id: device.id,
+        address: device.address,
+        scope: device.scope,
+        servicesObserved: device.servicesObserved,
+        serviceCount: device.services.length,
+        services: workspace?.services ?? [],
+        ...(workspace?.access ? { accessPrivilege: workspace.access.privilege } : {}),
+      }
     })
     .filter((member): member is NetworkMember => Boolean(member))
   return {

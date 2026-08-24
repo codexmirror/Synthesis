@@ -352,6 +352,88 @@ describe('Scan workspace', () => {
     expect(scanTargetSpy).not.toHaveBeenCalled()
   })
 
+  it('expands one Device relationship at a time without observing or mutating player information', async () => {
+    const state = discoveredState()
+    const actions = actionStubs()
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
+    const before = JSON.stringify({ discovery: state.discovery, knowledge: state.knowledge })
+    const user = userEvent.setup()
+    render(<Network />)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open SSH service' })).toHaveTextContent('22 / TCP')
+    expect(screen.getByRole('button', { name: 'Open HTTP service' })).toHaveTextContent('80 / TCP')
+    expect(JSON.stringify({ discovery: state.discovery, knowledge: state.knowledge })).toBe(before)
+    expect(actions.scanTarget).not.toHaveBeenCalled()
+    expect(actions.inspectTarget).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
+    expect(screen.queryByRole('region', { name: 'Known services for 198.51.100.47' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('Services not observed')
+  })
+
+  it('distinguishes unobserved, observed-empty, and observed non-empty Service branches', async () => {
+    const known = discoveredState()
+    const emptyState = {
+      ...known,
+      discovery: {
+        ...known.discovery,
+        devices: known.discovery.devices.map((device) => device.address === '198.51.100.53'
+          ? { ...device, servicesObserved: true, services: [] }
+          : device),
+      },
+    }
+    const user = userEvent.setup()
+    const view = render(<GameProvider initialState={known}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('Services not observed')
+
+    view.unmount()
+    render(<GameProvider initialState={emptyState}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('NO OPEN SERVICES')
+    expect(screen.queryByRole('button', { name: /Open .* service/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('SSH')
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('HTTP')
+  })
+
+  it('opens existing Service and Device detail views from an expanded Network branch', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
+    expect(screen.getByRole('heading', { name: 'SSH' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: '← home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
+    expect(screen.getByText('OBSERVED')).toBeInTheDocument()
+  })
+
+  it('shows remembered fingerprints and established Access inline after a NodeScan downgrade', async () => {
+    const inspected = withInspectedDevice(discoveredState())
+    const state = {
+      ...inspected,
+      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: inspected.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] },
+    }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+    expect(screen.getByText('ACCESS ESTABLISHED')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open SSH service' })).toHaveTextContent('GateSSH 1.3.2')
+    expect(screen.getByRole('button', { name: 'Open SSH service' })).toHaveTextContent('Authentication: Credential')
+    expect(screen.queryByRole('button', { name: 'INSPECT NETWORK' })).not.toBeInTheDocument()
+  })
+
   it('executes graphical Scan through the application operation without reading World', async () => {
     const base = createInitialGameState()
     const stateWithoutReadableWorld = Object.defineProperty({ ...base, discovery: discoveredState().discovery }, 'world', {
