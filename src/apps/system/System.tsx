@@ -36,7 +36,7 @@ export function System() {
       const removable = !removing && (software.id === NODE_MINER_PROGRAM_ID || software.id === 'nodescan' && software.releaseId !== NODESCAN_1_0_STANDARD_RELEASE_ID)
       return <div className="software-row" key={software.id}>
         <button className="node-row" type="button" onClick={() => setSelectedProductId(software.id)}><span className="node-row-copy"><strong>{software.name}</strong><small>{describeRelease(software)}{removing ? ` · ${software.id === 'nodescan' ? 'RESTORING' : 'REMOVING'}` : ''}</small></span><span className="node-row-arrow" aria-hidden="true">→</span></button>
-        {removable && <button className="software-remove" type="button" aria-label={software.id === 'nodescan' ? 'Restore NodeScan 1.0 Standard' : `Remove ${software.name}`} onClick={() => actions.removeInstalledSoftware(software.id)}><span aria-hidden="true">⌫</span></button>}
+        {removable && <button className="software-remove" type="button" aria-label={software.id === 'nodescan' ? 'Restore NodeScan 1.0 Standard' : `Remove ${software.name}`} onClick={() => actions.removeInstalledSoftware(software.id)}><TrashIcon /></button>}
       </div>
     })}</div> : <div className="node-empty"><strong>NO INSTALLED SOFTWARE</strong><span>This Device carries no installed software.</span></div>}
   </section>
@@ -51,9 +51,15 @@ function SoftwareDetail({ software, firmwareName, firmwareVersion, removing, rem
     <div className="node-section"><span>SOFTWARE</span></div>
     <dl className="node-facts"><div><dt>VERSION</dt><dd>{software.version}</dd></div>{'channel' in software && <div><dt>CHANNEL</dt><dd>{software.channel.toUpperCase()}</dd></div>}{'publisher' in software && software.publisher && <div><dt>PUBLISHER</dt><dd>{software.publisher}</dd></div>}<div><dt>RELEASE</dt><dd>{software.releaseId}</dd></div></dl>
     <div className="node-section"><span>SYSTEM</span></div>
-    <dl className="node-facts">{baseline ? <><div><dt>STATE</dt><dd>SYSTEM BASELINE</dd></div><div><dt>PROVIDED BY</dt><dd>{firmwareName} {firmwareVersion}</dd></div></> : software.id === 'nodescan' ? <><div><dt>{removing ? 'STATE' : 'ACTIVE'}</dt><dd>{removing ? 'RESTORING' : '1.1 EXPERIMENTAL'}</dd></div><div><dt>BASELINE</dt><dd>1.0 STANDARD</dd></div></> : <div><dt>STATE</dt><dd>{removing ? 'REMOVING' : 'INSTALLED'}</dd></div>}</dl>
+    <dl className="node-facts">{baseline ? <><div><dt>STATE</dt><dd>SYSTEM BASELINE</dd></div><div><dt>PROVIDED BY</dt><dd>{firmwareName} {firmwareVersion}</dd></div></> : software.id === 'nodescan' ? <><div><dt>{removing ? 'STATE' : 'ACTIVE'}</dt><dd>{removing ? 'RESTORING' : describeRelease(software)}</dd></div><div><dt>BASELINE</dt><dd>1.0 STANDARD</dd></div></> : <div><dt>STATE</dt><dd>{removing ? 'REMOVING' : 'INSTALLED'}</dd></div>}</dl>
     {canRemove && !removing && <><div className="node-section"><span>ACTIONS</span></div><button className="node-action node-action--destructive" type="button" onClick={remove}>{software.id === 'nodescan' ? 'RESTORE 1.0 STANDARD' : 'REMOVE SOFTWARE'}</button></>}
   </div>
 }
 
 function describeRelease(software: InstalledSoftware) { return `${software.version}${'channel' in software ? ` · ${software.channel.toUpperCase()}` : ''}${'publisher' in software && software.publisher ? ` · ${software.publisher}` : ''}` }
+
+function TrashIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square">
+    <path d="M3 4.5h10M6 2.5h4l.5 2H5.5l.5-2ZM4.5 4.5l.6 9h5.8l.6-9M7 7v4M9 7v4" />
+  </svg>
+}
