@@ -484,13 +484,11 @@ function DeviceNode({ member, expanded, pending, onToggle, onScan, onOpen }: {
 }) {
   const expandable = hasServiceChildren(member)
   const note = serviceNote(member)
-  const scope = member.observed?.deviceKind === 'server' ? `${member.scope.toUpperCase()} SERVER` : `${member.scope.toUpperCase()} DEVICE`
+  const scope = `${member.scope.toUpperCase()} DEVICE`
   const copy = <span className="ns-node-copy">
     <span className="ns-eyebrow">{scope}</span>
     <strong>{member.address}</strong>
     <span className="ns-row-note">{note}</span>
-    {member.observed?.firmware && <span className="ns-node-observed">{[member.observed.firmware, member.observed.computeClass && `${member.observed.computeClass} COMPUTE`].filter(Boolean).join(' · ')}</span>}
-    {member.accessPrivilege && <Marks marks={[{ tone: 'access', text: 'ACCESS ESTABLISHED' }]} />}
   </span>
 
   return <div className={`ns-node ns-node--device${expandable ? '' : ' ns-node--leaf'}`}>
@@ -519,17 +517,7 @@ function ServiceNode({ service, onOpen }: { service: ServiceSummary; onOpen(): v
       <span className="ns-service-head"><strong>{service.name}</strong></span>
       <span className="ns-service-endpoint">
         <span>{service.port} / {service.protocol}</span>
-        <span>{service.endpoint}</span>
       </span>
-      {service.observed && <span className="ns-service-observed">
-        <span>{service.observed.implementation}</span>
-        {service.observed.authentication && <span>Authentication: {service.observed.authentication}</span>}
-      </span>}
-      <Marks marks={[
-        ...runningMarks(service.running),
-        ...(service.accessPrivilege ? [{ tone: 'access' as const, text: `${service.accessPrivilege} ACCESS` }] : []),
-        ...service.knowledge.map((weakness) => ({ tone: 'known' as const, text: `KNOWN WEAKNESS · ${weakness.id}` })),
-      ]} />
     </span>
     <span className="ns-arrow" aria-hidden="true">→</span>
   </button>
