@@ -194,9 +194,11 @@ describe('Scan workspace', () => {
   it('discovers the local hierarchy from shared observations', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    expect(await screen.findByText('home-net')).toBeInTheDocument()
+    const network = await screen.findByRole('button', { name: 'Open known area home-net' })
+    expect(network).toHaveTextContent('3 known devices')
+    expect(screen.queryByRole('button', { name: 'Open device 198.51.100.47' })).not.toBeInTheDocument()
     expect(screen.queryByText(/unavailable/i)).not.toBeInTheDocument()
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
+    await user.click(network)
     expect(screen.getByText('3 known devices')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
     expect(screen.getByText('198.51.100.47')).toBeInTheDocument()
@@ -680,14 +682,14 @@ describe('Scan workspace', () => {
 
     const user = userEvent.setup()
     const running = render(<GameProvider initialState={removing.state}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open device 198.51.100.47' }))
+    await navigateToServices(user)
     // 1.1 remains the installed release until removal completes.
     expect(screen.getByRole('button', { name: 'INSPECT AGAIN' })).toBeInTheDocument()
     expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
     running.unmount()
 
     render(<GameProvider initialState={restored}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open device 198.51.100.47' }))
+    await navigateToServices(user)
     expect(screen.queryByRole('button', { name: /INSPECT/ })).not.toBeInTheDocument()
     // Capability was lost; remembered observations were not.
     expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
@@ -704,7 +706,7 @@ describe('Scan workspace', () => {
     }
     const user = userEvent.setup()
     render(<GameProvider initialState={state}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open device 198.51.100.47' }))
+    await navigateToServices(user)
     await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
     expect(await screen.findByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
     expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
@@ -744,7 +746,9 @@ describe('Scan workspace', () => {
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actionStubs())
     const user = userEvent.setup()
     render(<Network />)
-    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toHaveTextContent('ACCESS ESTABLISHED')
+    expect(screen.queryByRole('button', { name: 'Open device 198.51.100.47' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toHaveTextContent('2 known services')
 
     await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
     expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()

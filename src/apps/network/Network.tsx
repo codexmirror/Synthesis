@@ -197,7 +197,6 @@ export function Network() {
       onCopy={copy}
       onScanSelf={() => scan(space.self.address)}
       onOpenNetwork={(networkId) => open({ kind: 'network', networkId })}
-      onOpenDevice={(deviceId) => open({ kind: 'device', deviceId })}
     />
   </section>
 }
@@ -260,7 +259,7 @@ function CapabilityNote({ observed, canInspect }: { observed: boolean; canInspec
   return <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>
 }
 
-function KnownSpaceView({ space, release, pending, observationFeedback, copyState, onCopy, onScanSelf, onOpenNetwork, onOpenDevice }: {
+function KnownSpaceView({ space, release, pending, observationFeedback, copyState, onCopy, onScanSelf, onOpenNetwork }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
@@ -269,7 +268,6 @@ function KnownSpaceView({ space, release, pending, observationFeedback, copyStat
   onCopy(value: string): void
   onScanSelf(): void
   onOpenNetwork(networkId: string): void
-  onOpenDevice(deviceId: string): void
 }) {
   return <div className="ns-view">
     <header className="ns-masthead">
@@ -313,32 +311,6 @@ function KnownSpaceView({ space, release, pending, observationFeedback, copyStat
         <span className="ns-arrow" aria-hidden="true">→</span>
       </button>)}</div>
       : <div className="node-empty"><strong>NO NETWORKS KNOWN</strong><span>Scan SELF to observe the Networks this Device belongs to.</span></div>}
-
-    {space.devices.length > 0 && <>
-      <div className="node-section"><span>DEVICES</span><span>{space.devices.length} known</span></div>
-      <div className="ns-list">{space.devices.map((device) => <button
-        type="button"
-        className="ns-row"
-        key={device.id}
-        aria-label={`Open device ${device.address}`}
-        onClick={() => onOpenDevice(device.id)}
-      >
-        <span className="ns-dot" aria-hidden="true" />
-        <span className="ns-row-copy">
-          <span className="ns-eyebrow">{device.scope.toUpperCase()} DEVICE</span>
-          <strong>{device.address}</strong>
-          <span className="ns-row-note">
-            {device.networkNames.length > 0 ? `${device.networkNames.join(' · ')} · ` : ''}
-            {device.servicesObserved ? countLabel(device.serviceCount, 'known service') : 'Services not observed'}
-          </span>
-          <Marks marks={[
-            ...(device.operationsRunning > 0 ? [{ tone: 'live' as const, text: countLabel(device.operationsRunning, 'operation') + ' running' }] : []),
-            ...(device.sessionActive ? [{ tone: 'access' as const, text: 'REMOTE SESSION' }] : device.hasAccess ? [{ tone: 'access' as const, text: 'ACCESS ESTABLISHED' }] : []),
-          ]} />
-        </span>
-        <span className="ns-arrow" aria-hidden="true">→</span>
-      </button>)}</div>
-    </>}
   </div>
 }
 
@@ -376,7 +348,11 @@ function NetworkView({ network, release, pending, observationFeedback, onScan, o
           </article>
           : <button type="button" className="ns-row" key={member.id} aria-label={`Open device ${member.address}`} onClick={() => onOpenDevice(member.id)}>
             <span className="ns-dot" aria-hidden="true" />
-            <span className="ns-row-copy"><span className="ns-eyebrow">{member.scope.toUpperCase()} DEVICE</span><strong>{member.address}</strong></span>
+            <span className="ns-row-copy">
+              <span className="ns-eyebrow">{member.scope.toUpperCase()} DEVICE</span>
+              <strong>{member.address}</strong>
+              <span className="ns-row-note">{member.servicesObserved ? countLabel(member.serviceCount, 'known service') : 'Services not observed'}</span>
+            </span>
             <span className="ns-arrow" aria-hidden="true">→</span>
           </button>)}</div>}
 
