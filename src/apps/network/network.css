@@ -154,7 +154,6 @@ button.ns-node, .ns-node-main { cursor: pointer; }
 .ns-node-copy { min-width: 0; flex: 1; display: grid; gap: 2px; }
 .ns-node-copy > strong { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
 .ns-row-note { color: var(--text-muted); font-size: .61rem; line-height: 1.4; overflow-wrap: anywhere; }
-.ns-node-observed { color: var(--text-secondary); font-size: .61rem; line-height: 1.4; overflow-wrap: anywhere; }
 
 /* Network is the strongest identity in the tree; Device and Service step down. */
 .ns-node--network { min-height: 56px; align-items: center; }
