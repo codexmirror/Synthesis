@@ -3,10 +3,12 @@ import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH } from './nodeMiner'
 import { cancelLocalProcess, deriveResourceUsage } from './processes'
-import { installLocalSoftwarePackage, resolveCompletedSoftwareInstallations, SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB } from './softwareInstallation'
+import { installLocalSoftwarePackage, isRecognizedSoftwarePackagePath, resolveCompletedSoftwareInstallations, SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB } from './softwareInstallation'
+import { advanceFileTransfer, startRemoteFileDownload } from './fileTransfer'
+import { connectRemoteFromObservation } from './remoteSession'
 import type { ExecutableFile, GameState, SoftwareInstallationProcess, SoftwarePackageFile } from './types'
 
-const path = '/home/user/downloads/nodescan.weird'
+const path = '/home/user/downloads/nodescan-build.pkg'
 const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path, releaseId: 'build-a91f7', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
 
 function withFiles(files: GameState['player']['localDevice']['filesystem']['files']): GameState {
@@ -46,12 +48,15 @@ describe('installLocalSoftwarePackage', () => {
     expect(installLocalSoftwarePackage(state, requestedPath)).toEqual({ status, state })
   })
 
-  it('validates canonical file kind and product identity rather than filename or display name', () => {
+  it('validates canonical file kind and product identity rather than display name', () => {
     const text = withFiles([{ kind: 'text', id: 'file-fixture-text', path: '/home/user/nodescan.pkg', content: '' }])
     expect(installLocalSoftwarePackage(text, '/home/user/nodescan.pkg')).toEqual({ status: 'not_software_package', state: text })
     const unsupportedFile = { ...packageFile, productId: 'other-product' }
     const unsupported = withFiles([unsupportedFile])
     expect(installLocalSoftwarePackage(unsupported, path)).toEqual({ status: 'unsupported_package', state: unsupported })
+    // A package's own stated name never authorizes installation either.
+    const misnamed = withFiles([{ ...packageFile, productId: 'other-product', name: 'NodeScan' }])
+    expect(installLocalSoftwarePackage(misnamed, path).status).toBe('unsupported_package')
   })
 
   it('starts one running software-installation Process, reserving RAM and requiring shared Device CPU, without touching InstalledSoftware or the package', () => {
@@ -240,5 +245,64 @@ describe('software installation completion idempotency', () => {
     const executables = once.player.localDevice.filesystem.files.filter((file) => file.kind === 'executable')
     expect(executables).toHaveLength(1)
     expect(once.player.localDevice.installedSoftware.filter(({ id }) => id === 'node-miner')).toHaveLength(1)
+  })
+})
+
+describe('normal package recognition of the current path', () => {
+  const UNRECOGNIZED = ['/home/user/downloads/node-miner-1.0.pk', '/home/user/downloads/node-miner-1.0.pkd', '/home/user/downloads/node-miner-1.0.123', '/home/user/downloads/node-miner-1.0.PKG']
+
+  it('recognizes only a current path ending in .pkg, case-sensitively', () => {
+    expect(isRecognizedSoftwarePackagePath('/home/user/downloads/node-miner-1.0.pkg')).toBe(true)
+    for (const candidate of UNRECOGNIZED) expect(isRecognizedSoftwarePackagePath(candidate)).toBe(false)
+  })
+
+  it('admits the recognized .pkg package and rejects the same intrinsic artifact at an unrecognized path without mutating it', () => {
+    const recognized = withFiles([{ ...packageFile, id: 'file-miner', path: '/home/user/downloads/node-miner-1.0.pkg', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 }])
+    expect(installLocalSoftwarePackage(recognized, '/home/user/downloads/node-miner-1.0.pkg').status).toBe('started')
+
+    for (const unrecognizedPath of UNRECOGNIZED) {
+      const source = recognized.player.localDevice.filesystem.files[0] as SoftwarePackageFile
+      const renamed: SoftwarePackageFile = { ...source, path: unrecognizedPath }
+      const state = withFiles([renamed])
+      expect(installLocalSoftwarePackage(state, unrecognizedPath)).toEqual({ status: 'unrecognized_package_extension', state })
+
+      // Recognition is not identity: the artifact keeps its intrinsic package truth exactly.
+      const current = state.player.localDevice.filesystem.files[0]
+      expect(current.kind).toBe('software_package')
+      expect(current).toMatchObject({ productId: source.productId, releaseId: source.releaseId, name: source.name, version: source.version, sizeBytes: source.sizeBytes })
+      expect(current).toEqual({ ...source, path: unrecognizedPath })
+    }
+  })
+
+  it('rejects an unrecognized path before represented product support, and without a Process or installed software', () => {
+    const state = withFiles([{ ...packageFile, productId: 'other-product', path: '/home/user/downloads/nodescan-build.pk' }])
+    const result = installLocalSoftwarePackage(state, '/home/user/downloads/nodescan-build.pk')
+    expect(result.status).toBe('unrecognized_package_extension')
+    expect(result.state).toBe(state)
+    expect(result.state.process.processes).toEqual([])
+    expect(result.state.player.localDevice.installedSoftware).toEqual(state.player.localDevice.installedSoftware)
+  })
+
+  it('lets a real FileTransfer produce an unrecognized local package name that keeps intrinsic truth but is not normally installable', () => {
+    const base = createInitialGameState()
+    const host = base.world.network.hosts[0]
+    const remoteSource = host.filesystem!.files.find((file): file is SoftwarePackageFile => file.kind === 'software_package')!
+    const renamedRemote: SoftwarePackageFile = { ...remoteSource, path: '/opt/packages/nodescan-exp-1.1.pkd' }
+    const access = { id: 'access-recognition', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-ssh-001', privilege: 'USER' as const }
+    const authorized: GameState = {
+      ...base,
+      deviceAccess: { nextId: 2, established: [access] },
+      world: { ...base.world, network: { ...base.world.network, hosts: [{ ...host, filesystem: { ...host.filesystem!, files: host.filesystem!.files.map((file) => file.id === remoteSource.id ? renamedRemote : file) } }, ...base.world.network.hosts.slice(1)] } },
+    }
+    const connected = connectRemoteFromObservation(authorized, { targetDeviceId: host.id, address: '198.51.100.47' }).state
+    const started = startRemoteFileDownload(connected, renamedRemote.path)
+    if (started.status !== 'started') throw new Error(started.status)
+    const downloaded = advanceFileTransfer(started.state, 60_000)
+
+    const copy = downloaded.player.localDevice.filesystem.files.find(({ path: candidate }) => candidate === started.destinationPath)!
+    expect(started.destinationPath).toBe('/home/user/downloads/nodescan-exp-1.1.pkd')
+    expect(copy.kind).toBe('software_package')
+    expect(copy).toMatchObject({ productId: remoteSource.productId, releaseId: remoteSource.releaseId, name: remoteSource.name, version: remoteSource.version })
+    expect(installLocalSoftwarePackage(downloaded, started.destinationPath).status).toBe('unrecognized_package_extension')
   })
 })

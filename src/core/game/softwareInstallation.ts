@@ -8,8 +8,26 @@ export const SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB = 256
 
 export type InstallLocalSoftwarePackageResult =
   | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly productId: 'nodescan' | 'node-miner'; readonly name: string; readonly version: string; readonly channel: string }
-  | { readonly status: 'already_installed' | 'already_installing' | 'invalid_path' | 'package_not_found' | 'package_not_file' | 'not_software_package' | 'unsupported_package' | 'install_path_occupied'; readonly state: GameState }
+  | { readonly status: 'already_installed' | 'already_installing' | 'invalid_path' | 'package_not_found' | 'package_not_file' | 'not_software_package' | 'unrecognized_package_extension' | 'unsupported_package' | 'install_path_occupied'; readonly state: GameState }
   | { readonly status: 'insufficient_memory'; readonly state: GameState; readonly requiredMiB: number; readonly availableMiB: number }
+
+/** The one concrete path suffix normal NODE-OS package installation recognizes, case-sensitive under the current path model. */
+const RECOGNIZED_PACKAGE_PATH_SUFFIX = '.pkg'
+
+/**
+ * Whether an artifact's *current* concrete path is recognized by normal
+ * NODE-OS Software Package installation.
+ *
+ * Recognition is not artifact identity. A `software_package` copied to
+ * `/srv/hidden.123` keeps its `productId`, `releaseId`, name, version and
+ * size — FileTransfer preserves intrinsic source semantics and the exact
+ * destination path the player asked for — but NODE-OS no longer recognizes
+ * that path as a normal installable package. Only the artifact's own path is
+ * consulted; nothing about the package is rewritten either way.
+ */
+export function isRecognizedSoftwarePackagePath(path: string): boolean {
+  return path.endsWith(RECOGNIZED_PACKAGE_PATH_SUFFIX)
+}
 
 /**
  * Admit one represented package from the player's current local Device
@@ -29,6 +47,7 @@ export function installLocalSoftwarePackage(state: GameState, packagePath: strin
   if (resolved.status === 'not_file') return { status: 'package_not_file', state }
   if (resolved.file.kind !== 'software_package') return { status: 'not_software_package', state }
   const packageFile = resolved.file
+  if (!isRecognizedSoftwarePackagePath(packageFile.path)) return { status: 'unrecognized_package_extension', state }
   if (packageFile.productId !== 'nodescan' && packageFile.productId !== NODE_MINER_PROGRAM_ID) return { status: 'unsupported_package', state }
 
   const device = state.player.localDevice

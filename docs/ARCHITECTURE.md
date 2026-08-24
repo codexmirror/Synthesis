@@ -606,6 +606,14 @@ executable sizes are explicit positive byte counts because their payload bytes
 are not represented. Size does not imply storage-capacity simulation: disk
 capacity, usage, and admission remain intentionally unrepresented.
 
+Intrinsic artifact semantics are not the same thing as what a tool recognizes.
+A file's kind and kind-specific facts belong to the artifact and never change
+because its path changed; copying to any chosen destination name preserves
+them exactly. A concrete operation may nevertheless require a recognized path
+before it admits that artifact — recognition is admission behaviour owned by
+that operation, not artifact identity, and it must never rewrite, downgrade,
+or reclassify the artifact it declines.
+
 ### A18 — Wallet, currency, Device, and wallet software are separate
 
 A Wallet is a represented economic entity or account controlled through
