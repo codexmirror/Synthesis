@@ -188,16 +188,22 @@ export function Network() {
   }
 
   const space = selectKnownSpace(information)
+  const networks = space.networks.flatMap(({ id }) => {
+    const network = selectNetworkWorkspace(information, id)
+    return network ? [network] : []
+  })
   return <section className="app-content scan-app" aria-label="NodeScan workspace">
     <KnownSpaceView
       space={space}
+      networks={networks}
       release={release}
-      pending={pendingTarget === space.self.address}
-      observationFeedback={observationFeedback?.target === space.self.address ? observationFeedback.message : null}
-      copyState={copyState}
-      onCopy={copy}
+      pendingTarget={pendingTarget}
+      observationFeedback={observationFeedback}
       onScanSelf={() => scan(space.self.address)}
-      onOpenNetwork={(networkId) => open({ kind: 'network', networkId })}
+      onScanNetwork={(network) => scan(network.name)}
+      onInspectNetwork={(network) => actions.inspectTarget(network.name)}
+      onOpenDevice={(deviceId, networkId) => open({ kind: 'device', deviceId, networkId })}
+      onOpenService={(deviceId, serviceId, networkId) => open({ kind: 'service', deviceId, serviceId, networkId })}
     />
   </section>
 }
@@ -260,16 +266,19 @@ function CapabilityNote({ observed, canInspect }: { observed: boolean; canInspec
   return <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>
 }
 
-function KnownSpaceView({ space, release, pending, observationFeedback, copyState, onCopy, onScanSelf, onOpenNetwork }: {
+function KnownSpaceView({ space, networks, release, pendingTarget, observationFeedback, onScanSelf, onScanNetwork, onInspectNetwork, onOpenDevice, onOpenService }: {
   space: KnownSpace
+  networks: readonly NetworkWorkspace[]
   release: NodeScanRelease
-  pending: boolean
-  observationFeedback: string | null
-  copyState: CopyState
-  onCopy(value: string): void
+  pendingTarget: string | null
+  observationFeedback: ObservationFeedback
   onScanSelf(): void
-  onOpenNetwork(networkId: string): void
+  onScanNetwork(network: NetworkWorkspace): void
+  onInspectNetwork(network: NetworkWorkspace): void
+  onOpenDevice(deviceId: string, networkId: string): void
+  onOpenService(deviceId: string, serviceId: string, networkId: string): void
 }) {
+  const [expandedNetworkId, setExpandedNetworkId] = useState<string | null>(null)
   return <div className="ns-view">
     <header className="ns-masthead">
       <div>
@@ -280,40 +289,62 @@ function KnownSpaceView({ space, release, pending, observationFeedback, copyStat
       <span className="ns-release">{release.version} {release.channel.toUpperCase()}</span>
     </header>
 
-    <div className="node-section"><span>ORIGIN</span></div>
-    <article className="ns-row ns-row--static ns-origin-node">
-      <span className="ns-dot ns-dot--self" aria-hidden="true" />
-      <span className="ns-row-copy">
-        <span className="ns-eyebrow">SELF</span>
-        <strong>{space.self.name}</strong>
-        <CopyReference value={space.self.address} copyState={copyState} onCopy={onCopy} />
-      </span>
-    </article>
-    {space.networks.length > 0
-      ? <section className="ns-known-children" aria-labelledby="ns-known-networks">
-        <div className="node-section ns-tree-section"><span id="ns-known-networks">NETWORKS</span><span>{space.networks.length} known</span></div>
-        <div className="ns-tree ns-tree--known-space">{space.networks.map((network) => <button
-        type="button"
-        className="ns-row ns-tree-node"
-        key={network.id}
-        aria-label={`Open known area ${network.name}`}
-        onClick={() => onOpenNetwork(network.id)}
-      >
-        <span className="ns-dot" aria-hidden="true" />
-        <span className="ns-row-copy">
-          <span className="ns-eyebrow">NETWORK</span>
-          <strong>{network.name}</strong>
-          <span className="ns-row-note">{network.membersObserved ? countLabel(network.memberCount, 'known device') : 'Members not observed'}</span>
-        </span>
-        <span className="ns-arrow" aria-hidden="true">→</span>
-      </button>)}</div></section>
+    {networks.length > 0
+      ? <section aria-labelledby="ns-known-networks">
+        <div className="node-section"><span id="ns-known-networks">NETWORKS</span><span>{networks.length} known</span></div>
+        <div className="ns-network-list">{networks.map((network) => <KnownNetworkBranch
+          key={network.id}
+          network={network}
+          release={release}
+          expanded={expandedNetworkId === network.id}
+          pending={pendingTarget === network.name}
+          observationFeedback={observationFeedback?.target === network.name ? observationFeedback.message : null}
+          onToggle={() => setExpandedNetworkId(expandedNetworkId === network.id ? null : network.id)}
+          onScan={() => onScanNetwork(network)}
+          onInspect={() => onInspectNetwork(network)}
+          onOpenDevice={(deviceId) => onOpenDevice(deviceId, network.id)}
+          onOpenService={(deviceId, serviceId) => onOpenService(deviceId, serviceId, network.id)}
+        />)}</div></section>
       : <><div className="node-section"><span>NETWORKS</span></div><div className="node-empty"><strong>NO NETWORKS KNOWN</strong><span>Scan SELF to observe the Networks this Device belongs to.</span></div></>}
     <div className="node-section"><span>ACTIONS</span></div>
     <div className="ns-actions">
-      <Action label="SCAN SELF" note="Observe the Networks this Device belongs to." ariaLabel={`Scan self ${space.self.address}`} disabled={pending} onClick={onScanSelf} />
+      <Action label="SCAN SELF" note="Observe the Networks this Device belongs to." ariaLabel={`Scan self ${space.self.address}`} disabled={pendingTarget === space.self.address} onClick={onScanSelf} />
     </div>
-    {observationFeedback && <p className="node-note node-note--caution" role="status">{observationFeedback}</p>}
+    {observationFeedback?.target === space.self.address && <p className="node-note node-note--caution" role="status">{observationFeedback.message}</p>}
   </div>
+}
+
+function KnownNetworkBranch({ network, release, expanded, pending, observationFeedback, onToggle, onScan, onInspect, onOpenDevice, onOpenService }: {
+  network: NetworkWorkspace; release: NodeScanRelease; expanded: boolean; pending: boolean; observationFeedback: string | null
+  onToggle(): void; onScan(): void; onInspect(): void; onOpenDevice(deviceId: string): void; onOpenService(deviceId: string, serviceId: string): void
+}) {
+  const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null)
+  return <article className={`ns-network-branch${expanded ? ' is-expanded' : ''}`}>
+    <button type="button" className="ns-row ns-network-toggle" aria-label={`Open known area ${network.name}`} aria-expanded={expanded} onClick={onToggle}>
+      <span className="ns-dot" aria-hidden="true" />
+      <span className="ns-row-copy"><span className="ns-eyebrow">NETWORK</span><strong>{network.name}</strong><span className="ns-row-note">{network.membersObserved ? countLabel(network.members.length, 'known device') : 'Members not observed'}</span></span>
+      <span className="ns-chevron" aria-hidden="true">⌄</span>
+    </button>
+    {expanded && <div className="ns-network-contents" role="region" aria-label={`Known members of ${network.name}`}>
+      {!network.membersObserved && <div className="node-section"><span>DEVICES</span><span>{countLabel(network.members.length, 'known device')}</span></div>}
+      {!network.membersObserved && <p className="ns-quiet-note"><strong>MEMBERSHIP NOT FULLY OBSERVED</strong><br />Scan this Network to observe its responding member Devices.</p>}
+      {network.members.length === 0
+        ? network.membersObserved && <div className="node-empty"><strong>NO RESPONDING DEVICES</strong><span>The last Scan of this Network observed no responding Devices.</span></div>
+        : <div className="ns-tree ns-tree--network">{network.members.map((member) => member.scope === 'self'
+          ? <article className="ns-row ns-row--static ns-tree-node" key={member.id}><span className="ns-dot ns-dot--self" aria-hidden="true" /><span className="ns-row-copy"><span className="ns-eyebrow">SELF</span><strong>{member.address}</strong></span></article>
+          : <div className={`ns-device-branch${expandedDeviceId === member.id ? ' is-expanded' : ''}`} key={member.id}>
+            <div className="ns-row ns-tree-node ns-device-node">
+              <button type="button" className="ns-branch-toggle" aria-label={`${expandedDeviceId === member.id ? 'Collapse' : 'Expand'} device ${member.address}`} aria-expanded={expandedDeviceId === member.id} onClick={() => setExpandedDeviceId(expandedDeviceId === member.id ? null : member.id)}><span className="ns-dot" aria-hidden="true" /><span className="ns-row-copy"><span className="ns-eyebrow">{member.scope.toUpperCase()} DEVICE</span><strong>{member.address}</strong><span className="ns-row-note">{member.servicesObserved ? countLabel(member.serviceCount, 'known service') : 'Services not observed'}</span>{member.accessPrivilege && <Marks marks={[{ tone: 'access', text: 'ACCESS ESTABLISHED' }]} />}</span><span className="ns-chevron" aria-hidden="true">⌄</span></button>
+              <button type="button" className="ns-detail-link" aria-label={`Open device ${member.address}`} onClick={() => onOpenDevice(member.id)}>DETAIL <span aria-hidden="true">→</span><span className="sr-only">{member.servicesObserved ? countLabel(member.serviceCount, 'known service') : 'Services not observed'}</span></button>
+            </div>
+            {expandedDeviceId === member.id && <div className="ns-service-branch" role="region" aria-label={`Known services for ${member.address}`}>{!member.servicesObserved ? <p className="ns-tree-empty">Services not observed</p> : member.services.length === 0 ? <p className="ns-tree-empty"><strong>NO OPEN SERVICES</strong></p> : member.services.map((service) => <ServiceRow key={service.id} service={service} onOpen={() => onOpenService(member.id, service.id)} treeChild />)}</div>}
+          </div>)}</div>}
+      {network.observed && <><div className="node-section"><span>OBSERVED</span></div><dl className="node-facts"><div><dt>SELF CONNECTED</dt><dd>{network.observed.connected ? 'YES' : 'NO'}</dd></div></dl></>}
+      <div className="node-section"><span>ACTIONS</span></div><div className="ns-actions"><Action label="SCAN NETWORK" note="Observe responding member Devices." ariaLabel={`Scan network ${network.name}`} disabled={pending} onClick={onScan} />{release.canInspect && <Action label={network.observed ? 'INSPECT AGAIN' : 'INSPECT NETWORK'} note="Observe this Network's own properties." onClick={onInspect} />}</div>
+      <CapabilityNote observed={Boolean(network.observed)} canInspect={release.canInspect} />
+      {observationFeedback && <p className="node-note node-note--caution" role="status">{observationFeedback}</p>}
+    </div>}
+  </article>
 }
 
 function NetworkView({ network, release, pending, observationFeedback, onScan, onInspect, onOpenDevice, onOpenService, onBack }: {

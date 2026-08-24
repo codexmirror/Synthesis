@@ -172,8 +172,8 @@ describe('Scan workspace', () => {
     expect(screen.getByText('Known and observed network space')).toBeInTheDocument()
     expect(screen.getByText('KNOWN SPACE')).toBeInTheDocument()
     expect(screen.getByText('NODESCAN')).toBeInTheDocument()
-    expect(screen.getByText('SELF')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
+    expect(screen.queryByText('SELF')).not.toBeInTheDocument()
+    expect(screen.queryByText('198.51.100.23')).not.toBeInTheDocument()
     expect(screen.queryByText('home-net')).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
   })
@@ -350,6 +350,20 @@ describe('Scan workspace', () => {
     scanTargetSpy.mockClear()
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
     expect(scanTargetSpy).not.toHaveBeenCalled()
+  })
+
+  it('uses independent top-level Network and terminating child structures', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
+    const branch = container.querySelector('.ns-network-list > .ns-network-branch:last-child')
+    expect(branch).not.toBeNull()
+    expect(container.querySelector('.ns-origin-node')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    const members = screen.getByRole('region', { name: 'Known members of home-net' })
+    expect(members.querySelector('.ns-tree--network > :last-child')).not.toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' }).querySelector(':scope > :last-child')).not.toBeNull()
   })
 
   it('expands one Device relationship at a time without observing or mutating player information', async () => {
@@ -721,8 +735,8 @@ describe('Scan workspace', () => {
   it('opens fresh NodeScan 1.0 on a coherent Scan next step and grows only through observation', async () => {
     const user = userEvent.setup()
     render(<GameProvider><Network /><StateSnapshot /></GameProvider>)
-    expect(screen.getByText('SELF')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
+    expect(screen.queryByText('SELF')).not.toBeInTheDocument()
+    expect(screen.queryByText('198.51.100.23')).not.toBeInTheDocument()
     expect(screen.getByText('NO NETWORKS KNOWN')).toBeInTheDocument()
     expect(screen.queryByText('home-net')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /INSPECT/ })).not.toBeInTheDocument()
