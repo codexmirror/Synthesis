@@ -363,14 +363,6 @@ function KnownSpaceView({ selfAddress, networks, release, expandedNetworkIds, ex
           onOpenDevice={(deviceId) => onOpenDevice(deviceId, network.id)}
           onOpenService={(deviceId, serviceId) => onOpenService(deviceId, serviceId, network.id)}
         />)}</div>
-        {/* Re-observing SELF stays available once it has done its bootstrap work, but it stops competing with the space it produced. */}
-        <footer className="ns-space-footer">
-          <button type="button" className="ns-rescan" aria-label={`Scan self ${selfAddress}`} disabled={pendingTarget === selfAddress} onClick={onScanSelf}>
-            <span aria-hidden="true">↻</span> SCAN SELF
-          </button>
-          <span>Re-observe connected Networks.</span>
-        </footer>
-        {selfFeedback && <p className="node-note node-note--caution" role="status">{selfFeedback}</p>}
       </section>
       : <>
         <div className="node-empty"><strong>NO NETWORKS KNOWN</strong><span>Scan SELF to discover the Networks this Device belongs to.</span></div>
@@ -491,7 +483,7 @@ function DeviceNode({ member, expanded, pending, onToggle, onScan, onOpen }: {
     <span className="ns-row-note">{note}</span>
   </span>
 
-  return <div className={`ns-node ns-node--device${expandable ? '' : ' ns-node--leaf'}`}>
+  return <div className={`ns-node ns-node--device${expandable ? '' : ' ns-node--leaf'}${expanded ? ' is-expanded' : ''}`}>
     {expandable
       ? <button type="button" className="ns-node-main" aria-label={`${expanded ? 'Collapse' : 'Expand'} device ${member.address}`} aria-expanded={expanded} onClick={onToggle}>
         <span className="ns-twist" aria-hidden="true">▸</span>
@@ -511,8 +503,9 @@ function DeviceNode({ member, expanded, pending, onToggle, onScan, onOpen }: {
 }
 
 function ServiceNode({ service, onOpen }: { service: ServiceSummary; onOpen(): void }) {
-  return <button type="button" className="ns-node ns-node--service" aria-label={`Open ${service.name} service`} onClick={onOpen}>
-    <span className="ns-glyph" aria-hidden="true" />
+  const access = service.accessPrivilege ? ` · ${service.accessPrivilege} ACCESS ESTABLISHED` : ''
+  return <button type="button" className="ns-node ns-node--service" aria-label={`Open ${service.name} service${access}`} onClick={onOpen}>
+    <span className={`ns-glyph${service.accessPrivilege ? ' ns-glyph--access' : ''}`} aria-hidden="true" />
     <span className="ns-node-copy">
       <span className="ns-service-head"><strong>{service.name}</strong></span>
       <span className="ns-service-endpoint">
