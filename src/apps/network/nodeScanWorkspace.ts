@@ -63,22 +63,9 @@ export interface KnownNetworkSummary {
   readonly memberCount: number
 }
 
-export interface KnownDeviceSummary {
-  readonly id: string
-  readonly address: string
-  readonly scope: 'lan' | 'remote'
-  readonly servicesObserved: boolean
-  readonly serviceCount: number
-  readonly networkNames: readonly string[]
-  readonly hasAccess: boolean
-  readonly sessionActive: boolean
-  readonly operationsRunning: number
-}
-
 export interface KnownSpace {
   readonly self: { readonly name: string; readonly address: string }
   readonly networks: readonly KnownNetworkSummary[]
-  readonly devices: readonly KnownDeviceSummary[]
 }
 
 export interface NetworkMember {
@@ -86,6 +73,8 @@ export interface NetworkMember {
   readonly address: string
   /** `self` members are intrinsic context rather than remembered Discovery Devices. */
   readonly scope: 'self' | 'lan' | 'remote'
+  readonly servicesObserved: boolean
+  readonly serviceCount: number
 }
 
 export interface NetworkWorkspace {
@@ -189,18 +178,12 @@ function networksOf(information: PlayerInformation, deviceId: string) {
     .map(({ id, name }) => ({ id, name }))
 }
 
-function runningAgainst(information: PlayerInformation, targetDeviceId: string): number {
-  return information.process.processes.filter((process) =>
-    (isServiceAnalysis(process) || isCredentialAccess(process)) && process.status === 'running' && process.targetDeviceId === targetDeviceId).length
-}
-
 function describeImplementation(observed?: { implementation: { name: string; version: string }; authentication?: string }) {
   return observed ? { implementation: `${observed.implementation.name} ${observed.implementation.version}`, ...(observed.authentication ? { authentication: observed.authentication } : {}) } : undefined
 }
 
 export function selectKnownSpace(information: PlayerInformation): KnownSpace {
   const { discovery } = information
-  const activeAccessId = information.remoteSession.active?.accessId
   return {
     self: { name: information.player.localDevice.displayName, address: information.player.localDevice.network.ip },
     networks: discovery.networks.map((network) => ({
@@ -209,20 +192,6 @@ export function selectKnownSpace(information: PlayerInformation): KnownSpace {
       membersObserved: network.membersObserved,
       memberCount: discovery.networkDeviceRelations.filter((relation) => relation.networkId === network.id).length,
     })),
-    devices: discovery.devices.map((device) => {
-      const access = accessFor(information, device.id)
-      return {
-        id: device.id,
-        address: device.address,
-        scope: device.scope,
-        servicesObserved: device.servicesObserved,
-        serviceCount: device.services.length,
-        networkNames: networksOf(information, device.id).map(({ name }) => name),
-        hasAccess: access.length > 0,
-        sessionActive: access.some(({ id }) => id === activeAccessId),
-        operationsRunning: runningAgainst(information, device.id),
-      }
-    }),
   }
 }
 
@@ -233,9 +202,9 @@ export function selectNetworkWorkspace(information: PlayerInformation, networkId
   const members = information.discovery.networkDeviceRelations
     .filter((relation) => relation.networkId === network.id)
     .map((relation): NetworkMember | undefined => {
-      if (relation.deviceId === localDevice.id) return { id: localDevice.id, address: localDevice.network.ip, scope: 'self' }
+      if (relation.deviceId === localDevice.id) return { id: localDevice.id, address: localDevice.network.ip, scope: 'self', servicesObserved: true, serviceCount: 0 }
       const device = information.discovery.devices.find(({ id }) => id === relation.deviceId)
-      return device ? { id: device.id, address: device.address, scope: device.scope } : undefined
+      return device ? { id: device.id, address: device.address, scope: device.scope, servicesObserved: device.servicesObserved, serviceCount: device.services.length } : undefined
     })
     .filter((member): member is NetworkMember => Boolean(member))
   return {

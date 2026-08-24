@@ -131,10 +131,11 @@ describe('Remote Session handoff', () => {
     expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toHaveAttribute('hidden')
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
     expect(screen.getByRole('button', { name: 'Open Terminal' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'REMOTE · truth-server' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'REMOTE · 198.51.100.47' })).toBeInTheDocument()
+    expect(screen.queryByText(/REMOTE · truth-server/)).not.toBeInTheDocument()
 
     const beforeReturn = screen.getByTestId('state').textContent
-    await user.click(screen.getByRole('button', { name: 'REMOTE · truth-server' }))
+    await user.click(screen.getByRole('button', { name: 'REMOTE · 198.51.100.47' }))
     expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBe(rackOs)
     expect(rackOs).not.toHaveAttribute('hidden')
     expect(document.querySelector('.rack-output')).toBe(remoteOutput)
@@ -160,13 +161,13 @@ describe('Remote Session handoff', () => {
     expect(current.deviceAccess.established.map(({ id }) => id)).toContain(activeTransfer?.accessId)
     expect(current.fileTransfer.active?.id).toBe(activeTransfer?.id)
 
-    await user.click(screen.getByRole('button', { name: 'REMOTE · truth-server' }))
+    await user.click(screen.getByRole('button', { name: 'REMOTE · 198.51.100.47' }))
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     current = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
     expect(current.remoteSession.active).toBeNull()
     expect(current.deviceAccess.established.map(({ id }) => id)).toContain(activeTransfer?.accessId)
     expect(current.fileTransfer.active?.id).toBe(activeTransfer?.id)
-    expect(screen.queryByRole('button', { name: 'REMOTE · truth-server' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'REMOTE · 198.51.100.47' })).not.toBeInTheDocument()
 
     // game advancement continues the Download post-disconnect through to completion.
     const advanced = advanceGameState(current, 100_000)
