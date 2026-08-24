@@ -123,9 +123,14 @@
 .ns-tree-node { position: relative; }
 .ns-tree-node::before { content: ""; position: absolute; right: 100%; top: 30px; width: 17px; border-top: 1px solid var(--line-strong); }
 .ns-origin-node { position: relative; }
-.ns-origin-node::after { content: ""; position: absolute; top: 100%; left: 15px; height: 17px; border-left: 1px solid var(--line-strong); }
+.ns-origin-node::after { content: ""; position: absolute; top: 100%; left: 15px; height: 7px; border-left: 1px solid var(--line-strong); }
+.ns-known-children { margin-left: 15px; padding-top: 1px; border-left: 1px solid var(--line-strong); }
+.ns-known-children .ns-tree { margin-left: 0; }
+.ns-tree-section { margin: 0; padding: 8px 0 7px 16px; }
 .ns-tree--known-space { margin-top: 0; }
 .ns-tree--network { margin-top: 2px; }
+.ns-network-parent { min-height: 62px; margin-top: 6px; padding: 10px 12px; grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--line-strong); background: var(--surface); }
+.ns-network-parent + .ns-tree--network { margin-top: 0; }
 .ns-device-branch { min-width: 0; }
 .ns-device-node { padding: 0; }
 .ns-branch-toggle { min-width: 0; min-height: 62px; padding: 10px 8px 10px 12px; display: flex; flex: 1; align-items: center; gap: 11px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }

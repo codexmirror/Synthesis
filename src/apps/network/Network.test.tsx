@@ -375,6 +375,35 @@ describe('Scan workspace', () => {
     expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('Services not observed')
   })
 
+  it('distinguishes unobserved, observed-empty, and observed non-empty Service branches', async () => {
+    const known = discoveredState()
+    const emptyState = {
+      ...known,
+      discovery: {
+        ...known.discovery,
+        devices: known.discovery.devices.map((device) => device.address === '198.51.100.53'
+          ? { ...device, servicesObserved: true, services: [] }
+          : device),
+      },
+    }
+    const user = userEvent.setup()
+    const view = render(<GameProvider initialState={known}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('Services not observed')
+
+    view.unmount()
+    render(<GameProvider initialState={emptyState}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('NO OPEN SERVICES')
+    expect(screen.queryByRole('button', { name: /Open .* service/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('SSH')
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('HTTP')
+  })
+
   it('opens existing Service and Device detail views from an expanded Network branch', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
