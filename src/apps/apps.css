@@ -114,6 +114,19 @@
 .file-kind-actions { margin-top: 14px; display: grid; gap: 4px; justify-items: start; }
 .file-kind-actions .node-note { width: 100%; }
 
+/* Install Review: a focused decision surface, not a modal or card. */
+.install-review { min-width: 0; }
+
+.install-review-subject {
+  margin: 14px 0 0;
+  color: var(--text-strong);
+  font: 600 .95rem Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.install-review-actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+.install-review-actions .node-action { flex: 1 1 40%; justify-content: center; }
+
 /* An inbound transfer is presented alongside entries but is not one. */
 .node-row--incoming { border-style: dashed; background: var(--surface); }
 .node-row--incoming .node-row-copy strong { color: var(--text-secondary); }

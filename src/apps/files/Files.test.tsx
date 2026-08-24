@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GameProvider, useGameActions } from '../../app/GameContext'
+import { GameProvider, useGameActions, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import type { FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
@@ -14,6 +14,20 @@ afterEach(() => vi.useRealTimers())
 function SessionControls() {
   const actions = useGameActions()
   return <><button onClick={() => actions.disconnectRemoteSession()}>test disconnect</button><button onClick={() => actions.connectRemoteFromObservation({ targetDeviceId: 'host-lan-002', address: '198.51.100.53' })}>test connect B</button></>
+}
+
+/** Reads canonical state directly so a test can prove that presentation alone changed nothing. */
+function StateProbe() {
+  const state = useGameState()
+  return <span data-testid="game-state">{JSON.stringify({
+    processes: state.process.processes.map(({ id, kind }) => `${id}:${kind}`),
+    software: state.player.localDevice.installedSoftware.map(({ id, releaseId }) => `${id}:${releaseId}`),
+    files: state.player.localDevice.filesystem.files.map(({ path }) => path),
+  })}</span>
+}
+
+function probe(): { processes: string[]; software: string[]; files: string[] } {
+  return JSON.parse(screen.getByTestId('game-state').textContent ?? '')
 }
 
 function uploadState() {
@@ -154,20 +168,26 @@ describe('Files', () => {
   it('installs a supported local package through canonical state and derives the installed presentation on reopen', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const state = createInitialGameState()
-    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/release.bin', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing', sizeBytes: 1_000 }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/release-4.2.pkg', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing', sizeBytes: 1_000 }
     const initialState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [packageFile] } } } }
     render(<GameProvider initialState={initialState}><Files /><Terminal /></GameProvider>)
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    await user.click(screen.getByRole('button', { name: /release\.bin/ }))
+    await user.click(screen.getByRole('button', { name: /release-4\.2\.pkg/ }))
     expect(screen.getByText('SOFTWARE PACKAGE')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Canonical Scanner' })).toBeInTheDocument()
-    expect(screen.getByText('4.2 Testing')).toBeInTheDocument()
-    expect(screen.getByText('RELEASE')).toBeInTheDocument()
-    expect(screen.getByText('altered-release')).toBeInTheDocument()
+    expect(screen.getByText('4.2 · TESTING')).toBeInTheDocument()
     expect(screen.getByText('CURRENT')).toBeInTheDocument()
     expect(screen.getByText('NodeScan 1.0 Standard')).toBeInTheDocument()
+
+    // The release ID is available, not permanently expanded.
+    expect(screen.queryByText('altered-release')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /RELEASE INFORMATION/ }))
+    expect(screen.getByText('RELEASE')).toBeInTheDocument()
+    expect(screen.getByText('altered-release')).toBeInTheDocument()
+
     await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    await user.click(within(document.querySelector('.install-review') as HTMLElement).getByRole('button', { name: 'INSTALL' }))
 
     // INSTALL admits real Process work, not instantaneous installation truth: the package state visibly transitions through INSTALLING first.
     expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
@@ -178,10 +198,10 @@ describe('Files', () => {
     expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
     expect(screen.getAllByText('INSTALLED').length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: 'Back to /home/user' }))
-    await user.click(screen.getByRole('button', { name: /release\.bin/ }))
+    await user.click(screen.getByRole('button', { name: /release-4\.2\.pkg/ }))
     expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
 
-    await user.type(screen.getByLabelText('Command input'), 'cat /home/user/release.bin{enter}')
+    await user.type(screen.getByLabelText('Command input'), 'cat /home/user/release-4.2.pkg{enter}')
     expect(within(screen.getByRole('region', { name: 'Terminal' })).getByText('NOT A TEXT FILE')).toBeInTheDocument()
     expect(state.player.localDevice.installedSoftware[0]).toMatchObject({ name: 'NodeScan', version: '1.0', channel: 'standard' })
     expect(state.process.processes).toEqual([])
@@ -190,9 +210,9 @@ describe('Files', () => {
 
   it('does not expose install for an unsupported represented package', async () => {
     const state = createInitialGameState()
-    const file = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/other.bin', releaseId: 'opaque', productId: 'other', name: 'Other', version: '1', channel: 'test', sizeBytes: 1_000 }
+    const file = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/other.pkg', releaseId: 'opaque', productId: 'other', name: 'Other', version: '1', channel: 'test', sizeBytes: 1_000 }
     render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [file] } } } }}><Files /></GameProvider>)
-    await userEvent.setup().click(screen.getByRole('button', { name: /other\.bin/ }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /other\.pkg/ }))
     expect(screen.getByText('UNSUPPORTED PACKAGE')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
   })
@@ -211,6 +231,7 @@ describe('Files NODE Miner installation', () => {
     expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    await user.click(within(document.querySelector('.install-review') as HTMLElement).getByRole('button', { name: 'INSTALL' }))
     expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
 
     await act(async () => { vi.advanceTimersByTime(20_000) })
@@ -415,5 +436,196 @@ describe('Files software removal', () => {
     render(<GameProvider initialState={running}><Files /></GameProvider>)
     expect(screen.getByText('REMOVING')).toBeInTheDocument()
     expect(screen.queryByText('INSTALLED')).not.toBeInTheDocument()
+  })
+})
+
+describe('Files software package details', () => {
+  const MINER_PACKAGE = '/home/user/downloads/node-miner-1.0.pkg'
+
+  async function openMinerPackage() {
+    render(<GameProvider initialState={createInitialGameState()}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    return user
+  }
+
+  it('keeps verbose release documentation available rather than permanently expanded', async () => {
+    await openMinerPackage()
+    for (const heading of ['ABOUT', 'CAPABILITIES', 'CHANGES']) expect(screen.queryByText(heading)).not.toBeInTheDocument()
+    expect(screen.queryByText('NODE MINING')).not.toBeInTheDocument()
+    expect(screen.queryByText('Initial unofficial release.')).not.toBeInTheDocument()
+    expect(screen.queryByText('node-miner-1.0')).not.toBeInTheDocument()
+  })
+
+  it('states the compact facts and the one available action without scrolling past a release document', async () => {
+    await openMinerPackage()
+    expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
+    expect(screen.getByText('1.0 · UNOFFICIAL')).toBeInTheDocument()
+    expect(screen.getByText('SOFTWARE PACKAGE')).toBeInTheDocument()
+    expect(screen.getByText(MINER_PACKAGE)).toBeInTheDocument()
+    expect(screen.getByText('3.4 MB')).toBeInTheDocument()
+    expect(screen.getByText('STATUS')).toBeInTheDocument()
+    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
+    expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+  })
+
+  it('opens the represented release information on demand and closes it again', async () => {
+    const user = await openMinerPackage()
+    const disclosure = screen.getByRole('button', { name: /RELEASE INFORMATION/ })
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(disclosure)
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true')
+    for (const heading of ['ABOUT', 'CAPABILITIES', 'CHANGES']) expect(screen.getByText(heading)).toBeInTheDocument()
+    expect(screen.getByText('Unofficial NODE mining software that converts Device compute into NODE production.')).toBeInTheDocument()
+    expect(screen.getByText('NODE MINING')).toBeInTheDocument()
+    expect(screen.getByText('PAYOUT CONFIGURATION')).toBeInTheDocument()
+    expect(screen.getByText('Initial unofficial release.')).toBeInTheDocument()
+    expect(screen.getByText('node-miner-1.0')).toBeInTheDocument()
+    expect(screen.getByText('nm-dev')).toBeInTheDocument()
+
+    await user.click(disclosure)
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('NODE MINING')).not.toBeInTheDocument()
+    expect(screen.queryByText('node-miner-1.0')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+  })
+
+  it('keeps the local Remote Transfer surface beside the compacted package details', async () => {
+    render(<GameProvider initialState={uploadState()}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    expect(screen.getByText('REMOTE TRANSFER')).toBeInTheDocument()
+    expect(screen.getByText('203.0.113.77')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+
+    const destination = screen.getByLabelText('Remote destination')
+    expect(destination).toHaveValue('/home/user/node-miner-1.0.pkg')
+    await user.clear(destination); await user.type(destination, '/srv/exact-custom.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
+    expect(screen.getByText('/srv/exact-custom.pkg')).toBeInTheDocument()
+  })
+})
+
+describe('Files install review', () => {
+  const MINER_PACKAGE = '/home/user/downloads/node-miner-1.0.pkg'
+
+  async function openReview(initialState = createInitialGameState()) {
+    render(<GameProvider initialState={initialState}><Files /><StateProbe /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    return user
+  }
+
+  const review = () => within(document.querySelector('.install-review') as HTMLElement)
+
+  it('opens an explicit review on the first INSTALL tap without admitting any Process', async () => {
+    await openReview()
+    expect(screen.getByText('INSTALL SOFTWARE')).toBeInTheDocument()
+    expect(probe().processes).toEqual([])
+    expect(probe().software.some((entry) => entry.startsWith('node-miner'))).toBe(false)
+  })
+
+  it('states what will be installed, onto which local Device, from which concrete package', async () => {
+    await openReview()
+    const surface = review()
+    expect(surface.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
+    expect(surface.getByText('1.0 · UNOFFICIAL')).toBeInTheDocument()
+    expect(surface.getByText('node-01')).toBeInTheDocument()
+    expect(surface.getByText(MINER_PACKAGE)).toBeInTheDocument()
+    expect(surface.getByText('NOT INSTALLED')).toBeInTheDocument()
+    expect(surface.getByText('THIS RELEASE PROVIDES')).toBeInTheDocument()
+    expect(surface.getByText('NODE MINING')).toBeInTheDocument()
+    expect(surface.getByText('Initial unofficial release.')).toBeInTheDocument()
+    expect(surface.getByRole('button', { name: 'CANCEL' })).toBeInTheDocument()
+    expect(surface.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+  })
+
+  it('CANCEL returns to the package without a Process, installed software, or filesystem change', async () => {
+    const before = createInitialGameState()
+    const user = await openReview(before)
+    await user.click(review().getByRole('button', { name: 'CANCEL' }))
+
+    expect(screen.queryByText('INSTALL SOFTWARE')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
+    expect(probe()).toEqual({
+      processes: [],
+      software: before.player.localDevice.installedSoftware.map(({ id, releaseId }) => `${id}:${releaseId}`),
+      files: before.player.localDevice.filesystem.files.map(({ path }) => path),
+    })
+  })
+
+  it('CONFIRM forwards the exact selected package path to canonical installation exactly once', async () => {
+    const base = createInitialGameState()
+    const secondCopy = { kind: 'software_package' as const, id: 'file-second-copy', path: '/home/user/downloads/node-miner-next.pkg', releaseId: 'node-miner-1.1', productId: 'node-miner', name: 'NODE Miner', version: '1.1', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_600_000 }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, secondCopy] } } } }
+    render(<GameProvider initialState={state}><Files /><StateProbe /><Processes /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-next\.pkg/ }))
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    expect(review().getByText('/home/user/downloads/node-miner-next.pkg')).toBeInTheDocument()
+    await user.click(review().getByRole('button', { name: 'INSTALL' }))
+
+    expect(probe().processes).toEqual(['process-0001:software_installation'])
+    expect(screen.queryByText('INSTALL SOFTWARE')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
+    // The admitted release is the selected copy's, so a different forwarded path would fail here.
+    expect(within(screen.getByText('SOFTWARE INSTALLATION').closest('.am-activity') as HTMLElement).getByText('NODE Miner 1.1')).toBeInTheDocument()
+  })
+
+  it('presents a canonical admission failure truthfully instead of fabricating installation state', async () => {
+    const base = createInitialGameState()
+    const occupied = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, { kind: 'text' as const, id: 'file-occupant', path: '/usr/local/bin/node-miner', content: 'not NODE Miner' }] } } } }
+    const user = await openReview(occupied)
+    await user.click(review().getByRole('button', { name: 'INSTALL' }))
+
+    expect(review().getByText('INSTALLATION PATH OCCUPIED')).toBeInTheDocument()
+    expect(probe().processes).toEqual([])
+    expect(probe().software.some((entry) => entry.startsWith('node-miner'))).toBe(false)
+  })
+})
+
+describe('Files unrecognized package extension', () => {
+  const renamed = (path: string) => {
+    const base = createInitialGameState()
+    const files = base.player.localDevice.filesystem.files.map((file) => file.kind === 'software_package' ? { ...file, path } : file)
+    return { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files } } } }
+  }
+
+  it.each(['node-miner-1.0.pk', 'node-miner-1.0.pkd', 'node-miner-1.0.123', 'node-miner-1.0.PKG'])('offers no normal INSTALL for %s while preserving the represented artifact', async (name) => {
+    render(<GameProvider initialState={renamed(`/home/user/downloads/${name}`)}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    expect(screen.getByRole('button', { name: new RegExp(`${name.replace(/[.]/g, '\\.')}.*SOFTWARE PACKAGE.*3\\.4 MB`) })).toBeInTheDocument()
+    expect(screen.getByText('UNRECOGNIZED')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: new RegExp(name.replace(/[.]/g, '\\.')) }))
+    expect(screen.getByText('UNRECOGNIZED PACKAGE EXTENSION · NOT INSTALLABLE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+
+    // The artifact itself is untouched: same package identity, same release information.
+    expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
+    expect(screen.getByText('1.0 · UNOFFICIAL')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /RELEASE INFORMATION/ }))
+    expect(screen.getByText('node-miner-1.0')).toBeInTheDocument()
+    expect(screen.getByText('NODE MINING')).toBeInTheDocument()
+  })
+
+  it('still recognizes the represented .pkg package it was copied from', async () => {
+    render(<GameProvider initialState={createInitialGameState()}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
   })
 })

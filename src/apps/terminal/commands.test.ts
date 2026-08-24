@@ -115,6 +115,9 @@ describe('command dispatcher', () => {
     expect(dispatchCommand(parseCommand('install /home/user/package.bin'), installContext)).toEqual({ type: 'output', lines: ['INSTALLING', 'Canonical Scanner 1.1 Experimental', 'PROCESS process-0001'] })
     expect(installLocalSoftwarePackage).toHaveBeenCalledExactlyOnceWith('/home/user/package.bin')
     expect(dispatchCommand(parseCommand('install'), installContext)).toEqual({ type: 'output', lines: ['Usage: install <local-absolute-file-path>'] })
+
+    const unrecognized = { ...context, operations: { ...context.operations, installLocalSoftwarePackage: () => ({ status: 'unrecognized_package_extension' as const }) } }
+    expect(dispatchCommand(parseCommand('install /home/user/downloads/node-miner-1.0.pkd'), unrecognized)).toEqual({ type: 'output', lines: ['UNRECOGNIZED PACKAGE EXTENSION'] })
   })
   it('guides missing and extra scan arguments', () => {
     expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })

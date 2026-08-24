@@ -285,9 +285,60 @@ button.node-row:focus-visible {
   border: 0;
 }
 
+/*
+ * Progressive disclosure. Release documentation is available, not permanently
+ * expanded: the control is a full-width touch target, and its panel is
+ * ordinary NODE-OS sections rather than a card or overlay.
+ */
+.node-disclosure {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: .58rem;
+  letter-spacing: .14em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.node-disclosure:focus-visible { color: var(--accent-strong); outline: 0; }
+
+@media (hover: hover) {
+  .node-disclosure:hover { color: var(--accent-strong); }
+}
+
+.node-disclosure-mark { flex: none; color: var(--accent-mark); font-size: .9rem; }
+
+.release-disclosure { display: block; min-width: 0; }
+.release-disclosure-panel { min-width: 0; }
+
 .software-changes { margin: 0; padding: 12px 18px 12px 30px; color: var(--text); font-size: .68rem; line-height: 1.7; }
-.software-row { display: flex; border-bottom: 1px solid var(--line); }
-.software-row > .node-row { flex: 1; border-bottom: 0; }
-.software-remove { flex: 0 0 44px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--danger); cursor: pointer; font-size: 1rem; }
-.software-remove:focus-visible { outline: 1px solid currentColor; outline-offset: -2px; }
+
+/*
+ * Installed software is managed in place: the whole row is the tap target and
+ * its detail opens directly underneath it, so the list carries no navigation
+ * arrow and no standalone destructive control beside the row.
+ */
+.software-entry { display: grid; min-width: 0; }
+
+.software-expanded {
+  min-width: 0;
+  padding: 0 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-top: 0;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.software-expanded .node-section { margin-top: 14px; }
+.software-actions { margin-top: 14px; }
 .node-action--destructive { color: var(--danger); }
