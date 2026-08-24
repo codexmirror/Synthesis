@@ -157,6 +157,18 @@ describe('RACK-OS', () => {
     expect(document.body).toHaveTextContent('Foreign canonical proof.')
   })
 
+  it('uploads through the shared operation and enforces exactly two terminal arguments', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    const input = screen.getByLabelText('Remote command')
+    await user.type(input, 'upload /home/user/downloads/node-miner-1.0.pkg{enter}')
+    expect(screen.getByText('USAGE: upload /absolute/local/file /absolute/remote/file')).toBeInTheDocument()
+    await user.type(input, 'upload /home/user/downloads/node-miner-1.0.pkg /home/user/node-miner-1.0.pkg{enter}')
+    expect(screen.getByText('UPLOAD STARTED')).toBeInTheDocument()
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toMatchObject({ sourceDeviceId: current.player.localDevice.id, destinationDeviceId: 'host-lan-001', destinationPath: '/home/user/node-miner-1.0.pkg' })
+  })
+
   it('derives graphical Download, successful, and reopened states from canonical local truth', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)

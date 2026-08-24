@@ -7,10 +7,27 @@ import type { FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 import { Processes } from '../processes/Processes'
+import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 
 afterEach(() => vi.useRealTimers())
 
 describe('Files', () => {
+  it('uploads any selected local file through the active Session with an explicit editable destination', async () => {
+    const base = createInitialGameState()
+    const accessState = { ...base, deviceAccess: { nextId: 2, established: [{ id: 'access-upload', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] } }
+    const connected = connectRemoteFromObservation(accessState, { targetDeviceId: 'host-lan-001', address: '198.51.100.47' }).state
+    render(<GameProvider initialState={connected}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    expect(screen.getByText('REMOTE TRANSFER')).toBeInTheDocument()
+    expect(screen.getByText('198.51.100.47')).toBeInTheDocument()
+    const destination = screen.getByLabelText('Remote destination')
+    expect(destination).toHaveValue('/home/user/node-miner-1.0.pkg')
+    await user.clear(destination); await user.type(destination, '/home/user/custom.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
+  })
   it('navigates canonical directories and presents file kinds, sizes, and executable details without future actions', async () => {
     const state = createInitialGameState()
     const files = [

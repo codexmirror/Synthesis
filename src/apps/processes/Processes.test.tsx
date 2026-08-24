@@ -222,7 +222,7 @@ describe('Activity Monitor aggregation', () => {
     expect(card('SERVICE ANALYSIS')).toBeInTheDocument()
     const download = card('DOWNLOAD')
     expect(within(download).getByText('nodescan-exp-1.1.pkg')).toBeInTheDocument()
-    expect(within(download).getByText('srv-01 → node-01')).toBeInTheDocument()
+    expect(within(download).queryByText(/→/)).not.toBeInTheDocument()
     expect(within(download).getByText('/opt/packages/nodescan-exp-1.1.pkg')).toBeInTheDocument()
     expect(within(download).getByText('/home/user/downloads/nodescan-exp-1.1.pkg')).toBeInTheDocument()
     expect(cards()).toHaveLength(2)
@@ -316,17 +316,31 @@ describe('Activity Monitor aggregation', () => {
   it('displays the active Download and derives correct source/progress/rate with no active RemoteSession', () => {
     render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
     const download = card('DOWNLOAD')
-    expect(within(download).getByText('srv-01 → node-01')).toBeInTheDocument()
+    expect(within(download).queryByText(/→/)).not.toBeInTheDocument()
     expect(fact(download, 'RATE')).toBe('2 MiB/s')
     expect(fact(download, 'TRANSFERRED')).toBe('4.6 / 18.4 MB')
   })
 
-  it('presents the same active Download whether or not a RemoteSession happens to be active', () => {
+  it('uses only the matching active Session retained address for a running transfer route', () => {
     const { unmount } = render(<GameProvider initialState={withDownload(createInitialGameState(), {}, true)}><Processes /></GameProvider>)
-    const withSession = card('DOWNLOAD').textContent
+    expect(within(card('DOWNLOAD')).getByText('198.51.100.47 → node-01')).toBeInTheDocument()
     unmount()
     render(<GameProvider initialState={withDownload(createInitialGameState(), {}, false)}><Processes /></GameProvider>)
-    expect(card('DOWNLOAD').textContent).toBe(withSession)
+    expect(within(card('DOWNLOAD')).queryByText(/→/)).not.toBeInTheDocument()
+  })
+
+  it('presents a canonical local-to-remote transfer as Upload with upload network usage', () => {
+    const base = createInitialGameState()
+    const source = base.player.localDevice.filesystem.files.find(({ path }) => path === '/home/user/downloads/node-miner-1.0.pkg')!
+    const upload = withDownload(base, { sourceDeviceId: base.player.localDevice.id, sourceFileId: source.id, destinationDeviceId: 'host-lan-001', destinationPath: '/home/user/node-miner-1.0.pkg', bytesTotal: 3_400_000, bytesTransferred: 1_400_000 }, true)
+    render(<GameProvider initialState={upload}><Processes /></GameProvider>)
+    const cardElement = card('UPLOAD')
+    expect(within(cardElement).getByText('node-01 → 198.51.100.47')).toBeInTheDocument()
+    expect(within(cardElement).getByText('/home/user/downloads/node-miner-1.0.pkg')).toBeInTheDocument()
+    expect(within(cardElement).getByText('/home/user/node-miner-1.0.pkg')).toBeInTheDocument()
+    expect(fact(cardElement, 'TRANSFERRED')).toBe('1.4 / 3.4 MB')
+    expect(within(stat('NET UP')).getByText('1 MiB/s')).toBeInTheDocument()
+    expect(within(stat('NET DOWN')).getByText('0 B/s')).toBeInTheDocument()
   })
 
   it('offers CANCEL, not REMOVE, on the running FileTransfer card, and invokes the canonical GameAction', () => {
