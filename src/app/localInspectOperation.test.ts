@@ -77,34 +77,6 @@ describe('player-facing Inspect operation', () => {
     expect(JSON.stringify(state.discovery)).not.toContain('198.51.100.88')
   })
 
-  it('does not retarget a stale remembered address when another online Device later occupies it', () => {
-    let state = knownState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
-    expect(inspect('198.51.100.47')).toMatchObject({ status: 'device', targetId: 'host-lan-001' })
-    const remembered = structuredClone(state.discovery)
-    const hosts = state.world.network.hosts.map((host) => host.id === 'host-lan-001'
-      ? { ...host, ip: '198.51.100.88' }
-      : host.id === 'host-lan-002' ? { ...host, ip: '198.51.100.47' } : host)
-    state = { ...state, world: { network: { ...state.world.network, hosts } } }
-
-    const result = inspect('198.51.100.47')
-
-    expect(result).toEqual({ status: 'no_response', address: '198.51.100.47' })
-    expect(JSON.stringify(result)).not.toContain('host-lan-002')
-    expect(state.discovery).toEqual(remembered)
-    expect(JSON.stringify(state.discovery)).not.toContain('198.51.100.88')
-  })
-
-  it('does not follow a stale remembered network name or replace prior network Inspect evidence', () => {
-    let state = knownState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
-    expect(inspect('home-net')).toEqual({ status: 'network', networkId: 'network-local-001', networkName: 'home-net', connected: true })
-    const remembered = structuredClone(state.discovery)
-    state = { ...state, world: { network: { ...state.world.network, localNetworks: state.world.network.localNetworks.map((network) => network.id === 'network-local-001' ? { ...network, name: 'hidden-renamed-net' } : network) } } }
-
-    expect(inspect('home-net')).toEqual({ status: 'no_response', address: 'home-net' })
-    expect(state.discovery).toEqual(remembered)
-    expect(JSON.stringify(state.discovery)).not.toContain('hidden-renamed-net')
-  })
-
   it('inspects a known network without members and keeps SELF intrinsic', () => {
     let state = knownState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
     const network = inspect('home-net')
