@@ -1,21 +1,31 @@
 /*
  * NodeScan investigation workspace.
  *
- * One workspace presenting four levels of the same subject — Known Space,
- * Network, Device, Service — in one language: a masthead or breadcrumb, then
- * `.node-section` groups of observed facts, relationships, state and actions.
+ * Known Space is a relationship tree, not a dashboard of cards: Network ->
+ * Device -> Service. Hierarchy is carried by indentation, type weight and
+ * thin connectors; borders are spent only where an object genuinely needs an
+ * edge. Nothing here nests a bordered box inside a bordered box.
  *
- * Mobile-first. Every level is a single column of full-width rows so that
- * primary identity (a name, an address, a Service) always owns the full line
- * and secondary technical detail wraps beneath it rather than competing for
- * horizontal space. Nothing here nests a card inside a card, and the gutter
- * stays owned by `.app-content`.
+ * The connectors are pure normal-flow CSS. Every child is an `.ns-limb` that
+ * draws its own vertical rail and elbow relative to itself, so the rail always
+ * spans exactly the limbs above the last one and stops at the last elbow —
+ * collapsed, expanded, or empty. No coordinates are measured, and no absolute
+ * topology layer exists.
+ *
+ * Mobile-first. Every level is a single column so primary identity always owns
+ * the line and secondary technical detail wraps beneath it. The gutter stays
+ * owned by `.app-content`.
  */
 
 /* Zero-specificity reset: every rule below may still set its own type scale. */
 :where(.scan-app) button { font: inherit; }
 
-.ns-view { max-width: 760px; }
+.ns-view {
+  max-width: 760px;
+  /* Vertical centre of a node's marker: where its elbow meets it. */
+  --elbow: 20px;
+  --rail: 1px solid var(--line-strong);
+}
 
 /* Subject ------------------------------------------------------------- */
 
@@ -113,40 +123,306 @@
 .ns-copy-icon { flex: none; color: var(--accent-mark); font-size: .72rem; }
 .ns-copy:focus-visible { outline: 1px solid var(--line-accent); outline-offset: 2px; }
 
-/* Object rows --------------------------------------------------------- */
+/* Known Space tree ---------------------------------------------------- */
+
+/*
+ * Every known Network is an independent root branch. They are separated by
+ * one hairline rather than boxed, so several of them read as siblings of the
+ * same space instead of a stack of panels.
+ */
+.ns-network-list { display: grid; }
+.ns-network-branch { min-width: 0; padding-bottom: 4px; border-bottom: 1px solid var(--line-quiet); }
+.ns-network-list--pinned .ns-network-branch { border-bottom: 0; }
+
+/* A node is one object in the tree: glyph or twisty, then its identity copy. */
+.ns-node {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+button.ns-node, .ns-node-main { cursor: pointer; }
+.ns-node-main--static { cursor: default; }
+
+.ns-node-copy { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.ns-node-copy > strong { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.ns-row-note { color: var(--text-muted); font-size: .61rem; line-height: 1.4; overflow-wrap: anywhere; }
+.ns-node-observed { color: var(--text-secondary); font-size: .61rem; line-height: 1.4; overflow-wrap: anywhere; }
+
+/* Network is the strongest identity in the tree; Device and Service step down. */
+.ns-node--network { min-height: 56px; align-items: center; }
+.ns-node--network .ns-node-copy > strong { color: var(--text-strong); font-size: .96rem; letter-spacing: .01em; }
+.ns-node--network .ns-eyebrow { color: var(--accent-mark); }
+
+.ns-node--device { min-height: 52px; }
+.ns-node--service .ns-node-copy > strong,
+.ns-node--service .ns-service-head strong { font-size: .8rem; }
+
+/*
+ * The twisty is the expand affordance and doubles as the branch's own marker,
+ * so an expandable object never needs a separate control column. A leaf takes
+ * the quiet glyph in the same column, and both markers share one box so every
+ * elbow in the tree meets its node at the same height.
+ */
+.ns-twist,
+.ns-glyph {
+  flex: none;
+  width: 14px;
+  height: 18px;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ns-twist {
+  color: var(--accent-mark);
+  font-size: .58rem;
+  transition: transform 140ms ease;
+}
+
+.ns-node--network .ns-twist,
+.ns-node--network .ns-glyph { margin-top: 0; }
+.ns-node-main[aria-expanded="true"] .ns-twist,
+.is-expanded > .ns-node--network .ns-twist { transform: rotate(90deg); }
+
+.ns-glyph::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--text-faint);
+  border-radius: 50%;
+}
+
+.ns-glyph--self::before { border-color: var(--accent-mark); background: var(--accent-rule); }
+.ns-glyph--network::before { width: 7px; height: 7px; border-color: var(--accent-mark); background: var(--accent-rule); }
+
+/* Device node: one primary affordance plus the constant DETAIL route. */
+.ns-node--device { padding: 0; gap: 0; align-items: stretch; }
+/* A node with no controls carries the same inner padding, so its marker still
+   meets its elbow. */
+.ns-node--static { padding: 8px 0; gap: 10px; align-items: flex-start; }
+
+.ns-node-main {
+  min-width: 0;
+  flex: 1;
+  padding: 8px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.ns-node-controls { flex: none; display: flex; align-items: center; gap: 4px; padding-left: 8px; }
+
+/* DETAIL is a constant route, so it stays a quiet label rather than a button
+   block competing with the Device's own identity. */
+.ns-node-detail,
+.ns-node-scan {
+  flex: none;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .53rem;
+  letter-spacing: .12em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Scan is the legitimate next observation here, so it reads as a control. */
+.ns-node-scan { padding: 0 11px; border: 1px solid var(--line-quiet); color: var(--accent); }
+.ns-node-scan:disabled { color: var(--text-faint); border-color: var(--line-quiet); cursor: default; }
+
+.ns-node-main:focus-visible,
+.ns-node--service:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
+.ns-node-detail:focus-visible,
+.ns-node-scan:focus-visible { border-color: var(--line-accent); color: var(--accent-strong); outline: 0; }
+
+@media (hover: hover) {
+  .ns-node-main:hover .ns-node-copy > strong,
+  .ns-node--service:hover .ns-service-head strong { color: var(--green); }
+  .ns-node-detail:hover,
+  .ns-node-scan:hover:not(:disabled) { border-color: var(--line-accent); color: var(--accent-strong); }
+}
+
+/* Branch bodies and connectors ---------------------------------------- */
+
+/*
+ * A branch body hangs under the node that owns it. It is indented to sit
+ * under that node's marker column, which is what makes ownership visible
+ * without drawing a container around it.
+ */
+/* The rail descends from directly under the owning node's marker column, so
+   the trunk is continuous from the Network's own marker to its last member. */
+.ns-branch { margin: 0 0 8px; padding-left: 7px; }
+.ns-limbs { display: block; }
+
+.ns-network-branch.is-populated.is-expanded > .ns-node--network { position: relative; }
+
+.ns-network-branch.is-populated.is-expanded > .ns-node--network::after,
+.is-populated .ns-branch-lead::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  bottom: 0;
+  border-left: var(--rail);
+}
+
+.ns-branch-lead { position: relative; }
+.is-populated .ns-branch-lead::before { top: 0; left: 0; }
+
+.ns-limb { --indent: 20px; position: relative; padding-left: var(--indent); }
+
+/* Rail: full height of the limb, so it passes an expanded child cleanly. */
+.ns-limb::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: var(--rail);
+}
+
+/* Elbow: runs up to this limb's marker column and stops there, so a collapsed
+   twisty stays a marker instead of reading as an arrowhead on the line. */
+.ns-limb::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--elbow);
+  width: calc(var(--indent) - 3px);
+  border-top: var(--rail);
+}
+
+/* The rail terminates at the final child; nothing continues below it. */
+.ns-limb:last-child::before { bottom: auto; height: var(--elbow); }
+
+.ns-limbs--service { margin: 0 0 4px; padding-left: 7px; }
+.ns-limb--service { --indent: 16px; }
+
+.ns-limb-feedback { margin-left: 0; }
+
+/* Branch prose: evidence and state that belong to the branch, not a page. */
+.ns-branch-facts { margin: 0 0 8px; padding-left: 17px; display: grid; gap: 4px; }
+.ns-branch-facts > div { display: flex; gap: 8px; align-items: baseline; }
+.ns-branch-facts dt { color: var(--text-muted); font-size: .52rem; letter-spacing: var(--label-tracking); }
+.ns-branch-facts dd { margin: 0; color: var(--accent); font-size: .62rem; letter-spacing: .08em; }
+
+.ns-branch-note {
+  margin: 0 0 8px 17px;
+  display: grid;
+  gap: 3px;
+}
+
+.ns-branch-note strong { color: var(--text-secondary); font-size: .56rem; letter-spacing: var(--label-tracking); }
+.ns-branch-note span { color: var(--text-quiet); font-size: .64rem; line-height: 1.45; }
+.ns-branch-count { margin: 0 0 4px 17px; color: var(--text-muted); font-size: .61rem; }
+
+/*
+ * Branch-local operations. They sit at the foot of the branch they act on,
+ * outside the connector geometry, so no rail continues past the final child
+ * and no second "ACTIONS" heading is needed to say who owns them.
+ */
+.ns-branch-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-left: 1px; }
+
+.ns-branch-action {
+  min-height: 44px;
+  padding: 0 16px;
+  flex: 0 1 auto;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--accent);
+  font-size: .58rem;
+  letter-spacing: .12em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ns-branch-action:focus-visible { border-color: var(--line-accent); color: var(--accent-strong); outline: 0; }
+.ns-branch-action:disabled { color: var(--text-muted); border-color: var(--line-quiet); cursor: default; }
+
+@media (hover: hover) {
+  .ns-branch-action:hover:not(:disabled) { border-color: var(--line-accent); background: var(--surface-hover); color: var(--accent-strong); }
+}
+
+/* Expansion is deliberate rather than decorative: one short settle, no motion
+   for anyone who has asked for none. */
+.ns-branch,
+.ns-limbs--service { animation: ns-settle 150ms ease-out; }
+
+@keyframes ns-settle {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ns-branch, .ns-limbs--service { animation: none; }
+  .ns-twist { transition: none; }
+}
+
+/* Bootstrap and re-observation ---------------------------------------- */
+
+/* Fresh state: Scan SELF is the one thing to do, so it is the one control. */
+.ns-bootstrap { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.ns-primary {
+  min-height: 50px;
+  padding: 0 22px;
+  border: 1px solid var(--line-accent);
+  background: var(--surface-raised);
+  color: var(--accent-strong);
+  font-size: .64rem;
+  letter-spacing: .16em;
+  cursor: pointer;
+}
+
+.ns-primary:focus-visible { background: var(--surface-hover); outline: 0; }
+.ns-primary:disabled { border-color: var(--line-strong); color: var(--text-muted); cursor: default; }
+.ns-bootstrap > span { color: var(--text-faint); font-size: .62rem; }
+
+@media (hover: hover) {
+  .ns-primary:hover:not(:disabled) { background: var(--surface-hover); }
+}
+
+/* Once Networks exist, re-observing SELF is a quiet footer, not a section. */
+.ns-space-footer { margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ns-space-footer > span { min-width: 0; color: var(--text-faint); font-size: .6rem; }
+
+.ns-rescan {
+  flex: none;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-quiet);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .55rem;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.ns-rescan:focus-visible { border-color: var(--line-accent); color: var(--accent); outline: 0; }
+.ns-rescan:disabled { color: var(--text-faint); cursor: default; }
+
+@media (hover: hover) {
+  .ns-rescan:hover:not(:disabled) { border-color: var(--line-strong); color: var(--accent); }
+}
+
+/* Detail-view rows ---------------------------------------------------- */
 
 .ns-list { display: grid; gap: 6px; }
-
-/* Relationship trees use normal flow and indentation for structure. The
- * connector rules only reinforce that hierarchy; no coordinates are needed. */
-.ns-tree { display: grid; gap: 6px; margin-left: 16px; padding-left: 16px; }
-.ns-tree > * { position: relative; }
-.ns-tree > *::after { content: ""; position: absolute; right: calc(100% + 16px); top: -6px; bottom: -6px; border-left: 1px solid var(--line-strong); }
-.ns-tree > *:last-child::after { bottom: auto; height: 36px; }
-.ns-tree-node { position: relative; }
-.ns-tree-node::before { content: ""; position: absolute; right: 100%; top: 30px; width: 17px; border-top: 1px solid var(--line-strong); }
-.ns-network-list { display: grid; gap: 8px; }
-.ns-network-branch { min-width: 0; }
-.ns-network-toggle { background: var(--surface); }
-.ns-network-contents { margin: 0 0 12px; padding: 0 0 4px 12px; border: 1px solid var(--line-strong); border-top: 0; }
-.ns-network-contents > .ns-quiet-note { margin-top: 0; }
-.ns-tree--network { margin-top: 2px; }
-.ns-network-parent { min-height: 62px; margin-top: 6px; padding: 10px 12px; grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--line-strong); background: var(--surface); }
-.ns-network-parent + .ns-tree--network { margin-top: 0; }
-.ns-device-branch { min-width: 0; }
-.ns-device-node { padding: 0; }
-.ns-branch-toggle { min-width: 0; min-height: 62px; padding: 10px 8px 10px 12px; display: flex; flex: 1; align-items: center; gap: 11px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.ns-chevron { flex: none; color: var(--accent-mark); transition: transform 120ms ease; }
-.is-expanded .ns-chevron { transform: rotate(180deg); }
-.ns-detail-link { align-self: stretch; min-width: 64px; padding: 0 10px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--accent); font-size: .55rem; letter-spacing: .1em; cursor: pointer; }
-.ns-branch-toggle:focus-visible, .ns-detail-link:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
-.ns-service-branch { display: grid; gap: 5px; margin: 5px 0 1px 18px; padding-left: 14px; }
-.ns-service-branch > * { position: relative; }
-.ns-service-branch > *::after { content: ""; position: absolute; right: calc(100% + 14px); top: -5px; bottom: -5px; border-left: 1px solid var(--line-strong); }
-.ns-service-branch > *:last-child::after { bottom: auto; height: 33px; }
-.ns-service--tree { position: relative; min-height: 58px; }
-.ns-service--tree::before, .ns-tree-empty::before { content: ""; position: absolute; right: 100%; top: 28px; width: 15px; border-top: 1px solid var(--line-strong); }
-.ns-tree-empty { position: relative; margin: 0; padding: 12px; border: 1px solid var(--line-strong); color: var(--text-muted); font-size: .63rem; }
 
 .ns-row {
   width: 100%;
@@ -168,26 +444,13 @@ button.ns-row:focus-visible { border-color: var(--line-accent); background: var(
   button.ns-row:hover { border-color: var(--line-accent); background: var(--surface-hover); }
 }
 
-.ns-row--static { background: var(--surface); }
 .ns-row--relation { min-height: 52px; }
-
 .ns-row-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
 .ns-row-copy strong { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
-.ns-row-note { color: var(--text-muted); font-size: .61rem; line-height: 1.4; overflow-wrap: anywhere; }
-.ns-row-copy .ns-copy { min-height: 34px; font-size: .84rem; }
-
-.ns-dot {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border: 1px solid var(--text-faint);
-  border-radius: 50%;
-}
-
-.ns-dot--self { border-color: var(--accent-mark); background: var(--accent-rule); }
 .ns-arrow { flex: none; margin-left: auto; color: var(--accent-mark); font-size: .9rem; }
+.ns-node--service .ns-arrow { align-self: center; }
 
-/* Service rows -------------------------------------------------------- */
+/* Service presentation ------------------------------------------------ */
 
 /*
  * Service identity, endpoint metadata and observed fingerprints are stacked
@@ -229,10 +492,10 @@ button.ns-row:focus-visible { border-color: var(--line-accent); background: var(
 
 .ns-service-observed {
   display: grid;
-  gap: 3px;
+  gap: 1px;
   color: var(--text-secondary);
   font-size: .63rem;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .ns-service-observed > span { overflow-wrap: anywhere; }
@@ -392,8 +655,8 @@ button.ns-row:focus-visible { border-color: var(--line-accent); background: var(
 
 /* Desktop is the same tool with more room: wider measure, roomier rows. */
 @media (min-width: 760px) {
-  .ns-row,
   .ns-service,
+  .ns-row,
   .ns-action,
   .ns-operation,
   .ns-state { padding-left: 14px; padding-right: 14px; }
