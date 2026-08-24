@@ -1,71 +1,371 @@
-.scan-app button { font: inherit; }
-.scan-atlas-heading { margin:0 0 15px; padding-bottom:12px; border-bottom:1px solid var(--line); }
-.scan-atlas-heading h1 { margin:0; color:#a9b7af; font-size:.67rem; letter-spacing:.16em; }
-.scan-atlas-heading p { margin:5px 0 0; color:#66736b; font-size:.64rem; }
-.scan-list,.service-list { display:grid; gap:6px; }
-.scan-object,.service-row,.relationship,.service-identity,.interaction { border:1px solid var(--line-strong); background:var(--surface-raised); }
-.known-space { max-width:720px; }
-.known-space-identity { display:grid; gap:4px; min-width:0; }
-.scan-area-label { color:#8fc6a3; font-size:.58rem; font-weight:600; letter-spacing:.16em; }
-.atlas-object-name { color:#d8e1dc; font:600 .83rem Inter,system-ui,sans-serif; overflow-wrap:anywhere; }
-.scan-type { display:block; color:#6f8076; font-size:.56rem; letter-spacing:.14em; }
-.scan-object h2,.scan-detail-title h2 { margin:5px 0 0; color:#e2e9e5; font:600 1rem Inter,system-ui,sans-serif; }
-.atlas-row { width:100%; min-height:62px; padding:9px 12px; display:flex; align-items:center; gap:12px; border:1px solid var(--line-strong); background:var(--surface-raised); color:inherit; text-align:left; }
-button.atlas-row { cursor:pointer; }
-button.atlas-row:hover,.atlas-open:hover,.interaction-action:hover { border-color:var(--line-accent); background:var(--surface-hover); }
-.atlas-marker { width:7px; height:7px; flex:none; border:1px solid #5e6c63; border-radius:50%; }
-.atlas-marker-local { border-color:#6fba8a; background:#508765; box-shadow:0 0 0 2px #101b15; }
-.atlas-arrow { margin-left:auto; flex:none; color:#73bd8e; font-size:.9rem; }
-.device-identity { min-width:0; flex:1; }
-.device-identity .scan-copy { min-height:28px; padding:1px 0; }
-.atlas-open { align-self:stretch; min-width:44px; margin:-9px -12px -9px 0; border:0; border-left:1px solid #253029; background:transparent; color:#73bd8e; cursor:pointer; }
-.scan-action,.scan-quiet,.scan-open { min-height:42px; border:1px solid #395045; background:#101914; color:#8fd3a8; cursor:pointer; }
-.scan-action { padding:0 16px; }
-.scan-quiet { min-height:44px; padding:0 9px; background:transparent; color:#7faf90; font-size:.62rem; }
-.scan-open { min-width:44px; font-size:1.1rem; }
-.scan-crumbs { display:flex; align-items:center; gap:9px; min-width:0; margin-bottom:15px; color:#536159; font-size:.64rem; }
-.scan-crumbs button { min-height:44px; padding:0; border:0; background:transparent; color:#84bda0; cursor:pointer; }
-.scan-crumbs strong { overflow:hidden; text-overflow:ellipsis; color:#8b9990; font-weight:500; }
-.scan-detail-title { display:flex; align-items:center; justify-content:space-between; gap:16px; min-width:0; }
-.scan-copy { display:inline-flex; align-items:center; gap:9px; max-width:100%; min-height:40px; padding:4px 0; border:0; background:transparent; color:#dce8e1; cursor:pointer; text-align:left; overflow-wrap:anywhere; }
-.scan-copy-icon { flex:none; color:#6fbb8b; font-size:.72rem; }
-.relationship { min-height:58px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 15px; }
-.relationship span,.knowledge-block span,.analysis-result span { color:#718078; font-size:.55rem; letter-spacing:.13em; }
-.relationship strong { color:#a7cbb5; font-size:.78rem; }
-.service-row { width:100%; min-height:62px; padding:9px 12px; color:#89968f; cursor:pointer; text-align:left; }
-.service-row-main,.service-row-secondary,.analysis-running>div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.service-row-main strong { min-width:0; flex:1; color:#e2e9e5; font:600 .82rem Inter,system-ui,sans-serif; overflow-wrap:anywhere; }
-.service-row-main>span:not(.node-chip) { color:#9ba8a0; font-size:.65rem; white-space:nowrap; }
-.service-row-fingerprint { margin-top:6px; display:grid; gap:3px; color:#8b9990; font-size:.62rem; line-height:1.4; }
-.service-row-fingerprint span { display:block; overflow-wrap:anywhere; }
-.service-row-secondary { margin-top:6px; color:#708078; font-size:.59rem; line-height:1.35; }
-.service-row-secondary>span:first-child { min-width:0; overflow-wrap:anywhere; }
-.service-row-arrow { flex:none; color:#73bd8e; font-size:.9rem; }
-.knowledge-block,.analysis-result { display:grid; gap:5px; margin:8px 0; padding:9px 11px; border-left:2px solid var(--accent-rule); background:#0d1711; overflow-wrap:anywhere; }
-.knowledge-block strong,.analysis-result strong { color:#b8d9c4; font-size:.72rem; line-height:1.45; }
-.analysis-result { border-left-color:#537f8a; background:#0b1416; }
-.scan-feedback { margin:10px 0 0; color:var(--caution); font-size:.62rem; line-height:1.5; }
-.service-facts { margin:14px 0 0; border-top:1px solid var(--line-strong); }
-.service-facts>div { min-height:37px; display:grid; grid-template-columns:minmax(86px, 28%) 1fr; align-items:center; gap:10px; border-bottom:1px solid var(--line-quiet); }
-.service-facts dt { color:#718078; font-size:.52rem; letter-spacing:.13em; }
-.service-facts dd { min-width:0; margin:0; color:#c5d2ca; font-size:.7rem; overflow-wrap:anywhere; }
-.service-facts .scan-copy { min-height:36px; }
-.empty-knowledge { margin:8px 0; padding-left:10px; border-left:2px solid #344039; color:#7c8981; font-size:.68rem; }
-.interaction { padding:0; overflow:hidden; }
-.interaction-action { width:100%; min-height:61px; padding:10px 12px; display:flex; align-items:center; gap:12px; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
-.interaction-copy { min-width:0; display:grid; gap:5px; }
-.interaction-copy strong { color:#9fd0b0; font-size:.61rem; letter-spacing:.1em; }
-.interaction-copy span { color:#718078; font-size:.63rem; }
-.interaction-active { min-height:65px; padding:11px 12px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:5px 12px; }
-.interaction-progress-value { color:#a7cdb5; font-size:.66rem; }
-.interaction-active progress { grid-column:1/-1; width:100%; height:3px; border:0; background:#1d2822; accent-color:var(--accent-fill); }
-.interaction .scan-feedback { margin:0; padding:0 12px 10px; }
-.device-state.interaction-active { grid-template-columns:1fr auto; }
-.device-state .interaction-action { min-height:44px; }
-.device-state.interaction-active .interaction-action { width:auto; min-height:40px; padding:6px 0 6px 14px; border-left:1px solid #253029; }
-.scan-device-action { width:100%; min-height:52px; padding:10px 12px; display:flex; align-items:center; border:1px solid var(--line-strong); background:var(--surface-raised); color:var(--accent); cursor:pointer; text-align:left; }
-.scan-device-action strong { font-size:.61rem; letter-spacing:.1em; }
-.service-detail .scan-device-action + .interaction,.service-detail .interaction + .interaction { margin-top:6px; }
-.analysis-note,.access-path { margin:8px 0; padding:8px 10px; border-left:2px solid #46564d; color:#87958d; font-size:.65rem; line-height:1.45; }
-.access-path strong { color:#b8d9c4; }
-@media (max-width:480px) { .atlas-row { min-height:60px; } }
+/*
+ * NodeScan investigation workspace.
+ *
+ * One workspace presenting four levels of the same subject — Known Space,
+ * Network, Device, Service — in one language: a masthead or breadcrumb, then
+ * `.node-section` groups of observed facts, relationships, state and actions.
+ *
+ * Mobile-first. Every level is a single column of full-width rows so that
+ * primary identity (a name, an address, a Service) always owns the full line
+ * and secondary technical detail wraps beneath it rather than competing for
+ * horizontal space. Nothing here nests a card inside a card, and the gutter
+ * stays owned by `.app-content`.
+ */
+
+/* Zero-specificity reset: every rule below may still set its own type scale. */
+:where(.scan-app) button { font: inherit; }
+
+.ns-view { max-width: 760px; }
+
+/* Subject ------------------------------------------------------------- */
+
+.ns-masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  margin: 0 0 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ns-masthead h2 {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+}
+
+.ns-masthead p { margin: 5px 0 0; color: var(--text-quiet); font-size: .64rem; }
+
+.ns-release {
+  flex: none;
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+.ns-eyebrow {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+.scan-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin-bottom: 6px;
+  color: var(--text-faint);
+  font-size: .64rem;
+}
+
+.scan-crumbs button {
+  flex: none;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.scan-crumbs button:hover,
+.scan-crumbs button:focus-visible { color: var(--accent-strong); outline: 0; }
+
+.scan-crumbs strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The browsed object's own identity line: one subject per line, always. */
+.ns-subject { display: grid; gap: 4px; padding-bottom: 2px; }
+.ns-subject + .node-section { margin-top: 16px; }
+.ns-subject h2 { margin: 0; color: var(--text-strong); font: 600 1rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+
+.ns-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: .86rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.ns-subject .ns-copy { font: 600 .95rem Inter, system-ui, sans-serif; }
+/* Where the object already has a name, its endpoint is supporting detail. */
+.ns-subject h2 ~ .ns-copy { color: var(--text-secondary); font-family: inherit; font-size: .8rem; font-weight: 500; }
+.ns-copy-icon { flex: none; color: var(--accent-mark); font-size: .72rem; }
+.ns-copy:focus-visible { outline: 1px solid var(--line-accent); outline-offset: 2px; }
+
+/* Object rows --------------------------------------------------------- */
+
+.ns-list { display: grid; gap: 6px; }
+
+.ns-row {
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: inherit;
+  text-align: left;
+}
+
+button.ns-row { cursor: pointer; }
+button.ns-row:focus-visible { border-color: var(--line-accent); background: var(--surface-hover); outline: 0; }
+
+@media (hover: hover) {
+  button.ns-row:hover { border-color: var(--line-accent); background: var(--surface-hover); }
+}
+
+.ns-row--static { background: var(--surface); }
+.ns-row--relation { min-height: 52px; }
+
+.ns-row-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.ns-row-copy strong { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.ns-row-note { color: var(--text-muted); font-size: .61rem; line-height: 1.4; overflow-wrap: anywhere; }
+.ns-row-copy .ns-copy { min-height: 34px; font-size: .84rem; }
+
+.ns-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border: 1px solid var(--text-faint);
+  border-radius: 50%;
+}
+
+.ns-dot--self { border-color: var(--accent-mark); background: var(--accent-rule); }
+.ns-arrow { flex: none; margin-left: auto; color: var(--accent-mark); font-size: .9rem; }
+
+/* Service rows -------------------------------------------------------- */
+
+/*
+ * Service identity, endpoint metadata and observed fingerprints are stacked
+ * rather than placed on one line. A long observation such as
+ * "Credential + Additional Verification" therefore wraps under the Service
+ * name instead of compressing it.
+ */
+.ns-service {
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ns-service:focus-visible { border-color: var(--line-accent); background: var(--surface-hover); outline: 0; }
+
+@media (hover: hover) {
+  .ns-service:hover { border-color: var(--line-accent); background: var(--surface-hover); }
+}
+
+.ns-service-head { display: flex; align-items: center; gap: 12px; }
+.ns-service-head strong { min-width: 0; color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+
+.ns-service-endpoint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  color: var(--text-muted);
+  font-size: .62rem;
+}
+
+.ns-service-endpoint > span { overflow-wrap: anywhere; }
+
+.ns-service-observed {
+  display: grid;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: .63rem;
+  line-height: 1.45;
+}
+
+.ns-service-observed > span { overflow-wrap: anywhere; }
+
+/* Marks: one short state line each, never a row of competing chips. */
+.ns-marks { display: grid; gap: 3px; }
+
+.ns-mark {
+  display: block;
+  padding-left: 11px;
+  position: relative;
+  font-size: .58rem;
+  letter-spacing: .1em;
+  overflow-wrap: anywhere;
+}
+
+.ns-mark::before {
+  content: "";
+  position: absolute;
+  top: .38em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border: 1px solid currentColor;
+}
+
+.ns-mark--live { color: var(--accent); }
+.ns-mark--live::before { background: var(--accent-fill); }
+.ns-mark--known { color: var(--text-secondary); }
+.ns-mark--access { color: var(--accent-strong); }
+.ns-mark--access::before { background: var(--accent-rule); }
+
+/* Access and Session -------------------------------------------------- */
+
+/*
+ * DeviceAccess and RemoteSession share one presentation slot: an active
+ * Session supersedes the passive Access presentation while still stating the
+ * Access it was built from, which is never deleted by connecting.
+ */
+.ns-state {
+  min-height: 62px;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+}
+
+.ns-state--live { border-left: 2px solid var(--accent-rule); }
+.ns-state-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.ns-state-copy strong { color: var(--accent-strong); font-size: .62rem; letter-spacing: .12em; }
+.ns-state-copy span { color: var(--text-secondary); font-size: .66rem; overflow-wrap: anywhere; }
+.ns-state-copy small { color: var(--text-muted); font-size: .56rem; letter-spacing: .1em; overflow-wrap: anywhere; }
+
+.ns-state-action {
+  flex: none;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--accent);
+  font-size: .58rem;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.ns-state-action:focus-visible { border-color: var(--line-accent); color: var(--accent-strong); outline: 0; }
+
+@media (hover: hover) {
+  .ns-state-action:hover { border-color: var(--line-accent); background: var(--surface-hover); color: var(--accent-strong); }
+}
+
+/* Knowledge ----------------------------------------------------------- */
+
+.ns-knowledge { margin: 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+
+.ns-knowledge li {
+  padding: 9px 11px;
+  display: grid;
+  gap: 4px;
+  border-left: 2px solid var(--accent-rule);
+  background: var(--surface-raised);
+  overflow-wrap: anywhere;
+}
+
+.ns-knowledge strong { color: var(--accent-strong); font-size: .64rem; letter-spacing: .1em; }
+.ns-knowledge span { color: var(--text-secondary); font-size: .7rem; line-height: 1.45; }
+
+.ns-quiet-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--text-quiet);
+  font-size: .68rem;
+}
+
+.ns-access-path {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--accent-rule);
+  color: var(--text-muted);
+  font-size: .65rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.ns-access-path strong { color: var(--accent-strong); }
+
+/* Actions and running operations -------------------------------------- */
+
+.ns-actions { display: grid; gap: 6px; }
+
+.ns-action {
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ns-action-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.ns-action-copy strong { font-size: .62rem; letter-spacing: .12em; }
+.ns-action-copy span { color: var(--text-muted); font-size: .63rem; line-height: 1.4; overflow-wrap: anywhere; }
+.ns-action:focus-visible { border-color: var(--line-accent); background: var(--surface-hover); outline: 0; }
+
+@media (hover: hover) {
+  .ns-action:hover:not(:disabled) { border-color: var(--line-accent); background: var(--surface-hover); }
+}
+
+.ns-action:disabled { color: var(--text-muted); cursor: default; }
+.ns-action:disabled .ns-arrow { color: var(--text-faint); }
+
+.ns-operation {
+  min-height: 54px;
+  padding: 11px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-left: 2px solid var(--accent-rule);
+  background: var(--surface-raised);
+}
+
+.ns-operation-copy { min-width: 0; display: grid; gap: 4px; }
+.ns-operation-copy strong { color: var(--accent-strong); font-size: .62rem; letter-spacing: .12em; }
+.ns-operation-copy span { color: var(--text-muted); font-size: .63rem; overflow-wrap: anywhere; }
+.ns-operation-value { color: var(--accent); font-size: .68rem; font-variant-numeric: tabular-nums; }
+.ns-operation .node-progress { grid-column: 1 / -1; }
+
+/* Desktop is the same tool with more room: wider measure, roomier rows. */
+@media (min-width: 760px) {
+  .ns-row,
+  .ns-service,
+  .ns-action,
+  .ns-operation,
+  .ns-state { padding-left: 14px; padding-right: 14px; }
+
+  .ns-masthead h2 { font-size: .78rem; }
+}
