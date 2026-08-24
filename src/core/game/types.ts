@@ -96,7 +96,31 @@ export interface NodeMinerProcess extends ProcessCommon {
   readonly workRemainder: number
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | NodeMinerProcess
+export type SoftwareInstallationResult =
+  | { readonly status: 'installed' }
+  | { readonly status: 'install_path_occupied' }
+
+/**
+ * Finite compute/RAM-driven work admitted by INSTALL. It snapshots only the
+ * package facts completion actually needs; the source package artifact and
+ * Device-owned InstalledSoftware are deliberately untouched until this
+ * Process completes (see `resolveCompletedSoftwareInstallations` in
+ * `softwareInstallation.ts`), so a package, an installation Process,
+ * InstalledSoftware, and a running program remain four distinct things.
+ */
+export interface SoftwareInstallationProcess extends ProcessBase {
+  readonly kind: 'software_installation'
+  readonly productId: 'nodescan' | 'node-miner'
+  readonly releaseId: string
+  readonly name: string
+  readonly version: string
+  readonly channel: string
+  /** Provenance stated by the source package at admission; present only when that package claimed one. */
+  readonly publisher?: string
+  readonly result?: SoftwareInstallationResult
+}
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | NodeMinerProcess | SoftwareInstallationProcess
 
 export interface ProcessState {
   readonly nextId: number

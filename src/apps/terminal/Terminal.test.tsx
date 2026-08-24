@@ -13,6 +13,7 @@ import { GameProvider, useGameState } from '../../app/GameContext'
 import { useGameActions } from '../../app/GameContext'
 import { deriveResourceUsage } from '../../core/game/processes'
 import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
+import { advanceGameState } from '../../core/game/gameAdvancement'
 import { Processes } from '../processes/Processes'
 
 function deferred<T>() {
@@ -301,15 +302,23 @@ describe('Terminal remote session', () => {
 })
 
 describe('Terminal local installation', () => {
-  it('installs through GameActions, reports the represented release, and updates Help with baseline Inspect', async () => {
+  it('starts a running installation Process through GameActions, completes with the represented release, and updates Help with baseline Inspect', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const base = createInitialGameState()
     const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
     const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 50, files: [...base.player.localDevice.filesystem.files, packageFile] } } } }
     render(<GameProvider initialState={state}><Terminal /><StateControls /></GameProvider>)
-    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime }); const input = screen.getByLabelText('Command input')
     await user.type(input, `install ${packageFile.path}{enter}`)
-    expect(screen.getByText('INSTALLED')).toBeInTheDocument()
+    expect(screen.getByText('INSTALLING')).toBeInTheDocument()
     expect(screen.getByText('NodeScan 1.1 Experimental')).toBeInTheDocument()
+
+    // Admission starts work, not installation truth: NodeScan stays at its previous release until the Process completes.
+    const runningSoftware = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
+    expect(runningSoftware.find(({ id }) => id === 'nodescan')?.releaseId).toBe('nodescan-1.0-standard')
+
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+
     await user.type(input, 'help{enter}')
     expect(screen.getByText('NODESCAN 1.1 EXPERIMENTAL')).toBeInTheDocument()
     expect(screen.getByText('install — <local-absolute-file-path> Install a local software package')).toBeInTheDocument()
@@ -318,6 +327,7 @@ describe('Terminal local installation', () => {
     expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
     const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
     expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }, { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0' }])
+    vi.useRealTimers()
   })
 })
 
@@ -325,15 +335,18 @@ describe('Terminal NODE Miner CLI', () => {
   /** A local Device with NODE Miner already installed (skipping typed `install`, which its own test covers) so RUN/STATUS/STOP scenarios stay well under the test timeout. */
   function installedState(): GameState {
     const base = createInitialGameState()
-    const installed = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
-    if (installed.status !== 'installed') throw new Error(installed.status)
-    return installed.state
+    const started = installLocalSoftwarePackage(base, '/home/user/downloads/node-miner-1.0.pkg')
+    if (started.status !== 'started') throw new Error(started.status)
+    const installed = advanceGameState(started.state, 20_000)
+    // Reset the installation Process's own history/ID progression so RUN scenarios below keep asserting the well-known process-0001 identity.
+    return { ...installed, process: { nextId: 1, processes: [] }, recentActivity: { entries: [] } }
   }
 
   it('is unavailable before installation and absent from help, then appears after install with IDLE status', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const state = createInitialGameState()
     render(<GameProvider initialState={state}><Terminal /></GameProvider>)
-    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime }); const input = screen.getByLabelText('Command input')
 
     await user.type(input, 'node-miner status{enter}')
     expect(screen.getByText('Command not found: node-miner. Type "help" for available commands.')).toBeInTheDocument()
@@ -341,13 +354,16 @@ describe('Terminal NODE Miner CLI', () => {
     expect(screen.queryByText('NODE MINER 1.0')).not.toBeInTheDocument()
 
     await user.type(input, 'install /home/user/downloads/node-miner-1.0.pkg{enter}')
-    expect(screen.getByText('INSTALLED')).toBeInTheDocument()
+    expect(screen.getByText('INSTALLING')).toBeInTheDocument()
+
+    await act(async () => { vi.advanceTimersByTime(20_000) })
 
     await user.type(input, 'help{enter}')
     expect(screen.getByText('NODE MINER 1.0')).toBeInTheDocument()
 
     await user.type(input, 'node-miner status{enter}')
     expect(screen.getByText('STATUS IDLE')).toBeInTheDocument()
+    vi.useRealTimers()
   }, 15_000)
 
   it('RUN invokes the canonical operation, is immediately visible through Processes, and rejects a duplicate', async () => {

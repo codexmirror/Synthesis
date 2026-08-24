@@ -11,6 +11,7 @@ import processesSource from './Processes.tsx?raw'
 import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, startNodeMiner } from '../../core/game/nodeMiner'
+import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
@@ -444,5 +445,32 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
     if (restarted.status !== 'started') throw new Error(restarted.status)
     expect(restarted.processId).not.toBe(originalId)
     expect(restarted.state.process.nextId).toBe(state.process.nextId + 1)
+  })
+})
+
+describe('Activity Monitor: Software Installation', () => {
+  const started = () => {
+    const result = installLocalSoftwarePackage(createInitialGameState(), '/home/user/downloads/node-miner-1.0.pkg')
+    if (result.status !== 'started') throw Error(result.status)
+    return result.state
+  }
+
+  it('shows a running installation Process with package, progress, CPU, and RAM', () => {
+    render(<GameProvider initialState={started()}><Processes /></GameProvider>)
+    const installing = card('SOFTWARE INSTALLATION')
+    expect(within(installing).getByText('RUNNING')).toBeInTheDocument()
+    expect(within(installing).getByText('NODE Miner 1.0')).toBeInTheDocument()
+    expect(fact(installing, 'PROGRESS')).toBe('0%')
+    expect(fact(installing, 'CPU')).toBe('82%')
+    expect(fact(installing, 'RAM')).toBe('256 MiB')
+  })
+
+  it('appears in Recent Activity with a concrete INSTALLED outcome once the Process ends', () => {
+    const done = advanceGameState(started(), 20_000)
+    render(<GameProvider initialState={done}><Processes /></GameProvider>)
+    const installing = card('SOFTWARE INSTALLATION')
+    expect(installing.dataset.status).toBe('recent')
+    expect(within(installing).getByText('INSTALLED')).toBeInTheDocument()
+    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
   })
 })

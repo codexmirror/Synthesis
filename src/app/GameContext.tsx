@@ -114,7 +114,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, installLocalSoftwarePackage(path) {
     const result = installLocalSoftwarePackage(currentState.current, path)
-    if (result.status === 'installed') {
+    if (result.status === 'started') {
       currentState.current = result.state
       setGameState(result.state)
     }
