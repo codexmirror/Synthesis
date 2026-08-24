@@ -60,6 +60,7 @@ export function startRemoteFileDownload(state: GameState, sourcePath: string): S
 export function startRemoteFileUpload(state: GameState, sourcePath: string, destinationPath: string): StartRemoteFileUploadResult {
   const remote = resolveActiveRemoteTarget(state)
   if (!remote) return { status: 'session_unavailable', state }
+  if (destinationPath.endsWith('/')) return { status: 'invalid_path', state }
   const source = getFilesystemFile(state.player.localDevice.filesystem, sourcePath)
   if (source.status === 'invalid_path') return { status: 'invalid_path', state }
   if (source.status === 'not_found') return { status: 'source_not_found', state }

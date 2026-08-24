@@ -519,6 +519,27 @@ describe('bidirectional Upload core', () => {
     expect(getFilesystemFile(remoteBefore, DESTINATION).status).toBe('not_found')
   })
 
+  it('rejects a trailing-slash remote file destination without normalizing or mutating state', () => {
+    const state = connectedState()
+    const remoteBefore = state.world.network.hosts[0].filesystem
+    const result = startRemoteFileUpload(state, SOURCE, '/home/user/tool.pkg/')
+    expect(result).toEqual({ status: 'invalid_path', state })
+    expect(result.state.fileTransfer.active).toBeNull()
+    expect(result.state.fileTransfer.nextId).toBe(state.fileTransfer.nextId)
+    expect(result.state.world.network.hosts[0].filesystem).toBe(remoteBefore)
+  })
+
+  it('keeps a normal explicit destination identical on the transfer and completed artifact', () => {
+    const state = connectedState()
+    const result = startRemoteFileUpload(state, SOURCE, '/home/user/tool.pkg')
+    if (result.status !== 'started') throw new Error('expected started')
+    const destinationPath = result.state.fileTransfer.active!.destinationPath
+    const completed = advanceFileTransfer(result.state, 60_000)
+    expect(getFilesystemFile(completed.world.network.hosts[0].filesystem!, destinationPath)).toMatchObject({
+      status: 'ok', file: { path: destinationPath },
+    })
+  })
+
   it('uses local upload and remote download capacities through the existing elapsed clock', () => {
     const state = connectedState()
     const result = startRemoteFileUpload(state, SOURCE, DESTINATION)
