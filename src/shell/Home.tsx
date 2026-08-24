@@ -1,17 +1,16 @@
 import { type AppId, appEntries } from './appRegistry'
 import { useGameState } from '../app/GameContext'
 import { AppIcon } from './AppIcon'
+import { deriveActivityMonitor } from '../apps/processes/activityMonitor'
 
 export function Home({ openApp }: { openApp: (app: AppId) => void }) {
   const state = useGameState()
   const device = state.player.localDevice
-  const runningProcesses = state.process.processes.filter(
-    (process) => process.status === 'running' && process.executorDeviceId === state.player.localDevice.id,
-  ).length
+  const activeActivities = deriveActivityMonitor(state).summary.activeCount
   const secondary: Partial<Record<AppId, string>> = {
     terminal: 'LOCAL SHELL',
     network: 'KNOWN SPACE',
-    processes: `${runningProcesses} RUNNING`,
+    processes: `${activeActivities} RUNNING`,
     files: 'LOCAL',
     system: `${device.firmware.name} ${device.firmware.version}`,
   }

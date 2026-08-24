@@ -13,6 +13,29 @@ import { Shell } from './shell/Shell'
 import { ViewportDebug } from './shell/ViewportDebug'
 import type { EditingViewportState } from './shell/useEditingViewport'
 import { createInitialGameState } from './core/game/initialState'
+import type { FileTransfer, GameState } from './core/game/types'
+
+function withActiveTransfer(direction: 'download' | 'upload', base: GameState = createInitialGameState()): GameState {
+  const localDeviceId = base.player.localDevice.id
+  const sourceFileId = direction === 'download'
+    ? 'file-0002'
+    : base.player.localDevice.filesystem.files[1].id
+  const transfer: FileTransfer = {
+    id: 'transfer-0001',
+    accessId: 'access-0001',
+    sourceDeviceId: direction === 'download' ? 'host-lan-001' : localDeviceId,
+    sourceFileId,
+    destinationDeviceId: direction === 'download' ? localDeviceId : 'host-lan-001',
+    destinationPath: direction === 'download' ? '/home/user/downloads/nodescan-exp-1.1.pkg' : '/home/user/node-miner-1.0.pkg',
+    bytesTotal: 18_400_000,
+    bytesTransferred: 4_600_000,
+  }
+  return {
+    ...base,
+    deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: localDeviceId, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
+    fileTransfer: { nextId: 2, active: transfer },
+  }
+}
 
 function viewportState(
   overrides: Partial<EditingViewportState> = {},
@@ -1500,6 +1523,49 @@ describe('NODE-OS shell and applications', () => {
     }
     render(<GameProvider initialState={state}><Shell /></GameProvider>)
     expect(screen.getByRole('button', { name: /open processes/i })).toHaveTextContent('1 RUNNING')
+  })
+
+  it.each(['download', 'upload'] as const)('counts an active %s in the Processes launcher', (direction) => {
+    render(<GameProvider initialState={withActiveTransfer(direction)}><Shell /></GameProvider>)
+
+    expect(screen.getByRole('button', { name: /open processes/i })).toHaveTextContent('1 RUNNING')
+  })
+
+  it('counts an active local Process and active transfer in the Processes launcher', () => {
+    const base = createInitialGameState()
+    const state = withActiveTransfer('download', {
+      ...base,
+      process: {
+        nextId: 2,
+        processes: [{ id: 'process-1', kind: 'generic', label: 'Local work', executorDeviceId: base.player.localDevice.id, status: 'running', workRequired: 10, workCompleted: 2, ramRequiredMiB: 1 }],
+      },
+    })
+
+    render(<GameProvider initialState={state}><Shell /></GameProvider>)
+
+    expect(screen.getByRole('button', { name: /open processes/i })).toHaveTextContent('2 RUNNING')
+  })
+
+  it('does not count recent or completed activity in the Processes launcher', () => {
+    const base = createInitialGameState()
+    const completedProcess = { id: 'process-1', kind: 'generic' as const, label: 'Finished work', executorDeviceId: base.player.localDevice.id, status: 'completed' as const, workRequired: 10, workCompleted: 10, ramRequiredMiB: 1 }
+    const completedTransfer: FileTransfer = {
+      id: 'transfer-0001', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
+      destinationDeviceId: base.player.localDevice.id, destinationPath: '/home/user/downloads/complete.pkg',
+      bytesTotal: 100, bytesTransferred: 100,
+    }
+    const state: GameState = {
+      ...base,
+      process: { nextId: 2, processes: [completedProcess] },
+      recentActivity: { entries: [
+        { kind: 'process', id: completedProcess.id, process: completedProcess },
+        { kind: 'file_transfer', id: completedTransfer.id, transfer: completedTransfer },
+      ] },
+    }
+
+    render(<GameProvider initialState={state}><Shell /></GameProvider>)
+
+    expect(screen.getByRole('button', { name: /open processes/i })).toHaveTextContent('0 RUNNING')
   })
 
   it('opens an app and returns home', async () => {
