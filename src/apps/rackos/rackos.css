@@ -7,6 +7,10 @@
 .rack-header strong { letter-spacing: .12em; }.rack-header span { font-size: .72rem; color: #aab5b9; }
 .rack-header__actions { width: 100%; justify-self: end; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; }
 .rack-header button { min-height: 44px; padding: 0 8px; border: 0; background: none; color: #d6dddf; font: inherit; font-size: .7rem; letter-spacing: .1em; }
+/* The context switch is an ordinary navigation action and is drawn as one;
+   DISCONNECT ends the Session and stays deliberately unlike it. */
+button.rack-header__return { padding-inline: 12px; border: 1px solid #4d5a5f; }
+button.rack-header__disconnect { color: #cf9a93; }
 .rack-nav { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid #394246; }
 .rack-nav button { min-height: 44px; padding: 13px 4px; border: 0; border-right: 1px solid #394246; background: #151b1e; color: #879398; font: 700 .68rem ui-monospace, monospace; letter-spacing: .1em; }
 .rack-nav button[aria-current] { color: #edf3f4; background: #20282b; }
@@ -16,7 +20,7 @@
 .rack-terminal input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #fff; font: inherit; }
 /* Shared RACK-OS panel grammar. Deliberately not NODE-OS: flat rows, cool
    grey-blue structure, wide type, no mint accents. */
-.rack-panel { padding: 18px; display: grid; align-content: start; gap: 14px; overflow: auto; -webkit-overflow-scrolling: touch; }
+.rack-panel { padding: 18px; display: grid; align-content: start; gap: 14px; overflow: auto; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; -webkit-overflow-scrolling: touch; }
 .rack-path { display: flex; align-items: baseline; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #394246; }
 .rack-path span { flex: none; color: #879398; font-size: .62rem; letter-spacing: .12em; }
 .rack-path code { min-width: 0; color: #edf3f4; font: inherit; font-size: .76rem; overflow-wrap: anywhere; }
@@ -25,6 +29,16 @@
 .rack-file-row:hover, .rack-file-row:focus-visible { background: #1a2124; outline: 0; }
 .rack-file-tag { flex: none; min-width: 34px; color: #879398; font-size: .62rem; letter-spacing: .1em; }
 .rack-file-name { min-width: 0; font-size: .78rem; overflow-wrap: anywhere; }
+.rack-upload-entry { flex: none; margin-left: auto; min-height: 44px; padding: 0 14px; border: 1px solid #4d5a5f; background: transparent; color: #edf3f4; font: inherit; font-size: .68rem; letter-spacing: .1em; }
+.rack-upload-entry:hover, .rack-upload-entry:focus-visible { background: #1a2124; outline: 0; }
+.rack-upload-ack { color: #aab5b9; font-size: .7rem; letter-spacing: .1em; }
+.rack-file-copy { min-width: 0; display: grid; gap: 3px; }
+.rack-file-meta { color: #879398; font-size: .62rem; letter-spacing: .08em; overflow-wrap: anywhere; }
+.rack-field { display: grid; gap: 6px; }
+.rack-field > span { color: #879398; font-size: .62rem; letter-spacing: .12em; }
+.rack-input { min-width: 0; width: 100%; min-height: 44px; padding: 0 10px; border: 1px solid #4d5a5f; background: #151b1e; color: #edf3f4; font: inherit; font-size: .8rem; }
+.rack-upload-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.rack-secondary { min-height: 44px; padding: 0 16px; border: 1px solid #394246; background: transparent; color: #aab5b9; font: inherit; font-size: .72rem; letter-spacing: .1em; }
 .rack-back { min-height: 44px; padding: 0; justify-self: start; border: 0; background: transparent; color: #aab5b9; font: inherit; font-size: .72rem; }
 .rack-empty { margin: 0; padding: 12px 0; color: #879398; font-size: .72rem; letter-spacing: .1em; }
 .rack-file-content { margin: 0; padding: 12px; border: 1px solid #394246; background: #151b1e; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .76rem; line-height: 1.6; }
@@ -47,6 +61,7 @@
   .os-shell[data-standalone="false"][data-editing-presentation="true"] .rack-os { position: absolute; z-index: 5; inset-inline: 0; top: var(--node-presentation-top, 0px); height: var(--node-presentation-height, var(--node-host-height, 100dvh)); min-height: 0; }
   .os-shell[data-editing-presentation="true"] .rack-terminal form { padding-bottom: 0; }
   .rack-terminal input { font-size: 16px; }
+  .rack-input { font-size: 16px; }
 }
 @media (max-width: 700px), (max-width: 900px) and (pointer: coarse) {
   .os-shell[data-standalone="true"][data-editing-geometry="true"] .rack-os { position: fixed; inset-inline: 0; top: var(--node-edit-top, 0px); height: var(--node-edit-height, var(--node-host-height, 100dvh)); }

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameActions, useGameState, type GameActions } from '../app/GameContext'
@@ -124,18 +124,18 @@ describe('Remote Session handoff', () => {
     await user.type(screen.getByLabelText('Remote command'), 'ip{enter}')
     expect(remoteOutput).toHaveTextContent('198.51.100.47')
 
-    await user.click(screen.getByRole('button', { name: 'LOCAL · NODE-OS' }))
+    await user.click(screen.getByRole('button', { name: 'Return to NODE-OS without disconnecting' }))
     const localState = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
     expect(localState.remoteSession.active).toEqual(session)
     expect(localState.deviceAccess).toEqual(access)
     expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toHaveAttribute('hidden')
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
     expect(screen.getByRole('button', { name: 'Open Terminal' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'REMOTE · 198.51.100.47' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' })).toBeInTheDocument()
     expect(screen.queryByText(/REMOTE · truth-server/)).not.toBeInTheDocument()
 
     const beforeReturn = screen.getByTestId('state').textContent
-    await user.click(screen.getByRole('button', { name: 'REMOTE · 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' }))
     expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBe(rackOs)
     expect(rackOs).not.toHaveAttribute('hidden')
     expect(document.querySelector('.rack-output')).toBe(remoteOutput)
@@ -156,18 +156,18 @@ describe('Remote Session handoff', () => {
     expect(activeTransfer).not.toBeNull()
     expect(activeTransfer).not.toHaveProperty('sessionId')
 
-    await user.click(screen.getByRole('button', { name: 'LOCAL · NODE-OS' }))
+    await user.click(screen.getByRole('button', { name: 'Return to NODE-OS without disconnecting' }))
     let current = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
     expect(current.deviceAccess.established.map(({ id }) => id)).toContain(activeTransfer?.accessId)
     expect(current.fileTransfer.active?.id).toBe(activeTransfer?.id)
 
-    await user.click(screen.getByRole('button', { name: 'REMOTE · 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' }))
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     current = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
     expect(current.remoteSession.active).toBeNull()
     expect(current.deviceAccess.established.map(({ id }) => id)).toContain(activeTransfer?.accessId)
     expect(current.fileTransfer.active?.id).toBe(activeTransfer?.id)
-    expect(screen.queryByRole('button', { name: 'REMOTE · 198.51.100.47' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' })).not.toBeInTheDocument()
 
     // game advancement continues the Download post-disconnect through to completion.
     const advanced = advanceGameState(current, 100_000)
@@ -185,7 +185,7 @@ describe('Remote Session handoff', () => {
     input.focus()
     const blur = vi.spyOn(input, 'blur')
 
-    const localButton = screen.getByRole('button', { name: 'LOCAL · NODE-OS' })
+    const localButton = screen.getByRole('button', { name: 'Return to NODE-OS without disconnecting' })
     fireEvent.pointerDown(localButton)
     expect(blur).not.toHaveBeenCalled()
     expect(screen.getByLabelText('TRUTH-OS remote operating environment')).not.toHaveAttribute('hidden')
@@ -201,8 +201,53 @@ describe('Remote Session handoff', () => {
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
   })
 
+  it('keeps switching the operating view and ending the Session as two distinct, self-describing actions', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
+    const session = (JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active
+    const rackOs = screen.getByLabelText('TRUTH-OS remote operating environment')
+
+    // A: the return action is visibly a navigation action, not context text,
+    // and never reads as a Session-ending or paused one.
+    const returnLocal = within(rackOs).getByRole('button', { name: 'Return to NODE-OS without disconnecting' })
+    const disconnect = within(rackOs).getByRole('button', { name: 'DISCONNECT' })
+    expect(returnLocal).toHaveTextContent('← NODE-OS')
+    expect(returnLocal).not.toBe(disconnect)
+    expect(returnLocal).not.toHaveTextContent(/DISCONNECT|PAUSE/)
+
+    // B: it switches the presented environment and leaves the Session intact.
+    await user.click(returnLocal)
+    expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toEqual(session)
+    expect(rackOs).toHaveAttribute('hidden')
+    expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
+
+    // C: the local control names the retained connected address, and says it
+    // returns rather than connecting.
+    const returnRemote = screen.getByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' })
+    expect(returnRemote).toHaveTextContent('RETURN REMOTE')
+    expect(returnRemote).toHaveTextContent(session!.connectedAddress)
+    expect(returnRemote).not.toHaveTextContent(/CONNECT$|NEW/)
+
+    // D: using it reopens the same Session with no second handoff.
+    await user.click(returnRemote)
+    expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBe(rackOs)
+    expect(rackOs).not.toHaveAttribute('hidden')
+    expect(screen.queryByLabelText('Remote session handoff')).not.toBeInTheDocument()
+    expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toEqual(session)
+
+    // E: DISCONNECT is the only one of the three that ends the Session.
+    await user.click(within(rackOs).getByRole('button', { name: 'DISCONNECT' }))
+    expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
+    expect(screen.queryByLabelText('TRUTH-OS remote operating environment')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' })).not.toBeInTheDocument()
+  })
+
   it('keeps the connected SystemBar context control touch-safe and bounded on narrow widths', () => {
     expect(shellCss).toMatch(/\.remote-context\s*{[^}]*min-width:\s*0;[^}]*min-height:\s*44px;[^}]*overflow:\s*hidden;/)
     expect(shellCss).toMatch(/@media \(max-width: 480px\)\s*{[\s\S]*?\.system-bar--remote\s*{[^}]*padding-inline:\s*8px;[^}]*gap:\s*8px;/)
+    // The address is the part that must stay legible when the control is
+    // squeezed, so only it may be truncated.
+    expect(shellCss).toMatch(/\.remote-context__address\s*{[^}]*max-width:\s*100%;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;/)
   })
 })

@@ -182,13 +182,17 @@
 .online strong { color: var(--green); }
 .system-bar--remote { gap: clamp(8px, 2vw, 16px); }
 .system-bar--remote > span { flex: 0 0 auto; }
-.remote-context { min-width: 0; min-height: 44px; margin-left: auto; padding: 0 10px; overflow: hidden; border: 1px solid var(--line); background: transparent; color: var(--green); cursor: pointer; font: inherit; font-size: .66rem; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
+.remote-context { min-width: 0; min-height: 44px; overflow: hidden; margin-left: auto; padding: 4px 10px; display: grid; gap: 2px; justify-items: end; border: 1px solid var(--line); background: transparent; color: var(--green); cursor: pointer; font: inherit; letter-spacing: .08em; text-align: right; }
+.remote-context__label { color: #768179; font-size: .56rem; }
+.remote-context__address { max-width: 100%; overflow: hidden; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
 .remote-context:hover,
 .remote-context:focus-visible { outline: 1px solid var(--green); outline-offset: -2px; background: #111a15; }
 
 @media (max-width: 480px) {
   .system-bar--remote { padding-inline: 8px; gap: 8px; font-size: .65rem; }
-  .system-bar--remote .remote-context { padding-inline: 6px; font-size: .58rem; }
+  .system-bar--remote .remote-context { padding-inline: 6px; }
+  .system-bar--remote .remote-context__label { font-size: .52rem; }
+  .system-bar--remote .remote-context__address { font-size: .58rem; }
 }
 
 .remote-handoff {
