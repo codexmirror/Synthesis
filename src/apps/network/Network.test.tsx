@@ -378,6 +378,39 @@ describe('Scan workspace', () => {
     expect(services.querySelector(':scope > .ns-limb--service:last-child')).not.toBeNull()
     // The Service branch is nested inside its own Device limb, never beside it.
     expect(services.closest('.ns-limb')).toBe(members.querySelector(':scope > .ns-limbs > .ns-limb:nth-child(2)'))
+    expect(services.previousElementSibling).toHaveClass('ns-node--device', 'is-expanded')
+    expect(services).toHaveClass('ns-limbs--service')
+  })
+
+  it.each([
+    ['service-ssh-001', 'SSH', 'HTTP'],
+    ['service-http-001', 'HTTP', 'SSH'],
+  ])('marks only the retained DeviceAccess Service (%s), without an active Session', async (viaServiceId, accessedName, otherName) => {
+    const known = discoveredState()
+    const state: GameState = {
+      ...known,
+      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId, privilege: 'USER' }] },
+      remoteSession: { ...known.remoteSession, active: null },
+    }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+
+    const accessed = screen.getByRole('button', { name: `Open ${accessedName} service · USER ACCESS ESTABLISHED` })
+    const other = screen.getByRole('button', { name: `Open ${otherName} service` })
+    expect(accessed.querySelector('.ns-glyph')).toHaveClass('ns-glyph--access')
+    expect(other.querySelector('.ns-glyph')).not.toHaveClass('ns-glyph--access')
+  })
+
+  it('leaves every remembered Service marker unaccessed when no DeviceAccess exists', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
+
+    expect(screen.getByRole('button', { name: 'Open SSH service' }).querySelector('.ns-glyph')).not.toHaveClass('ns-glyph--access')
+    expect(screen.getByRole('button', { name: 'Open HTTP service' }).querySelector('.ns-glyph')).not.toHaveClass('ns-glyph--access')
   })
 
   it('expands one Device relationship at a time without observing or mutating player information', async () => {
@@ -462,13 +495,27 @@ describe('Scan workspace', () => {
     const bootstrap = screen.getByRole('button', { name: 'Scan self 198.51.100.23' })
     expect(bootstrap).toHaveClass('ns-primary')
     expect(screen.getByText('NO NETWORKS KNOWN')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Scan network/ })).not.toBeInTheDocument()
     expect(screen.queryByText('ACTIONS')).not.toBeInTheDocument()
 
     await user.click(bootstrap)
-    await screen.findByRole('button', { name: 'Open known area home-net' })
-    // The same observation stays reachable, as a footer rather than a section.
-    expect(screen.getByRole('button', { name: 'Scan self 198.51.100.23' })).toHaveClass('ns-rescan')
+    const network = await screen.findByRole('button', { name: 'Open known area home-net' })
+    expect(screen.queryByRole('button', { name: 'Scan self 198.51.100.23' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Re-observe connected Networks.')).not.toBeInTheDocument()
+    await user.click(network)
+    const scanNetwork = screen.getByRole('button', { name: 'Scan network home-net' })
+    expect(scanNetwork).toBeInTheDocument()
+    scanTargetSpy.mockClear()
+    await user.click(scanNetwork)
+    expect(scanTargetSpy).toHaveBeenCalledWith(expect.anything(), 'home-net')
+    expect(screen.getByRole('button', { name: 'Scan network home-net' })).toBeInTheDocument()
     expect(screen.queryByText('ACTIONS')).not.toBeInTheDocument()
+  })
+
+  it('does not render a post-bootstrap SELF Scan for already known space', () => {
+    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
+    expect(screen.queryByRole('button', { name: 'Scan self 198.51.100.23' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Re-observe connected Networks.')).not.toBeInTheDocument()
   })
 
   it('opens existing Service and Device detail views from an expanded Network branch', async () => {
@@ -518,7 +565,7 @@ describe('Scan workspace', () => {
     expect(deviceRow).toHaveTextContent('2 known services')
     expect(deviceRow).not.toHaveTextContent(/RACK-OS|HIGH COMPUTE|ACCESS ESTABLISHED/)
     await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    const service = screen.getByRole('button', { name: 'Open SSH service' })
+    const service = screen.getByRole('button', { name: 'Open SSH service · USER ACCESS ESTABLISHED' })
     expect(service).toHaveTextContent('SSH')
     expect(service).toHaveTextContent('22 / TCP')
     expect(service).not.toHaveTextContent(/GateSSH|Authentication|AUTH-017|USER ACCESS|ANALYSIS RUNNING/)

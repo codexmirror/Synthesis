@@ -202,6 +202,7 @@ button.ns-node, .ns-node-main { cursor: pointer; }
 
 .ns-glyph--self::before { border-color: var(--accent-mark); background: var(--accent-rule); }
 .ns-glyph--network::before { width: 7px; height: 7px; border-color: var(--accent-mark); background: var(--accent-rule); }
+.ns-glyph--access::before { border-color: var(--accent-mark); background: var(--accent-rule); }
 
 /* Device node: one primary affordance plus the constant DETAIL route. */
 .ns-node--device { padding: 0; gap: 0; align-items: stretch; }
@@ -310,6 +311,18 @@ button.ns-node, .ns-node-main { cursor: pointer; }
 .ns-limb:last-child::before { bottom: auto; height: var(--elbow); }
 
 .ns-limbs--service { margin: 0 0 4px; padding-left: 7px; }
+/* Continue the child rail down from the owning Device's marker to its Service
+   list. Both remain in normal flow, while the Network trunk continues
+   independently on the parent limb. */
+.ns-node--device.is-expanded { position: relative; }
+.ns-node--device.is-expanded::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: var(--elbow);
+  bottom: 0;
+  border-left: var(--rail);
+}
 .ns-limb--service { --indent: 16px; }
 
 .ns-limb-feedback { margin-left: 0; }
@@ -372,7 +385,7 @@ button.ns-node, .ns-node-main { cursor: pointer; }
   .ns-twist { transition: none; }
 }
 
-/* Bootstrap and re-observation ---------------------------------------- */
+/* Bootstrap ----------------------------------------------------------- */
 
 /* Fresh state: Scan SELF is the one thing to do, so it is the one control. */
 .ns-bootstrap { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -394,29 +407,6 @@ button.ns-node, .ns-node-main { cursor: pointer; }
 
 @media (hover: hover) {
   .ns-primary:hover:not(:disabled) { background: var(--surface-hover); }
-}
-
-/* Once Networks exist, re-observing SELF is a quiet footer, not a section. */
-.ns-space-footer { margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.ns-space-footer > span { min-width: 0; color: var(--text-faint); font-size: .6rem; }
-
-.ns-rescan {
-  flex: none;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--line-quiet);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: .55rem;
-  letter-spacing: .12em;
-  cursor: pointer;
-}
-
-.ns-rescan:focus-visible { border-color: var(--line-accent); color: var(--accent); outline: 0; }
-.ns-rescan:disabled { color: var(--text-faint); cursor: default; }
-
-@media (hover: hover) {
-  .ns-rescan:hover:not(:disabled) { border-color: var(--line-strong); color: var(--accent); }
 }
 
 /* Detail-view rows ---------------------------------------------------- */
