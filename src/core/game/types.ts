@@ -506,7 +506,7 @@ export interface FileTransfer {
 export interface FileTransferState { readonly nextId: number; readonly active: FileTransfer | null }
 
 export type RecentActivityEntry =
-  | { readonly kind: 'process'; readonly id: string; readonly process: GameProcess }
+  | { readonly kind: 'process'; readonly id: string; readonly process: GameProcess; readonly termination?: 'cancelled' }
   | {
       readonly kind: 'file_transfer'
       readonly id: string

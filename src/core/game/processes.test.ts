@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { advanceProcesses, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess, startProcess } from './processes'
-import type { GameProcess, NodeMinerProcess } from './types'
+import { advanceProcesses, cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess, startProcess } from './processes'
+import type { GameProcess, GenericProcess, NodeMinerProcess } from './types'
 
 /** These fixtures only ever create finite work; this fails loudly rather than silently if that assumption ever breaks. */
 function workCompletedOf(process: GameProcess): number {
@@ -14,6 +14,31 @@ const input = (label = 'Analysis', ramRequiredMiB = 512, workRequired = 1000) =>
 function started(...jobs: ReturnType<typeof input>[]) { let state = game.process; for (const job of jobs) { const result = startProcess(state, executor, job); if (result.status !== 'started') throw Error('fixture rejected'); state = result.state } return state }
 
 describe('process resource domain', () => {
+  it('cancels only running local finite work, releases resources, and preserves ID progression', () => {
+    const process = started(input('Cancel me', 512), input('Keep me', 256))
+    const state = { ...game, process }
+    const cancelled = cancelLocalProcess(state, 'process-0001')
+    expect(cancelled.status).toBe('cancelled')
+    expect(cancelled.state.process).toMatchObject({ nextId: 3, processes: [{ id: 'process-0002' }] })
+    expect(deriveResourceUsage(executor, cancelled.state.process)).toMatchObject({ processRamMiB: 256, cpuAllocationByProcess: { 'process-0002': 82 } })
+    expect(cancelled.state.recentActivity.entries[0]).toMatchObject({ id: 'process-0001', termination: 'cancelled', process: { workCompleted: 0 } })
+  })
+
+  it('safely rejects stale, completed, remote-owned, and continuous Process IDs', () => {
+    const local = started(input())
+    const finite = local.processes[0] as GenericProcess
+    const completed = { ...finite, status: 'completed' as const, workCompleted: 1000 }
+    const remote = { ...finite, id: 'process-remote', executorDeviceId: 'host-lan-001' }
+    const miner: NodeMinerProcess = {
+      kind: 'node_miner', id: 'process-miner', label: 'NODE MINER', executorDeviceId: executor.id, status: 'running', ramRequiredMiB: 1,
+      programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'addr', producedNodeUnits: 0, payoutNodeUnits: 0, developerFeeNodeUnits: 0, workRemainder: 0,
+    }
+    const state = { ...game, process: { nextId: 2, processes: [completed, remote, miner] } }
+    for (const id of ['missing', completed.id, remote.id, miner.id]) {
+      const result = cancelLocalProcess(state, id)
+      expect(result).toEqual({ status: 'not_cancellable', state })
+    }
+  })
   it('preserves identity for empty and running-only process states', () => {
     expect(clearCompletedProcesses(game.process, executor.id)).toBe(game.process)
     const running = started(input())

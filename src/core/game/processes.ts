@@ -1,4 +1,5 @@
-import type { GameProcess, HardwareState, NodeMinerProcess, ProcessState, RuntimeState } from './types'
+import { archiveProcess } from './recentActivity'
+import type { GameProcess, GameState, HardwareState, NodeMinerProcess, ProcessState, RuntimeState } from './types'
 
 /** Finite work: reaches `completed` from accumulated work. Excludes the continuous NodeMinerProcess kind. */
 type FiniteProcess = Exclude<GameProcess, NodeMinerProcess>
@@ -50,6 +51,20 @@ export interface StartProcessInput { label: string; workRequired: number; ramReq
 export type StartProcessResult =
   | { status: 'started'; state: ProcessState; processId: string }
   | { status: 'insufficient_memory'; state: ProcessState; requiredMiB: number; availableMiB: number }
+
+export type CancelLocalProcessResult =
+  | { status: 'cancelled'; state: GameState }
+  | { status: 'not_cancellable'; state: GameState }
+
+/** Immediately removes unfinished finite work owned by the player's local Device. */
+export function cancelLocalProcess(state: GameState, processId: string): CancelLocalProcessResult {
+  const process = state.process.processes.find(({ id }) => id === processId)
+  if (!process || process.status !== 'running' || process.executorDeviceId !== state.player.localDevice.id || !isFiniteWork(process)) {
+    return { status: 'not_cancellable', state }
+  }
+  const withoutRuntime = { ...state, process: { ...state.process, processes: state.process.processes.filter(({ id }) => id !== processId) } }
+  return { status: 'cancelled', state: archiveProcess(withoutRuntime, process, 'cancelled') }
+}
 
 /** Removes disposable completion history without affecting running work or ID progression. */
 export function clearCompletedProcesses(state: ProcessState, executorDeviceId: string): ProcessState {

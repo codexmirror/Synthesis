@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { clearCompletedProcesses, deriveResourceUsage } from './processes'
+import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage } from './processes'
 import type { GameProcess, ServiceAnalysisProcess } from './types'
 import { scanNetworkTarget } from './scan'
 
@@ -15,6 +15,18 @@ const started = (serviceId = 'service-ssh-001') => { const result = start(create
 const analysis = (process: GameProcess): ServiceAnalysisProcess => { if (process.kind !== 'service_analysis') throw Error('expected service analysis'); return process }
 
 describe('Service Analysis', () => {
+  it('cancels partial analysis without completion consequences and permits a fresh admission', () => {
+    const partial = advanceGameState(started(), 3000)
+    const process = analysis(partial.process.processes[0])
+    const result = cancelLocalProcess(partial, process.id)
+    expect(result.status).toBe('cancelled')
+    const muchLater = advanceGameState(result.state, 60_000)
+    expect(muchLater.process.processes).toEqual([])
+    expect(muchLater.knowledge.discoveredVulnerabilities).toEqual([])
+    expect(muchLater.recentActivity.entries[0]).toMatchObject({ termination: 'cancelled', process: { id: process.id, workCompleted: process.workCompleted } })
+    const restarted = start(muchLater)
+    expect(restarted).toMatchObject({ status: 'started', processId: 'process-0002' })
+  })
   it('resolves endpoint syntax to stable process identity and rejects duplicates', () => {
     const first = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); expect(first.status).toBe('started')
     if (first.status !== 'started') return

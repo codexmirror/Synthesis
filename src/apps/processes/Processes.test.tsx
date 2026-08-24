@@ -225,6 +225,34 @@ describe('Processes application integration', () => {
 })
 
 describe('Activity Monitor aggregation', () => {
+  it('offers finite CANCEL while preserving NODE Miner STOP and transfer CANCEL semantics', () => {
+    const finite = render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
+    const analysis = card('SERVICE ANALYSIS')
+    expect(within(analysis).getByRole('button', { name: 'Cancel active SERVICE ANALYSIS' })).toHaveTextContent('CANCEL')
+    expect(within(analysis).queryByText('STOP')).not.toBeInTheDocument()
+    fireEvent.click(within(analysis).getByRole('button', { name: 'Cancel active SERVICE ANALYSIS' }))
+    const historical = card('SERVICE ANALYSIS')
+    expect(historical.dataset.status).toBe('recent')
+    expect(within(historical).getByText('CANCELLED')).toBeInTheDocument()
+    expect(within(historical).queryByRole('button', { name: /Cancel/ })).not.toBeInTheDocument()
+    expect(within(historical).queryByText('RAM')).not.toBeInTheDocument()
+    expect(within(historical).queryByText('CPU')).not.toBeInTheDocument()
+    finite.unmount()
+
+    const base = createInitialGameState()
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-matrix-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const withMinerFile: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, minerFile] } } } }
+    const minerStarted = startNodeMiner(withMinerFile, minerFile.path, base.nodeWallet.address)
+    if (minerStarted.status !== 'started') throw Error(minerStarted.status)
+    const minerView = render(<GameProvider initialState={minerStarted.state}><Processes /></GameProvider>)
+    expect(within(card('NODE MINER')).getByRole('button', { name: 'Stop NODE MINER' })).toHaveTextContent('STOP')
+    expect(within(card('NODE MINER')).queryByRole('button', { name: /Cancel/ })).not.toBeInTheDocument()
+    minerView.unmount()
+
+    render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
+    expect(within(card('DOWNLOAD')).getByRole('button', { name: 'Cancel active DOWNLOAD' })).toHaveTextContent('CANCEL')
+    expect(within(card('DOWNLOAD')).queryByText('STOP')).not.toBeInTheDocument()
+  })
   it('shows operations and the active transfer under ALL', () => {
     render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
     expect(card('SERVICE ANALYSIS')).toBeInTheDocument()

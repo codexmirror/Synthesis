@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { rememberScan } from './discovery'
 import { createInitialGameState } from './initialState'
-import { clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess } from './processes'
+import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess } from './processes'
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
@@ -32,6 +32,19 @@ function changeService(state: GameState, change: (service: NonNullable<GameState
 }
 
 describe('Initial credential access', () => {
+  it('cancels a partial attempt without access, authentication trace, or later resolution', () => {
+    const partial = advanceGameState(start(), 3000)
+    const process = partial.process.processes.find(({ kind }) => kind === 'credential_access')!
+    const accessNextId = partial.deviceAccess.nextId
+    const targetHistory = partial.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory
+    const result = cancelLocalProcess(partial, process.id)
+    expect(result.status).toBe('cancelled')
+    const muchLater = advanceGameState(result.state, 60_000)
+    expect(muchLater.deviceAccess).toEqual({ nextId: accessNextId, established: [] })
+    expect(muchLater.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory).toEqual(targetHistory)
+    expect(muchLater.process.processes.filter(({ kind }) => kind === 'credential_access')).toEqual([])
+    expect(muchLater.recentActivity.entries.at(-1)).toMatchObject({ termination: 'cancelled', process: { id: process.id } })
+  })
   it('forms only from remembered service, known weakness, and SELF-owned concrete tooling', () => {
     const state = prepared()
     expect(canFormCredentialAccessAttempt(state, observation)).toBe(true)
