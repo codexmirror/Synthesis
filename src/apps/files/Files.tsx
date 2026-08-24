@@ -6,6 +6,8 @@ import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
 import { SoftwareReleaseDocumentation } from '../SoftwareReleaseDocumentation'
+import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '../../core/game/fileTransfer'
+import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
 import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
@@ -21,6 +23,16 @@ export function Files() {
   const [selectedFile, setSelectedFile] = useState<string>()
   const listing = listDirectory(filesystem, path)
   const selected = selectedFile ? getFilesystemFile(filesystem, selectedFile) : undefined
+  const remote = resolveActiveRemoteTarget(state)
+  const activeUploadForSelectedFile = selected?.status === 'ok' && state.fileTransfer.active
+    && deriveFileTransferDirection(localDevice.id, state.fileTransfer.active) === 'upload'
+    && state.fileTransfer.active.sourceDeviceId === localDevice.id
+    && state.fileTransfer.active.sourceFileId === selected.file.id
+    ? state.fileTransfer.active
+    : undefined
+  const connectedAddress = activeUploadForSelectedFile
+    ? state.remoteSession.active?.accessId === activeUploadForSelectedFile.accessId ? state.remoteSession.active.connectedAddress : undefined
+    : remote ? state.remoteSession.active!.connectedAddress : undefined
   const incoming = deriveIncomingArtifact(state.fileTransfer.active, localDevice.id, path)
   const localNodeMinerProcess = findRunningLocalNodeMiner(state)
   const installingProductIds = new Set(state.process.processes
@@ -37,7 +49,7 @@ export function Files() {
       <span aria-hidden="true">←</span> {path}
     </button>
     {selected?.status === 'ok'
-      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} />
+      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} />
       : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
   </section>
 
@@ -112,7 +124,7 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, installedSoftware, installingProductIds, removingProductIds, install, nodeWalletAddress, runNodeMiner, runningProcess }: {
+function FileDetails({ file, installedSoftware, installingProductIds, removingProductIds, install, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload }: {
   file: FilesystemFile
   installedSoftware: readonly InstalledSoftware[]
   installingProductIds: ReadonlySet<string>
@@ -121,6 +133,9 @@ function FileDetails({ file, installedSoftware, installingProductIds, removingPr
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
   runningProcess: NodeMinerProcess | undefined
+  upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult
+  connectedAddress: string | undefined
+  activeUpload: FileTransfer | undefined
 }) {
   return <div className="file-details">
     <header className="node-masthead">
@@ -137,7 +152,34 @@ function FileDetails({ file, installedSoftware, installingProductIds, removingPr
     </section>
       : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} install={install} />
         : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
+    {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
   </div>
+}
+
+function RemoteTransfer({ file, connectedAddress, upload, activeUpload }: { file: FilesystemFile; connectedAddress: string | undefined; upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult; activeUpload: FileTransfer | undefined }) {
+  const [destination, setDestination] = useState(`/home/user/${basename(file.path)}`)
+  const [feedback, setFeedback] = useState<string>()
+  function start() {
+    const result = upload(file.path, destination)
+    setFeedback(result.status === 'started' ? undefined : describeUploadFailure(result))
+  }
+  return <section className="file-kind-details">
+    <div className="node-section"><span>REMOTE TRANSFER</span></div>
+    {connectedAddress && <dl className="node-facts"><div><dt>SESSION</dt><dd>{connectedAddress}</dd></div></dl>}
+    {activeUpload ? <>
+      <dl className="node-facts"><div><dt>DESTINATION</dt><dd>{activeUpload.destinationPath}</dd></div></dl>
+      <div className="file-kind-actions"><button className="node-action" type="button" disabled>UPLOAD IN PROGRESS</button></div>
+    </> : <>
+      <label className="node-field"><span>DESTINATION</span><input className="node-input" aria-label="Remote destination" value={destination} onChange={(event) => setDestination(event.target.value)} autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck={false} /></label>
+      <div className="file-kind-actions"><button className="node-action" type="button" onClick={start}>UPLOAD</button></div>
+      {feedback && <p className="node-note node-note--caution">{feedback}</p>}
+    </>}
+  </section>
+}
+
+function describeUploadFailure(result: Exclude<StartRemoteFileUploadResult, { status: 'started' }>): string {
+  const labels: Record<typeof result.status, string> = { session_unavailable: 'SESSION UNAVAILABLE', invalid_path: 'INVALID PATH', source_not_found: 'FILE NOT FOUND', source_not_file: 'NOT A FILE', local_offline: 'LOCAL DEVICE OFFLINE', destination_offline: 'DESTINATION UNAVAILABLE', capacity_unavailable: 'TRANSFER CAPACITY UNAVAILABLE', transfer_in_progress: 'TRANSFER IN PROGRESS', destination_exists: 'DESTINATION ALREADY EXISTS', destination_conflict: 'DESTINATION CONFLICT' }
+  return labels[result.status]
 }
 
 function PackageDetails({ file, installedSoftware, installingProductIds, removingProductIds, install }: {

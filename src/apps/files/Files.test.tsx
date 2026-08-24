@@ -1,14 +1,28 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GameProvider } from '../../app/GameContext'
+import { GameProvider, useGameActions } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import type { FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 import { Processes } from '../processes/Processes'
+import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 
 afterEach(() => vi.useRealTimers())
+
+function SessionControls() {
+  const actions = useGameActions()
+  return <><button onClick={() => actions.disconnectRemoteSession()}>test disconnect</button><button onClick={() => actions.connectRemoteFromObservation({ targetDeviceId: 'host-lan-002', address: '198.51.100.53' })}>test connect B</button></>
+}
+
+function uploadState() {
+  const base = createInitialGameState()
+  const accessA = { id: 'access-files-upload-a', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }
+  const accessB = { id: 'access-files-upload-b', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
+  const connected = connectRemoteFromObservation({ ...base, deviceAccess: { nextId: 3, established: [accessA, accessB] } }, { targetDeviceId: accessA.targetDeviceId, address: '198.51.100.47' }).state
+  return { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '203.0.113.77' } } }
+}
 
 describe('Files', () => {
   it('navigates canonical directories and presents file kinds, sizes, and executable details without future actions', async () => {
@@ -66,6 +80,75 @@ describe('Files', () => {
     expect(terminal.getByText('line one')).toBeInTheDocument()
     expect(terminal.getByText('line two')).toBeInTheDocument()
     expect(terminal.getByText('line three')).toBeInTheDocument()
+  })
+
+  it('offers generic Upload only with a usable Session and submits the editable destination unchanged', async () => {
+    render(<GameProvider initialState={uploadState()}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    expect(screen.getByText('203.0.113.77')).toBeInTheDocument()
+    const destination = screen.getByLabelText('Remote destination')
+    expect(destination).toHaveValue('/home/user/node-miner-1.0.pkg')
+    await user.clear(destination); await user.type(destination, '/srv/exact-custom.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
+    expect(screen.queryByLabelText('Remote destination')).not.toBeInTheDocument()
+    expect(screen.getByText('/srv/exact-custom.pkg')).toBeInTheDocument()
+  })
+
+  it('keeps the canonical custom Upload destination after leaving and reopening the source file', async () => {
+    render(<GameProvider initialState={uploadState()}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    const destination = screen.getByLabelText('Remote destination')
+    await user.clear(destination); await user.type(destination, '/srv/custom-miner.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+
+    expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
+    expect(screen.getByText('/srv/custom-miner.pkg')).toBeInTheDocument()
+    expect(screen.queryByText('/home/user/node-miner-1.0.pkg')).not.toBeInTheDocument()
+  })
+
+  it('keeps Upload in progress after disconnect without fabricating a Session or new admission action', async () => {
+    render(<GameProvider initialState={uploadState()}><Files /><SessionControls /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    const destination = screen.getByLabelText('Remote destination')
+    await user.clear(destination); await user.type(destination, '/srv/custom-miner.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'test disconnect' }))
+    await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+
+    expect(screen.getByText('REMOTE TRANSFER')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
+    expect(screen.getByText('/srv/custom-miner.pkg')).toBeInTheDocument()
+    expect(screen.queryByText('SESSION')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'UPLOAD' })).not.toBeInTheDocument()
+  })
+
+  it('does not label an Upload to server A with a later unrelated server B Session', async () => {
+    render(<GameProvider initialState={uploadState()}><Files /><SessionControls /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+    const destination = screen.getByLabelText('Remote destination')
+    await user.clear(destination); await user.type(destination, '/srv/server-a.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'test disconnect' }))
+    await user.click(screen.getByRole('button', { name: 'test connect B' }))
+    await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
+    await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
+
+    expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
+    expect(screen.getByText('/srv/server-a.pkg')).toBeInTheDocument()
+    expect(screen.queryByText('198.51.100.53')).not.toBeInTheDocument()
+    expect(screen.queryByText('SESSION')).not.toBeInTheDocument()
   })
 
   it('installs a supported local package through canonical state and derives the installed presentation on reopen', async () => {

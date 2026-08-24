@@ -157,6 +157,30 @@ describe('RACK-OS', () => {
     expect(document.body).toHaveTextContent('Foreign canonical proof.')
   })
 
+  it('uploads through the shared action with exact paths and reports syntax and admission results', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<GameProvider initialState={connectedState()}><Shell /><StateSnapshot /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime }); await enterRemote(user)
+    const input = screen.getByLabelText('Remote command')
+    await user.type(input, 'help{enter}'); expect(document.body).toHaveTextContent('upload')
+    await user.type(input, 'upload /one{enter}'); expect(document.body).toHaveTextContent('USAGE: upload /absolute/local/file /absolute/remote/file')
+    await user.type(input, 'upload /home/user/downloads/node-miner-1.0.pkg /home/user/custom.pkg{enter}')
+    expect(document.body).toHaveTextContent('UPLOAD STARTED')
+    const transfer = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).fileTransfer.active!
+    const source = createInitialGameState().player.localDevice.filesystem.files.find(({ path }) => path.endsWith('node-miner-1.0.pkg'))!
+    expect(transfer).toMatchObject({ sourceDeviceId: 'device-local-v0', sourceFileId: source.id, destinationDeviceId: 'host-lan-001', destinationPath: '/home/user/custom.pkg' })
+    await user.type(input, 'upload /home/user/downloads/node-miner-1.0.pkg /home/user/second.pkg{enter}')
+    expect(document.body).toHaveTextContent('TRANSFER IN PROGRESS')
+    await act(async () => { vi.advanceTimersByTime(4_000) })
+    const completed = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const remoteCopy = completed.world.network.hosts[0].filesystem!.files.find(({ path }) => path === '/home/user/custom.pkg')!
+    expect(remoteCopy).toEqual({ ...source, id: remoteCopy.id, path: '/home/user/custom.pkg' })
+    expect(remoteCopy.id).not.toBe(source.id)
+    expect(completed.player.localDevice.filesystem.files).toContainEqual(source)
+    expect(completed.player.localDevice.installedSoftware.some(({ id }) => id === 'node-miner')).toBe(false)
+    expect(completed.process.processes).toEqual([])
+  })
+
   it('derives graphical Download, successful, and reopened states from canonical local truth', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
