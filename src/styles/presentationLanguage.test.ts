@@ -62,9 +62,15 @@ function referencedSharedClasses(source: string): string[] {
 }
 
 describe('NODE-OS presentation language', () => {
-  it('defines every palette token the NODE-OS stylesheets reference', () => {
-    const defined = definedCustomProperties(tokensCss)
-    const missing = nodeOsStylesheets.flatMap(referencedCustomProperties).filter((name) => !defined.has(name))
+  it('defines every custom property the NODE-OS stylesheets reference', () => {
+    // Shared palette tokens come from `tokens.css`; a stylesheet may also own
+    // private values (local geometry, for instance), which must still be
+    // defined in the sheet that reads them.
+    const palette = definedCustomProperties(tokensCss)
+    const missing = nodeOsStylesheets.flatMap((css) => {
+      const local = definedCustomProperties(css)
+      return referencedCustomProperties(css).filter((name) => !palette.has(name) && !local.has(name))
+    })
     expect([...new Set(missing)]).toEqual([])
   })
 

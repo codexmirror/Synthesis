@@ -77,6 +77,8 @@ export interface NetworkMember {
   readonly serviceCount: number
   /** Remembered child observations available for inline relationship browsing. */
   readonly services: readonly ServiceSummary[]
+  /** Remembered Inspect evidence, so the branch can state it without a detour through DETAIL. */
+  readonly observed?: DeviceWorkspace['observed']
   readonly accessPrivilege?: 'USER'
 }
 
@@ -216,6 +218,7 @@ export function selectNetworkWorkspace(information: PlayerInformation, networkId
         servicesObserved: device.servicesObserved,
         serviceCount: device.services.length,
         services: workspace?.services ?? [],
+        ...(workspace?.observed ? { observed: workspace.observed } : {}),
         ...(workspace?.access ? { accessPrivilege: workspace.access.privilege } : {}),
       }
     })
