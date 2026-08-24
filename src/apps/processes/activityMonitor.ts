@@ -118,7 +118,7 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
   if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity, recent)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
-  const titleLabel = process.kind === 'generic' ? undefined : process.kind === 'software_installation' || process.kind === 'software_removal' ? 'PACKAGE' : 'TARGET'
+  const titleLabel = process.kind === 'generic' ? undefined : process.kind === 'software_installation' ? 'PACKAGE' : process.kind === 'software_removal' ? 'SOFTWARE' : 'TARGET'
   const title = process.kind === 'generic' ? process.label : process.kind === 'software_installation' || process.kind === 'software_removal' ? `${process.name} ${process.version}` : process.startedEndpoint
   return {
     id: process.id,

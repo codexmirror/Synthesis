@@ -3,9 +3,9 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
 import { findRunningLocalNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
-import type { RemovableProductId, RemoveInstalledSoftwareResult } from '../../core/game/softwareRemoval'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
+import { SoftwareReleaseDocumentation } from '../SoftwareReleaseDocumentation'
 import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
@@ -37,7 +37,7 @@ export function Files() {
       <span aria-hidden="true">←</span> {path}
     </button>
     {selected?.status === 'ok'
-      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} install={actions.installLocalSoftwarePackage} remove={actions.removeInstalledSoftware} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} />
+      ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} install={actions.installLocalSoftwarePackage} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} />
       : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
   </section>
 
@@ -112,13 +112,12 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, installedSoftware, installingProductIds, removingProductIds, install, remove, nodeWalletAddress, runNodeMiner, runningProcess }: {
+function FileDetails({ file, installedSoftware, installingProductIds, removingProductIds, install, nodeWalletAddress, runNodeMiner, runningProcess }: {
   file: FilesystemFile
   installedSoftware: readonly InstalledSoftware[]
   installingProductIds: ReadonlySet<string>
   removingProductIds: ReadonlySet<string>
   install: (path: string) => unknown
-  remove: (productId: RemovableProductId) => RemoveInstalledSoftwareResult
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
   runningProcess: NodeMinerProcess | undefined
@@ -136,51 +135,30 @@ function FileDetails({ file, installedSoftware, installingProductIds, removingPr
       <div className="node-section"><span>CONTENT</span></div>
       <pre className="file-content">{file.content}</pre>
     </section>
-      : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} install={install} remove={remove} />
+      : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} install={install} />
         : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
   </div>
 }
 
-function PackageDetails({ file, installedSoftware, installingProductIds, removingProductIds, install, remove }: {
+function PackageDetails({ file, installedSoftware, installingProductIds, removingProductIds, install }: {
   file: SoftwarePackageFile
   installedSoftware: readonly InstalledSoftware[]
   installingProductIds: ReadonlySet<string>
   removingProductIds: ReadonlySet<string>
   install: (path: string) => unknown
-  remove: (productId: RemovableProductId) => RemoveInstalledSoftwareResult
 }) {
   const current = installedSoftware.find(({ id }) => id === file.productId)
   const packageState = derivePackageState(file, installedSoftware, installingProductIds, removingProductIds)
   return <section className="file-kind-details">
+    <header className="node-masthead"><h2 className="node-masthead-subject">{file.name}</h2><span className="node-masthead-meta">{file.version} {titleCase(file.channel)}</span></header>
+    <SoftwareReleaseDocumentation releaseId={file.releaseId} />
     <div className="node-section"><span>SOFTWARE</span><span>{packageState}</span></div>
-    <h2>{file.name}</h2>
-    <p className="package-release">{file.version} {titleCase(file.channel)}</p>
-    <dl className="node-facts">
-      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
-      {file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}
-      <div><dt>CURRENT</dt><dd>{current ? describeInstalledSoftware(current) : 'NOT INSTALLED'}</dd></div>
-    </dl>
-    {packageState === 'UNSUPPORTED'
-      ? <p className="node-note node-note--caution">UNSUPPORTED PACKAGE</p>
-      : packageState === 'PROTECTED'
-        ? <div className="file-kind-actions">
-            <button className="node-action" type="button" disabled>INSTALLED ✓</button>
-            <p className="node-note">PROTECTED · SYSTEM BASELINE</p>
-          </div>
-        : packageState === 'INSTALLED'
-          ? <div className="file-kind-actions">
-              <button className="node-action" type="button" onClick={() => remove(file.productId as RemovableProductId)}>REMOVE</button>
-              <p className="node-note">INSTALLED RELEASE · {file.releaseId}</p>
-            </div>
-          : packageState === 'REMOVING'
-            ? <div className="file-kind-actions">
-                <button className="node-action" type="button" disabled>REMOVING…</button>
-              </div>
-            : packageState === 'INSTALLING'
-              ? <div className="file-kind-actions">
-                  <button className="node-action" type="button" disabled>INSTALLING…</button>
-                </div>
-              : <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => install(file.path)}>INSTALL</button></div>}
+    <dl className="node-facts"><div><dt>VERSION</dt><dd>{file.version}</dd></div><div><dt>CHANNEL</dt><dd>{file.channel.toUpperCase()}</dd></div>{file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}<div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div><div><dt>CURRENT</dt><dd>{current ? describeInstalledSoftware(current) : 'NOT INSTALLED'}</dd></div></dl>
+    {packageState === 'UNSUPPORTED' ? <p className="node-note node-note--caution">UNSUPPORTED PACKAGE</p>
+      : packageState === 'INSTALLABLE' ? <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => install(file.path)}>INSTALL</button></div>
+      : packageState === 'INSTALLING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>INSTALLING…</button></div>
+      : packageState === 'REMOVING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>REMOVING…</button></div>
+      : <div className="file-kind-actions"><p className="node-note">{packageState === 'PROTECTED' ? 'PROTECTED · SYSTEM BASELINE' : packageState}</p></div>}
   </section>
 }
 

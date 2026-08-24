@@ -92,11 +92,11 @@ describe('Files', () => {
 
     await act(async () => { vi.advanceTimersByTime(20_000) })
 
-    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
-    expect(screen.getByText(/INSTALLED RELEASE/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('INSTALLED').length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: 'Back to /home/user' }))
     await user.click(screen.getByRole('button', { name: /release\.bin/ }))
-    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Command input'), 'cat /home/user/release.bin{enter}')
     expect(within(screen.getByRole('region', { name: 'Terminal' })).getByText('NOT A TEXT FILE')).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('Files NODE Miner installation', () => {
     expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
 
     await act(async () => { vi.advanceTimersByTime(20_000) })
-    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
     await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
@@ -311,23 +311,13 @@ describe('Files software removal', () => {
     expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
   })
 
-  it('offers REMOVE for the installed NodeScan 1.1 Experimental override, transitions through REMOVING, and restores the NodeScan 1.0 baseline on completion', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+  it('presents installed package status without exposing removal from Files', async () => {
     const base = withFiles([experimental])
     const installed = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } } }
     render(<GameProvider initialState={installed}><Files /></GameProvider>)
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    await user.click(screen.getByRole('button', { name: /nodescan\.pkg/ }))
-    expect(screen.getByRole('button', { name: 'REMOVE' })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'REMOVE' }))
-    expect(screen.getByRole('button', { name: 'REMOVING…' })).toBeDisabled()
+    await userEvent.setup().click(screen.getByRole('button', { name: /nodescan\.pkg/ }))
+    expect(screen.getAllByText('INSTALLED').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
-
-    await act(async () => { vi.advanceTimersByTime(20_000) })
-    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
-    expect(screen.getByText('NodeScan 1.0 Standard')).toBeInTheDocument()
-    vi.useRealTimers()
   })
 
   it('prevents duplicate removal admission for the same product while REMOVING', () => {
