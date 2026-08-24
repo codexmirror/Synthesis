@@ -12,7 +12,7 @@ export function resolveActiveRemoteTarget(state: GameState): ActiveRemoteTarget 
   const session = state.remoteSession.active
   if (!session) return undefined
   const access = state.deviceAccess.established.find(({ id }) => id === session.accessId)
-  if (!access) return undefined
+  if (!access || access.sourceDeviceId !== state.player.localDevice.id) return undefined
   const target = state.world.network.hosts.find(({ id }) => id === access.targetDeviceId)
   const service = target?.services?.find(({ id }) => id === access.viaServiceId)
   if (!target?.displayName || !target.firmware || !target.filesystem || !service) return undefined

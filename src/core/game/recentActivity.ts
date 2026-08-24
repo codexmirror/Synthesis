@@ -23,16 +23,20 @@ export function archiveFileTransfer(state: GameState, transfer: FileTransfer): G
   if (sourceIsLocal === destinationIsLocal) return append(state, { kind: 'file_transfer', id: transfer.id, transfer })
   const access = state.deviceAccess.established.find(({ id }) => id === transfer.accessId)
   const remoteDeviceId = sourceIsLocal ? transfer.destinationDeviceId : transfer.sourceDeviceId
-  const remote = access?.sourceDeviceId === local.id && access.targetDeviceId === remoteDeviceId
-    ? state.world.network.hosts.find(({ id }) => id === access.targetDeviceId)
+  const authorized = access?.sourceDeviceId === local.id && access.targetDeviceId === remoteDeviceId
+  const connectedAddress = authorized && state.remoteSession.active?.accessId === transfer.accessId
+    ? state.remoteSession.active.connectedAddress
     : undefined
-  const sourceFile = (sourceIsLocal ? local.filesystem : remote?.filesystem)?.files.find(({ id }) => id === transfer.sourceFileId)
+  const remoteSource = !sourceIsLocal && connectedAddress
+    ? state.world.network.hosts.find(({ id }) => id === remoteDeviceId)
+    : undefined
+  const sourceFile = (sourceIsLocal ? local.filesystem : remoteSource?.filesystem)?.files.find(({ id }) => id === transfer.sourceFileId)
   return append(state, {
     kind: 'file_transfer', id: transfer.id, transfer,
     ...(sourceFile ? { sourcePath: sourceFile.path } : {}),
-    ...(remote ? { route: sourceIsLocal
-      ? `${local.displayName} → ${remote.displayName ?? remote.ip}`
-      : `${remote.displayName ?? remote.ip} → ${local.displayName}` } : {}),
+    ...(connectedAddress ? { route: sourceIsLocal
+      ? `${local.displayName} → ${connectedAddress}`
+      : `${connectedAddress} → ${local.displayName}` } : {}),
   })
 }
 
