@@ -500,19 +500,38 @@ describe('Scan workspace', () => {
     expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('SSH')
   })
 
-  it('shows remembered fingerprints and established Access inline after a NodeScan downgrade', async () => {
+  it('keeps the relationship tree compact while retaining Inspect and Access evidence in detail', async () => {
     const inspected = withInspectedDevice(discoveredState())
     const state = {
       ...inspected,
+      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] },
       deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: inspected.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] },
     }
+    const running = startServiceAnalysisAtEndpoint(state, '198.51.100.47:22')
+    if (running.status !== 'started') throw Error(running.status)
     const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /></GameProvider>)
+    render(<GameProvider initialState={running.state}><Network /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    const device = screen.getByRole('button', { name: 'Open device 198.51.100.47' })
+    const deviceRow = device.closest('.ns-node')
+    expect(deviceRow).toHaveTextContent('LAN DEVICE')
+    expect(deviceRow).toHaveTextContent('2 known services')
+    expect(deviceRow).not.toHaveTextContent(/RACK-OS|HIGH COMPUTE|ACCESS ESTABLISHED/)
     await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    expect(screen.getByText('ACCESS ESTABLISHED')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toHaveTextContent('GateSSH 1.3.2')
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toHaveTextContent('Authentication: Credential')
+    const service = screen.getByRole('button', { name: 'Open SSH service' })
+    expect(service).toHaveTextContent('SSH')
+    expect(service).toHaveTextContent('22 / TCP')
+    expect(service).not.toHaveTextContent(/GateSSH|Authentication|AUTH-017|USER ACCESS|ANALYSIS RUNNING/)
+
+    await user.click(device)
+    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
+    expect(screen.getByText('HIGH')).toBeInTheDocument()
+    expect(screen.getByLabelText('Device access available')).toHaveTextContent('ESTABLISHED VIA SSH')
+    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
+    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
+    expect(screen.getByText('AUTHENTICATION').closest('div')).toHaveTextContent('Credential')
+    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
+    expect(screen.getByText('ANALYSIS RUNNING')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INSPECT NETWORK' })).not.toBeInTheDocument()
   })
 
