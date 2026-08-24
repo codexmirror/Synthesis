@@ -1,3 +1,18 @@
+# Files and Transfer V1
+
+Status: Accepted
+Scope: Design contract for Device-owned filesystem artifacts and the remote
+FileTransfer runtime (Download and core Upload).
+Normative owner of current implemented behavior: `docs/current/FILES_SOFTWARE.md`.
+
+Known drift, surfaced rather than rewritten: the closing paragraph below states
+that "Upload presentation ... remain future work". Current accepted `main`
+implements the remote-first RACK-OS Upload workflow, a local Files upload entry,
+and transfer progress presentation in the Activity Monitor. Treat
+`docs/current/FILES_SOFTWARE.md` as authoritative for what exists; this contract
+still owns the durable design rules.
+
+
 FILE
 ≠ INSTALLED SOFTWARE
 ≠ RUNNING SOFTWARE

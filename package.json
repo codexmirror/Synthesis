@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "docs:check": "node scripts/docs-check.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

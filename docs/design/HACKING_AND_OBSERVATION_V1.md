@@ -1,4 +1,18 @@
 # HACKING AND OBSERVATION V1
+
+Status: Accepted
+Scope: Product and design direction for hacking, reconnaissance, observation,
+and access. Design authority for the epistemic and interaction model; not a
+description of what is currently implemented.
+Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md`.
+
+Unresolved conflict with current `main`: section 8.2 below states that NodeScan
+1.0 must not be made incapable of Inspect merely to create an upgrade gate.
+Current accepted `main` gates player-facing Inspect on the NodeScan 1.1
+Experimental release (`nodeScanSupportsInspect`). The conflict is recorded here
+and in `docs/current/NETWORK_ACCESS.md`; it requires a human product decision
+and must not be resolved silently by an implementation agent.
+
 ## Status and purpose
 This document defines the selected product and design direction for the next
 evolution of hacking, reconnaissance, observation, and access in Synthesis.

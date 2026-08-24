@@ -1,4 +1,10 @@
-SCAN INFORMATION ARCHITECTURE V1
+# Scan Information Architecture V1
+
+Status: Accepted
+Scope: Where reconnaissance information is presented, and the semantic grammar
+of NodeScan object pages.
+Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md`.
+
 
 1. Information is presented where its subject belongs, not merely where the
    information originated.

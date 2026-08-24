@@ -1,5 +1,9 @@
 # Confirmed future directions
 
+Status: Accepted
+Scope: Confirmed long-term product and simulation direction. Direction only —
+never current truth and never implementation authority.
+
 This document records long-term product and simulation directions for Synthesis.
 
 It is intentionally allowed to think far beyond the current implementation.
@@ -14,7 +18,9 @@ It is not:
 
 Use:
 
-- `docs/V0.md` for current implemented truth
+- `docs/README.md` to route a task to its smallest sufficient Read Set
+- `docs/current/...` for detailed current implemented truth
+- `docs/V0.md` for the non-exhaustive current product snapshot
 - `docs/ARCHITECTURE.md` for durable architecture constraints
 - `docs/work-orders/...` for explicitly selected implementation work
 

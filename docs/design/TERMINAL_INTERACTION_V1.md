@@ -1,6 +1,9 @@
 # TERMINAL INTERACTION V1
 
-Status: DESIGN / IMPLEMENTATION CONTRACT
+Status: Accepted
+Scope: Durable interaction contract for terminal-like surfaces (NODE-OS and
+RACK-OS Terminals). Not a command or gameplay-operation specification.
+Normative owner of current implemented behavior: `docs/current/INTERFACE_SHELL.md`.
 
 This document defines the durable interaction contract for terminal-like
 interfaces in Synthesis.
