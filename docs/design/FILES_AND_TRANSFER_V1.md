@@ -15,6 +15,12 @@ copy preserves the explicit file kind and every kind-specific field; package
 `releaseId` therefore survives a change in filesystem path. Filename
 extensions do not determine semantics.
 
+UPLOAD CORE V1 reverses the same canonical runtime: an active RemoteSession
+admits an exact local artifact and explicit absolute remote destination path.
+The resulting FileTransfer remains bound to its `accessId`, local source file
+ID, and remote destination Device; completion creates one remote copy and
+leaves the local source unchanged. No Upload player surface is included yet.
+
 Download never silently overwrites and does not expose an arbitrary destination
 path. A represented destination, a destination that is already a derived
 directory, or a file blocking a required destination ancestor causes a
@@ -64,12 +70,13 @@ advances `bytesTransferred` by `rate * elapsedSeconds`, clamped to
 file ID allocated, exactly once, at the moment accumulated work reaches
 `bytesTotal`; V1 has no partial-file representation.
 
-The transfer remains bound to the RemoteSession that started it and to the
-local Device's and remote source's live availability. If the authorizing
-Session stops being the current active Session (including on disconnect), if
-the local Device leaves `ONLINE`, if the remote source `NetworkHost` goes
-offline, or if the source artifact or the destination location can no longer
-be safely resolved, the active transfer aborts: `FileTransferState.active`
+RemoteSession is admission authority only. Once admitted, the transfer runs
+independently of that interactive Session while its stored `accessId` remains
+a stable reference to a DeviceAccess that is revalidated on every advancement.
+If that access disappears or no longer authorizes the recorded remote endpoint,
+if either Device goes offline, or if the exact source artifact, capacities, or
+destination location can no longer be safely resolved, the transfer aborts:
+`FileTransferState.active`
 clears and no destination artifact is created. FileTransfer is a distinct
 runtime domain from `GameProcess` — it does not consume CPU compute capacity
 or RAM and is never represented as a Process.
@@ -77,6 +84,5 @@ or RAM and is never represented as a Process.
 All currently represented `FilesystemFile` kinds are downloadable. Download
 does not install software or change installed capabilities.
 
-UPLOAD, transfer queues, bandwidth sharing between simultaneous transfers,
-and rich progress/percentage/ETA presentation remain future work and are not
-implemented.
+Upload presentation, transfer queues, bandwidth sharing between simultaneous
+transfers, and rich progress/percentage/ETA presentation remain future work.

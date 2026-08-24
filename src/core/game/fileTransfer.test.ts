@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
-import { advanceFileTransfer, cancelFileTransfer, deriveDownloadDestinationPath, resolveFileTransferSource, startRemoteFileDownload } from './fileTransfer'
+import { advanceFileTransfer, cancelFileTransfer, deriveDownloadDestinationPath, deriveFileTransferDirection, resolveFileTransferSource, startRemoteFileDownload, startRemoteFileUpload } from './fileTransfer'
 import { advanceGameState } from './gameAdvancement'
 import { deriveEffectiveTransferRateBytesPerSecond } from './networkTransferCapacity'
 import { getFilesystemFile } from './filesystem'
@@ -102,7 +102,7 @@ describe('starting a remote Download', () => {
     if (first.status !== 'started') throw new Error('expected started')
     const completed = advanceFileTransfer(first.state, 60_000)
     expect(completed.fileTransfer.active).toBeNull()
-    expect(completed.recentActivity.entries.at(-1)).toMatchObject({ kind: 'file_transfer', id: first.transferId, transfer: { bytesTransferred: first.state.fileTransfer.active!.bytesTotal }, sourcePath: '/srv/readme.txt', route: 'srv-01 → node-01' })
+    expect(completed.recentActivity.entries.at(-1)).toMatchObject({ kind: 'file_transfer', id: first.transferId, transfer: { bytesTransferred: first.state.fileTransfer.active!.bytesTotal }, sourcePath: '/srv/readme.txt', route: '198.51.100.47 → node-01' })
     const duplicate = startRemoteFileDownload(completed, '/srv/readme.txt')
     expect(duplicate).toEqual({ status: 'destination_exists', state: completed })
   })
@@ -483,5 +483,178 @@ describe('interaction with Process runtime', () => {
 describe('deriveDownloadDestinationPath', () => {
   it('shares the exact destination policy used by the canonical operation', () => {
     expect(deriveDownloadDestinationPath('/opt/packages/nodescan-exp-1.1.pkg')).toBe('/home/user/downloads/nodescan-exp-1.1.pkg')
+  })
+})
+
+describe('bidirectional Upload core', () => {
+  const SOURCE = '/home/user/downloads/node-miner-1.0.pkg'
+  const DESTINATION = '/home/user/node-miner-1.0.pkg'
+
+  it('rejects admission when the Session access is not sourced from the local Device', () => {
+    const state = connectedState()
+    const invalid: GameState = {
+      ...state,
+      deviceAccess: { ...state.deviceAccess, established: state.deviceAccess.established.map((access) => ({ ...access, sourceDeviceId: 'host-lan-002' })) },
+    }
+    const result = startRemoteFileUpload(invalid, SOURCE, DESTINATION)
+    expect(result).toEqual({ status: 'session_unavailable', state: invalid })
+    expect(result.state.fileTransfer.active).toBeNull()
+    expect(result.state.fileTransfer.nextId).toBe(invalid.fileTransfer.nextId)
+  })
+
+  it('admits the exact local artifact and explicit remote destination without mutating either filesystem', () => {
+    const state = connectedState()
+    const localBefore = state.player.localDevice.filesystem
+    const remoteBefore = state.world.network.hosts[0].filesystem!
+    const result = startRemoteFileUpload(state, SOURCE, DESTINATION)
+    if (result.status !== 'started') throw new Error('expected started')
+    expect(result.state.fileTransfer.active).toMatchObject({
+      accessId: ACCESS_ID, sourceDeviceId: state.player.localDevice.id, sourceFileId: 'file-0002',
+      destinationDeviceId: 'host-lan-001', destinationPath: DESTINATION, bytesTransferred: 0,
+    })
+    expect(deriveFileTransferDirection(state.player.localDevice.id, result.state.fileTransfer.active!)).toBe('upload')
+    expect(result.state.player.localDevice.filesystem).toBe(localBefore)
+    expect(result.state.world.network.hosts[0].filesystem).toBe(remoteBefore)
+    expect(remoteBefore.nextFileId).toBe(result.state.world.network.hosts[0].filesystem!.nextFileId)
+    expect(getFilesystemFile(remoteBefore, DESTINATION).status).toBe('not_found')
+  })
+
+  it('rejects a trailing-slash remote file destination without normalizing or mutating state', () => {
+    const state = connectedState()
+    const remoteBefore = state.world.network.hosts[0].filesystem
+    const result = startRemoteFileUpload(state, SOURCE, '/home/user/tool.pkg/')
+    expect(result).toEqual({ status: 'invalid_path', state })
+    expect(result.state.fileTransfer.active).toBeNull()
+    expect(result.state.fileTransfer.nextId).toBe(state.fileTransfer.nextId)
+    expect(result.state.world.network.hosts[0].filesystem).toBe(remoteBefore)
+  })
+
+  it('keeps a normal explicit destination identical on the transfer and completed artifact', () => {
+    const state = connectedState()
+    const result = startRemoteFileUpload(state, SOURCE, '/home/user/tool.pkg')
+    if (result.status !== 'started') throw new Error('expected started')
+    const destinationPath = result.state.fileTransfer.active!.destinationPath
+    const completed = advanceFileTransfer(result.state, 60_000)
+    expect(getFilesystemFile(completed.world.network.hosts[0].filesystem!, destinationPath)).toMatchObject({
+      status: 'ok', file: { path: destinationPath },
+    })
+  })
+
+  it('uses local upload and remote download capacities through the existing elapsed clock', () => {
+    const state = connectedState()
+    const result = startRemoteFileUpload(state, SOURCE, DESTINATION)
+    if (result.status !== 'started') throw new Error('expected started')
+    const advanced = advanceGameState(result.state, 1_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBe(1_048_576)
+  })
+
+  it.each([
+    { kind: 'text' as const, id: 'upload-text', path: '/home/user/upload.txt', content: 'upload semantics' },
+    { kind: 'software_package' as const, id: 'upload-package', path: '/home/user/upload.pkg', productId: 'tool', releaseId: 'tool-2', name: 'Tool', version: '2', channel: 'stable', publisher: 'Publisher', sizeBytes: 1024 },
+    { kind: 'executable' as const, id: 'upload-executable', path: '/home/user/upload.bin', programId: 'tool', releaseId: 'tool-2', name: 'Tool', version: '2', sizeBytes: 1024 },
+  ])('copies $kind semantics exactly once while retaining the local source', (file) => {
+    const base = connectedState()
+    const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, file] } } } }
+    const remoteBefore = state.world.network.hosts[0].filesystem!
+    const destination = `/home/user/copied-${file.kind}`
+    const result = startRemoteFileUpload(state, file.path, destination)
+    if (result.status !== 'started') throw new Error('expected started')
+    const completed = advanceFileTransfer(result.state, 60_000)
+    const copied = getFilesystemFile(completed.world.network.hosts[0].filesystem!, destination)
+    expect(copied).toMatchObject({ status: 'ok', file: { ...file, id: `file-${String(remoteBefore.nextFileId).padStart(4, '0')}`, path: destination } })
+    expect(completed.world.network.hosts[0].filesystem!.files.filter(({ path }) => path === destination)).toHaveLength(1)
+    expect(completed.world.network.hosts[0].filesystem!.nextFileId).toBe(remoteBefore.nextFileId + 1)
+    expect(getFilesystemFile(completed.player.localDevice.filesystem, file.path)).toMatchObject({ status: 'ok', file })
+  })
+
+  it('survives disconnect and an unrelated later Session because stored DeviceAccess remains authoritative', () => {
+    const state = connectedState()
+    const result = startRemoteFileUpload(state, SOURCE, DESTINATION)
+    if (result.status !== 'started') throw new Error('expected started')
+    const disconnected = disconnectRemoteSession(result.state).state
+    const otherAccess = { id: 'access-other', sourceDeviceId: state.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
+    const changedSession = connectRemoteFromObservation({ ...disconnected, deviceAccess: { ...disconnected.deviceAccess, established: [...disconnected.deviceAccess.established, otherAccess] } }, { targetDeviceId: 'host-lan-002', address: '198.51.100.53' }).state
+    const completed = advanceFileTransfer(changedSession, 60_000)
+    expect(getFilesystemFile(completed.world.network.hosts[0].filesystem!, DESTINATION).status).toBe('ok')
+    expect(getFilesystemFile(completed.world.network.hosts[1].filesystem!, DESTINATION).status).toBe('not_found')
+  })
+
+  it.each(['local offline', 'remote offline', 'access removed', 'access mismatch', 'source removed', 'invalid local-local endpoints', 'invalid remote-remote endpoints'])('aborts safely when %s', (condition) => {
+    const state = connectedState()
+    const result = startRemoteFileUpload(state, SOURCE, DESTINATION)
+    if (result.status !== 'started') throw new Error('expected started')
+    const host = result.state.world.network.hosts[0]
+    let invalid = result.state
+    if (condition === 'local offline') invalid = { ...invalid, player: { ...invalid.player, localDevice: { ...invalid.player.localDevice, runtime: { ...invalid.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    if (condition === 'remote offline') invalid = { ...invalid, world: { ...invalid.world, network: { ...invalid.world.network, hosts: [{ ...host, online: false }, ...invalid.world.network.hosts.slice(1)] } } }
+    if (condition === 'access removed') invalid = { ...invalid, deviceAccess: { ...invalid.deviceAccess, established: [] } }
+    if (condition === 'access mismatch') invalid = { ...invalid, deviceAccess: { ...invalid.deviceAccess, established: invalid.deviceAccess.established.map((access) => ({ ...access, targetDeviceId: 'host-lan-002' })) } }
+    if (condition === 'source removed') invalid = { ...invalid, player: { ...invalid.player, localDevice: { ...invalid.player.localDevice, filesystem: { ...invalid.player.localDevice.filesystem, files: invalid.player.localDevice.filesystem.files.filter(({ id }) => id !== 'file-0002') } } } }
+    if (condition === 'invalid local-local endpoints') invalid = { ...invalid, fileTransfer: { ...invalid.fileTransfer, active: { ...invalid.fileTransfer.active!, destinationDeviceId: invalid.player.localDevice.id } } }
+    if (condition === 'invalid remote-remote endpoints') invalid = { ...invalid, fileTransfer: { ...invalid.fileTransfer, active: { ...invalid.fileTransfer.active!, sourceDeviceId: 'host-lan-002' } } }
+    const remoteBefore = invalid.world.network.hosts[0].filesystem!
+    const advanced = advanceFileTransfer(invalid, 60_000)
+    expect(advanced.fileTransfer.active).toBeNull()
+    expect(getFilesystemFile(advanced.world.network.hosts[0].filesystem!, DESTINATION).status).toBe('not_found')
+    expect(advanced.world.network.hosts[0].filesystem!.nextFileId).toBe(remoteBefore.nextFileId)
+  })
+
+  it('does not retarget to a replacement artifact at the admitted source path', () => {
+    const result = startRemoteFileUpload(connectedState(), SOURCE, DESTINATION)
+    if (result.status !== 'started') throw new Error('expected started')
+    const filesystem = result.state.player.localDevice.filesystem
+    const replacement = { ...filesystem.files.find(({ id }) => id === 'file-0002')!, id: 'file-replacement' }
+    const replaced: GameState = { ...result.state, player: { ...result.state.player, localDevice: { ...result.state.player.localDevice, filesystem: { ...filesystem, files: [...filesystem.files.filter(({ id }) => id !== 'file-0002'), replacement] } } } }
+    expect(advanceFileTransfer(replaced, 60_000).fileTransfer.active).toBeNull()
+    expect(getFilesystemFile(replaced.world.network.hosts[0].filesystem!, DESTINATION).status).toBe('not_found')
+  })
+
+  it('rejects unsafe placement and revalidates it without consuming an ID at completion', () => {
+    const state = connectedState()
+    expect(startRemoteFileUpload(state, SOURCE, '/srv/readme.txt').status).toBe('destination_exists')
+    expect(startRemoteFileUpload(state, SOURCE, 'relative').status).toBe('invalid_path')
+    const result = startRemoteFileUpload(state, SOURCE, DESTINATION)
+    if (result.status !== 'started') throw new Error('expected started')
+    const host = result.state.world.network.hosts[0]
+    const blocking = { kind: 'text' as const, id: 'blocking', path: DESTINATION, content: 'occupied' }
+    const occupied: GameState = { ...result.state, world: { ...result.state.world, network: { ...result.state.world.network, hosts: [{ ...host, filesystem: { ...host.filesystem!, files: [...host.filesystem!.files, blocking] } }, ...result.state.world.network.hosts.slice(1)] } } }
+    const beforeId = occupied.world.network.hosts[0].filesystem!.nextFileId
+    const completed = advanceFileTransfer(occupied, 60_000)
+    expect(completed.world.network.hosts[0].filesystem!.files.filter(({ path }) => path === DESTINATION)).toEqual([blocking])
+    expect(completed.world.network.hosts[0].filesystem!.nextFileId).toBe(beforeId)
+  })
+
+  it('enforces one transfer total in both directions and cancellation preserves all gameplay truth', () => {
+    const upload = startRemoteFileUpload(connectedState(), SOURCE, DESTINATION)
+    if (upload.status !== 'started') throw new Error('expected started')
+    expect(startRemoteFileDownload(upload.state, '/srv/readme.txt').status).toBe('transfer_in_progress')
+    expect(startRemoteFileUpload(upload.state, SOURCE, '/home/user/other.pkg').status).toBe('transfer_in_progress')
+    const remoteBefore = upload.state.world.network.hosts[0].filesystem
+    const cancelled = cancelFileTransfer(upload.state, upload.transferId)
+    expect(cancelled.state.world.network.hosts[0].filesystem).toBe(remoteBefore)
+    expect(cancelled.state.player.localDevice.filesystem).toBe(upload.state.player.localDevice.filesystem)
+    expect(cancelled.state.deviceAccess).toBe(upload.state.deviceAccess)
+    expect(cancelled.state.remoteSession).toBe(upload.state.remoteSession)
+    expect(cancelled.state.process).toBe(upload.state.process)
+    expect(cancelled.state.recentActivity.entries.at(-1)).toMatchObject({ sourcePath: SOURCE, route: 'node-01 → 198.51.100.47' })
+  })
+
+  it.each(['upload', 'download'] as const)('does not recover changed hidden World route truth after a disconnected %s', (direction) => {
+    const state = connectedState()
+    const started = direction === 'upload'
+      ? startRemoteFileUpload(state, SOURCE, DESTINATION)
+      : startRemoteFileDownload(state, '/srv/readme.txt')
+    if (started.status !== 'started') throw new Error('expected started')
+    const disconnected = disconnectRemoteSession(started.state).state
+    const host = disconnected.world.network.hosts[0]
+    const changed: GameState = {
+      ...disconnected,
+      world: { ...disconnected.world, network: { ...disconnected.world.network, hosts: [{ ...host, displayName: 'unseen-renamed-host', ip: '203.0.113.250' }, ...disconnected.world.network.hosts.slice(1)] } },
+    }
+    const completed = advanceFileTransfer(changed, 60_000)
+    const activity = completed.recentActivity.entries.at(-1)
+    expect(activity).not.toHaveProperty('route')
+    expect(JSON.stringify(activity)).not.toContain('unseen-renamed-host')
+    expect(JSON.stringify(activity)).not.toContain('203.0.113.250')
   })
 })

@@ -9,7 +9,7 @@ import { createLocalInspectTarget, type InspectTargetOperation } from './localIn
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
-import { cancelFileTransfer, startRemoteFileDownload, type CancelFileTransferResult, type StartRemoteFileDownloadResult } from '../core/game/fileTransfer'
+import { cancelFileTransfer, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } from '../core/game/softwareInstallation'
 import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
 import { startNodeMiner, stopNodeMiner, type StartNodeMinerResult, type StopNodeMinerResult } from '../core/game/nodeMiner'
@@ -28,6 +28,7 @@ export interface GameActions {
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
+  startRemoteFileUpload(sourcePath: string, destinationPath: string): StartRemoteFileUploadResult
   cancelFileTransfer(transferId: string): CancelFileTransferResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
@@ -106,6 +107,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, startRemoteFileDownload(sourcePath) {
     const result = startRemoteFileDownload(currentState.current, sourcePath)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, startRemoteFileUpload(sourcePath, destinationPath) {
+    const result = startRemoteFileUpload(currentState.current, sourcePath, destinationPath)
     if (result.status === 'started') {
       currentState.current = result.state
       setGameState(result.state)

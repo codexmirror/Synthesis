@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameActions, useGameState } from './GameContext'
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
+import { connectRemoteFromObservation } from '../core/game/remoteSession'
 
 afterEach(() => vi.useRealTimers())
 
@@ -31,7 +32,20 @@ function EndpointHarness() {
   return <><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:22').status }}>old</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('198.51.100.47:2222').status }}>current</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisAtEndpoint('invalid').status }}>invalid</button><button onClick={() => { document.body.dataset.endpointResult = actions.startServiceAnalysisFromObservation({ endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' }).status }}>observed old SSH</button><output>{JSON.stringify(state.process)}</output></>
 }
 
+function UploadHarness() {
+  const actions = useGameActions(); const state = useGameState()
+  return <><button onClick={() => actions.startRemoteFileUpload('/home/user/downloads/node-miner-1.0.pkg', '/home/user/node-miner-1.0.pkg')}>upload</button><output>{JSON.stringify(state.fileTransfer)}</output></>
+}
+
 describe('GameProvider service-analysis actions', () => {
+  it('exposes Upload through GameActions and commits only a successful core admission', () => {
+    const base = createInitialGameState()
+    const access = { id: 'access-upload', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }
+    const connected = connectRemoteFromObservation({ ...base, deviceAccess: { nextId: 2, established: [access] } }, { targetDeviceId: access.targetDeviceId, address: '198.51.100.47' }).state
+    render(<GameProvider initialState={connected}><UploadHarness /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'upload' }))
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '').active).toMatchObject({ accessId: access.id, sourceDeviceId: base.player.localDevice.id, destinationDeviceId: access.targetDeviceId })
+  })
   it('does not create analysis Processes when NodeScan is absent', () => {
     const base = createInitialGameState()
     const withoutNodeScan: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
