@@ -28,6 +28,9 @@ function discoveredState(): GameState {
   return { ...state, discovery }
 }
 function withDiscovery(state: GameState): GameState { return { ...state, discovery: discoveredState().discovery } }
+function withNodeScan11(state: GameState): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software) } } }
+}
 
 async function openLanDevice() {
   const user = userEvent.setup()
@@ -193,7 +196,7 @@ describe('Scan workspace', () => {
 
   it('inspects remembered objects through the shared action and browsing does not observe again', async () => {
     const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /><StateSnapshot /></GameProvider>)
+    render(<GameProvider initialState={withNodeScan11(discoveredState())}><Network /><StateSnapshot /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
     expect(screen.queryByText('SELF CONNECTED')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'INSPECT NETWORK' }))
@@ -298,12 +301,13 @@ describe('Scan workspace', () => {
     expect(serviceButton.querySelector('.service-row-secondary')?.textContent).toContain('Not analyzed')
   })
 
-  it('does not present enhanced evidence for NodeScan 1.0 Standard', async () => {
+  it('offers no Inspect action for NodeScan 1.0 Standard while preserving Scan', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
     await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'INSPECT DEVICE' }))
+    expect(screen.queryByRole('button', { name: /INSPECT/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Scan device 198.51.100.47' })).toBeInTheDocument()
     expect(screen.queryByText('FIRMWARE')).not.toBeInTheDocument()
     expect(screen.queryByText('COMPUTE')).not.toBeInTheDocument()
   })

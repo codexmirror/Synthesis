@@ -8,7 +8,7 @@ import { createLocalInspectTarget } from './localInspectOperation'
 function knownState(): GameState {
   const state = createInitialGameState()
   const discovery = rememberScan(state.discovery, scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, 'home-net'), state.player.localDevice.id)
-  return { ...state, discovery }
+  return withNodeScan11({ ...state, discovery })
 }
 
 function scannedState(address = '198.51.100.47'): GameState {
@@ -46,18 +46,18 @@ function withNodeScan10(state: GameState): GameState {
 
 describe('player-facing Inspect operation', () => {
   it('rejects hidden addresses without revealing whether World Truth contains a host', () => {
-    const state = createInitialGameState(); const write = vi.fn()
+    const state = withNodeScan11(createInitialGameState()); const write = vi.fn()
     const inspect = createLocalInspectTarget(() => state, write)
     expect(inspect('203.0.113.42')).toEqual({ status: 'unknown_target', input: '203.0.113.42' })
     expect(inspect('192.0.2.10')).toEqual({ status: 'unknown_target', input: '192.0.2.10' })
     expect(write).not.toHaveBeenCalled()
   })
 
-  it('remembers shallow Device evidence by stable ID and preserves it through failure', () => {
+  it('remembers Device evidence by stable ID and preserves it through failure', () => {
     let state = knownState(); const write = (next: typeof state) => { state = next }
     const inspect = createLocalInspectTarget(() => state, write)
     expect(inspect('198.51.100.47')).toMatchObject({ status: 'device', targetId: 'host-lan-001', deviceKind: 'server' })
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toEqual({ networkStatus: 'ONLINE', deviceKind: 'server' })
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toMatchObject({ networkStatus: 'ONLINE', deviceKind: 'server' })
     const host = state.world.network.hosts[0]
     state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', online: false }, ...state.world.network.hosts.slice(1)] } } }
     expect(inspect('198.51.100.47')).toEqual({ status: 'no_response', address: '198.51.100.47' })
@@ -88,13 +88,16 @@ describe('player-facing Inspect operation', () => {
 })
 
 describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
-  it('keeps NodeScan 1.0 Standard on shallow Inspect evidence only', () => {
-    let state = scannedState(); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
-    const result = inspect('198.51.100.47')
-    expect(result).toMatchObject({ status: 'device', targetId: 'host-lan-001', deviceKind: 'server' })
-    expect(result).not.toHaveProperty('enhanced')
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toEqual({ networkStatus: 'ONLINE', deviceKind: 'server' })
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.services.every((service) => service.inspect === undefined)).toBe(true)
+  it('preserves software-unavailable behavior when NodeScan is absent', () => {
+    const base = scannedState()
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
+    expect(createLocalInspectTarget(() => state, vi.fn())('198.51.100.47')).toEqual({ status: 'software_unavailable' })
+  })
+  it('rejects Inspect under NodeScan 1.0 Standard without changing Discovery', () => {
+    let state = withNodeScan10(scannedState()); const before = state.discovery
+    const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+    expect(inspect('198.51.100.47')).toEqual({ status: 'capability_unavailable' })
+    expect(state.discovery).toBe(before)
   })
 
   it('fingerprints only already-known SSH and HTTP services without revealing weaknesses', () => {
@@ -188,7 +191,7 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     expect(state.discovery).toEqual(remembered)
   })
 
-  it('preserves enhanced memory through a shallow re-inspection and refreshes it on a later enhanced re-inspection', () => {
+  it('preserves enhanced memory while Inspect is unavailable and refreshes it after 1.1 is restored', () => {
     let state = withNodeScan11(knownState()); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
     inspect('198.51.100.47')
 
@@ -198,9 +201,7 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     const host = state.world.network.hosts[0]
     const hardware = host.hardware!
     state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, firmware: { id: 'firmware-changed', name: 'CHANGED-OS', version: '9.9' }, hardware: { ...hardware, cpu: { ...hardware.cpu, computeCapacity: 100 } } }, ...state.world.network.hosts.slice(1)] } } }
-    const shallowResult = inspect('198.51.100.47')
-
-    expect(shallowResult).not.toHaveProperty('enhanced')
+    expect(inspect('198.51.100.47')).toEqual({ status: 'capability_unavailable' })
     expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect?.enhanced).toEqual(originalEnhanced)
 
     state = withNodeScan11(state)

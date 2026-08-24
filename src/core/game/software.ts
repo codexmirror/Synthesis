@@ -10,8 +10,8 @@ export function findInstalledNodeScan(device: LocalDeviceState): NodeScanInstall
   return device.installedSoftware.find((software): software is NodeScanInstallation => software.id === 'nodescan')
 }
 
-/** The installed NodeScan release that legitimately supports Enhanced Inspect. */
-export function nodeScanSupportsEnhancedInspect(installation: NodeScanInstallation): boolean {
+/** Whether the installed NodeScan release supplies the player-facing Inspect capability. */
+export function nodeScanSupportsInspect(installation: NodeScanInstallation): boolean {
   return installation.releaseId === 'nodescan-1.1-experimental'
 }
 

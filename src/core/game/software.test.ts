@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit, findInstalledNodeMiner, findInstalledNodeScan, nodeScanSupportsEnhancedInspect } from './software'
+import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit, findInstalledNodeMiner, findInstalledNodeScan, nodeScanSupportsInspect } from './software'
 
 describe('installed software', () => {
   it('finds each concrete installation by stable product identity', () => {
@@ -17,8 +17,8 @@ describe('installed software', () => {
     expect(findInstalledNodeMiner(device)).toBeUndefined()
   })
 
-  it('grants enhanced Inspect depth only to the nodescan-1.1-experimental release', () => {
-    expect(nodeScanSupportsEnhancedInspect({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' })).toBe(false)
-    expect(nodeScanSupportsEnhancedInspect({ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' })).toBe(true)
+  it('grants Inspect only to the nodescan-1.1-experimental release', () => {
+    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' })).toBe(false)
+    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' })).toBe(true)
   })
 })

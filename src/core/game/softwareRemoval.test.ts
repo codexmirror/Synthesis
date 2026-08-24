@@ -6,7 +6,7 @@ import { rememberInspect, rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, findRunningLocalNodeMiner, startNodeMiner, stopNodeMiner } from './nodeMiner'
 import { deriveResourceUsage } from './processes'
-import { findInstalledNodeScan, nodeScanSupportsEnhancedInspect } from './software'
+import { findInstalledNodeScan, nodeScanSupportsInspect } from './software'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { removeInstalledSoftware, resolveCompletedSoftwareRemovals, SOFTWARE_REMOVAL_RAM_REQUIRED_MIB } from './softwareRemoval'
 import type { GameState, SoftwareRemovalProcess } from './types'
@@ -111,7 +111,7 @@ describe('software removal: NodeScan stays active while running', () => {
 
     const nodeScan = findInstalledNodeScan(stillRunning.player.localDevice)!
     expect(nodeScan.releaseId).toBe('nodescan-1.1-experimental')
-    expect(nodeScanSupportsEnhancedInspect(nodeScan)).toBe(true)
+    expect(nodeScanSupportsInspect(nodeScan)).toBe(true)
     expect(removal(stillRunning.process.processes[0]).status).toBe('running')
   })
 })
@@ -133,7 +133,7 @@ describe('software removal completion: NodeScan', () => {
     expect(advanceGameState(done, 20_000)).toBe(done)
   })
 
-  it('leaves NEW Inspect shallow after restoration while a previously stored Enhanced Inspect Discovery snapshot remains untouched', () => {
+  it('removes future Inspect capability after restoration while a previously stored Enhanced Inspect Discovery snapshot remains untouched', () => {
     const state = withNodeScan11()
     // Populate Discovery with a positive scan + Enhanced Inspect observation of host-lan-001 while NodeScan 1.1 is active.
     const scanResult = scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '198.51.100.47')
@@ -153,13 +153,13 @@ describe('software removal completion: NodeScan', () => {
     expect(done.discovery).toBe(started.state.discovery)
     expect(done.discovery.devices.find((device) => device.address === '198.51.100.47')?.inspect?.enhanced).toEqual(storedSnapshot?.inspect?.enhanced)
 
-    // A NEW Inspect performed after restoration is shallow again: NodeScan 1.0 grants no Enhanced Inspect depth.
+    const laterScan = scanNetworkTarget({ localDevice: done.player.localDevice, network: done.world.network }, '198.51.100.47')
+    const afterLaterScan = rememberScan(done.discovery, laterScan, done.player.localDevice.id)
+    expect(afterLaterScan.devices.find((device) => device.address === '198.51.100.47')?.inspect).toEqual(storedSnapshot?.inspect)
+
+    // NodeScan 1.0 supplies no new player-facing Inspect capability.
     const nodeScanAfter = findInstalledNodeScan(done.player.localDevice)!
-    const depth = nodeScanSupportsEnhancedInspect(nodeScanAfter) ? 'enhanced' : 'shallow'
-    expect(depth).toBe('shallow')
-    const newInspect = inspectKnownTarget({ localDevice: done.player.localDevice, network: done.world.network }, done.discovery, '198.51.100.47', depth)
-    expect(newInspect.status).toBe('device')
-    expect(newInspect).not.toHaveProperty('enhanced')
+    expect(nodeScanSupportsInspect(nodeScanAfter)).toBe(false)
   })
 
   it('resolves as a truthful not_installed failure, rather than reverting a newer release, when the installed release changed before completion', () => {

@@ -14,6 +14,7 @@ import { disconnectCommand } from './commands/disconnect'
 import { installCommand } from './commands/install'
 import { inspectCommand } from './commands/inspect'
 import { nodeMinerCommand } from './commands/nodeMiner'
+import { nodeScanSupportsInspect } from '../../core/game/software'
 
 function commandEntries(names: readonly string[]): [string, TerminalCommand][] {
   return names.map((name) => [name, commands[name]])
@@ -26,7 +27,7 @@ export const commands: Record<string, TerminalCommand> = {
     const nodeMinerSoftware = localDevice.installedSoftware.find(({ id }) => id === 'node-miner')
     return [
       { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'install', 'connect', 'disconnect']) },
-      ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version} ${nodeScan.channel.toUpperCase()}`, commands: commandEntries(['scan', 'inspect', 'analyze']) }] : []),
+      ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version} ${nodeScan.channel.toUpperCase()}`, commands: commandEntries(nodeScanSupportsInspect(nodeScan) ? ['scan', 'inspect', 'analyze'] : ['scan', 'analyze']) }] : []),
       ...(toolkit ? [{ heading: `${toolkit.name.toUpperCase()} ${toolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
       ...(nodeMiner.available && nodeMinerSoftware ? [{ heading: `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, commands: [['node-miner', commands['node-miner']] as [string, TerminalCommand]] }] : []),
     ]
