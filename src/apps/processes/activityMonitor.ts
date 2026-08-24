@@ -51,6 +51,8 @@ export interface MonitorActivity {
   readonly outcome?: ActivityOutcome
   /** True only for runtime that STOP (rather than CANCEL/REMOVE) can terminate, e.g. NODE Miner. */
   readonly stoppable?: boolean
+  /** True only for running finite GameProcess work controlled by finite CANCEL. */
+  readonly cancellable?: boolean
 }
 
 export interface MonitorNetworkUsage {
@@ -114,7 +116,7 @@ export function filterActivities(activities: readonly MonitorActivity[], filter:
   return activities
 }
 
-function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], executorComputeCapacity: number, recent: boolean): MonitorActivity {
+function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], executorComputeCapacity: number, recent: boolean, cancelled = false): MonitorActivity {
   if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity, recent)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
@@ -130,11 +132,14 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
     progressPercent,
     facts: [
       { label: 'PROGRESS', value: `${progressPercent}%` },
-      { label: 'CPU', value: `${Math.round(usage.cpuAllocationByProcess[process.id] ?? 0)}%` },
-      { label: 'RAM', value: `${running ? process.ramRequiredMiB : 0} MiB` },
+      ...(!cancelled ? [
+        { label: 'CPU', value: `${Math.round(usage.cpuAllocationByProcess[process.id] ?? 0)}%` },
+        { label: 'RAM', value: `${running ? process.ramRequiredMiB : 0} MiB` },
+      ] : []),
     ],
     details: [],
-    outcome: toOperationOutcome(process, access),
+    outcome: cancelled ? { tone: 'neutral', headline: 'CANCELLED', details: [] } : toOperationOutcome(process, access),
+    cancellable: running,
   }
 }
 
@@ -258,7 +263,7 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
 }
 
 function toRecentActivity(entry: RecentActivityEntry, state: GameState, usage: ResourceUsage): MonitorActivity {
-  if (entry.kind === 'process') return toOperationActivity(entry.process, usage, state.deviceAccess.established, state.player.localDevice.hardware.cpu.computeCapacity, true)
+  if (entry.kind === 'process') return toOperationActivity(entry.process, usage, state.deviceAccess.established, state.player.localDevice.hardware.cpu.computeCapacity, true, entry.termination === 'cancelled')
   return toTransferActivity(entry.transfer, state.player.localDevice.id, entry.sourcePath, entry.route)
 }
 

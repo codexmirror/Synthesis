@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH } from './nodeMiner'
-import { deriveResourceUsage } from './processes'
+import { cancelLocalProcess, deriveResourceUsage } from './processes'
 import { installLocalSoftwarePackage, resolveCompletedSoftwareInstallations, SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB } from './softwareInstallation'
 import type { ExecutableFile, GameState, SoftwareInstallationProcess, SoftwarePackageFile } from './types'
 
@@ -23,6 +23,20 @@ function installation(process: GameState['process']['processes'][number]): Softw
 }
 
 describe('installLocalSoftwarePackage', () => {
+  it('cancels partial installation without mutating software, files, package, or filesystem identity', () => {
+    const initial = withFiles([packageFile])
+    const started = installLocalSoftwarePackage(initial, path)
+    if (started.status !== 'started') throw new Error(started.status)
+    const partial = advanceGameState(started.state, 3000)
+    const result = cancelLocalProcess(partial, started.processId)
+    expect(result.status).toBe('cancelled')
+    const muchLater = advanceGameState(result.state, 60_000)
+    expect(muchLater.player.localDevice.installedSoftware).toEqual(initial.player.localDevice.installedSoftware)
+    expect(muchLater.player.localDevice.filesystem).toEqual(initial.player.localDevice.filesystem)
+    expect(muchLater.player.localDevice.filesystem.nextFileId).toBe(50)
+    expect(muchLater.player.localDevice.filesystem.files).toContainEqual(packageFile)
+    expect(muchLater.recentActivity.entries[0]).toMatchObject({ termination: 'cancelled', process: { kind: 'software_installation' } })
+  })
   it.each([
     ['relative.pkg', 'invalid_path'],
     ['/missing.pkg', 'package_not_found'],

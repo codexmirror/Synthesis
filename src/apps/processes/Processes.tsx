@@ -12,7 +12,7 @@ const EMPTY_STATE: Record<ActivityFilterId, { headline: string; note: string }> 
 
 export function Processes() {
   const state = useGameState()
-  const { clearRecentActivity, removeRecentActivity, cancelFileTransfer, stopNodeMiner } = useGameActions()
+  const { clearRecentActivity, removeRecentActivity, cancelFileTransfer, cancelLocalProcess, stopNodeMiner } = useGameActions()
   const [filter, setFilter] = useState<ActivityFilterId>('all')
   const { summary, activities } = deriveActivityMonitor(state)
   const visible = filterActivities(activities, filter)
@@ -46,7 +46,7 @@ export function Processes() {
 
     <div className="node-section"><span>RUNNING</span><span className="am-section-count">{running.length}</span></div>
     {running.length > 0
-      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : undefined} onStop={activity.stoppable ? () => stopNodeMiner(activity.id) : undefined} />)}</div>
+      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : activity.cancellable ? () => cancelLocalProcess(activity.id) : undefined} onStop={activity.stoppable ? () => stopNodeMiner(activity.id) : undefined} />)}</div>
       : <div className="node-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
 
     {recent.length > 0 && <>
@@ -75,7 +75,7 @@ function ActivityCard({ activity, onRemove, onCancel, onStop }: { activity: Moni
       <span className="am-activity-controls">
         {activity.status === 'running' && <span className="am-state"><i aria-hidden="true" />RUNNING</span>}
         {activity.status === 'recent' && onRemove && <button className="am-remove" type="button" aria-label={`Remove recent ${activity.kindLabel} activity`} onClick={onRemove}>REMOVE</button>}
-        {activity.status === 'running' && activity.category === 'transfer' && onCancel && <button className="am-cancel" type="button" aria-label={`Cancel active ${activity.kindLabel}`} onClick={onCancel}>CANCEL</button>}
+        {activity.status === 'running' && (activity.category === 'transfer' || activity.cancellable) && onCancel && <button className="am-cancel" type="button" aria-label={`Cancel active ${activity.kindLabel}`} onClick={onCancel}>CANCEL</button>}
         {activity.status === 'running' && activity.stoppable && onStop && <button className="am-cancel" type="button" aria-label={`Stop ${activity.kindLabel}`} onClick={onStop}>STOP</button>}
       </span>
     </div>

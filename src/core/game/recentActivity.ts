@@ -12,8 +12,8 @@ function append(state: GameState, entry: RecentActivityEntry): GameState {
   return { ...state, process: processes.length === state.process.processes.length ? state.process : { ...state.process, processes }, recentActivity: { entries } }
 }
 
-export function archiveProcess(state: GameState, process: GameProcess): GameState {
-  return append(state, { kind: 'process', id: process.id, process })
+export function archiveProcess(state: GameState, process: GameProcess, termination?: 'cancelled'): GameState {
+  return append(state, { kind: 'process', id: process.id, process, ...(termination ? { termination } : {}) })
 }
 
 export function archiveFileTransfer(state: GameState, transfer: FileTransfer): GameState {

@@ -5,7 +5,7 @@ import { inspectKnownTarget } from './inspect'
 import { rememberInspect, rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, findRunningLocalNodeMiner, startNodeMiner, stopNodeMiner } from './nodeMiner'
-import { deriveResourceUsage } from './processes'
+import { cancelLocalProcess, deriveResourceUsage } from './processes'
 import { findInstalledNodeScan, nodeScanSupportsInspect } from './software'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { removeInstalledSoftware, resolveCompletedSoftwareRemovals, SOFTWARE_REMOVAL_RAM_REQUIRED_MIB } from './softwareRemoval'
@@ -31,6 +31,19 @@ function withNodeScan11(): GameState {
 }
 
 describe('removeInstalledSoftware: admission', () => {
+  it('cancels partial removal without mutating installed software or filesystem', () => {
+    const prepared = withNodeScan11()
+    const initial = { ...prepared, recentActivity: { entries: [] } }
+    const started = removeInstalledSoftware(initial, 'nodescan')
+    if (started.status !== 'started') throw new Error(started.status)
+    const partial = advanceGameState(started.state, 3000)
+    const result = cancelLocalProcess(partial, started.processId)
+    expect(result.status).toBe('cancelled')
+    const muchLater = advanceGameState(result.state, 60_000)
+    expect(muchLater.player.localDevice.installedSoftware).toEqual(initial.player.localDevice.installedSoftware)
+    expect(muchLater.player.localDevice.filesystem).toEqual(initial.player.localDevice.filesystem)
+    expect(muchLater.recentActivity.entries.at(-1)).toMatchObject({ termination: 'cancelled', process: { kind: 'software_removal' } })
+  })
   it('rejects removal when the product is not installed and starts no Process', () => {
     const state = createInitialGameState()
     expect(removeInstalledSoftware(state, 'node-miner')).toEqual({ status: 'not_installed', state })

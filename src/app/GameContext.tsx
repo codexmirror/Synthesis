@@ -14,6 +14,7 @@ import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } f
 import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
 import { startNodeMiner, stopNodeMiner, type StartNodeMinerResult, type StopNodeMinerResult } from '../core/game/nodeMiner'
 import type { InstalledSoftware } from '../core/game/types'
+import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -30,6 +31,7 @@ export interface GameActions {
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
   startRemoteFileUpload(sourcePath: string, destinationPath: string): StartRemoteFileUploadResult
   cancelFileTransfer(transferId: string): CancelFileTransferResult
+  cancelLocalProcess(processId: string): CancelLocalProcessResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
@@ -122,6 +124,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, cancelFileTransfer(transferId) {
     const result = cancelFileTransfer(currentState.current, transferId)
     if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, cancelLocalProcess(processId) {
+    const result = cancelLocalProcess(currentState.current, processId)
+    if (result.status === 'cancelled') { currentState.current = result.state; setGameState(result.state) }
     return result
   }, installLocalSoftwarePackage(path) {
     const result = installLocalSoftwarePackage(currentState.current, path)
