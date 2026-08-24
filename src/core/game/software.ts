@@ -1,5 +1,11 @@
 import type { BasicCredentialToolkitInstallation, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation } from './types'
 
+/** The protected baseline NodeScan release bundled with NODE-OS 1.0. Never removable. */
+export const NODESCAN_1_0_STANDARD_RELEASE_ID = 'nodescan-1.0-standard' as const
+
+/** The concrete protected baseline NodeScan installation restored whenever an override release is removed. */
+export const NODESCAN_1_0_STANDARD_INSTALLATION: NodeScanInstallation = { id: 'nodescan', releaseId: NODESCAN_1_0_STANDARD_RELEASE_ID, name: 'NodeScan', version: '1.0', channel: 'standard' }
+
 export function findInstalledNodeScan(device: LocalDeviceState): NodeScanInstallation | undefined {
   return device.installedSoftware.find((software): software is NodeScanInstallation => software.id === 'nodescan')
 }

@@ -11,7 +11,9 @@ import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemo
 import { findInstalledNodeScan } from '../core/game/software'
 import { cancelFileTransfer, startRemoteFileDownload, type CancelFileTransferResult, type StartRemoteFileDownloadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } from '../core/game/softwareInstallation'
+import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
 import { startNodeMiner, stopNodeMiner, type StartNodeMinerResult, type StopNodeMinerResult } from '../core/game/nodeMiner'
+import type { InstalledSoftware } from '../core/game/types'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -28,6 +30,7 @@ export interface GameActions {
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
   cancelFileTransfer(transferId: string): CancelFileTransferResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
+  removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
   stopNodeMiner(processId: string): StopNodeMinerResult
   clearRecentActivity(): void
@@ -114,6 +117,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, installLocalSoftwarePackage(path) {
     const result = installLocalSoftwarePackage(currentState.current, path)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, removeInstalledSoftware(productId) {
+    const result = removeInstalledSoftware(currentState.current, productId)
     if (result.status === 'started') {
       currentState.current = result.state
       setGameState(result.state)

@@ -120,7 +120,34 @@ export interface SoftwareInstallationProcess extends ProcessBase {
   readonly result?: SoftwareInstallationResult
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | NodeMinerProcess | SoftwareInstallationProcess
+export type SoftwareRemovalResult =
+  | { readonly status: 'removed' }
+  | { readonly status: 'baseline_restored' }
+  /** Safe-removal failure: the currently installed release no longer matches what admission snapshotted. */
+  | { readonly status: 'not_installed' }
+
+/**
+ * Finite compute/RAM-driven work admitted by REMOVE. It snapshots only the
+ * installed-release facts completion actually needs; Device-owned
+ * InstalledSoftware and the filesystem are deliberately untouched until this
+ * Process completes (see `resolveCompletedSoftwareRemovals` in
+ * `softwareRemoval.ts`), so InstalledSoftware, a removal Process, and any
+ * already-running program the software started remain distinct things — a
+ * running `NodeMinerProcess` in particular is never touched by this kind.
+ */
+export interface SoftwareRemovalProcess extends ProcessBase {
+  readonly kind: 'software_removal'
+  readonly productId: 'nodescan' | 'node-miner'
+  /** Release being removed, snapshotted at admission. */
+  readonly releaseId: string
+  readonly name: string
+  readonly version: string
+  readonly channel: string
+  readonly publisher?: string
+  readonly result?: SoftwareRemovalResult
+}
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess
 
 export interface ProcessState {
   readonly nextId: number
