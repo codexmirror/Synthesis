@@ -1,4 +1,10 @@
 # NODE-OS Home V1
+
+Status: Accepted
+Scope: Product and visual contract for NODE-OS Home and the normal Shell
+presentation, including the reference image.
+Normative owner of current implemented behavior: `docs/current/INTERFACE_SHELL.md`.
+
 ## Status
 Implemented design contract for the first mature NODE-OS Home and normal Shell
 presentation.

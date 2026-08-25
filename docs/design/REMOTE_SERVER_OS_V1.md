@@ -1,5 +1,12 @@
 # REMOTE SERVER OS V1
 
+Status: Accepted
+Scope: Presentation and interaction contract for RACK-OS, the first operable
+foreign server Firmware.
+Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md`
+(session and RACK-OS surface) and `docs/current/FILES_SOFTWARE.md` (remote
+filesystem and transfers).
+
 ## Status
 
 Approved design contract for the first operable foreign server Firmware.

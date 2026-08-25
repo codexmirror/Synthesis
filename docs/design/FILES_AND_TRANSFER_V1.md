@@ -1,3 +1,11 @@
+# Files and Transfer V1
+
+Status: Accepted
+Scope: Design contract for Device-owned filesystem artifacts and the remote
+FileTransfer runtime (Download and core Upload).
+Normative owner of current implemented behavior: `docs/current/FILES_SOFTWARE.md`.
+
+
 FILE
 ≠ INSTALLED SOFTWARE
 ≠ RUNNING SOFTWARE
@@ -85,5 +93,8 @@ or RAM and is never represented as a Process.
 All currently represented `FilesystemFile` kinds are downloadable. Download
 does not install software or change installed capabilities.
 
-Upload presentation, transfer queues, bandwidth sharing between simultaneous
-transfers, and rich progress/percentage/ETA presentation remain future work.
+The remote-first RACK-OS Upload workflow, local Files Upload entry, RACK-OS
+upload command, direction-aware Activity Monitor presentation and network
+usage, and cancellation are represented. Transfer queues, bandwidth sharing
+between simultaneous transfers, genuinely richer ETA, and additional transfer
+presentation remain future work.
