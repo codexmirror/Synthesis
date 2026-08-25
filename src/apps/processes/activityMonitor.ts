@@ -197,6 +197,7 @@ function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[
   if (process.kind === 'software_installation') {
     if (process.result?.status === 'installed') return { tone: 'positive', headline: 'INSTALLED', details: [] }
     if (process.result?.status === 'install_path_occupied') return { tone: 'negative', headline: 'INSTALLATION PATH OCCUPIED', details: [] }
+    if (process.result?.status === 'target_unavailable') return { tone: 'negative', headline: 'TARGET UNAVAILABLE', details: [] }
   }
   if (process.kind === 'software_removal') {
     if (process.result?.status === 'baseline_restored') return { tone: 'positive', headline: 'BASELINE RESTORED', details: [] }

@@ -99,6 +99,8 @@ export interface NodeMinerProcess extends ProcessCommon {
 export type SoftwareInstallationResult =
   | { readonly status: 'installed' }
   | { readonly status: 'install_path_occupied' }
+  /** The executor Device no longer represents an installable software inventory and filesystem. */
+  | { readonly status: 'target_unavailable' }
 
 /**
  * Finite compute/RAM-driven work admitted by INSTALL. It snapshots only the
@@ -107,6 +109,13 @@ export type SoftwareInstallationResult =
  * Process completes (see `resolveCompletedSoftwareInstallations` in
  * `softwareInstallation.ts`), so a package, an installation Process,
  * InstalledSoftware, and a running program remain four distinct things.
+ *
+ * `executorDeviceId` is the Device being installed onto, not merely the
+ * Device that scheduled the work: completion applies its consequence there.
+ * A remote installation deliberately retains no `accessId` or `sessionId` —
+ * unlike `FileTransfer`, its runtime spans no cross-Device route, so once
+ * admitted it consumes only that executor Device's own CPU, RAM, filesystem
+ * and installed-software inventory and does not revalidate a relationship.
  */
 export interface SoftwareInstallationProcess extends ProcessBase {
   readonly kind: 'software_installation'
@@ -325,6 +334,15 @@ export interface NetworkHost {
   /** Device-owned compute resources, present only for concretely represented resource-capable hosts. */
   readonly hardware?: HardwareState
   readonly runtime?: Pick<RuntimeState, 'baselineCpuLoad' | 'baselineRamUsage'>
+  /**
+   * Device-owned installed software, present only for concretely represented
+   * hosts that actually own a software inventory. It is the same semantic
+   * concern as `LocalDeviceState.installedSoftware` and stays entirely
+   * independent of it: the same product may exist at different releases on
+   * different Devices. Shallow training hosts deliberately have none rather
+   * than a fabricated empty inventory.
+   */
+  readonly installedSoftware?: readonly InstalledSoftware[]
   /** Present only when the represented device has a concrete server role. */
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */

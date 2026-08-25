@@ -364,6 +364,20 @@ Device, address, Firmware, role, access authority, and service path from the
 target and referenced access relationship. The transfer runtime those commands
 admit is owned by `docs/current/FILES_SOFTWARE.md`.
 
+RACK-OS Files additionally exposes `INSTALL` for a software package that
+already exists on the target's own filesystem. The active Session is what
+admits that command — it is the operating context that decides *which* Device
+the player is commanding, resolved through `accessId` → target identity, never
+supplied by presentation — and the DeviceAccess relationship's currently
+represented `USER` privilege is the only authority V1 represents. The Session
+owns admission only, not the lifetime of the work it admits: the resulting
+installation Process is owned by the target Device, so `DISCONNECT` closes
+RACK-OS and ends the player's observation while that Device keeps working, and
+a later Session over the same still-valid access simply shows whatever is true
+by then. Installation admission, its rules, and its consequences are owned by
+`docs/current/FILES_SOFTWARE.md`. RACK-OS System gains no software management
+and the RACK-OS Terminal gains no package commands.
+
 An entered RACK-OS Session can return to the preserved local NODE-OS workspace
 without disconnecting. RACK-OS presents that as an explicit navigation action
 (`← NODE-OS`), drawn as an action rather than as context text and kept visually
@@ -382,8 +396,10 @@ Device even while a remote Session exists. Reading foreign files does not
 mutate Discovery or Knowledge. Graphical and Terminal disconnect use the same
 Session operation; disconnect preserves DeviceAccess and both Devices' state,
 closes RACK-OS, and reveals the preserved local NODE-OS navigation context.
-Remote Process execution, Firewall, Reachability, and pivoting are not
-implemented.
+Remote *execution* — RUN, remote program launch, a remote `NodeMinerProcess` —
+remains unimplemented, as do Firewall, Reachability, and pivoting. Software
+installation admitted through RACK-OS is remote *work*, not remote execution:
+it never grants a command, capability, or running program on the target.
 
 
 ## Authentication History
@@ -419,3 +435,6 @@ empty state.
   `secondFactorRequired`) must never be named in failure presentation.
 - RACK-OS is a live authorized view of target truth, resolved through
   `accessId` → target identity, never through the connected address.
+- A Session admits a command; it does not own the lifetime of the work that
+  command started. Disconnecting never cancels admitted Device-owned work, and
+  never removes DeviceAccess.

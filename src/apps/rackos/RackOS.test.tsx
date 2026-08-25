@@ -3,9 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
+import { installRemoteSoftwarePackage } from '../../core/game/softwareInstallation'
 import { createInitialGameState } from '../../core/game/initialState'
 import { Shell } from '../../shell/Shell'
-import type { GameState } from '../../core/game/types'
+import type { GameState, NetworkHost } from '../../core/game/types'
 import { rememberScan } from '../../core/game/discovery'
 import { scanNetworkTarget } from '../../core/game/scan'
 import { Terminal } from '../terminal/Terminal'
@@ -502,5 +503,248 @@ describe('RACK-OS', () => {
     expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
     expect(screen.getByText('Welcome to your local filesystem.')).toBeInTheDocument()
     expect(document.body).not.toHaveTextContent('Foreign canonical proof.')
+  })
+})
+
+/**
+ * Remote installation on the Device the player is currently operating. Every
+ * state below is read out of canonical truth: srv-01's own installed-software
+ * inventory and the installation Processes its own executor identity runs.
+ */
+describe('RACK-OS remote software installation', () => {
+  const REMOTE_PACKAGE = '/opt/packages/nodescan-exp-1.1.pkg'
+
+  /** srv-01 exactly as the world represents it, with an authorized Session already open. */
+  function operatingState(alterHost?: (host: NetworkHost) => NetworkHost): GameState {
+    const base = createInitialGameState()
+    const host = alterHost ? alterHost(base.world.network.hosts[0]) : base.world.network.hosts[0]
+    const authorized: GameState = {
+      ...base,
+      deviceAccess: { nextId: 2, established: [{ id: 'access-remote-install', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
+      world: { ...base.world, network: { ...base.world.network, hosts: [host, ...base.world.network.hosts.slice(1)] } },
+    }
+    return connectRemoteFromObservation(authorized, { targetDeviceId: host.id, address: host.ip }).state
+  }
+
+  async function openRemotePackage(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR opt' }))
+    await user.click(screen.getByRole('button', { name: 'DIR packages' }))
+    await user.click(screen.getByRole('button', { name: 'FILE nodescan-exp-1.1.pkg' }))
+  }
+
+  function snapshot(): GameState { return JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState }
+
+  it('presents the concrete package and its state on this Device, with local transfer kept secondary', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={operatingState()}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await openRemotePackage(user)
+
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(rackOs).toHaveTextContent('SOFTWARE PACKAGE')
+    expect(screen.getByRole('heading', { name: 'NodeScan' })).toBeInTheDocument()
+    expect(rackOs).toHaveTextContent('1.1 Experimental')
+    // Truthful represented artifact size, from the same canonical filesystem semantics local Files uses.
+    expect(rackOs).toHaveTextContent('18.4 MB')
+    expect(rackOs).toHaveTextContent('nodescan-1.1-experimental')
+    expect(rackOs).toHaveTextContent('INSTALLABLE')
+    expect(rackOs).toHaveTextContent('NOT INSTALLED')
+    // Download still works, but the artifact's relationship to node-01 now follows the Device's own software state.
+    expect(rackOs).toHaveTextContent('TRANSFER')
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeEnabled()
+    const order = rackOs.textContent ?? ''
+    expect(order.indexOf('INSTALLABLE')).toBeLessThan(order.indexOf('TRANSFER'))
+  })
+
+  it('states the publisher a package actually claims', async () => {
+    const publisherPackage = { kind: 'software_package' as const, id: 'file-remote-publisher', path: '/opt/packages/node-miner-1.0.pkg', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, filesystem: { nextFileId: 90, files: [...host.filesystem!.files, publisherPackage] } }))}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR opt' }))
+    await user.click(screen.getByRole('button', { name: 'DIR packages' }))
+    await user.click(screen.getByRole('button', { name: 'FILE node-miner-1.0.pkg' }))
+    expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('PUBLISHERnm-dev')
+  })
+
+  it('derives installed state from the target Device, not from the local inventory', async () => {
+    const user = userEvent.setup()
+    // node-01 runs NodeScan 1.0 Standard; srv-01 runs the very release this package represents.
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] }))}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await openRemotePackage(user)
+    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+  })
+
+  it('states another installed release of the same product as CURRENT while the package stays installable', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [{ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' }] }))}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await openRemotePackage(user)
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(rackOs).toHaveTextContent('CURRENTNodeScan 1.0 Standard')
+    expect(rackOs).toHaveTextContent('INSTALLABLE')
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeEnabled()
+  })
+
+  it('does not claim INSTALLABLE on a target that represents no software inventory', async () => {
+    const user = userEvent.setup()
+    // Otherwise fully operable: `installedSoftware: undefined` means this Device
+    // represents no installable software state, which is not the same truth as an
+    // inventory that happens to be empty.
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: undefined }))}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await openRemotePackage(user)
+
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(rackOs).toHaveTextContent('STATUSNOT INSTALLABLE')
+    expect(rackOs).toHaveTextContent('TARGET CANNOT INSTALL SOFTWARE')
+    // No installed release exists to state, so no CURRENT row is invented.
+    expect(rackOs).not.toHaveTextContent('CURRENT')
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+    // The canonical operation agrees, so the surface never disagreed with admission.
+    expect(installRemoteSoftwarePackage(snapshot(), REMOTE_PACKAGE)).toMatchObject({ status: 'target_not_installable' })
+    // The artifact's own facts and its transfer relationship remain truthful.
+    expect(rackOs).toHaveTextContent('18.4 MB')
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeEnabled()
+  })
+
+  it('offers no installation from an unrecognized package path', async () => {
+    const unrecognized = { kind: 'software_package' as const, id: 'file-remote-unrecognized', path: '/opt/packages/nodescan-exp-1.1.pkd', productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, filesystem: { nextFileId: 90, files: [...host.filesystem!.files, unrecognized] } }))}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR opt' }))
+    await user.click(screen.getByRole('button', { name: 'DIR packages' }))
+    await user.click(screen.getByRole('button', { name: 'FILE nodescan-exp-1.1.pkd' }))
+    expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('UNRECOGNIZED')
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+  })
+
+  it('opens and cancels the inline confirmation without touching GameState', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={operatingState()}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await openRemotePackage(user)
+    const before = snapshot()
+
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    // The confirmation names the Device being operated and the exact remote package path.
+    expect(rackOs).toHaveTextContent('INSTALL ON THIS DEVICE')
+    expect(rackOs).toHaveTextContent('TARGETsrv-01')
+    expect(rackOs).toHaveTextContent(`PACKAGE${REMOTE_PACKAGE}`)
+    expect(rackOs).toHaveTextContent('CURRENTNOT INSTALLED')
+    // It is presentation state only: no Process, no installed software, nothing.
+    expect(snapshot()).toEqual(before)
+
+    await user.click(screen.getByRole('button', { name: 'CANCEL' }))
+    expect(rackOs).not.toHaveTextContent('INSTALL ON THIS DEVICE')
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeEnabled()
+    expect(snapshot()).toEqual(before)
+  })
+
+  it('admits Device-owned work through the canonical operation and derives INSTALLING without remote telemetry', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<GameProvider initialState={operatingState()}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await openRemotePackage(user)
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+
+    const admitted = snapshot()
+    expect(admitted.process.processes).toEqual([expect.objectContaining({
+      kind: 'software_installation', status: 'running', executorDeviceId: 'host-lan-001',
+      productId: 'nodescan', releaseId: 'nodescan-1.1-experimental',
+    })])
+    // The Device that will own the software has not received it yet.
+    expect(admitted.world.network.hosts[0].installedSoftware).toEqual([])
+    expect(admitted.player.localDevice.installedSoftware.find(({ id }) => id === 'nodescan')?.releaseId).toBe('nodescan-1.0-standard')
+
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+    expect(rackOs).not.toHaveTextContent('INSTALL ON THIS DEVICE')
+    // No remote progress, resource or cancellation surface: this slice observes existence of the work only.
+    expect(rackOs.querySelector('progress')).toBeNull()
+    expect(rackOs.textContent).not.toMatch(/%|MiB|CPU|RAM/)
+    expect(screen.queryByRole('button', { name: 'CANCEL' })).not.toBeInTheDocument()
+
+    // srv-01 owns 160 compute at 12% baseline: 600 work completes in about 4.3 s of its own runtime.
+    await act(async () => { vi.advanceTimersByTime(6_000) })
+    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+    const done = snapshot()
+    expect(done.world.network.hosts[0].installedSoftware).toEqual([
+      { id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+    ])
+    expect(done.player.localDevice.installedSoftware.find(({ id }) => id === 'nodescan')?.releaseId).toBe('nodescan-1.0-standard')
+    expect(done.world.network.hosts[0].filesystem!.files.some((file) => file.kind === 'executable')).toBe(false)
+    expect(done.recentActivity.entries).toEqual([])
+    expect(done.process.processes).toEqual([])
+  })
+
+  it('keeps installation running through DISCONNECT and derives current truth on a later Session', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<GameProvider initialState={discoveredAccessState()}><Shell /><StateSnapshot /></GameProvider>)
+
+    /* DISCONNECT restores the preserved NodeScan Device context, so the second
+       Session is established from the page the player was already on. */
+    async function connectAndEnter() {
+      const launcher = screen.queryByRole('button', { name: 'Open NodeScan' })
+      if (launcher) {
+        await user.click(launcher)
+        await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+        await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+      }
+      await user.click(screen.getByRole('button', { name: /CONNECT/ }))
+      await enterRemote(user)
+    }
+
+    await connectAndEnter()
+    await openRemotePackage(user)
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+    expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    expect(screen.queryByLabelText('RACK-OS remote operating environment')).not.toBeInTheDocument()
+    const disconnected = snapshot()
+    expect(disconnected.remoteSession.active).toBeNull()
+    // Observation ended; the Device's own work did not.
+    expect(disconnected.process.processes).toEqual([expect.objectContaining({ status: 'running', executorDeviceId: 'host-lan-001' })])
+    expect(disconnected.deviceAccess.established).toHaveLength(1)
+
+    await act(async () => { vi.advanceTimersByTime(6_000) })
+    expect(snapshot().world.network.hosts[0].installedSoftware).toHaveLength(1)
+
+    await connectAndEnter()
+    await openRemotePackage(user)
+    expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
+    expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('CURRENTNodeScan 1.1 Experimental')
+  })
+
+  it('adds no software management to RACK-OS System and no package commands to RACK-OS Terminal', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] }))}><Shell /></GameProvider>)
+    await enterRemote(user)
+
+    await user.click(screen.getByRole('button', { name: 'SYSTEM' }))
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(rackOs).toHaveTextContent('AUTHENTICATION HISTORY')
+    expect(rackOs).not.toHaveTextContent('INSTALLED SOFTWARE')
+    expect(screen.queryByRole('button', { name: /UNINSTALL|RESTORE/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'TERMINAL' }))
+    const input = screen.getByLabelText('Remote command')
+    await user.type(input, 'help{enter}')
+    expect(rackOs).toHaveTextContent('help clear ip ls cat download upload disconnect')
+    await user.type(input, `install ${REMOTE_PACKAGE}{enter}`)
+    expect(rackOs).toHaveTextContent('COMMAND NOT FOUND')
   })
 })

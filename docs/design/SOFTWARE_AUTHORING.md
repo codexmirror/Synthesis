@@ -102,6 +102,11 @@ GAMEPLAY BEHAVIOR
 - Device-owned installed state, listed on the Device that owns it.
 - Created only when an installation Process completes, never at admission.
 - Not Firmware, not a filesystem artifact, not a Process.
+- Per Device and independent. This lifecycle is Device-targeted rather than
+  permanently local: the package is resolved from the target Device's
+  filesystem, the installation Process's executor *is* that Device, and
+  completion updates that Device's own inventory. The same product may
+  legitimately sit at different releases on different Devices.
 
 ### Ordinary installation boundary
 
@@ -116,8 +121,9 @@ GAMEPLAY BEHAVIOR
   or removal policy.
 - Additional installation consequences remain explicit concrete mechanics. For
   example, current NODE Miner installation additionally creates its one managed
-  executable; this does not justify install hooks, effect arrays, a product
-  registry, or a generic package-manager framework.
+  executable — in the filesystem of the Device being installed onto; this does
+  not justify install hooks, effect arrays, a product registry, or a generic
+  package-manager framework.
 - Static ABOUT, CAPABILITY, and CHANGE copy remains descriptive presentation;
   this default path does not make release documentation a gameplay dependency.
 
