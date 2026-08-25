@@ -78,8 +78,22 @@ export interface NodeMinerProcess extends ProcessCommon {
   readonly status: 'running'
   readonly programId: 'node-miner'
   readonly releaseId: string
-  /** Configured explicitly at RUN. Not Player, Device, or Wallet identity. */
+  /**
+   * The payout address currently configured on this Miner. Set explicitly at
+   * RUN and changeable in place by a live payout retarget, which never ends
+   * or replaces the Process. It is not Player, Device, or Wallet identity.
+   */
   readonly payoutAddress: string
+  /**
+   * 1-based index of the payout routing segment currently in effect: the
+   * period during which `payoutAddress` has held its present value. A live
+   * retarget starts the next segment rather than rewriting what the previous
+   * address was actually paid, which is what keeps the Miner's Device-owned
+   * payout artifact historically truthful across more than one address in a
+   * single run. It is an accounting boundary, not a lifecycle state: no
+   * Process ends, starts, or loses accumulated work at a segment boundary.
+   */
+  readonly payoutSegment: number
   /**
    * Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in
    * nodeMiner.ts. `producedNodeUnits` is gross production from this
@@ -93,6 +107,14 @@ export interface NodeMinerProcess extends ProcessCommon {
   readonly payoutNodeUnits: number
   /** Cumulative gross production diverted by the running release to its own embedded developer address. */
   readonly developerFeeNodeUnits: number
+  /**
+   * The two totals above, restricted to the current `payoutSegment`. They
+   * start at zero for each new segment while the cumulative totals are never
+   * rewound, so what a single configured address actually received stays
+   * recoverable after a live retarget.
+   */
+  readonly segmentPayoutNodeUnits: number
+  readonly segmentDeveloperFeeNodeUnits: number
   readonly workRemainder: number
 }
 

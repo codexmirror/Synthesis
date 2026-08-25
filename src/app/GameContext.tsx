@@ -12,7 +12,7 @@ import { findInstalledNodeScan } from '../core/game/software'
 import { cancelFileTransfer, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, installRemoteSoftwarePackage, type InstallLocalSoftwarePackageResult, type InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
 import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
-import { startNodeMiner, stopNodeMiner, type StartNodeMinerResult, type StopNodeMinerResult } from '../core/game/nodeMiner'
+import { retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
 import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 
@@ -37,6 +37,9 @@ export interface GameActions {
   removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
   stopNodeMiner(processId: string): StopNodeMinerResult
+  runRemoteNodeMiner(sourceFilePath: string, payoutAddress: string): StartRemoteNodeMinerResult
+  stopRemoteNodeMiner(processId: string): StopRemoteNodeMinerResult
+  retargetNodeMinerPayout(payoutAddress: string): RetargetNodeMinerPayoutResult
   clearRecentActivity(): void
   removeRecentActivity(activityId: string): void
 }
@@ -164,6 +167,24 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       currentState.current = result.state
       setGameState(result.state)
     }
+    return result
+  }, runRemoteNodeMiner(sourceFilePath, payoutAddress) {
+    const result = startRemoteNodeMiner(currentState.current, sourceFilePath, payoutAddress)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, stopRemoteNodeMiner(processId) {
+    const result = stopRemoteNodeMiner(currentState.current, processId)
+    if (result.status === 'stopped') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, retargetNodeMinerPayout(payoutAddress) {
+    const result = retargetNodeMinerPayout(currentState.current, payoutAddress)
+    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
     return result
   }, clearRecentActivity() {
     const state = currentState.current

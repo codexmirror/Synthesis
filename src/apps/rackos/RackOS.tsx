@@ -5,7 +5,9 @@ import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
 import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
 import { isRecognizedSoftwarePackagePath, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
-import type { AuthenticationHistoryRecord, FilesystemFile, FilesystemState, InstalledSoftware, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
+import { findRunningNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartRemoteNodeMinerResult } from '../../core/game/nodeMiner'
+import { formatNodeUnitsAsNode } from '../nodeFormat'
+import type { AuthenticationHistoryRecord, ExecutableFile, FilesystemFile, FilesystemState, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
@@ -17,7 +19,8 @@ type Section = 'terminal' | 'files' | 'system'
 const LOCAL_SOURCE_ROOT = '/home/user'
 
 export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemoteTarget; hidden: boolean; onReturnLocal(): void }) {
-  const { disconnectRemoteSession, startRemoteFileDownload, startRemoteFileUpload, installRemoteSoftwarePackage } = useGameActions()
+  const actions = useGameActions()
+  const { disconnectRemoteSession } = actions
   const [section, setSection] = useState<Section>('terminal')
   const { target, access, service } = context
   return <section className="rack-os" hidden={hidden} aria-label={`${target.firmware!.name} remote operating environment`}>
@@ -35,8 +38,8 @@ export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemo
       {(['terminal', 'files', 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => setSection(item)}>{item.toUpperCase()}</button>)}
     </nav>
     <main className="rack-body">
-      {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} startRemoteFileDownload={startRemoteFileDownload} startRemoteFileUpload={startRemoteFileUpload} />}
-      {section === 'files' && <RemoteFiles context={context} startRemoteFileDownload={startRemoteFileDownload} startRemoteFileUpload={startRemoteFileUpload} installRemoteSoftwarePackage={installRemoteSoftwarePackage} />}
+      {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} />}
+      {section === 'files' && <RemoteFiles context={context} />}
       {section === 'system' && <section className="rack-panel">
         <dl className="rack-facts">
           <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
@@ -49,20 +52,22 @@ export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemo
   </section>
 }
 
-function RemoteTerminal({ context, onDisconnect, startRemoteFileDownload, startRemoteFileUpload }: { context: ActiveRemoteTarget; onDisconnect(): void; startRemoteFileDownload: ReturnType<typeof useGameActions>['startRemoteFileDownload']; startRemoteFileUpload: ReturnType<typeof useGameActions>['startRemoteFileUpload'] }) {
+function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget; onDisconnect(): void }) {
+  const { startRemoteFileDownload, startRemoteFileUpload, retargetNodeMinerPayout } = useGameActions()
   const [input, setInput] = useState('')
   const [lines, setLines] = useState<readonly { command: string; output: readonly string[] }[]>([])
   function submit(event: FormEvent) {
     event.preventDefault(); const command = input.trim(); if (!command) return
-    const result = runRemoteCommand(context, command, startRemoteFileDownload, startRemoteFileUpload); setInput('')
+    const result = runRemoteCommand(context, command, { startRemoteFileDownload, startRemoteFileUpload, retargetNodeMinerPayout }); setInput('')
     if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
     if (result.disconnect) onDisconnect()
   }
   return <div className="rack-terminal"><div className="rack-output" aria-live="polite" data-editing-scroll-owner>{lines.map((line, index) => <div key={index}><div className="rack-command">{context.target.displayName} [{context.access.privilege}] &gt; {line.command}</div>{line.output.map((value, outputIndex) => <div key={outputIndex}>{value}</div>)}</div>)}</div><form onSubmit={submit}><label><span>{context.target.displayName} [{context.access.privilege}] &gt;</span><input aria-label="Remote command" autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="send" value={input} onChange={(event) => setInput(event.target.value)} /></label></form></div>
 }
 
-function RemoteFiles({ context, startRemoteFileDownload, startRemoteFileUpload, installRemoteSoftwarePackage }: { context: ActiveRemoteTarget; startRemoteFileDownload: ReturnType<typeof useGameActions>['startRemoteFileDownload']; startRemoteFileUpload: ReturnType<typeof useGameActions>['startRemoteFileUpload']; installRemoteSoftwarePackage: ReturnType<typeof useGameActions>['installRemoteSoftwarePackage'] }) {
+function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
   const state = useGameState()
+  const { startRemoteFileDownload, startRemoteFileUpload, installRemoteSoftwarePackage, runRemoteNodeMiner, stopRemoteNodeMiner } = useGameActions()
   const { id: targetDeviceId, ip: targetAddress, filesystem, displayName: targetDisplayName } = context.target
   const localFilesystem = state.player.localDevice.filesystem
   const [path, setPath] = useState('/'); const [selected, setSelected] = useState<string>()
@@ -83,6 +88,10 @@ function RemoteFiles({ context, startRemoteFileDownload, startRemoteFileUpload, 
     .filter((process): process is SoftwareInstallationProcess => process.kind === 'software_installation')
     .filter((process) => process.status === 'running' && process.executorDeviceId === targetDeviceId)
     .map((process) => process.productId))
+  /* Whether this Device currently runs a NODE Miner is that Device's own
+     runtime truth, read out of canonical Process state by executor identity —
+     never an interface flag, and never node-01's Miner. */
+  const targetNodeMiner = findRunningNodeMiner(state, targetDeviceId)
   const activeTransfer = state.fileTransfer.active
   const transferMatchesSelected = result?.status === 'ok' && activeTransfer?.sourceDeviceId === targetDeviceId && activeTransfer?.sourceFileId === result.file.id
   const downloadState = result?.status !== 'ok' || !localResult
@@ -119,10 +128,11 @@ function RemoteFiles({ context, startRemoteFileDownload, startRemoteFileUpload, 
         ? <pre className="rack-file-content">{result.file.content}</pre>
         : result.file.kind === 'software_package'
           ? <RemotePackage key={selected} file={result.file} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
-          : <div className="rack-artifact"><p className="rack-artifact-kind">EXECUTABLE</p><h2>{result.file.name}</h2><p className="rack-artifact-release">{result.file.version}</p><dl className="rack-facts"><div><dt>RELEASE</dt><dd>{result.file.releaseId}</dd></div></dl></div>}
+          : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
-          player is operating it stays secondary to that Device's own software state. */}
-      {result.file.kind === 'software_package' && <p className="rack-artifact-kind rack-transfer-label">TRANSFER</p>}
+          player is operating it stays secondary to that Device's own software and
+          execution state. A text file has no such state, so it keeps no label. */}
+      {result.file.kind !== 'text' && <p className="rack-artifact-kind rack-transfer-label">TRANSFER</p>}
       {downloadState === 'available' && <button className="rack-primary" onClick={download}>DOWNLOAD</button>}
       {downloadState === 'in_progress' && <div className="rack-download-state" role="status">
         <button className="rack-primary" disabled>DOWNLOAD STARTED</button>
@@ -155,6 +165,91 @@ function RemoteFiles({ context, startRemoteFileDownload, startRemoteFileUpload, 
       {listing.entries.length === 0 && <p className="rack-empty">EMPTY DIRECTORY</p>}
     </div> : <p className="rack-empty">DIRECTORY NOT FOUND</p>}
   </section>
+}
+
+/**
+ * The executable surface of the Device the player is currently operating.
+ * A supported concrete NODE Miner artifact is operational here rather than
+ * download-only: it can be RUN on this machine, and a Miner already running
+ * on it can be observed and stopped.
+ *
+ * Whether that Miner is running is read out of canonical Process state by
+ * this Device's own executor identity, so it stays correct after leaving
+ * RACK-OS, disconnecting, or reconnecting later, and can never be confused
+ * with the player's own local Miner. The pane owns exactly one piece of
+ * transient state — whether the RUN form is open, and the address typed into
+ * it — and forwards the exact visible address to the canonical operation,
+ * which remains the sole admission authority.
+ *
+ * It deliberately offers no live payout retarget: that is the RACK-OS
+ * Terminal's deeper control path, not a graphical convenience.
+ */
+function RemoteExecutable({ file, targetDisplayName, runningProcess, nodeWalletAddress, run, stop }: {
+  file: ExecutableFile
+  targetDisplayName: string
+  runningProcess: NodeMinerProcess | undefined
+  nodeWalletAddress: string
+  run: ReturnType<typeof useGameActions>['runRemoteNodeMiner']
+  stop: ReturnType<typeof useGameActions>['stopRemoteNodeMiner']
+}) {
+  const supported = file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID
+  /* A Miner running on this Device belongs to this pane only when this
+     artifact is the supported program it runs; an unrelated executable never
+     borrows another program's runtime. */
+  const running = supported && runningProcess?.programId === file.programId ? runningProcess : undefined
+  const [confirming, setConfirming] = useState(false)
+  const [payoutAddress, setPayoutAddress] = useState(nodeWalletAddress)
+  const [feedback, setFeedback] = useState<string>()
+
+  function confirm() {
+    const result = run(file.path, payoutAddress)
+    if (result.status === 'started') { setConfirming(false); setFeedback(undefined); return }
+    setFeedback(describeRemoteRunFailure(result))
+  }
+
+  return <div className="rack-artifact">
+    <p className="rack-artifact-kind">EXECUTABLE{!supported && <span className="rack-artifact-chip"> UNSUPPORTED</span>}</p>
+    <h2>{file.name}</h2>
+    <p className="rack-artifact-release">{file.version}</p>
+    {running
+      ? <div className="rack-run-state" role="status">
+          <dl className="rack-facts rack-facts--dense">
+            <div><dt>STATUS</dt><dd>RUNNING ON {targetDisplayName}</dd></div>
+            <div><dt>PROCESS</dt><dd>{running.id}</dd></div>
+            <div><dt>PAYOUT</dt><dd>{running.payoutAddress}</dd></div>
+            <div><dt>PRODUCED</dt><dd>{formatNodeUnitsAsNode(running.producedNodeUnits)} NODE</dd></div>
+          </dl>
+          <button className="rack-secondary" type="button" onClick={() => { setFeedback(undefined); const result = stop(running.id); if (result.status !== 'stopped') setFeedback(result.status.toUpperCase().replaceAll('_', ' ')) }}>STOP</button>
+        </div>
+      : supported && (confirming
+        ? <div className="rack-install-confirm">
+            <p className="rack-artifact-kind">RUN ON THIS DEVICE</p>
+            <dl className="rack-facts rack-facts--dense">
+              <div><dt>EXECUTOR</dt><dd>{targetDisplayName}</dd></div>
+              <div><dt>PROGRAM</dt><dd>{file.path}</dd></div>
+            </dl>
+            <label className="rack-field">
+              <span>PAYOUT ADDRESS</span>
+              <input className="rack-input" aria-label="NODE payout address" value={payoutAddress} onChange={(event) => setPayoutAddress(event.target.value)} autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="done" />
+            </label>
+            <div className="rack-install-actions">
+              <button className="rack-secondary" type="button" onClick={() => { setConfirming(false); setFeedback(undefined) }}>CANCEL</button>
+              <button className="rack-primary" type="button" onClick={confirm}>RUN</button>
+            </div>
+          </div>
+        : <button className="rack-primary" type="button" onClick={() => { setFeedback(undefined); setConfirming(true) }}>RUN</button>)}
+    {feedback && <p className="rack-install-note rack-install-note--caution">{feedback}</p>}
+    {!confirming && <dl className="rack-facts rack-facts--dense">
+      <div><dt>PROGRAM</dt><dd>{file.programId}</dd></div>
+      <div><dt>SIZE</dt><dd>{formatBytes(getFilesystemFileSizeBytes(file))}</dd></div>
+      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+    </dl>}
+  </div>
+}
+
+function describeRemoteRunFailure(result: Exclude<StartRemoteNodeMinerResult, { status: 'started' }>): string {
+  if (result.status === 'insufficient_memory') return `INSUFFICIENT MEMORY · REQUIRES ${result.requiredMiB} MiB`
+  return result.status.toUpperCase().replaceAll('_', ' ')
 }
 
 type RemotePackageState = 'INSTALLABLE' | 'INSTALLING' | 'INSTALLED' | 'UNRECOGNIZED' | 'NOT INSTALLABLE'

@@ -318,11 +318,13 @@ replaces that exact product release, and product-specific consequences occur
 on that same Device. Remote NODE Miner installation therefore creates its one
 managed executable at `/usr/local/bin/node-miner` **in the target
 filesystem**, leaving the local Device's filesystem and inventory untouched.
-Installation is still not execution: no remote RUN, remote program launch, or
-remote `NodeMinerProcess` exists, and `startNodeMiner` continues to resolve
-its artifact from, and admit onto, the player's local Device alone.
+Installation is still not execution: completion creates the artifact, and RUN
+remains a separate later admission step (see **Remote executable RUN and
+control** below). `startNodeMiner` continues to resolve its artifact from, and
+admit onto, the player's local Device alone; remote RUN is owned by
+`startRemoteNodeMiner`.
 
-RACK-OS Files is the only interface for this in V1. Once a software package is
+RACK-OS Files is the only interface for package installation in V1. Once a software package is
 selected on the operated Device, its detail states the package identity
 (name, `version` + channel, size, publisher where the package claims one, and
 release ID), then that Device's own `STATUS` and `CURRENT` installed release for
@@ -425,11 +427,11 @@ this admission step: once the Process exists it retains its own stable
 deleting it afterward never affects the running Miner. A missing, wrong-kind, or
 unsupported artifact, an empty address, or a duplicate attempt (same `programId`
 already `running` on the same `executorDeviceId`) is rejected with no Process
-created and no economic mutation; V1 always admits onto the player's local
-Device. Successful RUN gives immediate visible feedback: Files derives a RUNNING
-presentation (with the current Process ID) directly from canonical
-`ProcessState` rather than temporary local success state, and stops offering a
-normal RUN action for as long as that Miner keeps running.
+created and no economic mutation. Successful RUN gives immediate visible
+feedback: Files derives a RUNNING presentation (with the current Process ID)
+directly from canonical `ProcessState` rather than temporary local success
+state, and stops offering a normal RUN action for as long as that Miner keeps
+running.
 
 `srv-01` no longer distributes a NODE Miner executable; only its NodeScan
 Experimental package remains.
@@ -437,6 +439,66 @@ Experimental package remains.
 The continuous Miner runtime is owned by
 `docs/current/PROCESSES_ACTIVITY.md`; what it produces, routes, and records
 economically is owned by `docs/current/NODE_ECONOMY.md`.
+
+
+## Remote executable RUN and control
+
+A supported NODE Miner executable that exists on the Device the player is
+currently operating through RACK-OS can be RUN **on that Device**. One shared
+admission path serves local and remote RUN: the artifact is read from the
+executor's own filesystem, the one-Miner-per-executor duplicate rule is scoped
+to that Device's own running Processes, and RAM admission uses that Device's
+own hardware. Remote RUN stays artifact-authoritative exactly as local RUN is —
+matching InstalledSoftware is never consulted, so an uploaded or copied
+supported executable is a valid execution source even on a Device that
+represents no software inventory at all.
+
+`startRemoteNodeMiner` never receives an executor from presentation. It
+resolves one only through the canonical operating context — RemoteSession →
+DeviceAccess → target Device — and then narrows that host to one that actually
+represents the filesystem and hardware/runtime execution needs. An absent or
+unresolvable operating context is `session_unavailable`, a target that went
+offline while the Session was live is `target_offline`, and a host representing
+no executable runtime is `target_not_executable` rather than being given
+fabricated resources. The DeviceAccess relationship's currently represented
+`USER` privilege is the only authority V1 represents.
+
+The resulting `NodeMinerProcess` carries the target's `executorDeviceId`, so
+that Device supplies its CPU throughput and reserved RAM through the existing
+executor-owned scheduler, and its production contends with that Device's own
+other work. Like remote installation it retains no `accessId` or `sessionId`:
+returning to NODE-OS, `DISCONNECT`, and a later unrelated Session all leave it
+running, and reconnecting through the still-valid DeviceAccess simply observes
+whatever is true by then. Local and remote Miners are fully independent
+runtimes — node-01 and `srv-01` may each run one at the same time, each
+reserving RAM only on its own executor.
+
+`stopRemoteNodeMiner` is the matching control: it resolves the operated Device
+the same way and removes only *that* Device's Miner, with the same zero elapsed
+time, no final mining work, no hidden reward, and immediate CPU/RAM release
+local STOP has. Local STOP cannot stop a remote Miner and remote STOP cannot
+stop the local one. Unlike local STOP it archives nothing, for the reason
+`docs/current/PROCESSES_ACTIVITY.md` owns.
+
+RACK-OS Files is the interface for both. A selected executable states its
+program identity, then — when it is the supported release — either the one
+action available (`RUN`) or the Miner this Device is currently running, with
+the artifact's relationship to node-01 kept as the same secondary `TRANSFER`
+block package details use. `RUN` opens a compact inline confirmation in the
+same pane naming the executor Device and the exact remote program path, with an
+explicit payout-address field prefilled from the represented local NODE Wallet
+as a convenience; confirming forwards the exact visible address to the
+canonical operation, which remains the sole admission authority, and a
+canonical admission failure is reported in the pane as-is. A running Miner is
+presented as `RUNNING ON <device>` with its Process ID, current payout address,
+cumulative gross production, and a `STOP` control — all derived from that
+Device's own canonical Process, never from an interface-local flag, so the
+local Device's Miner can never be presented as this Device's. An executable
+that is not the supported program is stated as `UNSUPPORTED` and offers no
+execution.
+
+Live payout retargeting is deliberately **not** offered here; it is the RACK-OS
+Terminal's own deeper control path, owned by `docs/current/NODE_ECONOMY.md`.
 
 
 ## Software Removal
@@ -577,9 +639,13 @@ state.
   Disconnecting ends observation, never admitted Device-owned work — and
   losing DeviceAccess does not abort it either, because no cross-Device
   resource is in use after admission.
-- Remote installation is not remote execution. InstalledSoftware, and even a
-  managed executable, existing on a foreign Device grants no RUN, command, or
-  Process there.
+- Remote installation is still not remote execution: installation completing on
+  a foreign Device creates its managed executable there and nothing more. RUN
+  remains a distinct, later admission step, and it is admitted from the
+  artifact, never from installed metadata.
+- Execution is Device-targeted, not permanently local. `executorDeviceId` is the
+  Device the program runs on; never infer it from a path, an address, a
+  Session, or the current interface.
 - Ordinary package installation preserves package product/release identity and
   creates or updates InstalledSoftware without a product whitelist. Being
   installable does not itself make software removable, executable, runnable,

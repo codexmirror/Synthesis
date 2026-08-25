@@ -377,14 +377,26 @@ unless those concepts are separately represented later.
 
 ### Terminal commands
 
-RACK-OS V1 supports only:
+RACK-OS supports only:
 
 help
 clear
 ip
 ls
 cat
+download
+upload
+miner
 disconnect
+
+`download` and `upload` were added with the transfer mechanics that own them;
+`miner` was added with remote NODE Miner control (below). Each exists because a
+concrete mechanic needed a command, not because RACK-OS is growing a shell.
+
+`miner` has exactly one subcommand, `miner payout <address>`. It is narrow and
+concrete to the one represented program: it is not a process-control verb, not
+a way to launch or signal arbitrary executables, and it must not grow generic
+process arguments.
 
 Do not include `status` in V1.
 
@@ -399,8 +411,8 @@ inspect
 analyze
 attack
 connect
-process execution
-software execution
+arbitrary process control
+arbitrary software execution
 cd
 pwd
 write/edit commands
@@ -632,10 +644,95 @@ the mechanic it introduces does not open that surface, and that presentation
 never invents values the simulation does not represent (see **No fake server
 telemetry** and **Explicit non-goals**).
 
-Installation is not execution. A successful installation may leave both
-InstalledSoftware and a managed executable artifact on the target Device while
-RUN, remote program launch, and remote Processes started by the player remain
-unavailable.
+Installation is not execution. A successful installation leaves InstalledSoftware
+and a managed executable artifact on the target Device; running that executable
+is a separate, later admission, contracted below.
+
+
+## Remote NODE Miner execution
+
+RACK-OS Files may also RUN one supported concrete executable — the NODE Miner
+release the simulation represents — on the operated Device, and may stop a Miner
+already running there.
+
+This is the same boundary software package installation established, applied to
+a continuous Process: the interface never owns the operation, never supplies the
+executor, and never keeps lifecycle state of its own. It is deliberately not a
+general remote-execution surface. Only a supported executable is operational;
+any other executable states UNSUPPORTED and offers no action.
+
+The selected executable's subject is the Device being operated:
+
+EXECUTABLE
+NODE Miner
+1.0
+
+[ RUN ]
+
+PROGRAM
+node-miner
+
+SIZE
+2.1 MB
+
+RELEASE
+node-miner-1.0
+
+TRANSFER
+[ DOWNLOAD ]
+
+RUN opens a compact inline confirmation in the same pane, in the same shape
+INSTALL uses — it names the executor Device and the exact remote program path,
+and carries the one input execution actually requires:
+
+RUN ON THIS DEVICE
+
+EXECUTOR
+srv-01
+
+PROGRAM
+/usr/local/bin/node-miner
+
+PAYOUT ADDRESS
+[ ................ ]
+
+[ CANCEL ]  [ RUN ]
+
+The address field may be prefilled from the represented local NODE Wallet as a
+convenience, but exactly the visible string is submitted. Opening the
+confirmation and cancelling both change no GameState.
+
+A Miner running on this Device replaces the action with its own concrete state
+and the one lifecycle control appropriate here:
+
+STATUS
+RUNNING ON srv-01
+
+PROCESS
+process-0004
+
+PAYOUT
+node-wallet-addr-0001
+
+PRODUCED
+0.001407 NODE
+
+[ STOP ]
+
+Every value there is derived from that Device's own canonical Process. The pane
+must never present the local Device's Miner as this Device's, and must never
+keep a running/stopped flag of its own.
+
+This is deliberately the concrete NODE Miner state that surface legitimately
+needs, not a remote Processes application and not remote runtime telemetry: no
+CPU, RAM, percentage, estimate, or foreign Process list appears, exactly as the
+installation boundary above establishes.
+
+Live payout retargeting is **not** offered here. It exists only as the Terminal
+`miner payout <address>` command, so the Terminal keeps a real control advantage
+without the graphical surface being made artificially poor. That command must
+delegate to the same canonical operation like every other RACK-OS command, and
+must never be reachable by a graphical surface building a command string.
 
 ## Initial foreign filesystem
 
@@ -1102,10 +1199,14 @@ Installation is admitted through the active Session but owned by the target
 Device: DISCONNECT ends the operating context and the player's observation of
 it, never the work itself.
 
+Remote NODE Miner execution extends that same chain by one step — RUN one
+supported executable already on that Device, observe and stop that one Miner,
+and retarget its payout from the Terminal — under the same ownership rules.
+
 It does not yet prove:
 
-- remote software *execution*
-- remote Process observation, progress, or cancellation
+- general remote software execution or arbitrary program launch
+- remote Process observation, progress, or cancellation surfaces
 - remote software management (uninstall, restore, inventory)
 - remote reconnaissance position
 - Firewall
@@ -1147,7 +1248,8 @@ Do not implement as part of this design:
 - Session manager
 - remote Process observation, progress or cancellation surfaces
 - remote CPU / RAM telemetry
-- remote software execution
+- general remote software execution, arbitrary program launch, or a remote shell
+- a generic remote-execution or process-permission framework
 - Firewall
 - Reachability
 - routes

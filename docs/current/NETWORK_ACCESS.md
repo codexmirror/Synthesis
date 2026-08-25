@@ -356,8 +356,9 @@ authorized live view of current canonical target state, not a Discovery
 projection, and exposes only Terminal, Files, and System. Its Terminal supports
 `help`, `clear`, `ip`, `ls`, `cat`, and `disconnect`; Terminal and Files read the
 same foreign Device-owned filesystem. RACK-OS Terminal also supports
-`download <remote-absolute-file-path>` and
-`upload <local-absolute-file-path> <remote-absolute-file-path>`, RACK-OS Files
+`download <remote-absolute-file-path>`,
+`upload <local-absolute-file-path> <remote-absolute-file-path>` and
+`miner payout <address>`, RACK-OS Files
 exposes `DOWNLOAD` for a selected file, and its remote directory view exposes
 `UPLOAD` for the directory currently being browsed. System derives the displayed
 Device, address, Firmware, role, access authority, and service path from the
@@ -365,7 +366,8 @@ target and referenced access relationship. The transfer runtime those commands
 admit is owned by `docs/current/FILES_SOFTWARE.md`.
 
 RACK-OS Files additionally exposes `INSTALL` for a software package that
-already exists on the target's own filesystem. The active Session is what
+already exists on the target's own filesystem, and `RUN` / `STOP` for a
+supported NODE Miner executable that already exists there. The active Session is what
 admits that command — it is the operating context that decides *which* Device
 the player is commanding, resolved through `accessId` → target identity, never
 supplied by presentation — and the DeviceAccess relationship's currently
@@ -374,9 +376,26 @@ owns admission only, not the lifetime of the work it admits: the resulting
 installation Process is owned by the target Device, so `DISCONNECT` closes
 RACK-OS and ends the player's observation while that Device keeps working, and
 a later Session over the same still-valid access simply shows whatever is true
-by then. Installation admission, its rules, and its consequences are owned by
-`docs/current/FILES_SOFTWARE.md`. RACK-OS System gains no software management
-and the RACK-OS Terminal gains no package commands.
+by then. Installation and execution admission, their rules, and their consequences are
+owned by `docs/current/FILES_SOFTWARE.md`. RACK-OS System gains no software
+management, the RACK-OS Terminal gains no package commands, and no RACK-OS
+Processes application exists: the selected executable and the one Terminal
+Miner command expose only the concrete NODE Miner state they need.
+
+Execution is the same admission-versus-lifetime distinction, taken to its
+continuous case. A NODE Miner admitted this way runs on the target Device
+indefinitely: returning to NODE-OS, `DISCONNECT`, and a later unrelated Session
+all leave it producing and routing NODE, and reconnecting over the same
+DeviceAccess observes the same still-running Process. RACK-OS Terminal
+additionally exposes `miner payout <address>`, the one deeper control path this
+slice adds: it changes the payout address of that already-running Miner in
+place, through the shared canonical operation, and is deliberately not offered
+graphically. What it does economically is owned by
+`docs/current/NODE_ECONOMY.md`.
+
+No per-application permission model exists. Terminal, Files and System are all
+reached under the one `USER` DeviceAccess authority; that a future authority
+might expose these surfaces independently is not represented today.
 
 An entered RACK-OS Session can return to the preserved local NODE-OS workspace
 without disconnecting. RACK-OS presents that as an explicit navigation action
@@ -396,10 +415,12 @@ Device even while a remote Session exists. Reading foreign files does not
 mutate Discovery or Knowledge. Graphical and Terminal disconnect use the same
 Session operation; disconnect preserves DeviceAccess and both Devices' state,
 closes RACK-OS, and reveals the preserved local NODE-OS navigation context.
-Remote *execution* — RUN, remote program launch, a remote `NodeMinerProcess` —
-remains unimplemented, as do Firewall, Reachability, and pivoting. Software
-installation admitted through RACK-OS is remote *work*, not remote execution:
-it never grants a command, capability, or running program on the target.
+Firewall, Reachability, and pivoting remain unimplemented, and remote execution
+remains narrow: one represented program, admitted from a concrete executable
+artifact on the operated Device, with no generic remote-execution or shell
+mechanism. Software installation admitted through RACK-OS is still remote
+*work* rather than execution — it creates an artifact, never a running program,
+and RUN remains a separate later admission step.
 
 
 ## Authentication History
@@ -436,5 +457,7 @@ empty state.
 - RACK-OS is a live authorized view of target truth, resolved through
   `accessId` → target identity, never through the connected address.
 - A Session admits a command; it does not own the lifetime of the work that
-  command started. Disconnecting never cancels admitted Device-owned work, and
-  never removes DeviceAccess.
+  command started. Disconnecting never cancels admitted Device-owned work,
+  never stops a Miner running on the target, and never removes DeviceAccess.
+- A remote operation resolves its target only through `accessId` → target
+  identity. Presentation never supplies an executor Device ID.

@@ -39,6 +39,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(),
     clearRecentActivity: () => {}, removeRecentActivity: () => {}, cancelFileTransfer: () => ({ status: 'not_found', state }), cancelLocalProcess: () => ({ status: 'not_cancellable', state }),
     runNodeMiner: () => ({ status: 'source_not_found', state }), stopNodeMiner: () => ({ status: 'not_found', state }),
+    runRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), stopRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), retargetNodeMinerPayout: () => ({ status: 'session_unavailable', state }),
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
   vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
@@ -245,7 +246,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
@@ -409,7 +410,7 @@ describe('Terminal NODE Miner CLI', () => {
     const state = createInitialGameState()
     const minerProcess = {
       kind: 'node_miner' as const, id: 'process-0001', label: 'NODE MINER', executorDeviceId: state.player.localDevice.id, status: 'running' as const,
-      ramRequiredMiB: 512, programId: 'node-miner' as const, releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, producedNodeUnits: 10, payoutNodeUnits: 9, developerFeeNodeUnits: 1, workRemainder: 0,
+      ramRequiredMiB: 512, programId: 'node-miner' as const, releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, payoutSegment: 1, producedNodeUnits: 10, payoutNodeUnits: 9, developerFeeNodeUnits: 1, segmentPayoutNodeUnits: 9, segmentDeveloperFeeNodeUnits: 1, workRemainder: 0,
     }
     const runningWithoutExecutable: GameState = {
       ...state,
