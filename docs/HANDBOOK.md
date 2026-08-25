@@ -425,11 +425,15 @@ select implementation agent
 ↓
 implement
 ↓
-tests / build
+focused validation
 ↓
-documentation impact resolved in the same branch
+inspect final changed-file set and semantic delta
 ↓
-agent final-diff self-review
+classify all affected truth domains
+↓
+final documentation reconciliation in the same branch
+↓
+final validation and agent final-diff self-review
 ↓
 Draft PR
 ↓
@@ -481,15 +485,40 @@ implemented correctly.
 
 ## 14. Documentation impact
 
-**No draft is complete until documentation impact is explicitly resolved.**
+Documentation impact recorded before implementation is **expected impact**: a
+useful but provisional plan. **Final documentation impact** is derived after
+implementation from the actual completed diff, and no Draft is complete until
+that reconciliation is explicitly resolved.
+
+For final reconciliation:
+
+1. inspect the complete final changed-file set and inventory its semantic
+   delta;
+2. classify every affected truth domain, including domains secondary to the
+   task's primary concern;
+3. identify each changed normative owner (**owner impact**);
+4. identify any non-normative summary, index, routing description, or
+   cross-reference made stale or misleading (**reference impact**);
+5. update those owners and references in the same branch, removing unnecessary
+   volatile duplication instead of creating competing owners; and
+6. record each truth class below as an affected document or `None` with a
+   concrete reason.
 
 This does not mean every change requires editing every document. Update only
-the document that owns the changed truth.
+the document that owns changed truth, plus references actually made misleading
+by the delta.
 
-Resolve each line explicitly — a concrete owner, or `None` with a concrete
-reason:
+Report Owner impact and Reference impact as separate final-reconciliation
+fields. Then resolve each truth class explicitly — a concrete document, or
+`None` with a concrete reason:
 
 ```text
+owner impact
+→ changed normative owner(s), or None with reason
+
+reference impact
+→ corrected/removed non-normative reference(s), or None with reason
+
 current implementation changed
 → docs/current/<domain>.md
   (and docs/V0.md only when the product-level snapshot itself became wrong)
