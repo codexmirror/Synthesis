@@ -166,6 +166,40 @@ for (const file of walk(join(repoRoot, 'docs'), (path) => path.endsWith('.md')))
   if (!routers.includes(name)) fail('no orphan documents', `${relative_} is not referenced from any routing document`)
 }
 
+/* 8. Every fenced code block is closed in the same Markdown file. */
+checks.push('fenced code blocks balanced')
+for (const file of markdownFiles) {
+  let openFence = null
+  for (const [index, line] of read(file).split('\n').entries()) {
+    if (openFence) {
+      const closingFence = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/)
+      if (
+        closingFence &&
+        closingFence[1][0] === openFence.marker &&
+        closingFence[1].length >= openFence.length
+      ) {
+        openFence = null
+      }
+      continue
+    }
+
+    const openingFence = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/)
+    if (!openingFence) continue
+    openFence = {
+      marker: openingFence[1][0],
+      length: openingFence[1].length,
+      line: index + 1,
+    }
+  }
+
+  if (openFence) {
+    fail(
+      'fenced code blocks balanced',
+      `${rel(file)}:${openFence.line} has an unclosed ${openFence.marker.repeat(openFence.length)} fence`,
+    )
+  }
+}
+
 /* Report. */
 const width = Math.max(...checks.map((check) => check.length))
 for (const check of checks) {
