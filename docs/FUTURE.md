@@ -222,16 +222,16 @@ correct stale information using hidden World Truth.
 
 ## NODE-OS Home observation
 
-A concrete local Device-owned read-only filesystem now exists, and Files and
-Terminal read it as shared canonical state. NODE-OS Home may become a richer
-observation surface as real local Device state grows. A future File Monitor
-should read selected text files from that same filesystem rather than
-maintaining presentation-only copies.
+Concrete Device-owned filesystems now exist for the player’s local Device and
+the represented operable remote Devices. Files, Terminal, RACK-OS, and
+FileTransfer operate over that canonical Device-owned filesystem truth.
+Download and Upload are represented, and a completed Upload may create its
+normal destination artifact on the remote Device.
 
-Filesystem mutation, remote filesystems and operating contexts, foreign
-Firmware filesystem presentation, credentials and keys discovered in files,
-configuration gameplay, logs and other artifacts, and trace removal remain
-future mechanics requiring concrete authority and state boundaries.
+Generic filesystem writes and permissions, credentials and keys discovered in
+files, configuration gameplay, richer logging and forensic artifacts, and trace
+removal remain future mechanics requiring concrete authority and state
+boundaries.
 
 System and network logs should arise as concrete artifacts of represented
 events, not atmospheric UI text. User or Session identity, uptime, traffic,
@@ -300,8 +300,14 @@ NODE Premium
 These could be different Device models while both remain capable of running
 releases from the NODE-OS Firmware family.
 
+Firmware itself may grow into families and releases:
 
 ```text
+NODE-OS
+├── NODE-OS 1.x
+├── experimental releases
+├── NODE-OS 2.x
+└── later releases
 ```
 
 Other Firmware families may target substantially different operating roles,
@@ -311,31 +317,19 @@ or other environments.
 These are product directions, not locked models, names, schemas, tiers, or
 monetization rules.
 
+The important direction is that:
 
 ```text
+WHO / WHAT DEVICE IS THIS?
+        ≠
+WHICH FIRMWARE IS INSTALLED?
+        ≠
+WHAT HARDWARE IS CURRENTLY PRESENT?
 ```
+
 A player’s capabilities should continue to emerge from represented Devices,
 hardware, Firmware, software, information, access, and position rather than a
 permanent character-class flag.
-A useful long-term mental model is:
-
-```text
-REACHABILITY
-      +
-ATTACK SURFACE
-      +
-CURRENT WEAKNESS
-      +
-PLAYER INFORMATION
-      +
-AVAILABLE CAPABILITY
-      ↓
-ATTEMPT
-      ↓
-SYSTEMIC EFFECTS
-An attack surface might eventually arise from concrete services, Firmware, installed software, configuration, files, trust relationships, credentials, network position, or other represented state.
-The weakness and the technique used against it should not be permanently identical.
-Different techniques may exploit the same weakness, and one technique may have different consequences depending on the target and current world state.
 
 ## Remote operating contexts
 
@@ -671,7 +665,7 @@ Processes should grow into the runtime command center of a Device.
 Its central question is:
 ```text
 WHAT IS HAPPENING ON THIS DEVICE RIGHT NOW?
-
+```
 It may eventually present several kinds of real Device activity, including:
 
 * compute work
