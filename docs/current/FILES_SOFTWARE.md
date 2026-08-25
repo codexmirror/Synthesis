@@ -404,8 +404,16 @@ RUN admits a real, currently present local executable copy into a continuous
 Device-owned `GameProcess`. Local Files exposes RUN only for a currently
 present executable whose `programId` and `releaseId` identify the supported
 NODE Miner 1.0 release; other executables (including future releases of
-NODE Miner) show no RUN action, and installed-software metadata alone can
-never conjure a missing executable back into RUN eligibility. Files resolves
+NODE Miner) show no RUN action. Executable possession and InstalledSoftware
+are distinct: direct Files RUN is artifact-authoritative and does **not**
+require matching InstalledSoftware, so a supported concrete executable that
+was copied or downloaded can be run directly. InstalledSoftware may still gate
+registered software integration or commands. In particular, the current
+`node-miner` CLI is a stricter registered interface: as described in
+`docs/current/NODE_ECONOMY.md`, its availability requires both matching
+InstalledSoftware and a present supported executable. Installed-software
+metadata alone can never conjure a missing executable back into RUN
+eligibility. Files resolves
 the selected executable through the same canonical filesystem Files and
 Terminal already share, and requires an explicit non-empty NODE payout address
 (Files prefills the represented local NODE Wallet address as a convenience, but

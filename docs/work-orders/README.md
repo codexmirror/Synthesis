@@ -51,6 +51,11 @@ When the human operator explicitly selects a work order, that work order defines
 the requested delta from the current baseline. It is expected to change current
 code and, where appropriate, current documentation.
 
+Its Documentation Impact section records expected, provisional impact before
+implementation. Completion requires a final reconciliation against the actual
+completed diff, including both changed normative owners and any summary,
+index, routing description, or cross-reference that became misleading.
+
 `docs/FUTURE.md` provides direction and context only. Its contents are not in
 scope unless the selected work order explicitly implements them.
 

@@ -216,9 +216,20 @@ hardcoded.
 
 ## Documentation impact
 
-**No draft is complete until documentation impact is explicitly resolved.**
+Documentation impact planned before implementation is **expected and
+provisional**. **No draft is complete until final documentation impact is
+reconciled from the actual completed diff.**
 
-For every task, state the impact on each of:
+Before Draft delivery, inspect the final changed-file set and semantic delta,
+classify every affected truth domain (not only the task's primary domain), and
+distinguish:
+
+- **Owner impact:** normative truth changed, so its owner must change.
+- **Reference impact:** a non-normative summary, index, routing description, or
+  cross-reference became stale or misleading. Correct it or remove the
+  unnecessary duplicate without making it a competing owner.
+
+For every task, state the final impact on each of:
 
 - Current truth → `docs/current/<domain>.md` (and `docs/V0.md` only when the
   product-level snapshot itself became wrong)

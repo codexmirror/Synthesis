@@ -73,14 +73,19 @@ interactive check this task requires.
 
 ## DOCUMENTATION IMPACT
 
-Resolve every line — either a concrete owner to update in this branch, or
-`None` with a concrete reason:
+Record **expected, provisional** impact before implementation. Resolve every
+line as an anticipated owner/reference or `None` with a concrete reason:
 
 - Current truth:
 - Architecture:
 - Design:
 - Workflow:
 - Future:
+
+Before delivery, reconcile **final** impact from the actual completed diff:
+classify all affected truth domains, update changed normative owners and stale
+or misleading references in this branch, and report each line above (including
+`None` reasons). Do not turn a summary or index into a competing owner.
 
 ## PARALLEL WORK CONSTRAINTS
 

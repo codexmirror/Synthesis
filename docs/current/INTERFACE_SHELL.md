@@ -16,8 +16,7 @@ document wins. Durable rules behind this behavior belong to
 Synthesis currently runs as a responsive browser-based NODE-OS prototype.
 
 The application uses a freshly created, versioned, sliced in-memory `GameState`
-for each client session. The current schema version is 34 (`GAME_STATE_VERSION`
-in `src/core/game/initialState.ts`).
+for each client session.
 
 No save or migration system is implemented.
 
