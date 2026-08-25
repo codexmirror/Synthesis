@@ -28,20 +28,26 @@ Repository or knowledge audits are an explicit exception and may require broad
 inspection.
 
 
-## Precedence
+## Authority model
 
 ```text
-CURRENT ACCEPTED main (code + tests)
-        ↓
-AGENTS.md  +  docs/ARCHITECTURE.md (and the module owning the invariant)
-        ↓
-docs/current/<domain>.md   (normative current truth for that domain)
-        ↓
-docs/design/<contract>.md  (accepted design authority where the task depends on it)
-        ↓
-docs/V0.md                 (non-exhaustive snapshot / index — never wins on detail)
-        ↓
-docs/FUTURE.md             (direction only — never implementation authority)
+CURRENT IMPLEMENTED BASELINE
+= current accepted code/tests + normative docs/current domain owner
+
+DURABLE CONSTRAINTS
+= AGENTS.md + docs/ARCHITECTURE.md + owning architecture module
+
+REQUESTED DELTA
+= explicitly selected Work Order
+
+ACTIVE DESIGN AUTHORITY
+= relevant Accepted design contract when the task depends on it
+
+SUMMARY / INDEX
+= docs/V0.md
+
+FUTURE DIRECTION
+= docs/FUTURE.md
 ```
 
 A selected work order defines the requested delta. It does not override
@@ -49,6 +55,11 @@ A selected work order defines the requested delta. It does not override
 
 If accepted sources materially conflict, surface the conflict rather than
 silently choosing one.
+
+These are distinct authority axes, not a linear hierarchy. Current code that
+appears to violate a durable Architecture invariant is a conflict or bug to
+inspect; it does not silently supersede Architecture merely because it is the
+current implementation.
 
 
 ## Documents that own truth

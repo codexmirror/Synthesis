@@ -6,13 +6,6 @@ and access. Design authority for the epistemic and interaction model; not a
 description of what is currently implemented.
 Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md`.
 
-Unresolved conflict with current `main`: section 8.2 below states that NodeScan
-1.0 must not be made incapable of Inspect merely to create an upgrade gate.
-Current accepted `main` gates player-facing Inspect on the NodeScan 1.1
-Experimental release (`nodeScanSupportsInspect`). The conflict is recorded here
-and in `docs/current/NETWORK_ACCESS.md`; it requires a human product decision
-and must not be resolved silently by an implementation agent.
-
 ## Status and purpose
 This document defines the selected product and design direction for the next
 evolution of hacking, reconnaissance, observation, and access in Synthesis.
@@ -207,27 +200,25 @@ The selected rule is:
 Software releases may change observation depth, quality, efficiency, or
 evidence available to an operation; they do not need to invent a new verb.
 
-For example:
+For the current concrete releases:
 
-NodeScan 1.0
-→ INSPECT exists
-→ shallow observation
+NodeScan 1.0 Standard
+→ Scan
+→ Service Analysis
+→ no player-facing Inspect
 
 and:
 
 NodeScan 1.1 Experimental
-→ same INSPECT operation
-→ richer observation
+→ Scan
+→ Service Analysis
+→ provides Inspect
 
-This is intentionally different from:
-
-NodeScan 1.0
-→ no Inspect
-NodeScan 1.1
-→ unlock Inspect
-
-The operation and the product providing useful capability remain distinct
-concepts.
+Remembered evidence collected by Inspect survives a later downgrade to 1.0. It
+remains browsable Player Information, but does not restore the Inspect action.
+The operation and the product providing current capability remain distinct
+concepts: Scan, Inspect, and Analyze retain separate epistemic roles, and release
+capability does not turn them into a mandatory universal pipeline.
 
 NodeScan is the current concrete reconnaissance product, not the permanent
 definition of Scan or Inspect.
@@ -688,17 +679,18 @@ Conceptually:
 
 SAME TARGET
 SAME WORLD TRUTH
-SAME INSPECT VERB
 
-with different software capability:
+with different software capability; when Inspect is provided, it remains the
+same distinct operation rather than a release-specific verb:
 
-NodeScan 1.0
-→ shallow current observable evidence
+NodeScan 1.0 Standard
+→ no current player-facing Inspect capability
+→ previously remembered Inspect evidence remains browsable
 
 versus:
 
 NodeScan 1.1 Experimental
-→ richer or more precise observable evidence
+→ provides Inspect and its current observable evidence
 
 The exact additional evidence should be selected according to represented
 current state and gameplay value.
@@ -877,12 +869,14 @@ remembered and how re-observation merges with existing player information.
 
 2. NodeScan 1.1 Experimental enhanced observation
 
-Use the existing Experimental NodeScan release as the first proof that software
-can improve the depth or quality of the same Inspect operation.
+Use the existing Experimental NodeScan release as the first proof that a
+software release can provide the distinct Inspect operation. NodeScan 1.0
+Standard provides Scan and Service Analysis but no player-facing Inspect;
+NodeScan 1.1 Experimental provides Inspect.
 
-Do not create another verb solely for the Experimental release.
-
-Do not make NodeScan 1.0 incapable of Inspect merely to create an upgrade gate.
+Do not create another verb solely for the Experimental release. Previously
+remembered Inspect evidence survives downgrade to 1.0 and remains browsable,
+but it does not restore the Inspect action.
 
 ⸻
 

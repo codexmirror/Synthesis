@@ -194,13 +194,6 @@ current Inspect capability, and refresh only on another successful Enhanced
 Inspect. They do not discover Services or reveal weaknesses, exploit
 applicability, tools, or attack outcomes.
 
-> Unresolved conflict: `docs/design/HACKING_AND_OBSERVATION_V1.md` §8.2 states
-> that NodeScan 1.0 must not be made incapable of Inspect merely to create an
-> upgrade gate. Current accepted `main` gates Inspect on NodeScan 1.1
-> Experimental. This document records current implemented truth; the design
-> contract records accepted design direction. The conflict is surfaced, not
-> resolved, and requires a human product decision.
-
 
 ## Discovery
 

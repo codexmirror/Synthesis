@@ -2,8 +2,8 @@
 
 Status: Historical
 Scope: One-time record of the V1 knowledge migration: where accepted truth
-moved, what was deliberately left intact, and which contradictions were
-surfaced rather than resolved.
+moved, what was deliberately left intact, which contradictions were discovered,
+and how the PR #104 hardening review resolved them.
 
 This document is a historical record. It is not current truth, not a Read Set
 entry for implementation work, and it does not override any owner it describes.
@@ -71,33 +71,48 @@ unique, and each defined in exactly one module.
    changed; no invariant text was altered.
 
 
-## Surfaced conflicts — not resolved
+## Conflicts discovered during the original inventory
 
-1. **NodeScan 1.0 and Inspect.**
-   `docs/design/HACKING_AND_OBSERVATION_V1.md` §8.2 states: "Do not make
-   NodeScan 1.0 incapable of Inspect merely to create an upgrade gate," and its
-   §2 gives "NodeScan 1.0 → INSPECT exists → shallow observation" as the
-   selected rule. Current accepted `main` makes player-facing Inspect available
-   only under NodeScan 1.1 Experimental (`nodeScanSupportsInspect`), and
-   `docs/current/NETWORK_ACCESS.md` records that as current truth. An accepted
-   design contract and accepted implemented behavior therefore disagree about a
-   product decision. Both statements are preserved and cross-referenced. A human
-   product decision is required; an implementation agent must not resolve it.
+The original migration surfaced three conflicts without silently resolving them:
 
-2. **`docs/design/FILES_AND_TRANSFER_V1.md` closing scope statement.** It says
-   "Upload presentation, transfer queues, bandwidth sharing between simultaneous
-   transfers, and rich progress/percentage/ETA presentation remain future work."
-   Current `main` implements Upload surfaces and transfer progress presentation;
-   transfer queues and bandwidth sharing between simultaneous transfers do
-   remain unimplemented. The stale half is flagged in the document's header
-   rather than rewritten, because editing an accepted design contract's scope is
-   a product decision.
+1. The accepted hacking design said NodeScan 1.0 retained Inspect, while current
+   implemented behavior made player-facing Inspect available only in NodeScan
+   1.1 Experimental.
+2. The Files and Transfer design called Upload and active transfer presentation
+   future work although current behavior already represented them.
+3. `docs/FUTURE.md` contained accidental German editing instructions, intended
+   English prose in the wrong location, and unbalanced Markdown fences around
+   the Device-model and multiple-approaches sections.
 
-3. **`docs/FUTURE.md` contains unapplied editorial material.** Around the
-   "Device models and Firmware families" and "Multiple approaches instead of one
-   hacking pipeline" sections, the document contains German editorial
-   instructions ("Ich würde …", "### Unter `## …`", "Nach dem bestehenden Teil …
-   ergänzen:") together with unbalanced code fences, i.e. a review comment and a
-   patch instruction that were pasted in but never applied. Applying or deleting
-   them would be a product decision about confirmed future direction, so the
-   content was left exactly as accepted and is surfaced here instead.
+
+## Conflicts resolved during PR #104 hardening
+
+An explicit human decision during review reconciled the stale NodeScan design
+text to accepted release behavior: NodeScan 1.0 Standard provides Scan and
+Service Analysis without player-facing Inspect; NodeScan 1.1 Experimental
+provides Inspect. Previously remembered Inspect evidence survives downgrade,
+remains browsable, and does not restore the unavailable action.
+
+The same review confirmed that Upload presentation is implemented. The Files
+and Transfer contract now records the remote-first RACK-OS Upload workflow,
+local Files Upload entry, RACK-OS command, direction-aware Activity Monitor
+presentation and network usage, and cancellation as represented behavior. Only
+genuinely unimplemented transfer capabilities remain future scope.
+
+The `FUTURE.md` copy/paste failure was repaired editorially: the Device-model
+examples and diagrams now use balanced fences, German placement and
+monetization instructions were removed rather than converted into policy, and
+the intended attack-surface mental model and explanatory English prose were
+integrated under "Multiple approaches instead of one hacking pipeline."
+
+The hardening review also corrected the current Processes/Activity and Device
+owners for bidirectional transfer presentation, `recentActivity`, and
+Device-owned foreign filesystems; aligned the Handbook lifecycle; clarified the
+multi-axis authority model; and wired `npm run docs:check` into the existing
+pull-request/main build workflow before tests and build.
+
+
+## Actual unresolved conflicts after hardening
+
+None of the three inventory conflicts above remains unresolved. No additional
+conflict was identified by this hardening pass.

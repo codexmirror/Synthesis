@@ -31,20 +31,26 @@ Repository or knowledge audits are an explicit exception and may require broad
 inspection; say so when you take it.
 
 
-## Source-of-truth precedence
+## Source-of-truth authority
 
 ```text
-CURRENT ACCEPTED main (code + tests)
-        ↓
-AGENTS.md  +  docs/ARCHITECTURE.md and the module owning the invariant
-        ↓
-docs/current/<domain>.md      normative current truth for that domain
-        ↓
-docs/design/<contract>.md     accepted design authority where the task depends on it
-        ↓
-docs/V0.md                    non-exhaustive snapshot / index — never wins on detail
-        ↓
-docs/FUTURE.md                direction only — never implementation authority
+CURRENT IMPLEMENTED BASELINE
+= current accepted code/tests + normative docs/current domain owner
+
+DURABLE CONSTRAINTS
+= AGENTS.md + docs/ARCHITECTURE.md + owning architecture module
+
+REQUESTED DELTA
+= explicitly selected Work Order
+
+ACTIVE DESIGN AUTHORITY
+= relevant Accepted design contract when the task depends on it
+
+SUMMARY / INDEX
+= docs/V0.md
+
+FUTURE DIRECTION
+= docs/FUTURE.md
 ```
 
 Every accepted fact has one normative owner. Summaries, indexes and routing
@@ -53,6 +59,10 @@ descriptions are allowed; competing normative definitions are not.
 A selected work order under `docs/work-orders/...` defines the requested delta.
 It is not current truth and does not override this file or the architecture
 invariants. Archived work orders are historical only.
+
+These are distinct authority axes, not a linear hierarchy in which current code
+silently overrides a durable Architecture invariant. An apparent violation of
+such an invariant is a conflict or bug requiring inspection.
 
 Do not implement something merely because `docs/FUTURE.md` describes it.
 
