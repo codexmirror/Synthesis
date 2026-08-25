@@ -229,7 +229,8 @@ distinguish:
   cross-reference became stale or misleading. Correct it or remove the
   unnecessary duplicate without making it a competing owner.
 
-For every task, state the final impact on each of:
+For every task, report final **Owner impact** and **Reference impact** as
+separate fields, then state the final impact on each truth class:
 
 - Current truth → `docs/current/<domain>.md` (and `docs/V0.md` only when the
   product-level snapshot itself became wrong)
@@ -238,7 +239,7 @@ For every task, state the final impact on each of:
 - Workflow → `docs/HANDBOOK.md` or `AGENTS.md`
 - Future → `docs/FUTURE.md`
 
-Each is either a concrete owner that must be updated in the same branch, or
+Each field is either the concrete document updated in the same branch, or
 `None` with a concrete reason.
 
 Update only the document that owns the changed truth. Do not create churn

@@ -84,7 +84,8 @@ line as an anticipated owner/reference or `None` with a concrete reason:
 
 Before delivery, reconcile **final** impact from the actual completed diff:
 classify all affected truth domains, update changed normative owners and stale
-or misleading references in this branch, and report each line above (including
+or misleading references in this branch, and report **Owner impact** and
+**Reference impact** as separate fields followed by each line above (including
 `None` reasons). Do not turn a summary or index into a competing owner.
 
 ## PARALLEL WORK CONSTRAINTS
@@ -101,7 +102,10 @@ work order the normal delegation is:
 - create or use the task branch the environment requires
 - commit the task implementation
 - push the branch
-- create or update a **Draft** pull request
+- create or update a **Draft** pull request whose body includes a compact
+  `DOCUMENTATION IMPACT — FINAL RECONCILIATION` section derived from the actual
+  final diff, with separate Owner impact and Reference impact fields and each
+  Architecture / Design / Workflow / Future impact or `None` with a reason
 
 Never delegated by default:
 

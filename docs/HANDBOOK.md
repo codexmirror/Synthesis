@@ -508,10 +508,17 @@ This does not mean every change requires editing every document. Update only
 the document that owns changed truth, plus references actually made misleading
 by the delta.
 
-Resolve each line explicitly — a concrete owner, or `None` with a concrete
-reason:
+Report Owner impact and Reference impact as separate final-reconciliation
+fields. Then resolve each truth class explicitly — a concrete document, or
+`None` with a concrete reason:
 
 ```text
+owner impact
+→ changed normative owner(s), or None with reason
+
+reference impact
+→ corrected/removed non-normative reference(s), or None with reason
+
 current implementation changed
 → docs/current/<domain>.md
   (and docs/V0.md only when the product-level snapshot itself became wrong)
