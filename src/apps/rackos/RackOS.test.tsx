@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
+import { installRemoteSoftwarePackage } from '../../core/game/softwareInstallation'
 import { createInitialGameState } from '../../core/game/initialState'
 import { Shell } from '../../shell/Shell'
 import type { GameState, NetworkHost } from '../../core/game/types'
@@ -587,6 +588,28 @@ describe('RACK-OS remote software installation', () => {
     expect(rackOs).toHaveTextContent('CURRENTNodeScan 1.0 Standard')
     expect(rackOs).toHaveTextContent('INSTALLABLE')
     expect(screen.getByRole('button', { name: 'INSTALL' })).toBeEnabled()
+  })
+
+  it('does not claim INSTALLABLE on a target that represents no software inventory', async () => {
+    const user = userEvent.setup()
+    // Otherwise fully operable: `installedSoftware: undefined` means this Device
+    // represents no installable software state, which is not the same truth as an
+    // inventory that happens to be empty.
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: undefined }))}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await openRemotePackage(user)
+
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(rackOs).toHaveTextContent('STATUSNOT INSTALLABLE')
+    expect(rackOs).toHaveTextContent('TARGET CANNOT INSTALL SOFTWARE')
+    // No installed release exists to state, so no CURRENT row is invented.
+    expect(rackOs).not.toHaveTextContent('CURRENT')
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+    // The canonical operation agrees, so the surface never disagreed with admission.
+    expect(installRemoteSoftwarePackage(snapshot(), REMOTE_PACKAGE)).toMatchObject({ status: 'target_not_installable' })
+    // The artifact's own facts and its transfer relationship remain truthful.
+    expect(rackOs).toHaveTextContent('18.4 MB')
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeEnabled()
   })
 
   it('offers no installation from an unrecognized package path', async () => {

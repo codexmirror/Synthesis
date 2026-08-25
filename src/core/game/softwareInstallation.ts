@@ -193,10 +193,26 @@ export function installRemoteSoftwarePackage(state: GameState, packagePath: stri
  * Narrow a represented host into an installation target. A host that owns no
  * software inventory, filesystem or compute resources cannot install software
  * and is not given a fabricated one to make the shapes match.
+ *
+ * `installedSoftware: []` and an absent `installedSoftware` are different
+ * truths: the first is a Device that represents an inventory which happens to
+ * be empty, the second a Device that represents no installable software state
+ * at all. Only the first can install software.
  */
 function resolveRemoteInstallationTarget(host: NetworkHost): SoftwareInstallationTarget | undefined {
   if (!host.filesystem || !host.installedSoftware || !host.hardware || !host.runtime) return undefined
   return { id: host.id, filesystem: host.filesystem, installedSoftware: host.installedSoftware, hardware: host.hardware, runtime: host.runtime }
+}
+
+/**
+ * Whether a represented host currently represents the state remote
+ * installation needs at all — the same rule `installRemoteSoftwarePackage`
+ * admits on, exposed so a surface can present that condition truthfully
+ * instead of restating the rule or fabricating an empty inventory to stand in
+ * for an absent one.
+ */
+export function representsInstallableSoftwareState(host: NetworkHost): boolean {
+  return resolveRemoteInstallationTarget(host) !== undefined
 }
 
 /**

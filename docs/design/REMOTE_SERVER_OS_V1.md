@@ -597,18 +597,22 @@ selected package stays INSTALLABLE as a replacement.
 
 While the work runs, RACK-OS presents INSTALLING and nothing more.
 
-Do not present:
+Remote Software Installation V1 does not present:
 
 - percentage progress
 - CPU
 - RAM
 - work units
 - estimated time
-- a cancellation control
+- remote cancellation / Process observation
 
-The existence of the work is legitimately observable through an authorized
-Session. The target Device's compute truth is not, and this slice deliberately
-does not open a remote Process-observation surface (see **No fake server
+This is a scope and presentation boundary for this slice, not a permanent
+epistemic rule. Nothing here settles whether a future, explicitly represented
+authorized RACK-OS runtime observation may expose remote runtime state — that
+would be its own concrete mechanic, with its own decision about what an
+authorized Session legitimately reveals. What this slice settles is only that
+the mechanic it introduces does not open that surface, and that presentation
+never invents values the simulation does not represent (see **No fake server
 telemetry** and **Explicit non-goals**).
 
 Installation is not execution. A successful installation may leave both

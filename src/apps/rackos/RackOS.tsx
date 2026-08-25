@@ -4,7 +4,7 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
 import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
-import { isRecognizedSoftwarePackagePath } from '../../core/game/softwareInstallation'
+import { isRecognizedSoftwarePackagePath, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
 import type { AuthenticationHistoryRecord, FilesystemFile, FilesystemState, InstalledSoftware, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
@@ -74,8 +74,11 @@ function RemoteFiles({ context, startRemoteFileDownload, startRemoteFileUpload, 
   const localResult = destinationPath ? getFilesystemFile(localFilesystem, destinationPath) : undefined
   /* Installation state on the operated Device is derived from that Device's own
      canonical truth: its installed-software inventory plus the installation
-     Processes its own executor identity is currently running. */
-  const targetInstalledSoftware = context.target.installedSoftware ?? []
+     Processes its own executor identity is currently running. An absent
+     inventory is never replaced with an empty one — whether this Device
+     represents installable software state at all is the canonical operation's
+     rule, so RACK-OS asks that same rule rather than restating it. */
+  const targetInstallable = representsInstallableSoftwareState(context.target)
   const targetInstallingProductIds = new Set(state.process.processes
     .filter((process): process is SoftwareInstallationProcess => process.kind === 'software_installation')
     .filter((process) => process.status === 'running' && process.executorDeviceId === targetDeviceId)
@@ -115,7 +118,7 @@ function RemoteFiles({ context, startRemoteFileDownload, startRemoteFileUpload, 
       {result.file.kind === 'text'
         ? <pre className="rack-file-content">{result.file.content}</pre>
         : result.file.kind === 'software_package'
-          ? <RemotePackage key={selected} file={result.file} targetDisplayName={targetDisplayName!} installedSoftware={targetInstalledSoftware} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
+          ? <RemotePackage key={selected} file={result.file} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
           : <div className="rack-artifact"><p className="rack-artifact-kind">EXECUTABLE</p><h2>{result.file.name}</h2><p className="rack-artifact-release">{result.file.version}</p><dl className="rack-facts"><div><dt>RELEASE</dt><dd>{result.file.releaseId}</dd></div></dl></div>}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
           player is operating it stays secondary to that Device's own software state. */}
@@ -154,7 +157,7 @@ function RemoteFiles({ context, startRemoteFileDownload, startRemoteFileUpload, 
   </section>
 }
 
-type RemotePackageState = 'INSTALLABLE' | 'INSTALLING' | 'INSTALLED' | 'UNRECOGNIZED'
+type RemotePackageState = 'INSTALLABLE' | 'INSTALLING' | 'INSTALLED' | 'UNRECOGNIZED' | 'NOT INSTALLABLE'
 
 /**
  * The software-package surface of the Device the player is currently
@@ -170,18 +173,21 @@ type RemotePackageState = 'INSTALLABLE' | 'INSTALLING' | 'INSTALLED' | 'UNRECOGN
  * admission rule is duplicated here, and no installed/installing lifecycle
  * flag is kept: every state below is derived from canonical truth.
  */
-function RemotePackage({ file, targetDisplayName, installedSoftware, installingProductIds, install }: {
+function RemotePackage({ file, targetDisplayName, installedSoftware, installable, installingProductIds, install }: {
   file: SoftwarePackageFile
   targetDisplayName: string
-  installedSoftware: readonly InstalledSoftware[]
+  installedSoftware: readonly InstalledSoftware[] | undefined
+  installable: boolean
   installingProductIds: ReadonlySet<string>
   install: ReturnType<typeof useGameActions>['installRemoteSoftwarePackage']
 }) {
   const [confirming, setConfirming] = useState(false)
   const [feedback, setFeedback] = useState<string>()
-  const current = installedSoftware.find(({ id }) => id === file.productId)
-  const currentLabel = current ? describeInstalledRelease(current) : 'NOT INSTALLED'
-  const packageState = deriveRemotePackageState(file, installedSoftware, installingProductIds)
+  const current = installedSoftware?.find(({ id }) => id === file.productId)
+  /* Absent, not empty: a Device representing no inventory has no installed
+     release to state, so the row is omitted rather than claiming NOT INSTALLED. */
+  const currentLabel = installedSoftware === undefined ? undefined : current ? describeInstalledRelease(current) : 'NOT INSTALLED'
+  const packageState = deriveRemotePackageState(file, installedSoftware, installable, installingProductIds)
 
   function confirm() {
     const result = install(file.path)
@@ -213,12 +219,14 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installingP
       : <>
           <dl className="rack-facts rack-facts--dense">
             <div><dt>STATUS</dt><dd>{packageState}</dd></div>
-            <div><dt>CURRENT</dt><dd>{currentLabel}</dd></div>
+            {currentLabel && <div><dt>CURRENT</dt><dd>{currentLabel}</dd></div>}
           </dl>
           {packageState === 'INSTALLABLE' && <button className="rack-primary" type="button" onClick={() => { setFeedback(undefined); setConfirming(true) }}>INSTALL</button>}
           {packageState === 'INSTALLING' && <button className="rack-primary" type="button" disabled>INSTALLING…</button>}
           {packageState === 'INSTALLED' && <button className="rack-primary" type="button" disabled>INSTALLED ✓</button>}
-          {packageState === 'UNRECOGNIZED' && <p className="rack-install-note">NOT INSTALLABLE ON THIS DEVICE</p>}
+          {packageState === 'UNRECOGNIZED' && <p className="rack-install-note">UNRECOGNIZED PACKAGE EXTENSION</p>}
+          {/* Same words the canonical admission failure uses, so the surface and the operation agree. */}
+          {packageState === 'NOT INSTALLABLE' && <p className="rack-install-note">TARGET CANNOT INSTALL SOFTWARE</p>}
         </>}
     {feedback && <p className="rack-install-note rack-install-note--caution">{feedback}</p>}
     {/* The confirmation is one focused decision: it keeps the package's identity
@@ -234,8 +242,14 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installingP
 
 /**
  * Package state on the operated Device, derived from canonical truth alone:
- * normal package recognition of the artifact's current path, that Device's own
+ * whether that Device represents installable software state at all, normal
+ * package recognition of the artifact's current path, that Device's own
  * installed software, and that Device's own running installation Processes.
+ *
+ * The checks run in the order the canonical operation resolves them, so the
+ * surface can never claim INSTALLABLE for something admission would reject: a
+ * Device that represents no software inventory states that plainly rather than
+ * being handed an empty one to stand in for it.
  *
  * Another release of the same product being installed here does not make this
  * package uninstallable — it stays INSTALLABLE as a replacement while CURRENT
@@ -243,7 +257,8 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installingP
  * rewrites the artifact: an unrecognized path only means normal installation
  * is unavailable from it, exactly as the canonical operation decides.
  */
-function deriveRemotePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[], installingProductIds: ReadonlySet<string>): RemotePackageState {
+function deriveRemotePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[] | undefined, installable: boolean, installingProductIds: ReadonlySet<string>): RemotePackageState {
+  if (!installable || !installedSoftware) return 'NOT INSTALLABLE'
   if (!isRecognizedSoftwarePackagePath(file.path)) return 'UNRECOGNIZED'
   if (installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId) return 'INSTALLED'
   return installingProductIds.has(file.productId) ? 'INSTALLING' : 'INSTALLABLE'

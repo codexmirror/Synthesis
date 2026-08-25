@@ -611,6 +611,17 @@ describe('completed installation history stays the local Device\'s own observati
     expect(done.process.processes.map(({ id }) => id)).toEqual([started.processId])
   })
 
+  it('leaves other non-local Process kinds' + '\u2019' + ' lifecycle untouched: this slice owns only remote software installation', () => {
+    // A hypothetical non-local Process of another kind keeps whatever lifecycle it
+    // already had. Deciding what those kinds do when they end is their own
+    // mechanic's job, not this one's.
+    const base = createInitialGameState()
+    const remoteGeneric = { kind: 'generic' as const, id: 'process-0001', label: 'SERVER WORK', executorDeviceId: 'host-lan-001', status: 'running' as const, workRequired: 100, workCompleted: 0, ramRequiredMiB: 64 }
+    const done = advanceGameState({ ...base, process: { nextId: 2, processes: [remoteGeneric] } }, 20_000)
+    expect(done.process.processes).toEqual([expect.objectContaining({ id: 'process-0001', kind: 'generic', status: 'completed' })])
+    expect(done.recentActivity.entries.map(({ id }) => id)).toEqual(['process-0001'])
+  })
+
   it('never turns a completed remote installation into invisible local Recent Activity or retained hidden Process history', () => {
     // One real local observation first, so eviction pressure would be visible.
     const local = installLocalSoftwarePackage(operating(), '/home/user/downloads/node-miner-1.0.pkg')

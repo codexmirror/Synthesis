@@ -339,9 +339,12 @@ exact path to the canonical operation, which remains the sole admission
 authority, and a canonical admission failure is reported in the pane as-is.
 `INSTALLING` is derived from the target executor's own running Process, and
 `INSTALLED` from the target Device's inventory — never from an interface-local
-lifecycle flag. RACK-OS deliberately presents no remote progress percentage,
-CPU, RAM, work units, estimate, or cancellation control: this slice makes the
-*existence* of the work observable, not the server's hidden compute truth.
+lifecycle flag. In this V1 the presented state is the existence of the work and
+nothing further: RACK-OS shows no remote progress percentage, CPU, RAM, work
+units, estimate, or cancellation control. That is the current scope of this
+slice's presentation, not a standing rule about what an authorized remote
+runtime observation could legitimately expose later; adding any of it would
+need its own concrete mechanic and its own decision.
 RACK-OS System remains the compact read-only machine sheet with no software
 management, and the RACK-OS Terminal gains no package commands.
 

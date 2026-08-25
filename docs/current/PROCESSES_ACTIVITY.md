@@ -92,8 +92,8 @@ instead.
 The Processes application is presented as the NODE-OS Activity Monitor. It
 observes only the local Device's canonical Process and resource state and,
 alongside it, the single canonical active `FileTransfer`. Work executing on
-another Device is deliberately absent from it: it is that Device's runtime, not
-node-01's, and this slice adds no cross-Device process-observation surface. The two runtime
+another Device is absent from it: it is that Device's runtime, not node-01's,
+and no cross-Device process-observation surface is currently represented. The two runtime
 domains remain separate canonical state; a pure presentation adapter aggregates
 them for display only and never represents a transfer as a `GameProcess`. That
 adapter resolves a FileTransfer's direction-aware source, destination,
@@ -152,13 +152,22 @@ NODE-OS REMOVE and CLEAR controls affect only Recent Activity observed for the
 local Device and cannot remove retained Process history owned by another
 executor Device.
 
-Only local completed work is archived. A Process owned by another executor has
-already applied its own concrete consequence at the same advancement boundary,
-and no interface presents or clears it, so retaining it would be canonical
-history nothing could reach — and it would silently consume one of the bounded
-local Recent Activity slots. It therefore leaves the scheduler at that same
-boundary instead of being archived. Running non-local work stays canonical for
-exactly as long as it is actually running.
+Remote Software Installation, the one operation that currently finishes on an
+executor other than the local Device, owns its own end-of-life rule. A
+completed `software_installation` Process whose executor is not the local
+Device has already applied its concrete consequence to that Device at the same
+advancement boundary, and no interface presents or clears it, so retaining it
+would be canonical history nothing could reach — and it would silently consume
+one of the bounded local Recent Activity slots. It is therefore neither
+archived nor retained: it leaves the scheduler at that same boundary. A running
+remote installation stays canonical for exactly as long as it is actually
+running.
+
+This rule is deliberately scoped to that one Process kind rather than being a
+general policy for non-local work. Every other Process kind keeps exactly the
+lifecycle it already had; what a future remote Service Analysis, Credential
+Access, or other non-local operation should do when it ends is that mechanic's
+decision to make, not this one's.
 
 
 ## Gotchas
@@ -174,8 +183,10 @@ exactly as long as it is actually running.
 - Continuous Processes never complete from elapsed work. Do not give NODE Miner
   a percentage completion bar or a generic stopped state.
 - Recent Activity is the local Device's own runtime observation. A completed
-  Process owned by another executor is neither archived into it nor retained in
-  `ProcessState`, because nothing could present or clear it.
+  remote `software_installation` Process is neither archived into it nor
+  retained in `ProcessState`, because nothing could present or clear it. That
+  is Remote Software Installation V1's own rule; do not generalize it to other
+  Process kinds without a concrete mechanic that decides so.
 - Retained completed-Process history is disposable operator presentation, not
   an audit log. Clearing it must never undo consequences stored in other
   canonical state, and it cannot touch another executor's history.
