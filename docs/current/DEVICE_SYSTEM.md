@@ -35,14 +35,19 @@ GameState
 │   └── network
 │       └── two independent foreign servers
 │           ├── display identity and Firmware
-│           └── read-only filesystem
+│           └── canonical Device-owned filesystem
 ├── process
 ├── knowledge
 ├── discovery
 ├── deviceAccess
 ├── remoteSession
-└── fileTransfer
+├── fileTransfer
+└── recentActivity
 ```
+
+The concretely represented foreign filesystems are normal Device-owned state.
+A successful Upload may create its normal destination artifact in the remote
+Device filesystem; this does not imply a generic filesystem-write mechanic.
 
 The player's local Device has stable identity separate from its mutable display
 name and network address. It owns concrete NODE-OS Firmware identity (including

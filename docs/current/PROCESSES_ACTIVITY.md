@@ -69,9 +69,9 @@ What that Miner produces and where it routes production is owned by
 Running finite local Process cards offer CANCEL through canonical
 `cancelLocalProcess`; cancellation immediately removes unfinished work from the
 scheduler, releases its CPU/RAM allocation, and prevents its completion
-consequence. The running Download card keeps its distinct CANCEL control
-through canonical `cancelFileTransfer`, the running NODE Miner card offers STOP
-through canonical `stopNodeMiner`, and Recent Activity cards offer REMOVE
+consequence. The running FileTransfer card keeps its distinct CANCEL control
+for either direction through canonical `cancelFileTransfer`, the running NODE
+Miner card offers STOP through canonical `stopNodeMiner`, and Recent Activity cards offer REMOVE
 instead.
 
 
@@ -82,21 +82,22 @@ observes only the local Device's canonical Process and resource state and,
 alongside it, the single canonical active `FileTransfer`. The two runtime
 domains remain separate canonical state; a pure presentation adapter aggregates
 them for display only and never represents a transfer as a `GameProcess`. That
-adapter resolves a Download's source, artifact, and current rate through the
-same `accessId`-based FileTransfer authority that runtime advancement uses
-rather than through any RemoteSession, so the active Download keeps
+adapter resolves a FileTransfer's direction-aware source, destination,
+artifact, and current rate through the same `accessId`-based FileTransfer
+authority that runtime advancement uses
+rather than through any RemoteSession, so the active transfer keeps
 presenting correctly with no RemoteSession present, including immediately
 after disconnect. Activity is filtered as ALL, OPERATIONS (Service Analysis,
 Credential Access, Software Installation, Software Removal, and NODE Miner),
-and TRANSFERS (the current active Download). No other activity type is
-represented. Filter badges count running activity only, while Recent Activity
-cards for ended Processes and FileTransfers remain visible in the matching
-filtered history.
+and TRANSFERS (the current active FileTransfer, regardless of direction). No
+other activity type is represented. Filter badges count running activity only,
+while Recent Activity cards for ended Processes and FileTransfers remain visible
+in the matching filtered history.
 
 Its system summary derives CPU load, RAM use, the running-activity count, and
-current network transfer usage from current state alone. Current local
-download usage is the active transfer's derived effective rate, and current
-upload usage is zero while no upload transfer exists; both are presented
+current network transfer usage from current state alone. NET DOWN is the active
+transfer's derived effective rate only for Download, while NET UP is that rate
+only for Upload; the opposite direction is zero. Both are presented
 against the local Device's represented `NetworkTransferCapacity`. None of this
 usage is stored as canonical state. Represented artifact byte sizes keep their
 existing decimal units, while transfer rates keep the binary units of that
@@ -109,16 +110,16 @@ package, percentage progress, CPU allocation, RAM requirement, and concrete
 completed result; the continuous NODE Miner operation shows CPU, RAM,
 configured payout address, cumulative gross produced, pending batch progress,
 and a derived units/s rate, deliberately without a percentage progress bar; a
-Download shows its artifact, source-to-destination relationship, transferred
-and total bytes, progress, and current effective rate, and never claims Process
+FileTransfer is labelled DOWNLOAD or UPLOAD and shows its artifact,
+direction-aware source-to-destination relationship, transferred and total
+bytes, progress, and current effective rate, and never claims Process
 CPU or RAM. It presents no payout split or developer address, because that is
 not runtime the Activity Monitor observes.
 
 Recent Activity preserves bounded snapshots of the 20 most recently ended local
 activities, including completed or cancelled finite Processes, stopped NODE
-Miners, and completed or cancelled FileTransfers. A cancelled finite Process
-preserves its partial progress and is explicitly labelled CANCELLED without
-presenting active CPU or RAM ownership. Completed outcomes remain distinct from
+Miners, and completed or cancelled Upload or Download FileTransfers. A cancelled finite Process preserves its partial progress and is explicitly
+labelled CANCELLED without presenting active CPU or RAM ownership. Completed outcomes remain distinct from
 cancellation, while other ended activity continues to rely on placement and
 concrete outcomes rather than a generic lifecycle state. History is presented
 more quietly than running work and stays clearable either individually or all

@@ -366,8 +366,9 @@ Prefer tests that prove source-of-truth behavior.
 For example, if a UI value must derive from canonical state, an altered-state
 test is stronger than a test that only asserts the default literal value.
 
-A pull request targeting `main` automatically runs `npm test` and
-`npm run build` via GitHub Actions before human merge. This automated check
+A pull request targeting `main` automatically runs `npm run docs:check`,
+`npm test`, and `npm run build` via GitHub Actions before human merge. This
+automated check
 does not deploy GitHub Pages and does not replace diff review, behavior
 review, or human acceptance.
 
@@ -588,20 +589,24 @@ After implementation:
 ```text
 IMPLEMENTATION
       ↓
-VALIDATION
+AUTOMATED + AGENT / BROWSER INTERACTIVE VALIDATION
       ↓
 DIFF REVIEW
       ↓
-BEHAVIOR / DEVICE REVIEW WHEN NEEDED
-      ↓
 DOCUMENTATION CHECK
       ↓
-HUMAN ACCEPTANCE
+DRAFT PR / CI / HUMAN ACCEPTANCE
       ↓
-GIT LIFECYCLE
+HUMAN MERGE
       ↓
-NEW MAIN
+MAIN DEPLOY
+      ↓
+PHYSICAL PRODUCTION IPHONE / SAFARI VALIDATION WHEN RELEVANT
 ```
+
+Agent or browser interactive validation may happen before the Draft PR and
+merge. It is not physical production-device validation, which follows merge and
+deployment from `main` in the current workflow.
 
 After a merge, dependent future work must treat the new `main` as the baseline.
 

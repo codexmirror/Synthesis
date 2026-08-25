@@ -102,6 +102,31 @@ Different situations may eventually be approached through combinations of:
 - social or intelligence information
 - future concrete mechanics
 
+A useful long-term mental model is:
+
+```text
+REACHABILITY
+      +
+ATTACK SURFACE
+      +
+CURRENT WEAKNESS
+      +
+PLAYER INFORMATION
+      +
+AVAILABLE CAPABILITY
+      ↓
+ATTEMPT
+      ↓
+SYSTEMIC EFFECTS
+```
+
+An attack surface might eventually arise from concrete services, Firmware,
+installed software, configuration, files, trust relationships, credentials,
+network position, or other represented state. The weakness and the technique
+used against it should not be permanently identical. Different techniques may
+interact with the same weakness, and one technique may have different
+consequences depending on the target and current World Truth.
+
 A successful first access should create a foothold, not complete the target.
 
 A foothold becomes interesting when it changes:
@@ -270,31 +295,28 @@ For example, working product concepts might eventually include:
 ```text
 NODE Standard
 NODE Premium
-as different Device models while both remain capable of running releases from the NODE-OS Firmware family.
-Firmware itself may grow into families and releases:
-NODE-OS
-├── NODE-OS 1.x
-├── experimental releases
-├── NODE-OS 2.x
-└── later releases
-Other Firmware families may target substantially different operating roles, such as specialized financial, cryptocurrency, infrastructure, investigative, or other environments.
-These are product directions, not locked models, names, schemas, tiers, or monetization rules.
-The important direction is that:
-WHO / WHAT DEVICE IS THIS?
-        ≠
-WHICH FIRMWARE IS INSTALLED?
-        ≠
-WHAT HARDWARE IS CURRENTLY PRESENT?
-A player’s capabilities should continue to emerge from represented Devices, hardware, Firmware, software, information, access, and position rather than a permanent character-class flag.
-Ich würde **Monetarisierung hier bewusst noch nicht reinschreiben**. Alternative Starts/Devices können später Monetarisierung berühren, aber das ist noch keine bestätigte Architekturregel.
+```
 
-—
+These could be different Device models while both remain capable of running
+releases from the NODE-OS Firmware family.
 
-### Unter `## Multiple approaches instead of one hacking pipeline`
 
-Nach dem bestehenden Teil über verschiedene Wege ergänzen:
+```text
+```
 
-```md
+Other Firmware families may target substantially different operating roles,
+such as specialized financial, cryptocurrency, infrastructure, investigative,
+or other environments.
+
+These are product directions, not locked models, names, schemas, tiers, or
+monetization rules.
+
+
+```text
+```
+A player’s capabilities should continue to emerge from represented Devices,
+hardware, Firmware, software, information, access, and position rather than a
+permanent character-class flag.
 A useful long-term mental model is:
 
 ```text
@@ -613,6 +635,7 @@ REAL DEVICE STATE CHANGE
         ↓
 FILES / PROCESSES / NETWORK / OTHER STATE
         ↓
+```
 OBSERVATION
         ↓
 PLAYER REALIZES SOMETHING IS WRONG
