@@ -519,6 +519,103 @@ Presentation state such as selected path or selected file may remain UI-local.
 Filesystem truth may not.
 
 
+## Software package installation
+
+RACK-OS Files may install a software package that already exists on the
+operated Device's own filesystem, onto that Device.
+
+This is the one place where RACK-OS admits work rather than only reading state,
+and it stays inside the same boundary as everything else here: the interface
+never owns the operation, never supplies the target, and never keeps lifecycle
+state of its own.
+
+Once a package is selected, the pane's subject is the Device being operated,
+not node-01:
+
+SOFTWARE PACKAGE
+NODE Miner
+1.0 Unofficial
+
+STATUS
+INSTALLABLE
+
+CURRENT
+NOT INSTALLED
+
+[ INSTALL ]
+
+SIZE
+3.4 MB
+
+PUBLISHER
+nm-dev
+
+RELEASE
+node-miner-1.0
+
+TRANSFER
+[ DOWNLOAD ]
+
+Identity, this Device's state and the one action come first, then the
+artifact's own descriptive facts, then its relationship to node-01. Download
+behavior is unchanged; it simply stops being the pane's headline.
+
+INSTALL opens a compact confirmation in the same pane. There is no second
+screen, no modal, and no wizard:
+
+INSTALL ON THIS DEVICE
+
+TARGET
+srv-01
+
+PACKAGE
+/opt/packages/node-miner-1.0.pkg
+
+CURRENT
+NOT INSTALLED
+
+[ CANCEL ]  [ INSTALL ]
+
+The confirmation drops the descriptive facts while it is open so both controls
+stay reachable on the narrowest represented viewport. Opening it changes no
+GameState. CANCEL changes no GameState. Confirming forwards the exact selected
+remote package path to the canonical installation operation, which stays the
+sole admission authority; a canonical admission failure is reported compactly
+and truthfully in the pane rather than as fabricated installation state.
+
+Every state is derived from canonical truth — the target Device's own installed
+software, its own running installation Processes, and the concrete selected
+Package:
+
+INSTALLABLE
+INSTALLING
+INSTALLED
+UNRECOGNIZED
+
+Another installed release of the same product is stated as CURRENT while the
+selected package stays INSTALLABLE as a replacement.
+
+While the work runs, RACK-OS presents INSTALLING and nothing more.
+
+Do not present:
+
+- percentage progress
+- CPU
+- RAM
+- work units
+- estimated time
+- a cancellation control
+
+The existence of the work is legitimately observable through an authorized
+Session. The target Device's compute truth is not, and this slice deliberately
+does not open a remote Process-observation surface (see **No fake server
+telemetry** and **Explicit non-goals**).
+
+Installation is not execution. A successful installation may leave both
+InstalledSoftware and a managed executable artifact on the target Device while
+RUN, remote program launch, and remote Processes started by the player remain
+unavailable.
+
 ## Initial foreign filesystem
 
 V1 filesystem content must remain intentionally neutral.
@@ -976,11 +1073,19 @@ READ REMOTE DEVICE STATE
         ↓
 READ REMOTE FILESYSTEM
         ↓
+INSTALL A PACKAGE ALREADY ON THAT DEVICE, ONTO THAT DEVICE
+        ↓
 DISCONNECT
+
+Installation is admitted through the active Session but owned by the target
+Device: DISCONNECT ends the operating context and the player's observation of
+it, never the work itself.
 
 It does not yet prove:
 
-- remote Process execution
+- remote software *execution*
+- remote Process observation, progress, or cancellation
+- remote software management (uninstall, restore, inventory)
 - remote reconnaissance position
 - Firewall
 - Reachability
@@ -1019,8 +1124,8 @@ Do not implement as part of this design:
 - multiple Sessions
 - Session tabs
 - Session manager
-- remote Process execution
-- remote CPU / RAM simulation
+- remote Process observation, progress or cancellation surfaces
+- remote CPU / RAM telemetry
 - remote software execution
 - Firewall
 - Reachability
@@ -1115,5 +1220,9 @@ RACK-OS
 ├── TERMINAL
 ├── FILES
 └── SYSTEM
+
+FILES is where the operated Device is acted on as a machine rather than only
+read: a package already present there can be installed there. SYSTEM stays a
+compact read-only machine sheet, and TERMINAL gains no package commands.
 
 That is enough for V1.

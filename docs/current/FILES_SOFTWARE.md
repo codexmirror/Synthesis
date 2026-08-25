@@ -3,8 +3,9 @@
 Status: Accepted
 Scope: The Device-owned filesystem, the Files application, the FileTransfer
 runtime (Download and Upload), software packages and recognition, Software
-Installation, Software Removal, executables and RUN admission, and the local
-software information/management lifecycle, as currently implemented on `main`.
+Installation on the local Device and on a represented remote Device, Software
+Removal, executables and RUN admission, and the local software
+information/management lifecycle, as currently implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
@@ -225,25 +226,34 @@ whether installation may start, and a canonical admission failure is reported
 in the review as-is rather than as fabricated installation state. Terminal
 `install` remains a direct single-step admission.
 
-Installation admits one real finite `software_installation` GameProcess on
-the shared local Device Process scheduler rather than applying its
-consequences immediately: `installLocalSoftwarePackage` validates the
-represented package once, at admission, snapshots only the release facts
+Installation admits one real finite `software_installation` GameProcess on the
+target Device's own Process scheduler rather than applying its consequences
+immediately. One shared admission path serves both the local Device and a
+represented remote Device: it validates the represented package once, at
+admission, against that target Device alone, snapshots only the release facts
 completion needs (`productId`, `releaseId`, `name`, `version`, `channel`, and
 `publisher` when stated), and requires a small explicit V1 work and RAM
 requirement — the same shared CPU/RAM contention Service Analysis, Credential
 Access, and NODE Miner already use, with no package-size formula. Rejecting a
-second concurrent installation of the same product and the same `releaseId`
-already installed are both resolved at this same admission instant.
-Device-owned installed software and the package artifact are both untouched
-until the Process completes.
+second concurrent installation of the same product *on that same executor* and
+the same `releaseId` already installed *on that same Device* are both resolved
+at this same admission instant. Device-owned installed software and the package
+artifact are both untouched until the Process completes.
+`installLocalSoftwarePackage` resolves everything from
+`player.localDevice`; remote installation is owned by
+`installRemoteSoftwarePackage` (see below).
 
 Only when that Process completes does `resolveCompletedSoftwareInstallations`
 — resolved at the same canonical `advanceGameState` boundary that resolves
 Service Analysis and Credential Access, and guarded the same way so repeated
 advancement after completion never re-applies it — project the snapshotted
-release metadata onto Device-owned installed software under the exact
-snapshotted `productId`. A different release of a matching product replaces
+release metadata onto installed software owned by the Device named by
+`executorDeviceId`, under the exact snapshotted `productId`. Stable Device
+identity is the only authority at completion: the package path, the address
+that was connected, the Session, and the current interface are all irrelevant
+by then. A Process whose executor Device no longer represents an installable
+filesystem and inventory resolves as a truthful `target_unavailable` failure
+rather than remaining unresolvable. A different release of a matching product replaces
 that product in place, while an absent product is appended and unrelated
 installed software is preserved; there is no version comparison or separate
 Update operation. The package remains unchanged throughout. Ordinary
@@ -260,6 +270,80 @@ Scan and Analyze exist under every current NodeScan release, and Inspect is
 supplied by NodeScan 1.1 Experimental and absent under 1.0 Standard
 (`nodeScanSupportsInspect`).
 
+
+## Remote software installation
+
+A software package that physically exists on the Device the player is currently
+operating through RACK-OS can be installed **on that Device**.
+`installRemoteSoftwarePackage` never receives a target from presentation: it
+resolves one only through the canonical operating context — RemoteSession →
+DeviceAccess → target Device — and then narrows that host to a Device that
+actually represents an installable filesystem, installed-software inventory and
+hardware/runtime. A host representing no software inventory is reported as
+`target_not_installable` rather than being given a fabricated one, an absent or
+unresolvable operating context is `session_unavailable`, and a target that went
+offline while the Session was live is `target_offline`. The currently
+represented `USER` privilege of that DeviceAccess is sufficient authority in V1
+because no finer permission state exists; this is the absence of a permission
+model, not a claim that every future `USER` authority installs software.
+
+From that point the operation is the same shared admission path local
+installation uses, resolved entirely against the target: the package is read
+from the *target's* filesystem, normal `.pkg` recognition applies to the
+target artifact's own current path, already-installed and already-installing
+checks read that Device's own inventory and its own running Processes, RAM
+admission uses that Device's own hardware, and NODE Miner's installation-path
+occupancy is checked against the target filesystem. Local and remote
+inventories are fully independent: node-01 running NodeScan 1.0 Standard while
+`srv-01` runs NodeScan 1.1 Experimental is normal, a local installation of the
+same product running concurrently never blocks the remote one, and neither
+Device's inventory or filesystem is touched by the other's installation.
+
+The resulting Process's `executorDeviceId` is the target Device, so the target
+supplies the CPU throughput and the reserved RAM through the existing
+executor-owned scheduler — there is no second scheduler and no remote-specific
+Process kind. It deliberately retains no `accessId` or `sessionId`: unlike
+`FileTransfer`, whose runtime continuously spans a cross-Device route and
+revalidates that represented relationship, an admitted installation consumes
+only the target Device's own resources and has no continuing cross-Device
+relationship to revalidate. `DISCONNECT` therefore ends the interactive
+Session and the player's observation of the work, never the work itself: the
+Process keeps advancing on the target's own runtime with no Session present,
+and completion applies its consequence normally. Reconnecting later through
+the still-valid DeviceAccess derives whatever is true by then — still
+INSTALLING, or INSTALLED.
+
+Completion is ordinary: the target Device's `installedSoftware` gains or
+replaces that exact product release, and product-specific consequences occur
+on that same Device. Remote NODE Miner installation therefore creates its one
+managed executable at `/usr/local/bin/node-miner` **in the target
+filesystem**, leaving the local Device's filesystem and inventory untouched.
+Installation is still not execution: no remote RUN, remote program launch, or
+remote `NodeMinerProcess` exists, and `startNodeMiner` continues to resolve
+its artifact from, and admit onto, the player's local Device alone.
+
+RACK-OS Files is the only interface for this in V1. Once a software package is
+selected on the operated Device, its detail states the package identity
+(name, `version` + channel, size, publisher where the package claims one, and
+release ID), then that Device's own `STATUS` (`INSTALLABLE`, `INSTALLING`,
+`INSTALLED`, or `UNRECOGNIZED`) and `CURRENT` installed release for that
+product, then the one action available — with the artifact's relationship to
+node-01 kept as a secondary `TRANSFER` block so existing Download behaviour and
+its destination/conflict semantics are unchanged. Another installed release of
+the same product is stated as `CURRENT` while the selected package remains
+`INSTALLABLE` as a replacement. `INSTALL` opens a compact inline confirmation
+in the same pane rather than a second screen or a modal: it names the target
+Device, the exact remote package path, and the current installed release.
+Opening it and cancelling both change no GameState; confirming forwards that
+exact path to the canonical operation, which remains the sole admission
+authority, and a canonical admission failure is reported in the pane as-is.
+`INSTALLING` is derived from the target executor's own running Process, and
+`INSTALLED` from the target Device's inventory — never from an interface-local
+lifecycle flag. RACK-OS deliberately presents no remote progress percentage,
+CPU, RAM, work units, estimate, or cancellation control: this slice makes the
+*existence* of the work observable, not the server's hidden compute truth.
+RACK-OS System remains the compact read-only machine sheet with no software
+management, and the RACK-OS Terminal gains no package commands.
 
 ## Executables and RUN admission
 
@@ -453,6 +537,20 @@ state.
   downgrade, or reclassify it.
 - Package ≠ InstalledSoftware ≠ Executable ≠ Process. Four distinct things,
   created at four distinct moments.
+- Installation is Device-targeted, not permanently local. `executorDeviceId` is
+  the Device being installed onto, and completion applies its consequence
+  there. Never infer the target from a package path, an address, a Session, or
+  the current interface.
+- Local and remote installed-software inventories are independent. The same
+  product may sit at different releases on different Devices, and a duplicate
+  or already-installed check that is not scoped to one Device is a bug.
+- A remote installation Process retains no `accessId` or `sessionId`.
+  Disconnecting ends observation, never admitted Device-owned work — and
+  losing DeviceAccess does not abort it either, because no cross-Device
+  resource is in use after admission.
+- Remote installation is not remote execution. InstalledSoftware, and even a
+  managed executable, existing on a foreign Device grants no RUN, command, or
+  Process there.
 - Ordinary package installation preserves package product/release identity and
   creates or updates InstalledSoftware without a product whitelist. Being
   installable does not itself make software removable, executable, runnable,

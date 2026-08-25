@@ -2,7 +2,7 @@ import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 34
+export const GAME_STATE_VERSION = 35
 
 export function createInitialGameState(): GameState {
   return {
@@ -74,6 +74,8 @@ export function createInitialGameState(): GameState {
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 160 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 12, baselineRamUsage: 18 },
+            // Device-owned and entirely independent of node-01's inventory: srv-01 currently has no software installed on it.
+            installedSoftware: [],
             filesystem: { nextFileId: 3, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
               { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: NODESCAN_1_1_EXPERIMENTAL.releaseId, productId: NODESCAN_1_1_EXPERIMENTAL.productId, name: NODESCAN_1_1_EXPERIMENTAL.name, version: NODESCAN_1_1_EXPERIMENTAL.version, channel: NODESCAN_1_1_EXPERIMENTAL.channel, sizeBytes: 18_400_000 },
@@ -94,6 +96,7 @@ export function createInitialGameState(): GameState {
             firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
+            installedSoftware: [],
             filesystem: { nextFileId: 2, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
             ] },

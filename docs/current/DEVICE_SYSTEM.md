@@ -35,7 +35,8 @@ GameState
 │   └── network
 │       └── two independent foreign servers
 │           ├── display identity and Firmware
-│           └── canonical Device-owned filesystem
+│           ├── canonical Device-owned filesystem
+│           └── canonical Device-owned installed software
 ├── process
 ├── knowledge
 ├── discovery
@@ -48,6 +49,20 @@ GameState
 The concretely represented foreign filesystems are normal Device-owned state.
 A successful Upload may create its normal destination artifact in the remote
 Device filesystem; this does not imply a generic filesystem-write mechanic.
+
+Both concretely represented servers also own their own installed-software
+inventory (`NetworkHost.installedSoftware`), the same semantic concern the
+local Device owns and entirely independent of it: the same product may exist at
+different releases on different Devices, and installing or replacing software on
+one never mutates another's inventory. Both start empty — nothing is installed
+on them until a real installation Process completes there — and each is a
+distinct collection rather than a shared one. The field is optional precisely so
+the shallow training hosts keep no fabricated inventory; a host that represents
+none simply cannot install software (see
+`docs/current/FILES_SOFTWARE.md`). Installed software remains separate from a
+Service's concrete implementation: GateSSH is Device-owned Service
+implementation World Truth and never appears in any Device's
+`installedSoftware`.
 
 The player's local Device has stable identity separate from its mutable display
 name and network address. It owns concrete NODE-OS Firmware identity (including
@@ -180,7 +195,9 @@ Device's own summary CPU load and RAM usage and does not repeat the activity
 list.
 
 The installation and removal runtime System starts is owned by
-`docs/current/FILES_SOFTWARE.md`.
+`docs/current/FILES_SOFTWARE.md`. System presents only the local Device's own
+inventory: software installed on a represented server is that Device's truth and
+is observed through RACK-OS, never listed here.
 
 
 ## Gotchas
@@ -188,6 +205,9 @@ The installation and removal runtime System starts is owned by
 - A Device instance, its Firmware, its installed software, and an operating
   Session are four different things. Firmware never owns hardware, runtime,
   networking, filesystem, or installed software.
+- Installed-software inventories are per Device and independent. Reading or
+  mutating one Device's inventory on behalf of another is a bug, and the local
+  Device's inventory is not a proxy for any server's.
 - A Service's concrete implementation (for example GateSSH 1.3.2) is
   Device-owned World Truth, not `InstalledSoftware` and not a package.
 - Two Devices may share one Firmware product identity without sharing Device
@@ -197,4 +217,5 @@ The installation and removal runtime System starts is owned by
 - Server CPU/RAM truth and transfer capacity are World Truth. Do not expose
   them through Scan, Inspect, or Discovery.
 - Shallow training hosts are deliberately shallow. Do not invent hardware,
-  capacity, or filesystems for them to make a view uniform.
+  capacity, filesystems, or installed-software inventories for them to make a
+  view or a type uniform.

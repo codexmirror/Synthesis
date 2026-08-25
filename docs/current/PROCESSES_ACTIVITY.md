@@ -31,6 +31,18 @@ independent resource pools; unresolved and shallow executors do not advance.
 Current Service Analysis and Credential Access operations still execute on the
 player's local Device.
 
+Software Installation is the first operation that also executes on a
+represented remote Device. When the player installs a package that exists on
+the Device they are operating through RACK-OS, the resulting
+`software_installation` Process carries that target's `executorDeviceId` and
+consumes that Device's own CPU and RAM through this same scheduler — there is
+no second scheduler, no remote-specific Process kind, and no copy of remote
+hardware into the Process. Its completion consequence is applied to that same
+Device (see `docs/current/FILES_SOFTWARE.md`). Because it consumes only the
+executor's own resources after admission, it retains no reference to the
+RemoteSession or DeviceAccess that admitted it, and disconnecting neither
+cancels it nor stops its advancement.
+
 CPU compute capacity controls throughput.
 
 Running jobs share available CPU headroom.
@@ -79,7 +91,9 @@ instead.
 
 The Processes application is presented as the NODE-OS Activity Monitor. It
 observes only the local Device's canonical Process and resource state and,
-alongside it, the single canonical active `FileTransfer`. The two runtime
+alongside it, the single canonical active `FileTransfer`. Work executing on
+another Device is deliberately absent from it: it is that Device's runtime, not
+node-01's, and this slice adds no cross-Device process-observation surface. The two runtime
 domains remain separate canonical state; a pure presentation adapter aggregates
 them for display only and never represents a transfer as a `GameProcess`. That
 adapter resolves a FileTransfer's direction-aware source, destination,
@@ -138,6 +152,14 @@ NODE-OS REMOVE and CLEAR controls affect only Recent Activity observed for the
 local Device and cannot remove retained Process history owned by another
 executor Device.
 
+Only local completed work is archived. A Process owned by another executor has
+already applied its own concrete consequence at the same advancement boundary,
+and no interface presents or clears it, so retaining it would be canonical
+history nothing could reach — and it would silently consume one of the bounded
+local Recent Activity slots. It therefore leaves the scheduler at that same
+boundary instead of being archived. Running non-local work stays canonical for
+exactly as long as it is actually running.
+
 
 ## Gotchas
 
@@ -151,6 +173,9 @@ executor Device.
   allocation is released.
 - Continuous Processes never complete from elapsed work. Do not give NODE Miner
   a percentage completion bar or a generic stopped state.
+- Recent Activity is the local Device's own runtime observation. A completed
+  Process owned by another executor is neither archived into it nor retained in
+  `ProcessState`, because nothing could present or clear it.
 - Retained completed-Process history is disposable operator presentation, not
   an audit log. Clearing it must never undo consequences stored in other
   canonical state, and it cannot touch another executor's history.

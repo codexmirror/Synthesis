@@ -10,7 +10,7 @@ import { startCredentialAccessAttemptFromObservation, type CredentialAccessObser
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
 import { cancelFileTransfer, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
-import { installLocalSoftwarePackage, type InstallLocalSoftwarePackageResult } from '../core/game/softwareInstallation'
+import { installLocalSoftwarePackage, installRemoteSoftwarePackage, type InstallLocalSoftwarePackageResult, type InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
 import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
 import { startNodeMiner, stopNodeMiner, type StartNodeMinerResult, type StopNodeMinerResult } from '../core/game/nodeMiner'
 import type { InstalledSoftware } from '../core/game/types'
@@ -33,6 +33,7 @@ export interface GameActions {
   cancelFileTransfer(transferId: string): CancelFileTransferResult
   cancelLocalProcess(processId: string): CancelLocalProcessResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
+  installRemoteSoftwarePackage(path: string): InstallRemoteSoftwarePackageResult
   removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
   stopNodeMiner(processId: string): StopNodeMinerResult
@@ -131,6 +132,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, installLocalSoftwarePackage(path) {
     const result = installLocalSoftwarePackage(currentState.current, path)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, installRemoteSoftwarePackage(path) {
+    const result = installRemoteSoftwarePackage(currentState.current, path)
     if (result.status === 'started') {
       currentState.current = result.state
       setGameState(result.state)

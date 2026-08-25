@@ -29,13 +29,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 34', () => {
+  it('separates identities and seeds canonical local-device state in schema version 35', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(34)
+    expect(GAME_STATE_VERSION).toBe(35)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(34)
+    expect(state.version).toBe(35)
     expect(state.wallet).toEqual({ balance: 1250 })
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
@@ -74,6 +74,7 @@ describe('createInitialGameState', () => {
         firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
         hardware: { cpu: { name: 'Server CPU', computeCapacity: 160 }, ram: { name: '8 GB', capacityMiB: 8192 } },
         runtime: { baselineCpuLoad: 12, baselineRamUsage: 18 },
+        installedSoftware: [],
         filesystem: { nextFileId: 3, files: [
           { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
           { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
@@ -90,6 +91,7 @@ describe('createInitialGameState', () => {
         firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
         hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
         runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
+        installedSoftware: [],
         filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] },
         services: [
           { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
@@ -117,9 +119,14 @@ describe('createInitialGameState', () => {
       { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
     ] } })
     expect(server?.filesystem?.files.some((file) => file.kind === 'executable')).toBe(false)
+    // The operable server owns the same semantic concern as node-01 and starts with nothing installed on it.
+    expect(server?.installedSoftware).toEqual([])
+    expect(server?.installedSoftware).not.toBe(state.player.localDevice.installedSoftware)
     const shallowTrainingHosts = state.world.network.hosts.filter(({ id }) => id !== 'host-lan-001' && id !== 'host-lan-002')
     expect(shallowTrainingHosts.length).toBeGreaterThan(0)
     expect(shallowTrainingHosts.every((host) => !host.displayName && !host.firmware && !host.filesystem && !host.hardware && !host.runtime)).toBe(true)
+    // Shallow hosts are deliberately shallow: no fabricated inventory to make the shapes uniform.
+    expect(shallowTrainingHosts.every((host) => host.installedSoftware === undefined)).toBe(true)
     expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
     expect(server?.services).toEqual([
       { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
@@ -138,6 +145,8 @@ describe('createInitialGameState', () => {
       { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
     ])
     expect(server?.id).not.toBe('host-lan-001')
+    expect(server?.installedSoftware).toEqual([])
+    expect(server?.installedSoftware).not.toBe(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.installedSoftware)
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })
 
