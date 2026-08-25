@@ -32,10 +32,9 @@ local Device in its masthead, shows an explicit parent row, derives its
 directory listing from that filesystem, and presents type and byte size plus
 coherent text, software-package, or executable details according to the file's
 explicit kind. A software-package row also carries its derived state —
-INSTALLED, INSTALLABLE, INSTALLING, UNRECOGNIZED or UNSUPPORTED — from the same
+INSTALLED, INSTALLABLE, INSTALLING, REMOVING, PROTECTED or UNRECOGNIZED — from the same
 canonical installed software, running local software-installation Process
-state, normal package recognition of the artifact's current path, and
-represented product support that the package detail already uses. INSTALLING
+state, and normal package recognition of the artifact's current path. INSTALLING
 disables duplicate admission for that same product until the running
 installation Process ends.
 
@@ -188,13 +187,14 @@ retain that same release identity.
 
 A software-package file is an artifact on a Device-owned filesystem, not an
 installation or a running Process. Downloading the experimental package alone
-leaves the local Device's NodeScan at 1.0 Standard. A supported package that
-physically exists on the current local filesystem can then be installed through
-local Files (`INSTALL`) or NODE-OS Terminal
-(`install <local-absolute-file-path>`), both of which use the same application
-operation over current canonical state. V1 supports only packages whose stable
-`productId` is `nodescan` or `node-miner`; package names do not authorize
-installation.
+leaves the local Device's NodeScan at 1.0 Standard. A concrete package that
+physically exists on the current local filesystem and is normally recognized
+at its current path can be installed through local Files (`INSTALL`) or NODE-OS
+Terminal (`install <local-absolute-file-path>`), both of which use the same
+application operation over current canonical state. Ordinary installation has
+no closed product whitelist: the package artifact's stable `productId`, opaque
+`releaseId`, name, version, channel, and stated publisher are the authoritative
+ordinary installation facts.
 
 Normal NODE-OS package installation does, however, require the artifact's
 current concrete path to end in exactly `.pkg`, case-sensitively
@@ -233,20 +233,26 @@ completion needs (`productId`, `releaseId`, `name`, `version`, `channel`, and
 `publisher` when stated), and requires a small explicit V1 work and RAM
 requirement — the same shared CPU/RAM contention Service Analysis, Credential
 Access, and NODE Miner already use, with no package-size formula. Rejecting a
-second concurrent installation of the same product, the same `releaseId`
-already installed, and an unsupported product are all resolved at this same
-admission instant. Device-owned installed software and the package artifact
-are both untouched until the Process completes.
+second concurrent installation of the same product and the same `releaseId`
+already installed are both resolved at this same admission instant.
+Device-owned installed software and the package artifact are both untouched
+until the Process completes.
 
 Only when that Process completes does `resolveCompletedSoftwareInstallations`
 — resolved at the same canonical `advanceGameState` boundary that resolves
 Service Analysis and Credential Access, and guarded the same way so repeated
 advancement after completion never re-applies it — project the snapshotted
-release metadata onto Device-owned installed software. The same `releaseId`
-already installed replaces the matching product in place, while an absent
-product is appended and unrelated installed software is preserved; there is no
-version comparison or separate Update operation. The package remains
-unchanged throughout. Installing the represented experimental package
+release metadata onto Device-owned installed software under the exact
+snapshotted `productId`. A different release of a matching product replaces
+that product in place, while an absent product is appended and unrelated
+installed software is preserved; there is no version comparison or separate
+Update operation. The package remains unchanged throughout. Ordinary
+completion creates no executable, command, capability, or other runtime merely
+because software is installed. Product-specific additional consequences remain
+explicit concrete mechanics: current NODE Miner installation additionally
+re-checks its managed destination and creates its one represented executable,
+while NodeScan uses the ordinary installed-release replacement path and keeps
+its capability and removal rules elsewhere. Installing the represented experimental package
 therefore makes the NodeScan GUI and Help derive NodeScan 1.1 Experimental
 from installed software, only once installation completes. Which player-facing
 operations that release supplies is owned by `docs/current/NETWORK_ACCESS.md`:
@@ -431,6 +437,10 @@ state.
   downgrade, or reclassify it.
 - Package ≠ InstalledSoftware ≠ Executable ≠ Process. Four distinct things,
   created at four distinct moments.
+- Ordinary package installation preserves package product/release identity and
+  creates or updates InstalledSoftware without a product whitelist. Being
+  installable does not itself make software removable, executable, runnable,
+  command-providing, or capability-providing.
 - `FileTransfer` is not a `GameProcess`. It consumes no CPU or RAM, creates no
   Process on completion, and must never be presented as one.
 - A transfer's authority is its `accessId`, not the Session that admitted it.

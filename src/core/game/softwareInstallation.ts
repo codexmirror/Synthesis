@@ -7,8 +7,8 @@ export const SOFTWARE_INSTALLATION_WORK_REQUIRED = 600
 export const SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB = 256
 
 export type InstallLocalSoftwarePackageResult =
-  | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly productId: 'nodescan' | 'node-miner'; readonly name: string; readonly version: string; readonly channel: string }
-  | { readonly status: 'already_installed' | 'already_installing' | 'invalid_path' | 'package_not_found' | 'package_not_file' | 'not_software_package' | 'unrecognized_package_extension' | 'unsupported_package' | 'install_path_occupied'; readonly state: GameState }
+  | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly productId: string; readonly name: string; readonly version: string; readonly channel: string }
+  | { readonly status: 'already_installed' | 'already_installing' | 'invalid_path' | 'package_not_found' | 'package_not_file' | 'not_software_package' | 'unrecognized_package_extension' | 'install_path_occupied'; readonly state: GameState }
   | { readonly status: 'insufficient_memory'; readonly state: GameState; readonly requiredMiB: number; readonly availableMiB: number }
 
 /** The one concrete path suffix normal NODE-OS package installation recognizes, case-sensitive under the current path model. */
@@ -48,8 +48,6 @@ export function installLocalSoftwarePackage(state: GameState, packagePath: strin
   if (resolved.file.kind !== 'software_package') return { status: 'not_software_package', state }
   const packageFile = resolved.file
   if (!isRecognizedSoftwarePackagePath(packageFile.path)) return { status: 'unrecognized_package_extension', state }
-  if (packageFile.productId !== 'nodescan' && packageFile.productId !== NODE_MINER_PROGRAM_ID) return { status: 'unsupported_package', state }
-
   const device = state.player.localDevice
   const existing = device.installedSoftware.find(({ id }) => id === packageFile.productId)
   if (existing?.releaseId === packageFile.releaseId) return { status: 'already_installed', state }
@@ -68,12 +66,11 @@ export function installLocalSoftwarePackage(state: GameState, packagePath: strin
   })
   if (started.status === 'insufficient_memory') return { ...started, state }
 
-  const productId: 'nodescan' | 'node-miner' = packageFile.productId
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic'
     ? {
         ...process,
         kind: 'software_installation' as const,
-        productId,
+        productId: packageFile.productId,
         releaseId: packageFile.releaseId,
         name: packageFile.name,
         version: packageFile.version,
@@ -84,7 +81,7 @@ export function installLocalSoftwarePackage(state: GameState, packagePath: strin
   return {
     status: 'started',
     processId: started.processId,
-    productId, name: packageFile.name, version: packageFile.version, channel: packageFile.channel,
+    productId: packageFile.productId, name: packageFile.name, version: packageFile.version, channel: packageFile.channel,
     state: { ...state, process: { ...started.state, processes } },
   }
 }
@@ -113,7 +110,10 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
     changed = true
 
     if (process.productId !== NODE_MINER_PROGRAM_ID) {
-      installedSoftware = applyInstalledSoftwareRelease(installedSoftware, { id: 'nodescan', releaseId: process.releaseId, name: process.name, version: process.version, channel: process.channel })
+      installedSoftware = applyInstalledSoftwareRelease(installedSoftware, {
+        id: process.productId, releaseId: process.releaseId, name: process.name, version: process.version, channel: process.channel,
+        ...(process.publisher ? { publisher: process.publisher } : {}),
+      })
       return { ...process, result: { status: 'installed' as const } }
     }
 

@@ -110,7 +110,7 @@ export type SoftwareInstallationResult =
  */
 export interface SoftwareInstallationProcess extends ProcessBase {
   readonly kind: 'software_installation'
-  readonly productId: 'nodescan' | 'node-miner'
+  readonly productId: string
   readonly releaseId: string
   readonly name: string
   readonly version: string
@@ -216,32 +216,29 @@ export interface FilesystemState {
   readonly files: readonly FilesystemFile[]
 }
 
-export interface NodeScanInstallation {
-  readonly id: 'nodescan'
+export interface InstalledSoftware {
+  readonly id: string
   readonly releaseId: string
   readonly name: string
   readonly version: string
-  readonly channel: string
-}
-
-export interface BasicCredentialToolkitInstallation {
-  readonly id: 'basic-credential-toolkit'
-  readonly releaseId: string
-  readonly name: 'Basic Credential Toolkit'
-  readonly version: string
-}
-
-export interface NodeMinerInstallation {
-  readonly id: 'node-miner'
-  readonly releaseId: string
-  readonly name: string
-  readonly version: string
-  readonly channel: string
-  /** Provenance projected from the installed package; absent when that package claimed none. */
+  readonly channel?: string
   readonly publisher?: string
 }
 
-export type InstalledSoftware = NodeScanInstallation | BasicCredentialToolkitInstallation | NodeMinerInstallation
+export interface NodeScanInstallation extends InstalledSoftware {
+  readonly id: 'nodescan'
+  readonly channel: string
+}
+
+export interface BasicCredentialToolkitInstallation extends InstalledSoftware {
+  readonly id: 'basic-credential-toolkit'
+  readonly name: 'Basic Credential Toolkit'
+}
+
+export interface NodeMinerInstallation extends InstalledSoftware {
+  readonly id: 'node-miner'
+  readonly channel: string
+}
 
 export interface LocalDeviceState {
   /** Stable device identity; unlike its simulated IP, this value does not change. */

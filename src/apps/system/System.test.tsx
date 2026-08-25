@@ -64,6 +64,16 @@ describe('System', () => {
     expect(screen.getByText('NO INSTALLED SOFTWARE')).toBeInTheDocument()
   })
 
+  it('renders ordinary installed software without inventing a removal action', async () => {
+    render(<GameProvider initialState={withDevice({ installedSoftware: [
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
+    ] })}><System /></GameProvider>)
+    const row = screen.getByRole('button', { name: 'Packet Viewer 1.0 · STANDARD · test-publisher' })
+    await userEvent.setup().click(row)
+    expect(value('STATE')).toBe('INSTALLED')
+    expect(screen.queryByRole('button', { name: /UNINSTALL|REMOVE|RESTORE/ })).not.toBeInTheDocument()
+  })
+
   it('does not present a second activity list beside the Activity Monitor', () => {
     render(<GameProvider><System /></GameProvider>)
     expect(screen.queryByText(/RUNNING|ACTIVITY|PROCESS|TRANSFER/i)).not.toBeInTheDocument()
