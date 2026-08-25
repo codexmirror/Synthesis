@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getSoftwareReleaseInformation } from './softwareReleaseInformation'
+import { AUTHORED_SOFTWARE_RELEASES } from '../core/game/softwareReleaseContent'
 
 describe('software release information', () => {
   it('represents every current release without turning hidden state into documentation', () => {
@@ -12,5 +13,14 @@ describe('software release information', () => {
   })
   it('returns no invented documentation for unknown releases', () => {
     expect(getSoftwareReleaseInformation('future-9.0')).toBeUndefined()
+  })
+
+  it('is a presentation projection of the authored documentation owner', () => {
+    for (const release of AUTHORED_SOFTWARE_RELEASES) {
+      expect(getSoftwareReleaseInformation(release.releaseId)).toEqual({
+        releaseId: release.releaseId,
+        ...release.documentation,
+      })
+    }
   })
 })

@@ -5,9 +5,10 @@ import { deriveResourceUsage } from './processes'
 import { findInstalledNodeMiner } from './software'
 import type { ExecutableFile, FilesystemState, GameState, LocalDeviceState, NodeMinerProcess } from './types'
 import { archiveProcess } from './recentActivity'
+import { NODE_MINER_1_0_RELEASE_ID } from './softwareReleaseContent'
 
 export const NODE_MINER_PROGRAM_ID = 'node-miner' as const
-export const NODE_MINER_RELEASE_ID = 'node-miner-1.0' as const
+export const NODE_MINER_RELEASE_ID = NODE_MINER_1_0_RELEASE_ID
 export const NODE_MINER_RAM_REQUIRED_MIB = 512
 /** V1 tuning constant: 1 compute-second of actual allocated compute produces 1 atomic NODE unit. */
 export const NODE_MINER_COMPUTE_SECONDS_PER_UNIT = 1
@@ -30,8 +31,6 @@ export const NODE_MINER_EXECUTABLE_SIZE_BYTES = 2_100_000
 export const NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS = 'node-addr-9f31c7a4d2'
 export const NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT = 33
 export const NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS = 1_000
-export const NODE_MINER_1_0_CHANNEL = 'unofficial'
-export const NODE_MINER_1_0_PUBLISHER = 'nm-dev'
 
 export type StartNodeMinerResult =
   | { readonly status: 'started'; readonly state: GameState; readonly processId: string }

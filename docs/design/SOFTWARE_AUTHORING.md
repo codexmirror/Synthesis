@@ -57,6 +57,36 @@ PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
 - Concrete represented behavior belongs to the release, not to the product: two
   releases of one product may legitimately behave differently.
 
+### Authored release content
+
+- One immutable authored content module owns the coherent release identity,
+  product identity, ordinary descriptive metadata, and static ABOUT,
+  CAPABILITY and CHANGE copy for each currently authored release.
+- Authored content may explicitly construct initial concrete Package and
+  InstalledSoftware snapshots, and presentation may project its documentation.
+  The resulting concrete state stays self-contained; runtime installation never
+  looks back to authored content to normalize or complete a Package snapshot.
+- Documentation remains prose only. Its presence never supplies gameplay
+  behavior, commands, executable admission, Processes or installation effects.
+  Concrete release-specific mechanics may import a narrow release-ID constant,
+  but must not infer behavior from documentation.
+- Within canonical authored content, the same `releaseId` identifies one
+  coherent authored release definition. Contradictory authored facts under one
+  ID are an authoring bug, not something runtime reconciliation should repair.
+- A future distinction between canonical content and a Package's claims,
+  provenance or altered build would require separate represented concepts. It
+  must not be modeled by rewriting concrete Package state from authored content.
+
+```text
+AUTHORED RELEASE CONTENT
+        ↓ constructs / describes
+CONCRETE PACKAGE OR INSTALLED SOFTWARE SNAPSHOT
+
+CONCRETE STATE + EXPLICIT RELEASE MECHANICS
+        ↓
+GAMEPLAY BEHAVIOR
+```
+
 ### Software package
 
 - The artifact *before* installation: a file on a Device-owned filesystem.

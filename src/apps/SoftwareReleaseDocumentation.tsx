@@ -9,7 +9,7 @@ import { getSoftwareReleaseInformation } from './softwareReleaseInformation'
  * Files keeps the whole document behind a disclosure, System shows the
  * about/capabilities summary with a software row and keeps the rest behind the
  * same disclosure, and Install Review states only what the release provides.
- * All of them read the one represented `softwareReleaseInformation` registry;
+ * All of them read a presentation projection of the authored release content;
  * none of them is gameplay truth.
  */
 export function SoftwareReleaseAbout({ releaseId }: { releaseId: string }) {

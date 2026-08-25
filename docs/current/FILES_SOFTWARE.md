@@ -393,6 +393,22 @@ archiving it to Recent Activity with a concrete `BASELINE RESTORED`,
 
 ## Local software information and management
 
+Immutable authored software-release content lives in the pure game domain but
+outside mutable `GameState`. It is the single authoring owner for the current
+represented releases' stable release and product identities, ordinary display
+metadata (name, version, channel and publisher), and static player-facing ABOUT,
+CAPABILITY and CHANGE documentation. Initial Package and InstalledSoftware
+state may explicitly copy the destination-appropriate fields from that content.
+
+Once created, each concrete `SoftwarePackageFile` and `InstalledSoftware` is a
+self-contained canonical snapshot of represented Device state. Installation
+continues to snapshot the concrete Package presented at admission and never
+looks up, normalizes, reconciles or repairs it against authored content. An
+ordinary package without authored documentation therefore remains installable.
+Authored documentation describes a release but never grants a command,
+capability, executable, Process or other gameplay behavior; concrete mechanics
+remain the only gameplay authority.
+
 One local software lifecycle runs across both applications:
 
 ```text
