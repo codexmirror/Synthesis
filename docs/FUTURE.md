@@ -297,8 +297,8 @@ NODE Standard
 NODE Premium
 ```
 
-as different Device models while both remain capable of running releases from
-the NODE-OS Firmware family.
+These could be different Device models while both remain capable of running
+releases from the NODE-OS Firmware family.
 
 
 ```text
