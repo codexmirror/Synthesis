@@ -10,7 +10,7 @@ export const SOFTWARE_REMOVAL_RAM_REQUIRED_MIB = 128
 export type RemovableProductId = 'nodescan' | 'node-miner'
 
 export type RemoveInstalledSoftwareResult =
-  | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly productId: RemovableProductId; readonly releaseId: string; readonly name: string; readonly version: string; readonly channel: string }
+  | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly productId: RemovableProductId; readonly releaseId: string; readonly name: string; readonly version: string; readonly channel?: string }
   | { readonly status: 'not_installed' | 'protected_baseline' | 'unsupported_in_v1' | 'already_removing'; readonly state: GameState }
   | { readonly status: 'insufficient_memory'; readonly state: GameState; readonly requiredMiB: number; readonly availableMiB: number }
 

@@ -23,7 +23,7 @@ export type PlayerInformation = Pick<GameState, 'player' | 'discovery' | 'knowle
 export interface NodeScanRelease {
   readonly name: string
   readonly version: string
-  readonly channel: string
+  readonly channel?: string
   /**
    * Derived from canonical installed-software capability logic, never from a
    * version-number comparison. It stays true while a removal Process is still

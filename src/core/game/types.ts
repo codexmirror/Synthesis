@@ -142,7 +142,7 @@ export interface SoftwareRemovalProcess extends ProcessBase {
   readonly releaseId: string
   readonly name: string
   readonly version: string
-  readonly channel: string
+  readonly channel?: string
   readonly publisher?: string
   readonly result?: SoftwareRemovalResult
 }
@@ -227,17 +227,14 @@ export interface InstalledSoftware {
 
 export interface NodeScanInstallation extends InstalledSoftware {
   readonly id: 'nodescan'
-  readonly channel: string
 }
 
 export interface BasicCredentialToolkitInstallation extends InstalledSoftware {
   readonly id: 'basic-credential-toolkit'
-  readonly name: 'Basic Credential Toolkit'
 }
 
 export interface NodeMinerInstallation extends InstalledSoftware {
   readonly id: 'node-miner'
-  readonly channel: string
 }
 
 export interface LocalDeviceState {
