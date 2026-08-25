@@ -843,34 +843,30 @@ It is not canonical World ownership.
 
 ⸻
 
-8. Near-term selected direction
+8. Implemented observation baseline and next decision gate
 
-Only the following work is selected strongly enough to plan immediately.
+The previously selected observation work is now implemented and serves as the
+current concrete proof of the design rules above. The next large hacking
+mechanic remains behind an active product decision gate.
 
-1. Player-facing Inspect V1
+1. Implemented — Player-facing Inspect V1
 
-Expose the already existing Inspect concept as a legitimate player-facing
-observation operation.
-
-The first version should remain shallow.
-
-It must preserve:
+Player-facing Inspect V1 exposes Inspect as a legitimate observation operation.
+Its first implementation remains shallow and preserves:
 
 * World Truth vs player information
 * Scan vs Inspect distinction
 * browsing vs observation
 * positive remembered-observation semantics
 * no hidden truth leakage
-
-The implementation must determine explicitly which observed evidence becomes
-remembered and how re-observation merges with existing player information.
+* explicit evidence-memory and re-observation semantics
 
 ⸻
 
-2. NodeScan 1.1 Experimental enhanced observation
+2. Implemented — NodeScan 1.1 Experimental Inspect capability
 
-Use the existing Experimental NodeScan release as the first proof that a
-software release can provide the distinct Inspect operation. NodeScan 1.0
+The Experimental NodeScan release is the first proof that a software release
+can provide the distinct Inspect operation. NodeScan 1.0
 Standard provides Scan and Service Analysis but no player-facing Inspect;
 NodeScan 1.1 Experimental provides Inspect.
 
@@ -880,7 +876,7 @@ but it does not restore the Inspect action.
 
 ⸻
 
-3. Evaluate before selecting the next hacking mechanic
+3. Active decision gate — evaluate before selecting the next hacking mechanic
 
 After basic Inspect and enhanced observation exist, review actual gameplay before
 committing to the next large mechanic.

@@ -121,8 +121,10 @@ executables, software management.
   `src/apps/softwareReleaseInformation.ts`, `src/apps/rackos/`
 - TESTS → `src/core/game/filesystem.test.ts`,
   `src/core/game/fileTransfer.test.ts`,
+  `src/core/game/software.test.ts`,
   `src/core/game/softwareInstallation.test.ts`,
-  `src/core/game/softwareRemoval.test.ts`, `src/apps/files/Files.test.tsx`
+  `src/core/game/softwareRemoval.test.ts`, `src/apps/files/Files.test.tsx`,
+  `src/apps/softwareReleaseInformation.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
@@ -222,6 +224,8 @@ parallelized.
   [`architecture/INTERFACES_AND_PRESENTATION.md`](architecture/INTERFACES_AND_PRESENTATION.md),
   A07 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
 - CODE → `src/apps/softwareReleaseInformation.ts`, `src/core/game/software.ts`
+- TESTS → `src/core/game/software.test.ts`,
+  `src/apps/softwareReleaseInformation.test.ts`
 
 
 ## When to read FUTURE.md
