@@ -73,6 +73,24 @@ PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
 - Created only when an installation Process completes, never at admission.
 - Not Firmware, not a filesystem artifact, not a Process.
 
+### Ordinary installation boundary
+
+- A normally recognized concrete software package follows one reusable default
+  path from package artifact to finite installation Process to InstalledSoftware.
+- Admission snapshots the package's actual product/release identity and ordinary
+  metadata; completion creates or updates the InstalledSoftware entry for that
+  exact product. Adding an ordinary product does not require adding its ID to a
+  global support whitelist.
+- The default consequence is InstalledSoftware only. InstalledSoftware does not
+  itself imply an executable, Process, Terminal command, gameplay capability,
+  or removal policy.
+- Additional installation consequences remain explicit concrete mechanics. For
+  example, current NODE Miner installation additionally creates its one managed
+  executable; this does not justify install hooks, effect arrays, a product
+  registry, or a generic package-manager framework.
+- Static ABOUT, CAPABILITY, and CHANGE copy remains descriptive presentation;
+  this default path does not make release documentation a gameplay dependency.
+
 ### Executable
 
 - The concrete runnable artifact, where a product represents one.

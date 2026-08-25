@@ -74,7 +74,7 @@ function InstalledSoftwareManagement({ software, firmwareName, firmwareVersion, 
   </div>
 }
 
-function describeRelease(software: InstalledSoftware) { return `${software.version}${'channel' in software ? ` · ${software.channel.toUpperCase()}` : ''}${'publisher' in software && software.publisher ? ` · ${software.publisher}` : ''}` }
+function describeRelease(software: InstalledSoftware) { return `${software.version}${software.channel ? ` · ${software.channel.toUpperCase()}` : ''}${software.publisher ? ` · ${software.publisher}` : ''}` }
 
 /** Removing a NodeScan override restores the protected baseline rather than leaving NodeScan absent, so it is never labelled as removal. */
 function describeRemovalRuntime(software: InstalledSoftware) { return software.id === 'nodescan' ? 'RESTORING' : 'REMOVING' }

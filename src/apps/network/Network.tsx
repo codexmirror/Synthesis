@@ -340,7 +340,7 @@ function KnownSpaceView({ selfAddress, networks, release, expandedNetworkIds, ex
         <h2>KNOWN SPACE</h2>
         <p>Known and observed network space</p>
       </div>
-      <span className="ns-release">{release.version} {release.channel.toUpperCase()}</span>
+      <span className="ns-release">{release.version}{release.channel ? ` ${release.channel.toUpperCase()}` : ''}</span>
     </header>
 
     <div className="node-section"><span id="ns-known-networks">NETWORKS</span>{networks.length > 0 && <span>{networks.length} known</span>}</div>

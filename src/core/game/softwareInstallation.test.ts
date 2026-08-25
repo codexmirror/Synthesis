@@ -48,15 +48,11 @@ describe('installLocalSoftwarePackage', () => {
     expect(installLocalSoftwarePackage(state, requestedPath)).toEqual({ status, state })
   })
 
-  it('validates canonical file kind and product identity rather than display name', () => {
+  it('validates canonical file kind while admitting an ordinary package from its artifact identity', () => {
     const text = withFiles([{ kind: 'text', id: 'file-fixture-text', path: '/home/user/nodescan.pkg', content: '' }])
     expect(installLocalSoftwarePackage(text, '/home/user/nodescan.pkg')).toEqual({ status: 'not_software_package', state: text })
-    const unsupportedFile = { ...packageFile, productId: 'other-product' }
-    const unsupported = withFiles([unsupportedFile])
-    expect(installLocalSoftwarePackage(unsupported, path)).toEqual({ status: 'unsupported_package', state: unsupported })
-    // A package's own stated name never authorizes installation either.
-    const misnamed = withFiles([{ ...packageFile, productId: 'other-product', name: 'NodeScan' }])
-    expect(installLocalSoftwarePackage(misnamed, path).status).toBe('unsupported_package')
+    const ordinary = withFiles([{ ...packageFile, productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer' }])
+    expect(installLocalSoftwarePackage(ordinary, path)).toMatchObject({ status: 'started', productId: 'packet-viewer' })
   })
 
   it('starts one running software-installation Process, reserving RAM and requiring shared Device CPU, without touching InstalledSoftware or the package', () => {
@@ -115,6 +111,57 @@ describe('installLocalSoftwarePackage', () => {
     const remotePath = '/opt/packages/nodescan-exp-1.1.pkg'
     expect(state.world.network.hosts[0].filesystem?.files.some(({ path }) => path === remotePath)).toBe(true)
     expect(installLocalSoftwarePackage(state, remotePath)).toEqual({ status: 'package_not_found', state })
+  })
+})
+
+describe('software installation completion: ordinary products', () => {
+  const ordinaryPath = '/home/user/downloads/packet-viewer.pkg'
+  const ordinaryPackage: SoftwarePackageFile = {
+    kind: 'software_package', id: 'file-packet-viewer-1', path: ordinaryPath,
+    productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer',
+    version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 2_048,
+  }
+
+  it('preserves arbitrary package identity through Process admission and completion without creating an executable', () => {
+    const initial = withFiles([ordinaryPackage])
+    const initialSoftware = initial.player.localDevice.installedSoftware
+    const started = installLocalSoftwarePackage(initial, ordinaryPath)
+    expect(started).toMatchObject({ status: 'started', productId: 'packet-viewer' })
+    if (started.status !== 'started') throw new Error(started.status)
+    expect(installation(started.state.process.processes[0])).toMatchObject({
+      productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer',
+      version: '1.0', channel: 'standard', publisher: 'test-publisher', status: 'running',
+    })
+    expect(started.state.player.localDevice.installedSoftware).toEqual(initialSoftware)
+    expect(started.state.player.localDevice.filesystem.files).toContainEqual(ordinaryPackage)
+
+    const completed = completeInstallation(started.state)
+    expect(completed.player.localDevice.installedSoftware).toEqual([
+      ...initialSoftware,
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
+    ])
+    expect(completed.player.localDevice.filesystem.files).toContainEqual(ordinaryPackage)
+    expect(completed.player.localDevice.filesystem.files.some((file) => file.kind === 'executable' && file.programId === 'packet-viewer')).toBe(false)
+  })
+
+  it('replaces only the matching ordinary product when another release completes', () => {
+    const first = installLocalSoftwarePackage(withFiles([ordinaryPackage]), ordinaryPath)
+    if (first.status !== 'started') throw new Error(first.status)
+    const installed = completeInstallation(first.state)
+    const nextPackage: SoftwarePackageFile = { ...ordinaryPackage, id: 'file-packet-viewer-2', path: '/home/user/downloads/packet-viewer-1.1.pkg', releaseId: 'packet-viewer-1.1', version: '1.1', channel: 'experimental', publisher: 'next-publisher' }
+    const withNextPackage: GameState = {
+      ...installed,
+      player: { ...installed.player, localDevice: { ...installed.player.localDevice, filesystem: { ...installed.player.localDevice.filesystem, files: [...installed.player.localDevice.filesystem.files, nextPackage] } } },
+    }
+    const second = installLocalSoftwarePackage(withNextPackage, nextPackage.path)
+    if (second.status !== 'started') throw new Error(second.status)
+    const updated = completeInstallation(second.state)
+    expect(updated.player.localDevice.installedSoftware.filter(({ id }) => id === 'packet-viewer')).toEqual([
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.1', name: 'Packet Viewer', version: '1.1', channel: 'experimental', publisher: 'next-publisher' },
+    ])
+    expect(updated.player.localDevice.installedSoftware.filter(({ id }) => id !== 'packet-viewer')).toEqual(
+      installed.player.localDevice.installedSoftware.filter(({ id }) => id !== 'packet-viewer'),
+    )
   })
 })
 

@@ -15,7 +15,7 @@ import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, L
 
 const INITIAL_PATH = '/home/user'
 
-type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNSUPPORTED' | 'UNRECOGNIZED'
+type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNRECOGNIZED'
 
 export function Files() {
   const state = useGameState()
@@ -215,7 +215,6 @@ function PackageDetails({ file, installedSoftware, installingProductIds, removin
       : packageState === 'INSTALLING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>INSTALLING…</button></div>
       : packageState === 'REMOVING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>REMOVING…</button></div>
       : packageState === 'UNRECOGNIZED' ? <div className="file-kind-actions"><p className="node-note node-note--caution">UNRECOGNIZED PACKAGE EXTENSION · NOT INSTALLABLE</p></div>
-      : packageState === 'UNSUPPORTED' ? <div className="file-kind-actions"><p className="node-note node-note--caution">UNSUPPORTED PACKAGE</p></div>
       : <div className="file-kind-actions"><p className="node-note">{packageState === 'PROTECTED' ? 'PROTECTED · SYSTEM BASELINE' : packageState}</p></div>}
     <SoftwareReleaseDisclosure releaseId={file.releaseId} summary facts={<dl className="node-facts">
       {file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}
@@ -321,7 +320,7 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProce
 }
 
 function describeInstalledSoftware(software: InstalledSoftware): string {
-  return 'channel' in software ? `${software.name} ${software.version} ${titleCase(software.channel)}` : `${software.name} ${software.version}`
+  return software.channel ? `${software.name} ${software.version} ${titleCase(software.channel)}` : `${software.name} ${software.version}`
 }
 
 function describePackageRelease(file: SoftwarePackageFile): string {
@@ -335,14 +334,13 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
 
 /**
  * Package state derived from canonical truth alone: normal NODE-OS package
- * recognition of the artifact's current path, represented product support,
- * Device-owned installed software, and running local Process state. An
+ * recognition of the artifact's current path, Device-owned installed
+ * software, and running local Process state. An
  * unrecognized path never rewrites the artifact — it only means normal
  * installation is unavailable from it, exactly as the core operation decides.
  */
 function derivePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[], installingProductIds: ReadonlySet<string>, removingProductIds: ReadonlySet<string>): PackageState {
   if (!isRecognizedSoftwarePackagePath(file.path)) return 'UNRECOGNIZED'
-  if (file.productId !== 'nodescan' && file.productId !== NODE_MINER_PROGRAM_ID) return 'UNSUPPORTED'
   if (installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId) {
     if (file.productId === 'nodescan' && file.releaseId === NODESCAN_1_0_STANDARD_RELEASE_ID) return 'PROTECTED'
     return removingProductIds.has(file.productId) ? 'REMOVING' : 'INSTALLED'

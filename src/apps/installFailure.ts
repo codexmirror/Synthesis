@@ -14,7 +14,7 @@ export type InstallLocalSoftwarePackageFailure = Exclude<InstallLocalSoftwarePac
 const INSTALL_FAILURE_LABELS: Record<InstallLocalSoftwarePackageFailure['status'], string> = {
   already_installed: 'ALREADY INSTALLED', already_installing: 'INSTALLATION ALREADY RUNNING', invalid_path: 'INVALID PATH',
   package_not_found: 'FILE NOT FOUND', package_not_file: 'NOT A FILE', not_software_package: 'NOT A SOFTWARE PACKAGE',
-  unrecognized_package_extension: 'UNRECOGNIZED PACKAGE EXTENSION', unsupported_package: 'UNSUPPORTED PACKAGE',
+  unrecognized_package_extension: 'UNRECOGNIZED PACKAGE EXTENSION',
   install_path_occupied: 'INSTALLATION PATH OCCUPIED', insufficient_memory: 'INSUFFICIENT MEMORY',
 }
 

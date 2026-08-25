@@ -64,6 +64,18 @@ describe('removeInstalledSoftware: admission', () => {
     expect(result.status).not.toBe('protected_baseline')
   })
 
+  it('does not infer removal support for an ordinary installed product', () => {
+    const initial = createInitialGameState()
+    const state: GameState = {
+      ...initial,
+      player: { ...initial.player, localDevice: { ...initial.player.localDevice, installedSoftware: [
+        ...initial.player.localDevice.installedSoftware,
+        { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard' },
+      ] } },
+    }
+    expect(removeInstalledSoftware(state, 'packet-viewer')).toEqual({ status: 'unsupported_in_v1', state })
+  })
+
   it('starts one running software-removal Process for NodeScan 1.1 Experimental, reserving RAM and requiring shared Device CPU, without touching InstalledSoftware', () => {
     const state = withNodeScan11()
     const result = removeInstalledSoftware(state, 'nodescan')

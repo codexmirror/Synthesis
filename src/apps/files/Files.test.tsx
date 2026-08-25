@@ -208,13 +208,15 @@ describe('Files', () => {
     vi.useRealTimers()
   })
 
-  it('does not expose install for an unsupported represented package', async () => {
+  it('presents a recognized ordinary package as installable without release documentation', async () => {
     const state = createInitialGameState()
-    const file = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/other.pkg', releaseId: 'opaque', productId: 'other', name: 'Other', version: '1', channel: 'test', sizeBytes: 1_000 }
+    const file = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/packet-viewer.pkg', releaseId: 'packet-viewer-1.0', productId: 'packet-viewer', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 1_000 }
     render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [file] } } } }}><Files /></GameProvider>)
-    await userEvent.setup().click(screen.getByRole('button', { name: /other\.pkg/ }))
-    expect(screen.getByText('UNSUPPORTED PACKAGE')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'INSTALL' })).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: /packet-viewer\.pkg/ }))
+    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+    expect(screen.queryByText('UNSUPPORTED PACKAGE')).not.toBeInTheDocument()
+    expect(screen.queryByText('ABOUT')).not.toBeInTheDocument()
   })
 })
 
