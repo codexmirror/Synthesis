@@ -583,17 +583,34 @@ remote package path to the canonical installation operation, which stays the
 sole admission authority; a canonical admission failure is reported compactly
 and truthfully in the pane rather than as fabricated installation state.
 
-Every state is derived from canonical truth — the target Device's own installed
-software, its own running installation Processes, and the concrete selected
-Package:
+Every state is derived from canonical truth — whether the target Device
+represents installable software state at all, its own installed software, its
+own running installation Processes, and the concrete selected Package:
 
 INSTALLABLE
 INSTALLING
 INSTALLED
 UNRECOGNIZED
+NOT INSTALLABLE
+
+UNRECOGNIZED is about the artifact: normal installation does not recognize its
+current path.
+
+NOT INSTALLABLE is about the Device: it does not currently represent the
+software state installation requires, so nothing can be installed on it.
+
+These two are distinct conditions and must read as such.
+
+NOT INSTALLABLE is also not an empty inventory. A Device representing an
+inventory that currently holds nothing can install software normally; a Device
+representing no inventory at all cannot. Presentation must never stand one in
+for the other, and must not invent an inventory, a permission, or any other
+explanation for the Device's condition.
 
 Another installed release of the same product is stated as CURRENT while the
-selected package stays INSTALLABLE as a replacement.
+selected package stays INSTALLABLE as a replacement. A Device in the
+NOT INSTALLABLE condition states no CURRENT release, because it has no
+inventory to report one from.
 
 While the work runs, RACK-OS presents INSTALLING and nothing more.
 

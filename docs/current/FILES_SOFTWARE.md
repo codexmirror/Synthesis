@@ -325,15 +325,33 @@ its artifact from, and admit onto, the player's local Device alone.
 RACK-OS Files is the only interface for this in V1. Once a software package is
 selected on the operated Device, its detail states the package identity
 (name, `version` + channel, size, publisher where the package claims one, and
-release ID), then that Device's own `STATUS` (`INSTALLABLE`, `INSTALLING`,
-`INSTALLED`, or `UNRECOGNIZED`) and `CURRENT` installed release for that
-product, then the one action available — with the artifact's relationship to
-node-01 kept as a secondary `TRANSFER` block so existing Download behaviour and
-its destination/conflict semantics are unchanged. Another installed release of
-the same product is stated as `CURRENT` while the selected package remains
-`INSTALLABLE` as a replacement. `INSTALL` opens a compact inline confirmation
-in the same pane rather than a second screen or a modal: it names the target
-Device, the exact remote package path, and the current installed release.
+release ID), then that Device's own `STATUS` and `CURRENT` installed release for
+that product, then the one action available — with the artifact's relationship
+to node-01 kept as a secondary `TRANSFER` block so existing Download behaviour
+and its destination/conflict semantics are unchanged. `STATUS` distinguishes
+five implemented states:
+
+- `INSTALLABLE` — this release is not installed on this Device and normal
+  installation may be admitted from this artifact's current path.
+- `INSTALLING` — this Device's own executor identity is currently running an
+  installation Process for this product.
+- `INSTALLED` — this Device's inventory currently holds this exact release.
+- `UNRECOGNIZED` — normal installation does not recognize this artifact's
+  current path (see the `.pkg` recognition rule above). The artifact itself is
+  unchanged.
+- `NOT INSTALLABLE` — this Device does not currently represent the software
+  state installation requires at all, so no package can be installed here. It
+  is **not** the same condition as an empty `installedSoftware` inventory: an
+  empty inventory is a Device that represents installed software and currently
+  has none, and a package on it is normally `INSTALLABLE`. Presentation must
+  never substitute one for the other, and the pane states no `CURRENT` release
+  in this state because the Device has no inventory to report one from.
+
+Another installed release of the same product is stated as `CURRENT` while the
+selected package remains `INSTALLABLE` as a replacement. `INSTALL` opens a
+compact inline confirmation in the same pane rather than a second screen or a
+modal: it names the target Device, the exact remote package path, and the
+current installed release.
 Opening it and cancelling both change no GameState; confirming forwards that
 exact path to the canonical operation, which remains the sole admission
 authority, and a canonical admission failure is reported in the pane as-is.
