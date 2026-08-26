@@ -2,7 +2,7 @@ import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 35
+export const GAME_STATE_VERSION = 36
 
 export function createInitialGameState(): GameState {
   return {

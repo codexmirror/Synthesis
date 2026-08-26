@@ -376,8 +376,11 @@ owns admission only, not the lifetime of the work it admits: the resulting
 installation Process is owned by the target Device, so `DISCONNECT` closes
 RACK-OS and ends the player's observation while that Device keeps working, and
 a later Session over the same still-valid access simply shows whatever is true
-by then. Installation and execution admission, their rules, and their consequences are
-owned by `docs/current/FILES_SOFTWARE.md`. RACK-OS System gains no software
+by then. Remote executable / `RUN` admission and artifact/control semantics are
+owned by `docs/current/FILES_SOFTWARE.md`; executor-owned Process runtime and
+lifetime are owned by `docs/current/PROCESSES_ACTIVITY.md`; and NODE production,
+payout routing, payout artifacts, and live payout-retarget economics are owned
+by `docs/current/NODE_ECONOMY.md`. RACK-OS System gains no software
 management, the RACK-OS Terminal gains no package commands, and no RACK-OS
 Processes application exists: the selected executable and the one Terminal
 Miner command expose only the concrete NODE Miner state they need.
