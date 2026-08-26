@@ -5,13 +5,14 @@ import { deriveResourceUsage } from './processes'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { listDirectory, readTextFile } from './filesystem'
 import {
-  findNodeMinerExecutable, isNodeMinerAvailable, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS,
+  findNodeMinerExecutable, findRunningLocalNodeMiner, findRunningNodeMiner, isNodeMinerAvailable, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS,
   NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT, NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
-  NODE_MINER_RAM_REQUIRED_MIB, NODE_UNITS_PER_NODE, startNodeMiner, stopNodeMiner,
+  NODE_MINER_RAM_REQUIRED_MIB, NODE_UNITS_PER_NODE, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner,
 } from './nodeMiner'
-import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_PATH } from './nodeMinerPayoutLog'
+import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_HEADER, NODE_MINER_PAYOUT_LOG_PATH } from './nodeMinerPayoutLog'
+import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { findNodeAccountByAddress } from './nodeEconomy'
-import type { DiscoveredDeviceSnapshot, ExecutableFile, GameState, NodeMinerProcess, TextFile } from './types'
+import type { DiscoveredDeviceSnapshot, ExecutableFile, GameState, NetworkHost, NodeMinerProcess, TextFile } from './types'
 
 const LOCAL_MINER_PATH = '/home/user/downloads/node-miner-1.0.bin'
 
@@ -290,7 +291,7 @@ describe('NODE Miner STOP', () => {
     const foreignMiner: NodeMinerProcess = {
       kind: 'node_miner', id: 'process-0001', label: 'NODE MINER', executorDeviceId: 'device-srv-01',
       status: 'running', ramRequiredMiB: NODE_MINER_RAM_REQUIRED_MIB, programId: 'node-miner',
-      releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, producedNodeUnits: 7, payoutNodeUnits: 6, developerFeeNodeUnits: 0, workRemainder: 25,
+      releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, payoutSegment: 1, producedNodeUnits: 7, payoutNodeUnits: 6, developerFeeNodeUnits: 0, segmentPayoutNodeUnits: 6, segmentDeveloperFeeNodeUnits: 0, workRemainder: 25,
     }
     const withForeign: GameState = { ...state, process: { nextId: 2, processes: [foreignMiner] } }
 
@@ -519,8 +520,8 @@ describe('NODE Miner payout artifact', () => {
     const lines = payoutLog(state)!.content.split('\n')
     expect(lines).toHaveLength(NODE_MINER_PAYOUT_LOG_CAPACITY + 1)
     expect(lines[0]).toBe('NODE MINER PAYOUT LOG')
-    expect(payoutLog(state)!.content).not.toContain('process-0001 ')
-    expect(payoutLog(state)!.content).toContain('process-0011 ')
+    expect(payoutLog(state)!.content).not.toContain('process-0001#1 ')
+    expect(payoutLog(state)!.content).toContain('process-0011#1 ')
   })
 
   it('survives STOP: neither the artifact nor already-received Wallet activity is erased with the Process', () => {
@@ -569,5 +570,402 @@ describe('NODE Miner payout artifact observation', () => {
     const read = readTextFile(filesystem, NODE_MINER_PAYOUT_LOG_PATH)
     expect(read.status).toBe('ok')
     expect(read.status === 'ok' && read.content).toContain('gross=1000')
+  })
+})
+
+const REMOTE_MINER_PATH = '/usr/local/bin/node-miner'
+const REMOTE_DEVICE_ID = 'host-lan-001'
+
+function remoteMinerExecutable(path: string = REMOTE_MINER_PATH): ExecutableFile {
+  return { kind: 'executable', id: 'file-0009', path, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+}
+
+/**
+ * The player operating srv-01 through a real Session, with a supported NODE
+ * Miner executable already present on that Device's own filesystem and its
+ * baseline CPU load forced to zero so allocated-compute arithmetic lands on
+ * whole numbers. `alterHost` is applied *after* the Session is established,
+ * so a test can represent a target that went offline while operating it.
+ */
+function operatingState(alterHost?: (host: NetworkHost) => NetworkHost): GameState {
+  const base = readyState()
+  const host: NetworkHost = {
+    ...base.world.network.hosts[0],
+    filesystem: { nextFileId: 10, files: [...base.world.network.hosts[0].filesystem!.files, remoteMinerExecutable()] },
+    runtime: { baselineCpuLoad: 0, baselineRamUsage: 0 },
+  }
+  const authorized: GameState = {
+    ...base,
+    deviceAccess: { nextId: 2, established: [{ id: 'access-remote-run', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
+    world: { ...base.world, network: { ...base.world.network, hosts: [host, ...base.world.network.hosts.slice(1)] } },
+  }
+  const connected = connectRemoteFromObservation(authorized, { targetDeviceId: host.id, address: host.ip }).state
+  if (!alterHost) return connected
+  return { ...connected, world: { ...connected.world, network: { ...connected.world.network, hosts: [alterHost(host), ...connected.world.network.hosts.slice(1)] } } }
+}
+
+function runRemote(state: GameState, payoutAddress: string = state.nodeWallet.address, path: string = REMOTE_MINER_PATH) {
+  const result = startRemoteNodeMiner(state, path, payoutAddress)
+  if (result.status !== 'started') throw new Error(result.status)
+  return result
+}
+
+function remoteHost(state: GameState): NetworkHost {
+  return state.world.network.hosts.find(({ id }) => id === REMOTE_DEVICE_ID)!
+}
+
+function remotePayoutLog(state: GameState): TextFile | undefined {
+  return remoteHost(state).filesystem!.files.find((file): file is TextFile => file.kind === 'text' && file.path === NODE_MINER_PAYOUT_LOG_PATH)
+}
+
+describe('remote NODE Miner RUN admission', () => {
+  it('executes on the Device the Session actually operates, never on the local Device', () => {
+    const started = runRemote(operatingState())
+    const process = findRunningNodeMiner(started.state, REMOTE_DEVICE_ID)!
+
+    expect(process.id).toBe(started.processId)
+    expect(process.executorDeviceId).toBe(REMOTE_DEVICE_ID)
+    expect(process.programId).toBe('node-miner')
+    expect(process.releaseId).toBe('node-miner-1.0')
+    expect(findRunningLocalNodeMiner(started.state)).toBeUndefined()
+    // The Session admitted it; nothing about the Process references the Session or its access.
+    expect(process).not.toHaveProperty('sessionId')
+    expect(process).not.toHaveProperty('accessId')
+  })
+
+  it('resolves its executor from the canonical operating context rather than any supplied identity', () => {
+    // The same call, with the Session pointing at srv-02 instead, admits onto srv-02.
+    const base = operatingState()
+    const other = base.world.network.hosts[1]
+    const retargetedSession: GameState = {
+      ...base,
+      deviceAccess: { nextId: 2, established: [{ id: 'access-remote-run', sourceDeviceId: base.player.localDevice.id, targetDeviceId: other.id, viaServiceId: 'service-ssh-002', privilege: 'USER' }] },
+      world: { ...base.world, network: { ...base.world.network, hosts: [base.world.network.hosts[0], { ...other, filesystem: { nextFileId: 10, files: [...other.filesystem!.files, remoteMinerExecutable()] } }, ...base.world.network.hosts.slice(2)] } },
+    }
+
+    const started = runRemote(retargetedSession)
+
+    expect(findRunningNodeMiner(started.state, other.id)?.id).toBe(started.processId)
+    expect(findRunningNodeMiner(started.state, REMOTE_DEVICE_ID)).toBeUndefined()
+  })
+
+  it('runs a copied executable without matching InstalledSoftware, even where the Device represents no inventory at all', () => {
+    const state = operatingState((host) => ({
+      ...host,
+      installedSoftware: undefined,
+      filesystem: { nextFileId: 11, files: [...host.filesystem!.files, remoteMinerExecutable('/tmp/copied-miner')] },
+    }))
+    expect(remoteHost(state).installedSoftware).toBeUndefined()
+
+    const started = runRemote(state, state.nodeWallet.address, '/tmp/copied-miner')
+
+    expect(findRunningNodeMiner(started.state, REMOTE_DEVICE_ID)?.id).toBe(started.processId)
+  })
+
+  it('rejects a missing, wrong-kind or unsupported remote artifact atomically', () => {
+    const state = operatingState((host) => ({
+      ...host,
+      filesystem: { nextFileId: 12, files: [
+        ...host.filesystem!.files,
+        { kind: 'executable', id: 'file-0011', path: '/usr/local/bin/other', programId: 'other-program', releaseId: 'other-1.0', name: 'Other', version: '1.0', sizeBytes: 10 },
+      ] },
+    }))
+
+    for (const [path, status] of [['/srv/missing', 'source_not_found'], ['/srv', 'source_not_file'], ['relative', 'invalid_path'], ['/srv/readme.txt', 'not_executable'], ['/usr/local/bin/other', 'unsupported_program']] as const) {
+      const result = startRemoteNodeMiner(state, path, 'addr')
+      expect(result.status).toBe(status)
+      expect(result.state).toBe(state)
+    }
+    // The local Device's own copy is never an execution source for the remote Device.
+    expect(startRemoteNodeMiner(state, LOCAL_MINER_PATH, 'addr').status).toBe('source_not_found')
+  })
+
+  it('requires an explicit non-empty payout address', () => {
+    const state = operatingState()
+    const result = startRemoteNodeMiner(state, REMOTE_MINER_PATH, '   ')
+    expect(result.status).toBe('invalid_payout_address')
+    expect(result.state).toBe(state)
+  })
+
+  it('fails admission without a resolvable operating context', () => {
+    const state = readyState()
+    const result = startRemoteNodeMiner(state, REMOTE_MINER_PATH, 'addr')
+    expect(result.status).toBe('session_unavailable')
+    expect(result.state).toBe(state)
+  })
+
+  it('fails admission when the target went offline while the Session was live', () => {
+    const state = operatingState((host) => ({ ...host, online: false }))
+    const result = startRemoteNodeMiner(state, REMOTE_MINER_PATH, 'addr')
+    expect(result.status).toBe('target_offline')
+    expect(result.state).toBe(state)
+  })
+
+  it('fails admission on a target that represents no executable runtime', () => {
+    const state = operatingState((host) => ({ ...host, hardware: undefined }))
+    const result = startRemoteNodeMiner(state, REMOTE_MINER_PATH, 'addr')
+    expect(result.status).toBe('target_not_executable')
+    expect(result.state).toBe(state)
+  })
+
+  it('admits RAM against the target Device rather than the local Device', () => {
+    const state = operatingState((host) => ({ ...host, hardware: { ...host.hardware!, ram: { name: '256 MB', capacityMiB: 256 } } }))
+    const result = startRemoteNodeMiner(state, REMOTE_MINER_PATH, 'addr')
+
+    expect(result).toMatchObject({ status: 'insufficient_memory', requiredMiB: NODE_MINER_RAM_REQUIRED_MIB, availableMiB: 256 })
+    expect(result.state).toBe(state)
+    // node-01 has ample RAM: the rejection is the target's truth, not the local Device's.
+    expect(deriveResourceUsage(state.player.localDevice, state.process).availableRamMiB).toBeGreaterThan(NODE_MINER_RAM_REQUIRED_MIB)
+  })
+
+  it('rejects a duplicate Miner on the same executor while allowing a local Miner alongside it', () => {
+    const remote = runRemote(operatingState())
+    expect(startRemoteNodeMiner(remote.state, REMOTE_MINER_PATH, 'addr').status).toBe('already_running')
+
+    const local = run(remote.state)
+    expect(findRunningLocalNodeMiner(local.state)?.id).toBe(local.processId)
+    expect(findRunningNodeMiner(local.state, REMOTE_DEVICE_ID)?.id).toBe(remote.processId)
+    expect(local.processId).not.toBe(remote.processId)
+  })
+
+  it("reserves each Miner's RAM on its own executor alone", () => {
+    const both = run(runRemote(operatingState()).state).state
+    expect(deriveResourceUsage(both.player.localDevice, both.process).processRamMiB).toBe(NODE_MINER_RAM_REQUIRED_MIB)
+    expect(deriveResourceUsage({ id: REMOTE_DEVICE_ID, hardware: remoteHost(both).hardware!, runtime: remoteHost(both).runtime! }, both.process).processRamMiB).toBe(NODE_MINER_RAM_REQUIRED_MIB)
+  })
+})
+
+describe('remote NODE Miner runtime', () => {
+  it("produces from the target Device's own compute, independently of the local Miner", () => {
+    // srv-01: 160 compute at zero baseline. node-01: 100 compute at zero baseline.
+    const advanced = advanceGameState(run(runRemote(operatingState()).state).state, 1_000)
+
+    expect(findRunningNodeMiner(advanced, REMOTE_DEVICE_ID)?.producedNodeUnits).toBe(160)
+    expect(findRunningLocalNodeMiner(advanced)?.producedNodeUnits).toBe(100)
+  })
+
+  it("shares the target Device's compute with that Device's other running work", () => {
+    const started = runRemote(operatingState())
+    const contended: GameState = { ...started.state, process: { ...started.state.process, processes: [
+      ...started.state.process.processes,
+      { kind: 'generic', id: 'process-other', label: 'OTHER WORK', executorDeviceId: REMOTE_DEVICE_ID, status: 'running', workRequired: 1_000_000, workCompleted: 0, ramRequiredMiB: 64 },
+    ] } }
+
+    const advanced = advanceGameState(contended, 1_000)
+
+    // Half of srv-01's 160 available compute, not the local Device's share.
+    expect(findRunningNodeMiner(advanced, REMOTE_DEVICE_ID)?.producedNodeUnits).toBe(80)
+  })
+
+  it('keeps running through returning to NODE-OS and through DISCONNECT', () => {
+    const started = runRemote(operatingState())
+    const disconnected = disconnectRemoteSession(started.state)
+    expect(disconnected.state.remoteSession.active).toBeNull()
+    expect(disconnected.state.deviceAccess.established).toHaveLength(1)
+
+    const advanced = advanceGameState(disconnected.state, 1_000)
+    const process = findRunningNodeMiner(advanced, REMOTE_DEVICE_ID)
+
+    expect(process?.id).toBe(started.processId)
+    expect(process?.producedNodeUnits).toBe(160)
+  })
+})
+
+describe('remote NODE Miner payout', () => {
+  it('routes remote production through the same exact-address recipient rules', () => {
+    const advanced = advanceGameState(runRemote(operatingState()).state, 10_000)
+
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(670)
+    expect(developerBalance(advanced)).toBe(330)
+    expect(advanced.nodeWallet.activity.records).toHaveLength(1)
+  })
+
+  it('credits nobody for a foreign address while still diverting the developer share', () => {
+    const advanced = advanceGameState(runRemote(operatingState(), 'node-addr-nobody-holds').state, 10_000)
+
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(0)
+    expect(developerBalance(advanced)).toBe(330)
+  })
+
+  it('writes its payout artifact to the executing Device rather than to node-01', () => {
+    const advanced = advanceGameState(runRemote(operatingState()).state, 10_000)
+
+    expect(remotePayoutLog(advanced)?.content).toContain('gross=1000')
+    expect(remotePayoutLog(advanced)?.content).toContain(`payout-address=${advanced.nodeWallet.address}`)
+    expect(payoutLog(advanced)).toBeUndefined()
+  })
+
+  it("keeps each Device's payout artifact on its own filesystem when both mine at once", () => {
+    const advanced = advanceGameState(run(runRemote(operatingState()).state).state, 20_000)
+
+    expect(payoutLog(advanced)?.content).toContain(findRunningLocalNodeMiner(advanced)!.id)
+    expect(payoutLog(advanced)?.content).not.toContain(findRunningNodeMiner(advanced, REMOTE_DEVICE_ID)!.id)
+    expect(remotePayoutLog(advanced)?.content).toContain(findRunningNodeMiner(advanced, REMOTE_DEVICE_ID)!.id)
+    expect(remotePayoutLog(advanced)?.content).not.toContain(findRunningLocalNodeMiner(advanced)!.id)
+  })
+
+  it('never overwrites an unrelated artifact occupying the payout-log path on the remote Device', () => {
+    const foreign: TextFile = { kind: 'text', id: 'file-0020', path: NODE_MINER_PAYOUT_LOG_PATH, content: 'UNRELATED LOG\nkeep this data' }
+    const state = operatingState((host) => ({ ...host, filesystem: { nextFileId: 21, files: [...host.filesystem!.files, foreign] } }))
+
+    const advanced = advanceGameState(runRemote(state).state, 10_000)
+
+    expect(remoteHost(advanced).filesystem!.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)).toEqual(foreign)
+    // The economic payouts themselves still happened.
+    expect(advanced.nodeWallet.balanceNodeUnits).toBe(670)
+  })
+})
+
+describe('live NODE Miner payout retarget', () => {
+  const NEW_ADDRESS = 'node-addr-9f31c7a4d2'
+
+  it('changes the configured address in place, preserving Process identity and every accumulated counter', () => {
+    const started = runRemote(operatingState())
+    const producing = advanceGameState(started.state, 14_300)
+    const before = findRunningNodeMiner(producing, REMOTE_DEVICE_ID)!
+
+    const result = retargetNodeMinerPayout(producing, NEW_ADDRESS)
+    expect(result.status).toBe('retargeted')
+    const after = findRunningNodeMiner(result.state, REMOTE_DEVICE_ID)!
+
+    expect(after.id).toBe(before.id)
+    expect(after.executorDeviceId).toBe(before.executorDeviceId)
+    expect(after.programId).toBe(before.programId)
+    expect(after.releaseId).toBe(before.releaseId)
+    expect(after.ramRequiredMiB).toBe(before.ramRequiredMiB)
+    expect(after.producedNodeUnits).toBe(before.producedNodeUnits)
+    expect(after.payoutNodeUnits).toBe(before.payoutNodeUnits)
+    expect(after.developerFeeNodeUnits).toBe(before.developerFeeNodeUnits)
+    expect(after.workRemainder).toBe(before.workRemainder)
+    expect(after.payoutAddress).toBe(NEW_ADDRESS)
+    // Pending production is deliberately not reset merely because configuration changed.
+    expect(after.producedNodeUnits - (after.payoutNodeUnits + after.developerFeeNodeUnits)).toBeGreaterThan(0)
+  })
+
+  it('consumes no simulation time, creates no second Process, and fabricates no lifecycle history', () => {
+    const producing = advanceGameState(runRemote(operatingState()).state, 14_300)
+    const retargeted = retargetNodeMinerPayout(producing, NEW_ADDRESS).state
+
+    expect(retargeted.process.processes).toHaveLength(1)
+    expect(retargeted.process.nextId).toBe(producing.process.nextId)
+    expect(retargeted.recentActivity.entries).toEqual([])
+    // No hidden final payout: nothing moved at the instant of the change.
+    expect(retargeted.nodeWallet).toEqual(producing.nodeWallet)
+    expect(retargeted.nodeEconomy).toEqual(producing.nodeEconomy)
+    expect(remotePayoutLog(retargeted)).toEqual(remotePayoutLog(producing))
+  })
+
+  it('leaves already-routed NODE untouched and routes only later completed batches to the new address', () => {
+    // srv-01 produces 160 units/s at zero baseline, so 6.25 s is exactly one 1,000-unit batch.
+    const started = runRemote(operatingState())
+    const firstBatch = advanceGameState(started.state, 6_250)
+    expect(firstBatch.nodeWallet.balanceNodeUnits).toBe(670)
+
+    const retargeted = retargetNodeMinerPayout(firstBatch, NEW_ADDRESS).state
+    const secondBatch = advanceGameState(retargeted, 6_250)
+
+    // The Wallet keeps exactly what it was already paid; the new address received the next batch.
+    expect(secondBatch.nodeWallet.balanceNodeUnits).toBe(670)
+    expect(secondBatch.nodeWallet.activity.records).toHaveLength(1)
+    // 330 from the first batch's developer share, plus 670 + 330 from the second, now that both go to the same address.
+    expect(developerBalance(secondBatch)).toBe(330 + 670 + 330)
+    // Developer-share behavior stays release-correct across the change.
+    const process = findRunningNodeMiner(secondBatch, REMOTE_DEVICE_ID)!
+    expect(process.payoutNodeUnits).toBe(1_340)
+    expect(process.developerFeeNodeUnits).toBe(660)
+  })
+
+  it('keeps the payout artifact historically truthful across an address change', () => {
+    const started = runRemote(operatingState())
+    const firstBatch = advanceGameState(started.state, 6_250)
+    const secondBatch = advanceGameState(retargetNodeMinerPayout(firstBatch, NEW_ADDRESS).state, 6_250)
+
+    const lines = remotePayoutLog(secondBatch)!.content.split('\n')
+    expect(lines).toHaveLength(3)
+    expect(lines[1]).toBe(`${started.processId}#1 gross=1000 payout=670 payout-address=node-wallet-addr-0001 fee=330 fee-address=${NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS}`)
+    expect(lines[2]).toBe(`${started.processId}#2 gross=1000 payout=670 payout-address=${NEW_ADDRESS} fee=330 fee-address=${NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS}`)
+    // The earlier line still names the address that was actually paid then.
+    expect(lines[1]).not.toContain(`payout-address=${NEW_ADDRESS}`)
+  })
+
+  it('keeps payout-artifact retention bounded however often one run is retargeted', () => {
+    let state = advanceGameState(runRemote(operatingState()).state, 10_000)
+    for (let index = 0; index < NODE_MINER_PAYOUT_LOG_CAPACITY + 3; index += 1) {
+      state = retargetNodeMinerPayout(state, `node-addr-rotate-${index}`).state
+      state = advanceGameState(state, 10_000)
+    }
+
+    const lines = remotePayoutLog(state)!.content.split('\n')
+    expect(lines).toHaveLength(NODE_MINER_PAYOUT_LOG_CAPACITY + 1)
+    expect(lines[0]).toBe(NODE_MINER_PAYOUT_LOG_HEADER)
+    expect(state.process.processes).toHaveLength(1)
+  })
+
+  it('rejects an empty address, a missing Session, and an offline target atomically', () => {
+    const producing = advanceGameState(runRemote(operatingState()).state, 14_300)
+    for (const [state, address, status] of [
+      [producing, '   ', 'invalid_payout_address'],
+      [{ ...producing, remoteSession: { ...producing.remoteSession, active: null } }, NEW_ADDRESS, 'session_unavailable'],
+      [{ ...producing, world: { ...producing.world, network: { ...producing.world.network, hosts: [{ ...remoteHost(producing), online: false }, ...producing.world.network.hosts.slice(1)] } } }, NEW_ADDRESS, 'target_offline'],
+    ] as const) {
+      const result = retargetNodeMinerPayout(state, address)
+      expect(result.status).toBe(status)
+      expect(result.state).toBe(state)
+    }
+  })
+
+  it('never retargets a Miner that is not running on the operated Device', () => {
+    // A local Miner is running, but srv-01 has none: the operated Device is what counts.
+    const localOnly = run(operatingState()).state
+    const result = retargetNodeMinerPayout(localOnly, NEW_ADDRESS)
+
+    expect(result.status).toBe('not_running')
+    expect(result.state).toBe(localOnly)
+    expect(findRunningLocalNodeMiner(localOnly)?.payoutAddress).toBe(localOnly.nodeWallet.address)
+  })
+})
+
+describe('remote NODE Miner STOP', () => {
+  it("removes only the operated Device's Miner and immediately releases its CPU and RAM", () => {
+    const remote = runRemote(operatingState())
+    const both = run(remote.state)
+    const producing = advanceGameState(both.state, 10_000)
+
+    const stopped = stopRemoteNodeMiner(producing, remote.processId)
+    expect(stopped.status).toBe('stopped')
+
+    expect(findRunningNodeMiner(stopped.state, REMOTE_DEVICE_ID)).toBeUndefined()
+    expect(findRunningLocalNodeMiner(stopped.state)?.id).toBe(both.processId)
+    const host = remoteHost(stopped.state)
+    expect(deriveResourceUsage({ id: REMOTE_DEVICE_ID, hardware: host.hardware!, runtime: host.runtime! }, stopped.state.process)).toMatchObject({ processRamMiB: 0, processCpuLoad: 0 })
+    // No hidden final mining work or payout, and the Device keeps its own payout artifact.
+    expect(stopped.state.nodeWallet.balanceNodeUnits).toBe(producing.nodeWallet.balanceNodeUnits)
+    expect(developerBalance(stopped.state)).toBe(developerBalance(producing))
+    expect(remotePayoutLog(stopped.state)?.content).toContain('gross=1000')
+  })
+
+  it("archives no foreign runtime into the local Device's Recent Activity", () => {
+    const remote = runRemote(operatingState())
+    const stopped = stopRemoteNodeMiner(advanceGameState(remote.state, 10_000), remote.processId).state
+
+    expect(stopped.recentActivity.entries).toEqual([])
+    expect(stopped.process.processes).toEqual([])
+  })
+
+  it("cannot stop the player's own local Miner, and local STOP cannot stop the remote one", () => {
+    const remote = runRemote(operatingState())
+    const both = run(remote.state).state
+
+    expect(stopRemoteNodeMiner(both, findRunningLocalNodeMiner(both)!.id)).toEqual({ status: 'not_found', state: both })
+    expect(stopNodeMiner(both, remote.processId)).toEqual({ status: 'not_found', state: both })
+  })
+
+  it('requires a resolvable operating context', () => {
+    const remote = runRemote(operatingState())
+    const disconnected = disconnectRemoteSession(remote.state).state
+
+    const result = stopRemoteNodeMiner(disconnected, remote.processId)
+    expect(result.status).toBe('session_unavailable')
+    expect(findRunningNodeMiner(result.state, REMOTE_DEVICE_ID)?.id).toBe(remote.processId)
   })
 })

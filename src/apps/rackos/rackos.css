@@ -54,6 +54,11 @@ button.rack-header__disconnect { color: #cf9a93; }
 .rack-install-actions button { flex: 1 1 auto; justify-self: stretch; }
 .rack-install-note { margin: 0; color: #879398; font-size: .68rem; letter-spacing: .1em; overflow-wrap: anywhere; }
 .rack-install-note--caution { color: #e0a89a; }
+/* Execution on the operated Device: the Miner this Device is actually running, and one lifecycle action. */
+.rack-run-state { display: grid; gap: 12px; }
+.rack-run-state dl { margin: 0; }
+.rack-run-state .rack-secondary { justify-self: start; }
+.rack-artifact-chip { color: #e0a89a; }
 /* Transfer stays available but reads as secondary to the remote Device's software state. */
 .rack-transfer-label { margin-top: 6px; padding-top: 12px; border-top: 1px solid #394246; }
 .rack-download-state { display: grid; gap: 8px; }.rack-download-state dl { margin: 0; }.rack-download-state strong { color: #aab5b9; font-size: .7rem; letter-spacing: .1em; }

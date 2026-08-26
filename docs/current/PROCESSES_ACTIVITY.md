@@ -31,7 +31,7 @@ independent resource pools; unresolved and shallow executors do not advance.
 Current Service Analysis and Credential Access operations still execute on the
 player's local Device.
 
-Software Installation is the first operation that also executes on a
+Software Installation and NODE Miner execution both also execute on a
 represented remote Device. When the player installs a package that exists on
 the Device they are operating through RACK-OS, the resulting
 `software_installation` Process carries that target's `executorDeviceId` and
@@ -42,6 +42,17 @@ Device (see `docs/current/FILES_SOFTWARE.md`). Because it consumes only the
 executor's own resources after admission, it retains no reference to the
 RemoteSession or DeviceAccess that admitted it, and disconnecting neither
 cancels it nor stops its advancement.
+
+A NODE Miner run on that same operated Device works identically and is
+admitted the same way (see `docs/current/FILES_SOFTWARE.md`): its
+`executorDeviceId` is the target, that Device supplies its CPU and reserved
+RAM, it contends with that Device's own other running Processes, and it
+likewise retains no Session or access reference. Because it is continuous, the
+difference is only in lifetime: leaving RACK-OS, returning to NODE-OS, and
+`DISCONNECT` all leave it running indefinitely, and a later Session over the
+same still-valid DeviceAccess observes the same Process. The one-Miner-per-
+executor rule is per Device, so node-01 and `srv-01` may each run one at the
+same time as independent runtimes.
 
 CPU compute capacity controls throughput.
 
@@ -69,7 +80,17 @@ not a second scheduler for continuous work.
 STOP consumes zero simulation time, performs no final work, and immediately
 removes the Process (releasing its RAM/CPU) without a generic stopped/history
 state; global Process ID progression is unaffected, so a later RUN receives a
-new identity.
+new identity. Local STOP and the remote STOP offered on the operated Device are
+separate operations scoped to their own executor: neither can end the other
+Device's Miner.
+
+A Miner's configured payout address may also change while it keeps running.
+That live retarget is a configuration change to one running Process, not a
+lifecycle event: Process identity, executor, RAM ownership, accumulated
+economic counters and pending fractional work all survive it, it consumes no
+simulation time, and it creates no second Process, no STOP and no RUN. Its
+economic and payout-artifact consequences are owned by
+`docs/current/NODE_ECONOMY.md`.
 
 What that Miner produces and where it routes production is owned by
 `docs/current/NODE_ECONOMY.md`; its admission requirements are owned by
@@ -92,8 +113,12 @@ instead.
 The Processes application is presented as the NODE-OS Activity Monitor. It
 observes only the local Device's canonical Process and resource state and,
 alongside it, the single canonical active `FileTransfer`. Work executing on
-another Device is absent from it: it is that Device's runtime, not node-01's,
-and no cross-Device process-observation surface is currently represented. The two runtime
+another Device — a remote installation, and equally a NODE Miner running on an
+operated Device — is absent from it: it is that Device's runtime, not
+node-01's, and no cross-Device process-observation surface is currently
+represented. What RACK-OS legitimately shows about that Device's own Miner is
+owned by `docs/current/FILES_SOFTWARE.md` and is not this application's
+observation. The two runtime
 domains remain separate canonical state; a pure presentation adapter aggregates
 them for display only and never represents a transfer as a `GameProcess`. That
 adapter resolves a FileTransfer's direction-aware source, destination,
@@ -169,6 +194,13 @@ lifecycle it already had; what a future remote Service Analysis, Credential
 Access, or other non-local operation should do when it ends is that mechanic's
 decision to make, not this one's.
 
+Remote NODE Miner STOP reaches the same conclusion from the same reasoning, and
+owns it for itself: stopping a Miner on the operated Device removes it from the
+scheduler and archives nothing, because Recent Activity is the local Device's
+own runtime observation and a foreign Miner archived there could be neither
+presented nor cleared while still consuming one of the bounded local slots.
+Local STOP is unchanged and still archives its own Device's Miner.
+
 
 ## Gotchas
 
@@ -184,9 +216,12 @@ decision to make, not this one's.
   a percentage completion bar or a generic stopped state.
 - Recent Activity is the local Device's own runtime observation. A completed
   remote `software_installation` Process is neither archived into it nor
-  retained in `ProcessState`, because nothing could present or clear it. That
-  is Remote Software Installation V1's own rule; do not generalize it to other
-  Process kinds without a concrete mechanic that decides so.
+  retained in `ProcessState`, and a remote NODE Miner STOP archives nothing,
+  because nothing could present or clear either. Each is that mechanic's own
+  rule; do not generalize them to other Process kinds without a concrete
+  mechanic that decides so.
+- A live payout retarget is not a Process lifecycle event. It must never
+  fabricate a STOP or RUN, replace the Process, or reset accumulated work.
 - Retained completed-Process history is disposable operator presentation, not
   an audit log. Clearing it must never undo consequences stored in other
   canonical state, and it cannot touch another executor's history.

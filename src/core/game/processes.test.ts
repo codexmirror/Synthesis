@@ -31,7 +31,7 @@ describe('process resource domain', () => {
     const remote = { ...finite, id: 'process-remote', executorDeviceId: 'host-lan-001' }
     const miner: NodeMinerProcess = {
       kind: 'node_miner', id: 'process-miner', label: 'NODE MINER', executorDeviceId: executor.id, status: 'running', ramRequiredMiB: 1,
-      programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'addr', producedNodeUnits: 0, payoutNodeUnits: 0, developerFeeNodeUnits: 0, workRemainder: 0,
+      programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'addr', payoutSegment: 1, producedNodeUnits: 0, payoutNodeUnits: 0, developerFeeNodeUnits: 0, segmentPayoutNodeUnits: 0, segmentDeveloperFeeNodeUnits: 0, workRemainder: 0,
     }
     const state = { ...game, process: { nextId: 2, processes: [completed, remote, miner] } }
     for (const id of ['missing', completed.id, remote.id, miner.id]) {
@@ -148,8 +148,8 @@ describe('continuous (NodeMinerProcess) work shares the same executor advancemen
   function miner(id: string, overrides: Partial<NodeMinerProcess> = {}): NodeMinerProcess {
     return {
       kind: 'node_miner', id, label: 'NODE MINER', executorDeviceId: zeroBaselineExecutor.id, status: 'running',
-      ramRequiredMiB: 1, programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'addr',
-      producedNodeUnits: 0, payoutNodeUnits: 0, developerFeeNodeUnits: 0, workRemainder: 0, ...overrides,
+      ramRequiredMiB: 1, programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'addr', payoutSegment: 1,
+      producedNodeUnits: 0, payoutNodeUnits: 0, developerFeeNodeUnits: 0, segmentPayoutNodeUnits: 0, segmentDeveloperFeeNodeUnits: 0, workRemainder: 0, ...overrides,
     }
   }
 
