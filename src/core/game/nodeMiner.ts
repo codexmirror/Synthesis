@@ -233,6 +233,22 @@ export function stopRemoteNodeMiner(state: GameState, processId: string): StopRe
 export type RetargetNodeMinerPayoutResult =
   | { readonly status: 'retargeted'; readonly state: GameState; readonly processId: string; readonly payoutAddress: string }
   | { readonly status: 'not_running' | 'invalid_payout_address' | OperatedDeviceFailure; readonly state: GameState }
+export type RetargetLocalNodeMinerPayoutResult =
+  | { readonly status: 'retargeted'; readonly state: GameState; readonly processId: string; readonly payoutAddress: string }
+  | { readonly status: 'not_running' | 'invalid_payout_address'; readonly state: GameState }
+
+function retargetNodeMinerOnExecutor(state: GameState, executorDeviceId: string, payoutAddress: string): RetargetLocalNodeMinerPayoutResult {
+  const process = findRunningNodeMiner(state, executorDeviceId)
+  if (!process) return { status: 'not_running', state }
+  if (!payoutAddress.trim()) return { status: 'invalid_payout_address', state }
+  if (payoutAddress === process.payoutAddress) return { status: 'retargeted', state, processId: process.id, payoutAddress }
+  const retargeted: NodeMinerProcess = { ...process, payoutAddress, payoutSegment: process.payoutSegment + 1, segmentPayoutNodeUnits: 0, segmentDeveloperFeeNodeUnits: 0 }
+  return { status: 'retargeted', processId: process.id, payoutAddress, state: { ...state, process: { ...state.process, processes: state.process.processes.map((candidate) => candidate.id === process.id ? retargeted : candidate) } } }
+}
+
+export function retargetLocalNodeMinerPayout(state: GameState, payoutAddress: string): RetargetLocalNodeMinerPayoutResult {
+  return retargetNodeMinerOnExecutor(state, state.player.localDevice.id, payoutAddress)
+}
 
 /**
  * Change the payout address of the Miner already running on the Device
@@ -255,18 +271,7 @@ export type RetargetNodeMinerPayoutResult =
 export function retargetNodeMinerPayout(state: GameState, payoutAddress: string): RetargetNodeMinerPayoutResult {
   const operated = resolveOperatedDevice(state)
   if (operated.status !== 'ok') return { status: operated.status, state }
-  const process = findRunningNodeMiner(state, operated.target.id)
-  if (!process) return { status: 'not_running', state }
-  if (!payoutAddress.trim()) return { status: 'invalid_payout_address', state }
-  if (payoutAddress === process.payoutAddress) return { status: 'retargeted', state, processId: process.id, payoutAddress }
-
-  const retargeted: NodeMinerProcess = { ...process, payoutAddress, payoutSegment: process.payoutSegment + 1, segmentPayoutNodeUnits: 0, segmentDeveloperFeeNodeUnits: 0 }
-  return {
-    status: 'retargeted',
-    processId: process.id,
-    payoutAddress,
-    state: { ...state, process: { ...state.process, processes: state.process.processes.map((candidate) => candidate.id === process.id ? retargeted : candidate) } },
-  }
+  return retargetNodeMinerOnExecutor(state, operated.target.id, payoutAddress)
 }
 
 /**
@@ -401,4 +406,19 @@ export function findRunningNodeMiner(state: GameState, executorDeviceId: string)
 /** The local NODE Miner Process currently running on the player's own Device, if any. */
 export function findRunningLocalNodeMiner(state: GameState): NodeMinerProcess | undefined {
   return findRunningNodeMiner(state, state.player.localDevice.id)
+}
+
+/** Concrete derived runtime facts used by the NODE Miner product integration. */
+export function deriveNodeMinerRuntimeStatus(state: GameState, executor: Pick<NodeMinerExecutor, 'id' | 'hardware' | 'runtime'>) {
+  const process = findRunningNodeMiner(state, executor.id)
+  if (!process) return undefined
+  const usage = deriveResourceUsage(executor, state.process)
+  const cpuPercent = usage.cpuAllocationByProcess[process.id] ?? 0
+  return {
+    processId: process.id, cpuPercent, ramMiB: process.ramRequiredMiB, payoutAddress: process.payoutAddress,
+    producedUnits: process.producedNodeUnits,
+    pendingUnits: process.producedNodeUnits % NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS,
+    payoutBatchGrossUnits: NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS,
+    ratePerSecondUnits: executor.hardware.cpu.computeCapacity * cpuPercent / 100 / NODE_MINER_COMPUTE_SECONDS_PER_UNIT,
+  }
 }

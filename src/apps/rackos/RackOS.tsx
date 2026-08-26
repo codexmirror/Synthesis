@@ -5,7 +5,7 @@ import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
 import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
 import { isRecognizedSoftwarePackagePath, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
-import { findRunningNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartRemoteNodeMinerResult } from '../../core/game/nodeMiner'
+import { deriveNodeMinerRuntimeStatus, findNodeMinerExecutable, findRunningNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartRemoteNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
 import type { AuthenticationHistoryRecord, ExecutableFile, FilesystemFile, FilesystemState, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
@@ -84,12 +84,39 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
 }
 
 function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget; onDisconnect(): void }) {
-  const { startRemoteFileDownload, startRemoteFileUpload, retargetNodeMinerPayout } = useGameActions()
+  const state = useGameState()
+  const { startRemoteFileDownload, startRemoteFileUpload, runRemoteNodeMiner, stopRemoteNodeMiner, retargetNodeMinerPayout } = useGameActions()
   const [input, setInput] = useState('')
   const [lines, setLines] = useState<readonly { command: string; output: readonly string[] }[]>([])
   function submit(event: FormEvent) {
     event.preventDefault(); const command = input.trim(); if (!command) return
-    const result = runRemoteCommand(context, command, { startRemoteFileDownload, startRemoteFileUpload, retargetNodeMinerPayout }); setInput('')
+    const nodeMiner = {
+      run: (payoutAddress: string) => {
+        const executable = context.target.filesystem && findNodeMinerExecutable(context.target.filesystem)
+        if (!executable) return { status: 'unavailable' as const }
+        const result = runRemoteNodeMiner(executable.path, payoutAddress)
+        if (result.status === 'started') return { status: 'started' as const, processId: result.processId, payoutAddress }
+        if (result.status === 'insufficient_memory') return { status: result.status, requiredMiB: result.requiredMiB, availableMiB: result.availableMiB }
+        if (result.status === 'already_running' || result.status === 'invalid_payout_address' || result.status === 'session_unavailable' || result.status === 'target_offline') return { status: result.status }
+        return { status: 'unavailable' as const }
+      },
+      status: () => {
+        if (!context.target.hardware || !context.target.runtime) return { status: 'idle' as const }
+        const status = deriveNodeMinerRuntimeStatus(state, { id: context.target.id, hardware: context.target.hardware, runtime: context.target.runtime })
+        return status ? { status: 'running' as const, ...status } : { status: 'idle' as const }
+      },
+      stop: () => {
+        const process = findRunningNodeMiner(state, context.target.id)
+        if (!process) return { status: 'not_running' as const }
+        const result = stopRemoteNodeMiner(process.id)
+        return result.status === 'stopped' ? { status: 'stopped' as const, processId: process.id } : { status: result.status === 'not_found' ? 'not_running' as const : result.status }
+      },
+      payout: (payoutAddress: string) => {
+        const result = retargetNodeMinerPayout(payoutAddress)
+        return result.status === 'retargeted' ? { status: result.status, processId: result.processId, payoutAddress: result.payoutAddress } : { status: result.status }
+      },
+    }
+    const result = runRemoteCommand(context, command, { startRemoteFileDownload, startRemoteFileUpload, nodeMiner }); setInput('')
     if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
     if (result.disconnect) onDisconnect()
   }

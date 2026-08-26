@@ -101,6 +101,7 @@ node-miner help
 node-miner run --payout <address>
 node-miner status
 node-miner stop
+node-miner payout <address>
 ```
 
 Terminal supports:
@@ -263,3 +264,14 @@ or recording are installed without the query flag.
   viewport management, body transform hacks) to fix a local layout problem.
 - Silence is a valid UI state. Do not invent telemetry, logs, uptime, traffic
   or alerts for atmosphere.
+
+## Device-scoped software command integration
+
+NODE-OS and RACK-OS remain distinct Firmware-owned Terminal surfaces with their
+own built-ins, prompts, rendering, and interaction. When NODE Miner is available
+on the Device each surface operates, both compose the same application-level
+NODE Miner product command and present its represented installed name/version
+as a separate software provider. NODE-OS binds the adapter to
+`player.localDevice`; RACK-OS binds through the active Session and DeviceAccess.
+There is no global current Device and no universal Terminal or software plugin
+registry.

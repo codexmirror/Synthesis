@@ -7,7 +7,7 @@ import { listDirectory, readTextFile } from './filesystem'
 import {
   findNodeMinerExecutable, findRunningLocalNodeMiner, findRunningNodeMiner, isNodeMinerAvailable, NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS,
   NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT, NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
-  NODE_MINER_RAM_REQUIRED_MIB, NODE_UNITS_PER_NODE, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner,
+  NODE_MINER_RAM_REQUIRED_MIB, NODE_UNITS_PER_NODE, retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner,
 } from './nodeMiner'
 import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_HEADER, NODE_MINER_PAYOUT_LOG_PATH } from './nodeMinerPayoutLog'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
@@ -818,6 +818,16 @@ describe('remote NODE Miner payout', () => {
 
 describe('live NODE Miner payout retarget', () => {
   const NEW_ADDRESS = 'node-addr-9f31c7a4d2'
+
+  it('uses the local authority boundary to retarget only the local Miner', () => {
+    const both = run(runRemote(operatingState()).state)
+    const localBefore = findRunningLocalNodeMiner(both.state)!
+    const remoteBefore = findRunningNodeMiner(both.state, REMOTE_DEVICE_ID)!
+    const result = retargetLocalNodeMinerPayout(both.state, NEW_ADDRESS)
+    expect(result.status).toBe('retargeted')
+    expect(findRunningLocalNodeMiner(result.state)).toMatchObject({ id: localBefore.id, payoutAddress: NEW_ADDRESS })
+    expect(findRunningNodeMiner(result.state, REMOTE_DEVICE_ID)).toEqual(remoteBefore)
+  })
 
   it('changes the configured address in place, preserving Process identity and every accumulated counter', () => {
     const started = runRemote(operatingState())

@@ -98,14 +98,13 @@ about what each address was actually paid. No surface hides or rewrites
 canonical truth to make the change stealthy, and no detection, forensic, or
 alert state exists to hide it from.
 
-RACK-OS Terminal is the only interface for it, as `node-miner payout
-<address>`; that registered software command owns no state of its own and
+Both NODE-OS and RACK-OS expose it through the shared `node-miner payout
+<address>` product command; that registered software command owns no state of its own and
 reports exactly what the canonical
 operation returned (`PAYOUT RETARGETED` with the unchanged Process ID and the
-new address, or `NO NODE MINER RUNNING`, `INVALID PAYOUT ADDRESS`, `SESSION
-UNAVAILABLE`, `TARGET OFFLINE`). It is deliberately absent from RACK-OS Files
-and from NODE-OS: this is the Terminal's deeper control path, not a graphical
-convenience.
+new address, or `NOT RUNNING`, `INVALID PAYOUT ADDRESS`, `SESSION UNAVAILABLE`,
+`TARGET OFFLINE`). It remains absent from RACK-OS Files: this is the software
+Terminal integration's deeper control path, not a graphical convenience.
 
 
 ## Payout-log artifact
@@ -145,36 +144,32 @@ activity) intact, and Files and Terminal observe it like any other file.
 
 ## `node-miner` CLI
 
-NODE-OS and RACK-OS Terminal expose the installed NODE Miner under the same
-`node-miner` product command. NODE-OS controls only the local Device's own
-Miner, with exactly four V1
-subcommands: `node-miner help`,
-`node-miner run --payout <address>`, `node-miner status`, and `node-miner
-stop`. Its availability is Device-local and derived, never a global
-capability: `node-miner` (and its Help section) exists only while NODE
-Miner is installed on the local Device *and* a supported executable
-artifact currently exists there, so it is unavailable before installation
-and becomes unavailable again — even with installed metadata intact — the
-moment that executable is deleted. `run` and `stop` invoke the exact same
-`runNodeMiner`/`startNodeMiner` and `stopNodeMiner` canonical operations
-Files and Processes use, and `status` reads the same canonical
-`ProcessState` (IDLE when installed but not running; otherwise the Process
-ID, real CPU/RAM allocation, payout address, gross produced, pending batch
-progress, and derived rate). Terminal owns no separate Miner or runtime state:
-running from Files is immediately visible through `node-miner status`,
-running from Terminal is immediately visible in Processes, and STOP from
-either Terminal or Processes is immediately reflected everywhere else.
+NODE-OS and RACK-OS Terminal expose one shared application/presentation-level
+NODE Miner integration under the same `node-miner` product command. Its product
+syntax and result presentation are implemented once: `help`, `run --payout
+<address>`, `status`, `stop`, and `payout <address>`. Firmware continues to own
+each distinct Terminal surface and its built-ins; command metadata is not
+release-authored and no plugin or compatibility system exists.
 
-RACK-OS derives the same registered-CLI rule from the exact Device currently
-operated through its canonical Remote Session context, never from node-01 or a
-running Process. Its deliberately narrower integration exposes only
-`node-miner payout <address>` (plus bare/`help` usage); it adds no remote
-`run`, `status`, or `stop` Terminal subcommands. Without matching installed
-software and a present supported executable, both Help and invocation treat
-`node-miner` as unavailable. There is no separate `miner` command or
-compatibility alias. Direct Files RUN remains artifact-authoritative and can
-still run a supported executable without InstalledSoftware.
+Each Firmware supplies a narrow explicit operated-Device adapter. NODE-OS binds
+to `player.localDevice`; RACK-OS resolves authority through `RemoteSession ->
+DeviceAccess -> target Device`. Availability is independently derived for that
+Device from matching InstalledSoftware plus a currently present supported
+executable. A running Process alone never registers the CLI, and a copied
+executable without InstalledSoftware remains directly runnable through Files
+without registering it.
 
+RUN resolves the executable from the bound Device and delegates to the existing
+local or Session-authorized remote operation. STATUS uses one NODE Miner-specific
+derived runtime view for Process ID, actual CPU allocation, RAM, payout address,
+gross and pending production, and current production rate. STOP preserves its
+context-specific consequence: local STOP enters local Recent Activity, while
+remote STOP creates no node-01 history. PAYOUT changes only the bound Device's
+running Miner through separate local and remote public authority boundaries;
+the shared internal mutation preserves Process identity, counters, pending work,
+and truthful payout routing segments. Local and remote Miners therefore remain
+fully independent even while both run simultaneously. NodeScan remote execution
+or source-Device-aware observation is not part of this integration.
 
 ## Wallet
 

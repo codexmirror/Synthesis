@@ -416,8 +416,9 @@ registered software integration or commands. In particular, the current
 InstalledSoftware and a present supported executable on the Device whose
 Terminal is being operated. This applies independently to NODE-OS on node-01
 and RACK-OS on its canonical remote target; neither Device's inventory or
-artifact can supply the other's command. RACK-OS exposes only the registered
-`node-miner payout <address>` subcommand and has no standalone `miner` alias.
+artifact can supply the other's command. Both Firmware Terminals reuse the
+registered NODE Miner product CLI (`help`, `run`, `status`, `stop`, and
+`payout`), and RACK-OS has no standalone `miner` alias.
 Installed-software
 metadata alone can never conjure a missing executable back into RUN
 eligibility. Files resolves
@@ -502,8 +503,9 @@ local Device's Miner can never be presented as this Device's. An executable
 that is not the supported program is stated as `UNSUPPORTED` and offers no
 execution.
 
-Live payout retargeting is deliberately **not** offered here; it is the RACK-OS
-Terminal's own deeper control path, owned by `docs/current/NODE_ECONOMY.md`.
+Live payout retargeting is deliberately **not** offered in RACK-OS Files; it is
+the shared NODE Miner Terminal integration's deeper control path on both
+NODE-OS and RACK-OS, owned by `docs/current/NODE_ECONOMY.md`.
 
 
 ## Software Removal
@@ -670,3 +672,14 @@ state.
   the canonical advancement boundary — never at admission.
 - Never overwrite an occupying artifact: destination collisions are re-checked
   at both admission and completion and resolve as a truthful failure.
+
+## Device-scoped NODE Miner Terminal integration
+
+A supported NODE Miner executable remains directly runnable through Files on a
+Device without InstalledSoftware. Registered `node-miner` Terminal availability
+is stronger and independently requires both matching InstalledSoftware and the
+present supported executable on the Device being operated. NODE-OS and RACK-OS
+reuse one product command integration, but their explicit local and
+Session-authorized remote adapters keep filesystem, installation, Process, and
+resource consequences Device-owned. This adds no release dependency,
+compatibility, capability, or plugin metadata.

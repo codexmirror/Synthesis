@@ -12,7 +12,7 @@ import { findInstalledNodeScan } from '../core/game/software'
 import { cancelFileTransfer, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, installRemoteSoftwarePackage, type InstallLocalSoftwarePackageResult, type InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
 import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
-import { retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
+import { retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type RetargetLocalNodeMinerPayoutResult, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
 import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 
@@ -39,6 +39,7 @@ export interface GameActions {
   stopNodeMiner(processId: string): StopNodeMinerResult
   runRemoteNodeMiner(sourceFilePath: string, payoutAddress: string): StartRemoteNodeMinerResult
   stopRemoteNodeMiner(processId: string): StopRemoteNodeMinerResult
+  retargetLocalNodeMinerPayout(payoutAddress: string): RetargetLocalNodeMinerPayoutResult
   retargetNodeMinerPayout(payoutAddress: string): RetargetNodeMinerPayoutResult
   clearRecentActivity(): void
   removeRecentActivity(activityId: string): void
@@ -181,6 +182,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       currentState.current = result.state
       setGameState(result.state)
     }
+    return result
+  }, retargetLocalNodeMinerPayout(payoutAddress) {
+    const result = retargetLocalNodeMinerPayout(currentState.current, payoutAddress)
+    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
     return result
   }, retargetNodeMinerPayout(payoutAddress) {
     const result = retargetNodeMinerPayout(currentState.current, payoutAddress)

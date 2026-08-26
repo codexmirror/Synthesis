@@ -5,6 +5,7 @@ import type { ListDirectoryResult, ReadTextFileResult } from '../../core/game/fi
 import type { ConnectRemoteResult, DisconnectRemoteResult } from '../../core/game/remoteSession'
 import type { InstalledSoftware } from '../../core/game/types'
 import type { InstallLocalSoftwarePackageResult } from '../../core/game/softwareInstallation'
+import type { NodeMinerTerminalOperations } from '../nodeMinerTerminal'
 
 type WithoutState<T> = T extends { state: unknown } ? Omit<T, 'state'> : T
 export type TerminalAttackResult = WithoutState<StartCredentialAccessResult>
@@ -12,29 +13,6 @@ export type TerminalAnalyzeResult =
   | { status: 'started'; processId: string }
   | { status: 'invalid_endpoint' | 'endpoint_not_found' | 'software_unavailable' | 'unavailable' | 'already_running' }
   | { status: 'insufficient_memory'; requiredMiB: number; availableMiB: number }
-
-export type TerminalNodeMinerRunResult =
-  | { readonly status: 'started'; readonly processId: string; readonly payoutAddress: string }
-  | { readonly status: 'invalid_payout_address' | 'already_running' | 'unavailable' }
-  | { readonly status: 'insufficient_memory'; readonly requiredMiB: number; readonly availableMiB: number }
-
-export type TerminalNodeMinerStatusResult =
-  | { readonly status: 'idle' }
-  | {
-      readonly status: 'running'
-      readonly processId: string
-      readonly cpuPercent: number
-      readonly ramMiB: number
-      readonly payoutAddress: string
-      readonly producedUnits: number
-      readonly pendingUnits: number
-      readonly payoutBatchGrossUnits: number
-      readonly ratePerSecondUnits: number
-    }
-
-export type TerminalNodeMinerStopResult =
-  | { readonly status: 'stopped'; readonly processId: string }
-  | { readonly status: 'not_running' }
 
 export interface CommandContext {
   readonly localDevice: {
@@ -59,9 +37,7 @@ export interface CommandContext {
     readonly connectAddress: (address: string) => Omit<ConnectRemoteResult, 'state'> | { status: 'target_not_known' }
     readonly disconnectRemote: () => Omit<DisconnectRemoteResult, 'state'>
     readonly installLocalSoftwarePackage: (path: string) => WithoutState<InstallLocalSoftwarePackageResult>
-    readonly runLocalNodeMiner: (payoutAddress: string) => TerminalNodeMinerRunResult
-    readonly localNodeMinerStatus: () => TerminalNodeMinerStatusResult
-    readonly stopLocalNodeMiner: () => TerminalNodeMinerStopResult
+    readonly nodeMiner: NodeMinerTerminalOperations
   }
 }
 
