@@ -39,7 +39,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(),
     clearRecentActivity: () => {}, removeRecentActivity: () => {}, cancelFileTransfer: () => ({ status: 'not_found', state }), cancelLocalProcess: () => ({ status: 'not_cancellable', state }),
     runNodeMiner: () => ({ status: 'source_not_found', state }), stopNodeMiner: () => ({ status: 'not_found', state }),
-    runRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), stopRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), retargetNodeMinerPayout: () => ({ status: 'session_unavailable', state }),
+    runRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), stopRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: () => ({ status: 'session_unavailable', state }),
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
   vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
@@ -246,7 +246,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+      startCredentialAccessAttemptFromObservation, connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()

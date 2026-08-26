@@ -358,7 +358,7 @@ projection, and exposes only Terminal, Files, and System. Its Terminal supports
 same foreign Device-owned filesystem. RACK-OS Terminal also supports
 `download <remote-absolute-file-path>`,
 `upload <local-absolute-file-path> <remote-absolute-file-path>` and
-the dynamically available `node-miner payout <address>`, RACK-OS Files
+the dynamically available shared `node-miner` product CLI (`help`, `run`, `status`, `stop`, and `payout`), RACK-OS Files
 exposes `DOWNLOAD` for a selected file, and its remote directory view exposes
 `UPLOAD` for the directory currently being browsed. System derives the displayed
 Device, address, Firmware, role, access authority, and service path from the
@@ -382,16 +382,13 @@ lifetime are owned by `docs/current/PROCESSES_ACTIVITY.md`; and NODE production,
 payout routing, payout artifacts, and live payout-retarget economics are owned
 by `docs/current/NODE_ECONOMY.md`. RACK-OS System gains no software
 management, the RACK-OS Terminal gains no package commands, and no RACK-OS
-Processes application exists: the selected executable and the one Terminal
-Miner command expose only the concrete NODE Miner state they need.
+Processes application exists: the selected executable and NODE Miner software command expose only the concrete NODE Miner state they need.
 
 Execution is the same admission-versus-lifetime distinction, taken to its
 continuous case. A NODE Miner admitted this way runs on the target Device
 indefinitely: returning to NODE-OS, `DISCONNECT`, and a later unrelated Session
 all leave it producing and routing NODE, and reconnecting over the same
-DeviceAccess observes the same still-running Process. RACK-OS Terminal
-additionally exposes `node-miner payout <address>`, the one deeper control path this
-slice adds: it changes the payout address of that already-running Miner in
+DeviceAccess observes the same still-running Process. RACK-OS Terminal reuses the same Device-scoped NODE Miner CLI as NODE-OS; its `payout` subcommand remains the deeper control path not offered by RACK-OS Files, and it changes the payout address of that already-running Miner in
 place, through the shared canonical operation, and is deliberately not offered
 graphically. What it does economically is owned by
 `docs/current/NODE_ECONOMY.md`.

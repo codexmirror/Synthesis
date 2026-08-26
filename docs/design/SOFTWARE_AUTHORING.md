@@ -232,3 +232,14 @@ Before adding or changing a represented product or release:
 Do not build a SoftwareRegistry, capability engine, payout-policy framework, or
 generic software-inventory framework to support this contract (A16). Concrete
 products and releases come first.
+
+## Terminal integration precedent
+
+NODE Miner 1.0 has one concrete application/presentation Terminal integration
+reused by NODE-OS and RACK-OS. Firmware owns its Terminal surface and built-ins;
+software integration owns product syntax and result presentation; canonical
+operations own gameplay. Commands are not authored release metadata, and this
+precedent does not add a plugin, capability, dependency, compatibility, or
+Firmware-support system. Each Firmware adapter binds invocation to the Device
+it canonically operates. NodeScan remote execution and source-Device-aware
+observation remain outside this slice.

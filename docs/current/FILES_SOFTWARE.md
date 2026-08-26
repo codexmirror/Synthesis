@@ -670,3 +670,14 @@ state.
   the canonical advancement boundary — never at admission.
 - Never overwrite an occupying artifact: destination collisions are re-checked
   at both admission and completion and resolve as a truthful failure.
+
+## Device-scoped NODE Miner Terminal integration
+
+A supported NODE Miner executable remains directly runnable through Files on a
+Device without InstalledSoftware. Registered `node-miner` Terminal availability
+is stronger and independently requires both matching InstalledSoftware and the
+present supported executable on the Device being operated. NODE-OS and RACK-OS
+reuse one product command integration, but their explicit local and
+Session-authorized remote adapters keep filesystem, installation, Process, and
+resource consequences Device-owned. This adds no release dependency,
+compatibility, capability, or plugin metadata.

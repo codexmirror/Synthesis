@@ -947,11 +947,11 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
 
     await user.type(input, 'node-miner payout node-addr-relay-77{enter}')
-    expect(rackOs).toHaveTextContent('NO NODE MINER RUNNING')
+    expect(rackOs).toHaveTextContent('NOT RUNNING')
     await user.type(input, 'node-miner payout{enter}')
-    expect(rackOs).toHaveTextContent('USAGE: node-miner payout <address>')
+    expect(rackOs).toHaveTextContent('Usage: node-miner payout <address>')
     await user.type(input, 'node-miner status{enter}')
-    expect(rackOs).toHaveTextContent('USAGE: node-miner payout <address>')
+    expect(rackOs).toHaveTextContent('Usage: node-miner payout <address>')
     expect(snapshot().process.processes).toEqual([])
   })
 
@@ -989,11 +989,40 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
 
     await user.type(input, 'help{enter}')
-    expect(rackOs).toHaveTextContent('upload node-miner disconnect')
+    expect(rackOs).toHaveTextContent('help clear ip ls cat download upload disconnect')
+    expect(rackOs).toHaveTextContent('NODE MINER 1.0')
+    expect(rackOs).toHaveTextContent('node-miner — Control NODE Miner on this Device')
     expect(rackOs).not.toHaveTextContent(' upload miner ')
     await user.type(input, 'node-miner{enter}')
     await user.type(input, 'node-miner help{enter}')
+    expect(rackOs).toHaveTextContent('node-miner run --payout <address>')
+    expect(rackOs).toHaveTextContent('node-miner status')
+    expect(rackOs).toHaveTextContent('node-miner stop')
     expect(rackOs).toHaveTextContent('node-miner payout <address>')
+  })
+
+  it('runs, reports, retargets, and stops the operated Device through the shared CLI', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={operatingState()}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    const input = screen.getByLabelText('Remote command')
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+
+    await user.type(input, 'node-miner run --payout node-addr-remote-cli{enter}')
+    expect(rackOs).toHaveTextContent('NODE MINER STARTED')
+    const started = snapshot().process.processes.find((process) => process.kind === 'node_miner') as NodeMinerProcess
+    expect(started.executorDeviceId).toBe('host-lan-001')
+
+    await user.type(input, 'node-miner status{enter}')
+    expect(rackOs).toHaveTextContent(`PROCESS ${started.id}`)
+    expect(rackOs).toHaveTextContent('RAM 512 MiB')
+    expect(rackOs).toHaveTextContent('ADDRESS node-addr-remote-cli')
+
+    await user.type(input, 'node-miner payout node-addr-retargeted{enter}')
+    expect((snapshot().process.processes.find(({ id }) => id === started.id) as NodeMinerProcess).payoutAddress).toBe('node-addr-retargeted')
+    await user.type(input, 'node-miner stop{enter}')
+    expect(snapshot().process.processes).toHaveLength(0)
+    expect(snapshot().recentActivity.entries).toHaveLength(0)
   })
 
   it('does not conjure the CLI from installed metadata after the remote executable is absent', async () => {

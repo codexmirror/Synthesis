@@ -395,17 +395,18 @@ mechanic needed a command, not because RACK-OS is growing a shell.
 
 `node-miner` is advertised and accepted only when that exact target Device has
 matching NODE Miner InstalledSoftware and a currently present supported
-executable. It has exactly one operational subcommand, `node-miner payout
-<address>` (with bare/`help` usage). It is narrow and concrete to the one
-represented program: it is not a process-control verb, not a way to launch or
-signal arbitrary executables, and it must not grow generic process arguments.
-There is no standalone `miner` command or compatibility alias.
+executable. RACK-OS reuses the one software-specific integration also used by
+NODE-OS, exposing `help`, `run --payout <address>`, `status`, `stop`, and `payout
+<address>`. RACK-OS supplies an adapter whose authority resolves only through
+the active RemoteSession and DeviceAccess; presentation never supplies an
+executor ID. Product syntax and output are shared, while Firmware built-ins,
+prompt, rendering, and interaction remain RACK-OS-owned.
 
-Do not include `status` in V1.
-
-SYSTEM already provides represented machine information, and the current foreign
-server does not own enough runtime state to justify a meaningful general
-`status` command.
+This is concrete NODE Miner integration, not a general shell, plugin registry,
+compatibility system, or general Process surface. STATUS may show real
+NODE Miner-specific runtime facts for the operated Device; it does not authorize
+fake or universal RACK-OS telemetry. There is no standalone `miner` alias, and
+NodeScan remote commands or remote observation are not introduced.
 
 Do not include:
 
