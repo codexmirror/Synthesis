@@ -102,8 +102,9 @@ Both NODE-OS and RACK-OS expose it through the shared `node-miner payout
 <address>` product command; that registered software command owns no state of its own and
 reports exactly what the canonical
 operation returned (`PAYOUT RETARGETED` with the unchanged Process ID and the
-new address, or `NO NODE MINER RUNNING`, `INVALID PAYOUT ADDRESS`, `SESSION
-UNAVAILABLE`, `TARGET OFFLINE`). It remains absent from RACK-OS Files: this is the software Terminal integration's deeper control path, not a graphical convenience.
+new address, or `NOT RUNNING`, `INVALID PAYOUT ADDRESS`, `SESSION UNAVAILABLE`,
+`TARGET OFFLINE`). It remains absent from RACK-OS Files: this is the software
+Terminal integration's deeper control path, not a graphical convenience.
 
 
 ## Payout-log artifact

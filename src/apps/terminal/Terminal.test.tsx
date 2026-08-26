@@ -385,6 +385,22 @@ describe('Terminal NODE Miner CLI', () => {
     expect(screen.getByText('ALREADY RUNNING')).toBeInTheDocument()
   }, 15_000)
 
+  it('retargets a local run in place through the shared payout command', async () => {
+    const state = installedState()
+    render(<GameProvider initialState={state}><Terminal /></GameProvider>)
+    const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
+
+    await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
+    await user.type(input, 'node-miner payout node-addr-local-retarget{enter}')
+    expect(screen.getByText('PAYOUT RETARGETED')).toBeInTheDocument()
+    expect(screen.getAllByText('PROCESS process-0001')).toHaveLength(2)
+
+    await user.type(input, 'node-miner status{enter}')
+    expect(screen.getByText('STATUS RUNNING')).toBeInTheDocument()
+    expect(screen.getAllByText('PROCESS process-0001')).toHaveLength(3)
+    expect(screen.getByText('ADDRESS node-addr-local-retarget')).toBeInTheDocument()
+  }, 15_000)
+
   it('STATUS reflects RUNNING with real resource facts, and STOP invokes canonical STOP visible in Processes and later STATUS', async () => {
     const state = installedState()
     render(<GameProvider initialState={state}><Terminal /><Processes /></GameProvider>)

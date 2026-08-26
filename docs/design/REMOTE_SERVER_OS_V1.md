@@ -732,9 +732,10 @@ needs, not a remote Processes application and not remote runtime telemetry: no
 CPU, RAM, percentage, estimate, or foreign Process list appears, exactly as the
 installation boundary above establishes.
 
-Live payout retargeting is **not** offered here. It exists only as the Terminal
-`node-miner payout <address>` command, so the Terminal keeps a real control advantage
-without the graphical surface being made artificially poor. That command must
+Live payout retargeting is **not** offered here. On RACK-OS it exists through
+the shared Terminal integration's `node-miner payout <address>` command, so the
+Terminal keeps a real control advantage without the graphical surface being
+made artificially poor. That command must
 delegate to the same canonical operation like every other RACK-OS command, and
 must never be reachable by a graphical surface building a command string.
 

@@ -23,7 +23,7 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string, op
   const [name = '', ...args] = source.trim().split(/\s+/)
   const nodeMinerAvailable = isNodeMinerAvailable(context.target)
   const nodeMinerSoftware = context.target.installedSoftware?.find(({ id }) => id === 'node-miner')
-  if (name === 'help') return { output: ['RACK-OS', 'help  clear  ip  ls  cat  download  upload  disconnect', ...(nodeMinerAvailable && nodeMinerSoftware ? ['', `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, `node-miner — ${NODE_MINER_TERMINAL_DESCRIPTION}`] : [])] }
+  if (name === 'help') return { output: [`${context.target.firmware!.name.toUpperCase()} ${context.target.firmware!.version}`, 'help  clear  ip  ls  cat  download  upload  disconnect', ...(nodeMinerAvailable && nodeMinerSoftware ? ['', `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, `node-miner — ${NODE_MINER_TERMINAL_DESCRIPTION}`] : [])] }
   if (name === 'clear') return { output: [], clear: true }
   if (name === 'ip') return { output: [context.target.ip] }
   if (name === 'disconnect') return { output: [], disconnect: true }

@@ -951,7 +951,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     await user.type(input, 'node-miner payout{enter}')
     expect(rackOs).toHaveTextContent('Usage: node-miner payout <address>')
     await user.type(input, 'node-miner status{enter}')
-    expect(rackOs).toHaveTextContent('Usage: node-miner payout <address>')
+    expect(rackOs).toHaveTextContent('STATUS IDLE')
     expect(snapshot().process.processes).toEqual([])
   })
 
@@ -999,6 +999,17 @@ describe('RACK-OS remote NODE Miner execution', () => {
     expect(rackOs).toHaveTextContent('node-miner status')
     expect(rackOs).toHaveTextContent('node-miner stop')
     expect(rackOs).toHaveTextContent('node-miner payout <address>')
+  })
+
+  it('derives the Firmware Help heading from the operated target', async () => {
+    const state = operatingState()
+    const target = state.world.network.hosts[0]
+    const altered: GameState = { ...state, world: { ...state.world, network: { ...state.world.network, hosts: [{ ...target, firmware: { id: 'firmware-altered', name: 'VAULT-OS', version: '9.2' } }, ...state.world.network.hosts.slice(1)] } } }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={altered}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.type(screen.getByLabelText('Remote command'), 'help{enter}')
+    expect(screen.getByLabelText('VAULT-OS remote operating environment')).toHaveTextContent('VAULT-OS 9.2')
   })
 
   it('runs, reports, retargets, and stops the operated Device through the shared CLI', async () => {
