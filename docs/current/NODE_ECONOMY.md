@@ -98,8 +98,9 @@ about what each address was actually paid. No surface hides or rewrites
 canonical truth to make the change stealthy, and no detection, forensic, or
 alert state exists to hide it from.
 
-RACK-OS Terminal is the only interface for it, as `miner payout <address>`;
-that command owns no state of its own and reports exactly what the canonical
+RACK-OS Terminal is the only interface for it, as `node-miner payout
+<address>`; that registered software command owns no state of its own and
+reports exactly what the canonical
 operation returned (`PAYOUT RETARGETED` with the unchanged Process ID and the
 new address, or `NO NODE MINER RUNNING`, `INVALID PAYOUT ADDRESS`, `SESSION
 UNAVAILABLE`, `TARGET OFFLINE`). It is deliberately absent from RACK-OS Files
@@ -144,8 +145,9 @@ activity) intact, and Files and Terminal observe it like any other file.
 
 ## `node-miner` CLI
 
-NODE-OS Terminal exposes the same installed NODE Miner as a `node-miner`
-CLI command controlling only the local Device's own Miner, with exactly four V1
+NODE-OS and RACK-OS Terminal expose the installed NODE Miner under the same
+`node-miner` product command. NODE-OS controls only the local Device's own
+Miner, with exactly four V1
 subcommands: `node-miner help`,
 `node-miner run --payout <address>`, `node-miner status`, and `node-miner
 stop`. Its availability is Device-local and derived, never a global
@@ -162,6 +164,16 @@ progress, and derived rate). Terminal owns no separate Miner or runtime state:
 running from Files is immediately visible through `node-miner status`,
 running from Terminal is immediately visible in Processes, and STOP from
 either Terminal or Processes is immediately reflected everywhere else.
+
+RACK-OS derives the same registered-CLI rule from the exact Device currently
+operated through its canonical Remote Session context, never from node-01 or a
+running Process. Its deliberately narrower integration exposes only
+`node-miner payout <address>` (plus bare/`help` usage); it adds no remote
+`run`, `status`, or `stop` Terminal subcommands. Without matching installed
+software and a present supported executable, both Help and invocation treat
+`node-miner` as unavailable. There is no separate `miner` command or
+compatibility alias. Direct Files RUN remains artifact-authoritative and can
+still run a supported executable without InstalledSoftware.
 
 
 ## Wallet

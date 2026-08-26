@@ -386,17 +386,20 @@ ls
 cat
 download
 upload
-miner
 disconnect
 
 `download` and `upload` were added with the transfer mechanics that own them;
-`miner` was added with remote NODE Miner control (below). Each exists because a
-concrete mechanic needed a command, not because RACK-OS is growing a shell.
+`node-miner` is added dynamically when the operated Device's registered NODE
+Miner integration is available (below). Each exists because a concrete
+mechanic needed a command, not because RACK-OS is growing a shell.
 
-`miner` has exactly one subcommand, `miner payout <address>`. It is narrow and
-concrete to the one represented program: it is not a process-control verb, not
-a way to launch or signal arbitrary executables, and it must not grow generic
-process arguments.
+`node-miner` is advertised and accepted only when that exact target Device has
+matching NODE Miner InstalledSoftware and a currently present supported
+executable. It has exactly one operational subcommand, `node-miner payout
+<address>` (with bare/`help` usage). It is narrow and concrete to the one
+represented program: it is not a process-control verb, not a way to launch or
+signal arbitrary executables, and it must not grow generic process arguments.
+There is no standalone `miner` command or compatibility alias.
 
 Do not include `status` in V1.
 
@@ -729,7 +732,7 @@ CPU, RAM, percentage, estimate, or foreign Process list appears, exactly as the
 installation boundary above establishes.
 
 Live payout retargeting is **not** offered here. It exists only as the Terminal
-`miner payout <address>` command, so the Terminal keeps a real control advantage
+`node-miner payout <address>` command, so the Terminal keeps a real control advantage
 without the graphical surface being made artificially poor. That command must
 delegate to the same canonical operation like every other RACK-OS command, and
 must never be reachable by a graphical surface building a command string.

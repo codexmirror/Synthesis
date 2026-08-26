@@ -1,7 +1,7 @@
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import type { StartRemoteFileDownloadResult, StartRemoteFileUploadResult } from '../../core/game/fileTransfer'
-import type { RetargetNodeMinerPayoutResult } from '../../core/game/nodeMiner'
+import { isNodeMinerAvailable, type RetargetNodeMinerPayoutResult } from '../../core/game/nodeMiner'
 import { describeUploadFailure } from '../uploadFailure'
 
 export type RemoteCommandResult = { readonly output: readonly string[]; readonly clear?: boolean; readonly disconnect?: boolean }
@@ -20,7 +20,8 @@ export interface RemoteCommandOperations {
 export function runRemoteCommand(context: ActiveRemoteTarget, source: string, operations: RemoteCommandOperations): RemoteCommandResult {
   const { startRemoteFileDownload, startRemoteFileUpload } = operations
   const [name = '', ...args] = source.trim().split(/\s+/)
-  if (name === 'help') return { output: ['help  clear  ip  ls  cat  download  upload  miner  disconnect'] }
+  const nodeMinerAvailable = isNodeMinerAvailable(context.target)
+  if (name === 'help') return { output: [`help  clear  ip  ls  cat  download  upload${nodeMinerAvailable ? '  node-miner' : ''}  disconnect`] }
   if (name === 'clear') return { output: [], clear: true }
   if (name === 'ip') return { output: [context.target.ip] }
   if (name === 'disconnect') return { output: [], disconnect: true }
@@ -52,7 +53,7 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string, op
     if (result.status === 'started') return { output: ['UPLOAD STARTED', result.sourcePath, `→ ${result.destinationPath}`] }
     return { output: [describeUploadFailure(result.status)] }
   }
-  if (name === 'miner') return minerCommand(operations, args)
+  if (name === 'node-miner' && nodeMinerAvailable) return nodeMinerCommand(operations, args)
   return { output: ['COMMAND NOT FOUND'] }
 }
 
@@ -63,9 +64,10 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string, op
  * concrete to that represented program — not a process-control shell, and
  * not a general way to run or command executables.
  */
-function minerCommand(operations: RemoteCommandOperations, args: readonly string[]): RemoteCommandResult {
+function nodeMinerCommand(operations: RemoteCommandOperations, args: readonly string[]): RemoteCommandResult {
   const [subcommand, ...rest] = args
-  if (subcommand !== 'payout' || rest.length !== 1 || !rest[0]) return { output: ['USAGE: miner payout <address>'] }
+  if (subcommand === undefined || subcommand === 'help') return { output: ['node-miner payout <address>'] }
+  if (subcommand !== 'payout' || rest.length !== 1 || !rest[0]) return { output: ['USAGE: node-miner payout <address>'] }
   const result = operations.retargetNodeMinerPayout(rest[0])
   if (result.status === 'retargeted') return { output: ['PAYOUT RETARGETED', `PROCESS  ${result.processId}`, `PAYOUT   ${result.payoutAddress}`] }
   const failures: Record<Exclude<RetargetNodeMinerPayoutResult['status'], 'retargeted'>, string> = {

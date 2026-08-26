@@ -413,7 +413,12 @@ was copied or downloaded can be run directly. InstalledSoftware may still gate
 registered software integration or commands. In particular, the current
 `node-miner` CLI is a stricter registered interface: as described in
 `docs/current/NODE_ECONOMY.md`, its availability requires both matching
-InstalledSoftware and a present supported executable. Installed-software
+InstalledSoftware and a present supported executable on the Device whose
+Terminal is being operated. This applies independently to NODE-OS on node-01
+and RACK-OS on its canonical remote target; neither Device's inventory or
+artifact can supply the other's command. RACK-OS exposes only the registered
+`node-miner payout <address>` subcommand and has no standalone `miner` alias.
+Installed-software
 metadata alone can never conjure a missing executable back into RUN
 eligibility. Files resolves
 the selected executable through the same canonical filesystem Files and

@@ -358,7 +358,7 @@ projection, and exposes only Terminal, Files, and System. Its Terminal supports
 same foreign Device-owned filesystem. RACK-OS Terminal also supports
 `download <remote-absolute-file-path>`,
 `upload <local-absolute-file-path> <remote-absolute-file-path>` and
-`miner payout <address>`, RACK-OS Files
+the dynamically available `node-miner payout <address>`, RACK-OS Files
 exposes `DOWNLOAD` for a selected file, and its remote directory view exposes
 `UPLOAD` for the directory currently being browsed. System derives the displayed
 Device, address, Firmware, role, access authority, and service path from the
@@ -390,7 +390,7 @@ continuous case. A NODE Miner admitted this way runs on the target Device
 indefinitely: returning to NODE-OS, `DISCONNECT`, and a later unrelated Session
 all leave it producing and routing NODE, and reconnecting over the same
 DeviceAccess observes the same still-running Process. RACK-OS Terminal
-additionally exposes `miner payout <address>`, the one deeper control path this
+additionally exposes `node-miner payout <address>`, the one deeper control path this
 slice adds: it changes the payout address of that already-running Miner in
 place, through the shared canonical operation, and is deliberately not offered
 graphically. What it does economically is owned by
