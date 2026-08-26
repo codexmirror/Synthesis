@@ -187,6 +187,41 @@ acquisition without blur, refocus, or DOM replacement. Transient full-height
 resume readings therefore do not temporarily collapse NODE or RACK back to
 normal layout, including Home-Screen standalone fixed editing presentation.
 
+Leaving editing is a Shell-owned intent rather than a browser side effect.
+DONE, an operating-context switch, and a RACK-OS section change all express the
+same explicit end-of-editing intent: the Shell releases whatever editable still
+holds focus and hands the intent to the editing controller, which has one entry
+into recovery. DONE therefore works identically when Mobile Safari's focus
+bookkeeping is already stale, lost, or was never reported, and repeated exits,
+blurs, focusouts and viewport events are idempotent — a stale editing epoch
+cannot reopen a recovered presentation.
+
+Held editing intent is reconciled against the browser's own focus. Focus is
+directly readable and authoritative, so when the Shell holds editing intent and
+the browser no longer reports a Shell-owned editable focus — most reliably when
+the focused control is unmounted underneath the software keyboard — the
+interaction is treated as ended. This corrects intent only. It never accepts
+geometry: recovery still requires valid recovered viewport evidence and, in
+browser-tab presentation, recovered rendered Shell displacement. Editing
+presentation is never permanently preserved over a recovered physical viewport
+with no editable interaction behind it, whether or not DONE was used.
+
+A recovery reading with no corroborating position or layout movement stays a
+candidate, except when the interaction has already ended and every sensor reads
+exactly the state accepted as normal before editing began; that is the normal
+baseline itself rather than a partial close still panned away from it. An
+invalidated measurement epoch releases its pending animation frame rather than
+holding it.
+
+A RACK-OS section change uses the same recovery boundary the local/remote
+operating-context switch already uses: editing intent ends, the focused
+editable is released, and the destination section is presented once the Shell
+reports recovered editing geometry, so a destination never mounts into the
+keyboard geometry the outgoing editable is being unmounted out of. With nothing
+being edited that is already true and the section changes immediately. RACK-OS
+reads no viewport, keeps no keyboard state, and owns none of this timing; it
+consumes the Shell's recovery contract.
+
 Explicit application regions own their own scrolling.
 
 Terminal output scrolls independently while the prompt remains outside the
@@ -220,6 +255,9 @@ or recording are installed without the query flag.
   accepted `editTop`/`editHeight` or any other accepted geometry.
 - A transient normal-looking viewport reading on resume is not focus-exit
   recovery. Do not collapse editing presentation from one raw sensor snapshot.
+- Editing intent is Shell-owned but focus belongs to the browser. Do not make
+  leaving editing depend on one exact focusout sequence, and do not keep a
+  second editing or keyboard flag in Terminal, RACK-OS or another application.
 - Do not reintroduce Terminal-owned or feature-owned global keyboard/scroll
   hacks (`window.scrollTo`, `scrollIntoView`, fake keyboard heights, polling
   viewport management, body transform hacks) to fix a local layout problem.

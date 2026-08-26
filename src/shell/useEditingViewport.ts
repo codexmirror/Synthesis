@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef, useState } from 'react'
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   RECOVERY_TOLERANCE,
   classifyViewportSensorSnapshot,
@@ -26,6 +26,22 @@ export interface EditingViewportState {
   presentationHeight: number
   recoveryReady: boolean
   viewportLifecycle: ViewportLifecycle
+}
+
+/**
+ * The Shell-owned editing surface: the published presentation state plus the
+ * one explicit intent the Shell can express into this state machine.
+ */
+export interface EditingViewportControl extends EditingViewportState {
+  /**
+   * Explicit end-of-editing intent, owned by the Shell (DONE, an operating
+   * context switch, a RACK-OS section change). It releases a Shell editable
+   * that still holds focus and always hands the intent to the state machine,
+   * so leaving editing never depends on Mobile Safari producing one exact
+   * focusout sequence. It never forces normal geometry: convergence still
+   * waits for recovered viewport evidence.
+   */
+  endEditing(): void
 }
 
 type EditingPhase = 'normal' | 'awaiting-geometry' | 'editing' | 'recovering'
@@ -119,13 +135,15 @@ interface EditingViewportOptions {
   standalone: boolean
 }
 
-export function useEditingViewport({ shellRef, standalone }: EditingViewportOptions): EditingViewportState {
+export function useEditingViewport({ shellRef, standalone }: EditingViewportOptions): EditingViewportControl {
   const initial = initialSnapshot()
   const initialAccepted = isValidViewportSensorSnapshot(initial)
     ? initial
     : { ...initial, hostHeight: Math.max(1, window.innerHeight), visualHeight: Math.max(1, window.innerHeight), innerHeight: Math.max(1, window.innerHeight), clientHeight: Math.max(1, document.documentElement.clientHeight || window.innerHeight), scale: 1 }
   const [state, setState] = useState(() => normalState(initialAccepted.hostHeight))
   const lastAcceptedGeometry = useRef(normalState(initialAccepted.hostHeight))
+  const endEditingRef = useRef<() => void>()
+  const endEditing = useCallback(() => { endEditingRef.current?.() }, [])
 
   useEffect(() => {
     const viewport = window.visualViewport
@@ -253,7 +271,16 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       if (weakFrame) cancelAnimationFrame(weakFrame)
       weakFrame = 0; weakCandidate = undefined; weakConfirmations = 0; weakFramesRemaining = 0
     }
-    const advanceEpoch = () => { epoch += 1; clearWeakSampling(); return epoch }
+    // Invalidating the epoch also releases the frame slot it owns: a frame
+    // requested for a superseded epoch would measure nothing, and leaving it
+    // pending used to swallow the next schedule() so recovery had to wait for
+    // the close probe or the next browser event.
+    const advanceEpoch = () => {
+      epoch += 1
+      clearWeakSampling()
+      if (frame) { cancelAnimationFrame(frame); frame = 0 }
+      return epoch
+    }
 
     const processSnapshot = (
       snapshot: ViewportSensorSnapshot,
@@ -275,8 +302,21 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         const weakRecovery = classification.reason === 'weak-recovery'
         // A height-first recovery cannot become accepted merely because the
         // same incomplete sensor state survived several animation frames.
+        //
+        // It is not height-first, though, when the editing interaction has
+        // already ended and every sensor reads exactly the state accepted as
+        // normal before editing began. That is the normal baseline itself
+        // rather than a partial close still panned away from it, so there is
+        // no later movement left to corroborate it, and holding the editing
+        // plane would strand the presentation on a physically recovered
+        // viewport.
         if (weakRecovery) {
           clearWeakSampling()
+          if (phase === 'recovering' && !editableFocused &&
+            lastAcceptedGeometry.current.editing &&
+            viewportSnapshotsAreEquivalent(snapshot, acceptedNormalSnapshot)) {
+            acceptNormal(snapshot)
+          }
           maybeFinishPresentationRecovery(snapshot)
           return
         }
@@ -324,7 +364,11 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     }
     const measure = (measurementEpoch = epoch) => {
       if (measurementEpoch !== epoch || suspended) return
-      frame = 0
+      // Editing intent is Shell-owned, but focus belongs to the browser. This
+      // frame is about to interpret sensor state through that intent, so stale
+      // bookkeeping is corrected against the browser's own focus first.
+      reconcileEditingFocusIntent()
+      if (measurementEpoch !== epoch || suspended) return
       const snapshot = readSnapshot(transitionBaseline.hostHeight)
       processSnapshot(
         snapshot,
@@ -335,11 +379,82 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       updatePresentationMapping()
       maybeFinishPresentationRecovery(snapshot)
     }
+    // The scheduler owns the pending-frame slot, not the measurement.
     const schedule = () => {
       if (suspended) return
-      if (!frame) { const scheduledEpoch = epoch; frame = requestAnimationFrame(() => measure(scheduledEpoch)) }
+      if (!frame) {
+        const scheduledEpoch = epoch
+        frame = requestAnimationFrame(() => { frame = 0; measure(scheduledEpoch) })
+      }
     }
     const cancelCloseProbe = () => { if (closeTimer !== undefined) clearTimeout(closeTimer); closeTimer = undefined }
+
+    /**
+     * The single end-of-editing transition. Every way an editing interaction
+     * can end — an attributable focusout, a focused editable disappearing, an
+     * explicit Shell exit — converges here, so the state machine has exactly
+     * one entry into recovery.
+     *
+     * It only ever moves the presentation toward recovery. Accepting normal
+     * geometry stays the job of `maybeFinishPresentationRecovery`, which still
+     * requires recovered viewport evidence, so intent can never fabricate a
+     * truthful-looking viewport while the keyboard is physically present.
+     *
+     * It is idempotent: with nothing to release it does nothing, and a repeat
+     * signal on an already-converging epoch only re-probes rather than
+     * restarting the recovery.
+     */
+    const releaseEditingIntent = () => {
+      const hasEditingInteraction = editableFocused ||
+        presentationPhase !== 'normal' ||
+        lastAcceptedGeometry.current.editing
+      if (!hasEditingInteraction) return
+      if (!editableFocused && presentationPhase === 'recovering') { schedule(); return }
+      editableFocused = false
+      advanceEpoch()
+      phase = 'recovering'
+      presentationPhase = 'recovering'
+      publish()
+      schedule(); cancelCloseProbe()
+      const timerEpoch = epoch
+      closeTimer = setTimeout(() => { closeTimer = undefined; if (timerEpoch === epoch) schedule() }, CLOSE_PROBE_DELAY)
+    }
+
+    /**
+     * Mobile Safari can drop editable focus without delivering a focusout this
+     * Shell can attribute — most reliably when the focused control is unmounted
+     * underneath the keyboard, which is what a RACK-OS section change does.
+     * Held editing intent would then survive forever and keep the presentation
+     * in EDITING with no editable left to leave.
+     *
+     * Focus, unlike keyboard visibility, is authoritative and directly
+     * readable, so held intent is reconciled against it rather than inferred
+     * from geometry. Losing focus only ends the interaction; it never accepts
+     * recovered geometry on its own.
+     */
+    const reconcileEditingFocusIntent = () => {
+      if (!editableFocused || suspended || !supportsEditingPresentation()) return
+      const shell = shellRef.current
+      const active = document.activeElement
+      if (shell && isEditable(active) && shell.contains(active)) return
+      releaseEditingIntent()
+    }
+
+    /**
+     * Explicit Shell-owned exit. A Shell editable that still holds focus is
+     * released, but the intent is handed to the state machine either way, so
+     * DONE works identically when the browser's focus bookkeeping is already
+     * stale, lost, or was never reported.
+     */
+    endEditingRef.current = () => {
+      if (suspended) return
+      const shell = shellRef.current
+      const active = document.activeElement
+      if (shell && active instanceof HTMLElement && isEditable(active) && shell.contains(active)) {
+        active.blur()
+      }
+      releaseEditingIntent()
+    }
 
     const capturePresentationBaseline = (shell: HTMLElement) => {
       if (standalone) return
@@ -457,7 +572,12 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     const onFocusOut = (event: FocusEvent) => {
       if (suspended) return
       const shell = shellRef.current
-      if (!isEditable(event.target) || !shell?.contains(event.target as Node)) return
+      const target = event.target
+      if (!shell || !isEditable(target)) return
+      // An editable already detached from the document is one this Shell was
+      // editing a moment ago; a still-connected editable outside the Shell
+      // boundary is somebody else's.
+      if ((target as Node).isConnected && !shell.contains(target as Node)) return
       if (!supportsEditingPresentation()) {
         editableFocused = false
         return
@@ -469,14 +589,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         if (token !== focusExitToken) return
         const active = document.activeElement
         if (isEditable(active) && shell.contains(active as Node)) return
-        editableFocused = false
-        advanceEpoch()
-        phase = 'recovering'
-        presentationPhase = 'recovering'
-        publish()
-        schedule(); cancelCloseProbe()
-        const timerEpoch = epoch
-        closeTimer = setTimeout(() => { closeTimer = undefined; if (timerEpoch === epoch) schedule() }, CLOSE_PROBE_DELAY)
+        releaseEditingIntent()
       })
     }
     const rebaseAfterOrientation = (timerEpoch: number) => {
@@ -557,9 +670,12 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       document.removeEventListener('touchend', resetTouchGesture); document.removeEventListener('touchcancel', resetTouchGesture)
       window.removeEventListener('orientationchange', onOrientationChange)
       cancelAnimationFrame(frame); clearWeakSampling(); cancelCloseProbe()
+      endEditingRef.current = undefined
       clearPresentationVariables()
       if (orientationTimer !== undefined) clearTimeout(orientationTimer)
     }
   }, [])
-  return state
+  // Published-state identity still means "a committed Hook state": adding the
+  // stable exit intent must not manufacture a new commit on every render.
+  return useMemo(() => ({ ...state, endEditing }), [state, endEditing])
 }

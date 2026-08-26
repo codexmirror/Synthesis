@@ -56,8 +56,7 @@ export function Shell() {
       setPendingOperatingContext(null)
       return
     }
-    const activeElement = document.activeElement
-    if (activeElement instanceof HTMLElement) activeElement.blur()
+    endEditing()
   }, [remoteSessionId])
 
   useEffect(() => {
@@ -66,14 +65,21 @@ export function Shell() {
     setPendingOperatingContext(null)
   }, [pendingOperatingContext, viewport.recoveryReady])
 
-  function finishEditing() {
+  /**
+   * The Shell owns leaving editing. Releasing whatever currently holds focus
+   * is one half of that; the other half is telling the editing controller that
+   * the interaction has ended, because Mobile Safari does not reliably report
+   * the release as a focusout the controller can attribute. Recovery still
+   * waits for the controller's own recovered viewport evidence.
+   */
+  function endEditing() {
     const activeElement = document.activeElement
     if (activeElement instanceof HTMLElement) activeElement.blur()
+    viewport.endEditing()
   }
 
   function switchOperatingContext(destination: 'local' | 'remote') {
-    const activeElement = document.activeElement
-    if (activeElement instanceof HTMLElement) activeElement.blur()
+    endEditing()
     setPendingOperatingContext(destination)
   }
 
@@ -114,7 +120,7 @@ export function Shell() {
               <button
                 className="done"
                 type="button"
-                onClick={finishEditing}
+                onClick={endEditing}
                 aria-label="Finish editing"
               >
                 DONE
@@ -140,7 +146,14 @@ export function Shell() {
         />
       )}
       {remoteTarget && remoteEntered && (
-        <RackOS key={remoteTarget.session.id} context={remoteTarget} hidden={!presentingRemote} onReturnLocal={() => switchOperatingContext('local')} />
+        <RackOS
+          key={remoteTarget.session.id}
+          context={remoteTarget}
+          hidden={!presentingRemote}
+          onReturnLocal={() => switchOperatingContext('local')}
+          editingRecoveryReady={viewport.recoveryReady}
+          onEndEditing={endEditing}
+        />
       )}
       <ViewportDebug viewport={viewport} />
     </div>

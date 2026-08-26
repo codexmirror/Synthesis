@@ -196,6 +196,7 @@ interface, Notes, editing/viewport presentation.
 - TESTS → `src/shell/Shell.test.tsx`,
   `src/shell/editingViewportGeometry.test.ts`,
   `src/shell/editingPresentationContract.test.ts`,
+  `src/App.test.tsx` (editing viewport lifecycle and leaving editing),
   `src/apps/terminal/Terminal.test.tsx`,
   `src/styles/presentationLanguage.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/INTERFACE_SHELL.md`](current/INTERFACE_SHELL.md)

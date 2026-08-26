@@ -1,5 +1,5 @@
 import './rackos.css'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
@@ -18,11 +18,42 @@ type Section = 'terminal' | 'files' | 'system'
 /** Where the local source picker opens; the player's own working directory. */
 const LOCAL_SOURCE_ROOT = '/home/user'
 
-export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemoteTarget; hidden: boolean; onReturnLocal(): void }) {
+/**
+ * `editingRecoveryReady` and `onEndEditing` are the Shell's editing lifecycle,
+ * passed in. RACK-OS reads no viewport of its own and keeps no keyboard state;
+ * it only expresses that a section change ends the current editing interaction
+ * and waits for the Shell to say editing geometry has recovered.
+ */
+export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, onEndEditing }: {
+  context: ActiveRemoteTarget
+  hidden: boolean
+  onReturnLocal(): void
+  editingRecoveryReady: boolean
+  onEndEditing(): void
+}) {
   const actions = useGameActions()
   const { disconnectRemoteSession } = actions
   const [section, setSection] = useState<Section>('terminal')
+  const [requestedSection, setRequestedSection] = useState<Section>()
   const { target, access, service } = context
+
+  /* A section change while a remote editable is focused would otherwise mount
+     the destination into the keyboard geometry the outgoing editable is being
+     unmounted out of. This is the same recovery boundary the local/remote
+     operating-context switch already uses: end editing, then present the
+     destination once the Shell reports recovered editing geometry. With
+     nothing being edited that is already true, so the switch is immediate. */
+  useEffect(() => {
+    if (requestedSection === undefined || !editingRecoveryReady) return
+    setSection(requestedSection)
+    setRequestedSection(undefined)
+  }, [requestedSection, editingRecoveryReady])
+
+  function requestSection(next: Section) {
+    if (next === section) { setRequestedSection(undefined); return }
+    onEndEditing()
+    setRequestedSection(next)
+  }
   return <section className="rack-os" hidden={hidden} aria-label={`${target.firmware!.name} remote operating environment`}>
     <header className="rack-header">
       <div><strong>{target.firmware!.name} {target.firmware!.version}</strong><span>REMOTE</span></div>
@@ -35,7 +66,7 @@ export function RackOS({ context, hidden, onReturnLocal }: { context: ActiveRemo
       </div>
     </header>
     <nav className="rack-nav" aria-label={`${target.firmware!.name} sections`}>
-      {(['terminal', 'files', 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => setSection(item)}>{item.toUpperCase()}</button>)}
+      {(['terminal', 'files', 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => requestSection(item)}>{item.toUpperCase()}</button>)}
     </nav>
     <main className="rack-body">
       {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} />}
