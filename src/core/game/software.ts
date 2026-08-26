@@ -1,4 +1,4 @@
-import type { BasicCredentialToolkitInstallation, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation } from './types'
+import type { BasicCredentialToolkitInstallation, InstalledSoftware, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation } from './types'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID, NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID } from './softwareReleaseContent'
 
 export { NODESCAN_1_0_STANDARD_RELEASE_ID } from './softwareReleaseContent'
@@ -30,6 +30,6 @@ export function basicCredentialToolkitSupports(installation: BasicCredentialTool
   return installation.releaseId === BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID && vulnerabilityId === 'AUTH-017'
 }
 
-export function findInstalledNodeMiner(device: LocalDeviceState): NodeMinerInstallation | undefined {
-  return device.installedSoftware.find((software): software is NodeMinerInstallation => software.id === 'node-miner')
+export function findInstalledNodeMiner(device: { readonly installedSoftware?: readonly InstalledSoftware[] }): NodeMinerInstallation | undefined {
+  return device.installedSoftware?.find((software): software is NodeMinerInstallation => software.id === 'node-miner')
 }

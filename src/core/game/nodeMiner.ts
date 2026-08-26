@@ -384,8 +384,8 @@ export function findNodeMinerExecutable(filesystem: FilesystemState): Executable
  * must currently exist on it. Installed metadata alone can never make the
  * command available once its executable is gone.
  */
-export function isNodeMinerAvailable(device: LocalDeviceState): boolean {
-  return findInstalledNodeMiner(device) !== undefined && findNodeMinerExecutable(device.filesystem) !== undefined
+export function isNodeMinerAvailable(device: Pick<LocalDeviceState, 'installedSoftware' | 'filesystem'> | Pick<NetworkHost, 'installedSoftware' | 'filesystem'>): boolean {
+  return findInstalledNodeMiner(device) !== undefined && device.filesystem !== undefined && findNodeMinerExecutable(device.filesystem) !== undefined
 }
 
 /**
