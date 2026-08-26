@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -12,6 +13,7 @@ import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
 import { ViewportDebug } from './shell/ViewportDebug'
 import type { EditingViewportState } from './shell/useEditingViewport'
+import { connectRemoteFromObservation } from './core/game/remoteSession'
 import { createInitialGameState } from './core/game/initialState'
 import type { FileTransfer, GameState } from './core/game/types'
 
@@ -222,11 +224,34 @@ afterEach(() => {
   window.history.replaceState(null, '', originalUrl)
   if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard)
   else Reflect.deleteProperty(navigator, 'clipboard')
+  // Only ever an own shadowing property installed by a focus-loss simulation.
+  Reflect.deleteProperty(document, 'activeElement')
 })
 
 function StateSnapshot() {
   const state = useGameState()
   return <output data-testid="state-snapshot">{JSON.stringify(state)}</output>
+}
+
+/** An entered-Session world: one accessed represented host, connected. */
+function remoteConnectedState(): GameState {
+  const base = createInitialGameState()
+  const target = base.world.network.hosts[0]
+  const accessed: GameState = {
+    ...base,
+    world: { network: { ...base.world.network, hosts: [{
+      ...target,
+      displayName: 'truth-server',
+      firmware: { id: 'firmware-truth', name: 'TRUTH-OS', version: '2.4' },
+    }, ...base.world.network.hosts.slice(1)] } },
+    deviceAccess: { nextId: 2, established: [{
+      id: 'access-truth', sourceDeviceId: base.player.localDevice.id,
+      targetDeviceId: target.id, viaServiceId: 'service-ssh-001', privilege: 'USER',
+    }] },
+  }
+  return connectRemoteFromObservation(accessed, {
+    targetDeviceId: target.id, address: '198.51.100.47',
+  }).state
 }
 
 async function openTerminal() {
@@ -1452,6 +1477,236 @@ describe('dedicated editing viewport', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
     await updateViewport(viewport, { height: 844 })
     await waitFor(() => expect(shell).toHaveAttribute('data-editing-geometry', 'false'))
+  })
+})
+
+/**
+ * Leaving editing is its own contract. The Shell keeps normal navigation
+ * suppressed for as long as an editing presentation is active, so every way an
+ * editing interaction can end has to reach the same normal presentation — with
+ * the geometry still earned from the physical viewport rather than asserted.
+ *
+ * These sequences use iOS Safari's real browser-tab shape: the layout viewport
+ * is unchanged by the software keyboard and the visual viewport is panned, so
+ * corroboration comes from position rather than from a resized window.
+ */
+describe('leaving editing', () => {
+  const HOST_HEIGHT = 844
+  const KEYBOARD_TOP = 336
+  const KEYBOARD_HEIGHT = HOST_HEIGHT - KEYBOARD_TOP
+
+  function installHostGeometry() {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: HOST_HEIGHT })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: HOST_HEIGHT })
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    const viewport = new ViewportStub()
+    viewport.height = HOST_HEIGHT
+    installViewport(viewport)
+    installEditingPresentation()
+    return viewport
+  }
+
+  /** The software keyboard opening: the visual viewport pans down and shrinks. */
+  async function openKeyboard(viewport: ViewportStub) {
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: KEYBOARD_TOP })
+    viewport.pageTop = KEYBOARD_TOP
+    await updateViewport(viewport, { height: KEYBOARD_HEIGHT, offsetTop: KEYBOARD_TOP })
+  }
+
+  /** The software keyboard leaving: the visual viewport returns to the page top. */
+  async function closeKeyboard(viewport: ViewportStub) {
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    viewport.pageTop = 0
+    await updateViewport(viewport, { height: HOST_HEIGHT, offsetTop: 0 })
+  }
+
+  /**
+   * Mobile Safari can leave `document.activeElement` reporting something that
+   * is not the editable the Shell believes it is editing — after the editable
+   * is unmounted, or after a native dismissal the page never sees.
+   */
+  function simulateLostBrowserFocus() {
+    Object.defineProperty(document, 'activeElement', {
+      configurable: true,
+      get: () => document.body,
+    })
+  }
+
+  async function editingTerminal() {
+    const viewport = installHostGeometry()
+    const { user, input, shell } = await openTerminal()
+    await user.click(input)
+    await openKeyboard(viewport)
+    expect(shell).toHaveAttribute('data-editing-geometry', 'true')
+    expect(shell).toHaveAttribute('data-editing-phase', 'editing')
+    expect(shell).toHaveStyle({ '--node-edit-top': `${KEYBOARD_TOP}px`, '--node-edit-height': `${KEYBOARD_HEIGHT}px` })
+    return { viewport, user, input, shell }
+  }
+
+  function expectNormalPresentation(shell: HTMLElement) {
+    expect(shell).toHaveAttribute('data-editing-presentation', 'false')
+    expect(shell).toHaveAttribute('data-editing-phase', 'normal')
+    expect(shell).toHaveAttribute('data-editing-geometry', 'false')
+    expect(shell).toHaveAttribute('data-recovery-ready', 'true')
+    expect(screen.queryByText('EDITING')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to home' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /finish editing/i })).not.toBeInTheDocument()
+  }
+
+  it('ends editing on DONE while the keyboard still occludes, and only then accepts recovered geometry', async () => {
+    const { viewport, user, input, shell } = await editingTerminal()
+
+    await user.click(screen.getByRole('button', { name: /finish editing/i }))
+    expect(input).not.toHaveFocus()
+    // The intent has landed, but the viewport is still physically occluded, so
+    // the accepted edit plane is still the truthful one.
+    expect(shell).toHaveAttribute('data-editing-phase', 'recovering')
+    expect(shell).toHaveAttribute('data-editing-presentation', 'true')
+    expect(shell).toHaveAttribute('data-editing-geometry', 'true')
+    expect(shell).toHaveStyle({ '--node-edit-height': `${KEYBOARD_HEIGHT}px` })
+
+    await closeKeyboard(viewport)
+    expectNormalPresentation(shell)
+    expect(shell).toHaveStyle({ '--node-host-height': `${HOST_HEIGHT}px`, '--node-edit-height': `${HOST_HEIGHT}px` })
+  })
+
+  it('ends editing on DONE when the browser no longer reports an editable focus', async () => {
+    const { viewport, shell } = await editingTerminal()
+    // Nothing left to blur: DONE has to carry the intent by itself.
+    simulateLostBrowserFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: /finish editing/i }))
+    expect(shell).toHaveAttribute('data-editing-phase', 'recovering')
+
+    await closeKeyboard(viewport)
+    expectNormalPresentation(shell)
+  })
+
+  it('converges to the same normal presentation from every end-of-editing order', async () => {
+    // A) focusout, then the viewport recovers.
+    {
+      const { viewport, input, shell } = await editingTerminal()
+      act(() => { input.blur() })
+      await closeKeyboard(viewport)
+      expectNormalPresentation(shell)
+      cleanup()
+    }
+    // B) the viewport recovers, then focusout arrives.
+    {
+      const { viewport, input, shell } = await editingTerminal()
+      await closeKeyboard(viewport)
+      act(() => { input.blur() })
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      expectNormalPresentation(shell)
+      cleanup()
+    }
+    // C) editable focus disappears with no focusout the Shell can attribute,
+    //    then the viewport recovers.
+    {
+      const { viewport, shell } = await editingTerminal()
+      simulateLostBrowserFocus()
+      await closeKeyboard(viewport)
+      expectNormalPresentation(shell)
+      Reflect.deleteProperty(document, 'activeElement')
+      cleanup()
+    }
+    // D) explicit DONE while the active element is already not editable,
+    //    then the viewport recovers.
+    {
+      const { viewport, shell } = await editingTerminal()
+      simulateLostBrowserFocus()
+      fireEvent.click(screen.getByRole('button', { name: /finish editing/i }))
+      await closeKeyboard(viewport)
+      expectNormalPresentation(shell)
+    }
+  })
+
+  it('reconciles a native keyboard dismissal that never reports a focus change', async () => {
+    const { viewport, shell } = await editingTerminal()
+    simulateLostBrowserFocus()
+
+    await closeKeyboard(viewport)
+
+    // No DONE was pressed and no focusout arrived; the Shell still has to give
+    // normal navigation back rather than preserve an editing presentation with
+    // no editable interaction behind it.
+    expectNormalPresentation(shell)
+  })
+
+  it('keeps repeated exit and stale editing-epoch events idempotent', async () => {
+    const { viewport, user, input, shell } = await editingTerminal()
+
+    const done = screen.getByRole('button', { name: /finish editing/i })
+    await user.click(done)
+    fireEvent.click(done)
+    fireEvent.blur(input)
+    fireEvent.focusOut(input)
+    expect(shell).toHaveAttribute('data-editing-phase', 'recovering')
+
+    await closeKeyboard(viewport)
+    expectNormalPresentation(shell)
+
+    // Everything the previous editing epoch can still emit at a recovered
+    // presentation: a stale blur, a stale focusout, and repeated viewport
+    // movement. None of it may reopen or corrupt the normal presentation.
+    fireEvent.blur(input)
+    fireEvent.focusOut(input)
+    await closeKeyboard(viewport)
+    act(() => { window.dispatchEvent(new Event('scroll')) })
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    expectNormalPresentation(shell)
+    expect(shell).toHaveStyle({ '--node-host-height': `${HOST_HEIGHT}px` })
+  })
+
+  it('does not present a RACK-OS section change into the editing geometry it is leaving', async () => {
+    const viewport = installHostGeometry()
+    const user = userEvent.setup()
+    render(<GameProvider initialState={remoteConnectedState()}><Shell /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: /^ENTER .+ →$/ }))
+    const shell = screen.getByTestId('os-shell')
+    const remoteInput = screen.getByLabelText('Remote command')
+    act(() => { remoteInput.focus() })
+    await openKeyboard(viewport)
+    expect(shell).toHaveAttribute('data-editing-phase', 'editing')
+    const beforeSwitch = screen.getByTestId('state-snapshot').textContent
+
+    // iOS Safari does not focus a tapped button, so the tap moves no focus and
+    // the outgoing editable would simply be unmounted under the keyboard.
+    fireEvent.click(screen.getByRole('button', { name: 'FILES' }))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
+    // The editable is released and the destination is not mounted yet: it must
+    // not inherit the edit plane the outgoing section is leaving.
+    expect(remoteInput).not.toHaveFocus()
+    expect(shell).toHaveAttribute('data-editing-phase', 'recovering')
+    expect(screen.queryByText('EMPTY DIRECTORY')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Remote command')).toBeInTheDocument()
+
+    await closeKeyboard(viewport)
+
+    expect(shell).toHaveAttribute('data-editing-presentation', 'false')
+    expect(shell).toHaveAttribute('data-recovery-ready', 'true')
+    expect(screen.queryByLabelText('Remote command')).not.toBeInTheDocument()
+    expect(screen.getByText('PATH')).toBeInTheDocument()
+    // Presentation only: the canonical Session and every other represented
+    // truth are untouched by the section change.
+    expect(screen.getByTestId('state-snapshot')).toHaveTextContent(beforeSwitch ?? '')
+  })
+
+  it('switches a RACK-OS section immediately when no editing interaction is open', async () => {
+    installHostGeometry()
+    const user = userEvent.setup()
+    render(<GameProvider initialState={remoteConnectedState()}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: /^ENTER .+ →$/ }))
+    const shell = screen.getByTestId('os-shell')
+    expect(shell).toHaveAttribute('data-recovery-ready', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'FILES' }))
+    expect(screen.queryByLabelText('Remote command')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'TERMINAL' }))
+    expect(screen.getByLabelText('Remote command')).toBeInTheDocument()
   })
 })
 

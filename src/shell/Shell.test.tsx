@@ -11,7 +11,12 @@ import type { EditingViewportState } from './useEditingViewport'
 import shellCss from './shell.css?raw'
 
 let viewport: EditingViewportState
-vi.mock('./useEditingViewport', () => ({ useEditingViewport: () => viewport }))
+/* The Shell's explicit end-of-editing intent, isolated from the real
+   controller so these tests prove the Shell expresses it. */
+const endEditing = vi.fn()
+vi.mock('./useEditingViewport', () => ({
+  useEditingViewport: () => ({ ...viewport, endEditing }),
+}))
 
 const observation = { targetDeviceId: 'host-lan-001', address: '198.51.100.47' }
 
@@ -44,6 +49,7 @@ function Capture() {
 }
 
 beforeEach(() => {
+  endEditing.mockClear()
   viewport = {
     hostHeight: 780, editTop: 0, editHeight: 780, editing: false,
     editingPresentation: false, presentationPhase: 'normal',

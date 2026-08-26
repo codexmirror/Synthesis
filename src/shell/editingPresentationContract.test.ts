@@ -6,6 +6,7 @@ import hook from './useEditingViewport.ts?raw'
 import rackCss from '../apps/rackos/rackos.css?raw'
 import terminalInteraction from '../apps/terminal/useTerminalInteraction.ts?raw'
 import nodeCommandAdapter from '../apps/terminal/nodeCommandAdapter.ts?raw'
+import rackSource from '../apps/rackos/RackOS.tsx?raw'
 import shellSource from './Shell.tsx?raw'
 import handoffSource from './RemoteSessionHandoff.tsx?raw'
 
@@ -70,6 +71,23 @@ describe('mobile editing presentation contract', () => {
     expect(terminalSource).not.toContain('aria-live="polite"')
     expect(terminalCss).not.toContain('72px')
     expect(terminalCss).toContain('touch-action: pan-y pinch-zoom')
+  })
+
+  it('keeps leaving editing a Shell-owned intent rather than a second editing state', () => {
+    // DONE and every other Shell exit hand the intent to the one editing
+    // controller instead of relying on a browser focus side effect alone.
+    expect(shellSource).toContain('viewport.endEditing()')
+    expect(hook).toContain('endEditingRef.current')
+    // The controller may correct held intent against the browser's own focus,
+    // but accepting recovered geometry still runs through the recovery gate.
+    expect(hook).toContain('reconcileEditingFocusIntent')
+    expect(hook).toMatch(/releaseEditingIntent[\s\S]*presentationPhase = 'recovering'/)
+    // RACK-OS coordinates with that contract and owns none of it: no viewport
+    // reading, no keyboard state, no timing of its own.
+    expect(rackSource).toContain('editingRecoveryReady')
+    expect(rackSource).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView|setInterval|setTimeout|matchMedia|requestAnimationFrame/)
+    expect(rackSource).not.toMatch(/\b(keyboardOpen|isKeyboardOpen|keyboardHeight|editingActive|editingPresentation)\b/)
+    expect(rackSource).not.toMatch(/--node-(edit|presentation|host)-/)
   })
 
   it('keeps wrapped NODE-OS chrome hidden and gives RACK-OS the Shell edit geometry', () => {
