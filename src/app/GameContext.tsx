@@ -15,6 +15,7 @@ import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../
 import { retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type RetargetLocalNodeMinerPayoutResult, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
 import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
+import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -41,6 +42,8 @@ export interface GameActions {
   stopRemoteNodeMiner(processId: string): StopRemoteNodeMinerResult
   retargetLocalNodeMinerPayout(payoutAddress: string): RetargetLocalNodeMinerPayoutResult
   retargetNodeMinerPayout(payoutAddress: string): RetargetNodeMinerPayoutResult
+  openMailThread(threadId: string): void
+  sendMailReply(threadId: string, text: string): SendMailReplyResult
   clearRecentActivity(): void
   removeRecentActivity(activityId: string): void
 }
@@ -190,6 +193,19 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, retargetNodeMinerPayout(payoutAddress) {
     const result = retargetNodeMinerPayout(currentState.current, payoutAddress)
     if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, openMailThread(threadId) {
+    const state = currentState.current
+    const nextState = openMailThread(state, threadId)
+    if (nextState === state) return
+    currentState.current = nextState
+    setGameState(nextState)
+  }, sendMailReply(threadId, text) {
+    const result = sendMailReply(currentState.current, threadId, text)
+    if (result.status === 'sent') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
     return result
   }, clearRecentActivity() {
     const state = currentState.current

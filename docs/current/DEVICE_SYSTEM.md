@@ -43,8 +43,14 @@ GameState
 ├── deviceAccess
 ├── remoteSession
 ├── fileTransfer
+├── mail
+│   └── the player's represented in-world mailbox
 └── recentActivity
 ```
+
+The `mail` slice is the player's mailbox, owned by their represented in-world
+mail account rather than by the local Device or NODE-OS. Its detailed semantics
+belong to `docs/current/COMMUNICATION.md`.
 
 The concretely represented foreign filesystems are normal Device-owned state.
 A successful Upload may create its normal destination artifact in the remote

@@ -2,8 +2,8 @@
 
 Status: Accepted
 Scope: NODE-OS Shell presentation, Home, the shared presentation language,
-Terminal as an interface, Notes, and the mobile/editing presentation contract
-as currently implemented on `main`.
+Terminal as an interface, Notes, NodeMail presentation, and the mobile/editing
+presentation contract as currently implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
@@ -25,6 +25,7 @@ player-facing applications in order:
 
 - Terminal
 - NodeScan
+- NodeMail
 - Processes
 - Files
 - Wallet
@@ -44,6 +45,11 @@ module-selection language.
 
 Wallet balance is intentionally absent from permanent Shell chrome and remains
 available inside the Wallet application.
+
+The NodeMail launcher derives its secondary value from canonical mail state:
+the number of unread incoming messages in the player's mailbox. It is a
+projection, not stored state, and a message the player sent never contributes
+to it. What that count means belongs to `docs/current/COMMUNICATION.md`.
 
 
 ## Shared presentation language
@@ -67,13 +73,15 @@ The primitives are composed where they apply rather than imposed on every
 application. The shared masthead states an application's current subject
 directly under the Shell application title, so it is carried by the
 applications whose subject varies or whose operating context needs stating:
-Files shows the current path, System and Terminal show the local Device, and
-the Activity Monitor names itself and its local-device scope. Those
-local-device applications say so, which is how the suite distinguishes the
-local operating context from RACK-OS. Wallet and Notes have no varying subject
-and keep their own presentation, and NodeScan keeps its established breadcrumb
-and object heading, which already identify the object being browsed. A
-masthead is not added to an application merely for uniformity.
+Files shows the current path, System and Terminal show the local Device, the
+Activity Monitor names itself and its local-device scope, and NodeMail names
+the mailbox account it is presenting. Those local-device applications say so,
+which is how the suite distinguishes the local operating context from RACK-OS;
+NodeMail states a mailbox identity instead, because the mailbox is not owned by
+that Device. Wallet and Notes have no varying subject and keep their own
+presentation, and NodeScan keeps its established breadcrumb and object heading,
+which already identify the object being browsed. A masthead is not added to an
+application merely for uniformity.
 
 
 ## Terminal
@@ -149,6 +157,49 @@ state.
 They persist locally through the Notes feature's browser storage adapter.
 
 The Notes textarea owns its own scrolling behavior.
+
+
+## NodeMail
+
+NodeMail is the NODE-OS client onto the player's represented in-world mailbox.
+It presents canonical mail state and calls the shared mail operations; it owns
+no communication truth (`docs/current/COMMUNICATION.md`).
+
+Navigation is one stacked path — inbox, thread, reply — at every width. There
+is no desktop split view. Which thread is open is application presentation
+state and never reaches `GameState`.
+
+The application carries the shared masthead, whose subject is the mailbox
+account being presented: a different identity from the local Device that Shell
+chrome names. Inbox rows state correspondent, subject, and a preview projected
+from the latest canonical message, and mark unread threads with a filled
+marker, a brighter correspondent name, and an `UNREAD` chip. A thread states
+its subject, both parties, and its messages in order, each labeled `YOU` or
+with the correspondent's name.
+
+A thread that represents no authored interaction presents no composer and says
+that the address does not accept replies.
+
+An address-shaped run of text inside a message body is rendered as a copy
+control over that literal communicated string. It is a copy affordance only: it
+offers no scan, connect or inspect action and resolves nothing.
+
+The reply composer is an ordinary multiline `textarea` plus an explicit `SEND`.
+Enter inserts a newline and never submits, because the draft is a textarea
+rather than a single-line input intercepted by a key handler. The composer is
+never autofocused, so opening a thread does not open the software keyboard, and
+`SEND` stays unavailable until the player has written something. NodeMail
+consumes the Shell-owned Editing presentation exactly as Notes and Terminal do
+and adds no VisualViewport reading, keyboard height, focus management, body
+transform, or scroll manipulation of its own.
+
+An open thread declares two scrolling regions: the thread surface and the
+composer draft. Both are things a finger can move while the software keyboard
+is up — re-reading the correspondence while writing back, and moving through a
+long draft — and the Shell resolves the nearest one.
+
+The presentation design behind these choices is owned by
+`docs/design/NODEMAIL_V1.md`.
 
 
 ## Mobile and editing presentation
@@ -248,7 +299,8 @@ or recording are installed without the query flag.
 ## Gotchas
 
 - Shell navigation is presentation state. Never promote "which application is
-  open" or "which row is expanded" into `GameState`.
+  open", "which row is expanded", or "which mail thread is open" into
+  `GameState`.
 - Terminal is an interface, not a domain. A graphical control must never
   perform gameplay by constructing a Terminal command string, and a Terminal
   command must call the same shared operation the GUI calls.

@@ -13,6 +13,7 @@ export function AppIcon({ app }: { app: AppId }) {
   const paths = {
     terminal: <><path d="m5 7 4 4-4 4" /><path d="M11 16h8" /></>,
     network: <><circle cx="12" cy="12" r="3" /><circle cx="12" cy="12" r="8" /><path d="M12 4V2M20 12h2M12 20v2M4 12H2" /></>,
+    mail: <><path d="M3 6h18v12H3z" /><path d="m3 7 9 6 9-6" /></>,
     processes: <><path d="M4 6h6v4H4zM14 6h6M14 10h4M4 14h6v4H4zM14 14h6M14 18h4" /></>,
     files: <><path d="M3 7h7l2 2h9v10H3z" /><path d="M3 7V5h7l2 2h7" /></>,
     wallet: <><path d="M3 6h15v12H3z" /><path d="M18 10h3v5h-7v-5h4" /><circle cx="16.5" cy="12.5" r=".7" fill="currentColor" stroke="none" /></>,

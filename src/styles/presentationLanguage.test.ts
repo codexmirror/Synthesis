@@ -5,6 +5,7 @@ import baseCss from './base.css?raw'
 import appsCss from '../apps/apps.css?raw'
 import networkCss from '../apps/network/network.css?raw'
 import processesCss from '../apps/processes/processes.css?raw'
+import mailCss from '../apps/mail/mail.css?raw'
 import terminalCss from '../apps/terminal/terminal.css?raw'
 import shellCss from '../shell/shell.css?raw'
 import rackosCss from '../apps/rackos/rackos.css?raw'
@@ -12,6 +13,7 @@ import filesSource from '../apps/files/Files.tsx?raw'
 import systemSource from '../apps/system/System.tsx?raw'
 import walletSource from '../apps/wallet/Wallet.tsx?raw'
 import notesSource from '../apps/notes/Notes.tsx?raw'
+import mailSource from '../apps/mail/Mail.tsx?raw'
 import terminalSource from '../apps/terminal/Terminal.tsx?raw'
 import networkSource from '../apps/network/Network.tsx?raw'
 import processesSource from '../apps/processes/Processes.tsx?raw'
@@ -24,9 +26,9 @@ import rackosSource from '../apps/rackos/RackOS.tsx?raw'
  * styled by none, and Terminal referenced an undefined `--muted`.
  */
 
-const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, shellCss]
+const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss]
-const applicationSources = [filesSource, systemSource, walletSource, notesSource, terminalSource, networkSource, processesSource]
+const applicationSources = [filesSource, systemSource, walletSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
 function referencedCustomProperties(css: string): string[] {
   return [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1])
@@ -96,6 +98,7 @@ describe('NODE-OS presentation language', () => {
       [appsCss, 'files-app'],
       [appsCss, 'system-app'],
       [appsCss, 'wallet-app'],
+      [mailCss, 'mail-app'],
     ]
     for (const [css, className] of surfaces) {
       const rules = rulesTouching(css, className)
@@ -122,7 +125,7 @@ describe('NODE-OS presentation language', () => {
     expect(terminalCss).not.toMatch(/@media \(max-width: 480px\)/)
 
     // And no other NODE-OS application may claim the same exception.
-    for (const css of [networkCss, processesCss]) {
+    for (const css of [networkCss, processesCss, mailCss]) {
       expect(css).not.toMatch(/env\(safe-area-inset/)
     }
   })
@@ -130,7 +133,9 @@ describe('NODE-OS presentation language', () => {
   it('composes the masthead where a subject varies rather than imposing it everywhere', () => {
     // Carried by the applications whose subject varies, or whose operating
     // context needs stating.
-    const carries = [['Files', filesSource], ['System', systemSource], ['Terminal', terminalSource], ['Activity Monitor', processesSource]] as const
+    // NodeMail states the mailbox account it is presenting, which is a
+    // different operating identity from the local Device the Shell names.
+    const carries = [['Files', filesSource], ['System', systemSource], ['Terminal', terminalSource], ['Activity Monitor', processesSource], ['NodeMail', mailSource]] as const
     for (const [name, source] of carries) {
       // Anchored on the class boundary: `node-masthead-subject` alone is a
       // child element, not evidence that the masthead itself is present.

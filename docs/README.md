@@ -105,6 +105,23 @@ Access, DeviceAccess, Remote Session, RACK-OS, Authentication History.
 - DOCUMENTATION IMPACT OWNER → [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
+### Communication and mail
+
+The player's in-world mail account, correspondents, threads and messages, read
+state, authored replies, NodeMail.
+
+- CURRENT TRUTH → [`current/COMMUNICATION.md`](current/COMMUNICATION.md)
+- ARCHITECTURE → A03–A04, A09 in
+  [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
+  A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md)
+- DESIGN → [`design/NODEMAIL_V1.md`](design/NODEMAIL_V1.md)
+- CODE → `src/core/game/mail.ts`,
+  `src/core/game/miraStagingCorrespondence.ts`, `src/apps/mail/`
+- TESTS → `src/core/game/mail.test.ts`, `src/apps/mail/Mail.test.tsx`
+- DOCUMENTATION IMPACT OWNER → [`current/COMMUNICATION.md`](current/COMMUNICATION.md)
+  (NodeMail presentation impact → [`current/INTERFACE_SHELL.md`](current/INTERFACE_SHELL.md))
+- NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
+
 ### Files, transfer, and software
 
 Filesystem, Files, Download/Upload, packages, installation, removal,
