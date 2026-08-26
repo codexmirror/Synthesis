@@ -1,0 +1,178 @@
+/*
+ * NodeMail presentation.
+ *
+ * Correspondence, not Terminal output and not a CRUD list: message text is the
+ * primary object, so it is set larger and looser than the technical labels
+ * around it while everything structural stays in the shared NODE-OS language.
+ * The scrolling gutter belongs to `.app-content`, so nothing here redeclares
+ * it.
+ */
+
+.mail-app { max-width: 680px; }
+
+/* Inbox: correspondent first, subject second, what was last said third. */
+.node-row.mail-thread { align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
+.mail-thread .node-row-glyph { margin-top: 2px; color: var(--text-faint); }
+.mail-thread .node-chip,
+.mail-thread .node-row-arrow { margin-top: 2px; }
+.mail-thread--unread .node-row-glyph { color: var(--accent-mark); }
+.mail-thread--unread .node-row-copy strong { color: var(--green); }
+
+.mail-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text-quiet);
+  font-size: .68rem;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+.mail-thread--unread .mail-preview { color: var(--text-secondary); }
+
+/* Thread header: what this correspondence is, and between whom. */
+.mail-subject {
+  margin: 4px 0 0;
+  color: var(--text-strong);
+  font: 600 .95rem Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.mail-parties {
+  margin: 7px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: .64rem;
+  overflow-wrap: anywhere;
+}
+
+.mail-party { color: var(--text-secondary); }
+.mail-party-address { color: var(--text-muted); }
+
+.mail-party-account {
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+/* Ordered history. Message direction is stated, not implied by alignment. */
+.mail-messages {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  list-style: none;
+}
+
+.mail-message {
+  min-width: 0;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--accent-rule);
+}
+
+.mail-message--sent {
+  border-left-color: var(--line-strong);
+  padding-left: 12px;
+  margin-left: clamp(0px, 6vw, 44px);
+}
+
+.mail-message-author {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+}
+
+.mail-message--sent .mail-message-author { color: var(--text-faint); }
+
+.mail-message-body {
+  margin: 6px 0 0;
+  color: var(--text);
+  font-size: .78rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mail-message--sent .mail-message-body { color: var(--text-secondary); }
+
+.mail-message--arrived { animation: mail-arrive 160ms ease-out both; }
+
+@keyframes mail-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/*
+ * A communicated address is copyable text inside the message, nothing more:
+ * it is marked as a value, never as a control that could act on the World.
+ */
+.mail-address {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+  cursor: copy;
+}
+
+.mail-address > span { border-bottom: 1px dotted var(--line-accent); }
+.mail-address:hover > span,
+.mail-address[data-copy-state="copied"] > span { border-bottom-color: currentColor; }
+.mail-address[data-copy-state="copied"] { color: var(--green); }
+.mail-address[data-copy-state="failed"] { color: var(--caution); }
+
+.mail-address:focus-visible {
+  outline: 1px solid var(--line-accent);
+  outline-offset: 2px;
+}
+
+.mail-address-feedback { margin-left: .35em; }
+
+/* Reply composer: a real multiline draft plus one explicit send. */
+.mail-composer {
+  margin-top: 22px;
+  padding-top: 16px;
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.mail-composer-input {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  outline: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: .76rem;
+  line-height: 1.6;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mail-composer-input:focus { border-color: var(--line-accent); }
+
+.mail-composer-actions { display: flex; justify-content: flex-end; }
+.mail-composer-actions .node-action { min-width: 120px; justify-content: center; }
+
+@media (max-width: 480px) {
+  .mail-message--sent { margin-left: 18px; }
+  .mail-composer-actions .node-action { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mail-message--arrived { animation: none; }
+}

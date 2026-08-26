@@ -17,6 +17,9 @@ describe('createInitialGameState', () => {
     expect(first.player.localDevice.hardware).not.toBe(second.player.localDevice.hardware)
     expect(first.player.localDevice.runtime).not.toBe(second.player.localDevice.runtime)
     expect(first.wallet).not.toBe(second.wallet)
+    expect(first.mail).not.toBe(second.mail)
+    expect(first.mail.messages).not.toBe(second.mail.messages)
+    expect(first.mail.threads).not.toBe(second.mail.threads)
     expect(first.world).not.toBe(second.world)
     expect(first.world.network).not.toBe(second.world.network)
     expect(first.world.network.localNetworks).not.toBe(second.world.network.localNetworks)
@@ -29,18 +32,24 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 36', () => {
+  it('separates identities and seeds canonical local-device state in schema version 37', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(36)
+    expect(GAME_STATE_VERSION).toBe(37)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(36)
+    expect(state.version).toBe(37)
     expect(state.wallet).toEqual({ balance: 1250 })
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
     expect(state.nodeEconomy).toEqual({ accounts: [{ id: 'node-account-nm-dev-v0', address: NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, balanceNodeUnits: 0 }] })
     expect(state.nodeEconomy.accounts[0].address).not.toBe(state.nodeWallet.address)
+    // The mailbox is owned by the player's represented mail identity, not by the local Device or NODE-OS.
+    expect(state.mail.account).toEqual({ id: 'mail-account-player-v0', address: 'user@node.mail' })
+    expect(state.mail.account.id).not.toBe(state.player.id)
+    expect(state.mail.account.id).not.toBe(state.player.localDevice.id)
+    expect(state.mail.threads.map((thread) => thread.id)).toEqual(['mail-thread-welcome', 'mail-thread-mira-staging'])
+    expect(state.mail.nextMessageId).toBe(3)
     expect(state.player.id).toBe('player-local-v0')
     expect(state.player.localDevice.id).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.localDevice.id)

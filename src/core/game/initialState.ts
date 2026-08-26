@@ -1,8 +1,9 @@
+import { createInitialMailState } from './mail'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 36
+export const GAME_STATE_VERSION = 37
 
 export function createInitialGameState(): GameState {
   return {
@@ -57,6 +58,8 @@ export function createInitialGameState(): GameState {
     deviceAccess: { nextId: 1, established: [] },
     remoteSession: { nextId: 1, active: null },
     fileTransfer: { nextId: 1, active: null },
+    // The player's represented in-world mailbox, owned by their mail identity rather than by node-01 or NODE-OS.
+    mail: createInitialMailState(),
     recentActivity: { entries: [] },
     world: {
       network: {

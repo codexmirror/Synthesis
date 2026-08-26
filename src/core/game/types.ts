@@ -565,6 +565,89 @@ export interface GameState {
   readonly deviceAccess: DeviceAccessState
   readonly remoteSession: RemoteSessionState
   readonly fileTransfer: FileTransferState
+  /** The player's represented in-world mailbox; communication, not Discovery or Knowledge. */
+  readonly mail: MailState
   /** Bounded Device-runtime observations; not a world event history. */
   readonly recentActivity: RecentActivityState
+}
+
+/**
+ * The player's represented in-world mail account: the identity that owns the
+ * mailbox. It is deliberately not a Device, not NODE-OS, and not a product or
+ * browser login — NODE-OS is only the client currently presenting this
+ * mailbox. `address` is a communicated addressing attribute, never identity
+ * (ARCHITECTURE.md A01).
+ */
+export interface MailAccount {
+  readonly id: string
+  readonly address: string
+}
+
+/**
+ * A represented identity the player corresponds with. It is a concrete
+ * correspondent only: not an NPC, Actor, Organization, or trust-bearing
+ * entity, and it owns no mood, stage, or relationship state.
+ */
+export interface MailCorrespondent {
+  readonly id: string
+  /** Mutable presentation identity; never correspondent identity. */
+  readonly name: string
+  readonly address: string
+}
+
+interface MailMessageBase {
+  /** Deterministic mailbox-monotonic message identity and ordering. */
+  readonly id: string
+  readonly threadId: string
+  /**
+   * Exactly what was communicated. Authored correspondence and player text are
+   * both snapshotted here when the message is created, so a message never
+   * live-projects mutable World Truth and never changes when the World does.
+   */
+  readonly body: string
+}
+
+/** A message the represented correspondent sent to the player's account. */
+export interface IncomingMailMessage extends MailMessageBase {
+  readonly sender: 'correspondent'
+  readonly correspondentId: string
+  /**
+   * Canonical read state. Only incoming correspondence carries one, so a
+   * player-sent message cannot contribute to an unread count by construction.
+   */
+  readonly read: boolean
+}
+
+/** A message the player sent from their own account. */
+export interface OutgoingMailMessage extends MailMessageBase {
+  readonly sender: 'account'
+}
+
+export type MailMessage = IncomingMailMessage | OutgoingMailMessage
+
+/**
+ * One correspondence with one represented correspondent. V1 threads are
+ * authored; nothing creates a thread at runtime, so the mailbox needs no
+ * thread identity allocation.
+ */
+export interface MailThread {
+  readonly id: string
+  readonly correspondentId: string
+  readonly subject: string
+}
+
+/**
+ * The player's canonical mailbox: who they are in mail, who has written to
+ * them, and everything that was actually said. Derived presentation values
+ * (unread counts, previews, latest sender, ordering) are never stored here —
+ * they are derived from this state. Thread order is authored order: V1
+ * represents no time, so nothing is re-sorted by an invented chronology.
+ */
+export interface MailState {
+  readonly account: MailAccount
+  readonly correspondents: readonly MailCorrespondent[]
+  readonly threads: readonly MailThread[]
+  /** Mailbox-monotonic message identity; never rewinds. */
+  readonly nextMessageId: number
+  readonly messages: readonly MailMessage[]
 }
