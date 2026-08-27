@@ -31,13 +31,25 @@ function discoveredState(): GameState {
   return { ...state, discovery }
 }
 function withDiscovery(state: GameState): GameState { return { ...state, discovery: discoveredState().discovery } }
-/** Remembers a Scan of the second LAN Device through the shared observation path. */
-function withScannedSecondDevice(state: GameState): GameState {
-  const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  return { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.53'), state.player.localDevice.id) }
-}
 function withNodeScan11(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software) } } }
+}
+
+/** A test-only second LAN Device; initial World intentionally keeps srv-02 remote. */
+function withComposedLanTarget(inspected: boolean): GameState {
+  let state = withNodeScan11(createInitialGameState())
+  const source = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+  const target = { ...structuredClone(source), id: 'host-lab-update', displayName: 'lab-update', ip: '198.51.100.53' }
+  state = { ...state, world: { network: {
+    hosts: [...state.world.network.hosts, target],
+    localNetworks: state.world.network.localNetworks.map((network) => ({ ...network, memberDeviceIds: [...network.memberDeviceIds, target.id] })),
+  } } }
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
+  discovery = rememberScan(discovery, scanNetworkTarget(targets, target.ip), state.player.localDevice.id)
+  if (inspected) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, target.ip, 'enhanced'), state.player.localDevice.id)
+  const sourcePackage = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!.filesystem!.files.find(({ id }) => id === 'file-0003')!
+  return { ...state, discovery, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { ...sourcePackage, id: 'file-ui-gatessh', path: '/home/user/downloads/gatessh.pkg' }] } } } }
 }
 
 /** Store legitimate NodeScan 1.1 Enhanced Inspect evidence through the shared domain operation. */
@@ -49,7 +61,7 @@ function withInspectedDevice(state: GameState): GameState {
 function actionStubs(): GameContext.GameActions {
   return {
     scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
-    startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(),
+    startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
     removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
@@ -81,6 +93,41 @@ function deferred<T>() {
 }
 
 describe('Scan workspace', () => {
+  it('shows observed package submission, selects a concrete file ID, invokes RackUpdate, and reports success', async () => {
+    const state = withComposedLanTarget(true)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
+    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
+    expect(screen.getByText('Package submission')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Local package'), 'file-ui-gatessh')
+    await user.click(screen.getByRole('button', { name: 'SUBMIT PACKAGE' }))
+    expect(screen.getByText('PACKAGE APPLIED')).toHaveAttribute('role', 'status')
+    const current = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
+    expect(current.world.network.hosts.find(({ id }) => id === 'host-lab-update')!.services!.find(({ id }) => id === 'service-ssh-002')!.implementation.releaseId).toBe('gate-ssh-1.3.2')
+  })
+
+  it('does not expose package submission before Enhanced Inspect observes the interface', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withComposedLanTarget(false)}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
+    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
+    expect(screen.queryByRole('button', { name: 'SUBMIT PACKAGE' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Local package')).not.toBeInTheDocument()
+  })
+
+  it('keeps generic branches independent for multiple LAN Devices supplied by a fixture', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withComposedLanTarget(false)}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open device 198.51.100.53' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('RackUpdate')
+    expect(screen.queryByRole('region', { name: 'Known services for 198.51.100.47' })).not.toBeInTheDocument()
+  })
   it('connects and disconnects a remembered Device through canonical session state', async () => {
     const known = discoveredState()
     const state = { ...known, deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] } }
@@ -464,7 +511,7 @@ describe('Scan workspace', () => {
       startServiceAnalysis: vi.fn(),
       startServiceAnalysisAtEndpoint: vi.fn(),
       startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation: vi.fn(),
+      startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
       connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
 
@@ -494,7 +541,7 @@ describe('Scan workspace', () => {
       return scanNetworkTarget(targets, input)
     })
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -513,7 +560,7 @@ describe('Scan workspace', () => {
     const device = deferred<ReturnType<typeof scanNetworkTarget>>()
     const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -532,7 +579,7 @@ describe('Scan workspace', () => {
     const device = deferred<ReturnType<typeof scanNetworkTarget>>()
     const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -588,7 +635,7 @@ describe('Scan workspace', () => {
     })
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+      inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
@@ -866,7 +913,7 @@ describe('Scan workspace', () => {
     let canonical: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, hardware: { ...base.player.localDevice.hardware, ram: { ...base.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
     const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => startServiceAnalysisFromObservation(canonical, observed))
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))

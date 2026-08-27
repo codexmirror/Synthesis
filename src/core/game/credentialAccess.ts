@@ -73,10 +73,6 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
   if (!reached || !service) return failedResult
 
-  // A represented second factor is a real authentication condition, resolved against current World
-  // Truth like everything else here: the Basic Credential Toolkit's weak-authentication exploit alone
-  // cannot satisfy it, so it still yields the same generic attempt_failed presentation as any other
-  // failure below rather than a distinct, knowledge-revealing outcome.
   const succeeds = Boolean(vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess)
   // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
   // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.

@@ -28,7 +28,7 @@ export interface GameActions {
   startServiceAnalysisAtEndpoint(endpoint: string): NodeScanEndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
-  submitRackUpdatePackageFromObservation?(observed: RackUpdateObservation): SubmitRackUpdatePackageResult
+  submitRackUpdatePackageFromObservation(observed: RackUpdateObservation): SubmitRackUpdatePackageResult
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult

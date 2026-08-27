@@ -128,8 +128,7 @@ export function Network() {
     else setFeedback({ serviceId: service.id, message: result.status === 'already_running' ? 'ATTEMPT ALREADY RUNNING' : result.status === 'access_established' ? 'ACCESS ALREADY ESTABLISHED' : result.status === 'endpoint_not_found' ? 'ENDPOINT NOT AVAILABLE' : 'ATTEMPT NOT AVAILABLE' })
   }
   function submitPackage(service: ServiceWorkspace) {
-    const result = actions.submitRackUpdatePackageFromObservation?.({ targetDeviceId: service.deviceId, serviceId: service.id, endpoint: service.endpoint, localFileId: selectedPackageId })
-    if (!result) return
+    const result = actions.submitRackUpdatePackageFromObservation({ targetDeviceId: service.deviceId, serviceId: service.id, endpoint: service.endpoint, localFileId: selectedPackageId })
     setFeedback({ serviceId: service.id, message: result.status === 'applied' ? 'PACKAGE APPLIED' : result.status.replaceAll('_', ' ').toUpperCase() })
   }
   function connect(targetDeviceId: string, address: string) {
