@@ -50,6 +50,11 @@ rather than to a separate global actions section. Network expansion is only
 presentation state and performs no observation. Several Networks may be open
 at once.
 
+Remembered Devices without a remembered relationship to any known Network are
+presented separately as directly known Devices. They open the same Device
+detail as relationship-backed Devices and are not duplicated when a remembered
+Network relationship supplies their placement.
+
 A fresh session, where nothing is known, presents SCAN SELF as the single
 bootstrap action that discovers Network relationships. Once a Network is
 known, that bootstrap control is absent; the concrete Network branch retains

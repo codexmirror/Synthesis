@@ -14,6 +14,7 @@ import { removeInstalledSoftware } from '../../core/game/softwareRemoval'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
 import type { GameState } from '../../core/game/types'
 import { Network } from './Network'
+import { selectKnownSpace } from './nodeScanWorkspace'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -33,6 +34,11 @@ function discoveredState(): GameState {
 function withDiscovery(state: GameState): GameState { return { ...state, discovery: discoveredState().discovery } }
 function withNodeScan11(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software) } } }
+}
+
+function withRemoteDiscovery(state: GameState = createInitialGameState()): GameState {
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  return { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id) }
 }
 
 /** A test-only second LAN Device; initial World intentionally keeps srv-02 remote. */
@@ -93,6 +99,60 @@ function deferred<T>() {
 }
 
 describe('Scan workspace', () => {
+  it('projects direct Device discovery independently without revealing it initially or inventing a Network relationship', () => {
+    const fresh = createInitialGameState()
+    expect(selectKnownSpace(fresh).standaloneDevices).toEqual([])
+
+    const scanned = withRemoteDiscovery(fresh)
+    expect(scanned.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'host-lan-002', address: '203.0.113.42', scope: 'remote' })]))
+    expect(scanned.discovery.networkDeviceRelations.some(({ deviceId }) => deviceId === 'host-lan-002')).toBe(false)
+    expect(selectKnownSpace(scanned).standaloneDevices).toEqual([
+      expect.objectContaining({ id: 'host-lan-002', address: '203.0.113.42', scope: 'remote', serviceCount: 2 }),
+    ])
+  })
+
+  it('derives one Known Space placement from remembered Network relationships', () => {
+    const standalone = withRemoteDiscovery()
+    const related: GameState = { ...standalone, discovery: {
+      ...standalone.discovery,
+      networks: [{ id: 'observed-net', name: 'observed-net', membersObserved: true }],
+      networkDeviceRelations: [{ networkId: 'observed-net', deviceId: 'host-lan-002' }],
+    } }
+    const space = selectKnownSpace(related)
+    expect(space.standaloneDevices).toEqual([])
+    expect(space.networks).toEqual([expect.objectContaining({ id: 'observed-net', memberCount: 1 })])
+  })
+
+  it('opens a directly discovered remote Device and its Services without observing or changing player information', async () => {
+    const state = withRemoteDiscovery()
+    const actions = actionStubs()
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
+    const before = structuredClone({ discovery: state.discovery, knowledge: state.knowledge })
+    const user = userEvent.setup()
+    render(<Network />)
+
+    expect(screen.getByText('REMOTE DEVICES')).toBeInTheDocument()
+    expect(screen.getByText('203.0.113.42')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open device 203.0.113.42' }))
+    expect(screen.getByRole('button', { name: 'Copy 203.0.113.42' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open RackUpdate service' })).toBeInTheDocument()
+    expect(actions.scanTarget).not.toHaveBeenCalled()
+    expect(actions.inspectTarget).not.toHaveBeenCalled()
+    expect({ discovery: state.discovery, knowledge: state.knowledge }).toEqual(before)
+  })
+
+  it('reaches observed RackUpdate package submission through the standalone Device detail', async () => {
+    const state = withNodeScan11(withRemoteDiscovery())
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open device 203.0.113.42' }))
+    await user.click(screen.getByRole('button', { name: 'INSPECT DEVICE' }))
+    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
+    expect(screen.getByText('Package submission')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'SUBMIT PACKAGE' })).toBeInTheDocument()
+  })
   it('shows observed package submission, selects a concrete file ID, invokes RackUpdate, and reports success', async () => {
     const state = withComposedLanTarget(true)
     const user = userEvent.setup()
