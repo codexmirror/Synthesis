@@ -14,7 +14,7 @@ import { removeInstalledSoftware } from '../../core/game/softwareRemoval'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
 import type { GameState } from '../../core/game/types'
 import { Network } from './Network'
-import { selectKnownSpace } from './nodeScanWorkspace'
+import { selectDeviceWorkspace, selectKnownSpace } from './nodeScanWorkspace'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -99,6 +99,48 @@ function deferred<T>() {
 }
 
 describe('Scan workspace', () => {
+  it('projects target operations from narrow player information without consulting hidden World Truth', () => {
+    const known = withInspectedDevice(withNodeScan11(discoveredState()))
+    const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
+    const workspace = selectDeviceWorkspace(information, 'host-lan-001')!
+    expect(workspace.investigations.map(({ id }) => id)).toEqual(['service-ssh-001', 'service-http-001'])
+    expect(workspace.investigations.find(({ id }) => id === 'service-ssh-001')!.observed?.implementation).toBe('GateSSH 1.3.2')
+  })
+
+  it('starts Service Analysis directly from the Device target workspace', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={discoveredState()}><Network /><StateSnapshot /></GameProvider>)
+    await navigateToServices(user)
+    await user.click(screen.getByRole('button', { name: 'ANALYZE SSH' }))
+    expect(screen.getByRole('region', { name: 'SSH analysis running' })).toHaveTextContent('0%')
+    const state = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
+    expect(state.process.processes).toContainEqual(expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-ssh-001', status: 'running' }))
+    expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
+  })
+
+  it('only names the known RackUpdate rollback avenue after UPD-001 and uses a stable local file choice', async () => {
+    const before = withComposedLanTarget(true)
+    const user = userEvent.setup()
+    const view = render(<GameProvider initialState={before}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
+    expect(screen.queryByText('ROLLBACK GATESSH')).not.toBeInTheDocument()
+    view.unmount()
+
+    const learned = { ...before, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', targetDeviceId: 'host-lab-update', serviceId: 'service-rack-update-002', observedLabel: 'Rollback protection not enforced' }] } }
+    render(<GameProvider initialState={learned}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
+    expect(screen.getByText('ROLLBACK GATESSH')).toBeInTheDocument()
+    expect(screen.getByText('Requires: Older compatible GateSSH package')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Rollback package'), 'file-ui-gatessh')
+    await user.click(screen.getByRole('button', { name: 'APPLY PACKAGE' }))
+    const current = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
+    expect(current.world.network.hosts.find(({ id }) => id === 'host-lab-update')!.services!.find(({ id }) => id === 'service-ssh-002')!.implementation.version).toBe('1.3.2')
+    expect(current.discovery.devices.find(({ id }) => id === 'host-lab-update')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation.version).toBe('1.3.3')
+    expect(screen.getByText('GateSSH 1.3.3')).toBeInTheDocument()
+    expect(screen.queryByText('AUTH-017')).not.toBeInTheDocument()
+  })
   it('projects direct Device discovery independently without revealing it initially or inventing a Network relationship', () => {
     const fresh = createInitialGameState()
     expect(selectKnownSpace(fresh).standaloneDevices).toEqual([])

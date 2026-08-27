@@ -123,6 +123,12 @@ export interface DeviceWorkspace {
   readonly networks: readonly { readonly id: string; readonly name: string }[]
   readonly servicesObserved: boolean
   readonly services: readonly ServiceSummary[]
+  /** Concrete, player-information-only projections used by the target decision surface. */
+  readonly investigations: readonly ServiceWorkspace[]
+  readonly rollback?: {
+    readonly service: ServiceWorkspace
+    readonly candidates: readonly { readonly id: string; readonly path: string; readonly label: string }[]
+  }
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
   readonly session?: { readonly privilege: 'USER'; readonly connectedAddress: string; readonly viaServiceName?: string }
 }
@@ -283,6 +289,32 @@ export function selectDeviceWorkspace(information: PlayerInformation, deviceId: 
   })
 
   const passive = established[0]
+  const investigations = device.services
+    .map((service) => selectServiceWorkspace(information, device.id, service.id))
+    .filter((service): service is ServiceWorkspace => Boolean(service))
+  const rackUpdate = investigations.find((service) =>
+    service.observed?.interface === 'Package submission'
+    && service.knowledge.some(({ id }) => id === 'UPD-001'))
+  const managedGateSsh = investigations.find((service) => service.observed?.implementation.startsWith('GateSSH '))
+  const rememberedGateSshVersion = managedGateSsh?.observed?.implementation.slice('GateSSH '.length)
+  const isOlder = (candidate: string, remembered: string) => {
+    const left = candidate.split('.').map(Number)
+    const right = remembered.split('.').map(Number)
+    for (let index = 0; index < Math.max(left.length, right.length); index++) {
+      if ((left[index] ?? 0) !== (right[index] ?? 0)) return (left[index] ?? 0) < (right[index] ?? 0)
+    }
+    return false
+  }
+  const rollback = rackUpdate && managedGateSsh
+    ? {
+      service: rackUpdate,
+      candidates: information.player.localDevice.filesystem.files.flatMap((file) =>
+        file.kind === 'software_package' && file.productId === 'gate-ssh'
+          && rememberedGateSshVersion && isOlder(file.version, rememberedGateSshVersion)
+          ? [{ id: file.id, path: file.path, label: `${file.name} ${file.version}` }]
+          : []),
+    }
+    : undefined
   return {
     id: device.id,
     address: device.address,
@@ -299,6 +331,8 @@ export function selectDeviceWorkspace(information: PlayerInformation, deviceId: 
     networks: networksOf(information, device.id),
     servicesObserved: device.servicesObserved,
     services,
+    investigations,
+    ...(rollback ? { rollback } : {}),
     ...(passive ? { access: { privilege: passive.privilege, ...(serviceName(passive.viaServiceId) ? { viaServiceName: serviceName(passive.viaServiceId) } : {}) } } : {}),
     ...(activeAccess && information.remoteSession.active
       ? {
