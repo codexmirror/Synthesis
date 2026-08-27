@@ -490,6 +490,41 @@ button.ns-row:focus-visible { border-color: var(--line-accent); background: var(
 
 .ns-service-observed > span { overflow-wrap: anywhere; }
 
+/* Target Workspace --------------------------------------------------- */
+
+.ns-access-none {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+  color: var(--text-muted);
+}
+.ns-access-none strong { color: var(--text-secondary); font-size: .68rem; letter-spacing: .12em; }
+.ns-access-none span { font-size: .64rem; }
+
+.ns-workspace-operation {
+  width: 100%;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+}
+.ns-workspace-operation > strong { color: var(--text-strong); font-size: .68rem; letter-spacing: .12em; }
+.ns-workspace-operation > span { color: var(--text-secondary); font-size: .65rem; }
+
+.ns-details { margin-top: 18px; border-top: 1px solid var(--line); }
+.ns-details > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+  cursor: pointer;
+}
+.ns-details > summary::after { content: "+"; margin-left: auto; color: var(--accent-mark); }
+.ns-details[open] > summary::after { content: "−"; }
+
 /* Marks: one short state line each, never a row of competing chips. */
 .ns-marks { display: grid; gap: 3px; }
 

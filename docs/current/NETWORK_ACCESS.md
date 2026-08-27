@@ -72,8 +72,13 @@ investigation loop does not have to leave the workspace, and every Device
 retains an explicit, touch-sized path to its full detail page. Remembered
 Inspect evidence a Device already carries is stated compactly on its branch
 row. Service children open their existing detail pages. A Device page retains
-its Network navigation context and presents observed Device facts, known
-Network relationships, known Services, Access, and Device actions. A Service row
+its Network navigation context and is the target's primary decision workspace.
+It composes remembered target facts, Access, Findings, directly available
+Service Analysis and Credential Access actions, target-relevant Process
+progress, and observation actions without taking canonical ownership of any of
+them. USER Access exposes CONNECT in place and an active Remote Session exposes
+DISCONNECT; no Access is stated explicitly. Known Network relationships and
+technical Services remain under progressive DETAILS / SERVICES disclosure. A Service row
 stacks Service identity, endpoint metadata and observed fingerprint on
 separate lines so that a long observation such as `Credential + Additional
 Verification` wraps rather than compressing the Service's own identity, and
@@ -82,6 +87,34 @@ weaknesses. A Service page integrates endpoint, observed implementation
 fingerprint, observed authentication, vulnerability Knowledge, the provenance
 of Access established through that Service, currently running Service Analysis
 or Credential Access, and its own actions.
+
+The Device workspace projects RackUpdate's specific `ROLLBACK GATESSH` avenue
+only when remembered Enhanced Inspect evidence includes its package-submission
+interface and earned `UPD-001` Knowledge explains that avenue. It describes
+the need for an older compatible GateSSH package and lists only candidate
+package artifacts in SELF's canonical filesystem, identified by stable local
+file ID. With no candidate it reports `Available: None`; it does not reveal a
+hidden package, path, source Device, or prescribed next observation. The
+generic package-submission action remains available from Service detail based
+on the observed public interface alone.
+
+This target projection is derived from the same narrow Player Information
+slice as the rest of NodeScan plus SELF-owned filesystem resources. It does not
+read hidden target World Truth to label an avenue, predict success, refresh a
+fingerprint, or expose Credential Access. Consequently a successful rollback
+leaves the remembered GateSSH 1.3.3 fingerprint unchanged in the workspace
+until a later legitimate Enhanced Inspect, and the resulting AUTH-017 route
+still requires legitimate Service Analysis.
+
+Findings lead with their remembered player-facing label; Service identity and
+the vulnerability ID remain secondary technical context. The workspace also
+projects useful disposable completed Process results: a no-weakness analysis
+result accompanies its repeatable Analyze action without becoming Knowledge,
+and a latest failed Credential Access attempt is stated coarsely without a
+hidden diagnosis while another player-justified attempt remains available.
+RackUpdate feedback names player-known input failures where appropriate, but
+current-target resolution failures collapse to `PACKAGE NOT APPLIED` so stale
+Player Information cannot become a channel for hidden World Truth.
 
 Because there is no canonical "analyzed" state, a Service that has not
 produced Knowledge claims no analysis state at all. Retained completed-Process
