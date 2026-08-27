@@ -175,13 +175,16 @@ RACK-OS provides authorized access to each foreign server's own separate
 canonical filesystem. `srv-01` owns the
 text file `/srv/readme.txt` and the package artifact
 `/opt/packages/nodescan-exp-1.1.pkg`, which represents an 18,400,000-byte
-NodeScan 1.1 artifact on the Experimental channel. `srv-02` owns its own
+NodeScan 1.1 artifact on the Experimental channel. It also owns `/opt/packages/gatessh-1.3.2.pkg`, a concrete 6,400,000-byte GateSSH 1.3.2 stable package published by `rack-systems`. After authorized Download, its local copy remains an ordinary artifact identified by its concrete local file ID and release metadata. `srv-02` owns its own
 distinct text file, `/srv/backup-manifest.txt`, on its own independent
 filesystem; downloading it copies that file, never `srv-01`'s. Both RACK-OS
 Files and Terminal observe those canonical file kinds. Its `releaseId`,
 `nodescan-1.1-experimental`, identifies the represented software release
 independently of the artifact's filesystem path; copies at different paths
 retain that same release identity.
+
+
+RackUpdate public package submission is not FileTransfer Upload. It takes one concrete local software-package artifact by stable file ID as request input under RackUpdate 1.0 protocol authority; it requires neither RemoteSession nor DeviceAccess. Success changes the managed Service implementation only: it creates no remote filesystem artifact, consumes or changes no local file, and starts no FileTransfer. Authorized Upload retains its existing RemoteSession → DeviceAccess admission and arbitrary destination-path semantics.
 
 
 ## Packages, recognition, and Software Installation

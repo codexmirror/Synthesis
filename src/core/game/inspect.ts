@@ -61,8 +61,9 @@ function serviceFingerprintsFor(host: Readonly<NetworkHost>, knownServiceIds: Re
       serviceId: service.id,
       inspect: {
         implementation: { name: service.implementation.name, version: service.implementation.version },
-        ...(service.credentialAccess
-          ? { authentication: service.credentialAccess.secondFactorRequired ? 'Credential + Additional Verification' as const : 'Credential' as const }
+        ...(service.credentialAccess ? { authentication: 'Credential' as const } : {}),
+        ...(service.implementation.productId === 'rack-update' && service.implementation.releaseId === 'rack-update-1.0'
+          ? { interface: 'Package submission' as const }
           : {}),
       },
     }))

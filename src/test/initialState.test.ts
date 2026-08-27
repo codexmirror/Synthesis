@@ -32,13 +32,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 37', () => {
+  it('separates identities and seeds canonical local-device state in schema version 38', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(37)
+    expect(GAME_STATE_VERSION).toBe(38)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(37)
+    expect(state.version).toBe(38)
     expect(state.wallet).toEqual({ balance: 1250 })
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
@@ -76,43 +76,13 @@ describe('createInitialGameState', () => {
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })
-    expect(state.world.network.hosts).toEqual([
-      {
-        id: 'host-lan-001', displayName: 'srv-01', ip: '198.51.100.47', online: true, role: 'server',
-        transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 },
-        firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
-        hardware: { cpu: { name: 'Server CPU', computeCapacity: 160 }, ram: { name: '8 GB', capacityMiB: 8192 } },
-        runtime: { baselineCpuLoad: 12, baselineRamUsage: 18 },
-        installedSoftware: [],
-        filesystem: { nextFileId: 3, files: [
-          { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
-          { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
-        ] },
-        services: [
-          { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
-          { id: 'service-http-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', name: 'Basic HTTP', version: '1.0' } },
-        ],
-        authenticationHistory: { nextId: 1, records: [] },
-      },
-      {
-        id: 'host-lan-002', displayName: 'srv-02', ip: '198.51.100.53', online: true, role: 'server',
-        transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
-        firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
-        hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
-        runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
-        installedSoftware: [],
-        filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] },
-        services: [
-          { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
-        ],
-        authenticationHistory: { nextId: 1, records: [] },
-      },
-      { id: 'host-training-001', ip: '203.0.113.42', online: true },
-      { id: 'host-training-002', ip: '203.0.113.99', online: false },
+    expect(state.world.network.hosts.map(({ id, ip }) => ({ id, ip }))).toEqual([
+      { id: 'host-lan-001', ip: '198.51.100.47' },
+      { id: 'host-lan-002', ip: '203.0.113.42' },
+      { id: 'host-training-002', ip: '203.0.113.99' },
     ])
-    expect(state.world.network.hosts).not.toContainEqual(expect.objectContaining({ id: state.player.localDevice.id }))
     expect(state.world.network.localNetworks).toEqual([
-      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001', 'host-lan-002'] },
+      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'] },
     ])
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')
@@ -123,9 +93,10 @@ describe('createInitialGameState', () => {
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')
 
     expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server' })
-    expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 3, files: [
+    expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 4, files: [
       { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
       { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
+      { kind: 'software_package', id: 'file-0003', path: '/opt/packages/gatessh-1.3.2.pkg', releaseId: 'gate-ssh-1.3.2', productId: 'gate-ssh', name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems', sizeBytes: 6_400_000 },
     ] } })
     expect(server?.filesystem?.files.some((file) => file.kind === 'executable')).toBe(false)
     // The operable server owns the same semantic concern as node-01 and starts with nothing installed on it.
@@ -147,11 +118,12 @@ describe('createInitialGameState', () => {
     const state = createInitialGameState()
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')
 
-    expect(server).toMatchObject({ id: 'host-lan-002', ip: '198.51.100.53', role: 'server' })
+    expect(server).toMatchObject({ id: 'host-lan-002', ip: '203.0.113.42', role: 'server' })
     expect(server).toMatchObject({ displayName: 'srv-02', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] } })
-    expect(state.world.network.localNetworks[0].memberDeviceIds).toContain(server?.id)
+    expect(state.world.network.localNetworks[0].memberDeviceIds).not.toContain(server?.id)
     expect(server?.services).toEqual([
-      { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
+      { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3' }, credentialAccess: { privilege: 'USER' } },
+      { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', name: 'RackUpdate', version: '1.0' } },
     ])
     expect(server?.id).not.toBe('host-lan-001')
     expect(server?.installedSoftware).toEqual([])
@@ -159,12 +131,12 @@ describe('createInitialGameState', () => {
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })
 
-  it('seeds both SSH services with the same vulnerable GateSSH release identity', () => {
+  it('seeds srv-01 vulnerable and srv-02 patched GateSSH release identities', () => {
     const ssh = createInitialGameState().world.network.hosts.flatMap((host) => host.services ?? []).filter((service) => service.name === 'SSH')
     expect(ssh).toHaveLength(2)
     expect(ssh.map(({ implementation }) => implementation)).toEqual([
       { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' },
-      { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' },
+      { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3' },
     ])
   })
 })

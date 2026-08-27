@@ -65,6 +65,7 @@ export function Network() {
   const [focus, setFocus] = useState<Focus>({ kind: 'known-space' })
   const [copyState, setCopyState] = useState<CopyState>(null)
   const [feedback, setFeedback] = useState<StartFeedback>(null)
+  const [selectedPackageId, setSelectedPackageId] = useState('')
   const [connectionFeedback, setConnectionFeedback] = useState<ConnectionFeedback>(null)
   const [observationFeedback, setObservationFeedback] = useState<ObservationFeedback>(null)
   const [pendingTarget, setPendingTarget] = useState<string | null>(null)
@@ -126,6 +127,11 @@ export function Network() {
     else if (result.status === 'insufficient_memory') setFeedback({ serviceId: service.id, message: `INSUFFICIENT MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available` })
     else setFeedback({ serviceId: service.id, message: result.status === 'already_running' ? 'ATTEMPT ALREADY RUNNING' : result.status === 'access_established' ? 'ACCESS ALREADY ESTABLISHED' : result.status === 'endpoint_not_found' ? 'ENDPOINT NOT AVAILABLE' : 'ATTEMPT NOT AVAILABLE' })
   }
+  function submitPackage(service: ServiceWorkspace) {
+    const result = actions.submitRackUpdatePackageFromObservation?.({ targetDeviceId: service.deviceId, serviceId: service.id, endpoint: service.endpoint, localFileId: selectedPackageId })
+    if (!result) return
+    setFeedback({ serviceId: service.id, message: result.status === 'applied' ? 'PACKAGE APPLIED' : result.status.replaceAll('_', ' ').toUpperCase() })
+  }
   function connect(targetDeviceId: string, address: string) {
     const result = actions.connectRemoteFromObservation({ targetDeviceId, address })
     setConnectionFeedback(result.status === 'target_not_available' ? 'TARGET NOT AVAILABLE'
@@ -171,6 +177,9 @@ export function Network() {
         onCopy={copy}
         onAnalyze={() => analyze(service)}
         onAttempt={(vulnerabilityId) => attempt(service, vulnerabilityId)}
+        selectedPackageId={selectedPackageId}
+        onSelectPackage={setSelectedPackageId}
+        onSubmitPackage={() => submitPackage(service)}
         onBack={() => open({ kind: 'device', deviceId: focus.deviceId, ...(focus.networkId ? { networkId: focus.networkId } : {}) })}
       />
     </section>
@@ -625,13 +634,16 @@ function DeviceView({ device, release, parentName, pending, observationFeedback,
   </div>
 }
 
-function ServiceView({ service, copyState, feedback, onCopy, onAnalyze, onAttempt, onBack }: {
+function ServiceView({ service, copyState, feedback, selectedPackageId, onCopy, onAnalyze, onAttempt, onSelectPackage, onSubmitPackage, onBack }: {
   service: ServiceWorkspace
   copyState: CopyState
   feedback: StartFeedback
   onCopy(value: string): void
   onAnalyze(): void
   onAttempt(vulnerabilityId: string): void
+  selectedPackageId: string
+  onSelectPackage(fileId: string): void
+  onSubmitPackage(): void
   onBack(): void
 }) {
   const outcomeNote = service.analysisOutcome === 'no_weakness_detected' ? 'No weakness detected'
@@ -662,6 +674,7 @@ function ServiceView({ service, copyState, feedback, onCopy, onAnalyze, onAttemp
       ? <dl className="node-facts">
         <div><dt>IMPLEMENTATION</dt><dd>{service.observed.implementation}</dd></div>
         {service.observed.authentication && <div><dt>AUTHENTICATION</dt><dd>{service.observed.authentication}</dd></div>}
+        {service.observed.interface && <div><dt>INTERFACE</dt><dd>{service.observed.interface}</dd></div>}
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No implementation fingerprint has been observed for this Service.</span></div>}
 
@@ -695,6 +708,13 @@ function ServiceView({ service, copyState, feedback, onCopy, onAnalyze, onAttemp
           ariaLabel="Start credential access attempt"
           onClick={() => onAttempt(service.attempt!.vulnerabilityId)}
         />)}
+      {service.observed?.interface === 'Package submission' && <div className="ns-package-submit">
+        <label>LOCAL PACKAGE<select aria-label="Local package" value={selectedPackageId} onChange={(event) => onSelectPackage(event.target.value)}>
+          <option value="">Select package</option>
+          {service.localPackages.map((file) => <option key={file.id} value={file.id}>{file.label} · {file.path}</option>)}
+        </select></label>
+        <Action label="SUBMIT PACKAGE" note="Send selected artifact to this public interface." onClick={onSubmitPackage} />
+      </div>}
     </div>
     {!service.credentialRunning && !service.access && service.credentialFailed && <p className="node-note">Authentication attempt failed.</p>}
     {!service.analysisRunning && feedback?.serviceId === service.id && <p className="node-note node-note--caution" role="status">{feedback.message}</p>}

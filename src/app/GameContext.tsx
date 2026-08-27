@@ -16,6 +16,7 @@ import { retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, 
 import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
+import { submitRackUpdatePackageFromObservation, type RackUpdateObservation, type SubmitRackUpdatePackageResult } from '../core/game/rackUpdate'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -27,6 +28,7 @@ export interface GameActions {
   startServiceAnalysisAtEndpoint(endpoint: string): NodeScanEndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
+  submitRackUpdatePackageFromObservation?(observed: RackUpdateObservation): SubmitRackUpdatePackageResult
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
@@ -106,6 +108,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       currentState.current = result.state
       setGameState(result.state)
     }
+    return result
+  }, submitRackUpdatePackageFromObservation(observed) {
+    const result = submitRackUpdatePackageFromObservation(currentState.current, observed)
+    if (result.status === 'applied') { currentState.current = result.state; setGameState(result.state) }
     return result
   }, connectRemoteFromObservation(observed) {
     const result = connectRemoteFromObservation(currentState.current, observed)

@@ -187,8 +187,7 @@ underlying `inspectTarget` application operation.
 Enhanced Inspect also fingerprints only the Services already present in that
 Device's Discovery snapshot. Each corresponding discovered Service stores a
 historical implementation name/version observation; SSH additionally stores
-the observed authentication configuration as `Credential` or `Credential +
-Additional Verification`. These Service snapshots are separate from Device
+the observed authentication configuration as `Credential`. These Service snapshots are separate from Device
 Firmware/compute evidence, survive failed Inspect attempts and loss of the
 current Inspect capability, and refresh only on another successful Enhanced
 Inspect. They do not discover Services or reveal weaknesses, exploit
@@ -284,21 +283,9 @@ Starting the attempt creates a Credential Access Process.
 
 It does not establish access immediately.
 
-Completion resolves against current World Truth and validates the represented
-target, service, endpoint relationship, service availability, current weakness,
-and represented credential-access context, including that context's optional
-`secondFactorRequired` condition when present (see `srv-02` in
-`docs/current/DEVICE_SYSTEM.md`). This condition is resolved at completion like
-every other current-truth check here, never snapshotted at attempt start.
+Completion resolves against current World Truth and validates the represented target, service, endpoint relationship, service availability, current weakness, and represented credential-access context. Success creates persistent USER `DeviceAccess`; failure creates no access and does not rewrite historical Discovery or Knowledge.
 
-Success creates persistent USER `DeviceAccess`.
-
-Failure creates no access and does not rewrite historical Discovery or
-Knowledge. A represented second factor produces the same generic
-attempt-failed result as any other Credential Access failure; the player has
-no reconnaissance mechanic that reveals it, so ordinary failure presentation
-must not name it.
-
+RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release, but Knowledge is informative rather than submission authority. The canonical synchronous submission operation resolves the observed stable Device and Service identities and endpoint plus a stable local file ID. A valid represented GateSSH 1.3.2 package changes only a managed GateSSH 1.3.3 Service implementation to 1.3.2. It grants no access or session and starts no Process or FileTransfer. Existing Analysis and Credential Access subsequently react to the newly applicable `AUTH-017`. Historical Inspect evidence remains stale until another Inspect. This is the current concrete proof that interaction is not access: represented state mutation changes which existing technique applies.
 
 ## DeviceAccess
 
@@ -453,7 +440,7 @@ empty state.
   selector to a different current entity.
 - Failure and absence never delete previously remembered positive information.
 - A represented negative condition the player cannot observe (for example
-  `secondFactorRequired`) must never be named in failure presentation.
+  hidden current-truth conditions must never be named in failure presentation.
 - RACK-OS is a live authorized view of target truth, resolved through
   `accessId` → target identity, never through the connected address.
 - A Session admits a command; it does not own the lifetime of the work that

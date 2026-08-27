@@ -115,11 +115,11 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     expect(shallow.discovery.devices[0].services).toEqual([])
   })
 
-  it('observes the same GateSSH release with Additional Verification on srv-02', () => {
-    let state = withNodeScan11(scannedState('198.51.100.53')); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
-    inspect('198.51.100.53')
+  it('observes patched GateSSH and RackUpdate on remote srv-02', () => {
+    let state = withNodeScan11(scannedState('203.0.113.42')); const inspect = createLocalInspectTarget(() => state, (next) => { state = next })
+    inspect('203.0.113.42')
     expect(state.discovery.devices.find(({ id }) => id === 'host-lan-002')?.services[0].inspect).toEqual({
-      implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential + Additional Verification',
+      implementation: { name: 'GateSSH', version: '1.3.3' }, authentication: 'Credential',
     })
   })
 
@@ -154,12 +154,12 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     inspect('198.51.100.47')
     const host = state.world.network.hosts[0]
     const services = host.services!.map((service) => service.id === 'service-ssh-001'
-      ? { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }, credentialAccess: { privilege: 'USER' as const, secondFactorRequired: true } }
+      ? { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }, credentialAccess: { privilege: 'USER' as const } }
       : service)
     state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, services }, ...state.world.network.hosts.slice(1)] } } }
     expect(state.discovery.devices[0].services[0].inspect).toMatchObject({ implementation: { version: '1.3.2' }, authentication: 'Credential' })
     inspect('198.51.100.47')
-    expect(state.discovery.devices[0].services[0].inspect).toMatchObject({ implementation: { version: '1.4.0' }, authentication: 'Credential + Additional Verification' })
+    expect(state.discovery.devices[0].services[0].inspect).toMatchObject({ implementation: { version: '1.4.0' }, authentication: 'Credential' })
 
     const remembered = structuredClone(state.discovery)
     state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...state.world.network.hosts[0], online: false }, ...state.world.network.hosts.slice(1)] } } }

@@ -158,7 +158,7 @@ describe('command dispatcher', () => {
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })
-    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'NO RELATIONSHIPS OR SERVICES FOUND'] })
+    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'RELATIONSHIPS FOUND: 0', '', 'SERVICES FOUND: 2', '', 'SSH', labeledTarget('Endpoint: ', '203.0.113.42:22'), 'Protocol: TCP', '', 'RackUpdate', labeledTarget('Endpoint: ', '203.0.113.42:8443'), 'Protocol: TCP'] })
     expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
     expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
   })
@@ -201,7 +201,7 @@ describe('command dispatcher', () => {
 
   it('scans real network names without exposing stable IDs', () => {
     const output = dispatch('scan home-net')
-    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 3', '', [target('198.51.100.23', 'local')], [target('198.51.100.47')], [target('198.51.100.53')]] })
+    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', [target('198.51.100.23', 'local')], [target('198.51.100.47')]] })
     expect(JSON.stringify(output)).not.toMatch(/network-local-001|device-local-v0|host-lan-001/)
   })
 

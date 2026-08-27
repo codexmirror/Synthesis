@@ -84,49 +84,13 @@ metadata rather than identity.
 
 ## Represented World
 
-The current World contains:
+The current World contains the represented `home-net` LocalNetwork with node-01 and `srv-01`, while `srv-02` is the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Mira's authored mail remains historical text and creates no Discovery.
 
-- the represented `home-net` LocalNetwork
-- the player's local Device as a canonical network member
-- two represented, fully interactive LAN servers
-- represented SSH (and, on the first server, HTTP) services on those servers
-- additional training hosts used by the existing network model
+`srv-01` owns RACK-OS 1.0, GateSSH 1.3.2 on its stable SSH Service, Basic HTTP, and its independent filesystem. GateSSH 1.3.2 derives `AUTH-017`; this weakness is never stored separately.
 
-Each server's SSH service owns GateSSH implementation World Truth. Both begin
-on the concrete GateSSH 1.3.2 release, whose shared product weakness is
-`AUTH-017` ("Weak authentication configuration"); GateSSH 1.4.0 does not
-contain that weakness. Vulnerability presence is derived from the current
-service release rather than stored independently. GateSSH is service
-implementation state, not local `InstalledSoftware`, a package, or an
-application. The two servers retain independent Device and Service identities,
-while Knowledge of the shared weakness remains target/service-specific.
+`srv-02` (`host-lan-002`) owns RACK-OS 1.0, GateSSH 1.3.3 on `service-ssh-002`, and RackUpdate 1.0 on the separate open TCP/8443 `service-rack-update-002`. GateSSH 1.3.3 is patched for `AUTH-017`. RackUpdate 1.0 derives `UPD-001` (rollback protection not enforced) and exposes its concrete public package-submission protocol. These are Device-owned Service implementations, independent of InstalledSoftware.
 
-The first server, `host-lan-001`, also owns the mutable display name `srv-01`,
-RACK-OS 1.0 Firmware identity, and a distinct canonical filesystem containing
-`/srv/readme.txt` plus the represented NodeScan package described in
-`docs/current/FILES_SOFTWARE.md`. `srv-01` demonstrates the full SCAN →
-discovery → service analysis → vulnerability knowledge → credential access →
-`DeviceAccess` → Remote Session → RACK-OS → remote filesystem → download loop.
-
-The second server, `host-lan-002`, owns the mutable display name `srv-02`,
-the same RACK-OS 1.0 Firmware identity (a shared product identity, not a
-shared device identity), and its own distinct canonical filesystem containing
-`/srv/backup-manifest.txt`. Its SSH service's `credentialAccess` also owns
-`secondFactorRequired: true` — a concrete Service-owned authentication
-condition, independent of the release-derived vulnerability. Service Analysis
-still discovers `srv-02`'s real Weak Authentication vulnerability exactly as
-it does for `srv-01`, and the Basic Credential Toolkit may still be formed
-and run against it once that weakness is known, but Credential Access
-completion resolves this condition against current World Truth alongside the
-vulnerability and credential-access context, so the toolkit's exploit alone
-still cannot satisfy it: the attempt fails, no `DeviceAccess` is created, and
-the target's Authentication History still appends a normal FAILURE record for
-the real executor source address. `srv-02` therefore proves that a known
-weakness does not guarantee access, using the same generic attempt-failed
-presentation as any other Credential Access failure — the second factor is
-never revealed by ordinary play. The remaining training hosts stay shallow
-network representations.
-
+RackUpdate can replace the managed GateSSH implementation release while preserving Device and Service identity and all unrelated state. The resulting vulnerability set is derived from the new release truth rather than synchronized by a vulnerability flag.
 
 ## Network transfer capacity
 

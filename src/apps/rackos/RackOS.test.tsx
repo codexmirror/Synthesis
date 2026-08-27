@@ -278,15 +278,15 @@ describe('RACK-OS', () => {
     const base = createInitialGameState()
     const access = { id: 'access-b', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
     const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
-    const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '198.51.100.53' }).state
+    const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
     render(<GameProvider initialState={connected}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
 
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
     expect(rackOs).toHaveTextContent('RACK-OS 1.0')
-    expect(rackOs).toHaveTextContent('srv-02 · 198.51.100.53')
+    expect(rackOs).toHaveTextContent('srv-02 · 203.0.113.42')
     const input = screen.getByLabelText('Remote command')
-    await user.type(input, 'ip{enter}'); expect(rackOs).toHaveTextContent('198.51.100.53')
+    await user.type(input, 'ip{enter}'); expect(rackOs).toHaveTextContent('203.0.113.42')
     await user.type(input, 'ls /srv{enter}'); expect(rackOs).toHaveTextContent('backup-manifest.txt')
     await user.type(input, 'cat /srv/backup-manifest.txt{enter}')
     expect(rackOs).toHaveTextContent('Backup manifest for srv-02.')

@@ -25,7 +25,6 @@ describe('canonical represented endpoint capacities', () => {
 
   it('does not deepen the shallow training hosts with an invented capacity', () => {
     const state = createInitialGameState()
-    expect(findHost(state, 'host-training-001').transferCapacity).toBeUndefined()
     expect(findHost(state, 'host-training-002').transferCapacity).toBeUndefined()
   })
 
