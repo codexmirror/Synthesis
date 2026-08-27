@@ -1,31 +1,21 @@
 /*
- * NodeScan investigation workspace.
+ * NodeScan.
  *
- * Known Space is a relationship tree, not a dashboard of cards: Network ->
- * Device -> Service. Hierarchy is carried by indentation, type weight and
- * thin connectors; borders are spent only where an object genuinely needs an
- * edge. Nothing here nests a bordered box inside a bordered box.
+ * Two screens, three actions. TARGETS is a flat list of what the player
+ * knows; a target card is one target's whole line of action. The card is
+ * built around a single visually obvious primary action, so the next
+ * meaningful step is readable at a glance on a phone, and the technical world
+ * underneath is one optional disclosure away.
  *
- * The connectors are pure normal-flow CSS. Every child is an `.ns-limb` that
- * draws its own vertical rail and elbow relative to itself, so the rail always
- * spans exactly the limbs above the last one and stops at the last elbow —
- * collapsed, expanded, or empty. No coordinates are measured, and no absolute
- * topology layer exists.
- *
- * Mobile-first. Every level is a single column so primary identity always owns
- * the line and secondary technical detail wraps beneath it. The gutter stays
- * owned by `.app-content`.
+ * Mobile-first. Every surface is a single column so primary identity always
+ * owns the line and secondary technical detail wraps beneath it. The gutter
+ * stays owned by `.app-content`.
  */
 
 /* Zero-specificity reset: every rule below may still set its own type scale. */
 :where(.scan-app) button { font: inherit; }
 
-.ns-view {
-  max-width: 760px;
-  /* Vertical centre of a node's marker: where its elbow meets it. */
-  --elbow: 20px;
-  --rail: 1px solid var(--line-strong);
-}
+.ns-view { max-width: 640px; }
 
 /* Subject ------------------------------------------------------------- */
 
@@ -35,7 +25,7 @@
   justify-content: space-between;
   gap: 10px 16px;
   flex-wrap: wrap;
-  margin: 0 0 4px;
+  margin: 0 0 18px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
@@ -48,8 +38,6 @@
   letter-spacing: .16em;
 }
 
-.ns-masthead p { margin: 5px 0 0; color: var(--text-quiet); font-size: .64rem; }
-
 .ns-release {
   flex: none;
   color: var(--text-faint);
@@ -58,29 +46,29 @@
 }
 
 .ns-eyebrow {
-  display: block;
   color: var(--text-muted);
   font-size: var(--label-size);
   letter-spacing: var(--label-tracking);
 }
 
 .scan-crumbs {
+  min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  min-width: 0;
-  margin-bottom: 6px;
+  gap: 8px;
   color: var(--text-faint);
-  font-size: .64rem;
+  font-size: .6rem;
+  letter-spacing: .1em;
 }
 
 .scan-crumbs button {
-  flex: none;
   min-height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--accent);
+  font-size: .64rem;
+  letter-spacing: .06em;
   cursor: pointer;
 }
 
@@ -89,430 +77,112 @@
 
 .scan-crumbs strong {
   min-width: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The browsed object's own identity line: one subject per line, always. */
-.ns-subject { display: grid; gap: 4px; padding-bottom: 2px; }
-.ns-subject + .node-section { margin-top: 16px; }
-.ns-subject h2 { margin: 0; color: var(--text-strong); font: 600 1rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
-
-.ns-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  max-width: 100%;
-  min-height: 40px;
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-strong);
-  font-size: .86rem;
-  text-align: left;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-
-.ns-subject .ns-copy { font: 600 .95rem Inter, system-ui, sans-serif; }
-/* Where the object already has a name, its endpoint is supporting detail. */
-.ns-subject h2 ~ .ns-copy { color: var(--text-secondary); font-family: inherit; font-size: .8rem; font-weight: 500; }
-.ns-copy-icon { flex: none; color: var(--accent-mark); font-size: .72rem; }
-.ns-copy:focus-visible { outline: 1px solid var(--line-accent); outline-offset: 2px; }
-
-/* Known Space tree ---------------------------------------------------- */
-
-/*
- * Every known Network is an independent root branch. They are separated by
- * one hairline rather than boxed, so several of them read as siblings of the
- * same space instead of a stack of panels.
- */
-.ns-network-list { display: grid; }
-.ns-standalone-list { display: grid; border-bottom: 1px solid var(--line-quiet); }
-.ns-node--standalone { align-items: center; }
-.ns-network-branch { min-width: 0; padding-bottom: 4px; border-bottom: 1px solid var(--line-quiet); }
-.ns-network-list--pinned .ns-network-branch { border-bottom: 0; }
-
-/* A node is one object in the tree: glyph or twisty, then its identity copy. */
-.ns-node {
-  width: 100%;
-  min-width: 0;
-  padding: 8px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-}
-
-button.ns-node, .ns-node-main { cursor: pointer; }
-.ns-node-main--static { cursor: default; }
-
-.ns-node-copy { min-width: 0; flex: 1; display: grid; gap: 2px; }
-.ns-node-copy > strong { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
-.ns-row-note { color: var(--text-muted); font-size: .61rem; line-height: 1.4; overflow-wrap: anywhere; }
-
-/* Network is the strongest identity in the tree; Device and Service step down. */
-.ns-node--network { min-height: 56px; align-items: center; }
-.ns-node--network .ns-node-copy > strong { color: var(--text-strong); font-size: .96rem; letter-spacing: .01em; }
-.ns-node--network .ns-eyebrow { color: var(--accent-mark); }
-
-.ns-node--device { min-height: 52px; }
-.ns-node--service .ns-node-copy > strong,
-.ns-node--service .ns-service-head strong { font-size: .8rem; }
-
-/*
- * The twisty is the expand affordance and doubles as the branch's own marker,
- * so an expandable object never needs a separate control column. A leaf takes
- * the quiet glyph in the same column, and both markers share one box so every
- * elbow in the tree meets its node at the same height.
- */
-.ns-twist,
-.ns-glyph {
-  flex: none;
-  width: 14px;
-  height: 18px;
-  margin-top: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ns-twist {
-  color: var(--accent-mark);
-  font-size: .58rem;
-  transition: transform 140ms ease;
-}
-
-.ns-node--network .ns-twist,
-.ns-node--network .ns-glyph { margin-top: 0; }
-.ns-node-main[aria-expanded="true"] .ns-twist,
-.is-expanded > .ns-node--network .ns-twist { transform: rotate(90deg); }
-
-.ns-glyph::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border: 1px solid var(--text-faint);
-  border-radius: 50%;
-}
-
-.ns-glyph--self::before { border-color: var(--accent-mark); background: var(--accent-rule); }
-.ns-glyph--network::before { width: 7px; height: 7px; border-color: var(--accent-mark); background: var(--accent-rule); }
-.ns-glyph--access::before { border-color: var(--accent-mark); background: var(--accent-rule); }
-
-/* Device node: one primary affordance plus the constant DETAIL route. */
-.ns-node--device { padding: 0; gap: 0; align-items: stretch; }
-/* A node with no controls carries the same inner padding, so its marker still
-   meets its elbow. */
-.ns-node--static { padding: 8px 0; gap: 10px; align-items: flex-start; }
-
-.ns-node-main {
-  min-width: 0;
-  flex: 1;
-  padding: 8px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-}
-
-.ns-node-controls { flex: none; display: flex; align-items: center; gap: 4px; padding-left: 8px; }
-
-/* DETAIL is a constant route, so it stays a quiet label rather than a button
-   block competing with the Device's own identity. */
-.ns-node-detail,
-.ns-node-scan {
-  flex: none;
-  min-height: 44px;
-  padding: 0 8px;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: .53rem;
-  letter-spacing: .12em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-/* Scan is the legitimate next observation here, so it reads as a control. */
-.ns-node-scan { padding: 0 11px; border: 1px solid var(--line-quiet); color: var(--accent); }
-.ns-node-scan:disabled { color: var(--text-faint); border-color: var(--line-quiet); cursor: default; }
-
-.ns-node-main:focus-visible,
-.ns-node--service:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
-.ns-node-detail:focus-visible,
-.ns-node-scan:focus-visible { border-color: var(--line-accent); color: var(--accent-strong); outline: 0; }
-
-@media (hover: hover) {
-  .ns-node-main:hover .ns-node-copy > strong,
-  .ns-node--service:hover .ns-service-head strong { color: var(--green); }
-  .ns-node-detail:hover,
-  .ns-node-scan:hover:not(:disabled) { border-color: var(--line-accent); color: var(--accent-strong); }
-}
-
-/* Branch bodies and connectors ---------------------------------------- */
-
-/*
- * A branch body hangs under the node that owns it. It is indented to sit
- * under that node's marker column, which is what makes ownership visible
- * without drawing a container around it.
- */
-/* The rail descends from directly under the owning node's marker column, so
-   the trunk is continuous from the Network's own marker to its last member. */
-.ns-branch { margin: 0 0 8px; padding-left: 7px; }
-.ns-limbs { display: block; }
-
-.ns-network-branch.is-populated.is-expanded > .ns-node--network { position: relative; }
-
-.ns-network-branch.is-populated.is-expanded > .ns-node--network::after,
-.is-populated .ns-branch-lead::before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 50%;
-  bottom: 0;
-  border-left: var(--rail);
-}
-
-.ns-branch-lead { position: relative; }
-.is-populated .ns-branch-lead::before { top: 0; left: 0; }
-
-.ns-limb { --indent: 20px; position: relative; padding-left: var(--indent); }
-
-/* Rail: full height of the limb, so it passes an expanded child cleanly. */
-.ns-limb::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  border-left: var(--rail);
-}
-
-/* Elbow: runs up to this limb's marker column and stops there, so a collapsed
-   twisty stays a marker instead of reading as an arrowhead on the line. */
-.ns-limb::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: var(--elbow);
-  width: calc(var(--indent) - 3px);
-  border-top: var(--rail);
-}
-
-/* The rail terminates at the final child; nothing continues below it. */
-.ns-limb:last-child::before { bottom: auto; height: var(--elbow); }
-
-.ns-limbs--service { margin: 0 0 4px; padding-left: 7px; }
-/* Continue the child rail down from the owning Device's marker to its Service
-   list. Both remain in normal flow, while the Network trunk continues
-   independently on the parent limb. */
-.ns-node--device.is-expanded { position: relative; }
-.ns-node--device.is-expanded::after {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: var(--elbow);
-  bottom: 0;
-  border-left: var(--rail);
-}
-.ns-limb--service { --indent: 16px; }
-
-.ns-limb-feedback { margin-left: 0; }
-
-/* Branch prose: evidence and state that belong to the branch, not a page. */
-.ns-branch-facts { margin: 0 0 8px; padding-left: 17px; display: grid; gap: 4px; }
-.ns-branch-facts > div { display: flex; gap: 8px; align-items: baseline; }
-.ns-branch-facts dt { color: var(--text-muted); font-size: .52rem; letter-spacing: var(--label-tracking); }
-.ns-branch-facts dd { margin: 0; color: var(--accent); font-size: .62rem; letter-spacing: .08em; }
-
-.ns-branch-note {
-  margin: 0 0 8px 17px;
-  display: grid;
-  gap: 3px;
-}
-
-.ns-branch-note strong { color: var(--text-secondary); font-size: .56rem; letter-spacing: var(--label-tracking); }
-.ns-branch-note span { color: var(--text-quiet); font-size: .64rem; line-height: 1.45; }
-.ns-branch-count { margin: 0 0 4px 17px; color: var(--text-muted); font-size: .61rem; }
-
-/*
- * Branch-local operations. They sit at the foot of the branch they act on,
- * outside the connector geometry, so no rail continues past the final child
- * and no second "ACTIONS" heading is needed to say who owns them.
- */
-.ns-branch-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-left: 1px; }
-
-.ns-branch-action {
-  min-height: 44px;
-  padding: 0 16px;
-  flex: 0 1 auto;
-  border: 1px solid var(--line-strong);
-  background: transparent;
-  color: var(--accent);
-  font-size: .58rem;
-  letter-spacing: .12em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.ns-branch-action:focus-visible { border-color: var(--line-accent); color: var(--accent-strong); outline: 0; }
-.ns-branch-action:disabled { color: var(--text-muted); border-color: var(--line-quiet); cursor: default; }
-
-@media (hover: hover) {
-  .ns-branch-action:hover:not(:disabled) { border-color: var(--line-accent); background: var(--surface-hover); color: var(--accent-strong); }
-}
-
-/* Expansion is deliberate rather than decorative: one short settle, no motion
-   for anyone who has asked for none. */
-.ns-branch,
-.ns-limbs--service { animation: ns-settle 150ms ease-out; }
-
-@keyframes ns-settle {
-  from { opacity: 0; transform: translateY(-2px); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ns-branch, .ns-limbs--service { animation: none; }
-  .ns-twist { transition: none; }
-}
-
-/* Bootstrap ----------------------------------------------------------- */
-
-/* Fresh state: Scan SELF is the one thing to do, so it is the one control. */
-.ns-bootstrap { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-
-.ns-primary {
-  min-height: 50px;
-  padding: 0 22px;
-  border: 1px solid var(--line-accent);
-  background: var(--surface-raised);
-  color: var(--accent-strong);
-  font-size: .64rem;
-  letter-spacing: .16em;
-  cursor: pointer;
-}
-
-.ns-primary:focus-visible { background: var(--surface-hover); outline: 0; }
-.ns-primary:disabled { border-color: var(--line-strong); color: var(--text-muted); cursor: default; }
-.ns-bootstrap > span { color: var(--text-faint); font-size: .62rem; }
-
-@media (hover: hover) {
-  .ns-primary:hover:not(:disabled) { background: var(--surface-hover); }
-}
-
-/* Detail-view rows ---------------------------------------------------- */
-
-.ns-list { display: grid; gap: 6px; }
-
-.ns-row {
-  width: 100%;
-  min-height: 62px;
-  padding: 10px 12px;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-raised);
-  color: inherit;
-  text-align: left;
-}
-
-button.ns-row { cursor: pointer; }
-button.ns-row:focus-visible { border-color: var(--line-accent); background: var(--surface-hover); outline: 0; }
-
-@media (hover: hover) {
-  button.ns-row:hover { border-color: var(--line-accent); background: var(--surface-hover); }
-}
-
-.ns-row--relation { min-height: 52px; }
-.ns-row-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
-.ns-row-copy strong { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
-.ns-arrow { flex: none; margin-left: auto; color: var(--accent-mark); font-size: .9rem; }
-.ns-node--service .ns-arrow { align-self: center; }
-
-/* Service presentation ------------------------------------------------ */
-
-/*
- * Service identity, endpoint metadata and observed fingerprints are stacked
- * rather than placed on one line. A long observation such as
- * name instead of compressing it.
- */
-.ns-service {
-  width: 100%;
-  min-height: 62px;
-  padding: 10px 12px;
-  display: grid;
-  gap: 6px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-raised);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.ns-service:focus-visible { border-color: var(--line-accent); background: var(--surface-hover); outline: 0; }
-
-@media (hover: hover) {
-  .ns-service:hover { border-color: var(--line-accent); background: var(--surface-hover); }
-}
-
-.ns-service-head { display: flex; align-items: center; gap: 12px; }
-.ns-service-head strong { min-width: 0; color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
-
-.ns-service-endpoint {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px 10px;
-  color: var(--text-muted);
-  font-size: .62rem;
-}
-
-.ns-service-endpoint > span { overflow-wrap: anywhere; }
-
-.ns-service-observed {
-  display: grid;
-  gap: 1px;
   color: var(--text-secondary);
-  font-size: .63rem;
-  line-height: 1.4;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
-.ns-service-observed > span { overflow-wrap: anywhere; }
+.ns-subject { display: grid; gap: 4px; margin-bottom: 20px; }
+.ns-subject h2 { margin: 0; color: var(--text-strong); font: 600 1.15rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.ns-subject-note { margin: 0; color: var(--text-quiet); font-size: .64rem; }
 
-/* Target Workspace --------------------------------------------------- */
+/* Target list --------------------------------------------------------- */
 
-.ns-access-none {
-  margin: 0;
-  display: grid;
-  gap: 3px;
-  color: var(--text-muted);
-}
-.ns-access-none strong { color: var(--text-secondary); font-size: .68rem; letter-spacing: .12em; }
-.ns-access-none span { font-size: .64rem; }
+.ns-targets { display: grid; margin-bottom: 22px; border-top: 1px solid var(--line-quiet); }
 
-.ns-workspace-operation {
+.ns-target {
+  min-height: 62px;
+  padding: 12px 2px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line-quiet);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ns-target:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
+
+.ns-target-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.ns-target-copy > strong { color: var(--text-strong); font: 600 .9rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.ns-target-note { color: var(--text-quiet); font-size: .6rem; overflow-wrap: anywhere; }
+
+.ns-target-mark {
+  flex: none;
+  color: var(--text-muted);
+  font-size: .52rem;
+  letter-spacing: .12em;
+  text-align: right;
+}
+
+/* The three states worth noticing from the list: work running, a decision
+ * waiting, and a relationship already held. */
+.ns-target-mark--scanning,
+.ns-target-mark--hacking { color: var(--caution); }
+.ns-target-mark--route { color: var(--accent); }
+.ns-target-mark--access,
+.ns-target-mark--connected { color: var(--green); }
+
+.ns-arrow { flex: none; color: var(--accent-mark); font-size: .9rem; }
+
+/* Stage: the one thing this target is currently waiting on ------------- */
+
+.ns-stage {
+  padding: 22px 18px;
   display: grid;
-  gap: 8px;
+  justify-items: center;
+  gap: 10px;
   border: 1px solid var(--line-strong);
   background: var(--surface-raised);
+  text-align: center;
 }
-.ns-workspace-operation > strong { color: var(--text-strong); font-size: .68rem; letter-spacing: .12em; }
-.ns-workspace-operation > span { color: var(--text-secondary); font-size: .65rem; }
 
-.ns-details { margin-top: 18px; border-top: 1px solid var(--line); }
+.ns-stage-headline {
+  color: var(--text-strong);
+  font-size: .96rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+}
+
+.ns-stage-note { color: var(--text-quiet); font-size: .68rem; line-height: 1.5; }
+
+.ns-progress { display: grid; justify-items: center; gap: 8px; width: 100%; }
+.ns-progress .node-progress { width: min(100%, 320px); }
+.ns-progress-value { color: var(--accent); font-size: .8rem; letter-spacing: .1em; }
+
+/* The primary action. One per screen, always touch-sized and full width. */
+.ns-primary {
+  min-height: 52px;
+  margin-top: 4px;
+  padding: 0 20px;
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid var(--line-accent);
+  background: var(--surface-hover);
+  color: var(--accent-strong);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  cursor: pointer;
+}
+
+.ns-primary:disabled { border-color: var(--line-strong); color: var(--text-muted); cursor: default; }
+.ns-primary:focus-visible:not(:disabled) { border-color: var(--green); color: var(--green); outline: 0; }
+
+@media (hover: hover) {
+  .ns-primary:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+}
+
+.ns-primary-slot { display: grid; justify-items: center; gap: 8px; }
+.ns-primary-note { margin: 0; color: var(--text-quiet); font-size: .62rem; }
+
+/* Technical details --------------------------------------------------- */
+
+.ns-details { margin-top: 22px; border-top: 1px solid var(--line); }
+
 .ns-details > summary {
   min-height: 48px;
   display: flex;
@@ -522,169 +192,62 @@ button.ns-row:focus-visible { border-color: var(--line-accent); background: var(
   letter-spacing: var(--label-tracking);
   cursor: pointer;
 }
+
 .ns-details > summary::after { content: "+"; margin-left: auto; color: var(--accent-mark); }
 .ns-details[open] > summary::after { content: "−"; }
 
-/* Marks: one short state line each, never a row of competing chips. */
-.ns-marks { display: grid; gap: 3px; }
+.ns-detail-panel { min-width: 0; padding-bottom: 8px; }
 
-.ns-mark {
-  display: block;
-  padding-left: 11px;
-  position: relative;
-  font-size: .58rem;
-  letter-spacing: .1em;
-  overflow-wrap: anywhere;
-}
-
-.ns-mark::before {
-  content: "";
-  position: absolute;
-  top: .38em;
-  left: 0;
-  width: 5px;
-  height: 5px;
-  border: 1px solid currentColor;
-}
-
-.ns-mark--live { color: var(--accent); }
-.ns-mark--live::before { background: var(--accent-fill); }
-.ns-mark--known { color: var(--text-secondary); }
-.ns-mark--access { color: var(--accent-strong); }
-.ns-mark--access::before { background: var(--accent-rule); }
-
-/* Access and Session -------------------------------------------------- */
-
-/*
- * DeviceAccess and RemoteSession share one presentation slot: an active
- * Session supersedes the passive Access presentation while still stating the
- * Access it was built from, which is never deleted by connecting.
- */
-.ns-state {
-  min-height: 62px;
-  padding: 11px 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-raised);
-}
-
-.ns-state--live { border-left: 2px solid var(--accent-rule); }
-.ns-state-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
-.ns-state-copy strong { color: var(--accent-strong); font-size: .62rem; letter-spacing: .12em; }
-.ns-state-copy span { color: var(--text-secondary); font-size: .66rem; overflow-wrap: anywhere; }
-.ns-state-copy small { color: var(--text-muted); font-size: .56rem; letter-spacing: .1em; overflow-wrap: anywhere; }
-
-.ns-state-action {
-  flex: none;
+.ns-copy {
   min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--line-strong);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  border: 0;
   background: transparent;
   color: var(--accent);
-  font-size: .58rem;
-  letter-spacing: .12em;
-  cursor: pointer;
-}
-
-.ns-state-action:focus-visible { border-color: var(--line-accent); color: var(--accent-strong); outline: 0; }
-
-@media (hover: hover) {
-  .ns-state-action:hover { border-color: var(--line-accent); background: var(--surface-hover); color: var(--accent-strong); }
-}
-
-/* Knowledge ----------------------------------------------------------- */
-
-.ns-knowledge { margin: 0; padding: 0; display: grid; gap: 6px; list-style: none; }
-
-.ns-knowledge li {
-  padding: 9px 11px;
-  display: grid;
-  gap: 4px;
-  border-left: 2px solid var(--accent-rule);
-  background: var(--surface-raised);
-  overflow-wrap: anywhere;
-}
-
-.ns-knowledge strong { color: var(--accent-strong); font-size: .64rem; letter-spacing: .1em; }
-.ns-knowledge span { color: var(--text-secondary); font-size: .7rem; line-height: 1.45; }
-
-.ns-quiet-note {
-  margin: 0;
-  padding: 8px 10px;
-  border-left: 2px solid var(--line-strong);
-  color: var(--text-quiet);
-  font-size: .68rem;
-}
-
-.ns-access-path {
-  margin: 0;
-  padding: 8px 10px;
-  border-left: 2px solid var(--accent-rule);
-  color: var(--text-muted);
-  font-size: .65rem;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.ns-access-path strong { color: var(--accent-strong); }
-
-/* Actions and running operations -------------------------------------- */
-
-.ns-actions { display: grid; gap: 6px; }
-
-.ns-action {
-  width: 100%;
-  min-height: 54px;
-  padding: 10px 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-raised);
-  color: var(--accent);
+  font: 500 .72rem ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .04em;
   text-align: left;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 
-.ns-action-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
-.ns-action-copy strong { font-size: .62rem; letter-spacing: .12em; }
-.ns-action-copy span { color: var(--text-muted); font-size: .63rem; line-height: 1.4; overflow-wrap: anywhere; }
-.ns-action:focus-visible { border-color: var(--line-accent); background: var(--surface-hover); outline: 0; }
+.ns-copy-icon { flex: none; color: var(--accent-mark); font-size: .72rem; }
+.ns-copy:focus-visible { outline: 1px solid var(--line-accent); outline-offset: 2px; }
 
-@media (hover: hover) {
-  .ns-action:hover:not(:disabled) { border-color: var(--line-accent); background: var(--surface-hover); }
-}
+.ns-routes,
+.ns-services { display: grid; gap: 10px; }
 
-.ns-action:disabled { color: var(--text-muted); cursor: default; }
-.ns-action:disabled .ns-arrow { color: var(--text-faint); }
-
-.ns-operation {
-  min-height: 54px;
-  padding: 11px 12px;
+.ns-route,
+.ns-service {
+  min-width: 0;
+  padding: 12px 13px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px 12px;
-  border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--accent-rule);
-  background: var(--surface-raised);
+  gap: 8px;
+  justify-items: start;
+  border: 1px solid var(--line-quiet);
+  background: var(--surface);
 }
 
-.ns-operation-copy { min-width: 0; display: grid; gap: 4px; }
-.ns-operation-copy strong { color: var(--accent-strong); font-size: .62rem; letter-spacing: .12em; }
-.ns-operation-copy span { color: var(--text-muted); font-size: .63rem; overflow-wrap: anywhere; }
-.ns-operation-value { color: var(--accent); font-size: .68rem; font-variant-numeric: tabular-nums; }
-.ns-operation .node-progress { grid-column: 1 / -1; }
-
-/* Desktop is the same tool with more room: wider measure, roomier rows. */
-@media (min-width: 760px) {
-  .ns-service,
-  .ns-row,
-  .ns-action,
-  .ns-operation,
-  .ns-state { padding-left: 14px; padding-right: 14px; }
-
-  .ns-masthead h2 { font-size: .78rem; }
+.ns-service-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
+
+.ns-service-head strong { color: var(--text-strong); font: 600 .8rem Inter, system-ui, sans-serif; }
+.ns-service-head span { color: var(--text-muted); font-size: .58rem; letter-spacing: .1em; }
+
+.ns-weakness { margin: 0; display: grid; gap: 2px; }
+.ns-weakness strong { color: var(--accent); font-size: .7rem; font-weight: 500; }
+.ns-weakness span { color: var(--text-muted); font-size: .56rem; letter-spacing: .12em; }
+
+.ns-quiet-note { margin: 0; color: var(--text-quiet); font-size: .64rem; line-height: 1.5; }
+
+.ns-rollback { display: grid; gap: 10px; justify-items: start; }
+.ns-rollback .node-field { max-width: 100%; }
