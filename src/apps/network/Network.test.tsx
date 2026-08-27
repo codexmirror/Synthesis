@@ -12,6 +12,7 @@ import { rememberInspect, rememberScan } from '../../core/game/discovery'
 import { inspectKnownTarget } from '../../core/game/inspect'
 import { removeInstalledSoftware } from '../../core/game/softwareRemoval'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
+import { BASIC_CREDENTIAL_TOOLKIT_ID, startCredentialAccessAttemptFromObservation } from '../../core/game/credentialAccess'
 import type { GameState } from '../../core/game/types'
 import { Network } from './Network'
 import { selectDeviceWorkspace, selectKnownSpace } from './nodeScanWorkspace'
@@ -118,6 +119,48 @@ describe('Scan workspace', () => {
     expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
   })
 
+  it('completes the srv-01 analysis, credential, access, and connect path without opening Service detail', async () => {
+    vi.useFakeTimers()
+    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    fireEvent.click(screen.getByRole('button', { name: 'ANALYZE SSH' }))
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
+    expect(screen.getByText('SSH · AUTH-017')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Attempt credential access through SSH' }))
+    expect(screen.getByRole('region', { name: 'SSH credential access running' })).toBeInTheDocument()
+    await act(async () => { vi.advanceTimersByTime(30_000) })
+    expect(screen.getByLabelText('Device access available')).toHaveTextContent('USER ACCESS')
+    expect(screen.getByRole('button', { name: 'CONNECT' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'SSH' })).not.toBeInTheDocument()
+  })
+
+  it('projects disposable no-weakness analysis history without inventing Knowledge', async () => {
+    const started = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:80'); if (started.status !== 'started') throw Error(started.status)
+    const completed = advanceGameState(started.state, 20_000)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withDiscovery(completed)}><Network /><StateSnapshot /></GameProvider>)
+    await navigateToServices(user)
+    expect(screen.getByRole('button', { name: 'ANALYZE HTTP AGAIN' })).toHaveTextContent('No weakness detected')
+    const state = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
+    expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
+  })
+
+  it('projects a failed credential attempt coarsely while keeping a new attempt available', async () => {
+    const analysis = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (analysis.status !== 'started') throw Error(analysis.status)
+    let state = withDiscovery(advanceGameState(analysis.state, 20_000))
+    const attempt = startCredentialAccessAttemptFromObservation(state, { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }); if (attempt.status !== 'started') throw Error(attempt.status)
+    const host = attempt.state.world.network.hosts[0]
+    state = advanceGameState({ ...attempt.state, world: { network: { ...attempt.state.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' } } : service) }, ...attempt.state.world.network.hosts.slice(1)] } } }, 30_000)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withDiscovery(state)}><Network /></GameProvider>)
+    await navigateToServices(user)
+    expect(screen.getByRole('button', { name: 'Attempt credential access through SSH' })).toHaveTextContent('Last attempt failed')
+    expect(screen.getByText('NO ACCESS')).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/1\.4\.0|weakness (?:missing|unavailable)|service unavailable/i)
+  })
+
   it('only names the known RackUpdate rollback avenue after UPD-001 and uses a stable local file choice', async () => {
     const before = withComposedLanTarget(true)
     const user = userEvent.setup()
@@ -140,6 +183,10 @@ describe('Scan workspace', () => {
     expect(current.discovery.devices.find(({ id }) => id === 'host-lab-update')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation.version).toBe('1.3.3')
     expect(screen.getByText('GateSSH 1.3.3')).toBeInTheDocument()
     expect(screen.queryByText('AUTH-017')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'APPLY PACKAGE' }))
+    expect(screen.getByText('PACKAGE NOT APPLIED')).toHaveAttribute('role', 'status')
+    expect(document.body.textContent).not.toMatch(/managed_service_unavailable|MANAGED SERVICE UNAVAILABLE/)
+    expect((JSON.parse(screen.getByTestId('game-state').textContent!) as GameState).discovery.devices.find(({ id }) => id === 'host-lab-update')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation.version).toBe('1.3.3')
   })
   it('projects direct Device discovery independently without revealing it initially or inventing a Network relationship', () => {
     const fresh = createInitialGameState()
@@ -802,7 +849,7 @@ describe('Scan workspace', () => {
     // completed-Process history is not promoted into the Device index.
     expect(screen.getByText('KNOWN WEAKNESS · AUTH-017')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open HTTP service' }).textContent).not.toMatch(/KNOWN WEAKNESS|analy/i)
-    expect(screen.queryByText('Weak authentication configuration')).not.toBeInTheDocument()
+    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
     expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
     expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()

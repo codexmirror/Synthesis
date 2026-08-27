@@ -106,6 +106,16 @@ leaves the remembered GateSSH 1.3.3 fingerprint unchanged in the workspace
 until a later legitimate Enhanced Inspect, and the resulting AUTH-017 route
 still requires legitimate Service Analysis.
 
+Findings lead with their remembered player-facing label; Service identity and
+the vulnerability ID remain secondary technical context. The workspace also
+projects useful disposable completed Process results: a no-weakness analysis
+result accompanies its repeatable Analyze action without becoming Knowledge,
+and a latest failed Credential Access attempt is stated coarsely without a
+hidden diagnosis while another player-justified attempt remains available.
+RackUpdate feedback names player-known input failures where appropriate, but
+current-target resolution failures collapse to `PACKAGE NOT APPLIED` so stale
+Player Information cannot become a channel for hidden World Truth.
+
 Because there is no canonical "analyzed" state, a Service that has not
 produced Knowledge claims no analysis state at all. Retained completed-Process
 results remain available as disposable history on the Service page and are

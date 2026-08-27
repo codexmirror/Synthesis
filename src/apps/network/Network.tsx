@@ -130,7 +130,12 @@ export function Network() {
   }
   function submitPackage(service: ServiceWorkspace) {
     const result = actions.submitRackUpdatePackageFromObservation({ targetDeviceId: service.deviceId, serviceId: service.id, endpoint: service.endpoint, localFileId: selectedPackageId })
-    setFeedback({ serviceId: service.id, message: result.status === 'applied' ? 'PACKAGE APPLIED' : result.status.replaceAll('_', ' ').toUpperCase() })
+    const message = result.status === 'applied' ? 'PACKAGE APPLIED'
+      : result.status === 'observation_required' ? 'OBSERVATION REQUIRED'
+        : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
+          : result.status === 'package_rejected' ? 'PACKAGE REJECTED'
+            : 'PACKAGE NOT APPLIED'
+    setFeedback({ serviceId: service.id, message })
   }
   function connect(targetDeviceId: string, address: string) {
     const result = actions.connectRemoteFromObservation({ targetDeviceId, address })
@@ -641,7 +646,7 @@ function DeviceView({ device, release, parentName, pending, observationFeedback,
 
     {device.investigations.some((service) => service.knowledge.length > 0) && <>
       <div className="node-section"><span>FINDINGS</span></div>
-      <ul className="ns-knowledge">{device.investigations.flatMap((service) => service.knowledge.map((weakness) => <li key={`${service.id}-${weakness.id}`} title={weakness.label}><strong>{weakness.id}</strong><span>{service.name} · KNOWN WEAKNESS</span></li>))}</ul>
+      <ul className="ns-knowledge">{device.investigations.flatMap((service) => service.knowledge.map((weakness) => <li key={`${service.id}-${weakness.id}`}><strong>{weakness.label}</strong><span>{service.name} · {weakness.id}</span></li>))}</ul>
     </>}
 
     {device.investigations.some((service) => service.analysisRunning || service.credentialRunning) && <>
@@ -656,14 +661,14 @@ function DeviceView({ device, release, parentName, pending, observationFeedback,
       <div className="node-section"><span>INVESTIGATION</span></div>
       <div className="ns-actions">{device.investigations.map((service) => service.analysisRunning
         ? null
-        : <Action key={service.id} label={service.analysisOutcome ? `ANALYZE ${service.name} AGAIN` : `ANALYZE ${service.name}`} note={`Investigate remembered ${service.name} surface.`} onClick={() => onAnalyze(service)} />)}</div>
+        : <Action key={service.id} label={service.analysisOutcome ? `ANALYZE ${service.name} AGAIN` : `ANALYZE ${service.name}`} note={service.analysisOutcome === 'no_weakness_detected' ? 'No weakness detected' : service.analysisOutcome === 'service_unavailable' ? 'Analysis did not complete against the Service.' : `Investigate remembered ${service.name} surface.`} onClick={() => onAnalyze(service)} />)}</div>
     </>}
 
     {(device.investigations.some((service) => service.attempt && !service.access) || device.rollback) && <>
       <div className="node-section"><span>AVAILABLE OPERATIONS</span></div>
       <div className="ns-actions">
         {device.investigations.map((service) => service.attempt && !service.access && !service.credentialRunning
-          ? <Action key={service.id} label="CREDENTIAL ACCESS" note={`${service.attempt.toolName} · READY · Outcome unknown`} ariaLabel={`Attempt credential access through ${service.name}`} onClick={() => onAttempt(service, service.attempt!.vulnerabilityId)} />
+          ? <Action key={service.id} label="CREDENTIAL ACCESS" note={service.credentialFailed ? `${service.attempt.toolName} · READY · Last attempt failed` : `${service.attempt.toolName} · READY · Outcome unknown`} ariaLabel={`Attempt credential access through ${service.name}`} onClick={() => onAttempt(service, service.attempt!.vulnerabilityId)} />
           : null)}
         {device.rollback && <div className="ns-package-submit ns-workspace-operation">
           <strong>ROLLBACK GATESSH</strong>
