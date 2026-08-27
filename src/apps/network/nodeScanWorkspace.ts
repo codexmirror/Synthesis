@@ -94,7 +94,7 @@ export interface ServiceSummary {
   readonly port: number
   readonly protocol: 'TCP' | 'UDP'
   readonly endpoint: string
-  readonly observed?: { readonly implementation: string; readonly authentication?: string }
+  readonly observed?: { readonly implementation: string; readonly authentication?: string; readonly interface?: string }
   readonly knowledge: readonly KnownWeakness[]
   readonly running: readonly RunningOperation[]
   readonly accessPrivilege?: 'USER'
@@ -127,7 +127,8 @@ export interface ServiceWorkspace {
   readonly port: number
   readonly protocol: 'TCP' | 'UDP'
   readonly endpoint: string
-  readonly observed?: { readonly implementation: string; readonly authentication?: string }
+  readonly observed?: { readonly implementation: string; readonly authentication?: string; readonly interface?: string }
+  readonly localPackages: readonly { readonly id: string; readonly path: string; readonly label: string }[]
   readonly knowledge: readonly KnownWeakness[]
   readonly analysisRunning?: RunningOperation
   /** Retained, disposable Process history — never permanent Knowledge. */
@@ -180,8 +181,8 @@ function networksOf(information: PlayerInformation, deviceId: string) {
     .map(({ id, name }) => ({ id, name }))
 }
 
-function describeImplementation(observed?: { implementation: { name: string; version: string }; authentication?: string }) {
-  return observed ? { implementation: `${observed.implementation.name} ${observed.implementation.version}`, ...(observed.authentication ? { authentication: observed.authentication } : {}) } : undefined
+function describeImplementation(observed?: { implementation: { name: string; version: string }; authentication?: string; interface?: string }) {
+  return observed ? { implementation: `${observed.implementation.name} ${observed.implementation.version}`, ...(observed.authentication ? { authentication: observed.authentication } : {}), ...(observed.interface ? { interface: observed.interface } : {}) } : undefined
 }
 
 export function selectKnownSpace(information: PlayerInformation): KnownSpace {
@@ -313,6 +314,7 @@ export function selectServiceWorkspace(information: PlayerInformation, deviceId:
     port: service.port,
     protocol: service.protocol,
     endpoint: service.endpoint,
+    localPackages: information.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_package').map((file) => ({ id: file.id, path: file.path, label: `${file.name} ${file.version}` })),
     ...(observed ? { observed } : {}),
     knowledge,
     ...(analysisRunning ? { analysisRunning: { kind: 'analysis' as const, percent: percentOf(analysisRunning) } } : {}),

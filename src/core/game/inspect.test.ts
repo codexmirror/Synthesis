@@ -39,8 +39,8 @@ describe('inspectNetworkTarget inward inspection', () => {
       deviceKind: 'server',
     })
     expect(inspectNetworkTarget(targets, '203.0.113.42')).toEqual({
-      status: 'device', targetId: 'host-training-001', address: '203.0.113.42', scope: 'remote', networkStatus: 'ONLINE',
-      deviceKind: 'device',
+      status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote', networkStatus: 'ONLINE',
+      deviceKind: 'server',
     })
   })
 
@@ -111,7 +111,7 @@ describe('enhanced Inspect depth', () => {
       enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'HIGH' },
     })
 
-    const weaker = inspectNetworkTarget(targets, '198.51.100.53', 'enhanced')
+    const weaker = inspectNetworkTarget(targets, '203.0.113.42', 'enhanced')
     expect(weaker).toMatchObject({ enhanced: { computeClass: 'STANDARD' } })
   })
 
@@ -123,10 +123,9 @@ describe('enhanced Inspect depth', () => {
     expect(result).toMatchObject({ enhanced: { computeClass: 'LOW' } })
   })
 
-  it('reports no enhanced evidence for a target with no represented Firmware or hardware', () => {
+  it('reports enhanced evidence for the represented remote server', () => {
     const result = inspectNetworkTarget(targets, '203.0.113.42', 'enhanced')
-    expect(result).toMatchObject({ status: 'device', deviceKind: 'device' })
-    expect(result).not.toHaveProperty('enhanced')
+    expect(result).toMatchObject({ status: 'device', deviceKind: 'server', enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'STANDARD' } })
   })
 
   it('does not expose enhanced evidence for SELF, which already reports exact hardware', () => {

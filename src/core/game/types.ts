@@ -412,15 +412,8 @@ export interface NetworkService {
     readonly name: string
     readonly version: string
   }
-  /**
-   * Present only when this Service concretely grants credential-based
-   * access. `secondFactorRequired` is a real authentication condition on
-   * the Service, independent of any represented vulnerability: it is not
-   * discovered by Service Analysis and must not be revealed by ordinary
-   * Credential Access presentation, but it still gates whether a
-   * completing Credential Access attempt establishes access.
-   */
-  readonly credentialAccess?: { readonly privilege: 'USER'; readonly secondFactorRequired?: boolean }
+  /** Present only when this Service concretely grants credential-based access. */
+  readonly credentialAccess?: { readonly privilege: 'USER' }
 }
 
 export interface DiscoveredVulnerability {
@@ -454,7 +447,9 @@ export interface DiscoveredServiceSnapshot {
 /** Small, concrete Enhanced Inspect snapshot for one already-discovered Service. */
 export interface ServiceInspectSnapshot {
   readonly implementation: { readonly name: string; readonly version: string }
-  readonly authentication?: 'Credential' | 'Credential + Additional Verification'
+  readonly authentication?: 'Credential'
+  /** A concrete observation of RackUpdate's public protocol, not live capability truth. */
+  readonly interface?: 'Package submission'
 }
 
 /**

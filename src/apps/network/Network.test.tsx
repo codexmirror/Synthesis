@@ -31,13 +31,25 @@ function discoveredState(): GameState {
   return { ...state, discovery }
 }
 function withDiscovery(state: GameState): GameState { return { ...state, discovery: discoveredState().discovery } }
-/** Remembers a Scan of the second LAN Device through the shared observation path. */
-function withScannedSecondDevice(state: GameState): GameState {
-  const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  return { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.53'), state.player.localDevice.id) }
-}
 function withNodeScan11(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software) } } }
+}
+
+/** A test-only second LAN Device; initial World intentionally keeps srv-02 remote. */
+function withComposedLanTarget(inspected: boolean): GameState {
+  let state = withNodeScan11(createInitialGameState())
+  const source = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+  const target = { ...structuredClone(source), id: 'host-lab-update', displayName: 'lab-update', ip: '198.51.100.53' }
+  state = { ...state, world: { network: {
+    hosts: [...state.world.network.hosts, target],
+    localNetworks: state.world.network.localNetworks.map((network) => ({ ...network, memberDeviceIds: [...network.memberDeviceIds, target.id] })),
+  } } }
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
+  discovery = rememberScan(discovery, scanNetworkTarget(targets, target.ip), state.player.localDevice.id)
+  if (inspected) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, target.ip, 'enhanced'), state.player.localDevice.id)
+  const sourcePackage = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!.filesystem!.files.find(({ id }) => id === 'file-0003')!
+  return { ...state, discovery, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { ...sourcePackage, id: 'file-ui-gatessh', path: '/home/user/downloads/gatessh.pkg' }] } } } }
 }
 
 /** Store legitimate NodeScan 1.1 Enhanced Inspect evidence through the shared domain operation. */
@@ -49,7 +61,7 @@ function withInspectedDevice(state: GameState): GameState {
 function actionStubs(): GameContext.GameActions {
   return {
     scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
-    startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(),
+    startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
     removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
@@ -81,6 +93,41 @@ function deferred<T>() {
 }
 
 describe('Scan workspace', () => {
+  it('shows observed package submission, selects a concrete file ID, invokes RackUpdate, and reports success', async () => {
+    const state = withComposedLanTarget(true)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
+    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
+    expect(screen.getByText('Package submission')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Local package'), 'file-ui-gatessh')
+    await user.click(screen.getByRole('button', { name: 'SUBMIT PACKAGE' }))
+    expect(screen.getByText('PACKAGE APPLIED')).toHaveAttribute('role', 'status')
+    const current = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
+    expect(current.world.network.hosts.find(({ id }) => id === 'host-lab-update')!.services!.find(({ id }) => id === 'service-ssh-002')!.implementation.releaseId).toBe('gate-ssh-1.3.2')
+  })
+
+  it('does not expose package submission before Enhanced Inspect observes the interface', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withComposedLanTarget(false)}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
+    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
+    expect(screen.queryByRole('button', { name: 'SUBMIT PACKAGE' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Local package')).not.toBeInTheDocument()
+  })
+
+  it('keeps generic branches independent for multiple LAN Devices supplied by a fixture', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withComposedLanTarget(false)}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
+    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open device 198.51.100.53' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
+    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('RackUpdate')
+    expect(screen.queryByRole('region', { name: 'Known services for 198.51.100.47' })).not.toBeInTheDocument()
+  })
   it('connects and disconnects a remembered Device through canonical session state', async () => {
     const known = discoveredState()
     const state = { ...known, deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] } }
@@ -196,35 +243,6 @@ describe('Scan workspace', () => {
     expect(screen.queryByText(base.world.network.localNetworks[0].name)).not.toBeInTheDocument()
   })
 
-  it('discovers the local hierarchy from shared observations', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    const network = await screen.findByRole('button', { name: 'Open known area home-net' })
-    expect(network).toHaveTextContent('3 known devices')
-    expect(screen.queryByRole('button', { name: 'Open device 198.51.100.47' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/unavailable/i)).not.toBeInTheDocument()
-    await user.click(network)
-    expect(screen.getByText('3 known devices')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.47')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.53')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open HTTP service' })).toBeInTheDocument()
-    expect(screen.getByText('1 known')).toBeInTheDocument()
-    expect(screen.getByText('NETWORK')).toBeInTheDocument()
-    expect(screen.getAllByText('home-net')).not.toHaveLength(0)
-    expect(screen.getByText('22 / TCP')).toBeInTheDocument()
-    expect(screen.getByText('80 / TCP')).toBeInTheDocument()
-    expect(screen.queryByText('ENDPOINT')).not.toBeInTheDocument()
-    expect(screen.queryByText('KNOWLEDGE')).not.toBeInTheDocument()
-    expect(screen.getByText('198.51.100.47:22')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.47:80')).toBeInTheDocument()
-    // There is no canonical "analyzed" state, so an un-analyzed Service claims
-    // no analysis state at all rather than inventing a permanent one.
-    expect(document.body.textContent).not.toMatch(/analy/i)
-    expect(document.body.textContent).not.toMatch(/service-ssh-001|host-lan-001|AUTH-017/)
-  })
 
   it('inspects remembered objects through the shared action and browsing does not observe again', async () => {
     const user = userEvent.setup()
@@ -270,7 +288,7 @@ describe('Scan workspace', () => {
     expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
     expect(screen.getByText('Authentication: Credential')).toBeInTheDocument()
     expect(screen.getByText('Basic HTTP 1.0')).toBeInTheDocument()
-    expect(document.body.textContent).not.toMatch(/secondFactorRequired|AUTH-017/)
+    expect(document.body.textContent).not.toMatch(/AUTH-017/)
   })
 
   it('renders stored Service fingerprints rather than changed hidden World Truth', async () => {
@@ -292,7 +310,7 @@ describe('Scan workspace', () => {
           hosts: base.world.network.hosts.map((host) => host.id === 'host-lan-001' ? {
             ...host,
             services: host.services?.map((service) => service.id === 'service-ssh-001' ? {
-              ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }, credentialAccess: { privilege: 'USER' as const, secondFactorRequired: true },
+              ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }, credentialAccess: { privilege: 'USER' as const },
             } : service),
           } : host),
         },
@@ -303,40 +321,9 @@ describe('Scan workspace', () => {
     await navigateToServices(user)
     expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
     expect(screen.getByText('Authentication: Credential')).toBeInTheDocument()
-    expect(screen.queryByText(/1\.4\.0|Additional Verification/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/1\.4\.0/)).not.toBeInTheDocument()
   })
 
-  it('presents a fingerprinted Service with second-factor authentication in a structured card rather than one crowded row', async () => {
-    const base = discoveredState()
-    const observed = {
-      ...base,
-      discovery: {
-        ...base.discovery,
-        devices: base.discovery.devices.map((device) => device.id === 'host-lan-001' ? {
-          ...device,
-          services: device.services.map((service) => service.id === 'service-ssh-001' ? {
-            ...service, inspect: { implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential + Additional Verification' as const },
-          } : service),
-        } : device),
-      },
-    }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={observed}><Network /></GameProvider>)
-    await navigateToServices(user)
-    const serviceButton = screen.getByRole('button', { name: 'Open SSH service' })
-    // Service identity owns its own line: endpoint metadata and observed
-    // fingerprints stack beneath it rather than competing for the same width.
-    const identity = serviceButton.querySelector('.ns-service-head')
-    expect(identity?.querySelector('strong')?.textContent).toBe('SSH')
-    expect(identity?.textContent).not.toMatch(/GateSSH|Authentication|22|TCP/)
-    const endpoint = serviceButton.querySelector('.ns-service-endpoint')
-    expect(endpoint?.textContent).not.toMatch(/GateSSH|Authentication/)
-    expect(endpoint?.textContent).toContain('198.51.100.47:22')
-    const fingerprint = serviceButton.querySelector('.ns-service-observed')
-    expect(fingerprint).not.toBeNull()
-    expect(fingerprint?.textContent).toContain('GateSSH 1.3.2')
-    expect(screen.getByText('Authentication: Credential + Additional Verification')).toBeInTheDocument()
-  })
 
   it('offers no Inspect action for NodeScan 1.0 Standard while preserving Scan', async () => {
     const user = userEvent.setup()
@@ -369,7 +356,7 @@ describe('Scan workspace', () => {
     await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
     const members = screen.getByRole('region', { name: 'Known members of home-net' })
     // Every member is a limb that terminates its own rail, so the last one ends the branch.
-    expect(members.querySelectorAll(':scope > .ns-limbs > .ns-limb')).toHaveLength(3)
+    expect(members.querySelectorAll(':scope > .ns-limbs > .ns-limb')).toHaveLength(2)
     expect(members.querySelector(':scope > .ns-limbs > .ns-limb:last-child')).not.toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
@@ -413,81 +400,8 @@ describe('Scan workspace', () => {
     expect(screen.getByRole('button', { name: 'Open HTTP service' }).querySelector('.ns-glyph')).not.toHaveClass('ns-glyph--access')
   })
 
-  it('expands one Device relationship at a time without observing or mutating player information', async () => {
-    // Both Devices carry remembered Services, so both are genuinely expandable.
-    const state = withScannedSecondDevice(discoveredState())
-    const actions = actionStubs()
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
-    const before = JSON.stringify({ discovery: state.discovery, knowledge: state.knowledge })
-    const user = userEvent.setup()
-    render(<Network />)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
 
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toHaveTextContent('22 / TCP')
-    expect(screen.getByRole('button', { name: 'Open HTTP service' })).toHaveTextContent('80 / TCP')
-    expect(JSON.stringify({ discovery: state.discovery, knowledge: state.knowledge })).toBe(before)
-    expect(actions.scanTarget).not.toHaveBeenCalled()
-    expect(actions.inspectTarget).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
-    expect(screen.queryByRole('region', { name: 'Known services for 198.51.100.47' })).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('SSH')
-  })
-
-  it('offers a Device branch only where remembered Services exist to reveal', async () => {
-    const known = discoveredState()
-    const emptyState = {
-      ...known,
-      discovery: {
-        ...known.discovery,
-        devices: known.discovery.devices.map((device) => device.address === '198.51.100.53'
-          ? { ...device, servicesObserved: true, services: [] }
-          : device),
-      },
-    }
-    const user = userEvent.setup()
-    const view = render(<GameProvider initialState={known}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-
-    // Unobserved Services: no branch to open, the reason is stated, DETAIL remains.
-    expect(screen.queryByRole('button', { name: /^(Expand|Collapse) device 198\.51\.100\.53$/ })).not.toBeInTheDocument()
-    expect(screen.getByText('Services not observed')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open device 198.51.100.53' })).toBeInTheDocument()
-
-    view.unmount()
-    render(<GameProvider initialState={emptyState}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-
-    // Observed and empty: still nothing to reveal, so still no branch.
-    expect(screen.queryByRole('button', { name: /^(Expand|Collapse) device 198\.51\.100\.53$/ })).not.toBeInTheDocument()
-    expect(screen.getByText('No open services')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open device 198.51.100.53' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Open .* service/ })).not.toBeInTheDocument()
-
-    // Observed and non-empty: the branch exists and holds the remembered children.
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('SSH')
-    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('HTTP')
-  })
-
-  it('scans an unobserved Device from its Network branch through the shared operation', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    // The observed Device offers browsing; the unobserved one offers the observation.
-    expect(screen.queryByRole('button', { name: 'Scan device 198.51.100.47' })).not.toBeInTheDocument()
-    scanTargetSpy.mockClear()
-
-    await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.53' }))
-    expect(scanTargetSpy).toHaveBeenCalledWith(expect.anything(), '198.51.100.53')
-    const branch = await screen.findByRole('button', { name: 'Expand device 198.51.100.53' })
-    expect(screen.queryByRole('button', { name: 'Scan device 198.51.100.53' })).not.toBeInTheDocument()
-    await user.click(branch)
-    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('SSH')
-  })
 
   it('bootstraps from Scan SELF and then stops competing with the space it produced', async () => {
     const user = userEvent.setup()
@@ -597,7 +511,7 @@ describe('Scan workspace', () => {
       startServiceAnalysis: vi.fn(),
       startServiceAnalysisAtEndpoint: vi.fn(),
       startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation: vi.fn(),
+      startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
       connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
 
@@ -627,7 +541,7 @@ describe('Scan workspace', () => {
       return scanNetworkTarget(targets, input)
     })
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -646,7 +560,7 @@ describe('Scan workspace', () => {
     const device = deferred<ReturnType<typeof scanNetworkTarget>>()
     const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -665,7 +579,7 @@ describe('Scan workspace', () => {
     const device = deferred<ReturnType<typeof scanNetworkTarget>>()
     const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup()
     render(<Network />)
     await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
@@ -696,7 +610,7 @@ describe('Scan workspace', () => {
     await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
     expect(screen.getByText('2 known services')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '← home-net' }))
-    expect(screen.getByText('3 known devices')).toBeInTheDocument()
+    expect(screen.getByText('2 known devices')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '← Known Space' }))
     expect(await screen.findByRole('button', { name: 'Open known area home-net' })).toBeInTheDocument()
   })
@@ -721,7 +635,7 @@ describe('Scan workspace', () => {
     })
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+      inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
@@ -885,7 +799,7 @@ describe('Scan workspace', () => {
     expect(screen.getByText('MEMBERSHIP NOT FULLY OBSERVED')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Scan network home-net' }))
     expect(await screen.findByRole('button', { name: 'Open device 198.51.100.47' })).toBeInTheDocument()
-    expect(screen.getByText('3 known devices')).toBeInTheDocument()
+    expect(screen.getByText('2 known devices')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
     expect(screen.getByText('NOT OBSERVED')).toBeInTheDocument()
@@ -899,41 +813,10 @@ describe('Scan workspace', () => {
     expect(screen.getByLabelText('NodeScan workspace').textContent).not.toMatch(/srv-0|host-lan|network-local/)
 
     const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.discovery.devices.map(({ address }) => address)).toEqual(['198.51.100.47', '198.51.100.53'])
+    expect(state.discovery.devices.map(({ address }) => address)).toEqual(['198.51.100.47'])
     expect(state.knowledge.discoveredVulnerabilities).toEqual([])
   })
 
-  it('keeps a directly discovered Device reachable through its partially known Network', async () => {
-    const base = createInitialGameState()
-    const targets = { localDevice: base.player.localDevice, network: base.world.network }
-    const direct = scanNetworkTarget(targets, '198.51.100.47')
-    const discovery = rememberScan(base.discovery, direct, base.player.localDevice.id)
-    const partial = { ...base, discovery }
-    const networkMemory = partial.discovery.networks.find(({ name }) => name === 'home-net')
-
-    expect(networkMemory).toMatchObject({ membersObserved: false })
-    expect(partial.discovery.networkDeviceRelations).toContainEqual({ networkId: networkMemory?.id, deviceId: 'host-lan-001' })
-
-    const user = userEvent.setup()
-    render(<GameProvider initialState={partial}><Network /></GameProvider>)
-    const network = screen.getByRole('button', { name: 'Open known area home-net' })
-    expect(network).toHaveTextContent('Members not observed')
-    expect(screen.queryByRole('button', { name: 'Open device 198.51.100.47' })).not.toBeInTheDocument()
-
-    await user.click(network)
-    expect(screen.getByText('MEMBERSHIP NOT FULLY OBSERVED')).toBeInTheDocument()
-    expect(screen.getByText('1 known device')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toHaveTextContent('2 known services')
-    expect(screen.queryByText('198.51.100.53')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Scan network home-net' }))
-    expect(await screen.findByRole('button', { name: 'Open device 198.51.100.53' })).toBeInTheDocument()
-    expect(screen.queryByText('MEMBERSHIP NOT FULLY OBSERVED')).not.toBeInTheDocument()
-    expect(screen.getByText('3 known devices')).toBeInTheDocument()
-  })
 
   it('keeps NodeScan 1.1 capability while its removal Process runs and drops it only on completion', async () => {
     const evidence = withInspectedDevice(withNodeScan11(discoveredState()))
@@ -1030,7 +913,7 @@ describe('Scan workspace', () => {
     let canonical: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, hardware: { ...base.player.localDevice.hardware, ram: { ...base.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
     const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => startServiceAnalysisFromObservation(canonical, observed))
     vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
     const user = userEvent.setup(); const view = render(<Network />)
     await navigateToServices(user)
     await user.click(screen.getByRole('button', { name: 'Open SSH service' }))

@@ -3,7 +3,7 @@ import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 37
+export const GAME_STATE_VERSION = 38
 
 export function createInitialGameState(): GameState {
   return {
@@ -64,7 +64,7 @@ export function createInitialGameState(): GameState {
     world: {
       network: {
         localNetworks: [
-          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001', 'host-lan-002'] },
+          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'] },
         ],
         hosts: [
           {
@@ -79,9 +79,10 @@ export function createInitialGameState(): GameState {
             runtime: { baselineCpuLoad: 12, baselineRamUsage: 18 },
             // Device-owned and entirely independent of node-01's inventory: srv-01 currently has no software installed on it.
             installedSoftware: [],
-            filesystem: { nextFileId: 3, files: [
+            filesystem: { nextFileId: 4, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
               { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: NODESCAN_1_1_EXPERIMENTAL.releaseId, productId: NODESCAN_1_1_EXPERIMENTAL.productId, name: NODESCAN_1_1_EXPERIMENTAL.name, version: NODESCAN_1_1_EXPERIMENTAL.version, channel: NODESCAN_1_1_EXPERIMENTAL.channel, sizeBytes: 18_400_000 },
+              { kind: 'software_package', id: 'file-0003', path: '/opt/packages/gatessh-1.3.2.pkg', releaseId: 'gate-ssh-1.3.2', productId: 'gate-ssh', name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems', sizeBytes: 6_400_000 },
             ] },
             services: [
               { id: 'service-ssh-001', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
@@ -92,7 +93,7 @@ export function createInitialGameState(): GameState {
           {
             id: 'host-lan-002',
             displayName: 'srv-02',
-            ip: '198.51.100.53',
+            ip: '203.0.113.42',
             online: true,
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
@@ -104,11 +105,11 @@ export function createInitialGameState(): GameState {
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
             ] },
             services: [
-              { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER', secondFactorRequired: true } },
+              { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3' }, credentialAccess: { privilege: 'USER' } },
+              { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', name: 'RackUpdate', version: '1.0' } },
             ],
             authenticationHistory: { nextId: 1, records: [] },
           },
-          { id: 'host-training-001', ip: '203.0.113.42', online: true },
           { id: 'host-training-002', ip: '203.0.113.99', online: false },
         ],
       },

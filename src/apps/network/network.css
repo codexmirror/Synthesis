@@ -444,7 +444,6 @@ button.ns-row:focus-visible { border-color: var(--line-accent); background: var(
 /*
  * Service identity, endpoint metadata and observed fingerprints are stacked
  * rather than placed on one line. A long observation such as
- * "Credential + Additional Verification" therefore wraps under the Service
  * name instead of compressing it.
  */
 .ns-service {

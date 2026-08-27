@@ -246,7 +246,7 @@ describe('continuity across the interactive RemoteSession lifecycle', () => {
 
     const otherAccess = { id: 'access-other', sourceDeviceId: disconnected.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
     const withOtherAccess = { ...disconnected, deviceAccess: { nextId: 3, established: [...disconnected.deviceAccess.established, otherAccess] } }
-    const reconnectedElsewhere = connectRemoteFromObservation(withOtherAccess, { targetDeviceId: 'host-lan-002', address: '198.51.100.53' }).state
+    const reconnectedElsewhere = connectRemoteFromObservation(withOtherAccess, { targetDeviceId: 'host-lan-002', address: '203.0.113.42' }).state
     expect(reconnectedElsewhere.remoteSession.active?.accessId).toBe('access-other')
     expect(reconnectedElsewhere.fileTransfer.active?.id).toBe(started.transferId)
 
@@ -573,7 +573,7 @@ describe('bidirectional Upload core', () => {
     if (result.status !== 'started') throw new Error('expected started')
     const disconnected = disconnectRemoteSession(result.state).state
     const otherAccess = { id: 'access-other', sourceDeviceId: state.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
-    const changedSession = connectRemoteFromObservation({ ...disconnected, deviceAccess: { ...disconnected.deviceAccess, established: [...disconnected.deviceAccess.established, otherAccess] } }, { targetDeviceId: 'host-lan-002', address: '198.51.100.53' }).state
+    const changedSession = connectRemoteFromObservation({ ...disconnected, deviceAccess: { ...disconnected.deviceAccess, established: [...disconnected.deviceAccess.established, otherAccess] } }, { targetDeviceId: 'host-lan-002', address: '203.0.113.42' }).state
     const completed = advanceFileTransfer(changedSession, 60_000)
     expect(getFilesystemFile(completed.world.network.hosts[0].filesystem!, DESTINATION).status).toBe('ok')
     expect(getFilesystemFile(completed.world.network.hosts[1].filesystem!, DESTINATION).status).toBe('not_found')

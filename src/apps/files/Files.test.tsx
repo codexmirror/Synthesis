@@ -13,7 +13,7 @@ afterEach(() => vi.useRealTimers())
 
 function SessionControls() {
   const actions = useGameActions()
-  return <><button onClick={() => actions.disconnectRemoteSession()}>test disconnect</button><button onClick={() => actions.connectRemoteFromObservation({ targetDeviceId: 'host-lan-002', address: '198.51.100.53' })}>test connect B</button></>
+  return <><button onClick={() => actions.disconnectRemoteSession()}>test disconnect</button><button onClick={() => actions.connectRemoteFromObservation({ targetDeviceId: 'host-lan-002', address: '203.0.113.42' })}>test connect B</button></>
 }
 
 /** Reads canonical state directly so a test can prove that presentation alone changed nothing. */
@@ -161,7 +161,7 @@ describe('Files', () => {
 
     expect(screen.getByRole('button', { name: 'UPLOAD IN PROGRESS' })).toBeDisabled()
     expect(screen.getByText('/srv/server-a.pkg')).toBeInTheDocument()
-    expect(screen.queryByText('198.51.100.53')).not.toBeInTheDocument()
+    expect(screen.queryByText('203.0.113.42')).not.toBeInTheDocument()
     expect(screen.queryByText('SESSION')).not.toBeInTheDocument()
   })
 
