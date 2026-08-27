@@ -1,21 +1,18 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as GameContext from '../../app/GameContext'
-import { GameProvider, useGameActions, useGameState } from '../../app/GameContext'
+import { GameProvider, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { appRegistry } from '../../shell/appRegistry'
-import { startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from '../../core/game/serviceAnalysis'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { scanNetworkTarget } from '../../core/game/scan'
 import { rememberInspect, rememberScan } from '../../core/game/discovery'
 import { inspectKnownTarget } from '../../core/game/inspect'
-import { removeInstalledSoftware } from '../../core/game/softwareRemoval'
-import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
-import { BASIC_CREDENTIAL_TOOLKIT_ID, startCredentialAccessAttemptFromObservation } from '../../core/game/credentialAccess'
-import type { GameState } from '../../core/game/types'
+import { submitRackUpdatePackageFromObservation } from '../../core/game/rackUpdate'
+import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
 import { Network } from './Network'
-import { selectDeviceWorkspace, selectKnownSpace } from './nodeScanWorkspace'
+import { selectKnownSpace, selectTarget, selectTargets } from './targetProjection'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -23,51 +20,65 @@ vi.mock('../../core/game/scan', async (importOriginal) => {
   return { ...actual, scanNetworkTarget: (...args: Parameters<typeof actual.scanNetworkTarget>) => { scanTargetSpy(...args); return actual.scanNetworkTarget(...args) } }
 })
 
+const SRV_01 = 'host-lan-001'
+const SRV_01_ADDRESS = '198.51.100.47'
 
-function discoveredState(): GameState {
-  let state = createInitialGameState()
-  const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, state.player.localDevice.network.ip), state.player.localDevice.id)
-  discovery = rememberScan(discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
-  discovery = rememberScan(discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
-  return { ...state, discovery }
-}
-function withDiscovery(state: GameState): GameState { return { ...state, discovery: discoveredState().discovery } }
+/* ---------------------------------------------------------------- fixtures */
+
 function withNodeScan11(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software) } } }
 }
 
-function withRemoteDiscovery(state: GameState = createInitialGameState()): GameState {
-  const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  return { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id) }
+function withoutSoftware(state: GameState, productId: string): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== productId) } } }
 }
 
-/** A test-only second LAN Device; initial World intentionally keeps srv-02 remote. */
-function withComposedLanTarget(inspected: boolean): GameState {
-  let state = withNodeScan11(createInitialGameState())
-  const source = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
-  const target = { ...structuredClone(source), id: 'host-lab-update', displayName: 'lab-update', ip: '198.51.100.53' }
-  state = { ...state, world: { network: {
-    hosts: [...state.world.network.hosts, target],
-    localNetworks: state.world.network.localNetworks.map((network) => ({ ...network, memberDeviceIds: [...network.memberDeviceIds, target.id] })),
-  } } }
+/** Discovery after looking around: home-net and its members are remembered. */
+function foundTargets(state: GameState = createInitialGameState()): GameState {
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
-  discovery = rememberScan(discovery, scanNetworkTarget(targets, target.ip), state.player.localDevice.id)
-  if (inspected) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, target.ip, 'enhanced'), state.player.localDevice.id)
-  const sourcePackage = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!.filesystem!.files.find(({ id }) => id === 'file-0003')!
-  return { ...state, discovery, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { ...sourcePackage, id: 'file-ui-gatessh', path: '/home/user/downloads/gatessh.pkg' }] } } } }
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, state.player.localDevice.network.ip), state.player.localDevice.id)
+  discovery = rememberScan(discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
+  return { ...state, discovery }
 }
 
-/** Store legitimate NodeScan 1.1 Enhanced Inspect evidence through the shared domain operation. */
-function withInspectedDevice(state: GameState): GameState {
-  const result = inspectKnownTarget({ localDevice: state.player.localDevice, network: state.world.network }, state.discovery, '198.51.100.47', 'enhanced')
-  return { ...state, discovery: rememberInspect(state.discovery, result, state.player.localDevice.id) }
+/** Discovery after a target sweep: srv-01's Services are remembered too. */
+function scannedTarget(state: GameState = createInitialGameState()): GameState {
+  const known = foundTargets(state)
+  const targets = { localDevice: known.player.localDevice, network: known.world.network }
+  let discovery = rememberScan(known.discovery, scanNetworkTarget(targets, SRV_01_ADDRESS), known.player.localDevice.id)
+  if (known.player.localDevice.installedSoftware.some(({ releaseId }) => releaseId === 'nodescan-1.1-experimental')) {
+    discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, SRV_01_ADDRESS, 'enhanced'), known.player.localDevice.id)
+  }
+  return { ...known, discovery }
+}
+
+/** Earned AUTH-017 Knowledge, produced by resolving a real Service Analysis. */
+function knownWeakness(state: GameState = scannedTarget()): GameState {
+  return {
+    ...state,
+    knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', observedLabel: 'Weak authentication configuration', targetDeviceId: SRV_01, serviceId: 'service-ssh-001' }] },
+  }
+}
+
+function analysisProcess(id: string, serviceId: string, workCompleted: number): ServiceAnalysisProcess {
+  return { kind: 'service_analysis', id, label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 768, workRequired: 1000, workCompleted, targetDeviceId: SRV_01, serviceId, startedEndpoint: `${SRV_01_ADDRESS}:${serviceId === 'service-ssh-001' ? 22 : 80}` }
+}
+
+function credentialProcess(workCompleted: number): CredentialAccessProcess {
+  return { kind: 'credential_access', id: 'process-0009', label: 'CREDENTIAL ACCESS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 896, workRequired: 1200, workCompleted, targetDeviceId: SRV_01, serviceId: 'service-ssh-001', startedEndpoint: `${SRV_01_ADDRESS}:22`, vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit' }
+}
+
+function withProcesses(state: GameState, processes: GameState['process']['processes']): GameState {
+  return { ...state, process: { nextId: processes.length + 1, processes } }
+}
+
+function withAccess(state: GameState = knownWeakness()): GameState {
+  return { ...state, deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: 'device-local-v0', targetDeviceId: SRV_01, viaServiceId: 'service-ssh-001', privilege: 'USER' }] } }
 }
 
 function actionStubs(): GameContext.GameActions {
   return {
-    scanTarget: vi.fn(), inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
+    scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), sweepTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
     startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
@@ -75,22 +86,18 @@ function actionStubs(): GameContext.GameActions {
   }
 }
 
-async function openLanDevice() {
+function StateSnapshot() { return <span data-testid="game-state">{JSON.stringify(useGameState())}</span> }
+function currentState(): GameState { return JSON.parse(screen.getByTestId('game-state').textContent!) as GameState }
+
+async function openTarget(state: GameState) {
   const user = userEvent.setup()
-  render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-  await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-  await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+  render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
+  await user.click(await screen.findByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
   return user
 }
 
-afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
-
-function StateSnapshot() { return <output data-testid="game-state">{JSON.stringify(useGameState())}</output> }
-function ClearCompleted() { const actions = useGameActions(); return <button onClick={actions.clearRecentActivity}>Clear test history</button> }
-
-async function navigateToServices(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-  await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+async function openDetails(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByText('TECHNICAL DETAILS'))
 }
 
 function deferred<T>() {
@@ -99,978 +106,510 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-describe('Scan workspace', () => {
-  it('projects target operations from narrow player information without consulting hidden World Truth', () => {
-    const known = withInspectedDevice(withNodeScan11(discoveredState()))
-    const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
-    const workspace = selectDeviceWorkspace(information, 'host-lan-001')!
-    expect(workspace.investigations.map(({ id }) => id)).toEqual(['service-ssh-001', 'service-http-001'])
-    expect(workspace.investigations.find(({ id }) => id === 'service-ssh-001')!.observed?.implementation).toBe('GateSSH 1.3.2')
-  })
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 
-  it('starts Service Analysis directly from the Device target workspace', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'ANALYZE SSH' }))
-    expect(screen.getByRole('region', { name: 'SSH analysis running' })).toHaveTextContent('0%')
-    const state = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
-    expect(state.process.processes).toContainEqual(expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-ssh-001', status: 'running' }))
-    expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
-  })
+/* ------------------------------------------------------------- the loop */
 
-  it('completes the srv-01 analysis, credential, access, and connect path without opening Service detail', async () => {
+describe('NodeScan first hack', () => {
+  it('walks SCAN, HACK and CONNECT without any technical vocabulary on the primary surface', async () => {
     vi.useFakeTimers()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    fireEvent.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    fireEvent.click(screen.getByRole('button', { name: 'ANALYZE SSH' }))
-    await act(async () => { vi.advanceTimersByTime(20_000) })
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    expect(screen.getByText('SSH · AUTH-017')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Attempt credential access through SSH' }))
-    expect(screen.getByRole('region', { name: 'SSH credential access running' })).toBeInTheDocument()
-    await act(async () => { vi.advanceTimersByTime(30_000) })
-    expect(screen.getByLabelText('Device access available')).toHaveTextContent('USER ACCESS')
-    expect(screen.getByRole('button', { name: 'CONNECT' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'SSH' })).not.toBeInTheDocument()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+
+    // Nothing is known: one obvious action.
+    expect(screen.getByText('NOTHING KNOWN YET')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+    fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('NOT SCANNED')
+
+    fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('SCANNING')
+    expect(screen.getByRole('group', { name: 'Scan progress' })).toBeInTheDocument()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
+
+    fireEvent.click(screen.getByRole('button', { name: 'HACK' }))
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('HACKING')
+    expect(screen.getByRole('group', { name: 'Hack progress' })).toBeInTheDocument()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
+
+    fireEvent.click(screen.getByRole('button', { name: 'CONNECT' }))
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('CONNECTED')
+
+    // Nothing on that path required opening a Service, a Finding, a weakness
+    // identity, a tool, or an internal relationship name. Technical depth was
+    // never opened, so it is not part of the surface the player read.
+    const view = screen.getByLabelText('NodeScan')
+    const details = view.querySelector('details')!
+    expect(details).not.toHaveAttribute('open')
+    const surface = view.textContent!.replace(details.textContent!, '')
+    for (const jargon of ['AUTH-017', 'Basic Credential Toolkit', 'GateSSH', 'DeviceAccess', 'RemoteSession', 'Credential Access', 'Service Analysis', 'FINDINGS', 'AVAILABLE OPERATIONS']) {
+      expect(surface, `primary surface should not mention ${jargon}`).not.toContain(jargon)
+    }
   })
 
-  it('projects disposable no-weakness analysis history without inventing Knowledge', async () => {
-    const started = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:80'); if (started.status !== 'started') throw Error(started.status)
-    const completed = advanceGameState(started.state, 20_000)
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withDiscovery(completed)}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    expect(screen.getByRole('button', { name: 'ANALYZE HTTP AGAIN' })).toHaveTextContent('No weakness detected')
-    const state = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
-    expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
-  })
+  it('produces canonical DeviceAccess and a canonical Remote Session, never a hacked flag', async () => {
+    vi.useFakeTimers()
+    render(<GameProvider initialState={knownWeakness()}><Network /><StateSnapshot /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    fireEvent.click(screen.getByRole('button', { name: 'HACK' }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
 
-  it('projects a failed credential attempt coarsely while keeping a new attempt available', async () => {
-    const analysis = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (analysis.status !== 'started') throw Error(analysis.status)
-    let state = withDiscovery(advanceGameState(analysis.state, 20_000))
-    const attempt = startCredentialAccessAttemptFromObservation(state, { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }); if (attempt.status !== 'started') throw Error(attempt.status)
-    const host = attempt.state.world.network.hosts[0]
-    state = advanceGameState({ ...attempt.state, world: { network: { ...attempt.state.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' } } : service) }, ...attempt.state.world.network.hosts.slice(1)] } } }, 30_000)
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withDiscovery(state)}><Network /></GameProvider>)
-    await navigateToServices(user)
-    expect(screen.getByRole('button', { name: 'Attempt credential access through SSH' })).toHaveTextContent('Last attempt failed')
-    expect(screen.getByText('NO ACCESS')).toBeInTheDocument()
-    expect(document.body.textContent).not.toMatch(/1\.4\.0|weakness (?:missing|unavailable)|service unavailable/i)
-  })
+    const afterHack = currentState()
+    expect(afterHack.deviceAccess.established).toEqual([expect.objectContaining({ sourceDeviceId: 'device-local-v0', targetDeviceId: SRV_01, viaServiceId: 'service-ssh-001', privilege: 'USER' })])
+    expect(afterHack.remoteSession.active).toBeNull()
 
-  it('only names the known RackUpdate rollback avenue after UPD-001 and uses a stable local file choice', async () => {
-    const before = withComposedLanTarget(true)
-    const user = userEvent.setup()
-    const view = render(<GameProvider initialState={before}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
-    expect(screen.queryByText('ROLLBACK GATESSH')).not.toBeInTheDocument()
-    view.unmount()
+    fireEvent.click(screen.getByRole('button', { name: 'CONNECT' }))
+    const connected = currentState()
+    expect(connected.remoteSession.active).toEqual(expect.objectContaining({ accessId: afterHack.deviceAccess.established[0].id, connectedAddress: SRV_01_ADDRESS }))
+    expect(connected.deviceAccess.established).toHaveLength(1)
 
-    const learned = { ...before, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', targetDeviceId: 'host-lab-update', serviceId: 'service-rack-update-002', observedLabel: 'Rollback protection not enforced' }] } }
-    render(<GameProvider initialState={learned}><Network /><StateSnapshot /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
-    expect(screen.getByText('ROLLBACK GATESSH')).toBeInTheDocument()
-    expect(screen.getByText('Requires: Older compatible GateSSH package')).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Rollback package'), 'file-ui-gatessh')
-    await user.click(screen.getByRole('button', { name: 'APPLY PACKAGE' }))
-    const current = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
-    expect(current.world.network.hosts.find(({ id }) => id === 'host-lab-update')!.services!.find(({ id }) => id === 'service-ssh-002')!.implementation.version).toBe('1.3.2')
-    expect(current.discovery.devices.find(({ id }) => id === 'host-lab-update')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation.version).toBe('1.3.3')
-    expect(screen.getByText('GateSSH 1.3.3')).toBeInTheDocument()
-    expect(screen.queryByText('AUTH-017')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'APPLY PACKAGE' }))
-    expect(screen.getByText('PACKAGE NOT APPLIED')).toHaveAttribute('role', 'status')
-    expect(document.body.textContent).not.toMatch(/managed_service_unavailable|MANAGED SERVICE UNAVAILABLE/)
-    expect((JSON.parse(screen.getByTestId('game-state').textContent!) as GameState).discovery.devices.find(({ id }) => id === 'host-lab-update')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation.version).toBe('1.3.3')
-  })
-  it('projects direct Device discovery independently without revealing it initially or inventing a Network relationship', () => {
-    const fresh = createInitialGameState()
-    expect(selectKnownSpace(fresh).standaloneDevices).toEqual([])
-
-    const scanned = withRemoteDiscovery(fresh)
-    expect(scanned.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'host-lan-002', address: '203.0.113.42', scope: 'remote' })]))
-    expect(scanned.discovery.networkDeviceRelations.some(({ deviceId }) => deviceId === 'host-lan-002')).toBe(false)
-    expect(selectKnownSpace(scanned).standaloneDevices).toEqual([
-      expect.objectContaining({ id: 'host-lan-002', address: '203.0.113.42', scope: 'remote', serviceCount: 2 }),
-    ])
-  })
-
-  it('derives one Known Space placement from remembered Network relationships', () => {
-    const standalone = withRemoteDiscovery()
-    const related: GameState = { ...standalone, discovery: {
-      ...standalone.discovery,
-      networks: [{ id: 'observed-net', name: 'observed-net', membersObserved: true }],
-      networkDeviceRelations: [{ networkId: 'observed-net', deviceId: 'host-lan-002' }],
-    } }
-    const space = selectKnownSpace(related)
-    expect(space.standaloneDevices).toEqual([])
-    expect(space.networks).toEqual([expect.objectContaining({ id: 'observed-net', memberCount: 1 })])
-  })
-
-  it('opens a directly discovered remote Device and its Services without observing or changing player information', async () => {
-    const state = withRemoteDiscovery()
-    const actions = actionStubs()
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
-    const before = structuredClone({ discovery: state.discovery, knowledge: state.knowledge })
-    const user = userEvent.setup()
-    render(<Network />)
-
-    expect(screen.getByText('REMOTE DEVICES')).toBeInTheDocument()
-    expect(screen.getByText('203.0.113.42')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open device 203.0.113.42' }))
-    expect(screen.getByRole('button', { name: 'Copy 203.0.113.42' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open RackUpdate service' })).toBeInTheDocument()
-    expect(actions.scanTarget).not.toHaveBeenCalled()
-    expect(actions.inspectTarget).not.toHaveBeenCalled()
-    expect({ discovery: state.discovery, knowledge: state.knowledge }).toEqual(before)
-  })
-
-  it('reaches observed RackUpdate package submission through the standalone Device detail', async () => {
-    const state = withNodeScan11(withRemoteDiscovery())
-    const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open device 203.0.113.42' }))
-    await user.click(screen.getByRole('button', { name: 'INSPECT DEVICE' }))
-    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
-    expect(screen.getByText('Package submission')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'SUBMIT PACKAGE' })).toBeInTheDocument()
-  })
-  it('shows observed package submission, selects a concrete file ID, invokes RackUpdate, and reports success', async () => {
-    const state = withComposedLanTarget(true)
-    const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
-    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
-    expect(screen.getByText('Package submission')).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Local package'), 'file-ui-gatessh')
-    await user.click(screen.getByRole('button', { name: 'SUBMIT PACKAGE' }))
-    expect(screen.getByText('PACKAGE APPLIED')).toHaveAttribute('role', 'status')
-    const current = JSON.parse(screen.getByTestId('game-state').textContent!) as GameState
-    expect(current.world.network.hosts.find(({ id }) => id === 'host-lab-update')!.services!.find(({ id }) => id === 'service-ssh-002')!.implementation.releaseId).toBe('gate-ssh-1.3.2')
-  })
-
-  it('does not expose package submission before Enhanced Inspect observes the interface', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withComposedLanTarget(false)}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.53' }))
-    await user.click(screen.getByRole('button', { name: 'Open RackUpdate service' }))
-    expect(screen.queryByRole('button', { name: 'SUBMIT PACKAGE' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Local package')).not.toBeInTheDocument()
-  })
-
-  it('keeps generic branches independent for multiple LAN Devices supplied by a fixture', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withComposedLanTarget(false)}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open device 198.51.100.53' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.53' }))
-    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.53' })).toHaveTextContent('RackUpdate')
-    expect(screen.queryByRole('region', { name: 'Known services for 198.51.100.47' })).not.toBeInTheDocument()
-  })
-  it('connects and disconnects a remembered Device through canonical session state', async () => {
-    const known = discoveredState()
-    const state = { ...known, deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] } }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: /CONNECT/ }))
-    expect(screen.getByText('REMOTE SESSION')).toBeInTheDocument()
-    expect(screen.getByLabelText('Remote session active')).toHaveTextContent('ACTIVE')
-    expect(screen.getByLabelText('Remote session active')).toHaveTextContent('USER')
-    // The Session supersedes the Access presentation without deleting the Access it was built from.
-    expect(screen.getByLabelText('Remote session active')).toHaveTextContent('USER ACCESS · VIA SSH')
-    expect(screen.getByRole('button', { name: 'DISCONNECT' })).toBeInTheDocument()
-    expect((JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).remoteSession.active).toMatchObject({ accessId: 'access-0001' })
-    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
-    const disconnected = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    fireEvent.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    const disconnected = currentState()
     expect(disconnected.remoteSession.active).toBeNull()
-    expect(disconnected.deviceAccess.established).toEqual(state.deviceAccess.established)
-    expect(screen.getAllByText('USER ACCESS')).not.toHaveLength(0)
+    // Access is a relationship and outlives the Session.
+    expect(disconnected.deviceAccess.established).toHaveLength(1)
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
   })
 
-  it('presents access provenance on its Service and returns to Device without connecting', async () => {
-    const known = discoveredState()
-    const established = [{ id: 'access-altered', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }]
-    const state = { ...known, deviceAccess: { nextId: 9, established } }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('ACCESS PATH')).toBeInTheDocument()
-    expect(screen.getByText(/ESTABLISHED VIA THIS SERVICE/).closest('p')).toHaveTextContent('USER · ESTABLISHED VIA THIS SERVICE')
-    await user.click(screen.getByRole('button', { name: 'VIEW DEVICE' }))
-    expect(screen.getByLabelText('Device access available')).toHaveTextContent('USER ACCESS')
-    expect(screen.getByRole('button', { name: /CONNECT/ })).toBeInTheDocument()
-    const navigated = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(navigated.deviceAccess.established).toEqual(established)
-    expect(navigated.remoteSession.active).toBeNull()
+  it('investigates every observed Service from the one SCAN', async () => {
+    const user = await openTarget(foundTargets())
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
+
+    await waitFor(() => expect(currentState().process.processes).toHaveLength(2))
+    expect(currentState().process.processes.map((process) => [process.kind, (process as ServiceAnalysisProcess).serviceId]))
+      .toEqual([['service_analysis', 'service-ssh-001'], ['service_analysis', 'service-http-001']])
   })
 
-  it('does not present access provenance or VIEW DEVICE before access exists', async () => {
-    const user = await openLanDevice()
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.queryByText('ACCESS PATH')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'VIEW DEVICE' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Analyze' })).toBeInTheDocument()
+  it('offers the hack without asking the player to read a weakness identity or pick a tool', async () => {
+    const user = await openTarget(knownWeakness())
+    const status = screen.getByLabelText('Target status')
+    expect(status).toHaveTextContent('1 WAY IN FOUND')
+    expect(status.textContent).not.toContain('AUTH-017')
+    expect(status.textContent).not.toContain('Basic Credential Toolkit')
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'HACK' }))
+    // The tool and the technique are still real: the started attempt carries both.
+    expect(currentState().process.processes).toEqual([expect.objectContaining({
+      kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit', status: 'running',
+    })])
+  })
+})
+
+/* -------------------------------------------------- information boundary */
+
+describe('NodeScan information boundary', () => {
+  it('builds every target view from player information alone', () => {
+    const known = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
+    const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
+
+    expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route']])
+    const target = selectTarget(information, SRV_01)!
+    expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Basic Credential Toolkit' })])
   })
 
-  it('keeps CONNECT visible from remembered access and presents only coarse unavailable feedback', async () => {
-    const known = discoveredState()
-    const host = known.world.network.hosts[0]
-    const state = {
-      ...known,
-      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] },
-      world: { network: { ...known.world.network, hosts: [{ ...host, online: false }, ...known.world.network.hosts.slice(1)] } },
-    }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /></GameProvider>)
-    await navigateToServices(user)
-    const connect = screen.getByRole('button', { name: /CONNECT/ })
-    expect(connect).toBeEnabled()
-    await user.click(connect)
-    expect(screen.getByRole('status')).toHaveTextContent('TARGET NOT AVAILABLE')
-    expect(document.body).not.toHaveTextContent(/offline|service closed|stale address/i)
-  })
-  it('offers known credential access without hidden-world leakage and starts it through the application boundary', async () => {
-    let known = discoveredState()
-    const analysis = startServiceAnalysisFromObservation(known, { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' })
-    if (analysis.status !== 'started') throw Error(analysis.status)
-    known = advanceGameState(analysis.state, 20_000)
-    const host = known.world.network.hosts[0]
-    known = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...known.world.network.hosts.slice(1)] } } }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByRole('button', { name: 'Start credential access attempt' })).toHaveTextContent('Basic Credential Toolkit · Outcome unknown')
-    await user.click(screen.getByRole('button', { name: 'Start credential access attempt' }))
-    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'running', startedEndpoint: '198.51.100.47:22' })
-    expect(state.deviceAccess.established).toEqual([])
-    expect(screen.getByLabelText('Credential access running')).toBeInTheDocument()
+  it('offers no way in from hidden World Truth alone', async () => {
+    // srv-01 really is vulnerable, and its Services are remembered. Without
+    // earned Knowledge the interface must not know that.
+    await openTarget(scannedTarget())
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    expect(screen.queryByRole('button', { name: 'HACK' })).not.toBeInTheDocument()
   })
 
-  it('preserves the network registry identity while presenting NodeScan', () => {
-    expect(appRegistry.network.label).toBe('NodeScan')
-    expect(Object.entries(appRegistry).map(([id, app]) => [id, app.label])).toEqual([
-      ['terminal', 'Terminal'], ['network', 'NodeScan'], ['mail', 'NodeMail'], ['processes', 'Processes'],
-      ['files', 'Files'], ['wallet', 'Wallet'], ['notes', 'Notes'], ['system', 'System'],
-    ])
+  it('offers no way in without the represented tool, on identical Knowledge', () => {
+    const withTool = selectTarget(knownWeakness(), SRV_01)!
+    const withoutTool = selectTarget(withoutSoftware(knownWeakness(), 'basic-credential-toolkit'), SRV_01)!
+
+    expect(withTool.stage).toBe('route')
+    expect(withoutTool.stage).toBe('no_route')
+    expect(withoutTool.routes).toEqual([])
+    // The Knowledge itself is untouched; only the capability is gone.
+    expect(withoutTool.services.find(({ id }) => id === 'service-ssh-001')!.weaknesses).toEqual([{ id: 'AUTH-017', label: 'Weak authentication configuration' }])
   })
 
-  it('opens on a truthful Known Space atlas without leaking undiscovered details', async () => {
-    render(<GameProvider><Network /></GameProvider>)
-    expect(screen.getByText('Known and observed network space')).toBeInTheDocument()
-    expect(screen.getByText('KNOWN SPACE')).toBeInTheDocument()
-    expect(screen.getByText('NODESCAN')).toBeInTheDocument()
-    expect(screen.queryByText('SELF')).not.toBeInTheDocument()
-    expect(screen.queryByText('198.51.100.23')).not.toBeInTheDocument()
-    expect(screen.queryByText('home-net')).not.toBeInTheDocument()
-    expect(scanTargetSpy).not.toHaveBeenCalled()
+  it('withdraws the hack from the interface when the represented tool is gone', async () => {
+    await openTarget(knownWeakness())
+    expect(screen.getByRole('button', { name: 'HACK' })).toBeInTheDocument()
+    cleanup()
+
+    await openTarget(withoutSoftware(knownWeakness(), 'basic-credential-toolkit'))
+    expect(screen.queryByRole('button', { name: 'HACK' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
   })
 
-  it('derives product metadata from canonical software and reports an absent installation', () => {
-    const base = createInitialGameState()
-    const altered: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, version: '2.4', channel: 'preview' } : software) } } }
-    const view = render(<GameProvider initialState={altered}><Network /></GameProvider>)
-    expect(screen.getByText('2.4 PREVIEW')).toBeInTheDocument()
-    view.unmount()
-    const absent: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
-    render(<GameProvider initialState={absent}><Network /></GameProvider>)
-    expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
-    expect(screen.queryByText('KNOWN SPACE')).not.toBeInTheDocument()
-    expect(screen.queryByText(base.world.network.localNetworks[0].name)).not.toBeInTheDocument()
-  })
-
-
-  it('inspects remembered objects through the shared action and browsing does not observe again', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withNodeScan11(discoveredState())}><Network /><StateSnapshot /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    expect(screen.queryByText('SELF CONNECTED')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'INSPECT NETWORK' }))
-    expect(screen.getByText('SELF CONNECTED')).toBeInTheDocument()
-    expect(screen.getByText('YES')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.queryByText('TYPE')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'INSPECT DEVICE' }))
-    expect(screen.getByText('TYPE')).toBeInTheDocument()
-    expect(screen.getByText('SERVER')).toBeInTheDocument()
-    expect(screen.getByText('ONLINE')).toBeInTheDocument()
-    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.services).toHaveLength(2)
-    expect(state.knowledge.discoveredVulnerabilities).toEqual([])
-  })
-
-  it('presents NodeScan 1.1 Experimental enhanced evidence through the same INSPECT DEVICE action', async () => {
-    const user = userEvent.setup()
-    const state = discoveredState()
-    const withNodeScan11 = {
-      ...state,
-      player: {
-        ...state.player,
-        localDevice: {
-          ...state.player.localDevice,
-          installedSoftware: state.player.localDevice.installedSoftware.map((software) =>
-            software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software),
-        },
-      },
-    }
-    render(<GameProvider initialState={withNodeScan11}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'INSPECT DEVICE' }))
-    expect(screen.getByText('FIRMWARE')).toBeInTheDocument()
-    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    expect(screen.getByText('COMPUTE')).toBeInTheDocument()
-    expect(screen.getByText('HIGH')).toBeInTheDocument()
-    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
-    expect(screen.getByText('Authentication: Credential')).toBeInTheDocument()
-    expect(screen.getByText('Basic HTTP 1.0')).toBeInTheDocument()
-    expect(document.body.textContent).not.toMatch(/AUTH-017/)
-  })
-
-  it('renders stored Service fingerprints rather than changed hidden World Truth', async () => {
-    const base = discoveredState()
-    const observed = {
-      ...base,
-      discovery: {
-        ...base.discovery,
-        devices: base.discovery.devices.map((device) => device.id === 'host-lan-001' ? {
-          ...device,
-          services: device.services.map((service) => service.id === 'service-ssh-001' ? {
-            ...service, inspect: { implementation: { name: 'GateSSH', version: '1.3.2' }, authentication: 'Credential' as const },
-          } : service),
-        } : device),
-      },
-      world: {
-        network: {
-          ...base.world.network,
-          hosts: base.world.network.hosts.map((host) => host.id === 'host-lan-001' ? {
-            ...host,
-            services: host.services?.map((service) => service.id === 'service-ssh-001' ? {
-              ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }, credentialAccess: { privilege: 'USER' as const },
-            } : service),
-          } : host),
-        },
-      },
-    }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={observed}><Network /></GameProvider>)
-    await navigateToServices(user)
-    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
-    expect(screen.getByText('Authentication: Credential')).toBeInTheDocument()
-    expect(screen.queryByText(/1\.4\.0/)).not.toBeInTheDocument()
-  })
-
-
-  it('offers no Inspect action for NodeScan 1.0 Standard while preserving Scan', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.queryByRole('button', { name: /INSPECT/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Scan device 198.51.100.47' })).toBeInTheDocument()
-    expect(screen.queryByText('FIRMWARE')).not.toBeInTheDocument()
-    expect(screen.queryByText('COMPUTE')).not.toBeInTheDocument()
-  })
-
-  it('opens a Known Space area without scanning', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    scanTargetSpy.mockClear()
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    expect(scanTargetSpy).not.toHaveBeenCalled()
-  })
-
-  it('uses independent top-level Network and terminating child structures', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    const branch = container.querySelector('.ns-network-list > .ns-network-branch:last-child')
-    expect(branch).not.toBeNull()
-    expect(container.querySelector('.ns-origin-node')).toBeNull()
-    // A collapsed branch leaves no child geometry behind to dangle.
-    expect(container.querySelector('.ns-limb')).toBeNull()
-
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    const members = screen.getByRole('region', { name: 'Known members of home-net' })
-    // Every member is a limb that terminates its own rail, so the last one ends the branch.
-    expect(members.querySelectorAll(':scope > .ns-limbs > .ns-limb')).toHaveLength(2)
-    expect(members.querySelector(':scope > .ns-limbs > .ns-limb:last-child')).not.toBeNull()
-
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    const services = screen.getByRole('region', { name: 'Known services for 198.51.100.47' })
-    expect(services.querySelectorAll(':scope > .ns-limb--service')).toHaveLength(2)
-    expect(services.querySelector(':scope > .ns-limb--service:last-child')).not.toBeNull()
-    // The Service branch is nested inside its own Device limb, never beside it.
-    expect(services.closest('.ns-limb')).toBe(members.querySelector(':scope > .ns-limbs > .ns-limb:nth-child(2)'))
-    expect(services.previousElementSibling).toHaveClass('ns-node--device', 'is-expanded')
-    expect(services).toHaveClass('ns-limbs--service')
-  })
-
-  it.each([
-    ['service-ssh-001', 'SSH', 'HTTP'],
-    ['service-http-001', 'HTTP', 'SSH'],
-  ])('marks only the retained DeviceAccess Service (%s), without an active Session', async (viaServiceId, accessedName, otherName) => {
-    const known = discoveredState()
-    const state: GameState = {
-      ...known,
-      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId, privilege: 'USER' }] },
-      remoteSession: { ...known.remoteSession, active: null },
-    }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-
-    const accessed = screen.getByRole('button', { name: `Open ${accessedName} service · USER ACCESS ESTABLISHED` })
-    const other = screen.getByRole('button', { name: `Open ${otherName} service` })
-    expect(accessed.querySelector('.ns-glyph')).toHaveClass('ns-glyph--access')
-    expect(other.querySelector('.ns-glyph')).not.toHaveClass('ns-glyph--access')
-  })
-
-  it('leaves every remembered Service marker unaccessed when no DeviceAccess exists', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-
-    expect(screen.getByRole('button', { name: 'Open SSH service' }).querySelector('.ns-glyph')).not.toHaveClass('ns-glyph--access')
-    expect(screen.getByRole('button', { name: 'Open HTTP service' }).querySelector('.ns-glyph')).not.toHaveClass('ns-glyph--access')
-  })
-
-
-
-
-  it('bootstraps from Scan SELF and then stops competing with the space it produced', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider><Network /></GameProvider>)
-    const bootstrap = screen.getByRole('button', { name: 'Scan self 198.51.100.23' })
-    expect(bootstrap).toHaveClass('ns-primary')
-    expect(screen.getByText('NO NETWORKS KNOWN')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Scan network/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('ACTIONS')).not.toBeInTheDocument()
-
-    await user.click(bootstrap)
-    const network = await screen.findByRole('button', { name: 'Open known area home-net' })
-    expect(screen.queryByRole('button', { name: 'Scan self 198.51.100.23' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Re-observe connected Networks.')).not.toBeInTheDocument()
-    await user.click(network)
-    const scanNetwork = screen.getByRole('button', { name: 'Scan network home-net' })
-    expect(scanNetwork).toBeInTheDocument()
-    scanTargetSpy.mockClear()
-    await user.click(scanNetwork)
-    expect(scanTargetSpy).toHaveBeenCalledWith(expect.anything(), 'home-net')
-    expect(screen.getByRole('button', { name: 'Scan network home-net' })).toBeInTheDocument()
-    expect(screen.queryByText('ACTIONS')).not.toBeInTheDocument()
-  })
-
-  it('does not render a post-bootstrap SELF Scan for already known space', () => {
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    expect(screen.queryByRole('button', { name: 'Scan self 198.51.100.23' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Re-observe connected Networks.')).not.toBeInTheDocument()
-  })
-
-  it('opens existing Service and Device detail views from an expanded Network branch', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByRole('heading', { name: 'SSH' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: '← home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
-    expect(screen.getByText('OBSERVED')).toBeInTheDocument()
-  })
-
-  it('keeps the browsed tree shape when a detail view is opened and left', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: '← home-net' }))
-    await user.click(screen.getByRole('button', { name: '← Known Space' }))
-
-    // Back in the workspace, the branch the player opened is still open.
-    expect(screen.getByRole('button', { name: 'Open known area home-net' })).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('region', { name: 'Known services for 198.51.100.47' })).toHaveTextContent('SSH')
-  })
-
-  it('keeps the relationship tree compact while retaining Inspect and Access evidence in detail', async () => {
-    const inspected = withInspectedDevice(discoveredState())
-    const state = {
-      ...inspected,
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] },
-      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: inspected.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }] },
-    }
-    const running = startServiceAnalysisAtEndpoint(state, '198.51.100.47:22')
-    if (running.status !== 'started') throw Error(running.status)
-    const user = userEvent.setup()
-    render(<GameProvider initialState={running.state}><Network /></GameProvider>)
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    const device = screen.getByRole('button', { name: 'Open device 198.51.100.47' })
-    const deviceRow = device.closest('.ns-node')
-    expect(deviceRow).toHaveTextContent('LAN DEVICE')
-    expect(deviceRow).toHaveTextContent('2 known services')
-    expect(deviceRow).not.toHaveTextContent(/RACK-OS|HIGH COMPUTE|ACCESS ESTABLISHED/)
-    await user.click(screen.getByRole('button', { name: 'Expand device 198.51.100.47' }))
-    const service = screen.getByRole('button', { name: 'Open SSH service · USER ACCESS ESTABLISHED' })
-    expect(service).toHaveTextContent('SSH')
-    expect(service).toHaveTextContent('22 / TCP')
-    expect(service).not.toHaveTextContent(/GateSSH|Authentication|AUTH-017|USER ACCESS|ANALYSIS RUNNING/)
-
-    await user.click(device)
-    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    expect(screen.getByText('HIGH')).toBeInTheDocument()
-    expect(screen.getByLabelText('Device access available')).toHaveTextContent('ESTABLISHED VIA SSH')
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
-    expect(screen.getByText('AUTHENTICATION').closest('div')).toHaveTextContent('Credential')
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    expect(screen.getByText('ANALYSIS RUNNING')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'INSPECT NETWORK' })).not.toBeInTheDocument()
-  })
-
-  it('executes graphical Scan through the application operation without reading World', async () => {
-    const base = createInitialGameState()
-    const stateWithoutReadableWorld = Object.defineProperty({ ...base, discovery: discoveredState().discovery }, 'world', {
-      get: () => { throw new Error('Scan UI read hidden World') },
-    }) as GameState
-    const scanTarget = vi.fn(async (input: string) => input === base.player.localDevice.network.ip
-      ? { status: 'device' as const, targetId: base.player.localDevice.id, address: input, scope: 'self' as const, networks: [{ id: 'network-home-v0', name: 'home-net' }], services: [] }
-      : { status: 'network' as const, networkId: 'network-home-v0', networkName: input, devices: [] })
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(stateWithoutReadableWorld)
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      scanTarget,
-      inspectTarget: vi.fn(),
-      startServiceAnalysis: vi.fn(),
-      startServiceAnalysisAtEndpoint: vi.fn(),
-      startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
-      connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
-    })
+  it('keeps stale remembered information stale after the world changes underneath it', async () => {
+    // A legitimate RackUpdate rollback changes the represented GateSSH release
+    // on a second target. Remembered evidence must not silently refresh.
+    const observed = withNodeScan11(createInitialGameState())
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    let discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
+    discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), observed.player.localDevice.id)
+    const gatePackage = observed.world.network.hosts.find(({ id }) => id === SRV_01)!.filesystem!.files.find(({ id }) => id === 'file-0003')!
+    const carrying = { ...observed, discovery, player: { ...observed.player, localDevice: { ...observed.player.localDevice, filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } } }
+    const applied = submitRackUpdatePackageFromObservation(
+      { ...carrying, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] } },
+      { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443', localFileId: 'file-local-gate' },
+    )
+    expect(applied.status).toBe('applied')
 
     const user = userEvent.setup()
-    render(<Network />)
-    expect(scanTarget).not.toHaveBeenCalled()
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    expect(scanTarget).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Scan network home-net' }))
-    expect(scanTarget).toHaveBeenCalledOnce()
-    expect(scanTarget).toHaveBeenCalledWith('home-net')
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.getByText('1 known')).toBeInTheDocument()
-    expect(screen.getAllByText('home-net')).not.toHaveLength(0)
-    expect(document.body).not.toHaveTextContent(/network-local-001|host-lan-001/)
-  })
-
-  it('ignores an older rescan result after a newer device observation resolves', async () => {
-    const state = createInitialGameState()
-    const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    const oldNetwork = deferred<ReturnType<typeof scanNetworkTarget>>()
-    const newerDevice = deferred<ReturnType<typeof scanNetworkTarget>>()
-    let delayNetwork = false
-    const scanTarget = vi.fn(async (input: string) => {
-      if (delayNetwork && input === 'home-net') return oldNetwork.promise
-      if (input === '198.51.100.47') return newerDevice.promise
-      return scanNetworkTarget(targets, input)
-    })
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
-    const user = userEvent.setup()
-    render(<Network />)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    delayNetwork = true
-    await user.click(screen.getByRole('button', { name: 'Scan network home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    await act(async () => newerDevice.resolve(scanNetworkTarget(targets, '198.51.100.47')))
-    expect(await screen.findByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
-    await act(async () => oldNetwork.resolve({ status: 'network', networkId: 'network-home-v0', networkName: 'home-net', devices: [] }))
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
-  })
-
-  it('invalidates a pending device observation when navigating Back', async () => {
-    const state = createInitialGameState()
-    const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    const device = deferred<ReturnType<typeof scanNetworkTarget>>()
-    const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
-    const user = userEvent.setup()
-    render(<Network />)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: '← home-net' }))
-    await user.click(screen.getByRole('button', { name: '← Known Space' }))
-    await act(async () => device.resolve(scanNetworkTarget(targets, '198.51.100.47')))
-    expect(screen.getByRole('heading', { name: 'KNOWN SPACE' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Open SSH service' })).not.toBeInTheDocument()
-  })
-
-  it('deduplicates rapid requests for the same pending device', async () => {
-    const state = createInitialGameState()
-    const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    const device = deferred<ReturnType<typeof scanNetworkTarget>>()
-    const scanTarget = vi.fn(async (input: string) => input === '198.51.100.47' ? device.promise : scanNetworkTarget(targets, input))
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(withDiscovery(state))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ scanTarget, inspectTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
-    const user = userEvent.setup()
-    render(<Network />)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    scanTarget.mockClear()
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    const scanDevice = screen.getByRole('button', { name: 'Scan device 198.51.100.47' })
-    fireEvent.click(scanDevice)
-    fireEvent.click(scanDevice)
-    expect(scanTarget).toHaveBeenCalledOnce()
-    await act(async () => device.resolve(scanNetworkTarget(targets, '198.51.100.47')))
-  })
-
-  it('copies device addresses and complete endpoints', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    const user = await openLanDevice()
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
-    await user.click(screen.getByRole('button', { name: 'Copy 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    await user.click(screen.getByRole('button', { name: 'Copy 198.51.100.47:22' }))
-    expect(writeText).toHaveBeenNthCalledWith(1, '198.51.100.47')
-    expect(writeText).toHaveBeenNthCalledWith(2, '198.51.100.47:22')
-  })
-
-  it('navigates locally from Service to Device to Network to Known Space', async () => {
-    const user = await openLanDevice()
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByRole('heading', { name: 'SSH' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
-    expect(screen.getByText('2 known services')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← home-net' }))
-    expect(screen.getByText('2 known devices')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← Known Space' }))
-    expect(await screen.findByRole('button', { name: 'Open known area home-net' })).toBeInTheDocument()
-  })
-
-  it('starts concrete analyses and presents canonical running state', async () => {
-    const user = await openLanDevice()
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    const analyze = screen.getByRole('button', { name: 'Analyze' })
-    await user.click(analyze)
-    expect(screen.getByText('ANALYSIS RUNNING')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Analyze' })).not.toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toBeInTheDocument()
-    await waitFor(() => expect(Number(screen.getByRole('progressbar').getAttribute('value'))).toBeGreaterThan(0), { timeout: 1500 })
-  })
-
-  it('binds Analyze to the observed endpoint and never silently retargets a stale card', async () => {
-    let canonical = createInitialGameState()
-    const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => {
-      const result = startServiceAnalysisFromObservation(canonical, observed)
-      if (result.status === 'started') canonical = result.state
-      return result
-    })
-    vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
-    })
-    const user = userEvent.setup(); const view = render(<Network />)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    const host = canonical.world.network.hosts[0]
-    const movedServices = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []
-    canonical = {
-      ...canonical,
-      world: { network: { ...canonical.world.network, hosts: [{ ...host, services: [...movedServices, { id: 'service-replacement', name: 'REPLACEMENT', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'replacement', releaseId: 'replacement-1.0', name: 'Replacement', version: '1.0' } }] }, ...canonical.world.network.hosts.slice(1)] } },
-      process: { nextId: 3, processes: [
-        { kind: 'service_analysis', id: 'process-0001', label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'running', workRequired: 1000, workCompleted: 400, ramRequiredMiB: 768, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:2222' },
-        { kind: 'service_analysis', id: 'process-0002', label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'completed', workRequired: 1000, workCompleted: 1000, ramRequiredMiB: 768, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:2222', result: { status: 'weaknesses_detected', vulnerabilities: [] } },
-      ] },
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'known-ssh', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Historical SSH weakness' }] },
-    }
-    view.rerender(<Network />)
-    expect(screen.queryByText('ANALYSIS RUNNING')).not.toBeInTheDocument()
-    expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()
-    expect(screen.getByText('Historical SSH weakness')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(endpointAction).toHaveBeenCalledWith({ endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' })
-    expect(canonical.process.processes).toHaveLength(2)
-    expect(screen.getByText('ENDPOINT NOT AVAILABLE')).toBeInTheDocument()
-    expect(screen.getByText('198.51.100.47:22')).toBeInTheDocument()
-    expect(screen.queryByText('198.51.100.47:2222')).not.toBeInTheDocument()
-  })
-
-  it('runs SSH and HTTP concurrently through canonical Process state', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    await user.click(screen.getByRole('button', { name: 'Analyze' }))
-    await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
-    expect(screen.getByText(/ANALYSIS RUNNING/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open HTTP service' }))
-    await user.click(screen.getByRole('button', { name: 'Analyze' }))
-    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.process.processes).toMatchObject([{ status: 'running', serviceId: 'service-ssh-001' }, { status: 'running', serviceId: 'service-http-001' }])
-  })
-
-  it('presents the empty Finding state before analysis produces a result', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={discoveredState()}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open HTTP service' }))
-    expect(screen.getByText('No known weakness recorded')).toBeInTheDocument()
-    expect(screen.queryByText('No weakness detected')).not.toBeInTheDocument()
-    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
-  })
-
-  it('presents positive SSH Knowledge and precise historical HTTP completion', async () => {
-    const base = createInitialGameState()
-    const ssh = startServiceAnalysisAtEndpoint(base, '198.51.100.47:22'); if (ssh.status !== 'started') throw Error(ssh.status)
-    const http = startServiceAnalysisAtEndpoint(ssh.state, '198.51.100.47:80'); if (http.status !== 'started') throw Error(http.status)
-    const completed = advanceGameState(http.state, 30_000)
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withDiscovery(completed)}><Network /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    // Durable Knowledge is marked on the Service it belongs to. Disposable
-    // completed-Process history is not promoted into the Device index.
-    expect(screen.getByText('KNOWN WEAKNESS · AUTH-017')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open HTTP service' }).textContent).not.toMatch(/KNOWN WEAKNESS|analy/i)
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()
-    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Analyze again' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'Open HTTP service' }))
-    expect(screen.getByText('No weakness detected')).toBeInTheDocument()
-    expect(screen.queryByText('No known weakness recorded')).not.toBeInTheDocument()
-    expect(document.body.textContent).not.toMatch(/\bSAFE\b|\bSECURE\b/)
-    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.knowledge.discoveredVulnerabilities.filter(({ serviceId }) => serviceId === 'service-http-001')).toEqual([])
-    expect(screen.getByRole('button', { name: 'Analyze again' })).toBeInTheDocument()
-  })
-
-  it('retains a Finding alongside a later non-redundant no-weakness result', async () => {
-    const first = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (first.status !== 'started') throw Error(first.status)
-    const learned = advanceGameState(first.state, 20_000)
-    const host = learned.world.network.hosts[0]
-    const changed = { ...learned, world: { network: { ...learned.world.network, hosts: [{ ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...learned.world.network.hosts.slice(1)] } } }
-    const second = startServiceAnalysisAtEndpoint(changed, '198.51.100.47:22'); if (second.status !== 'started') throw Error(second.status)
-    const completed = advanceGameState(second.state, 20_000)
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withDiscovery(completed)}><Network /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    expect(screen.getByText('No weakness detected')).toBeInTheDocument()
-    expect(screen.queryByText('LAST ANALYSIS')).not.toBeInTheDocument()
-    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
-  })
-
-  it('clears completed history without clearing Knowledge and permits monotonic re-analysis', async () => {
-    const started = startServiceAnalysisAtEndpoint(createInitialGameState(), '198.51.100.47:22'); if (started.status !== 'started') throw Error(started.status)
-    const completed = advanceGameState(started.state, 20_000)
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withDiscovery(completed)}><Network /><ClearCompleted /><StateSnapshot /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Clear test history' }))
-    expect(screen.queryByText('Weakness detected')).not.toBeInTheDocument()
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Analyze' }))
-    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.process.processes[0]).toMatchObject({ id: 'process-0002', status: 'running', serviceId: 'service-ssh-001' })
-  })
-
-  it('uses retained Knowledge even if current vulnerability truth has changed', async () => {
-    const base = createInitialGameState()
-    const host = base.world.network.hosts.find((candidate) => candidate.ip === '198.51.100.47')!
-    const ssh = host.services![0]
-    const state = {
-      ...base,
-      world: { network: { ...base.world.network, hosts: base.world.network.hosts.map((candidate) => candidate.id === host.id ? { ...candidate, services: candidate.services?.map((service) => service.id === ssh.id ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) } : candidate) } },
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'historical', targetDeviceId: host.id, serviceId: ssh.id, observedLabel: 'Weak authentication configuration' }] },
-    }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withDiscovery(state)}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.getByText('KNOWN WEAKNESS · historical')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-  })
-
-  it('reports canonical memory contention locally', async () => {
-    const state = createInitialGameState()
-    const constrained = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, hardware: { ...state.player.localDevice.hardware, ram: { ...state.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
-    const user = userEvent.setup()
-    render(<GameProvider initialState={withDiscovery(constrained)}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(screen.getByText(/INSUFFICIENT MEMORY/)).toBeInTheDocument()
-  })
-
-  it('opens fresh NodeScan 1.0 on a coherent Scan next step and grows only through observation', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider><Network /><StateSnapshot /></GameProvider>)
-    expect(screen.queryByText('SELF')).not.toBeInTheDocument()
-    expect(screen.queryByText('198.51.100.23')).not.toBeInTheDocument()
-    expect(screen.getByText('NO NETWORKS KNOWN')).toBeInTheDocument()
-    expect(screen.queryByText('home-net')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /INSPECT/ })).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Scan self 198.51.100.23' }))
-    const network = await screen.findByRole('button', { name: 'Open known area home-net' })
-    // Discovering a Network is not observing its members.
-    expect(network).toHaveTextContent('Members not observed')
-    expect(screen.queryByText('198.51.100.47')).not.toBeInTheDocument()
-
-    await user.click(network)
-    expect(screen.getByText('MEMBERSHIP NOT FULLY OBSERVED')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Scan network home-net' }))
-    expect(await screen.findByRole('button', { name: 'Open device 198.51.100.47' })).toBeInTheDocument()
-    expect(screen.getByText('2 known devices')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.getByText('NOT OBSERVED')).toBeInTheDocument()
-    expect(screen.getByText('SERVICES NOT OBSERVED')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
-    expect(await screen.findByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
-    expect(screen.getByText('2 known services')).toBeInTheDocument()
-    // Scan observes structure; it never fabricates Inspect evidence or hidden identity.
-    expect(screen.queryByText('FIRMWARE')).not.toBeInTheDocument()
+    render(<GameProvider initialState={applied.state}><Network /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    // The world now runs GateSSH 1.3.2, which is vulnerable. Player memory says 1.3.3.
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    await openDetails(user)
+    expect(screen.getByText('GateSSH 1.3.3')).toBeInTheDocument()
     expect(screen.queryByText('GateSSH 1.3.2')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('NodeScan workspace').textContent).not.toMatch(/srv-0|host-lan|network-local/)
-
-    const state = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(state.discovery.devices.map(({ address }) => address)).toEqual(['198.51.100.47'])
-    expect(state.knowledge.discoveredVulnerabilities).toEqual([])
   })
 
+  it('never observes or changes anything by opening technical details', async () => {
+    const user = await openTarget(knownWeakness())
+    const before = screen.getByTestId('game-state').textContent
+    scanTargetSpy.mockClear()
 
-  it('keeps NodeScan 1.1 capability while its removal Process runs and drops it only on completion', async () => {
-    const evidence = withInspectedDevice(withNodeScan11(discoveredState()))
-    const removing = removeInstalledSoftware(evidence, 'nodescan')
-    if (removing.status !== 'started') throw Error(removing.status)
-    const restored = advanceGameState(removing.state, 20_000)
-    expect(restored.player.localDevice.installedSoftware.find(({ id }) => id === 'nodescan')?.releaseId).toBe(NODESCAN_1_0_STANDARD_RELEASE_ID)
+    await openDetails(user)
+    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(screen.getByTestId('game-state').textContent).toBe(before)
+  })
 
+  it('never observes by browsing Known Space', async () => {
     const user = userEvent.setup()
-    const running = render(<GameProvider initialState={removing.state}><Network /></GameProvider>)
-    await navigateToServices(user)
-    // 1.1 remains the installed release until removal completes.
-    expect(screen.getByRole('button', { name: 'INSPECT AGAIN' })).toBeInTheDocument()
-    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    running.unmount()
+    render(<GameProvider initialState={scannedTarget()}><Network /><StateSnapshot /></GameProvider>)
+    const before = screen.getByTestId('game-state').textContent
+    scanTargetSpy.mockClear()
 
-    render(<GameProvider initialState={restored}><Network /></GameProvider>)
-    await navigateToServices(user)
-    expect(screen.queryByRole('button', { name: /INSPECT/ })).not.toBeInTheDocument()
-    // Capability was lost; remembered observations were not.
+    await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(screen.getByTestId('game-state').textContent).toBe(before)
+  })
+})
+
+/* ----------------------------------------------------- canonical progress */
+
+describe('NodeScan progress', () => {
+  it('takes scan progress from canonical Process state', async () => {
+    await openTarget(withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 250), analysisProcess('process-0002', 'service-http-001', 750)]))
+    expect(screen.getByRole('group', { name: 'Scan progress' })).toHaveTextContent('50%')
+  })
+
+  it('takes hack progress from canonical Process state', async () => {
+    await openTarget(withProcesses(knownWeakness(), [credentialProcess(300)]))
+    const status = screen.getByLabelText('Target status')
+    expect(status).toHaveTextContent('HACKING')
+    expect(screen.getByRole('group', { name: 'Hack progress' })).toHaveTextContent('25%')
+  })
+
+  it('reports a failed attempt coarsely while the same route stays available', async () => {
+    const failed = withProcesses(knownWeakness(), [{ ...credentialProcess(1200), status: 'completed', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } }])
+    await openTarget(failed)
+    const status = screen.getByLabelText('Target status')
+    expect(status).toHaveTextContent('1 WAY IN FOUND')
+    expect(status).toHaveTextContent('The last attempt failed.')
+    expect(screen.getByRole('button', { name: 'HACK AGAIN' })).toBeInTheDocument()
+  })
+})
+
+/* ------------------------------------------------------- technical depth */
+
+describe('NodeScan technical details', () => {
+  it('explains the route from player information and represented software', async () => {
+    const user = await openTarget(withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState())))))
+    await openDetails(user)
+
+    const details = screen.getByText('WAYS IN').closest('.ns-detail-panel')!
+    expect(details).toHaveTextContent('Credential attack')
+    expect(details).toHaveTextContent('Basic Credential Toolkit')
+    expect(details).toHaveTextContent('GateSSH 1.3.2')
+    expect(details).toHaveTextContent('Weak authentication configuration · AUTH-017')
+  })
+
+  it('keeps single-Service investigation available as advanced depth', async () => {
+    const user = await openTarget(scannedTarget())
+    await openDetails(user)
+    await user.click(screen.getByRole('button', { name: 'Analyze HTTP' }))
+
+    expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-http-001', status: 'running' })])
+  })
+
+  it('states remembered evidence with its capability note under a release that cannot Inspect', async () => {
+    const remembered = { ...scannedTarget(withNodeScan11(createInitialGameState())), player: createInitialGameState().player }
+    const user = await openTarget(remembered)
+    await openDetails(user)
+
     expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    expect(screen.getByText('HIGH')).toBeInTheDocument()
-    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
     expect(screen.getByText(/does not supply Inspect/)).toBeInTheDocument()
   })
 
-  it('keeps remembered Inspect evidence through a later NodeScan 1.0 Scan', async () => {
-    const downgraded = withInspectedDevice(withNodeScan11(discoveredState()))
-    const state: GameState = {
-      ...downgraded,
-      player: { ...downgraded.player, localDevice: { ...downgraded.player.localDevice, installedSoftware: downgraded.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: NODESCAN_1_0_STANDARD_RELEASE_ID, version: '1.0', channel: 'standard' } : software) } },
+  it('states unobserved depth explicitly rather than as an observed empty result', async () => {
+    const user = await openTarget(foundTargets())
+    await openDetails(user)
+    expect(screen.getByText('SERVICES NOT OBSERVED')).toBeInTheDocument()
+    expect(screen.getByText('NOT OBSERVED')).toBeInTheDocument()
+  })
+
+  it('shows the provenance of established access', async () => {
+    const user = await openTarget(withAccess())
+    await openDetails(user)
+    const facts = screen.getByText('ACCESS').closest('.ns-detail-panel')!
+    expect(facts).toHaveTextContent('USER')
+    expect(facts).toHaveTextContent('SSH')
+  })
+})
+
+/* ------------------------------------------------ RackUpdate as depth only */
+
+describe('RackUpdate after the reset', () => {
+  function srv02(): GameState {
+    const observed = withNodeScan11(createInitialGameState())
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    let discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
+    discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), observed.player.localDevice.id)
+    const gatePackage = observed.world.network.hosts.find(({ id }) => id === SRV_01)!.filesystem!.files.find(({ id }) => id === 'file-0003')!
+    return {
+      ...observed,
+      discovery,
+      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] },
+      player: { ...observed.player, localDevice: { ...observed.player.localDevice, filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } },
     }
+  }
+
+  it('is never a way in and never reaches the primary surface', async () => {
     const user = userEvent.setup()
-    render(<GameProvider initialState={state}><Network /></GameProvider>)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Scan device 198.51.100.47' }))
-    expect(await screen.findByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
-    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /INSPECT/ })).not.toBeInTheDocument()
+    render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+
+    const view = screen.getByLabelText('NodeScan')
+    const details = view.querySelector('details')!
+    expect(details).not.toHaveAttribute('open')
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    expect(view.textContent!.replace(details.textContent!, '')).not.toContain('RackUpdate')
+    // The whole avenue lives behind the disclosure, never on the decision surface.
+    expect(screen.getByRole('combobox', { name: 'Rollback package' }).closest('details')).toBe(details)
   })
 
-  it('treats only canonical InstalledSoftware as NodeScan, never a package artifact or a running installer', () => {
-    const base = createInitialGameState()
-    const absent: GameState = {
-      ...base,
-      player: { ...base.player, localDevice: { ...base.player.localDevice,
-        installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan'),
-        filesystem: { nextFileId: 4, files: [...base.player.localDevice.filesystem.files, { kind: 'software_package', id: 'file-0003', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 }] },
-      } },
-      process: { nextId: 2, processes: [{ kind: 'software_installation', id: 'process-0001', label: 'SOFTWARE INSTALLATION', executorDeviceId: 'device-local-v0', status: 'running', workRequired: 1000, workCompleted: 400, ramRequiredMiB: 256, productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] },
-      discovery: discoveredState().discovery,
-    }
-    render(<GameProvider initialState={absent}><Network /></GameProvider>)
-    expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
-    expect(screen.queryByText('KNOWN SPACE')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /SCAN/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('home-net')).not.toBeInTheDocument()
+  it('remains a complete avenue underneath, named only where Knowledge justifies it', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    await openDetails(user)
+
+    expect(screen.getByText(/does not enforce rollback protection/)).toBeInTheDocument()
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Rollback package' }), 'file-local-gate')
+    await user.click(screen.getByRole('button', { name: 'APPLY PACKAGE' }))
+
+    expect(screen.getByText('PACKAGE APPLIED')).toBeInTheDocument()
+    const managed = currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
+    expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.2')
   })
 
-  it('presents the whole Device and Service investigation surface without reading hidden World Truth', async () => {
-    const known = withInspectedDevice(withNodeScan11(discoveredState()))
-    const information: GameState = {
-      ...known,
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] },
-      deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: known.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
-    }
-    const sealed = Object.defineProperty({ ...information }, 'world', {
-      get: () => { throw new Error('NodeScan read hidden World') },
-    }) as GameState
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(sealed)
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actionStubs())
+  it('does not offer the avenue before UPD-001 is earned', async () => {
+    const unknown = { ...srv02(), knowledge: { discoveredVulnerabilities: [] } }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={unknown}><Network /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    await openDetails(user)
+
+    expect(screen.queryByText('PACKAGE ROLLBACK')).not.toBeInTheDocument()
+  })
+})
+
+/* ------------------------------------------------- software and lifecycle */
+
+describe('NodeScan software and request lifecycle', () => {
+  it('reports an absent NodeScan installation instead of a target space', () => {
+    render(<GameProvider initialState={withoutSoftware(scannedTarget(), 'nodescan')}><Network /></GameProvider>)
+    expect(screen.getByText('NO RECONNAISSANCE SOFTWARE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).not.toBeInTheDocument()
+  })
+
+  it('derives product identity from canonical installed software', () => {
+    render(<GameProvider initialState={withNodeScan11(scannedTarget())}><Network /></GameProvider>)
+    expect(screen.getByText('NODESCAN')).toBeInTheDocument()
+    expect(screen.getByText('1.1 EXPERIMENTAL')).toBeInTheDocument()
+  })
+
+  it('registers NodeScan under its own application identity', () => {
+    expect(appRegistry.network.label).toBe('NodeScan')
+  })
+
+  it('deduplicates rapid requests for the same subject', async () => {
+    const pending = deferred<Awaited<ReturnType<GameContext.GameActions['sweepTarget']>>>()
+    const actions = { ...actionStubs(), sweepTarget: vi.fn(() => pending.promise) }
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
+
     const user = userEvent.setup()
     render(<Network />)
-    expect(screen.queryByRole('button', { name: 'Open device 198.51.100.47' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    expect(screen.getByRole('button', { name: 'Open device 198.51.100.47' })).toHaveTextContent('2 known services')
+    await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
+    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
 
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
-    expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    expect(screen.getByText('HIGH')).toBeInTheDocument()
-    expect(screen.getByLabelText('Device access available')).toHaveTextContent('ESTABLISHED VIA SSH')
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toHaveTextContent('KNOWN WEAKNESS · AUTH-017')
-
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    expect(screen.getByText('GateSSH 1.3.2')).toBeInTheDocument()
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    expect(screen.getByText('ACCESS PATH')).toBeInTheDocument()
-    expect(document.body.textContent).not.toMatch(/srv-0|host-lan|service-ssh|secondFactor/)
+    expect(actions.sweepTarget).toHaveBeenCalledTimes(1)
+    await act(async () => { pending.resolve({ status: 'observed', servicesObserved: 2, analysesStarted: 2, insufficientMemory: false }) })
   })
 
-  it('does not display stale start feedback beside canonical running state', async () => {
-    const base = createInitialGameState()
-    let canonical: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, hardware: { ...base.player.localDevice.hardware, ram: { ...base.player.localDevice.hardware.ram, capacityMiB: 700 } } } } }
-    const endpointAction = vi.fn((observed: { endpoint: string; targetDeviceId: string; serviceId: string }) => startServiceAnalysisFromObservation(canonical, observed))
-    vi.spyOn(GameContext, 'useGameState').mockImplementation(() => withDiscovery(canonical))
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({ inspectTarget: vi.fn(), scanTarget: async (input) => scanNetworkTarget({ localDevice: canonical.player.localDevice, network: canonical.world.network }, input), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: endpointAction, startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn() })
-    const user = userEvent.setup(); const view = render(<Network />)
-    await navigateToServices(user)
-    await user.click(screen.getByRole('button', { name: 'Open SSH service' }))
-    await user.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(screen.getByText(/INSUFFICIENT MEMORY/)).toBeInTheDocument()
-    const running = startServiceAnalysisAtEndpoint(base, '198.51.100.47:22'); if (running.status !== 'started') throw Error(running.status)
-    canonical = running.state; view.rerender(<Network />)
-    expect(screen.getByText('ANALYSIS RUNNING')).toBeInTheDocument()
-    expect(screen.queryByText(/INSUFFICIENT MEMORY/)).not.toBeInTheDocument()
+  it('ignores a result that arrives after the player has moved on', async () => {
+    const pending = deferred<Awaited<ReturnType<GameContext.GameActions['sweepTarget']>>>()
+    const actions = { ...actionStubs(), sweepTarget: vi.fn(() => pending.promise) }
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
+
+    const user = userEvent.setup()
+    render(<Network />)
+    await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    await act(async () => { pending.resolve({ status: 'no_response' }) })
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('reports memory contention when nothing could be investigated', async () => {
+    const actions = { ...actionStubs(), sweepTarget: vi.fn(async () => ({ status: 'observed' as const, servicesObserved: 2, analysesStarted: 0, insufficientMemory: true })) }
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
+
+    const user = userEvent.setup()
+    render(<Network />)
+    await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('NOT ENOUGH MEMORY')
+  })
+
+  it('reports a coarse connection failure without leaking current target state', async () => {
+    const offline = withAccess()
+    const user = await openTarget({ ...offline, world: { network: { ...offline.world.network, hosts: offline.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, online: false } : host) } } })
+    await user.click(screen.getByRole('button', { name: 'CONNECT' }))
+
+    expect(screen.getByText('TARGET NOT AVAILABLE')).toBeInTheDocument()
+    expect(currentState().remoteSession.active).toBeNull()
+  })
+})
+
+/* -------------------------------------------------------- known space */
+
+describe('Known Space topology', () => {
+  it('derives the relationship shape from remembered Discovery alone', () => {
+    const known = withAccess()
+    const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
+    const space = selectKnownSpace(information)
+
+    expect(space.self.address).toBe('198.51.100.23')
+    expect(space.networks.map(({ name, includesSelf, membersObserved }) => [name, includesSelf, membersObserved])).toEqual([['home-net', true, true]])
+    expect(space.networks[0].targets.map(({ address }) => address)).toEqual([SRV_01_ADDRESS])
+    expect(space.elsewhere).toEqual([])
+    // srv-02 exists in the world and has never been observed, so it is nowhere.
+    expect(space.networks[0].targets.some(({ id }) => id === 'host-lan-002')).toBe(false)
+  })
+
+  it('presents a related Device inside its Network, with its stage', () => {
+    render(<GameProvider initialState={withAccess()}><Network /></GameProvider>)
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+    const row = within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })
+
+    expect(network).toHaveTextContent('home-net')
+    expect(row).toHaveTextContent('ACCESS')
+    // The relationship is the group, not a repeated subtitle on the row.
+    expect(row).not.toHaveTextContent('home-net')
+  })
+
+  it('presents SELF as position rather than as a step the player can take', () => {
+    render(<GameProvider initialState={withAccess()}><Network /></GameProvider>)
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+
+    expect(network).toHaveTextContent('SELF')
+    expect(network).toHaveTextContent('198.51.100.23')
+    expect(within(network).queryByRole('button', { name: 'Open target 198.51.100.23' })).not.toBeInTheDocument()
+    // SELF is not a target and adds no control of its own.
+    expect(within(network).getAllByRole('button')).toHaveLength(1)
+  })
+
+  it('keeps a Device with no remembered Network relationship visibly separate', () => {
+    const observed = createInitialGameState()
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    // A directly scanned remote Device: remembered, but on no known Network.
+    const discovery = rememberScan(foundTargets().discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
+    render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
+
+    const home = screen.getByRole('region', { name: 'Network home-net' })
+    expect(within(home).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toBeInTheDocument()
+    expect(within(home).queryByRole('button', { name: 'Open target 203.0.113.42' })).not.toBeInTheDocument()
+
+    const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
+    expect(within(elsewhere).getByRole('button', { name: 'Open target 203.0.113.42' })).toHaveTextContent('Remote')
+  })
+
+  it('opens the same simple target card straight from the topology', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={knownWeakness()}><Network /></GameProvider>)
+    await user.click(within(screen.getByRole('region', { name: 'Network home-net' })).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+
+    // One tap, straight to the decision: no Network page and no Device page between.
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
+    expect(screen.getByRole('button', { name: 'HACK' })).toBeInTheDocument()
+  })
+
+  it('observes nothing by presenting topology', async () => {
+    const known = withAccess()
+    scanTargetSpy.mockClear()
+    render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
+    const before = screen.getByTestId('game-state').textContent
+
+    expect(screen.getByRole('region', { name: 'Network home-net' })).toBeInTheDocument()
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(screen.getByTestId('game-state').textContent).toBe(before)
+  })
+
+  it('states unobserved membership rather than reporting an empty Network', () => {
+    const observed = createInitialGameState()
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    // SELF scanned, home-net learned, its members never observed.
+    const discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, observed.player.localDevice.network.ip), observed.player.localDevice.id)
+    render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
+
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+    expect(network).toHaveTextContent('Members not observed')
+    expect(network).toHaveTextContent('SELF')
+    expect(within(network).queryAllByRole('button')).toHaveLength(0)
+  })
+
+  it('derives each row from canonical state rather than a stored label', () => {
+    const scanning = withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 400)])
+    render(<GameProvider initialState={scanning}><Network /></GameProvider>)
+    expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('SCANNING')
+  })
+
+  it('advances real canonical work while the player is on the list', async () => {
+    vi.useFakeTimers()
+    render(<GameProvider initialState={withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 0)])}><Network /><StateSnapshot /></GameProvider>)
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+
+    expect(currentState().knowledge.discoveredVulnerabilities).toEqual([expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: SRV_01 })])
+    expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('WAY IN FOUND')
+  })
+})
+
+/* -------------------------------------------------- simulation compatibility */
+
+describe('simulation physics after the reset', () => {
+  it('resolves an identical hack the same way whichever interface started it', () => {
+    // The GUI path and a directly started attempt are the same canonical
+    // operation resolved by the same advancement boundary.
+    let state = withProcesses(knownWeakness(), [credentialProcess(0)])
+    for (let tick = 0; tick < 40; tick++) state = advanceGameState(state, 1000)
+
+    expect(state.deviceAccess.established).toEqual([expect.objectContaining({ targetDeviceId: SRV_01, viaServiceId: 'service-ssh-001', privilege: 'USER' })])
+    expect(state.world.network.hosts.find(({ id }) => id === SRV_01)!.authenticationHistory!.records).toEqual([
+      expect.objectContaining({ serviceName: 'SSH', sourceAddress: '198.51.100.23', result: 'SUCCESS' }),
+    ])
   })
 })

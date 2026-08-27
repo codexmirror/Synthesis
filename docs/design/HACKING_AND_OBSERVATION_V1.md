@@ -2,8 +2,9 @@
 
 Status: Accepted
 Scope: Product and design direction for hacking, reconnaissance, observation,
-and access. Design authority for the epistemic model, the interaction model,
-and the Target Workspace decision surface; not a description of what is
+and access. Design authority for the epistemic model and for the player-facing
+interaction model, including the casual SCAN / HACK / CONNECT interaction and
+the progressive technical depth beneath it; not a description of what is
 currently implemented.
 Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md`.
 
@@ -24,6 +25,13 @@ concrete mechanic may do with it. Sections 7-9 define the interaction model:
 how the player expresses a decision without being required to reproduce the
 simulation's internal structure by hand. Both are normative here; neither
 restates the architecture invariants in `docs/ARCHITECTURE.md`.
+
+The epistemic model in sections 1-6 has survived two rounds of physical
+playtesting unchanged. The interaction model in sections 7-9 has not: the
+Target Workspace hypothesis it first produced was implemented, merged and then
+rejected by physical playtesting, and section 8 now carries the interaction
+that replaced it. Section 8.1 records what failed and why, because that is the
+part most easily reinvented.
 The central product rule is:
 > Hacking in Synthesis is not a sequence of verbs. It is the use of
 > information, position, and available techniques to interact with concrete
@@ -847,27 +855,11 @@ Physical playtesting of the implemented mechanics exposed a product problem
 that is not a simulation problem.
 
 The simulation has become genuinely deep. The interaction required to use it
-has not stayed shallow. Pursuing one line of action against one target
-currently requires the player to reproduce the internal domain structure by
-hand:
-
-Device
-→ Service
-→ Analyze
-→ Process
-→ back
-→ Finding
-→ another Service
-→ Files
-→ package
-→ back
-→ attack
-→ back
-→ Connect
-
-That is difficulty of the wrong kind. It measures how well the player
-remembers internal structure and click sequences, not how well they reason
-about the world.
+did not stay shallow. The first attempt to fix that — the Target Workspace,
+section 8 — reduced navigation without reducing what the player has to
+understand, and failed its own playtest for that reason. Both failures have
+the same shape: the interface asked the player to reproduce the simulation's
+internal structure, first by walking it and then by reading it.
 
 The selected direction is:
 
@@ -883,7 +875,7 @@ The player should understand the decision, not every internal subsystem
 required to execute it.
 
 The following principles are design authority for hacking and observation
-surfaces generally, not only for the workspace defined in section 8.
+surfaces generally.
 
 1. Navigation is never intended difficulty.
 
@@ -904,8 +896,16 @@ surfaces generally, not only for the workspace defined in section 8.
 
 8. Easy to operate. Increasingly difficult to reason about.
 
-Principle 6 is what keeps principle 2 honest. Removing navigation friction
-must not become removing the player's reasoning.
+Principle 6 is what keeps principle 2 honest, and it is the one most easily
+misread. It is reconciled here, because the failed workspace read it as a
+licence to make the player assemble the attempt by hand.
+
+Naming what the player may legitimately attempt, from what they have learned
+and what they own, is information about themselves. It is allowed, and it is
+what an intent-level interface is for.
+
+Naming a hidden prerequisite instance, a location, an expected outcome, or a
+condition the player has not observed is a solution. It is not allowed.
 
 An interface that answers:
 
@@ -913,206 +913,265 @@ WHAT CAN I DO?
 
 is clear.
 
-An interface that automatically answers:
+An interface that answers:
 
-WHAT SHOULD I DO NEXT?
+WHERE IS IT, AND WILL IT WORK?
 
 has taken the game away.
 
 ⸻
 
-8. Target Workspace V1
+7.1 Software may perform represented technical work
 
-The Target Workspace is the first concrete presentation proof of section 7.
+NodeScan is represented software, not a control panel the player is required
+to operate one step at a time.
 
-It is the primary decision surface for one known target Device.
+Where a NodeScan release legitimately supplies an operation, NodeScan may
+perform or schedule several of those operations from one player intention.
+This is abstraction value, and it is the main thing the player is buying by
+owning better reconnaissance software.
 
-Once a player is pursuing one line of action against one target, they should
-normally not need to leave that workspace merely to continue the same line of
-action.
+Automation is bounded by the same rules as manual use:
 
-The Workspace is a surface, not necessarily a new application. The natural
-home for V1 is the existing Device-level NodeScan surface (section 9); this
-contract does not require a new application, a new navigation root, or a new
-canonical target concept.
+* every automated step is an existing canonical operation;
+* each keeps its own capability gate, resource cost and elapsed work;
+* each keeps its own identity validation and its own failure;
+* nothing is scanned, inspected or analysed that the player does not already
+  legitimately know about;
+* hidden World Truth is never consulted to decide what to do.
 
-This section is design authority. It is not an implementation slice, and it
-does not describe anything currently implemented.
-
-⸻
-
-8.1 What the Workspace is, and what it is not
-
-The Target Workspace is a projection.
-
-It owns no canonical gameplay truth.
-
-It reads legitimate current Player Information, the player's own represented
-resources, the player's represented relationships such as DeviceAccess and
-RemoteSession, and the relevant canonical activity that legitimately belongs to
-the player, and it arranges them so that one target's decision line is
-comprehensible in one place.
-
-It must not consult hidden current target World Truth to derive availability,
-readiness, hints, or expected success. Concrete mechanics remain authoritative
-for actual admission and resolution, and target truth reaches the Workspace
-only through legitimate observation and information routes.
-
-Every separation in section 3 survives unchanged: World Truth, Discovery,
-Knowledge, capability, reachability, DeviceAccess, RemoteSession, Process
-state, and concrete mechanic ownership each keep their existing owner.
-
-The Workspace may present these concerns together for player comprehension. It
-must not merge their canonical ownership.
-
-Concretely, this contract does not authorize state such as:
-
-gameState.targetWorkspace
-gameState.availableOperations
-gameState.currentTarget
-
-or a persisted generic:
-
-Operation { available, ready }
-
-Availability and readiness are derived presentation, computed from legitimate
-current Player Information, represented capabilities and relationships, and the
-concrete mechanic's own player-visible requirements.
-
-Concrete projection helpers are acceptable implementation direction where a
-real need appears — conceptually something like:
-
-projectCredentialAccessOperation(...)
-projectRackUpdateOperation(...)
-projectConnectOperation(...)
-
-This contract deliberately does not prescribe their code shape, and one
-concrete helper per mechanic is the expected starting point. A shared
-abstraction over them requires the usual justification: multiple implemented
-mechanics demonstrating the same real requirement.
+A domain distinction is not automatically a player verb. Scan, Inspect and
+Analyze keep their distinct epistemic roles (section 1, and A09); that says
+what those operations mean, not how many buttons the player must press.
 
 ⸻
 
-8.2 Semantic hierarchy
+7.2 The interaction budget
 
-A useful conceptual hierarchy for one target is:
+Interaction complexity must not scale one-for-one with simulation complexity.
 
-TARGET
-ACCESS
-INVESTIGATION
-FINDINGS
-AVAILABLE OPERATIONS
-ACTIVE ACTIVITY
-DETAILS / SERVICES
+Synthesis expects to grow many more mechanics: devices, services, files,
+processes, credentials, position, weaknesses, tools, accounts, money, logs,
+traces, defender reactions, remote execution, economic manipulation. If each
+one earns a primary verb, a submenu or a mandatory workflow, the interface
+becomes a technical vocabulary quiz long before the simulation becomes
+interesting.
 
-This is a semantic model. It is not a requirement that every section always be
-visible, always be rendered literally, or always appear in this order.
+The required shape is:
 
-An empty concern is normally absent rather than rendered as an empty panel.
-Where absence is itself information — depth that has never been observed —
-existing observation semantics already require that to be stated explicitly
-rather than reported as an observed empty result.
+MANY UNDERLYING MECHANICS
+↓
+FEW STABLE PLAYER INTENTIONS
 
-⸻
+A new mechanic should normally create a new situation, trade-off, consequence
+or opportunity inside the existing interaction language. It should not create
+a new control scheme.
 
-8.3 Progressive disclosure
-
-Use progressive disclosure aggressively.
-
-Primary surface:
-
-* What target is this?
-* What access do I currently have?
-* What have I learned?
-* What meaningful things can I legitimately investigate or attempt?
-* What relevant work is currently running?
-
-Secondary detail:
-
-* why an operation is available
-* Service identity and endpoint
-* weakness IDs
-* software versions
-* concrete evidence
-* technical prerequisites
-
-The normal player should see the decision first.
-
-A curious player should be able to reach why that decision exists.
-
-The secondary layer is an explanation of the player's own information. It is
-never an additional channel for hidden World Truth.
+Reject any design whose player-facing complexity grows roughly one-for-one
+with the number of simulated mechanics.
 
 ⸻
 
-8.4 Semantic separation
+7.3 Depths, not different games
 
-Contextual projection may bring these onto one surface. It must not collapse
-them into a generic HACK state or a single opaque target card.
+Casual accessibility and expert depth are presentation depths over one
+simulation, not two products.
 
-FINDING
-what the player knows or has learned
+CASUAL
+→ clear intentions
 
-AVAILABLE OPERATION
-what the player may legitimately attempt
+INTERESTED
+→ explanations and meaningful choices
 
-ACTIVE ACTIVITY
-relevant canonical work currently happening
+ADVANCED
+→ technical detail and system relationships
 
-ACCESS
-represented authority relationship currently held
+EXPERT
+→ Terminal, precise direct control
 
-OBSERVED STATE
-what the player currently remembers about the target
-
-These remain visibly distinct because they fail differently. A Finding can be
-stale. An Available Operation can be attempted and fail. Access persists
-whether or not a Session is active. Observed State is memory, not current
-truth.
-
-A presentation that merges them re-creates exactly the omniscient
-"hack progress" model this document rejects.
+All four operate the same canonical simulation, under the same physics, with
+the same information rules. A casual player is not playing a simplified game;
+an expert is not playing a privileged one.
 
 ⸻
 
-8.5 Readiness
+8. Casual interaction — SCAN / HACK / CONNECT
 
-READY means:
+This section is the current design authority for the player-facing hacking
+interaction. It supersedes the Target Workspace interaction hypothesis.
 
-The player-visible and admissible prerequisites are sufficient to legitimately
-start this attempt.
+⸻
 
-READY must never mean:
+8.1 What the Target Workspace hypothesis got right, and what it got wrong
 
-Hidden current World Truth has already confirmed that the attempt will
-succeed.
+The Target Workspace was the first concrete presentation proof of section 7.
+It put one target's whole line of action on one surface, so the player no
+longer had to walk Device → Service → Process → Files → back to continue one
+decision.
 
-Section 4 already states the governing rule:
+That part is retained and remains design authority: once a player is pursuing
+one line of action against one target, they should normally not need to leave
+that surface merely to continue it.
+
+The hypothesis failed on everything else. Its surface presented TARGET,
+ACCESS, INVESTIGATION, FINDINGS, AVAILABLE OPERATIONS, ACTIVE ACTIVITY and
+DETAILS / SERVICES as parallel primary categories, each populated with real
+domain vocabulary. Physical playtesting found that a developer who knows the
+architecture still could not feel a gameplay thread: the player had removed
+walking and gained reading. Understanding SSH, HTTP, Scan, Inspect, Analyze,
+Findings, AUTH-017, RackUpdate, UPD-001, Basic Credential Toolkit, packages,
+rollback, Access and several action categories was still required before the
+first hack could be attempted.
+
+The lesson is recorded here rather than deleted: a decision surface is not
+automatically an intent surface. Presenting every relevant concern at once is
+a different failure from making the player fetch each concern in turn, and it
+is not obviously the smaller one.
+
+Superseded, and not to be reinstated by renaming: a primary surface built from
+parallel technical sections; INVESTIGATION, FINDINGS and AVAILABLE OPERATIONS
+as primary player-facing categories; per-Service primary actions; mandatory
+tool selection; weakness identities on the decision surface.
+
+⸻
+
+8.2 The player verbs
+
+The casual core uses a very small, stable set of intent-level interactions:
+
+SCAN
+find out about what I am looking at
+
+HACK
+use what has been found to get in
+
+CONNECT
+operate what I now have access to
+
+These are subjects-and-intent, not mechanics. SCAN means the same thing on a
+list of targets as it does on one target; only the subject differs. HACK does
+not name a technique, a tool or a service. CONNECT does not name a Session.
+
+New mechanics are expected to arrive as new situations these verbs already
+express — a different kind of way in, a different consequence, a different
+cost — not as new verbs.
+
+Adding a fourth primary verb is a design decision requiring its own
+justification, not a routine consequence of adding a mechanic.
+
+⸻
+
+8.3 Known Space and the target card
+
+Known Space is where the player sees the world they have observed: remembered
+Networks, SELF's own place in them, and the targets that belong to each, with
+targets they know outside any known Network kept visibly separate. It is
+relationship context under the rule in section 9 — legible topology, not a
+hierarchy to walk. SELF is an anchor there and never a target.
+
+A target is presented as one card carrying one stage and, normally, one
+visually obvious primary action.
+
+UNKNOWN TARGET
+NOT SCANNED
+[ SCAN ]
+
+SCANNING
+████████ 64%
+
+SERVER
+1 WAY IN FOUND
+[ HACK ]
+
+HACKING
+████████ 78%
+
+ACCESS GRANTED
+[ CONNECT ]
+
+The stage is derived presentation over independent canonical concerns —
+Discovery, Knowledge, Process, DeviceAccess, RemoteSession — ordered so that a
+live relationship outranks work in flight, which outranks what the player
+could start.
+
+It is never canonical state. Specifically, this contract does not authorize a
+`hacked` flag, a stored target stage, a canonical target progress value, or a
+generic domain `HackOperation` that concrete mechanics are flattened into.
+Every separation in section 3 survives unchanged.
+
+The stages fail differently and must keep saying so: remembered observation
+can be stale, a way in can be attempted and fail, Access persists whether or
+not a Session is active. Compressing them into one opaque progress bar
+re-creates exactly the omniscient "hack progress" model this document rejects.
+
+⸻
+
+8.4 What a way in claims
+
+A way in is a statement about the player, not about the target.
+
+It exists when the player's own legitimate Knowledge names a weakness on an
+observed surface, and represented software the player actually has installed
+supports acting on it.
+
+It must never mean that hidden current World Truth has confirmed the attempt
+will succeed. Section 4 already states the governing rule:
 
 PLAYER-KNOWN FEASIBILITY
 ≠
 ACTUAL FEASIBILITY
 
-Resolution belongs to the concrete gameplay operation, evaluated against
-current authoritative state at the moment it resolves.
-
 Therefore:
 
 * stale Player Information must remain capable of producing a legitimate
   failed attempt;
-* the Workspace must never query hidden truth merely to hide, disable, or
-  discourage an attempt the player's legitimate information justifies;
-* readiness presentation must not become a success oracle, a probability, or a
-  hidden-condition hint.
+* the interface must never query hidden truth to hide, disable, or discourage
+  an attempt the player's legitimate information justifies;
+* removing the required capability removes the offer, without removing the
+  Knowledge that produced it;
+* a way in is never a probability, a hint, or a success oracle.
 
-An operation presented as available is a statement about the player's
-information and resources. It is never a promise about the world.
+Where exactly one installed tool satisfies a known avenue, the software may
+select it. Forcing a choice that has only one option is ceremony, not
+gameplay. Where several tools later create a real strategic difference, the
+choice is exposed at the point it actually matters.
+
+The same principle governs Services and implementation details: they are real,
+they are reachable, and they are not a toll the player pays on every attempt.
+
+⸻
+
+8.5 Progressive technical depth
+
+Technical depth is not removed. It is moved behind one disclosure and stays
+one interaction away.
+
+Primary surface:
+
+* what this target is
+* what stage its line of action is in
+* the one action that continues it
+* real progress while work is running
+
+Technical depth:
+
+* why a way in exists — method, tool, service, observed software, weakness
+* observed target properties and their provenance
+* Services, endpoints and remembered fingerprints
+* single-Service investigation
+* advanced compositional avenues such as package rollback
+* the relationship Access was established through
+
+The depth layer is an explanation of the player's own information and their
+own represented resources. It is never an additional channel for hidden World
+Truth, and opening it is browsing: it performs no observation and starts no
+gameplay.
 
 ⸻
 
 8.6 Requirements without quest markers
 
-The Workspace may explain what an operation requires only where the
+The interface may explain what an operation requires only where the
 requirement is legitimately derivable from Player Information or from
 represented player-owned resources.
 
@@ -1127,7 +1186,8 @@ Older compatible GateSSH package
 Available:
 None
 
-That statement is built from what the player learned plus what the player owns.
+That statement is built from what the player learned plus what the player
+owns.
 
 The interface must not reveal hidden prerequisite instances or solutions
 merely because the simulation knows they exist. It must never become:
@@ -1141,13 +1201,12 @@ srv-01 /opt/packages
 unless the player has legitimately acquired that information through a
 represented route.
 
-The distinction is the same one section 7 principle 6 states: naming the kind
-of thing that is missing is information; naming where to get it is a quest
-marker.
+Naming the kind of thing that is missing is information; naming where to get
+it is a quest marker.
 
 ⸻
 
-8.7 When leaving the Workspace is legitimate
+8.7 When leaving the target is legitimate
 
 Leaving is appropriate when there is a real world or gameplay reason, for
 example:
@@ -1179,13 +1238,14 @@ GUI
 TERMINAL
 → depth of information, precision, finer control, faster repetition
 
-Terminal may legitimately expose finer technical detail — exact endpoints,
-exact release identities, precise operation parameters — because that detail
-is still the player's own legitimate information presented at a different
-grain.
+Terminal keeps the individual operations the graphical surface composes, and
+that is its value: a knowledgeable player may scan, inspect and analyze
+exactly what they choose, in the order they choose, and read finer technical
+detail while doing it.
 
-Terminal must not receive privileged simulation physics. Different depth of
-information and control, never different rules.
+Terminal must not receive privileged simulation physics, and the graphical
+player must not be penalised for using the accessible surface. Different depth
+of information and control, never different rules, never different outcomes.
 
 The two interfaces do not need, and this contract does not authorize:
 
@@ -1200,129 +1260,107 @@ Presentation remains interface-specific.
 
 8.9 First proofs — srv-01 and srv-02
 
-The existing srv-01 and srv-02 mechanics are the first design proofs. No third
-hacking mechanic is introduced or implied.
-
-These are two concrete decision lines, not a template. Neither is a required
-shape for a future target, and neither authorizes a generic route model
-derived from them. The point of showing both is that they differ: srv-01 is
-short because its world state makes it short, and srv-02 is long because its
-world state makes it long.
-
-srv-01 should become understandable as approximately:
+srv-01 is the beginner proof. Its whole line of action is:
 
 TARGET
-→ weak authentication Finding
-→ Credential Access operation available
-→ attempt
-→ USER Access
-→ Connect
+→ SCAN
+→ 1 WAY IN FOUND
+→ HACK
+→ ACCESS GRANTED
+→ CONNECT
 
-The player should not need to understand Knowledge records,
-vulnerability-to-technique plumbing, Process ownership, DeviceAccess storage,
-or RemoteSession implementation to follow that line.
+A new player should follow that without knowing what SSH, HTTP, a service
+implementation, a vulnerability identity, a credential toolkit, a Process, a
+DeviceAccess or a Remote Session is. Those all still exist underneath, and the
+interested player can read every one of them under technical depth.
 
-srv-02 remains more demanding through reasoning, not navigation:
+srv-02 is not the second beginner encounter. Its compositional route —
+learning that the update mechanism permits rollback, obtaining an older
+compatible package, changing the target's represented software, re-observing,
+and only then finding a credential avenue — is retained in full as systemic
+depth, and is reached through technical depth rather than through the casual
+surface.
 
-GateSSH 1.3.3
-→ no known credential avenue
+An advanced compositional mechanic is not a beginner mechanic merely because
+it exists. Ordering content by when it was implemented, rather than by what it
+demands of the player, is how the second encounter became more expensive than
+the first.
 
-RackUpdate 1.0
-→ learned rollback weakness
-
-Rollback operation
-→ requires an older compatible GateSSH package
-
-Where no such package is available, the player understands what kind of thing
-is missing and receives no prescribed location or solution.
-
-After the player independently obtains a legitimate package:
-
-rollback becomes attemptable
-→ the concrete GateSSH release actually changes
-→ existing remembered evidence may remain stale
-→ legitimate re-observation or analysis can reveal the new condition
-→ Credential Access becomes a legitimate next avenue
-→ Access
-→ Connect
-
-Note what the Workspace must not do at the stale-evidence step. It must not
-silently refresh the player's memory from current truth, and it must not
-annotate the target with a hint to look again. Remembered evidence stays
-remembered until the player observes again; that re-observation is the
-player's decision, and it is one of the reasoning steps srv-02 exists to
-create.
-
-The underlying concrete mechanics remain authoritative throughout. The
-Workspace only makes the decision line comprehensible.
+Where a target offers the player nothing they can currently use, the casual
+surface says so plainly and offers the observation that could change it. It
+does not annotate the target with what to go and find.
 
 ⸻
 
 8.10 Playtest contract
 
-The later implementation slice is validated against human comprehension, not
-against a feature list.
+The interaction is validated against human comprehension, not against a
+feature list.
 
-Without knowing internal architecture, a player should be able to understand:
+The five-second rule:
 
-srv-01
+A player who knows none of Synthesis' internal architecture and no
+cybersecurity terminology should be able to look at a normal target and
+understand their meaningful next action within roughly five seconds.
 
-* there is a possible credential attack
-* after success, they have access
-* they can connect
+At the first target, without explanation, a player should be able to answer:
 
-srv-02
+1. What can I do?
+2. What should I press first?
+3. Did the game clearly tell me what changed?
+4. Can I continue without hunting through another menu?
 
-* the ordinary credential route is not currently available
-* investigation reveals that the update mechanism permits rollback
-* without a package, an older compatible package is what they need
-* once they possess one, they can alter the target state
-* the altered state may create a new attack avenue
+If understanding the basic loop requires knowing terms such as AUTH-017,
+UPD-001, DeviceAccess, RemoteSession, Knowledge, service implementation,
+GateSSH, RackUpdate, package submission, release identity or represented
+authority relationship, the interaction design has failed regardless of how
+correct the underlying model is.
 
-If understanding this requires the player to know internal terms such as
-DeviceAccess, KnowledgeFinding, SoftwareReleaseId, ProcessProjection, or
-service IDs, the interaction design has failed regardless of how correct the
-underlying model is.
+Mobile is first-class. The primary action is visually obvious and touch-sized,
+progress and success appear where the decision was made, and the player never
+scrolls past technical material to reach the thing they came to do.
 
 ⸻
 
-9. NodeScan / Known Space interface boundary
+9. NodeScan interface boundary
 
-NodeScan remains a reconnaissance and Known Space interface, and Known Space
-remains a projection of player information rather than canonical World
-ownership. That is unchanged.
+NodeScan remains a reconnaissance and Known Space interface over player
+information rather than canonical World ownership. That is unchanged.
 
-The previously accepted phrasing — that NodeScan is primarily a
-reconnaissance interface — is reconciled here, because read strictly it
-preserves the exact navigation problem section 7 exists to remove. A surface
-that can show a Finding but cannot offer the operation that Finding justifies
-sends the player back out to hunt for it.
+What is reconciled is its shape and its job.
 
-The reconciled boundary is:
+NodeScan is the player's practical hacking tool, not an architecture
+inspector. Its purpose is to translate a complex represented digital world
+into useful player decisions. Its primary vocabulary is target, scan, way in,
+hack, access, connect — not the internal names of the domains it reads.
+
+Its navigation is deliberately shallow: known space, and one target. That is
+the whole stack.
+
+Network topology may be presented as lightweight relationship context, but it
+is not a navigation hierarchy the player must traverse. Remembered Networks,
+the player's own position among them, and which targets belong where are
+useful world information and should be legible at a glance; what was harmful
+was requiring Network → Device → Service to be walked as gameplay. So the
+relationship scaffold is drawn, and nothing in it is a level: a Network is not
+openable and carries no action, nothing expands, Services are not children of
+the list, and a target opens its own card in one tap. Removing interaction
+complexity is not the same as erasing world structure, and neither is an
+excuse for the other.
+
+The projection boundary is unchanged:
 
 CONTEXTUAL PROJECTION      allowed
 DOMAIN OWNERSHIP           unchanged
 
 NodeScan may contextually project target-relevant canonical state and
 target-relevant operations from other domains where that is necessary to keep
-one decision line coherent.
-
-Legitimate examples include:
-
-* relevant analysis progress
-* a Credential Access attempt
-* RackUpdate package application
-* current DeviceAccess
-* Connect where Access already exists
-
-The canonical owner is unchanged in every one of those cases:
+one decision line coherent. The canonical owner is unchanged in every case:
 
 Processes remains the detailed Process manager.
 Files remains the detailed filesystem interface.
 RACK-OS remains the foreign Device operating environment.
 Other specialized applications keep their domain-specific depth.
-
-Contextual projection is not domain ownership.
 
 Two questions separate them:
 
@@ -1336,7 +1374,7 @@ A new gameplay mechanic still does not automatically earn a new permanent
 NodeScan section, and NodeScan must not drift into a universal interface for
 every represented subsystem.
 
-The semantic grammar of NodeScan object pages remains owned by
+The semantic grammar of NodeScan object presentation remains owned by
 `docs/design/SCAN_INFORMATION_ARCHITECTURE_V1.md`; where that contract limits
 Scan to a Known Space / object browser, this section is the reconciliation.
 
@@ -1375,11 +1413,42 @@ but it does not restore the Inspect action.
 
 The compositional route described in Proof E is implemented. It is the current
 proof that interaction is not access and that represented state mutation, not
-a pipeline stage, is what creates a new avenue.
+a pipeline stage, is what creates a new avenue. After the interaction reset it
+is advanced depth rather than beginner content.
 
 ⸻
 
-4. Resolved — the next-mechanic decision gate is closed
+4. Superseded — Target Workspace V1
+
+Implemented, merged, and rejected by physical playtesting as a gameplay model.
+Its surviving contribution is one-surface continuity (section 8.1); its
+category-based primary interaction is superseded by section 8 and must not be
+reinstated.
+
+⸻
+
+5. Implemented — the SCAN / HACK / CONNECT interaction reset
+
+NodeScan presents Known Space and a target card, and performs the routine
+technical work of a sweep — Scan, then Inspect where the installed release
+supplies it, then Service Analysis of every remembered Service — from one
+player SCAN. Each step is the same canonical operation Terminal exposes
+individually.
+
+Physical playtesting of that reset confirmed the casual loop and returned two
+presentation corrections, both applied without changing the interaction:
+
+* Known Space draws the remembered relationship scaffold again — Network,
+  SELF's position, the targets that belong there — under the rule in section
+  9. Legibility was restored; the navigation was not.
+* A sweep starts one real Service Analysis Process per remembered Service, so
+  each names the Service it is analysing rather than differing only by port.
+  They remain independent Processes with their own resources, progress and
+  cancellation; no batch, parent or grouped state was introduced.
+
+⸻
+
+6. Resolved — the next-mechanic decision gate is closed
 
 The previously active gate asked that actual gameplay be reviewed before
 committing to the next large hacking mechanic. That review has happened, and
@@ -1391,8 +1460,8 @@ with the world.
 
 The selected sequence is therefore:
 
-Target Workspace V1
-→ playtest and remove navigation friction
+interaction reset
+→ playtest the first loop as a game
 → Consequences V1
 → Execution Style V1 driven by those consequences
 → next economic / merchant target
@@ -1400,9 +1469,9 @@ Target Workspace V1
 The directions the closed gate listed — extended credential routes, a second
 offensive technique, credential discovery through files, reachability and
 network position, remote execution — remain valid long-term direction under
-`docs/FUTURE.md`. None of them is selected now, and the interaction work does
-not need one. No third hacking mechanic should be introduced to justify the
-Target Workspace.
+`docs/FUTURE.md`. None of them is selected now. No third hacking mechanic
+should be introduced to justify an interaction surface, and no tutorial should
+be introduced to explain one.
 
 ⸻
 
@@ -1458,6 +1527,8 @@ This design contract does not authorize implementation of:
 * a universal OpportunityEngine or OperationRegistry
 * a generic attack-surface or universal interaction schema
 * canonical Target Workspace, available-operation, or current-target GameState
+* a canonical `hacked` flag, stored target stage, or canonical target progress
+* a generic domain `HackOperation` that concrete mechanics are flattened into
 * a persisted generic Operation entity carrying availability or readiness
 * a shared GUI/Terminal presentation model, or either interface generated from
   the other
@@ -1472,6 +1543,12 @@ This design contract does not authorize implementation of:
     consistency
 * a refactor of working Credential Access solely to match conceptual vocabulary
 * speculative UI for mechanics that do not yet exist
+* a return of the superseded workspace under new section names
+* a Network page, Network or Device expansion, Service children on Known
+  Space, or any other navigation level reintroduced under topology
+* a fourth primary player verb adopted as a routine consequence of adding a
+  mechanic
+* tutorial or story content introduced to explain a complicated interface
 
 Concrete mechanics should continue to precede generic abstractions.
 
@@ -1482,7 +1559,7 @@ architecture before multiple real mechanics demonstrate the same requirement.
 
 13. Design test
 
-Future hacking and observation work should be checked against three questions.
+Future hacking and observation work should be checked against four questions.
 
 Observation
 
@@ -1500,6 +1577,12 @@ Comprehension
 
 Is the difficulty here reasoning about the world, or remembering where the
 interface keeps things?
+
+Scale
+
+If twenty more mechanics arrived on the same shape, would the player be
+choosing between more interesting situations, or reading a longer list of
+technical verbs?
 
 The desired direction is:
 

@@ -256,20 +256,20 @@ describe('RACK-OS', () => {
     expect(screen.queryByText('DOWNLOADED ✓')).not.toBeInTheDocument()
   })
 
-  it('preserves the same Scan Device detail across CONNECT and DISCONNECT', async () => {
+  it('preserves the same NodeScan target across CONNECT and DISCONNECT', async () => {
     const user = userEvent.setup(); render(<GameProvider initialState={discoveredAccessState()}><Shell /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'Open NodeScan' }))
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'Open target 198.51.100.47' }))
     expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /CONNECT/ }))
     await enterRemote(user)
     expect(screen.getByLabelText('RACK-OS remote operating environment')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    expect(screen.getByLabelText('Target status')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open SSH service' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'HOME' })).not.toBeInTheDocument()
-    expect(screen.queryByText('KNOWN SPACE')).not.toBeInTheDocument()
+    // Still on the same target, not returned to the target list.
+    expect(screen.queryByRole('button', { name: 'Open target 198.51.100.47' })).not.toBeInTheDocument()
   })
 
   it('enters, presents, and downloads from the second interactive target (host-lan-002) through its own stable identity', async () => {
@@ -460,8 +460,7 @@ describe('RACK-OS', () => {
     const initial = discoveredAccessState()
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'Open NodeScan' }))
-    await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-    await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: 'Open target 198.51.100.47' }))
     await user.click(screen.getByRole('button', { name: /CONNECT/ }))
     await enterRemote(user)
 
@@ -699,8 +698,7 @@ describe('RACK-OS remote software installation', () => {
       const launcher = screen.queryByRole('button', { name: 'Open NodeScan' })
       if (launcher) {
         await user.click(launcher)
-        await user.click(screen.getByRole('button', { name: 'Open known area home-net' }))
-        await user.click(screen.getByRole('button', { name: 'Open device 198.51.100.47' }))
+        await user.click(screen.getByRole('button', { name: 'Open target 198.51.100.47' }))
       }
       await user.click(screen.getByRole('button', { name: /CONNECT/ }))
       await enterRemote(user)

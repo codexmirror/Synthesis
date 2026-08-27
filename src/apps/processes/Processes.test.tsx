@@ -9,6 +9,8 @@ import processesCss from './processes.css?raw'
 import monitorSource from './activityMonitor.ts?raw'
 import processesSource from './Processes.tsx?raw'
 import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
+import { rememberScan } from '../../core/game/discovery'
+import { scanNetworkTarget } from '../../core/game/scan'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, startNodeMiner } from '../../core/game/nodeMiner'
 import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
@@ -568,5 +570,68 @@ describe('Activity Monitor: Software Removal', () => {
     render(<GameProvider initialState={state}><Processes /></GameProvider>)
     const removing = card('SOFTWARE REMOVAL')
     expect(fact(removing, 'CPU')).toBe('41%')
+  })
+})
+
+describe('Activity Monitor: operation subjects', () => {
+  /** Two concurrent investigations, exactly as one target SCAN starts them. */
+  function twoAnalyses(discovered = true): GameState {
+    const base = createInitialGameState()
+    const targets = { localDevice: base.player.localDevice, network: base.world.network }
+    const discovery = discovered
+      ? rememberScan(base.discovery, scanNetworkTarget(targets, '198.51.100.47'), base.player.localDevice.id)
+      : base.discovery
+    const ssh = startServiceAnalysis({ ...base, discovery }, 'host-lan-001', 'service-ssh-001')
+    if (ssh.status !== 'started') throw Error(ssh.status)
+    const http = startServiceAnalysis(ssh.state, 'host-lan-001', 'service-http-001')
+    if (http.status !== 'started') throw Error(http.status)
+    return advanceGameState(http.state, 3000)
+  }
+
+  it('names the concrete Service each Analysis is working on while keeping one operation kind', () => {
+    render(<GameProvider initialState={twoAnalyses()}><Processes /></GameProvider>)
+    const analyses = cards().filter((activity) => within(activity).queryByText('SERVICE ANALYSIS'))
+    expect(analyses).toHaveLength(2)
+
+    // Same operation identity, different subjects — readable without comparing ports.
+    expect(analyses.map((activity) => activity.querySelector('.am-title strong')?.textContent)).toEqual(['SSH', 'HTTP'])
+    expect(analyses.map((activity) => activity.querySelector('.am-route')?.textContent)).toEqual(['198.51.100.47:22', '198.51.100.47:80'])
+    for (const activity of analyses) expect(within(activity).getByText('SERVICE ANALYSIS')).toBeInTheDocument()
+  })
+
+  it('resolves each subject from remembered Discovery rather than current target truth', () => {
+    const known = twoAnalyses()
+    // The world's Service names change; the player has observed neither change.
+    const renamed = { ...known, world: { network: { ...known.world.network, hosts: known.world.network.hosts.map((host) => host.id === 'host-lan-001'
+      ? { ...host, services: host.services!.map((service) => ({ ...service, name: `${service.name}-RENAMED` })) }
+      : host) } } }
+    render(<GameProvider initialState={renamed}><Processes /></GameProvider>)
+
+    expect(within(monitor()).getByText('SSH')).toBeInTheDocument()
+    expect(within(monitor()).queryByText('SSH-RENAMED')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the historical endpoint when no Service is remembered at that identity', () => {
+    // Terminal `analyze` can legitimately start work against a never-scanned endpoint.
+    render(<GameProvider initialState={twoAnalyses(false)}><Processes /></GameProvider>)
+    const analyses = cards().filter((activity) => within(activity).queryByText('SERVICE ANALYSIS'))
+
+    expect(analyses.map((activity) => activity.querySelector('.am-title strong')?.textContent)).toEqual(['198.51.100.47:22', '198.51.100.47:80'])
+    expect(analyses.every((activity) => within(activity).queryByText('TARGET'))).toBe(true)
+    expect(analyses.every((activity) => activity.querySelector('.am-route') === null)).toBe(true)
+  })
+
+  it('keeps each Analysis an independent Process with its own resources and cancellation', () => {
+    function Snapshot() { return <output>{JSON.stringify(useGameState().process.processes.map(({ id, kind, ramRequiredMiB }) => ({ id, kind, ramRequiredMiB })))}</output> }
+    render(<GameProvider initialState={twoAnalyses()}><Processes /><Snapshot /></GameProvider>)
+
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual([
+      { id: 'process-0001', kind: 'service_analysis', ramRequiredMiB: 768 },
+      { id: 'process-0002', kind: 'service_analysis', ramRequiredMiB: 768 },
+    ])
+    expect(screen.getAllByRole('button', { name: 'Cancel active SERVICE ANALYSIS' })).toHaveLength(2)
+    // Two real Processes share the executor's compute, exactly as before.
+    const analyses = cards().filter((activity) => within(activity).queryByText('SERVICE ANALYSIS'))
+    expect(analyses.map((activity) => fact(activity, 'CPU'))).toEqual(['41%', '41%'])
   })
 })

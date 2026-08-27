@@ -22,110 +22,91 @@ namespace is required.
 Scan is available through both Terminal and the graphical NodeScan application.
 Both interfaces invoke the same shared Scan gameplay/application operation.
 
-The graphical application is one investigation workspace over four levels of
-the same subject — Known Space, Network, Device, Service — reached by a single
-navigation stack with a breadcrumb back to the parent object. Every level is
-presented from player information only: a view model derived from remembered
-Discovery, Knowledge, the player's own Processes, DeviceAccess and
-RemoteSession. World truth is deliberately outside the slice that view model
-is built from.
+NodeScan is presented as two screens and three player actions. KNOWN SPACE
+presents the remembered relationship shape around the player; a target card is
+one target's whole line of action. The three actions are SCAN (find out about
+the subject in view), HACK (use what was found to get in) and CONNECT (operate
+what access now allows). Both screens are built from a view model derived from
+remembered Discovery, Knowledge, the player's own Processes, the player's own
+installed software, DeviceAccess and RemoteSession. World truth is deliberately
+outside the slice that view model is built from.
 
-Each level uses the same semantic grouping: the object's identity, what has
-actually been OBSERVED about it, its known relationships, deeper KNOWLEDGE
-where that exists, current ACCESS, and the legitimate ACTIONS available now.
-Unobserved depth is stated explicitly and never rendered as an observed empty
-result: a Network whose membership has never been observed says so rather than
-reporting zero Devices, and the same distinction is made for a Device's
-Services and for Device and Service properties.
+Known Space groups remembered targets under the remembered Networks they
+belong to, drawn as a one-level relationship scaffold. SELF appears as a
+non-interactive anchor inside a Network only where the player legitimately
+remembers its own membership of that Network; it is topology context, not a
+target, and carries no control. A Device appears under every Network it is
+remembered in, and a remembered Device with no remembered relationship to any
+known Network stays visibly separate under ELSEWHERE with its own scope
+stated. Unobserved membership is stated explicitly rather than reported as an
+observed empty result, and an observed Network with no responding members says
+so.
 
-Known Space presents known Networks as independent top-level branches of a
-relationship tree, and is the primary workspace rather than an index of pages:
-hierarchy is carried by indentation, type weight and thin connectors, and a
-branch's rail terminates at its own last child. Expanding a Network locally
-reveals its legitimately known member Devices, including SELF, together with
-the Network's own remembered Inspect evidence and, at the foot of that branch,
-the Network's Scan action and, when supported by the installed release, its
-Inspect action. Those operations belong visually to the Network they act on
-rather than to a separate global actions section. Network expansion is only
-presentation state and performs no observation. Several Networks may be open
-at once.
+That scaffold is presentation only and is not a navigation hierarchy. A
+Network is not openable, carries no action of its own, and nothing expands:
+tapping a target opens its card directly, and there is no Network level,
+Device level or Service level between. Presenting topology performs no
+observation.
 
-Remembered Devices without a remembered relationship to any known Network are
-presented separately as directly known Devices. They open the same Device
-detail as relationship-backed Devices and are not duplicated when a remembered
-Network relationship supplies their placement.
+The target card states one stage at a time and normally offers one primary
+action for it: NOT SCANNED, SCANNING with canonical progress, NO WAY IN FOUND,
+`n` WAY(S) IN FOUND, HACKING with canonical progress, ACCESS GRANTED, and
+CONNECTED. The stage is derived presentation, never stored: a live Remote
+Session outranks established DeviceAccess, which outranks a running Credential
+Access Process, which outranks running Service Analysis, which outranks a way
+in the player could start; a Device whose Services have never been observed
+reports that rather than reporting that nothing was found. Progress is the
+aggregate `workCompleted / workRequired` of the canonical Processes the
+current stage is waiting on.
 
-A fresh session, where nothing is known, presents SCAN SELF as the single
-bootstrap action that discovers Network relationships. Once a Network is
-known, that bootstrap control is absent; the concrete Network branch retains
-its repeatable Scan action.
+A way in is derived from the player's own Knowledge of a weakness on a
+remembered Service together with an installed tool that supports that
+weakness, and not from any current target truth. Basic Credential Toolkit
+remains a real requirement: without the installation no way in is formed, the
+Knowledge that produced it is untouched, and the started attempt still carries
+its `toolId` and `vulnerabilityId`. Because exactly one represented credential
+tool currently exists, NodeScan selects it rather than presenting a choice
+with one option. A way in never predicts success; stale Player Information can
+still produce a legitimately failed attempt, which is reported coarsely while
+the same route stays available.
 
-Each Network is the parent presentation for Devices observed through that
-relationship; NodeScan does not duplicate them in a global Device index. A
-known non-SELF Device offers a branch only where expanding it would reveal
-remembered Service children — a Device whose Services have never been observed,
-or whose last Scan observed none, states that instead of offering an empty
-branch. Expansion browses remembered children only and performs no
-observation; one Device branch is expanded at a time. A Device whose Services
-have not been observed offers its Scan directly in the branch, so the normal
-investigation loop does not have to leave the workspace, and every Device
-retains an explicit, touch-sized path to its full detail page. Remembered
-Inspect evidence a Device already carries is stated compactly on its branch
-row. Service children open their existing detail pages. A Device page retains
-its Network navigation context and is the target's primary decision workspace.
-It composes remembered target facts, Access, Findings, directly available
-Service Analysis and Credential Access actions, target-relevant Process
-progress, and observation actions without taking canonical ownership of any of
-them. USER Access exposes CONNECT in place and an active Remote Session exposes
-DISCONNECT; no Access is stated explicitly. Known Network relationships and
-technical Services remain under progressive DETAILS / SERVICES disclosure. A Service row
-stacks Service identity, endpoint metadata and observed fingerprint on
-separate lines so that a long observation such as `Credential + Additional
-Verification` wraps rather than compressing the Service's own identity, and
-carries short state marks for running work, established Access and known
-weaknesses. A Service page integrates endpoint, observed implementation
-fingerprint, observed authentication, vulnerability Knowledge, the provenance
-of Access established through that Service, currently running Service Analysis
-or Credential Access, and its own actions.
+TECHNICAL DETAILS is one disclosure on the target card carrying the copyable
+address, remembered Inspect evidence and its capability note, the provenance
+of established Access, the explanation of each way in (method, tool, service,
+remembered software fingerprint, weakness label and identity), the remembered
+Services with their endpoints, fingerprints, weaknesses and per-Service
+Analyze action, and RackUpdate's rollback avenue. Opening it browses
+remembered information: it performs no observation and starts no gameplay.
+Unobserved depth is stated explicitly there and never rendered as an observed
+empty result.
 
-The Device workspace projects RackUpdate's specific `ROLLBACK GATESSH` avenue
-only when remembered Enhanced Inspect evidence includes its package-submission
-interface and earned `UPD-001` Knowledge explains that avenue. It describes
-the need for an older compatible GateSSH package and lists only candidate
-package artifacts in SELF's canonical filesystem, identified by stable local
-file ID. With no candidate it reports `Available: None`; it does not reveal a
-hidden package, path, source Device, or prescribed next observation. The
-generic package-submission action remains available from Service detail based
-on the observed public interface alone.
+The RackUpdate `ROLLBACK GATESSH` avenue is projected only when remembered
+Enhanced Inspect evidence includes its package-submission interface and earned
+`UPD-001` Knowledge explains that avenue, and only inside TECHNICAL DETAILS. It
+describes the need for an older compatible GateSSH package and lists only
+candidate package artifacts in SELF's canonical filesystem, identified by
+stable local file ID. With no candidate it reports `None`; it does not reveal a
+hidden package, path, source Device, or prescribed next observation. It is
+never presented as a way in, because no installed tool supports `UPD-001`.
 
-This target projection is derived from the same narrow Player Information
-slice as the rest of NodeScan plus SELF-owned filesystem resources. It does not
-read hidden target World Truth to label an avenue, predict success, refresh a
-fingerprint, or expose Credential Access. Consequently a successful rollback
-leaves the remembered GateSSH 1.3.3 fingerprint unchanged in the workspace
-until a later legitimate Enhanced Inspect, and the resulting AUTH-017 route
-still requires legitimate Service Analysis.
-
-Findings lead with their remembered player-facing label; Service identity and
-the vulnerability ID remain secondary technical context. The workspace also
-projects useful disposable completed Process results: a no-weakness analysis
-result accompanies its repeatable Analyze action without becoming Knowledge,
-and a latest failed Credential Access attempt is stated coarsely without a
-hidden diagnosis while another player-justified attempt remains available.
-RackUpdate feedback names player-known input failures where appropriate, but
-current-target resolution failures collapse to `PACKAGE NOT APPLIED` so stale
-Player Information cannot become a channel for hidden World Truth.
+This projection reads no hidden target World Truth to label an avenue, predict
+success, refresh a fingerprint, or expose a way in. Consequently a successful
+rollback leaves the remembered GateSSH 1.3.3 fingerprint unchanged until a
+later legitimate Enhanced Inspect, and the resulting AUTH-017 route still
+requires legitimate Service Analysis.
 
 Because there is no canonical "analyzed" state, a Service that has not
-produced Knowledge claims no analysis state at all. Retained completed-Process
-results remain available as disposable history on the Service page and are
-never promoted into permanent memory.
+produced Knowledge claims no analysis state at all. A completed no-weakness or
+service-unavailable analysis result is stated beside its repeatable Analyze
+action as disposable Process history and is never promoted into permanent
+memory.
 
-The installed NodeScan release supplies the Inspect action, so Inspect is
-absent under NodeScan 1.0 Standard. Remembered Inspect evidence is unaffected
-by that capability: where evidence exists but the installed release cannot
-Inspect, the object states that the evidence is remembered from an earlier
-observation instead of offering the action.
+Known Networks are relationship context rather than a level of navigation:
+there is no Network page, no Network or Device expansion, no Service children
+on Known Space, and no separate Service page. Network Inspect remains
+available through Terminal `inspect <network-name>`, and remembered Network
+Inspect evidence is unaffected.
+
 
 Current Scan behavior is:
 
@@ -138,7 +119,7 @@ scan LocalNetwork/name
 → observe responding represented member Devices
 ```
 
-The existing discovery loop can therefore proceed conceptually as:
+The underlying observation sequence a target sweep composes is therefore:
 
 ```text
 ip
@@ -168,6 +149,41 @@ Successful positive Scan observations are remembered in canonical Discovery.
 
 Opening or navigating remembered information in the graphical Scan application
 does not itself perform a new observation.
+
+
+## Target sweep and target discovery
+
+NodeScan performs the routine technical work behind its two SCAN actions.
+Both are application-level compositions of existing canonical operations; they
+introduce no gameplay rule and no canonical state of their own, and Terminal
+still exposes every underlying step individually.
+
+`findTargets` (SCAN on Known Space) observes SELF's own Network
+relationships, then observes the responding members of every Network the
+player now legitimately remembers. Nothing outside remembered Discovery is
+scanned. Without an installed NodeScan release it reports
+`software_unavailable`; where SELF is offline it reports `no_response` and
+remembers nothing.
+
+`sweepTarget` (SCAN on a target card) observes the target's currently open
+Services, then — only where the installed release supplies Inspect — performs
+Enhanced Inspect of the target and its remembered Services, then starts
+Service Analysis for every Service the player now legitimately remembers.
+Service Analysis stays real work: each investigation is a canonical Process
+with its own RAM cost and elapsed time, started through the same
+observation-bound operation the per-Service action uses. Where represented
+memory carries only some of them, those start and the contention is reported;
+where it carries none, the Scan observation still stands. A target that does
+not respond leaves remembered information exactly as it was, and where another
+Device now answers the remembered address that observation is remembered as
+its own Device while this target is left untouched and nothing is
+investigated on its behalf.
+
+The installed NodeScan release supplies the Inspect capability, so a sweep
+under NodeScan 1.0 Standard performs Scan and Service Analysis only.
+Remembered Inspect evidence is unaffected by that capability: where evidence
+exists but the installed release cannot Inspect, the target states that the
+evidence is remembered from an earlier observation.
 
 
 ## Inspect
@@ -315,7 +331,8 @@ attempt through:
 attack <ipv4:port>
 ```
 
-or through the corresponding remembered graphical service action.
+or through NodeScan's HACK action, which uses the way in derived from the
+player's own Knowledge and installed tool.
 
 Starting the attempt creates a Credential Access Process.
 
@@ -337,12 +354,14 @@ relationship containing:
 - service path identity
 - USER privilege
 
-The current graphical Scan surface presents established access and active Remote
-Session state in one Device-level state slot. A Service that established access
-presents that relationship as an access path and offers navigation back to its
-containing Device; that navigation does not connect automatically. Persistent
-Service findings take priority over redundant successful analysis history, while
-useful no-finding results remain visible as secondary information.
+The current graphical NodeScan surface presents established access and active
+Remote Session state as one target stage: ACCESS GRANTED offers CONNECT, and an
+active Session presents CONNECTED and DISCONNECT in the same place without
+deleting the underlying `DeviceAccess`. The Service the relationship was
+established through is stated under TECHNICAL DETAILS as provenance; it offers
+no navigation of its own and never connects automatically. Persistent Service
+findings take priority over redundant successful analysis history, while useful
+no-finding results remain visible as secondary information.
 
 `DeviceAccess` is not:
 
@@ -361,7 +380,7 @@ Credential Attack does not connect automatically and CONNECT does not repeat
 the exploit. `DISCONNECT` clears the active Session while preserving access.
 
 Terminal `connect <ipv4>` resolves the address through remembered Discovery,
-and Scan exposes the same shared operation at Device level. The Session stores
+and NodeScan exposes the same shared operation as the target card's CONNECT. The Session stores
 only its stable ID, the authorizing access ID, and the address used to connect;
 source, target, service, and privilege remain owned by `DeviceAccess`.
 
@@ -486,3 +505,14 @@ empty state.
   never stops a Miner running on the target, and never removes DeviceAccess.
 - A remote operation resolves its target only through `accessId` → target
   identity. Presentation never supplies an executor Device ID.
+- A NodeScan target stage is derived presentation, not canonical state. There
+  is no stored stage, no `hacked` flag, and no canonical target progress; each
+  stage is recomputed from Discovery, Knowledge, Process, DeviceAccess and
+  RemoteSession on every render.
+- A way in is a statement about the player's Knowledge and installed software,
+  never a prediction. Removing the supporting tool removes the offer without
+  touching the Knowledge, and a stale endpoint can still produce a legitimate
+  failed attempt.
+- A target sweep automates canonical operations; it does not relax any of
+  them. It never scans, inspects or analyzes anything outside remembered
+  Discovery, and it never reads hidden target truth to decide what to run.

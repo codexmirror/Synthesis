@@ -97,10 +97,12 @@ Access, DeviceAccess, Remote Session, RACK-OS, Authentication History.
   `src/core/game/discovery.ts`, `src/core/game/serviceAnalysis.ts`,
   `src/core/game/credentialAccess.ts`, `src/core/game/remoteSession.ts`,
   `src/core/game/authenticationHistory.ts`, `src/app/localScanOperation.ts`,
-  `src/app/localInspectOperation.ts`, `src/apps/network/`, `src/apps/rackos/`
+  `src/app/localInspectOperation.ts`, `src/app/targetSweepOperation.ts`,
+  `src/apps/network/`, `src/apps/rackos/`
 - TESTS → `src/core/game/scan.test.ts`, `src/core/game/inspect.test.ts`,
   `src/core/game/discovery.test.ts`, `src/core/game/credentialAccess.test.ts`,
-  `src/core/game/remoteSession.test.ts`, `src/apps/network/Network.test.tsx`,
+  `src/core/game/remoteSession.test.ts`,
+  `src/app/targetSweepOperation.test.ts`, `src/apps/network/Network.test.tsx`,
   `src/apps/rackos/RackOS.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders

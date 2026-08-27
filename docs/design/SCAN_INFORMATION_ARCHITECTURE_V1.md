@@ -23,20 +23,21 @@ Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md
 
    These are semantic categories, not mandatory visible panels.
 
-4. Device pages present:
-   - Device identity and observed facts
-   - player relationship/current operating state relevant to the Device
-   - known network relationships
+4. A target presentation carries:
+   - target identity and observed facts
+   - player relationship/current operating state relevant to the target
+   - known network relationships as context, presented where they help the
+     player place the target rather than as a level to navigate through
    - known child Services
-   - Device-level actions
+   - the actions that continue this target's line of action
 
-5. Service pages present:
-   - Service identity and observed facts
-   - Service-specific findings
-   - Service-specific actions
-   - provenance of established DeviceAccess when the Service created that path
+5. Service information — identity, observed facts, Service-specific findings,
+   Service-specific actions, and the provenance of DeviceAccess a Service
+   created — belongs to its target's presentation. It does not require a page
+   of its own, and after the interaction reset it does not have one: it is
+   progressive depth under the target.
 
-6. DeviceAccess and RemoteSession share one Device-page presentation slot.
+6. DeviceAccess and RemoteSession share one target presentation slot.
 
    Canonical state remains:
 
@@ -76,15 +77,17 @@ Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md
     section.
 
 11. Scan should remain a Known Space / object browser rather than becoming a
-    universal interface for every system.
+    universal interface for every system. Browsing depth is not the same as
+    navigating it: an object's information may be disclosed in place rather
+    than reached through a page.
 
 12. Contextual projection of one target's decision line is not an exception to
     9-11; it is their boundary, and it is not owned here.
 
-    A NodeScan object presentation surface — an object page, and the
-    Device-level Target Workspace built on it — may project target-relevant
-    canonical state and target-relevant operations from other domains where
-    that is necessary to keep one line of action against one target coherent.
+    A NodeScan object presentation surface — the target card, and any object
+    presentation built on it — may project target-relevant canonical state and
+    target-relevant operations from other domains where that is necessary to
+    keep one line of action against one target coherent.
     The canonical owner of each projected concern is unchanged, and the
     specialized interface remains the place that subsystem is managed in
     general.
@@ -93,6 +96,6 @@ Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md
     interface, and browsing remembered information remain distinct: projecting
     an operation onto a page performs no observation.
 
-    That boundary, its player-facing rules, and the Target Workspace it exists
-    for are owned by
+    That boundary, its player-facing rules, and the casual interaction it
+    exists for are owned by
     [`HACKING_AND_OBSERVATION_V1.md`](HACKING_AND_OBSERVATION_V1.md).

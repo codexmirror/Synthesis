@@ -4,273 +4,391 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 import {
   resolveNodeScanRelease,
-  selectDeviceWorkspace,
   selectKnownSpace,
-  selectNetworkWorkspace,
-  selectServiceWorkspace,
-  type DeviceWorkspace,
-  type NetworkMember,
-  type NetworkWorkspace,
+  selectTarget,
+  type KnownSpace,
   type NodeScanRelease,
-  type RunningOperation,
-  type ServiceSummary,
   type PlayerInformation,
-  type ServiceWorkspace,
-  type StandaloneDeviceSummary,
-} from './nodeScanWorkspace'
+  type Target,
+  type TargetRoute,
+  type TargetService,
+  type TargetStage,
+  type TargetSummary,
+} from './targetProjection'
 
 /**
- * NodeScan is one investigation workspace over four levels of the same
- * subject: Known Space -> Network -> Device -> Service. Navigation is local
- * presentation state; every rendered fact comes from the view models in
- * `nodeScanWorkspace.ts`, which are derived from remembered Discovery, earned
- * Knowledge, the player's own Processes and the player's current
- * relationships. Browsing never observes.
+ * NodeScan has two screens and three player actions.
  *
- * Known Space is the primary workspace: Networks are independent top-level
- * relationship branches whose members, and those members' remembered
- * Services, expand in place. The Device and Service detail views remain the
- * deeper dive, never the route the normal loop has to take.
+ * KNOWN SPACE shows the remembered shape of the world around the player:
+ * Networks they have observed, SELF's own place in them, and the targets that
+ * belong to each. That relationship scaffold is presentation only — a Network
+ * is not openable, nothing expands, and tapping a target opens its card
+ * directly. It exists so the player can see where they are, not so they have
+ * to navigate through it.
+ *
+ * A target card is one target's whole line of action: SCAN to find out about
+ * it, HACK to use what was found, CONNECT once access exists. The card states
+ * one thing at a time, because at any moment there is one thing the player is
+ * waiting on or deciding.
+ *
+ * The technical world underneath is unchanged and stays reachable: Services,
+ * observed implementations, weakness identities, the tool a route uses and
+ * RackUpdate's rollback avenue all live under TECHNICAL DETAILS. Opening that
+ * disclosure browses remembered information; it never observes.
+ *
+ * Every rendered fact comes from the view models in `targetProjection.ts`,
+ * which read player information only.
  */
-type Focus =
-  | { readonly kind: 'known-space' }
-  | { readonly kind: 'network'; readonly networkId: string }
-  | { readonly kind: 'device'; readonly deviceId: string; readonly networkId?: string }
-  | { readonly kind: 'service'; readonly deviceId: string; readonly serviceId: string; readonly networkId?: string }
+type Focus = { readonly kind: 'targets' } | { readonly kind: 'target'; readonly deviceId: string }
 
 type CopyState = { value: string; status: 'copied' | 'failed' } | null
-type StartFeedback = { serviceId: string; message: string } | null
-type ConnectionFeedback = 'TARGET NOT AVAILABLE' | 'ANOTHER REMOTE SESSION IS ACTIVE' | 'ACCESS REQUIRED' | null
-type ObservationFeedback = { target: string; message: string } | null
 
-function countLabel(count: number, singular: string): string {
-  return `${count} ${singular}${count === 1 ? '' : 's'}`
+const STAGE_MARK: Record<TargetStage, string> = {
+  unscanned: 'NOT SCANNED',
+  scanning: 'SCANNING',
+  no_route: 'NO WAY IN',
+  route: 'WAY IN FOUND',
+  hacking: 'HACKING',
+  access: 'ACCESS',
+  connected: 'CONNECTED',
 }
 
-/** A Device branch is only offered where expanding it reveals remembered children. */
-function hasServiceChildren(member: NetworkMember): boolean {
-  return member.servicesObserved && member.services.length > 0
+function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): string {
+  return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'lan' ? 'Local network' : 'Remote'
 }
 
-/** The one line that states what is known about a Device's Services. */
-function serviceNote(member: { servicesObserved: boolean; serviceCount: number }): string {
-  if (!member.servicesObserved) return 'Services not observed'
-  if (member.serviceCount === 0) return 'No open services'
-  return countLabel(member.serviceCount, 'known service')
+function kindOf(target: Target): string {
+  if (target.observed) return target.observed.deviceKind.toUpperCase()
+  return target.servicesObserved ? 'TARGET' : 'UNKNOWN TARGET'
 }
 
 export function Network() {
   const gameState = useGameState()
   const actions = useGameActions()
   const release = resolveNodeScanRelease(gameState.player.localDevice)
-  const [focus, setFocus] = useState<Focus>({ kind: 'known-space' })
+  const [focus, setFocus] = useState<Focus>({ kind: 'targets' })
   const [copyState, setCopyState] = useState<CopyState>(null)
-  const [feedback, setFeedback] = useState<StartFeedback>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [selectedPackageId, setSelectedPackageId] = useState('')
-  const [connectionFeedback, setConnectionFeedback] = useState<ConnectionFeedback>(null)
-  const [observationFeedback, setObservationFeedback] = useState<ObservationFeedback>(null)
-  const [pendingTarget, setPendingTarget] = useState<string | null>(null)
-  // Expansion is presentation state for the whole workspace, so the tree keeps
-  // its shape when the player dips into a detail view and comes back.
-  const [expandedNetworkIds, setExpandedNetworkIds] = useState<readonly string[]>([])
-  const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null)
-  const pendingTargetRef = useRef<string | null>(null)
+  const [pending, setPending] = useState<string | null>(null)
+  const pendingRef = useRef<string | null>(null)
   const requestGeneration = useRef(0)
   const copyTimer = useRef<ReturnType<typeof setTimeout>>()
   useEffect(() => () => { requestGeneration.current++; clearTimeout(copyTimer.current) }, [])
 
-  function beginRequest(target: string) {
-    if (pendingTargetRef.current === target) return null
-    pendingTargetRef.current = target
-    setPendingTarget(target)
-    setObservationFeedback(null)
+  function beginRequest(subject: string) {
+    if (pendingRef.current === subject) return null
+    pendingRef.current = subject
+    setPending(subject)
+    setNotice(null)
     return ++requestGeneration.current
   }
-  function finishRequest(target: string, generation: number) {
+  function finishRequest(subject: string, generation: number) {
     if (requestGeneration.current !== generation) return false
-    if (pendingTargetRef.current === target) pendingTargetRef.current = null
-    setPendingTarget(null)
+    if (pendingRef.current === subject) pendingRef.current = null
+    setPending(null)
     return true
   }
+  /** A result that arrives after the player moved on is no longer their answer. */
   function invalidateRequests() {
     requestGeneration.current++
-    pendingTargetRef.current = null
-    setPendingTarget(null)
-    setObservationFeedback(null)
+    pendingRef.current = null
+    setPending(null)
+    setNotice(null)
   }
-  /** Scan is the observation; reporting its own outcome reveals nothing the player did not just look at. */
-  async function scan(target: string) {
-    const generation = beginRequest(target)
+  function open(next: Focus) {
+    invalidateRequests()
+    setFocus(next)
+  }
+
+  async function findTargets() {
+    const generation = beginRequest('targets')
     if (generation === null) return
     try {
-      const result = await actions.scanTarget(target)
-      if (!finishRequest(target, generation)) return
-      if (result.status === 'no_response') setObservationFeedback({ target, message: 'NO RESPONSE' })
-      else if (result.status === 'unknown_target') setObservationFeedback({ target, message: 'UNKNOWN TARGET' })
-      else if (result.status === 'software_unavailable') setObservationFeedback({ target, message: 'NODESCAN NOT INSTALLED' })
-    } catch { finishRequest(target, generation) }
+      const result = await actions.findTargets()
+      if (!finishRequest('targets', generation)) return
+      if (result.status !== 'observed') setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : 'NO RESPONSE')
+      else if (result.targetsKnown === 0) setNotice('NOTHING FOUND')
+    } catch { finishRequest('targets', generation) }
   }
+
+  async function scan(target: Target) {
+    const generation = beginRequest(target.id)
+    if (generation === null) return
+    try {
+      const result = await actions.sweepTarget({ targetDeviceId: target.id, address: target.address })
+      if (!finishRequest(target.id, generation)) return
+      if (result.status !== 'observed') {
+        setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : result.status === 'no_response' ? 'NO RESPONSE' : 'UNKNOWN TARGET')
+      } else if (result.insufficientMemory && result.analysesStarted === 0) setNotice('NOT ENOUGH MEMORY')
+    } catch { finishRequest(target.id, generation) }
+  }
+
+  function hack(route: TargetRoute, targetDeviceId: string) {
+    const result = actions.startCredentialAccessAttemptFromObservation({
+      endpoint: route.endpoint, targetDeviceId, serviceId: route.serviceId,
+      vulnerabilityId: route.vulnerabilityId, toolId: BASIC_CREDENTIAL_TOOLKIT_ID,
+    })
+    if (result.status === 'started') setNotice(null)
+    else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
+    else setNotice(result.status === 'already_running' ? 'ALREADY RUNNING'
+      : result.status === 'access_established' ? 'ACCESS ALREADY ESTABLISHED'
+      : result.status === 'endpoint_not_found' ? 'TARGET NOT AVAILABLE'
+      : 'NOT AVAILABLE')
+  }
+
+  function connect(target: Target) {
+    const result = actions.connectRemoteFromObservation({ targetDeviceId: target.id, address: target.address })
+    setNotice(result.status === 'target_not_available' ? 'TARGET NOT AVAILABLE'
+      : result.status === 'session_active' ? 'ANOTHER CONNECTION IS OPEN'
+      : result.status === 'access_required' ? 'ACCESS REQUIRED'
+      : null)
+  }
+
+  function analyze(target: Target, service: TargetService) {
+    const result = actions.startServiceAnalysisFromObservation({ endpoint: service.endpoint, targetDeviceId: target.id, serviceId: service.id })
+    if (result.status === 'started') setNotice(null)
+    else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
+    else setNotice(result.status === 'already_running' ? 'ALREADY RUNNING'
+      : result.status === 'endpoint_not_found' || result.status === 'invalid_endpoint' ? 'TARGET NOT AVAILABLE'
+      : 'SERVICE UNAVAILABLE')
+  }
+
+  function submitPackage(target: Target) {
+    const rollback = target.rollback
+    if (!rollback) return
+    const result = actions.submitRackUpdatePackageFromObservation({ targetDeviceId: target.id, serviceId: rollback.serviceId, endpoint: rollback.endpoint, localFileId: selectedPackageId })
+    setNotice(result.status === 'applied' ? 'PACKAGE APPLIED'
+      : result.status === 'observation_required' ? 'OBSERVATION REQUIRED'
+        : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
+          : result.status === 'package_rejected' ? 'PACKAGE REJECTED'
+            : 'PACKAGE NOT APPLIED')
+  }
+
   async function copy(value: string) {
     try { await navigator.clipboard.writeText(value); setCopyState({ value, status: 'copied' }) }
     catch { setCopyState({ value, status: 'failed' }) }
     clearTimeout(copyTimer.current)
     copyTimer.current = setTimeout(() => setCopyState(null), 1600)
   }
-  function analyze(service: ServiceWorkspace) {
-    const result = actions.startServiceAnalysisFromObservation({ endpoint: service.endpoint, targetDeviceId: service.deviceId, serviceId: service.id })
-    if (result.status === 'started') setFeedback(null)
-    else if (result.status === 'insufficient_memory') setFeedback({ serviceId: service.id, message: `INSUFFICIENT MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available` })
-    else setFeedback({ serviceId: service.id, message: result.status === 'already_running' ? 'ANALYSIS ALREADY RUNNING' : result.status === 'endpoint_not_found' || result.status === 'invalid_endpoint' ? 'ENDPOINT NOT AVAILABLE' : 'SERVICE UNAVAILABLE' })
-  }
-  function attempt(service: ServiceWorkspace, vulnerabilityId: string) {
-    const result = actions.startCredentialAccessAttemptFromObservation({ endpoint: service.endpoint, targetDeviceId: service.deviceId, serviceId: service.id, vulnerabilityId, toolId: BASIC_CREDENTIAL_TOOLKIT_ID })
-    if (result.status === 'started') setFeedback(null)
-    else if (result.status === 'insufficient_memory') setFeedback({ serviceId: service.id, message: `INSUFFICIENT MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available` })
-    else setFeedback({ serviceId: service.id, message: result.status === 'already_running' ? 'ATTEMPT ALREADY RUNNING' : result.status === 'access_established' ? 'ACCESS ALREADY ESTABLISHED' : result.status === 'endpoint_not_found' ? 'ENDPOINT NOT AVAILABLE' : 'ATTEMPT NOT AVAILABLE' })
-  }
-  function submitPackage(service: ServiceWorkspace) {
-    const result = actions.submitRackUpdatePackageFromObservation({ targetDeviceId: service.deviceId, serviceId: service.id, endpoint: service.endpoint, localFileId: selectedPackageId })
-    const message = result.status === 'applied' ? 'PACKAGE APPLIED'
-      : result.status === 'observation_required' ? 'OBSERVATION REQUIRED'
-        : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
-          : result.status === 'package_rejected' ? 'PACKAGE REJECTED'
-            : 'PACKAGE NOT APPLIED'
-    setFeedback({ serviceId: service.id, message })
-  }
-  function connect(targetDeviceId: string, address: string) {
-    const result = actions.connectRemoteFromObservation({ targetDeviceId, address })
-    setConnectionFeedback(result.status === 'target_not_available' ? 'TARGET NOT AVAILABLE'
-      : result.status === 'session_active' ? 'ANOTHER REMOTE SESSION IS ACTIVE'
-      : result.status === 'access_required' ? 'ACCESS REQUIRED'
-      : null)
-  }
-  function toggleNetwork(networkId: string) {
-    setExpandedNetworkIds(expandedNetworkIds.includes(networkId)
-      ? expandedNetworkIds.filter((id) => id !== networkId)
-      : [...expandedNetworkIds, networkId])
-  }
-  function toggleDevice(deviceId: string) {
-    setExpandedDeviceId(expandedDeviceId === deviceId ? null : deviceId)
-  }
-  function open(next: Focus) {
-    invalidateRequests()
-    setFeedback(null)
-    setConnectionFeedback(null)
-    setFocus(next)
-  }
 
-  if (!release) return <section className="app-content scan-app" aria-label="NodeScan workspace">
+  if (!release) return <section className="app-content scan-app" aria-label="NodeScan">
     <div className="ns-view">
       <header className="ns-masthead"><div><span className="ns-eyebrow">NODESCAN</span><h2>NOT INSTALLED</h2></div></header>
-      <div className="node-empty"><strong>NO RECONNAISSANCE SOFTWARE</strong><span>This Device carries no installed NodeScan release, so no network space can be observed.</span></div>
+      <div className="node-empty"><strong>NO RECONNAISSANCE SOFTWARE</strong><span>This Device carries no installed NodeScan release, so no target can be observed.</span></div>
     </div>
   </section>
 
-  // Narrowed at the boundary: the workspace is built from player information only.
+  // Narrowed at the boundary: every screen is built from player information only.
   const information: PlayerInformation = gameState
-  const parentNetworkName = 'networkId' in focus && focus.networkId
-    ? selectNetworkWorkspace(information, focus.networkId)?.name
-    : undefined
 
-  if (focus.kind === 'service') {
-    const service = selectServiceWorkspace(information, focus.deviceId, focus.serviceId)
-    if (service) return <section className="app-content scan-app" aria-label="NodeScan workspace">
-      <ServiceView
-        service={service}
-        copyState={copyState}
-        feedback={feedback}
-        onCopy={copy}
-        onAnalyze={() => analyze(service)}
-        onAttempt={(vulnerabilityId) => attempt(service, vulnerabilityId)}
-        selectedPackageId={selectedPackageId}
-        onSelectPackage={setSelectedPackageId}
-        onSubmitPackage={() => submitPackage(service)}
-        onBack={() => open({ kind: 'device', deviceId: focus.deviceId, ...(focus.networkId ? { networkId: focus.networkId } : {}) })}
-      />
-    </section>
-  }
-
-  if (focus.kind === 'device') {
-    const device = selectDeviceWorkspace(information, focus.deviceId)
-    if (device) return <section className="app-content scan-app" aria-label="NodeScan workspace">
-      <DeviceView
-        device={device}
+  if (focus.kind === 'target') {
+    const target = selectTarget(information, focus.deviceId)
+    if (target) return <section className="app-content scan-app" aria-label="NodeScan">
+      <TargetCard
+        target={target}
         release={release}
-        parentName={parentNetworkName}
-        pending={pendingTarget === device.address}
-        observationFeedback={observationFeedback?.target === device.address ? observationFeedback.message : null}
-        connectionFeedback={connectionFeedback}
+        pending={pending === target.id}
+        notice={notice}
         copyState={copyState}
-        feedback={feedback}
         selectedPackageId={selectedPackageId}
+        onBack={() => open({ kind: 'targets' })}
+        onScan={() => scan(target)}
+        onHack={(route) => hack(route, target.id)}
+        onConnect={() => connect(target)}
+        onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
+        onAnalyze={(service) => analyze(target, service)}
         onCopy={copy}
-        onScan={() => scan(device.address)}
-        onInspect={() => actions.inspectTarget(device.address)}
-        onConnect={() => connect(device.id, device.address)}
-        onDisconnect={() => { actions.disconnectRemoteSession(); setConnectionFeedback(null) }}
-        onAnalyze={analyze}
-        onAttempt={attempt}
         onSelectPackage={setSelectedPackageId}
-        onSubmitPackage={submitPackage}
-        onOpenNetwork={(networkId) => open({ kind: 'network', networkId })}
-        onOpenService={(serviceId) => open({ kind: 'service', deviceId: device.id, serviceId, ...(focus.networkId ? { networkId: focus.networkId } : {}) })}
-        onBack={() => open(focus.networkId ? { kind: 'network', networkId: focus.networkId } : { kind: 'known-space' })}
+        onSubmitPackage={() => submitPackage(target)}
       />
     </section>
   }
 
-  if (focus.kind === 'network') {
-    const network = selectNetworkWorkspace(information, focus.networkId)
-    if (network) return <section className="app-content scan-app" aria-label="NodeScan workspace">
-      <div className="ns-view">
-        <Crumbs parent="Known Space" subject={network.name} onBack={() => open({ kind: 'known-space' })} />
-        <div className="ns-network-list ns-network-list--pinned">
-          <NetworkBranch
-            network={network}
-            release={release}
-            pinned
-            expanded
-            expandedDeviceId={expandedDeviceId}
-            pendingTarget={pendingTarget}
-            observationFeedback={observationFeedback}
-            onToggle={() => {}}
-            onToggleDevice={toggleDevice}
-            onScanNetwork={() => scan(network.name)}
-            onInspectNetwork={() => actions.inspectTarget(network.name)}
-            onScanDevice={(address) => scan(address)}
-            onOpenDevice={(deviceId) => open({ kind: 'device', deviceId, networkId: network.id })}
-            onOpenService={(deviceId, serviceId) => open({ kind: 'service', deviceId, serviceId, networkId: network.id })}
-          />
-        </div>
-      </div>
-    </section>
-  }
-
-  const space = selectKnownSpace(information)
-  const networks = space.networks.flatMap(({ id }) => {
-    const network = selectNetworkWorkspace(information, id)
-    return network ? [network] : []
-  })
-  return <section className="app-content scan-app" aria-label="NodeScan workspace">
+  return <section className="app-content scan-app" aria-label="NodeScan">
     <KnownSpaceView
-      selfAddress={space.self.address}
-      networks={networks}
-      standaloneDevices={space.standaloneDevices}
+      space={selectKnownSpace(information)}
       release={release}
-      expandedNetworkIds={expandedNetworkIds}
-      expandedDeviceId={expandedDeviceId}
-      onToggleNetwork={toggleNetwork}
-      onToggleDevice={toggleDevice}
-      pendingTarget={pendingTarget}
-      observationFeedback={observationFeedback}
-      onScanSelf={() => scan(space.self.address)}
-      onScanNetwork={(network) => scan(network.name)}
-      onInspectNetwork={(network) => actions.inspectTarget(network.name)}
-      onScanDevice={(address) => scan(address)}
-      onOpenDevice={(deviceId, networkId) => open({ kind: 'device', deviceId, ...(networkId ? { networkId } : {}) })}
-      onOpenService={(deviceId, serviceId, networkId) => open({ kind: 'service', deviceId, serviceId, networkId })}
+      pending={pending === 'targets'}
+      notice={notice}
+      onFind={findTargets}
+      onOpen={(deviceId) => open({ kind: 'target', deviceId })}
     />
   </section>
+}
+
+function KnownSpaceView({ space, release, pending, notice, onFind, onOpen }: {
+  space: KnownSpace
+  release: NodeScanRelease
+  pending: boolean
+  notice: string | null
+  onFind(): void
+  onOpen(deviceId: string): void
+}) {
+  const known = space.networks.length > 0 || space.elsewhere.length > 0
+  return <div className="ns-view">
+    <header className="ns-masthead">
+      <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
+      <span className="ns-release">{release.version}{release.channel ? ` ${release.channel.toUpperCase()}` : ''}</span>
+    </header>
+
+    {known
+      ? <div className="ns-space">
+        {space.networks.map((network) => <section className="ns-group" key={network.id} aria-label={`Network ${network.name}`}>
+          <header className="ns-group-head">
+            <span className="ns-eyebrow">NETWORK</span>
+            <strong>{network.name}</strong>
+          </header>
+          {(network.includesSelf || network.targets.length > 0) && <div className="ns-branch">
+            {/* SELF is the player's own position in the topology, never a target. */}
+            {network.includesSelf && <div className="ns-limb">
+              <div className="ns-node ns-node--self">
+                <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span>
+              </div>
+            </div>}
+            {network.targets.map((target) => <div className="ns-limb" key={target.id}>
+              <TargetRow target={target} onOpen={onOpen} />
+            </div>)}
+          </div>}
+          {!network.membersObserved
+            ? <p className="ns-group-note">Members not observed</p>
+            : network.targets.length === 0 && <p className="ns-group-note">{network.includesSelf ? 'No other devices responded' : 'No devices responded'}</p>}
+        </section>)}
+
+        {space.elsewhere.length > 0 && <section className="ns-group" aria-label="Elsewhere">
+          <header className="ns-group-head"><span className="ns-eyebrow">ELSEWHERE</span></header>
+          <div className="ns-loose">{space.elsewhere.map((target) => <TargetRow key={target.id} target={target} onOpen={onOpen} showLocation />)}</div>
+        </section>}
+      </div>
+      : <div className="node-empty"><strong>NOTHING KNOWN YET</strong><span>Nothing has been found around this Device yet.</span></div>}
+
+    <div className="ns-primary-slot">
+      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>{known ? 'SCAN AGAIN' : 'SCAN'}</button>
+      <p className="ns-primary-note">Look for devices around you.</p>
+    </div>
+    {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
+  </div>
+}
+
+function TargetRow({ target, showLocation, onOpen }: { target: TargetSummary; showLocation?: boolean; onOpen(deviceId: string): void }) {
+  return <button
+    type="button"
+    className="ns-node ns-target"
+    aria-label={`Open target ${target.address}`}
+    onClick={() => onOpen(target.id)}
+  >
+    <span className="ns-target-copy">
+      <strong>{target.address}</strong>
+      {showLocation && <span className="ns-target-note">{locationOf(target)}</span>}
+    </span>
+    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
+    <span className="ns-arrow" aria-hidden="true">›</span>
+  </button>
+}
+
+/**
+ * One target, one decision. The stage panel states where this target's line of
+ * action currently is and offers the single action that continues it.
+ */
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onHack, onConnect, onDisconnect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+  target: Target
+  release: NodeScanRelease
+  pending: boolean
+  notice: string | null
+  copyState: CopyState
+  selectedPackageId: string
+  onBack(): void
+  onScan(): void
+  onHack(route: TargetRoute): void
+  onConnect(): void
+  onDisconnect(): void
+  onAnalyze(service: TargetService): void
+  onCopy(value: string): void
+  onSelectPackage(fileId: string): void
+  onSubmitPackage(): void
+}) {
+  const routes = target.routes.length
+  return <div className="ns-view">
+    <nav className="scan-crumbs" aria-label="NodeScan navigation">
+      <button type="button" onClick={onBack}>← Known Space</button>
+      <span aria-hidden="true">/</span>
+      <strong>{target.address}</strong>
+    </nav>
+
+    <header className="ns-subject">
+      <span className="ns-eyebrow">{kindOf(target)}</span>
+      <h2>{target.address}</h2>
+      <p className="ns-subject-note">{locationOf(target)}</p>
+    </header>
+
+    <section className="ns-stage" aria-label="Target status">
+      {target.stage === 'unscanned' && <>
+        <strong className="ns-stage-headline">NOT SCANNED</strong>
+        <span className="ns-stage-note">Nothing is known about this target yet.</span>
+        <Primary label="SCAN" disabled={pending} onClick={onScan} />
+      </>}
+
+      {target.stage === 'scanning' && <>
+        <strong className="ns-stage-headline">SCANNING</strong>
+        <Progress percent={target.percent} label="Scan progress" />
+      </>}
+
+      {target.stage === 'no_route' && <>
+        <strong className="ns-stage-headline">NO WAY IN FOUND</strong>
+        <span className="ns-stage-note">Nothing you currently know opens this target.</span>
+        <Primary label="SCAN AGAIN" disabled={pending} onClick={onScan} />
+      </>}
+
+      {target.stage === 'route' && <>
+        <strong className="ns-stage-headline">{routes} WAY{routes === 1 ? '' : 'S'} IN FOUND</strong>
+        {target.lastAttemptFailed && <span className="ns-stage-note">The last attempt failed.</span>}
+        <Primary label={target.lastAttemptFailed ? 'HACK AGAIN' : 'HACK'} onClick={() => onHack(target.routes[0])} />
+      </>}
+
+      {target.stage === 'hacking' && <>
+        <strong className="ns-stage-headline">HACKING</strong>
+        <Progress percent={target.percent} label="Hack progress" />
+      </>}
+
+      {target.stage === 'access' && <>
+        <strong className="ns-stage-headline">ACCESS GRANTED</strong>
+        <span className="ns-stage-note">You can connect to this target now.</span>
+        <Primary label="CONNECT" onClick={onConnect} />
+      </>}
+
+      {target.stage === 'connected' && <>
+        <strong className="ns-stage-headline">CONNECTED</strong>
+        <span className="ns-stage-note">{target.session?.connectedAddress} is open.</span>
+        <Primary label="DISCONNECT" onClick={onDisconnect} />
+      </>}
+    </section>
+    {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
+
+    <details className="ns-details">
+      <summary>TECHNICAL DETAILS</summary>
+      <TechnicalDetails
+        target={target}
+        release={release}
+        copyState={copyState}
+        selectedPackageId={selectedPackageId}
+        onAnalyze={onAnalyze}
+        onCopy={onCopy}
+        onSelectPackage={onSelectPackage}
+        onSubmitPackage={onSubmitPackage}
+      />
+    </details>
+  </div>
+}
+
+function Primary({ label, disabled, onClick }: { label: string; disabled?: boolean; onClick(): void }) {
+  return <button type="button" className="ns-primary" disabled={disabled} onClick={onClick}>{label}</button>
+}
+
+function Progress({ percent, label }: { percent: number; label: string }) {
+  return <div className="ns-progress" role="group" aria-label={label}>
+    <progress className="node-progress" max="100" value={percent}>{percent}%</progress>
+    <span className="ns-progress-value">{percent}%</span>
+  </div>
 }
 
 function CopyReference({ value, copyState, onCopy }: { value: string; copyState: CopyState; onCopy(value: string): void }) {
@@ -282,513 +400,96 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
   </button>
 }
 
-function Crumbs({ parent, subject, onBack }: { parent: string; subject: string; onBack(): void }) {
-  return <nav className="scan-crumbs" aria-label="Scan navigation">
-    <button type="button" onClick={onBack}>← {parent}</button>
-    <span aria-hidden="true">/</span>
-    <strong>{subject}</strong>
-  </nav>
-}
-
-function Action({ label, note, ariaLabel, disabled, onClick }: { label: string; note?: string; ariaLabel?: string; disabled?: boolean; onClick(): void }) {
-  // The note describes the action; it must not become part of its name.
-  return <button type="button" className="ns-action" disabled={disabled} aria-label={ariaLabel ?? label} onClick={onClick}>
-    <span className="ns-action-copy"><strong>{label}</strong>{note && <span>{note}</span>}</span>
-    <span className="ns-arrow" aria-hidden="true">→</span>
-  </button>
-}
-
-/** Compact branch-local control: an operation that belongs to the object it sits under. */
-function BranchAction({ label, ariaLabel, disabled, onClick }: { label: string; ariaLabel?: string; disabled?: boolean; onClick(): void }) {
-  return <button type="button" className="ns-branch-action" disabled={disabled} aria-label={ariaLabel ?? label} onClick={onClick}>{label}</button>
-}
-
-function Operation({ label, note, percent, ariaLabel }: { label: string; note: string; percent: number; ariaLabel: string }) {
-  return <section className="ns-operation" aria-label={ariaLabel}>
-    <div className="ns-operation-copy"><strong>{label}</strong><span>{note}</span></div>
-    <span className="ns-operation-value">{percent}%</span>
-    <progress className="node-progress" max="100" value={percent}>{percent}%</progress>
-  </section>
-}
-
-type Mark = { readonly tone: 'live' | 'known' | 'access'; readonly text: string }
-
-function Marks({ marks }: { marks: readonly Mark[] }) {
-  if (!marks.length) return null
-  return <span className="ns-marks">{marks.map((mark) => <span className={`ns-mark ns-mark--${mark.tone}`} key={mark.text}>{mark.text}</span>)}</span>
-}
-
-function runningMarks(running: readonly RunningOperation[]): Mark[] {
-  return running.map((operation) => ({
-    tone: 'live' as const,
-    text: `${operation.kind === 'analysis' ? 'ANALYSIS RUNNING' : 'CREDENTIAL ACCESS RUNNING'} · ${operation.percent}%`,
-  }))
-}
-
 /**
- * Remembered evidence never depends on the currently installed release, so
- * this states only why the matching action is absent. Nothing is said when
- * nothing was observed: a release the player does not have is not their
- * business.
+ * Optional depth. Everything here is an explanation of the player's own
+ * information and their own represented resources; none of it is a new
+ * observation, and none of it reads current target truth.
  */
-function CapabilityNote({ observed, canInspect }: { observed: boolean; canInspect: boolean }) {
-  if (!observed || canInspect) return null
-  return <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>
-}
-
-function KnownSpaceView({ selfAddress, networks, standaloneDevices, release, expandedNetworkIds, expandedDeviceId, onToggleNetwork, onToggleDevice, pendingTarget, observationFeedback, onScanSelf, onScanNetwork, onInspectNetwork, onScanDevice, onOpenDevice, onOpenService }: {
-  selfAddress: string
-  networks: readonly NetworkWorkspace[]
-  standaloneDevices: readonly StandaloneDeviceSummary[]
+function TechnicalDetails({ target, release, copyState, selectedPackageId, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+  target: Target
   release: NodeScanRelease
-  expandedNetworkIds: readonly string[]
-  expandedDeviceId: string | null
-  onToggleNetwork(networkId: string): void
-  onToggleDevice(deviceId: string): void
-  pendingTarget: string | null
-  observationFeedback: ObservationFeedback
-  onScanSelf(): void
-  onScanNetwork(network: NetworkWorkspace): void
-  onInspectNetwork(network: NetworkWorkspace): void
-  onScanDevice(address: string): void
-  onOpenDevice(deviceId: string, networkId: string): void
-  onOpenService(deviceId: string, serviceId: string, networkId: string): void
-}) {
-  const selfFeedback = observationFeedback?.target === selfAddress ? observationFeedback.message : null
-  return <div className="ns-view">
-    <header className="ns-masthead">
-      <div>
-        <span className="ns-eyebrow">{release.name.toUpperCase()}</span>
-        <h2>KNOWN SPACE</h2>
-        <p>Known and observed network space</p>
-      </div>
-      <span className="ns-release">{release.version}{release.channel ? ` ${release.channel.toUpperCase()}` : ''}</span>
-    </header>
-
-    <div className="node-section"><span id="ns-known-networks">NETWORKS</span>{networks.length > 0 && <span>{networks.length} known</span>}</div>
-
-    {networks.length > 0
-      ? <section aria-labelledby="ns-known-networks">
-        <div className="ns-network-list">{networks.map((network) => <NetworkBranch
-          key={network.id}
-          network={network}
-          release={release}
-          expanded={expandedNetworkIds.includes(network.id)}
-          expandedDeviceId={expandedDeviceId}
-          pendingTarget={pendingTarget}
-          observationFeedback={observationFeedback}
-          onToggle={() => onToggleNetwork(network.id)}
-          onToggleDevice={onToggleDevice}
-          onScanNetwork={() => onScanNetwork(network)}
-          onInspectNetwork={() => onInspectNetwork(network)}
-          onScanDevice={onScanDevice}
-          onOpenDevice={(deviceId) => onOpenDevice(deviceId, network.id)}
-          onOpenService={(deviceId, serviceId) => onOpenService(deviceId, serviceId, network.id)}
-        />)}</div>
-      </section>
-      : <>
-        <div className="node-empty"><strong>NO NETWORKS KNOWN</strong><span>Scan SELF to discover the Networks this Device belongs to.</span></div>
-        {/* Nothing is known yet, so the one bootstrap observation is the one control. */}
-        <div className="ns-bootstrap">
-          <button type="button" className="ns-primary" aria-label={`Scan self ${selfAddress}`} disabled={pendingTarget === selfAddress} onClick={onScanSelf}>SCAN SELF</button>
-        </div>
-        {selfFeedback && <p className="node-note node-note--caution" role="status">{selfFeedback}</p>}
-      </>}
-
-    {standaloneDevices.length > 0 && <>
-      <div className="node-section"><span id="ns-remote-devices">REMOTE DEVICES</span><span>{standaloneDevices.length} known</span></div>
-      <section className="ns-standalone-list" aria-labelledby="ns-remote-devices">
-        {standaloneDevices.map((device) => <button
-          type="button"
-          className="ns-node ns-node--device ns-node--standalone"
-          aria-label={`Open device ${device.address}`}
-          key={device.id}
-          onClick={() => onOpenDevice(device.id, '')}
-        >
-          <span className="ns-glyph" aria-hidden="true" />
-          <span className="ns-node-copy">
-            <span className="ns-eyebrow">{device.scope.toUpperCase()} DEVICE</span>
-            <strong>{device.address}</strong>
-            <span className="ns-row-note">{serviceNote(device)}</span>
-          </span>
-          <span className="ns-arrow" aria-hidden="true">→</span>
-        </button>)}
-      </section>
-    </>}
-  </div>
-}
-
-/**
- * One top-level relationship branch. `pinned` is the same branch presented as
- * the subject of its own view: always open, and identified by a heading rather
- * than by a collapse control.
- */
-function NetworkBranch({ network, release, expanded, pinned = false, expandedDeviceId, pendingTarget, observationFeedback, onToggle, onToggleDevice, onScanNetwork, onInspectNetwork, onScanDevice, onOpenDevice, onOpenService }: {
-  network: NetworkWorkspace
-  release: NodeScanRelease
-  expanded: boolean
-  pinned?: boolean
-  expandedDeviceId: string | null
-  pendingTarget: string | null
-  observationFeedback: ObservationFeedback
-  onToggle(): void
-  onToggleDevice(deviceId: string): void
-  onScanNetwork(): void
-  onInspectNetwork(): void
-  onScanDevice(address: string): void
-  onOpenDevice(deviceId: string): void
-  onOpenService(deviceId: string, serviceId: string): void
-}) {
-  const memberNote = network.membersObserved ? countLabel(network.members.length, 'known device') : 'Members not observed'
-  const identity = <span className="ns-node-copy">
-    <span className="ns-eyebrow">NETWORK</span>
-    <strong>{network.name}</strong>
-    <span className="ns-row-note">{memberNote}</span>
-  </span>
-  const networkFeedback = observationFeedback?.target === network.name ? observationFeedback.message : null
-
-  // A trunk is only drawn where the branch actually carries members, so an
-  // empty or unobserved Network terminates cleanly instead of dangling.
-  const populated = network.members.length > 0
-  return <article className={`ns-network-branch${expanded ? ' is-expanded' : ''}${populated ? ' is-populated' : ''}`}>
-    {pinned
-      ? <header className="ns-node ns-node--network ns-node--pinned">
-        <span className="ns-glyph ns-glyph--network" aria-hidden="true" />
-        {identity}
-      </header>
-      : <button type="button" className="ns-node ns-node--network" aria-label={`Open known area ${network.name}`} aria-expanded={expanded} onClick={onToggle}>
-        <span className="ns-twist" aria-hidden="true">▸</span>
-        {identity}
-      </button>}
-
-    {expanded && <div className="ns-branch" role="region" aria-label={`Known members of ${network.name}`}>
-      {/* Evidence and state that belong to the Network itself, above its members. */}
-      <div className="ns-branch-lead">
-        {network.observed && <dl className="ns-branch-facts"><div><dt>SELF CONNECTED</dt><dd>{network.observed.connected ? 'YES' : 'NO'}</dd></div></dl>}
-        {!network.membersObserved && <p className="ns-branch-note"><strong>MEMBERSHIP NOT FULLY OBSERVED</strong><span>Scan this Network to observe its responding member Devices.</span></p>}
-        {!network.membersObserved && populated && <p className="ns-branch-count">{countLabel(network.members.length, 'known device')}</p>}
-        {network.membersObserved && !populated && <p className="ns-branch-note"><strong>NO RESPONDING DEVICES</strong><span>The last Scan of this Network observed no responding Devices.</span></p>}
-      </div>
-
-      {populated && <div className="ns-limbs">
-        {network.members.map((member) => <div className="ns-limb" key={member.id}>
-          {member.scope === 'self'
-            ? <div className="ns-node ns-node--device ns-node--static">
-              <span className="ns-glyph ns-glyph--self" aria-hidden="true" />
-              <span className="ns-node-copy"><span className="ns-eyebrow">SELF</span><strong>{member.address}</strong></span>
-            </div>
-            : <DeviceNode
-              member={member}
-              expanded={expandedDeviceId === member.id}
-              pending={pendingTarget === member.address}
-              onToggle={() => onToggleDevice(member.id)}
-              onScan={() => onScanDevice(member.address)}
-              onOpen={() => onOpenDevice(member.id)}
-            />}
-          {member.scope !== 'self' && expandedDeviceId === member.id && hasServiceChildren(member) && <div className="ns-limbs ns-limbs--service" role="region" aria-label={`Known services for ${member.address}`}>
-            {member.services.map((service) => <div className="ns-limb ns-limb--service" key={service.id}>
-              <ServiceNode service={service} onOpen={() => onOpenService(member.id, service.id)} />
-            </div>)}
-          </div>}
-          {member.scope !== 'self' && observationFeedback?.target === member.address && <p className="ns-limb-feedback node-note node-note--caution" role="status">{observationFeedback.message}</p>}
-        </div>)}
-      </div>}
-
-      <div className="ns-branch-actions">
-        <BranchAction label="SCAN NETWORK" ariaLabel={`Scan network ${network.name}`} disabled={pendingTarget === network.name} onClick={onScanNetwork} />
-        {release.canInspect && <BranchAction label={network.observed ? 'INSPECT AGAIN' : 'INSPECT NETWORK'} onClick={onInspectNetwork} />}
-      </div>
-      <CapabilityNote observed={Boolean(network.observed)} canInspect={release.canInspect} />
-      {networkFeedback && <p className="node-note node-note--caution" role="status">{networkFeedback}</p>}
-    </div>}
-  </article>
-}
-
-/**
- * A Device inside its Network. It offers exactly one primary affordance: the
- * branch toggle where remembered Services exist to reveal, and otherwise the
- * Scan that would produce them. DETAIL is the constant secondary route.
- */
-function DeviceNode({ member, expanded, pending, onToggle, onScan, onOpen }: {
-  member: NetworkMember
-  expanded: boolean
-  pending: boolean
-  onToggle(): void
-  onScan(): void
-  onOpen(): void
-}) {
-  const expandable = hasServiceChildren(member)
-  const note = serviceNote(member)
-  const scope = `${member.scope.toUpperCase()} DEVICE`
-  const copy = <span className="ns-node-copy">
-    <span className="ns-eyebrow">{scope}</span>
-    <strong>{member.address}</strong>
-    <span className="ns-row-note">{note}</span>
-  </span>
-
-  return <div className={`ns-node ns-node--device${expandable ? '' : ' ns-node--leaf'}${expanded ? ' is-expanded' : ''}`}>
-    {expandable
-      ? <button type="button" className="ns-node-main" aria-label={`${expanded ? 'Collapse' : 'Expand'} device ${member.address}`} aria-expanded={expanded} onClick={onToggle}>
-        <span className="ns-twist" aria-hidden="true">▸</span>
-        {copy}
-      </button>
-      : <div className="ns-node-main ns-node-main--static">
-        <span className="ns-glyph" aria-hidden="true" />
-        {copy}
-      </div>}
-    <span className="ns-node-controls">
-      {!member.servicesObserved && <button type="button" className="ns-node-scan" aria-label={`Scan device ${member.address}`} disabled={pending} onClick={onScan}>SCAN</button>}
-      <button type="button" className="ns-node-detail" aria-label={`Open device ${member.address}`} onClick={onOpen}>
-        DETAIL <span aria-hidden="true">›</span><span className="sr-only"> · {note}</span>
-      </button>
-    </span>
-  </div>
-}
-
-function ServiceNode({ service, onOpen }: { service: ServiceSummary; onOpen(): void }) {
-  const access = service.accessPrivilege ? ` · ${service.accessPrivilege} ACCESS ESTABLISHED` : ''
-  return <button type="button" className="ns-node ns-node--service" aria-label={`Open ${service.name} service${access}`} onClick={onOpen}>
-    <span className={`ns-glyph${service.accessPrivilege ? ' ns-glyph--access' : ''}`} aria-hidden="true" />
-    <span className="ns-node-copy">
-      <span className="ns-service-head"><strong>{service.name}</strong></span>
-      <span className="ns-service-endpoint">
-        <span>{service.port} / {service.protocol}</span>
-      </span>
-    </span>
-    <span className="ns-arrow" aria-hidden="true">→</span>
-  </button>
-}
-
-/** The Service list on a Device detail view: the same children, without the tree geometry. */
-function ServiceRow({ service, onOpen }: { service: ServiceSummary; onOpen(): void }) {
-  return <button type="button" className="ns-service" aria-label={`Open ${service.name} service`} onClick={onOpen}>
-    <span className="ns-service-head">
-      <strong>{service.name}</strong>
-      <span className="ns-arrow" aria-hidden="true">→</span>
-    </span>
-    <span className="ns-service-endpoint">
-      <span>{service.port} / {service.protocol}</span>
-      <span>{service.endpoint}</span>
-    </span>
-    {service.observed && <span className="ns-service-observed">
-      <span>{service.observed.implementation}</span>
-      {service.observed.authentication && <span>Authentication: {service.observed.authentication}</span>}
-    </span>}
-    <Marks marks={[
-      ...runningMarks(service.running),
-      ...(service.accessPrivilege ? [{ tone: 'access' as const, text: `${service.accessPrivilege} ACCESS` }] : []),
-      ...service.knowledge.map((weakness) => ({ tone: 'known' as const, text: `KNOWN WEAKNESS · ${weakness.id}` })),
-    ]} />
-  </button>
-}
-
-function DeviceView({ device, release, parentName, pending, observationFeedback, connectionFeedback, copyState, feedback, selectedPackageId, onCopy, onScan, onInspect, onConnect, onDisconnect, onAnalyze, onAttempt, onSelectPackage, onSubmitPackage, onOpenNetwork, onOpenService, onBack }: {
-  device: DeviceWorkspace
-  release: NodeScanRelease
-  parentName?: string
-  pending: boolean
-  observationFeedback: string | null
-  connectionFeedback: ConnectionFeedback
   copyState: CopyState
-  feedback: StartFeedback
   selectedPackageId: string
+  onAnalyze(service: TargetService): void
   onCopy(value: string): void
-  onScan(): void
-  onInspect(): void
-  onConnect(): void
-  onDisconnect(): void
-  onAnalyze(service: ServiceWorkspace): void
-  onAttempt(service: ServiceWorkspace, vulnerabilityId: string): void
-  onSelectPackage(fileId: string): void
-  onSubmitPackage(service: ServiceWorkspace): void
-  onOpenNetwork(networkId: string): void
-  onOpenService(serviceId: string): void
-  onBack(): void
-}) {
-  return <div className="ns-view">
-    <Crumbs parent={parentName ?? 'Known Space'} subject={device.address} onBack={onBack} />
-    <header className="ns-subject">
-      <span className="ns-eyebrow">{device.scope.toUpperCase()} DEVICE</span>
-      <CopyReference value={device.address} copyState={copyState} onCopy={onCopy} />
-    </header>
-
-    <div className="node-section"><span>TARGET</span><span><span>OBSERVED</span> · Remembered state</span></div>
-    {device.observed
-      ? <dl className="node-facts">
-        <div><dt>TYPE</dt><dd>{device.observed.deviceKind.toUpperCase()}</dd></div>
-        <div><dt>STATUS</dt><dd>{device.observed.networkStatus}</dd></div>
-        {device.observed.firmware && <div><dt>FIRMWARE</dt><dd>{device.observed.firmware}</dd></div>}
-        {device.observed.computeClass && <div><dt>COMPUTE</dt><dd>{device.observed.computeClass}</dd></div>}
-      </dl>
-      : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this Device have been observed.</span></div>}
-    <CapabilityNote observed={Boolean(device.observed)} canInspect={release.canInspect} />
-
-    <div className="node-section"><span>ACCESS</span></div>
-    {(device.session || device.access) ? <>
-      {device.session
-        ? <section className="ns-state ns-state--live" aria-label="Remote session active">
-          <div className="ns-state-copy">
-            <strong>REMOTE SESSION</strong>
-            <span>ACTIVE · {device.session.connectedAddress}</span>
-            <small>{device.session.privilege} ACCESS{device.session.viaServiceName ? ` · VIA ${device.session.viaServiceName}` : ''}</small>
-          </div>
-          <button type="button" className="ns-state-action" onClick={onDisconnect}>DISCONNECT</button>
-        </section>
-        : device.access && <section className="ns-state" aria-label="Device access available">
-          <div className="ns-state-copy">
-            <strong>{device.access.privilege} ACCESS</strong>
-            <span>{device.access.viaServiceName ? `ESTABLISHED VIA ${device.access.viaServiceName}` : 'ESTABLISHED'}</span>
-          </div>
-          <button type="button" className="ns-state-action" onClick={onConnect}>CONNECT</button>
-        </section>}
-      {connectionFeedback && <p className="node-note node-note--caution" role="status">{connectionFeedback}</p>}
-    </> : <p className="ns-access-none"><strong>NO ACCESS</strong><span>No authority relationship established.</span></p>}
-
-    {device.investigations.some((service) => service.knowledge.length > 0) && <>
-      <div className="node-section"><span>FINDINGS</span></div>
-      <ul className="ns-knowledge">{device.investigations.flatMap((service) => service.knowledge.map((weakness) => <li key={`${service.id}-${weakness.id}`}><strong>{weakness.label}</strong><span>{service.name} · {weakness.id}</span></li>))}</ul>
-    </>}
-
-    {device.investigations.some((service) => service.analysisRunning || service.credentialRunning) && <>
-      <div className="node-section"><span>ACTIVE ACTIVITY</span></div>
-      <div className="ns-actions">{device.investigations.flatMap((service) => [
-        service.analysisRunning && <Operation key={`${service.id}-analysis`} label={`ANALYZING ${service.observed?.implementation.split(' ')[0] ?? service.name}`} note={service.name} percent={service.analysisRunning.percent} ariaLabel={`${service.name} analysis running`} />,
-        service.credentialRunning && <Operation key={`${service.id}-credential`} label="CREDENTIAL ACCESS" note={service.attempt?.toolName ?? service.name} percent={service.credentialRunning.percent} ariaLabel={`${service.name} credential access running`} />,
-      ].filter(Boolean))}</div>
-    </>}
-
-    {device.services.length > 0 && <>
-      <div className="node-section"><span>INVESTIGATION</span></div>
-      <div className="ns-actions">{device.investigations.map((service) => service.analysisRunning
-        ? null
-        : <Action key={service.id} label={service.analysisOutcome ? `ANALYZE ${service.name} AGAIN` : `ANALYZE ${service.name}`} note={service.analysisOutcome === 'no_weakness_detected' ? 'No weakness detected' : service.analysisOutcome === 'service_unavailable' ? 'Analysis did not complete against the Service.' : `Investigate remembered ${service.name} surface.`} onClick={() => onAnalyze(service)} />)}</div>
-    </>}
-
-    {(device.investigations.some((service) => service.attempt && !service.access) || device.rollback) && <>
-      <div className="node-section"><span>AVAILABLE OPERATIONS</span></div>
-      <div className="ns-actions">
-        {device.investigations.map((service) => service.attempt && !service.access && !service.credentialRunning
-          ? <Action key={service.id} label="CREDENTIAL ACCESS" note={service.credentialFailed ? `${service.attempt.toolName} · READY · Last attempt failed` : `${service.attempt.toolName} · READY · Outcome unknown`} ariaLabel={`Attempt credential access through ${service.name}`} onClick={() => onAttempt(service, service.attempt!.vulnerabilityId)} />
-          : null)}
-        {device.rollback && <div className="ns-package-submit ns-workspace-operation">
-          <strong>ROLLBACK GATESSH</strong>
-          <span>Requires: Older compatible GateSSH package</span>
-          <label>AVAILABLE<select aria-label="Rollback package" value={selectedPackageId} onChange={(event) => onSelectPackage(event.target.value)}>
-            <option value="">{device.rollback.candidates.length ? 'Select local package' : 'None'}</option>
-            {device.rollback.candidates.map((file) => <option key={file.id} value={file.id}>{file.label} · {file.path}</option>)}
-          </select></label>
-          {device.rollback.candidates.length > 0 && <Action label="APPLY PACKAGE" note="Submit the selected local artifact." onClick={() => onSubmitPackage(device.rollback!.service)} />}
-        </div>}
-      </div>
-    </>}
-    {!device.investigations.some((service) => service.credentialRunning) && feedback && device.investigations.some(({ id }) => id === feedback.serviceId) && <p className="node-note node-note--caution" role="status">{feedback.message}</p>}
-
-    <div className="node-section"><span>ACTIONS</span></div>
-    <div className="ns-actions">
-      <Action label="SCAN DEVICE" note="Observe currently open Services." ariaLabel={`Scan device ${device.address}`} disabled={pending} onClick={onScan} />
-      {release.canInspect && <Action label={device.observed ? 'INSPECT AGAIN' : 'INSPECT DEVICE'} note="Observe this Device's own properties." onClick={onInspect} />}
-    </div>
-    {observationFeedback && <p className="node-note node-note--caution" role="status">{observationFeedback}</p>}
-
-    <details className="ns-details">
-      <summary>DETAILS / SERVICES</summary>
-      <div className="node-section"><span>NETWORKS</span><span>{device.networks.length} known</span></div>
-      {device.networks.length > 0
-        ? <div className="ns-list">{device.networks.map((network) => <button type="button" className="ns-row ns-row--relation" key={network.id} aria-label={`Open known area ${network.name}`} onClick={() => onOpenNetwork(network.id)}><span className="ns-row-copy"><span className="ns-eyebrow">NETWORK</span><strong>{network.name}</strong></span><span className="ns-arrow" aria-hidden="true">→</span></button>)}</div>
-        : <div className="node-empty"><strong>NO KNOWN NETWORKS</strong><span>No Network is known to contain this Device.</span></div>}
-      <div className="node-section"><span>SERVICES</span><span>{device.servicesObserved ? countLabel(device.services.length, 'known service') : 'Not observed'}</span></div>
-      {!device.servicesObserved
-        ? <div className="node-empty"><strong>SERVICES NOT OBSERVED</strong><span>Scan this Device to observe its currently open Services.</span></div>
-        : device.services.length === 0
-          ? <div className="node-empty"><strong>NO OPEN SERVICES</strong><span>The last Scan of this Device observed no open Services.</span></div>
-          : <div className="ns-list">{device.services.map((service) => <ServiceRow key={service.id} service={service} onOpen={() => onOpenService(service.id)} />)}</div>}
-    </details>
-  </div>
-}
-
-function ServiceView({ service, copyState, feedback, selectedPackageId, onCopy, onAnalyze, onAttempt, onSelectPackage, onSubmitPackage, onBack }: {
-  service: ServiceWorkspace
-  copyState: CopyState
-  feedback: StartFeedback
-  onCopy(value: string): void
-  onAnalyze(): void
-  onAttempt(vulnerabilityId: string): void
-  selectedPackageId: string
   onSelectPackage(fileId: string): void
   onSubmitPackage(): void
-  onBack(): void
 }) {
-  const outcomeNote = service.analysisOutcome === 'no_weakness_detected' ? 'No weakness detected'
-    : service.analysisOutcome === 'service_unavailable' ? 'Service unavailable during analysis'
-      : service.analysisOutcome === 'weaknesses_detected' ? 'Weakness detected'
-        : null
-  // Retained Process history is disposable, so it is shown only where it adds
-  // something the durable Knowledge above does not already state.
-  const showOutcome = outcomeNote && (service.knowledge.length === 0 || service.analysisOutcome !== 'weaknesses_detected')
-
-  return <div className="ns-view ns-service-detail">
-    <Crumbs parent={service.deviceAddress} subject={service.name} onBack={onBack} />
-    <header className="ns-subject">
-      <span className="ns-eyebrow">SERVICE</span>
-      <h2>{service.name}</h2>
-      <CopyReference value={service.endpoint} copyState={copyState} onCopy={onCopy} />
-    </header>
-
-    <div className="node-section"><span>ENDPOINT</span></div>
-    <dl className="node-facts">
-      <div><dt>ADDRESS</dt><dd>{service.deviceAddress}</dd></div>
-      <div><dt>PORT</dt><dd>{service.port}</dd></div>
-      <div><dt>PROTOCOL</dt><dd>{service.protocol}</dd></div>
-    </dl>
+  return <div className="ns-detail-panel">
+    <div className="node-section"><span>ADDRESS</span></div>
+    <CopyReference value={target.address} copyState={copyState} onCopy={onCopy} />
 
     <div className="node-section"><span>OBSERVED</span></div>
-    {service.observed
+    {target.observed
       ? <dl className="node-facts">
-        <div><dt>IMPLEMENTATION</dt><dd>{service.observed.implementation}</dd></div>
-        {service.observed.authentication && <div><dt>AUTHENTICATION</dt><dd>{service.observed.authentication}</dd></div>}
-        {service.observed.interface && <div><dt>INTERFACE</dt><dd>{service.observed.interface}</dd></div>}
+        <div><dt>TYPE</dt><dd>{target.observed.deviceKind.toUpperCase()}</dd></div>
+        <div><dt>STATUS</dt><dd>{target.observed.networkStatus}</dd></div>
+        {target.observed.firmware && <div><dt>FIRMWARE</dt><dd>{target.observed.firmware}</dd></div>}
+        {target.observed.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
       </dl>
-      : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No implementation fingerprint has been observed for this Service.</span></div>}
+      : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
+    {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
 
-    <div className="node-section"><span>KNOWLEDGE</span></div>
-    {service.knowledge.length > 0
-      ? <ul className="ns-knowledge">{service.knowledge.map((weakness) => <li key={weakness.id}><strong>{weakness.id}</strong><span>{weakness.label}</span></li>)}</ul>
-      : service.analysisOutcome !== 'no_weakness_detected' && <p className="ns-quiet-note">No known weakness recorded</p>}
-    {showOutcome && <p className="node-note">{outcomeNote}</p>}
-
-    {service.access && <>
-      <div className="node-section"><span>ACCESS PATH</span></div>
-      <p className="ns-access-path"><strong>{service.access.privilege}</strong> · ESTABLISHED VIA THIS SERVICE</p>
+    {(target.access || target.session) && <>
+      <div className="node-section"><span>ACCESS</span></div>
+      <dl className="node-facts">
+        <div><dt>PRIVILEGE</dt><dd>{(target.session ?? target.access)!.privilege}</dd></div>
+        {(target.session ?? target.access)!.viaServiceName && <div><dt>VIA</dt><dd>{(target.session ?? target.access)!.viaServiceName}</dd></div>}
+        {target.session && <div><dt>SESSION</dt><dd>ACTIVE</dd></div>}
+      </dl>
     </>}
 
-    <div className="node-section"><span>ACTIONS</span></div>
-    <div className="ns-actions">
-      {service.access && <Action label="VIEW DEVICE" onClick={onBack} />}
-      {service.analysisRunning
-        ? <Operation label="ANALYSIS RUNNING" note="Investigating this Service surface." percent={service.analysisRunning.percent} ariaLabel="Analyze service running" />
-        : <Action
-          label={service.analysisOutcome ? 'ANALYZE AGAIN' : 'ANALYZE SERVICE'}
-          note="Investigate this Service surface."
-          ariaLabel={service.analysisOutcome ? 'Analyze again' : 'Analyze'}
-          onClick={onAnalyze}
-        />}
-      {service.attempt && !service.access && (service.credentialRunning
-        ? <Operation label="CREDENTIAL ACCESS RUNNING" note={service.attempt.toolName} percent={service.credentialRunning.percent} ariaLabel="Credential access running" />
-        : <Action
-          label="CREDENTIAL ACCESS"
-          note={`${service.attempt.toolName} · Outcome unknown`}
-          ariaLabel="Start credential access attempt"
-          onClick={() => onAttempt(service.attempt!.vulnerabilityId)}
-        />)}
-      {service.observed?.interface === 'Package submission' && <div className="ns-package-submit">
-        <label>LOCAL PACKAGE<select aria-label="Local package" value={selectedPackageId} onChange={(event) => onSelectPackage(event.target.value)}>
-          <option value="">Select package</option>
-          {service.localPackages.map((file) => <option key={file.id} value={file.id}>{file.label} · {file.path}</option>)}
-        </select></label>
-        <Action label="SUBMIT PACKAGE" note="Send selected artifact to this public interface." onClick={onSubmitPackage} />
-      </div>}
-    </div>
-    {!service.credentialRunning && !service.access && service.credentialFailed && <p className="node-note">Authentication attempt failed.</p>}
-    {!service.analysisRunning && feedback?.serviceId === service.id && <p className="node-note node-note--caution" role="status">{feedback.message}</p>}
+    {target.routes.length > 0 && <>
+      <div className="node-section"><span>WAYS IN</span><span>{target.routes.length}</span></div>
+      <div className="ns-routes">{target.routes.map((route) => <article className="ns-route" key={`${route.serviceId}-${route.vulnerabilityId}`}>
+        <dl className="node-facts">
+          <div><dt>METHOD</dt><dd>Credential attack</dd></div>
+          <div><dt>TOOL</dt><dd>{route.toolName}</dd></div>
+          <div><dt>SERVICE</dt><dd>{route.serviceName}</dd></div>
+          {route.implementation && <div><dt>SOFTWARE</dt><dd>{route.implementation}</dd></div>}
+          <div><dt>WEAKNESS</dt><dd>{route.vulnerabilityLabel} · {route.vulnerabilityId}</dd></div>
+        </dl>
+      </article>)}</div>
+    </>}
+
+    <div className="node-section"><span>SERVICES</span><span>{target.servicesObserved ? `${target.services.length} known` : 'Not observed'}</span></div>
+    {!target.servicesObserved
+      ? <div className="node-empty"><strong>SERVICES NOT OBSERVED</strong><span>This target has never been scanned.</span></div>
+      : target.services.length === 0
+        ? <div className="node-empty"><strong>NO OPEN SERVICES</strong><span>The last scan of this target observed no open services.</span></div>
+        : <div className="ns-services">{target.services.map((service) => <article className="ns-service" key={service.id}>
+          <header className="ns-service-head">
+            <strong>{service.name}</strong>
+            <span>{service.port} / {service.protocol}</span>
+          </header>
+          <CopyReference value={service.endpoint} copyState={copyState} onCopy={onCopy} />
+          {service.observed && <dl className="node-facts">
+            <div><dt>SOFTWARE</dt><dd>{service.observed.implementation}</dd></div>
+            {service.observed.authentication && <div><dt>AUTHENTICATION</dt><dd>{service.observed.authentication}</dd></div>}
+            {service.observed.interface && <div><dt>INTERFACE</dt><dd>{service.observed.interface}</dd></div>}
+          </dl>}
+          {service.weaknesses.map((weakness) => <p className="ns-weakness" key={weakness.id}><strong>{weakness.label}</strong><span>{weakness.id}</span></p>)}
+          {service.accessPrivilege && <p className="ns-quiet-note">{service.accessPrivilege} access was established through this service.</p>}
+          {service.analysisPercent !== undefined
+            ? <Progress percent={service.analysisPercent} label={`${service.name} analysis progress`} />
+            : <button type="button" className="node-action" aria-label={`Analyze ${service.name}`} onClick={() => onAnalyze(service)}>ANALYZE</button>}
+          {service.analysisPercent === undefined && service.analysisOutcome === 'no_weakness_detected' && <p className="ns-quiet-note">Last analysis found no weakness.</p>}
+          {service.analysisPercent === undefined && service.analysisOutcome === 'service_unavailable' && <p className="ns-quiet-note">Last analysis did not complete against the service.</p>}
+        </article>)}</div>}
+
+    {target.rollback && <>
+      <div className="node-section"><span>PACKAGE ROLLBACK</span></div>
+      <div className="ns-rollback">
+        <p className="ns-quiet-note">{target.rollback.serviceName} accepts submitted packages and does not enforce rollback protection. Requires an older compatible GateSSH package.</p>
+        <label className="node-field">
+          <span>AVAILABLE</span>
+          <select className="node-input" aria-label="Rollback package" value={selectedPackageId} onChange={(event) => onSelectPackage(event.target.value)}>
+            <option value="">{target.rollback.candidates.length ? 'Select local package' : 'None'}</option>
+            {target.rollback.candidates.map((file) => <option key={file.id} value={file.id}>{file.label} · {file.path}</option>)}
+          </select>
+        </label>
+        {target.rollback.candidates.length > 0 && <button type="button" className="node-action" onClick={onSubmitPackage}>APPLY PACKAGE</button>}
+      </div>
+    </>}
   </div>
 }

@@ -79,8 +79,8 @@ the mailbox account it is presenting. Those local-device applications say so,
 which is how the suite distinguishes the local operating context from RACK-OS;
 NodeMail states a mailbox identity instead, because the mailbox is not owned by
 that Device. Wallet and Notes have no varying subject and keep their own
-presentation, and NodeScan keeps its established breadcrumb and object heading,
-which already identify the object being browsed. A masthead is not added to an
+presentation, and NodeScan keeps its own breadcrumb and target heading, which
+already identify the target being browsed. A masthead is not added to an
 application merely for uniformity.
 
 

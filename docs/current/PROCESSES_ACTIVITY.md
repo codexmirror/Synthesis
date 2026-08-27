@@ -144,11 +144,19 @@ capacity.
 
 Running activity is the visual focus and carries only the information its own
 runtime supports: a finite operation (Service Analysis, Credential Access,
-Software Installation, Software Removal) shows its historical target or
-package, percentage progress, CPU allocation, RAM requirement, and concrete
-completed result; the continuous NODE Miner operation shows CPU, RAM,
-configured payout address, cumulative gross produced, pending batch progress,
-and a derived units/s rate, deliberately without a percentage progress bar; a
+Software Installation, Software Removal) shows its own concrete subject,
+percentage progress, CPU allocation, RAM requirement, and concrete completed
+result. Service-scoped work — Service Analysis and Credential Access — names
+the Service the player legitimately remembers at that stable target and
+Service identity, with its historical endpoint beneath it, so several
+simultaneous Service Analysis Processes are told apart by what each one is
+analysing rather than only by their ports. That name is remembered Discovery
+and never current target truth: where the player remembers no Service at that
+identity, the operation truthfully falls back to naming its historical
+endpoint alone. Software operations name their package or software release.
+The continuous NODE Miner operation shows CPU, RAM, configured payout
+address, cumulative gross produced, pending batch progress, and a derived
+units/s rate, deliberately without a percentage progress bar. A
 FileTransfer is labelled DOWNLOAD or UPLOAD and shows its artifact,
 direction-aware source-to-destination relationship, transferred and total
 bytes, progress, and current effective rate, and never claims Process
@@ -209,6 +217,11 @@ Local STOP is unchanged and still archives its own Device's Miner.
 - `FileTransfer` is a separate canonical runtime domain. The Activity Monitor
   derives one view over both; it never merges them or creates a second
   canonical activity list.
+- An operation's presented subject is derived from remembered Player
+  Information, never from current target truth. Concurrent Processes are told
+  apart by their own subjects only; there is no batch identity, no parent
+  Process, and no grouped canonical state behind several operations started
+  together.
 - Cancellation of a finite Process must prevent its completion consequence, not
   merely hide the card: unfinished work leaves the scheduler and its CPU/RAM
   allocation is released.
