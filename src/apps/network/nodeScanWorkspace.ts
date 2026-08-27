@@ -66,6 +66,16 @@ export interface KnownNetworkSummary {
 export interface KnownSpace {
   readonly self: { readonly name: string; readonly address: string }
   readonly networks: readonly KnownNetworkSummary[]
+  /** Remembered Devices with no remembered relationship to a known Network. */
+  readonly standaloneDevices: readonly StandaloneDeviceSummary[]
+}
+
+export interface StandaloneDeviceSummary {
+  readonly id: string
+  readonly address: string
+  readonly scope: 'lan' | 'remote'
+  readonly servicesObserved: boolean
+  readonly serviceCount: number
 }
 
 export interface NetworkMember {
@@ -187,6 +197,10 @@ function describeImplementation(observed?: { implementation: { name: string; ver
 
 export function selectKnownSpace(information: PlayerInformation): KnownSpace {
   const { discovery } = information
+  const knownNetworkIds = new Set(discovery.networks.map(({ id }) => id))
+  const relatedDeviceIds = new Set(discovery.networkDeviceRelations
+    .filter(({ networkId }) => knownNetworkIds.has(networkId))
+    .map(({ deviceId }) => deviceId))
   return {
     self: { name: information.player.localDevice.displayName, address: information.player.localDevice.network.ip },
     networks: discovery.networks.map((network) => ({
@@ -195,6 +209,15 @@ export function selectKnownSpace(information: PlayerInformation): KnownSpace {
       membersObserved: network.membersObserved,
       memberCount: discovery.networkDeviceRelations.filter((relation) => relation.networkId === network.id).length,
     })),
+    standaloneDevices: discovery.devices
+      .filter(({ id }) => !relatedDeviceIds.has(id))
+      .map((device) => ({
+        id: device.id,
+        address: device.address,
+        scope: device.scope,
+        servicesObserved: device.servicesObserved,
+        serviceCount: device.services.length,
+      })),
   }
 }
 

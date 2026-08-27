@@ -131,6 +131,8 @@
  * same space instead of a stack of panels.
  */
 .ns-network-list { display: grid; }
+.ns-standalone-list { display: grid; border-bottom: 1px solid var(--line-quiet); }
+.ns-node--standalone { align-items: center; }
 .ns-network-branch { min-width: 0; padding-bottom: 4px; border-bottom: 1px solid var(--line-quiet); }
 .ns-network-list--pinned .ns-network-branch { border-bottom: 0; }
 

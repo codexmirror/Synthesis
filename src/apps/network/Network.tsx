@@ -16,6 +16,7 @@ import {
   type ServiceSummary,
   type PlayerInformation,
   type ServiceWorkspace,
+  type StandaloneDeviceSummary,
 } from './nodeScanWorkspace'
 
 /**
@@ -243,6 +244,7 @@ export function Network() {
     <KnownSpaceView
       selfAddress={space.self.address}
       networks={networks}
+      standaloneDevices={space.standaloneDevices}
       release={release}
       expandedNetworkIds={expandedNetworkIds}
       expandedDeviceId={expandedDeviceId}
@@ -254,7 +256,7 @@ export function Network() {
       onScanNetwork={(network) => scan(network.name)}
       onInspectNetwork={(network) => actions.inspectTarget(network.name)}
       onScanDevice={(address) => scan(address)}
-      onOpenDevice={(deviceId, networkId) => open({ kind: 'device', deviceId, networkId })}
+      onOpenDevice={(deviceId, networkId) => open({ kind: 'device', deviceId, ...(networkId ? { networkId } : {}) })}
       onOpenService={(deviceId, serviceId, networkId) => open({ kind: 'service', deviceId, serviceId, networkId })}
     />
   </section>
@@ -323,9 +325,10 @@ function CapabilityNote({ observed, canInspect }: { observed: boolean; canInspec
   return <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>
 }
 
-function KnownSpaceView({ selfAddress, networks, release, expandedNetworkIds, expandedDeviceId, onToggleNetwork, onToggleDevice, pendingTarget, observationFeedback, onScanSelf, onScanNetwork, onInspectNetwork, onScanDevice, onOpenDevice, onOpenService }: {
+function KnownSpaceView({ selfAddress, networks, standaloneDevices, release, expandedNetworkIds, expandedDeviceId, onToggleNetwork, onToggleDevice, pendingTarget, observationFeedback, onScanSelf, onScanNetwork, onInspectNetwork, onScanDevice, onOpenDevice, onOpenService }: {
   selfAddress: string
   networks: readonly NetworkWorkspace[]
+  standaloneDevices: readonly StandaloneDeviceSummary[]
   release: NodeScanRelease
   expandedNetworkIds: readonly string[]
   expandedDeviceId: string | null
@@ -380,6 +383,27 @@ function KnownSpaceView({ selfAddress, networks, release, expandedNetworkIds, ex
         </div>
         {selfFeedback && <p className="node-note node-note--caution" role="status">{selfFeedback}</p>}
       </>}
+
+    {standaloneDevices.length > 0 && <>
+      <div className="node-section"><span id="ns-remote-devices">REMOTE DEVICES</span><span>{standaloneDevices.length} known</span></div>
+      <section className="ns-standalone-list" aria-labelledby="ns-remote-devices">
+        {standaloneDevices.map((device) => <button
+          type="button"
+          className="ns-node ns-node--device ns-node--standalone"
+          aria-label={`Open device ${device.address}`}
+          key={device.id}
+          onClick={() => onOpenDevice(device.id, '')}
+        >
+          <span className="ns-glyph" aria-hidden="true" />
+          <span className="ns-node-copy">
+            <span className="ns-eyebrow">{device.scope.toUpperCase()} DEVICE</span>
+            <strong>{device.address}</strong>
+            <span className="ns-row-note">{serviceNote(device)}</span>
+          </span>
+          <span className="ns-arrow" aria-hidden="true">→</span>
+        </button>)}
+      </section>
+    </>}
   </div>
 }
 
