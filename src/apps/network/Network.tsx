@@ -4,8 +4,9 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
 import {
   resolveNodeScanRelease,
+  selectKnownSpace,
   selectTarget,
-  selectTargets,
+  type KnownSpace,
   type NodeScanRelease,
   type PlayerInformation,
   type Target,
@@ -18,11 +19,17 @@ import {
 /**
  * NodeScan has two screens and three player actions.
  *
- * TARGETS lists what the player legitimately knows about. A target card is
- * one target's whole line of action: SCAN to find out about it, HACK to use
- * what was found, CONNECT once access exists. The card states one thing at a
- * time, because at any moment there is one thing the player is waiting on or
- * deciding.
+ * KNOWN SPACE shows the remembered shape of the world around the player:
+ * Networks they have observed, SELF's own place in them, and the targets that
+ * belong to each. That relationship scaffold is presentation only — a Network
+ * is not openable, nothing expands, and tapping a target opens its card
+ * directly. It exists so the player can see where they are, not so they have
+ * to navigate through it.
+ *
+ * A target card is one target's whole line of action: SCAN to find out about
+ * it, HACK to use what was found, CONNECT once access exists. The card states
+ * one thing at a time, because at any moment there is one thing the player is
+ * waiting on or deciding.
  *
  * The technical world underneath is unchanged and stays reachable: Services,
  * observed implementations, weakness identities, the tool a route uses and
@@ -199,8 +206,8 @@ export function Network() {
   }
 
   return <section className="app-content scan-app" aria-label="NodeScan">
-    <TargetList
-      targets={selectTargets(information)}
+    <KnownSpaceView
+      space={selectKnownSpace(information)}
       release={release}
       pending={pending === 'targets'}
       notice={notice}
@@ -210,43 +217,73 @@ export function Network() {
   </section>
 }
 
-function TargetList({ targets, release, pending, notice, onFind, onOpen }: {
-  targets: readonly TargetSummary[]
+function KnownSpaceView({ space, release, pending, notice, onFind, onOpen }: {
+  space: KnownSpace
   release: NodeScanRelease
   pending: boolean
   notice: string | null
   onFind(): void
   onOpen(deviceId: string): void
 }) {
+  const known = space.networks.length > 0 || space.elsewhere.length > 0
   return <div className="ns-view">
     <header className="ns-masthead">
-      <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>TARGETS</h2></div>
+      <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
       <span className="ns-release">{release.version}{release.channel ? ` ${release.channel.toUpperCase()}` : ''}</span>
     </header>
 
-    {targets.length > 0
-      ? <div className="ns-targets">{targets.map((target) => <button
-        type="button"
-        className="ns-target"
-        key={target.id}
-        aria-label={`Open target ${target.address}`}
-        onClick={() => onOpen(target.id)}
-      >
-        <span className="ns-target-copy">
-          <strong>{target.address}</strong>
-          <span className="ns-target-note">{locationOf(target)}</span>
-        </span>
-        <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
-        <span className="ns-arrow" aria-hidden="true">›</span>
-      </button>)}</div>
-      : <div className="node-empty"><strong>NO TARGETS YET</strong><span>Nothing has been found around this Device yet.</span></div>}
+    {known
+      ? <div className="ns-space">
+        {space.networks.map((network) => <section className="ns-group" key={network.id} aria-label={`Network ${network.name}`}>
+          <header className="ns-group-head">
+            <span className="ns-eyebrow">NETWORK</span>
+            <strong>{network.name}</strong>
+          </header>
+          {(network.includesSelf || network.targets.length > 0) && <div className="ns-branch">
+            {/* SELF is the player's own position in the topology, never a target. */}
+            {network.includesSelf && <div className="ns-limb">
+              <div className="ns-node ns-node--self">
+                <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span>
+              </div>
+            </div>}
+            {network.targets.map((target) => <div className="ns-limb" key={target.id}>
+              <TargetRow target={target} onOpen={onOpen} />
+            </div>)}
+          </div>}
+          {!network.membersObserved
+            ? <p className="ns-group-note">Members not observed</p>
+            : network.targets.length === 0 && <p className="ns-group-note">{network.includesSelf ? 'No other devices responded' : 'No devices responded'}</p>}
+        </section>)}
+
+        {space.elsewhere.length > 0 && <section className="ns-group" aria-label="Elsewhere">
+          <header className="ns-group-head"><span className="ns-eyebrow">ELSEWHERE</span></header>
+          <div className="ns-loose">{space.elsewhere.map((target) => <TargetRow key={target.id} target={target} onOpen={onOpen} showLocation />)}</div>
+        </section>}
+      </div>
+      : <div className="node-empty"><strong>NOTHING KNOWN YET</strong><span>Nothing has been found around this Device yet.</span></div>}
 
     <div className="ns-primary-slot">
-      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>{targets.length ? 'SCAN AGAIN' : 'SCAN'}</button>
+      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>{known ? 'SCAN AGAIN' : 'SCAN'}</button>
       <p className="ns-primary-note">Look for devices around you.</p>
     </div>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
   </div>
+}
+
+function TargetRow({ target, showLocation, onOpen }: { target: TargetSummary; showLocation?: boolean; onOpen(deviceId: string): void }) {
+  return <button
+    type="button"
+    className="ns-node ns-target"
+    aria-label={`Open target ${target.address}`}
+    onClick={() => onOpen(target.id)}
+  >
+    <span className="ns-target-copy">
+      <strong>{target.address}</strong>
+      {showLocation && <span className="ns-target-note">{locationOf(target)}</span>}
+    </span>
+    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
+    <span className="ns-arrow" aria-hidden="true">›</span>
+  </button>
 }
 
 /**
@@ -273,7 +310,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   const routes = target.routes.length
   return <div className="ns-view">
     <nav className="scan-crumbs" aria-label="NodeScan navigation">
-      <button type="button" onClick={onBack}>← Targets</button>
+      <button type="button" onClick={onBack}>← Known Space</button>
       <span aria-hidden="true">/</span>
       <strong>{target.address}</strong>
     </nav>

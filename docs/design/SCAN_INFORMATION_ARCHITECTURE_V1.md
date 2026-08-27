@@ -26,7 +26,8 @@ Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md
 4. A target presentation carries:
    - target identity and observed facts
    - player relationship/current operating state relevant to the target
-   - known network relationships as stated location
+   - known network relationships as context, presented where they help the
+     player place the target rather than as a level to navigate through
    - known child Services
    - the actions that continue this target's line of action
 

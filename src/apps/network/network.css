@@ -1,11 +1,17 @@
 /*
  * NodeScan.
  *
- * Two screens, three actions. TARGETS is a flat list of what the player
- * knows; a target card is one target's whole line of action. The card is
- * built around a single visually obvious primary action, so the next
- * meaningful step is readable at a glance on a phone, and the technical world
- * underneath is one optional disclosure away.
+ * Two screens, three actions. KNOWN SPACE draws the remembered relationship
+ * shape around the player — a Network, SELF's place in it, and the targets
+ * that belong to it — as a shallow one-level scaffold; a target card is one
+ * target's whole line of action. The card is built around a single visually
+ * obvious primary action, so the next meaningful step is readable at a glance
+ * on a phone, and the technical world underneath is one optional disclosure
+ * away.
+ *
+ * The scaffold is pure normal-flow CSS. Each member is an `.ns-limb` drawing
+ * its own rail and elbow relative to itself, so the rail always terminates at
+ * the last elbow with no coordinates measured and no topology layer.
  *
  * Mobile-first. Every surface is a single column so primary identity always
  * owns the line and secondary technical detail wraps beneath it. The gutter
@@ -86,13 +92,55 @@
 .ns-subject h2 { margin: 0; color: var(--text-strong); font: 600 1.15rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
 .ns-subject-note { margin: 0; color: var(--text-quiet); font-size: .64rem; }
 
-/* Target list --------------------------------------------------------- */
+/* Known Space --------------------------------------------------------- */
 
-.ns-targets { display: grid; margin-bottom: 22px; border-top: 1px solid var(--line-quiet); }
+.ns-space {
+  display: grid;
+  gap: 26px;
+  margin-bottom: 26px;
+  /* Vertical centre of a member row: where its elbow meets it. */
+  --elbow: 29px;
+  --rail: 1px solid var(--line-strong);
+}
 
-.ns-target {
-  min-height: 62px;
-  padding: 12px 2px;
+.ns-group { min-width: 0; display: grid; gap: 2px; }
+
+.ns-group-head { display: grid; gap: 3px; padding-bottom: 4px; }
+.ns-group-head strong { color: var(--text-strong); font: 600 .96rem Inter, system-ui, sans-serif; letter-spacing: .01em; overflow-wrap: anywhere; }
+.ns-group-head .ns-eyebrow { color: var(--accent-mark); }
+
+.ns-group-note { margin: 6px 0 0; padding-left: 20px; color: var(--text-quiet); font-size: .62rem; }
+
+.ns-branch { display: block; }
+
+.ns-limb { position: relative; padding-left: 20px; }
+
+/* The rail: full height on every member but the last, which stops at its elbow. */
+.ns-limb::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-left: var(--rail);
+}
+
+.ns-limb:last-child::before { bottom: auto; height: var(--elbow); }
+
+.ns-limb::after {
+  content: "";
+  position: absolute;
+  top: var(--elbow);
+  left: 0;
+  width: 11px;
+  border-top: var(--rail);
+}
+
+.ns-loose { display: grid; }
+
+.ns-node {
+  min-height: 58px;
+  padding: 10px 2px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -101,10 +149,17 @@
   border-bottom: 1px solid var(--line-quiet);
   background: transparent;
   text-align: left;
-  cursor: pointer;
 }
 
+.ns-limb:last-child > .ns-node { border-bottom: 0; }
+.ns-loose > .ns-node:last-child { border-bottom: 0; }
+
+.ns-target { cursor: pointer; }
 .ns-target:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
+
+/* SELF is context, not a control: it states the player's own position only. */
+.ns-node--self .ns-target-copy > strong { color: var(--text-secondary); font-size: .72rem; letter-spacing: .12em; }
+.ns-node--self .ns-target-note { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .ns-target-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
 .ns-target-copy > strong { color: var(--text-strong); font: 600 .9rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }

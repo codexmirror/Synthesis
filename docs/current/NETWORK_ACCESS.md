@@ -22,14 +22,31 @@ namespace is required.
 Scan is available through both Terminal and the graphical NodeScan application.
 Both interfaces invoke the same shared Scan gameplay/application operation.
 
-NodeScan is presented as two screens and three player actions. TARGETS lists
-every target the player legitimately remembers; a target card is one target's
-whole line of action. The three actions are SCAN (find out about the subject in
-view), HACK (use what was found to get in) and CONNECT (operate what access
-now allows). Both screens are built from a view model derived from remembered
-Discovery, Knowledge, the player's own Processes, the player's own installed
-software, DeviceAccess and RemoteSession. World truth is deliberately outside
-the slice that view model is built from.
+NodeScan is presented as two screens and three player actions. KNOWN SPACE
+presents the remembered relationship shape around the player; a target card is
+one target's whole line of action. The three actions are SCAN (find out about
+the subject in view), HACK (use what was found to get in) and CONNECT (operate
+what access now allows). Both screens are built from a view model derived from
+remembered Discovery, Knowledge, the player's own Processes, the player's own
+installed software, DeviceAccess and RemoteSession. World truth is deliberately
+outside the slice that view model is built from.
+
+Known Space groups remembered targets under the remembered Networks they
+belong to, drawn as a one-level relationship scaffold. SELF appears as a
+non-interactive anchor inside a Network only where the player legitimately
+remembers its own membership of that Network; it is topology context, not a
+target, and carries no control. A Device appears under every Network it is
+remembered in, and a remembered Device with no remembered relationship to any
+known Network stays visibly separate under ELSEWHERE with its own scope
+stated. Unobserved membership is stated explicitly rather than reported as an
+observed empty result, and an observed Network with no responding members says
+so.
+
+That scaffold is presentation only and is not a navigation hierarchy. A
+Network is not openable, carries no action of its own, and nothing expands:
+tapping a target opens its card directly, and there is no Network level,
+Device level or Service level between. Presenting topology performs no
+observation.
 
 The target card states one stage at a time and normally offers one primary
 action for it: NOT SCANNED, SCANNING with canonical progress, NO WAY IN FOUND,
@@ -84,11 +101,11 @@ service-unavailable analysis result is stated beside its repeatable Analyze
 action as disposable Process history and is never promoted into permanent
 memory.
 
-Known Networks are presented as a target's stated location rather than as a
-level of navigation: there is no Network page, no Network branch expansion, no
-SELF node, and no separate Service page. Network Inspect remains available
-through Terminal `inspect <network-name>`, and remembered Network Inspect
-evidence is unaffected.
+Known Networks are relationship context rather than a level of navigation:
+there is no Network page, no Network or Device expansion, no Service children
+on Known Space, and no separate Service page. Network Inspect remains
+available through Terminal `inspect <network-name>`, and remembered Network
+Inspect evidence is unaffected.
 
 
 Current Scan behavior is:
@@ -141,7 +158,7 @@ Both are application-level compositions of existing canonical operations; they
 introduce no gameplay rule and no canonical state of their own, and Terminal
 still exposes every underlying step individually.
 
-`findTargets` (SCAN on the target list) observes SELF's own Network
+`findTargets` (SCAN on Known Space) observes SELF's own Network
 relationships, then observes the responding members of every Network the
 player now legitimately remembers. Nothing outside remembered Discovery is
 scanned. Without an installed NodeScan release it reports

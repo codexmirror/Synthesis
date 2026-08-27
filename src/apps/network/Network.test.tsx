@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as GameContext from '../../app/GameContext'
@@ -12,7 +12,7 @@ import { inspectKnownTarget } from '../../core/game/inspect'
 import { submitRackUpdatePackageFromObservation } from '../../core/game/rackUpdate'
 import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
 import { Network } from './Network'
-import { selectTarget, selectTargets } from './targetProjection'
+import { selectKnownSpace, selectTarget, selectTargets } from './targetProjection'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -116,7 +116,7 @@ describe('NodeScan first hack', () => {
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
 
     // Nothing is known: one obvious action.
-    expect(screen.getByText('NO TARGETS YET')).toBeInTheDocument()
+    expect(screen.getByText('NOTHING KNOWN YET')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
@@ -279,14 +279,14 @@ describe('NodeScan information boundary', () => {
     expect(screen.getByTestId('game-state').textContent).toBe(before)
   })
 
-  it('never observes by browsing the target list', async () => {
+  it('never observes by browsing Known Space', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={scannedTarget()}><Network /><StateSnapshot /></GameProvider>)
     const before = screen.getByTestId('game-state').textContent
     scanTargetSpy.mockClear()
 
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    await user.click(screen.getByRole('button', { name: '← Targets' }))
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
     expect(scanTargetSpy).not.toHaveBeenCalled()
     expect(screen.getByTestId('game-state').textContent).toBe(before)
   })
@@ -466,7 +466,7 @@ describe('NodeScan software and request lifecycle', () => {
     render(<Network />)
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
     await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
-    await user.click(screen.getByRole('button', { name: '← Targets' }))
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
     await act(async () => { pending.resolve({ status: 'no_response' }) })
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
@@ -495,14 +495,91 @@ describe('NodeScan software and request lifecycle', () => {
   })
 })
 
-/* -------------------------------------------------------- target list */
+/* -------------------------------------------------------- known space */
 
-describe('NodeScan target list', () => {
-  it('states where each known target sits and what stage it is in', async () => {
+describe('Known Space topology', () => {
+  it('derives the relationship shape from remembered Discovery alone', () => {
+    const known = withAccess()
+    const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
+    const space = selectKnownSpace(information)
+
+    expect(space.self.address).toBe('198.51.100.23')
+    expect(space.networks.map(({ name, includesSelf, membersObserved }) => [name, includesSelf, membersObserved])).toEqual([['home-net', true, true]])
+    expect(space.networks[0].targets.map(({ address }) => address)).toEqual([SRV_01_ADDRESS])
+    expect(space.elsewhere).toEqual([])
+    // srv-02 exists in the world and has never been observed, so it is nowhere.
+    expect(space.networks[0].targets.some(({ id }) => id === 'host-lan-002')).toBe(false)
+  })
+
+  it('presents a related Device inside its Network, with its stage', () => {
     render(<GameProvider initialState={withAccess()}><Network /></GameProvider>)
-    const row = screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })
-    expect(row).toHaveTextContent('home-net')
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+    const row = within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })
+
+    expect(network).toHaveTextContent('home-net')
     expect(row).toHaveTextContent('ACCESS')
+    // The relationship is the group, not a repeated subtitle on the row.
+    expect(row).not.toHaveTextContent('home-net')
+  })
+
+  it('presents SELF as position rather than as a step the player can take', () => {
+    render(<GameProvider initialState={withAccess()}><Network /></GameProvider>)
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+
+    expect(network).toHaveTextContent('SELF')
+    expect(network).toHaveTextContent('198.51.100.23')
+    expect(within(network).queryByRole('button', { name: 'Open target 198.51.100.23' })).not.toBeInTheDocument()
+    // SELF is not a target and adds no control of its own.
+    expect(within(network).getAllByRole('button')).toHaveLength(1)
+  })
+
+  it('keeps a Device with no remembered Network relationship visibly separate', () => {
+    const observed = createInitialGameState()
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    // A directly scanned remote Device: remembered, but on no known Network.
+    const discovery = rememberScan(foundTargets().discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
+    render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
+
+    const home = screen.getByRole('region', { name: 'Network home-net' })
+    expect(within(home).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toBeInTheDocument()
+    expect(within(home).queryByRole('button', { name: 'Open target 203.0.113.42' })).not.toBeInTheDocument()
+
+    const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
+    expect(within(elsewhere).getByRole('button', { name: 'Open target 203.0.113.42' })).toHaveTextContent('Remote')
+  })
+
+  it('opens the same simple target card straight from the topology', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={knownWeakness()}><Network /></GameProvider>)
+    await user.click(within(screen.getByRole('region', { name: 'Network home-net' })).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+
+    // One tap, straight to the decision: no Network page and no Device page between.
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
+    expect(screen.getByRole('button', { name: 'HACK' })).toBeInTheDocument()
+  })
+
+  it('observes nothing by presenting topology', async () => {
+    const known = withAccess()
+    scanTargetSpy.mockClear()
+    render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
+    const before = screen.getByTestId('game-state').textContent
+
+    expect(screen.getByRole('region', { name: 'Network home-net' })).toBeInTheDocument()
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(screen.getByTestId('game-state').textContent).toBe(before)
+  })
+
+  it('states unobserved membership rather than reporting an empty Network', () => {
+    const observed = createInitialGameState()
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    // SELF scanned, home-net learned, its members never observed.
+    const discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, observed.player.localDevice.network.ip), observed.player.localDevice.id)
+    render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
+
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+    expect(network).toHaveTextContent('Members not observed')
+    expect(network).toHaveTextContent('SELF')
+    expect(within(network).queryAllByRole('button')).toHaveLength(0)
   })
 
   it('derives each row from canonical state rather than a stored label', () => {

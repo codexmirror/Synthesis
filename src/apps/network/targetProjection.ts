@@ -105,6 +105,27 @@ export interface LocalPackage {
   readonly label: string
 }
 
+/**
+ * One remembered Network as relationship context for the targets inside it.
+ * It is presentation grouping over `networkDeviceRelations`, not a level of
+ * navigation: the Network itself is not openable and carries no action.
+ */
+export interface KnownNetwork {
+  readonly id: string
+  readonly name: string
+  readonly membersObserved: boolean
+  /** Whether the player legitimately remembers SELF as a member of this Network. */
+  readonly includesSelf: boolean
+  readonly targets: readonly TargetSummary[]
+}
+
+export interface KnownSpace {
+  readonly self: { readonly address: string }
+  readonly networks: readonly KnownNetwork[]
+  /** Remembered Devices with no remembered relationship to a known Network. */
+  readonly elsewhere: readonly TargetSummary[]
+}
+
 export interface TargetSummary {
   readonly id: string
   readonly address: string
@@ -222,6 +243,39 @@ function stageOf(input: {
  * Networks are the target's stated location rather than a level of navigation
  * the player has to descend through.
  */
+/**
+ * Known Space: the remembered relationship shape around the player, derived
+ * entirely from remembered Discovery. SELF appears only where the player has
+ * legitimately observed its own membership of a Network; a Device appears
+ * under every Network it is remembered in, and one it is remembered in none of
+ * stays visibly separate rather than being filed under a Network it was never
+ * observed on.
+ */
+export function selectKnownSpace(information: PlayerInformation): KnownSpace {
+  const { discovery } = information
+  const localDeviceId = information.player.localDevice.id
+  const targets = new Map(selectTargets(information).map((target) => [target.id, target]))
+  const knownNetworkIds = new Set(discovery.networks.map(({ id }) => id))
+  const related = new Set(discovery.networkDeviceRelations
+    .filter(({ networkId }) => knownNetworkIds.has(networkId))
+    .map(({ deviceId }) => deviceId))
+  const membersOf = (networkId: string) => discovery.networkDeviceRelations.filter((relation) => relation.networkId === networkId)
+  return {
+    self: { address: information.player.localDevice.network.ip },
+    networks: discovery.networks.map((network) => ({
+      id: network.id,
+      name: network.name,
+      membersObserved: network.membersObserved,
+      includesSelf: membersOf(network.id).some(({ deviceId }) => deviceId === localDeviceId),
+      targets: membersOf(network.id).flatMap(({ deviceId }) => {
+        const target = deviceId === localDeviceId ? undefined : targets.get(deviceId)
+        return target ? [target] : []
+      }),
+    })),
+    elsewhere: [...targets.values()].filter(({ id }) => !related.has(id)),
+  }
+}
+
 export function selectTargets(information: PlayerInformation): readonly TargetSummary[] {
   return information.discovery.devices.map((device) => {
     const target = selectTarget(information, device.id)

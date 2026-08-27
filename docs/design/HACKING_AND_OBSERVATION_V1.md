@@ -1061,7 +1061,13 @@ justification, not a routine consequence of adding a mechanic.
 
 ⸻
 
-8.3 The target card and its stages
+8.3 Known Space and the target card
+
+Known Space is where the player sees the world they have observed: remembered
+Networks, SELF's own place in them, and the targets that belong to each, with
+targets they know outside any known Network kept visibly separate. It is
+relationship context under the rule in section 9 — legible topology, not a
+hierarchy to walk. SELF is an anchor there and never a target.
 
 A target is presented as one card carrying one stage and, normally, one
 visually obvious primary action.
@@ -1328,10 +1334,19 @@ inspector. Its purpose is to translate a complex represented digital world
 into useful player decisions. Its primary vocabulary is target, scan, way in,
 hack, access, connect — not the internal names of the domains it reads.
 
-Its navigation is deliberately shallow: a list of known targets, and one
-target. Networks remain real remembered relationships and are stated as a
-target's location; they are no longer a level the player descends through, and
-Services are no longer pages the normal loop visits.
+Its navigation is deliberately shallow: known space, and one target. That is
+the whole stack.
+
+Network topology may be presented as lightweight relationship context, but it
+is not a navigation hierarchy the player must traverse. Remembered Networks,
+the player's own position among them, and which targets belong where are
+useful world information and should be legible at a glance; what was harmful
+was requiring Network → Device → Service to be walked as gameplay. So the
+relationship scaffold is drawn, and nothing in it is a level: a Network is not
+openable and carries no action, nothing expands, Services are not children of
+the list, and a target opens its own card in one tap. Removing interaction
+complexity is not the same as erasing world structure, and neither is an
+excuse for the other.
 
 The projection boundary is unchanged:
 
@@ -1414,11 +1429,22 @@ reinstated.
 
 5. Implemented — the SCAN / HACK / CONNECT interaction reset
 
-NodeScan presents a target list and a target card, and performs the routine
+NodeScan presents Known Space and a target card, and performs the routine
 technical work of a sweep — Scan, then Inspect where the installed release
 supplies it, then Service Analysis of every remembered Service — from one
 player SCAN. Each step is the same canonical operation Terminal exposes
 individually.
+
+Physical playtesting of that reset confirmed the casual loop and returned two
+presentation corrections, both applied without changing the interaction:
+
+* Known Space draws the remembered relationship scaffold again — Network,
+  SELF's position, the targets that belong there — under the rule in section
+  9. Legibility was restored; the navigation was not.
+* A sweep starts one real Service Analysis Process per remembered Service, so
+  each names the Service it is analysing rather than differing only by port.
+  They remain independent Processes with their own resources, progress and
+  cancellation; no batch, parent or grouped state was introduced.
 
 ⸻
 
@@ -1518,6 +1544,8 @@ This design contract does not authorize implementation of:
 * a refactor of working Credential Access solely to match conceptual vocabulary
 * speculative UI for mechanics that do not yet exist
 * a return of the superseded workspace under new section names
+* a Network page, Network or Device expansion, Service children on Known
+  Space, or any other navigation level reintroduced under topology
 * a fourth primary player verb adopted as a routine consequence of adding a
   mechanic
 * tutorial or story content introduced to explain a complicated interface

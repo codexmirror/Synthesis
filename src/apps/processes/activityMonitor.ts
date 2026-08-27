@@ -2,7 +2,7 @@ import { deriveFileTransferDirection } from '../../core/game/fileTransfer'
 import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
 import { NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS, NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
-import type { DeviceAccess, FileTransfer, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess, RecentActivityEntry } from '../../core/game/types'
+import type { DeviceAccess, DiscoveryState, FileTransfer, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess, RecentActivityEntry } from '../../core/game/types'
 import { formatByteProgress, formatTransferRate } from '../byteFormat'
 
 /**
@@ -39,7 +39,7 @@ export interface MonitorActivity {
   readonly kindLabel: string
   readonly titleLabel?: string
   readonly title: string
-  /** Endpoint relationship, currently only meaningful for a transfer. */
+  /** Secondary relationship line: an operation's endpoint, or a transfer's route. */
   readonly route?: string
   readonly status: 'running' | 'recent'
   /** Absent for continuous runtime with no finite completion threshold (e.g. NODE Miner): never rendered as a fake 0-100% bar. */
@@ -84,7 +84,7 @@ export function deriveActivityMonitor(state: GameState): ActivityMonitor {
   const archivedProcessIds = new Set(state.recentActivity.entries.filter((entry) => entry.kind === 'process').map(({ id }) => id))
   const operations = state.process.processes
     .filter((process) => process.executorDeviceId === device.id && (process.status === 'running' || !archivedProcessIds.has(process.id)))
-    .map((process) => toOperationActivity(process, usage, state.deviceAccess.established, device.hardware.cpu.computeCapacity, process.status === 'completed'))
+    .map((process) => toOperationActivity(process, usage, state.deviceAccess.established, state.discovery, device.hardware.cpu.computeCapacity, process.status === 'completed'))
   const transfer = deriveTransferPresentation(state)
   const recent = state.recentActivity.entries
     .filter((entry) => entry.kind === 'file_transfer' || entry.process.executorDeviceId === device.id)
@@ -116,18 +116,40 @@ export function filterActivities(activities: readonly MonitorActivity[], filter:
   return activities
 }
 
-function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], executorComputeCapacity: number, recent: boolean, cancelled = false): MonitorActivity {
+/**
+ * What a finite operation is working on, stated as its own concrete subject.
+ *
+ * Service-scoped work names the Service the player legitimately remembers at
+ * that stable identity, so several simultaneous Service Analysis Processes are
+ * told apart by what they are analysing rather than only by their endpoints.
+ * The name is remembered Discovery, never current target truth: where the
+ * player has no remembered Service at that identity — a Terminal `analyze`
+ * against a never-scanned endpoint, for instance — the operation truthfully
+ * falls back to naming its historical endpoint alone.
+ */
+function toOperationSubject(process: Exclude<GameProcess, NodeMinerProcess>, discovery: DiscoveryState): Pick<MonitorActivity, 'titleLabel' | 'title' | 'route'> {
+  if (process.kind === 'generic') return { title: process.label }
+  if (process.kind === 'software_installation') return { titleLabel: 'PACKAGE', title: `${process.name} ${process.version}` }
+  if (process.kind === 'software_removal') return { titleLabel: 'SOFTWARE', title: `${process.name} ${process.version}` }
+  const remembered = discovery.devices
+    .find(({ id }) => id === process.targetDeviceId)?.services
+    .find(({ id }) => id === process.serviceId)?.name
+  // The operation kind already says what is being done, so the Service name
+  // stands on its own line as the subject, with its endpoint beneath it.
+  return remembered
+    ? { title: remembered, route: process.startedEndpoint }
+    : { titleLabel: 'TARGET', title: process.startedEndpoint }
+}
+
+function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], discovery: DiscoveryState, executorComputeCapacity: number, recent: boolean, cancelled = false): MonitorActivity {
   if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity, recent)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
-  const titleLabel = process.kind === 'generic' ? undefined : process.kind === 'software_installation' ? 'PACKAGE' : process.kind === 'software_removal' ? 'SOFTWARE' : 'TARGET'
-  const title = process.kind === 'generic' ? process.label : process.kind === 'software_installation' || process.kind === 'software_removal' ? `${process.name} ${process.version}` : process.startedEndpoint
   return {
     id: process.id,
     category: 'operation',
     kindLabel: process.kind === 'generic' ? 'PROCESS' : process.label,
-    titleLabel,
-    title,
+    ...toOperationSubject(process, discovery),
     status: recent ? 'recent' : 'running',
     progressPercent,
     facts: [
@@ -264,7 +286,7 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
 }
 
 function toRecentActivity(entry: RecentActivityEntry, state: GameState, usage: ResourceUsage): MonitorActivity {
-  if (entry.kind === 'process') return toOperationActivity(entry.process, usage, state.deviceAccess.established, state.player.localDevice.hardware.cpu.computeCapacity, true, entry.termination === 'cancelled')
+  if (entry.kind === 'process') return toOperationActivity(entry.process, usage, state.deviceAccess.established, state.discovery, state.player.localDevice.hardware.cpu.computeCapacity, true, entry.termination === 'cancelled')
   return toTransferActivity(entry.transfer, state.player.localDevice.id, entry.sourcePath, entry.route)
 }
 
