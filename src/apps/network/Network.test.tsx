@@ -339,6 +339,33 @@ describe('NodeScan technical details', () => {
     expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-http-001', status: 'running' })])
   })
 
+  it('states what the last Analyze found before the control that would run it again', async () => {
+    /*
+     * A Service states everything known about it, then offers the action. The
+     * outcome note used to render underneath ANALYZE, where the same sentence
+     * reads as a description of what the button is about to do — and where it
+     * sat on the opposite side of the control from the weakness note that
+     * answers the same question for a Service that has one.
+     */
+    const analysed = withProcesses(knownWeakness(), [{
+      ...analysisProcess('process-0001', 'service-http-001', 1000),
+      status: 'completed', result: { status: 'no_weakness_detected' },
+    }])
+    const user = await openTarget(analysed)
+    await openDetails(user)
+
+    const serviceOf = (name: string) => screen.getByRole('button', { name: `Analyze ${name}` }).closest('.ns-service') as HTMLElement
+    const precedesItsAction = (article: HTMLElement, statement: HTMLElement) =>
+      statement.compareDocumentPosition(within(article).getByRole('button', { name: /^Analyze / })) & Node.DOCUMENT_POSITION_FOLLOWING
+
+    const http = serviceOf('HTTP')
+    expect(precedesItsAction(http, within(http).getByText('Last analysis found no weakness.'))).toBeTruthy()
+
+    // The same ordering a Service with a weakness already had.
+    const ssh = serviceOf('SSH')
+    expect(precedesItsAction(ssh, within(ssh).getByText('Weak authentication configuration'))).toBeTruthy()
+  })
+
   it('states remembered evidence with its capability note under a release that cannot Inspect', async () => {
     const remembered = { ...scannedTarget(withNodeScan11(createInitialGameState())), player: createInitialGameState().player }
     const user = await openTarget(remembered)

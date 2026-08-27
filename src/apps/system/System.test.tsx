@@ -94,6 +94,30 @@ describe('System', () => {
     }
   })
 
+  it('marks the software row as a disclosure without renaming it or implying navigation', async () => {
+    /*
+     * The row opens in place, so it carries the NODE-OS disclosure mark rather
+     * than a navigation arrow. Without it the row was styled exactly like the
+     * static `.node-row` other applications use for facts, and nothing said it
+     * could be opened.
+     */
+    const { container } = render(<GameProvider initialState={createInitialGameState()}><System /></GameProvider>)
+    const row = screen.getByRole('button', { name: 'NodeScan 1.0 · STANDARD' })
+    const mark = () => row.querySelector('.node-disclosure-mark') as HTMLElement
+
+    expect(container.querySelectorAll('.node-row-arrow')).toHaveLength(0)
+    expect(mark()).toBeInTheDocument()
+    // The mark is decoration for the state `aria-expanded` already carries.
+    expect(mark()).toHaveAttribute('aria-hidden', 'true')
+    const closed = mark().textContent
+
+    await userEvent.click(row)
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+    expect(mark().textContent).not.toBe(closed)
+    // Naming the row is still the software itself.
+    expect(screen.getByRole('button', { name: 'NodeScan 1.0 · STANDARD' })).toBe(row)
+  })
+
   it('expands one software row at a time, in place, and collapses it again', async () => {
     const started = installLocalSoftwarePackage(createInitialGameState(), '/home/user/downloads/node-miner-1.0.pkg')
     if (started.status !== 'started') throw new Error(started.status)

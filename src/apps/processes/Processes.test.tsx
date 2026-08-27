@@ -180,24 +180,34 @@ describe('Processes application integration', () => {
   })
 
   it('confirms before clearing completed cards while running work remains visible', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    // The confirmation is asked inside the Firmware surface. A browser dialog
+    // would be an operating-system sheet over NODE-OS, so reaching for one is
+    // itself the regression.
+    const confirm = vi.spyOn(window, 'confirm')
     render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
-    const clear = screen.getByRole('button', { name: 'Clear recent activity' })
-    fireEvent.click(clear)
-    expect(confirm).toHaveBeenLastCalledWith('Clear recent activity?')
+    fireEvent.click(screen.getByRole('button', { name: 'Clear recent activity' }))
+    const question = screen.getByRole('group', { name: 'Clear recent activity?' })
     expect(screen.getByText('Finished analysis')).toBeInTheDocument()
-    fireEvent.click(clear)
+
+    // Declining keeps the list and puts the single CLEAR control back.
+    fireEvent.click(within(question).getByRole('button', { name: 'KEEP' }))
+    expect(screen.getByText('Finished analysis')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear recent activity' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear recent activity' }))
+    fireEvent.click(within(screen.getByRole('group', { name: 'Clear recent activity?' })).getByRole('button', { name: 'CLEAR' }))
     expect(screen.queryByText('Finished analysis')).not.toBeInTheDocument()
     expect(screen.queryByText('COMPLETED')).not.toBeInTheDocument()
     expect(screen.getByText('Active analysis')).toBeInTheDocument()
+    expect(confirm).not.toHaveBeenCalled()
   })
 
   it('discards a completed result without changing knowledge or world state', () => {
     const initial = completedAnalysis(); const world = initial.world; const knowledge = initial.knowledge
     function Snapshot() { const state = useGameState(); return <output>{JSON.stringify({ worldSame: state.world === world, knowledgeSame: state.knowledge === knowledge, knowledge: state.knowledge })}</output> }
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'Clear recent activity' }))
+    fireEvent.click(within(screen.getByRole('group', { name: 'Clear recent activity?' })).getByRole('button', { name: 'CLEAR' }))
     expect(screen.queryByText('WEAKNESS DETECTED')).not.toBeInTheDocument()
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017' }] } })
   })

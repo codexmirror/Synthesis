@@ -170,7 +170,8 @@ labelled CANCELLED without presenting active CPU or RAM ownership. Completed out
 cancellation, while other ended activity continues to rely on placement and
 concrete outcomes rather than a generic lifecycle state. History is presented
 more quietly than running work and stays clearable either individually or all
-at once.
+at once. Clearing all of it is confirmed inside the application surface rather
+than by a browser dialog.
 
 Recent Activity may be cleared without:
 

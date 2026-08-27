@@ -97,7 +97,9 @@ export function Files() {
               <small>{entry.type === 'directory' ? 'DIRECTORY' : file ? `${typeLabel(file)} · ${formatBytes(getFilesystemFileSizeBytes(file))}` : 'FILE'}</small>
             </span>
             {packageState && <span className={packageState === 'INSTALLED' ? 'node-chip' : 'node-chip node-chip--quiet'}>{packageState}</span>}
-            {entry.type === 'directory' && <span className="node-row-arrow" aria-hidden="true">→</span>}
+            {/* Both kinds open a further surface with a back control, so both
+                carry the arrow. `../` keeps its own upward glyph instead. */}
+            <span className="node-row-arrow" aria-hidden="true">→</span>
           </button>
         })}
         {incoming && <div className="node-row node-row--incoming">
