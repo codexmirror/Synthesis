@@ -31,8 +31,15 @@ export function System() {
       const removing = removals.some(({ productId }) => productId === software.id)
       const open = expandedProductId === software.id
       return <div className="software-entry" key={software.id}>
+        {/*
+          * The row carries the same disclosure mark the release disclosure
+          * inside it uses, so an entry that opens in place is legible as a
+          * control rather than reading like the static rows other
+          * applications build from `.node-row`.
+          */}
         <button className="node-row" type="button" aria-expanded={open} onClick={() => setExpandedProductId(open ? undefined : software.id)}>
           <span className="node-row-copy"><strong>{software.name}</strong><small>{describeRelease(software)}{removing ? ` · ${describeRemovalRuntime(software)}` : ''}</small></span>
+          <span className="node-disclosure-mark" aria-hidden="true">{open ? '−' : '+'}</span>
         </button>
         {open && <InstalledSoftwareManagement software={software} firmwareName={firmware.name} firmwareVersion={firmware.version} removing={removing} remove={() => actions.removeInstalledSoftware(software.id)} />}
       </div>

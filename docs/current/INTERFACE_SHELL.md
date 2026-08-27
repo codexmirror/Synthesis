@@ -69,6 +69,15 @@ and each still keeps whatever layout is specific to it. This primitive set is
 NODE-OS Firmware presentation and is not a universal Firmware framework:
 RACK-OS remains deliberately foreign and owns its own palette and structure.
 
+A row or control states what it does by the mark it ends with, and the two
+marks mean different things. The arrow means the control opens a further
+surface — another directory, a file, a mail thread — and means only that. The
+disclosure mark means the control reveals more where it already is, and states
+whether it is currently open; NodeScan's technical details, an installed
+software row and release information all use it. A row that presents a fact
+and is not a control carries neither, and Files' explicit parent row keeps its
+own upward glyph, because it moves up rather than opening something new.
+
 The primitives are composed where they apply rather than imposed on every
 application. The shared masthead states an application's current subject
 directly under the Shell application title, so it is carried by the

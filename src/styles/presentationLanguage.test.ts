@@ -17,6 +17,7 @@ import mailSource from '../apps/mail/Mail.tsx?raw'
 import terminalSource from '../apps/terminal/Terminal.tsx?raw'
 import networkSource from '../apps/network/Network.tsx?raw'
 import processesSource from '../apps/processes/Processes.tsx?raw'
+import activityMonitorSource from '../apps/processes/activityMonitor.ts?raw'
 import rackosSource from '../apps/rackos/RackOS.tsx?raw'
 
 /**
@@ -124,6 +125,14 @@ describe('NODE-OS presentation language', () => {
     // what made the previous "one gutter everywhere" claim untrue.
     expect(terminalCss).not.toMatch(/@media \(max-width: 480px\)/)
 
+    // Owning the gutter is only worth something if the grid stays inside it.
+    // `.terminal` clips rather than scrolls, so an implicit `auto` column
+    // sized to its widest masthead or output line pushed content past the
+    // padding box and the right gutter was cut off at narrow widths.
+    const terminal = ruleBody(terminalCss, '.terminal')
+    expect(terminal).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/)
+    expect(terminal).toMatch(/grid-template-rows:[^;]*minmax\(0, 1fr\)/)
+
     // And no other NODE-OS application may claim the same exception.
     for (const css of [networkCss, processesCss, mailCss]) {
       expect(css).not.toMatch(/env\(safe-area-inset/)
@@ -150,6 +159,28 @@ describe('NODE-OS presentation language', () => {
       expect(source, `${name} intentionally keeps its own presentation`).not.toMatch(/node-masthead/)
     }
     expect(networkSource).toMatch(/className="scan-crumbs"/)
+  })
+
+  it('styles only activity states the Activity Monitor can actually be in', () => {
+    /*
+     * The mirror of the rule above: a class an application names must be
+     * styled, and a state a stylesheet selects must be reachable. This one
+     * degraded silently — the whole quiet finished treatment was keyed on
+     * `completed`, a value `MonitorActivity.status` does not carry, so
+     * finished work kept the running rail, title and progress colour and read
+     * as live. The DOM contract was covered; nothing tied the CSS to it.
+     */
+    const statuses = new Set([...activityMonitorSource.matchAll(/readonly status:([^\n]*)/g)]
+      .flatMap((match) => [...match[1].matchAll(/'([a-z_]+)'/g)].map((value) => value[1])))
+    expect(statuses).toEqual(new Set(['running', 'recent']))
+
+    const styled = [...new Set([...stripComments(processesCss).matchAll(/\[data-status="([a-z_]+)"\]/g)].map((match) => match[1]))]
+    expect(styled.length).toBeGreaterThan(0)
+    expect(styled.filter((status) => !statuses.has(status))).toEqual([])
+
+    // Both states are actually distinguished, so simultaneous work stays
+    // legible against work that has already finished.
+    for (const status of statuses) expect(styled, `${status} has no treatment`).toContain(status)
   })
 
   it('keeps RACK-OS on its own foreign presentation rather than NODE-OS primitives', () => {

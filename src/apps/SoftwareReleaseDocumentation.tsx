@@ -52,7 +52,7 @@ export function SoftwareReleaseDisclosure({ releaseId, summary = false, facts }:
   return <section className="release-disclosure">
     <button className="node-disclosure" type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
       <span>RELEASE INFORMATION</span>
-      <span className="node-disclosure-mark" aria-hidden="true">{open ? '↑' : '→'}</span>
+      <span className="node-disclosure-mark" aria-hidden="true">{open ? '−' : '+'}</span>
     </button>
     {open && <div className="release-disclosure-panel">
       {summary && <><SoftwareReleaseAbout releaseId={releaseId} /><SoftwareReleaseCapabilities releaseId={releaseId} /></>}

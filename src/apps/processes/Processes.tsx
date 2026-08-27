@@ -1,5 +1,5 @@
 import './processes.css'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { formatTransferRate } from '../byteFormat'
 import { ACTIVITY_FILTERS, deriveActivityMonitor, filterActivities, type ActivityFilterId, type MonitorActivity } from './activityMonitor'
@@ -14,11 +14,16 @@ export function Processes() {
   const state = useGameState()
   const { clearRecentActivity, removeRecentActivity, cancelFileTransfer, cancelLocalProcess, stopNodeMiner } = useGameActions()
   const [filter, setFilter] = useState<ActivityFilterId>('all')
+  /** Whether CLEAR is awaiting its confirmation. Presentation only. */
+  const [confirmingClear, setConfirmingClear] = useState(false)
   const { summary, activities } = deriveActivityMonitor(state)
   const visible = filterActivities(activities, filter)
   const running = visible.filter((activity) => activity.status === 'running')
   const recent = visible.filter((activity) => activity.status === 'recent')
   const empty = EMPTY_STATE[filter]
+  // Nothing left to clear ends the question, so a later list never opens
+  // already asking it.
+  useEffect(() => { if (recent.length === 0) setConfirmingClear(false) }, [recent.length])
 
   return <section className="app-content activity-monitor" aria-label="Activity Monitor">
     <header className="node-masthead">
@@ -52,7 +57,18 @@ export function Processes() {
     {recent.length > 0 && <>
       <div className="node-section am-section-quiet">
         <span>RECENT ACTIVITY</span>
-        <button className="am-clear" type="button" aria-label="Clear recent activity" onClick={() => { if (window.confirm('Clear recent activity?')) clearRecentActivity() }}>CLEAR</button>
+        {/*
+          * Clearing the list is confirmed inside the Firmware surface rather
+          * than by a browser dialog, which on a phone is an operating-system
+          * sheet naming the page. The question is asked where the control is.
+          */}
+        {confirmingClear
+          ? <span className="am-clear-confirm" role="group" aria-label="Clear recent activity?">
+            <span className="am-clear-question">CLEAR ALL?</span>
+            <button className="am-clear am-clear--confirm" type="button" onClick={() => { clearRecentActivity(); setConfirmingClear(false) }}>CLEAR</button>
+            <button className="am-clear" type="button" onClick={() => setConfirmingClear(false)}>KEEP</button>
+          </span>
+          : <button className="am-clear" type="button" aria-label="Clear recent activity" onClick={() => setConfirmingClear(true)}>CLEAR</button>}
       </div>
       <div className="am-list">{recent.map((activity) => <ActivityCard activity={activity} key={`${activity.category}-${activity.id}`} onRemove={() => removeRecentActivity(activity.id)} />)}</div>
     </>}

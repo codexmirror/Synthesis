@@ -21,13 +21,28 @@
 .am-clear { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); background: transparent; color: #7f8d85; font: inherit; font-size: .55rem; letter-spacing: .12em; cursor: pointer; }
 .am-clear:hover, .am-clear:focus-visible { border-color: #3f6a51; color: #a8dabc; }
 
+/* The confirmation replaces CLEAR in place, so the question stays on the
+   heading it belongs to instead of displacing the list below it. */
+.am-clear-confirm { display: flex; align-items: center; gap: 8px; }
+.am-clear-question { color: var(--caution); font-size: .55rem; letter-spacing: .12em; white-space: nowrap; }
+.am-clear--confirm { border-color: var(--caution-line); color: var(--caution); }
+.am-clear--confirm:hover, .am-clear--confirm:focus-visible { border-color: #8a6b4e; color: #e8bd8c; }
+
 .am-list { display: grid; gap: 6px; align-items: start; }
+
+/*
+ * Running work is the loud state and finished work is the quiet one, so that
+ * several activities running at once stay legible against what has already
+ * ended. The quiet treatment is keyed on `recent`, the value `MonitorActivity`
+ * actually carries; it is not a grouping and creates no relationship between
+ * the independent Processes each card projects.
+ */
 .am-activity { min-width: 0; padding: 11px 12px; display: grid; gap: 9px; border: 1px solid #28322c; border-left: 2px solid #4d8767; background: #0a0e0c; }
-.am-activity[data-status="completed"] { border-left-color: #2c3630; background: #080b09; }
+.am-activity[data-status="recent"] { border-left-color: #2c3630; background: #080b09; }
 .am-activity-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .am-activity-controls { flex: none; display: flex; align-items: center; gap: 8px; }
 .am-kind { min-width: 0; color: #8fc6a3; font-size: .56rem; font-weight: 600; letter-spacing: .15em; overflow-wrap: anywhere; }
-.am-activity[data-status="completed"] .am-kind { color: #79877f; }
+.am-activity[data-status="recent"] .am-kind { color: #79877f; }
 .am-state { flex: none; display: inline-flex; align-items: center; gap: 6px; color: #66736b; font-size: .52rem; letter-spacing: .13em; }
 .am-state i { width: 6px; height: 6px; border: 1px solid #4b564f; border-radius: 50%; }
 .am-activity[data-status="running"] .am-state { color: #8fc6a3; }
@@ -41,24 +56,24 @@
 .am-title { min-width: 0; display: grid; gap: 4px; }
 .am-title-label { color: #718078; font-size: .52rem; letter-spacing: .14em; }
 .am-title strong { color: #e2e9e5; font: 600 .85rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
-.am-activity[data-status="completed"] .am-title strong { color: #aab6b0; }
+.am-activity[data-status="recent"] .am-title strong { color: #aab6b0; }
 .am-route { color: #8a978f; font-size: .63rem; overflow-wrap: anywhere; }
 
-/* Track and value are styled explicitly so the quiet completed treatment does
+/* Track and value are styled explicitly so the quiet finished treatment does
    not depend on accent-color support alone. */
 .am-activity progress { display: block; width: 100%; height: 3px; border: 0; background: #1b241f; accent-color: #6ac58a; }
 .am-activity progress::-webkit-progress-bar { background: #1b241f; }
 .am-activity progress::-webkit-progress-value { background: #6ac58a; }
 .am-activity progress::-moz-progress-bar { background: #6ac58a; }
-.am-activity[data-status="completed"] progress { accent-color: #46564d; }
-.am-activity[data-status="completed"] progress::-webkit-progress-value { background: #46564d; }
-.am-activity[data-status="completed"] progress::-moz-progress-bar { background: #46564d; }
+.am-activity[data-status="recent"] progress { accent-color: #46564d; }
+.am-activity[data-status="recent"] progress::-webkit-progress-value { background: #46564d; }
+.am-activity[data-status="recent"] progress::-moz-progress-bar { background: #46564d; }
 
 .am-facts { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
 .am-facts > div { min-width: 0; display: grid; gap: 4px; }
 .am-facts dt { color: #718078; font-size: .52rem; letter-spacing: .13em; }
 .am-facts dd { margin: 0; color: #c5d2ca; font-size: .71rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.am-activity[data-status="completed"] .am-facts dd { color: #8e9a93; }
+.am-activity[data-status="recent"] .am-facts dd { color: #8e9a93; }
 
 .am-details { margin: 0; display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid #1b231e; }
 .am-details > div { min-width: 0; display: grid; grid-template-columns: minmax(74px, 24%) minmax(0, 1fr); gap: 10px; align-items: baseline; }

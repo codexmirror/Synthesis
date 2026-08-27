@@ -39,6 +39,31 @@ function uploadState() {
 }
 
 describe('Files', () => {
+  it('marks every entry that opens a further surface, not only directories', async () => {
+    /*
+     * A file entry opens its own surface with a back control exactly as a
+     * directory does, so it carries the same arrow. Only directories were
+     * marked, which left the listing saying that a file row did nothing.
+     * `../` keeps its own upward glyph rather than a forward arrow.
+     */
+    const state = createInitialGameState()
+    const files = [{ kind: 'text' as const, id: 'file-text', path: '/home/user/docs/note.txt', content: 'hi' }]
+    const { container } = render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 2, files } } } }}><Files /></GameProvider>)
+
+    const arrowed = (name: RegExp) => !!screen.getByRole('button', { name }).querySelector('.node-row-arrow')
+    expect(arrowed(/docs.*DIRECTORY/)).toBe(true)
+    expect(arrowed(/\.\.\/.*DIRECTORY/)).toBe(false)
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /docs.*DIRECTORY/ }))
+    expect(arrowed(/note\.txt.*TEXT/)).toBe(true)
+
+    // And the arrow is decoration: it never becomes part of a row's name.
+    await user.click(screen.getByRole('button', { name: /note\.txt.*TEXT/ }))
+    expect(screen.getByText('/home/user/docs/note.txt')).toBeInTheDocument()
+    expect(container.querySelector('.node-back')).toBeInTheDocument()
+  })
+
   it('navigates canonical directories and presents file kinds, sizes, and executable details without future actions', async () => {
     const state = createInitialGameState()
     const files = [
