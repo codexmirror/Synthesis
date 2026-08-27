@@ -948,9 +948,15 @@ The Target Workspace is a projection.
 It owns no canonical gameplay truth.
 
 It reads legitimate current Player Information, the player's own represented
-resources and relationships, and the state of concrete mechanics, and it
-arranges them so that one target's decision line is comprehensible in one
-place.
+resources, the player's represented relationships such as DeviceAccess and
+RemoteSession, and the relevant canonical activity that legitimately belongs to
+the player, and it arranges them so that one target's decision line is
+comprehensible in one place.
+
+It must not consult hidden current target World Truth to derive availability,
+readiness, hints, or expected success. Concrete mechanics remain authoritative
+for actual admission and resolution, and target truth reaches the Workspace
+only through legitimate observation and information routes.
 
 Every separation in section 3 survives unchanged: World Truth, Discovery,
 Knowledge, capability, reachability, DeviceAccess, RemoteSession, Process
@@ -970,8 +976,8 @@ or a persisted generic:
 Operation { available, ready }
 
 Availability and readiness are derived presentation, computed from legitimate
-current Player Information, represented capabilities and relationships, and
-the concrete mechanic itself.
+current Player Information, represented capabilities and relationships, and the
+concrete mechanic's own player-visible requirements.
 
 Concrete projection helpers are acceptable implementation direction where a
 real need appears — conceptually something like:

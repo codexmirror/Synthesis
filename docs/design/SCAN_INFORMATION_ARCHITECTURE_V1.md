@@ -81,11 +81,17 @@ Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md
 12. Contextual projection of one target's decision line is not an exception to
     9-11; it is their boundary, and it is not owned here.
 
-    A Scan surface may project target-relevant canonical state and
-    target-relevant operations from other domains where that is necessary to
-    keep one line of action against one target coherent. The canonical owner of
-    each projected concern is unchanged, and the specialized interface remains
-    the place that subsystem is managed in general.
+    A NodeScan object presentation surface — an object page, and the
+    Device-level Target Workspace built on it — may project target-relevant
+    canonical state and target-relevant operations from other domains where
+    that is necessary to keep one line of action against one target coherent.
+    The canonical owner of each projected concern is unchanged, and the
+    specialized interface remains the place that subsystem is managed in
+    general.
+
+    This concerns presentation only. The Scan operation, the NodeScan
+    interface, and browsing remembered information remain distinct: projecting
+    an operation onto a page performs no observation.
 
     That boundary, its player-facing rules, and the Target Workspace it exists
     for are owned by
