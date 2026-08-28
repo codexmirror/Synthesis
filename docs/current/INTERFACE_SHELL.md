@@ -70,10 +70,16 @@ and each still keeps whatever layout is specific to it: Wallet owns its own
 hierarchy than the shared facts list gives it, and it owns the primitives that
 set carries no equivalent of — the layered module, the balance hero and its
 trajectory, the icon action tile, the consequential filled action, the labeled
-financial terms list and the compact activity row — while composing the shared
-section heading, list row, field, input, note, empty state, back control and
-outlined action for everything else. What that Wallet presentation is meant
-to achieve is owned by `docs/design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`. This primitive set is
+financial terms list, the amount entry, and the compact activity row with its
+quiet empty state — while composing the shared section heading, field, input,
+note, back control and outlined action for everything else. It deliberately
+stopped composing the shared bordered list row and empty state for activity,
+because a complete rectangle per item is what made a transfer history read as a
+stack of repeated objects; a Wallet modifier of a shared primitive is written as
+`.node-x.dollar-y`, since an application stylesheet is emitted before
+`nodeui.css` and an equally specific rule would lose the tie. What that Wallet
+presentation is meant to achieve is owned by
+`docs/design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`. This primitive set is
 NODE-OS Firmware presentation and is not a universal Firmware framework:
 RACK-OS remains deliberately foreign and owns its own palette and structure.
 

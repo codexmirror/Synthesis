@@ -1,16 +1,18 @@
-import { type FormEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import {
   findDeviceSavedDollarSignIn,
   projectDollarAccountActivity,
   resolveDollarAccountForDevice,
   type DollarAccountActivityEntry,
-  type TransferDollarsResult,
 } from '../../core/game/dollarFinance'
-import type { DeviceSavedDollarSignIn, DollarFinancialAccount } from '../../core/game/types'
-import { formatDollarCents, formatSignedDollarCents, parseDollarAmountToCents } from '../dollarFormat'
+import type { DollarFinancialAccount } from '../../core/game/types'
+import { formatDollarCents, formatSignedDollarCents } from '../dollarFormat'
 import { deriveDollarBalanceTrajectory, dollarTrajectoryPolylinePoints } from './balanceTrajectory'
-import { WalletIcon } from './WalletIcon'
+import { Account, SignedOut } from './DollarAccess'
+import { Send } from './DollarSend'
+import { WalletIcon, type WalletIconName } from './WalletIcon'
+import { AccountReference, CopyControl, FocusedHeading } from './walletControls'
+import { useState } from 'react'
 
 /**
  * Which Dollar surface is open. SEND, RECEIVE and ACCOUNT are focused tasks, so
@@ -94,7 +96,7 @@ function Dashboard({ account, providerName, personal, activity, notice, onSurfac
   return <section className="dollar-client" aria-label="Dollar account">
     <div className="dollar-hero">
       <p className="eyebrow dollar-provider">{providerName}</p>
-      <p className="balance dollar-balance">{formatDollarCents(account.balanceCents)}</p>
+      <p className="dollar-balance">{formatDollarCents(account.balanceCents)}</p>
       <div className="dollar-identity">
         <AccountReference reference={account.accountReference} />
         {/* Stated only where it derives from this Device's saved sign-in; there is no personal flag. */}
@@ -111,23 +113,21 @@ function Dashboard({ account, providerName, personal, activity, notice, onSurfac
       <ActionTile icon="account" label="ACCOUNT" onClick={() => onSurface('account')} />
     </div>
 
-    <div className="node-section"><span>ACTIVITY</span></div>
-    {activity.length > 0
-      ? <div className="node-list">{activity.map((entry) => <div className="node-row dollar-activity" key={entry.id}>
-          <span className={`dollar-activity-mark dollar-activity-mark--${entry.direction}`} aria-hidden="true">
-            <WalletIcon name={entry.direction === 'outgoing' ? 'send' : 'receive'} />
-          </span>
-          <span className="node-row-copy">
-            <strong>{entry.counterpartyReference}</strong>
-            <small>{entry.direction === 'outgoing' ? 'SENT' : 'RECEIVED'}</small>
-          </span>
-          <span className={`dollar-amount dollar-amount--${entry.direction}`}>{formatSignedDollarCents(entry.amountCents)}</span>
-        </div>)}</div>
-      : <div className="node-empty"><strong>NO ACTIVITY YET</strong><span>Money you send or receive appears here.</span></div>}
+    <div className="node-section"><span>ACTIVITY</span>{activity.length > 0 && <span>{activity.length}</span>}</div>
+    <DollarActivity activity={activity} />
   </section>
 }
 
-function ActionTile({ icon, label, onClick }: { icon: 'send' | 'receive' | 'account'; label: string; onClick: () => void }) {
+/**
+ * One action, as an icon and a label sharing a small deliberate surface.
+ *
+ * The icon is set above its label at the tile's leading edge rather than
+ * centred in it, so the three tiles read as one aligned system rather than as
+ * three separately centred buttons. The icon never carries the control: every
+ * tile keeps its text label, and the label is the control's whole accessible
+ * name.
+ */
+function ActionTile({ icon, label, onClick }: { icon: WalletIconName; label: string; onClick: () => void }) {
   return <button className="dollar-action" type="button" onClick={onClick}>
     <WalletIcon name={icon} />
     <span>{label}</span>
@@ -135,8 +135,46 @@ function ActionTile({ icon, label, onClick }: { icon: 'send' | 'receive' | 'acco
 }
 
 /**
+ * Dollar activity as one financial list rather than a stack of separate cards.
+ *
+ * Each row states exactly what the canonical projection carries: the direction,
+ * the historical counterparty reference, `SENT` or `RECEIVED`, and the signed
+ * amount aligned down the right edge so two rows can be compared at a glance.
+ * Direction survives without colour — the mark points the way the money went,
+ * the wording says it, and the amount is explicitly signed.
+ *
+ * No timestamp, category, avatar, merchant, recipient name, status, fee or memo
+ * is added, because the world represents none of them.
+ */
+function DollarActivity({ activity }: { activity: readonly DollarAccountActivityEntry[] }) {
+  if (activity.length === 0) {
+    return <div className="wallet-module dollar-activity-module dollar-activity-empty">
+      <strong>NO ACTIVITY YET</strong>
+      <span>Money you send or receive appears here.</span>
+    </div>
+  }
+
+  return <div className="wallet-module dollar-activity-module">
+    {activity.map((entry) => <div className="dollar-activity" key={entry.id}>
+      <span className={`dollar-activity-mark dollar-activity-mark--${entry.direction}`} aria-hidden="true">
+        <WalletIcon name={entry.direction === 'outgoing' ? 'send' : 'receive'} />
+      </span>
+      <span className="dollar-activity-copy">
+        <strong>{entry.counterpartyReference}</strong>
+        <small>{entry.direction === 'outgoing' ? 'SENT' : 'RECEIVED'}</small>
+      </span>
+      <span className={`dollar-amount dollar-amount--${entry.direction}`}>{formatSignedDollarCents(entry.amountCents)}</span>
+    </div>)}
+  </div>
+}
+
+/**
  * The Dollar hero's trajectory: one stroke through the balance states this
  * Account is represented as having held, oldest to current.
+ *
+ * It belongs to the hero rather than sitting under it: the stroke runs the full
+ * width of the module and rests on its lower edge, so the balance above it and
+ * the movement behind that balance read as one composition.
  *
  * It is drawn only where there is real movement to draw. With no Transactions
  * there is exactly one represented balance state, so there is no line and the
@@ -149,89 +187,23 @@ function ActionTile({ icon, label, onClick }: { icon: 'send' | 'receive' | 'acco
 function BalanceTrajectory({ balanceCents, activity }: { balanceCents: number; activity: readonly DollarAccountActivityEntry[] }) {
   const points = dollarTrajectoryPolylinePoints(deriveDollarBalanceTrajectory(balanceCents, activity), 100, 34)
   if (!points) return null
-  // The box is two units taller than the plotted range at each edge, so the
-  // highest and lowest represented states keep a whole stroke rather than being
-  // clipped flat against the frame.
-  return <svg className="dollar-trajectory" viewBox="0 0 100 38" preserveAspectRatio="none" aria-hidden="true">
-    <g transform="translate(0 2)">
-      <polygon className="dollar-trajectory-area" points={`${points} 100,34 0,34`} />
+  // The box is taller than the plotted range at each edge, so the highest and
+  // lowest represented states keep a whole stroke and a little air rather than
+  // being clipped flat against the module's edges.
+  return <svg className="dollar-trajectory" viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      {/* The fill fades out downwards so the stroke sits on the module rather
+          than on a block of colour with an edge of its own. */}
+      <linearGradient id="dollarTrajectoryFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="rgb(140 255 178)" stopOpacity=".17" />
+        <stop offset="100%" stopColor="rgb(140 255 178)" stopOpacity="0" />
+      </linearGradient>
+    </defs>
+    <g transform="translate(0 5)">
+      <polygon className="dollar-trajectory-area" points={`${points} 100,39 0,39`} />
       <polyline className="dollar-trajectory-line" points={points} vectorEffect="non-scaling-stroke" />
     </g>
   </svg>
-}
-
-/** Product wording for a refused transfer; the domain's operation statuses stay internal. */
-function transferRefusal(status: Exclude<TransferDollarsResult['status'], 'transferred'>): string {
-  switch (status) {
-    case 'recipient_not_found': return 'No account matches that number.'
-    case 'recipient_ambiguous': return 'That number does not identify a single account.'
-    case 'recipient_is_source': return 'You cannot send to this account.'
-    case 'insufficient_funds': return 'Not enough money in this account.'
-    case 'invalid_amount': return 'Enter an amount like 25.00.'
-    case 'not_signed_in': return 'This account is no longer signed in.'
-  }
-}
-
-function Send({ account, providerName, transfer, onSent, onCancel }: {
-  account: DollarFinancialAccount
-  providerName: string
-  transfer: (recipientAccountReference: string, amountCents: number) => TransferDollarsResult
-  onSent: (amountCents: number, recipientAccountReference: string) => void
-  onCancel: () => void
-}) {
-  const [recipient, setRecipient] = useState('')
-  const [amount, setAmount] = useState('')
-  const [review, setReview] = useState<{ recipient: string; amountCents: number }>()
-  const [refusal, setRefusal] = useState<string>()
-
-  function openReview(event: FormEvent) {
-    event.preventDefault()
-    const trimmed = recipient.trim()
-    if (!trimmed) return setRefusal('Enter the account you are sending to.')
-    const amountCents = parseDollarAmountToCents(amount)
-    if (amountCents === undefined) return setRefusal('Enter an amount like 25.00.')
-    setRefusal(undefined)
-    setReview({ recipient: trimmed, amountCents })
-  }
-
-  function send() {
-    if (!review) return
-    const result = transfer(review.recipient, review.amountCents)
-    if (result.status === 'transferred') return onSent(review.amountCents, review.recipient)
-    setReview(undefined)
-    setRefusal(transferRefusal(result.status))
-  }
-
-  if (review) {
-    // Review is the whole surface: the amount is the subject, and both accounts
-    // are stated plainly, so a mistyped transfer is visible before it is real.
-    return <section className="dollar-client" aria-label="Review transfer">
-      <FocusedHeading title="SEND / REVIEW" onBack={() => setReview(undefined)} />
-      <div className="dollar-hero dollar-hero--review">
-        <p className="eyebrow">AMOUNT</p>
-        <p className="balance dollar-balance">{formatDollarCents(review.amountCents)}</p>
-      </div>
-      <dl className="wallet-module dollar-terms">
-        <div><dt>TO</dt><dd>{review.recipient}</dd></div>
-        <div><dt>FROM</dt><dd>{account.accountReference}<span>{providerName}</span></dd></div>
-      </dl>
-      <button className="dollar-primary" type="button" onClick={send}>CONFIRM &amp; SEND</button>
-    </section>
-  }
-
-  return <section className="dollar-client" aria-label="Send money">
-    <FocusedHeading title="SEND" onBack={onCancel} />
-    <form className="dollar-form" onSubmit={openReview} aria-label="Send Dollars">
-      <label className="node-field dollar-amount-field"><span>AMOUNT</span><input className="node-input" name="amount" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" autoComplete="off" placeholder="0.00" /></label>
-      <label className="node-field"><span>TO ACCOUNT</span><input className="node-input" name="recipientAccountReference" value={recipient} onChange={(event) => setRecipient(event.target.value)} autoComplete="off" spellCheck={false} /></label>
-      <dl className="wallet-module dollar-terms">
-        <div><dt>FROM</dt><dd>{account.accountReference}<span>{providerName}</span></dd></div>
-        <div><dt>AVAILABLE</dt><dd className="dollar-terms-amount">{formatDollarCents(account.balanceCents)}</dd></div>
-      </dl>
-      {refusal && <p className="node-note node-note--caution" role="alert">{refusal}</p>}
-      <button className="dollar-submit" type="submit">REVIEW</button>
-    </form>
-  </section>
 }
 
 /**
@@ -248,190 +220,12 @@ function Receive({ account, providerName, onCancel }: { account: DollarFinancial
   return <section className="dollar-client" aria-label="Receive money">
     <FocusedHeading title="RECEIVE" onBack={onCancel} />
     <div className="wallet-module dollar-receive">
-      <p className="eyebrow">{providerName}</p>
+      <p className="eyebrow dollar-provider">{providerName}</p>
       <p className="dollar-receive-reference">{account.accountReference}</p>
-      <CopyControl value={account.accountReference} label={`Copy account number ${account.accountReference}`}>COPY NUMBER</CopyControl>
+      <CopyControl variant="plate" value={account.accountReference} label={`Copy account number ${account.accountReference}`}>COPY NUMBER</CopyControl>
     </div>
     {/* Scoped to the Account, not to the operator: a Session over a foreign
         Account does not make that Account the player's. */}
-    <p className="node-note">Share this account number with someone sending Dollars to this account. Transfers from this account use the same reference.</p>
+    <p className="node-note dollar-receive-note">Share this account number with someone sending Dollars to this account. Transfers from this account use the same reference.</p>
   </section>
-}
-
-function Account({ account, providerName, savedSignIn, onSwitched, onSignedOut, onCancel }: {
-  account: DollarFinancialAccount
-  providerName: string
-  savedSignIn?: DeviceSavedDollarSignIn
-  onSwitched: (message: string) => void
-  onSignedOut: () => void
-  onCancel: () => void
-}) {
-  const actions = useGameActions()
-  // Derived from stable Account identity and Session truth, never a stored flag:
-  // returning to an Account this Device is already using is not an action.
-  const alreadyPersonal = savedSignIn !== undefined && savedSignIn.accountId === account.id
-
-  return <section className="dollar-client" aria-label="Account management">
-    <FocusedHeading title="ACCOUNT" onBack={onCancel} />
-
-    <div className="node-section"><span>CURRENT ACCOUNT</span></div>
-    <div className="wallet-module dollar-identity-card">
-      <div className="dollar-identity-head">
-        <span className="dollar-monogram" aria-hidden="true">{providerMonogram(providerName)}</span>
-        <span className="dollar-identity-name">
-          <strong>{account.accountReference}</strong>
-          <small>{providerName}</small>
-        </span>
-      </div>
-      <dl className="dollar-terms dollar-terms--inset">
-        <div><dt>BALANCE</dt><dd className="dollar-terms-amount">{formatDollarCents(account.balanceCents)}</dd></div>
-        {alreadyPersonal && <div><dt>TYPE</dt><dd>Personal account</dd></div>}
-      </dl>
-    </div>
-
-    {savedSignIn && !alreadyPersonal && <SavedSignIn saved={savedSignIn} onContinue={() => onSwitched('Signed in to your personal account.')} />}
-    <ManualSignIn onSignedIn={() => onSwitched('Signed in to the other account.')} />
-
-    <div className="node-section"><span>ACCOUNT ACTIONS</span></div>
-    <button className="node-action node-action--destructive dollar-sign-out" type="button" onClick={() => { actions.logoutDollarAccount(); onSignedOut() }}>SIGN OUT</button>
-  </section>
-}
-
-/** Provider initials, projected from the represented display name. It states nothing the name does not. */
-function providerMonogram(providerName: string): string {
-  return providerName.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join('')
-}
-
-function SignedOut({ providerName, savedSignIn, onSignedIn }: {
-  providerName: string
-  savedSignIn?: DeviceSavedDollarSignIn
-  onSignedIn: () => void
-}) {
-  return <section className="dollar-client" aria-label="Dollar account signed out">
-    {/* Still the Wallet's financial hero, holding the provider without an Account:
-        no balance, reference or activity exists without a Financial Session. */}
-    <div className="dollar-hero dollar-hero--locked">
-      <p className="eyebrow dollar-provider">{providerName}</p>
-      <p className="dollar-signed-out">Signed out</p>
-      {/* The Device holds saved material and at most one Financial Session; the
-          Account is the Provider's. Manual sign-in may reach any Account, so
-          the copy must not imply this Device owns one. */}
-      <p className="dollar-signed-out-note">Sign in to access a Civic Dollar account on this device.</p>
-    </div>
-    {savedSignIn && <SavedSignIn saved={savedSignIn} onContinue={onSignedIn} />}
-    <ManualSignIn onSignedIn={onSignedIn} />
-  </section>
-}
-
-/**
- * The saved sign-in path back to the personal Account. CONTINUE submits only
- * what this Device stored, through the same authentication operation the manual
- * form uses; nothing here reads the Provider's current password, and the saved
- * password is never rendered. It is offered only where it is actually a way
- * somewhere — signed out, or signed in to some other Account.
- */
-function SavedSignIn({ saved, onContinue }: { saved: DeviceSavedDollarSignIn; onContinue: () => void }) {
-  const actions = useGameActions()
-  const [stale, setStale] = useState(false)
-
-  return <>
-    <div className="node-section"><span>PERSONAL ACCOUNT</span></div>
-    <div className="wallet-module dollar-saved">
-      <div className="dollar-saved-head">
-        <span className="dollar-saved-mark" aria-hidden="true"><WalletIcon name="account" /></span>
-        <span className="dollar-identity-name">
-          <strong className="dollar-saved-login">{saved.loginIdentifier}</strong>
-          <small>Saved sign-in on this device</small>
-        </span>
-      </div>
-      {stale && <p className="node-note node-note--caution" role="alert">This device's saved sign-in no longer works. Sign in below.</p>}
-      <button className="dollar-primary" type="button" onClick={() => {
-        const result = actions.authenticateDollarAccountWithSavedSignIn()
-        if (result.status === 'authenticated') return onContinue()
-        setStale(true)
-      }}>CONTINUE</button>
-    </div>
-  </>
-}
-
-/** Manual sign-in stays available beside the saved path, and is the only way into an account this Device has not saved. */
-function ManualSignIn({ onSignedIn }: { onSignedIn: () => void }) {
-  const actions = useGameActions()
-  const [loginIdentifier, setLoginIdentifier] = useState('')
-  const [password, setPassword] = useState('')
-  const [failed, setFailed] = useState(false)
-
-  function submit(event: FormEvent) {
-    event.preventDefault()
-    const result = actions.authenticateDollarAccount(loginIdentifier, password)
-    if (result.status === 'authenticated') return onSignedIn()
-    setFailed(true)
-  }
-
-  return <>
-    <div className="node-section"><span>OTHER ACCOUNT</span></div>
-    <form className="dollar-form dollar-form--secondary" onSubmit={submit} aria-label="Dollar account sign in">
-      <label className="node-field"><span>LOGIN ID</span><input className="node-input" name="loginIdentifier" value={loginIdentifier} onChange={(event) => setLoginIdentifier(event.target.value)} autoComplete="username" spellCheck={false} /></label>
-      <label className="node-field"><span>PASSWORD</span><input className="node-input" name="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" /></label>
-      {failed && <p className="node-note node-note--caution" role="alert">Invalid login ID or password.</p>}
-      <button className="node-action" type="submit">SIGN IN</button>
-    </form>
-  </>
-}
-
-/** The focused-task heading: one BACK to the dashboard and the name of the task. */
-function FocusedHeading({ title, onBack }: { title: string; onBack: () => void }) {
-  return <div className="dollar-focused-head">
-    <button className="node-back" type="button" onClick={onBack}>← BACK</button>
-    <p className="eyebrow">{title}</p>
-  </div>
-}
-
-/** The Account reference as it appears in the hero: readable, secondary to the balance, and copyable. */
-function AccountReference({ reference }: { reference: string }) {
-  return <span className="dollar-account-reference">
-    <span>{reference}</span>
-    <CopyControl value={reference} label={`Copy account number ${reference}`} />
-  </span>
-}
-
-/**
- * Copies a represented reference exactly as it is. It is a copy affordance
- * only: it resolves nothing, requests nothing and moves no money.
- */
-function CopyControl({ value, label, children }: { value: string; label: string; children?: ReactNode }) {
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-  const resetTimer = useRef<ReturnType<typeof setTimeout>>()
-
-  useEffect(() => () => clearTimeout(resetTimer.current), [])
-
-  function preserveEditing(event: PointerEvent<HTMLButtonElement>) {
-    // Copying must not open the software keyboard or move Shell-owned editing.
-    event.preventDefault()
-  }
-
-  async function copy() {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
-      await navigator.clipboard.writeText(value)
-      setCopyState('copied')
-    } catch {
-      setCopyState('failed')
-    }
-    clearTimeout(resetTimer.current)
-    resetTimer.current = setTimeout(() => setCopyState('idle'), 1600)
-  }
-
-  return <button
-    className={children ? 'dollar-copy dollar-copy--labeled' : 'dollar-copy'}
-    type="button"
-    aria-label={label}
-    data-copy-state={copyState}
-    onPointerDown={preserveEditing}
-    onClick={copy}
-  >
-    <WalletIcon name="copy" />
-    {children && <span>{children}</span>}
-    <span className="sr-only" aria-live="polite">{copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : ''}</span>
-  </button>
 }

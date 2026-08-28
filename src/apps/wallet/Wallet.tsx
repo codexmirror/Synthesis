@@ -27,18 +27,36 @@ export function Wallet() {
   return <section className="app-content wallet-app">
     <DollarClient surface={dollarSurface} onSurface={setDollarSurface} />
 
+    {/*
+      * One NODE instrument rather than four pieces of section chrome around two
+      * short facts: the balance, the address it is paid to and what this Wallet
+      * actually received all live on the same smaller amber surface, separated
+      * by a rule instead of by a second heading and a second module.
+      */}
     {dollarSurface === 'dashboard' && <section className="wallet-node" aria-label="NODE wallet">
       <div className="node-section"><span>NODE</span></div>
       <div className="wallet-module wallet-node-module">
-        <span className="wallet-node-mark" aria-hidden="true"><WalletIcon name="node" /></span>
-        <p className="balance balance--node">{formatNodeUnitsAsNode(nodeWallet.balanceNodeUnits)} NODE</p>
-        <p className="wallet-node-address">{nodeWallet.address}</p>
-      </div>
+        <div className="wallet-node-head">
+          <span className="wallet-node-figure">
+            <span className="wallet-node-balance">{formatNodeUnitsAsNode(nodeWallet.balanceNodeUnits)} NODE</span>
+            <span className="wallet-node-address">{nodeWallet.address}</span>
+          </span>
+          <span className="wallet-node-mark" aria-hidden="true"><WalletIcon name="node" /></span>
+        </div>
 
-      <div className="node-section"><span>NODE ACTIVITY</span></div>
-      {activity.length > 0
-        ? <div className="node-list">{activity.map((record) => <div className="node-row wallet-node-row" key={record.id}><span className="node-row-copy"><strong>+{record.amountNodeUnits.toLocaleString('en-US')} units</strong><small>MINING PAYOUT</small></span></div>)}</div>
-        : <div className="node-empty"><strong>NO NODE ACTIVITY</strong><span>This Wallet has not received NODE.</span></div>}
+        {activity.length > 0
+          ? <div className="wallet-node-activity">
+              <p className="eyebrow wallet-node-activity-label">NODE ACTIVITY</p>
+              {activity.map((record) => <div className="wallet-node-row" key={record.id}>
+                <small>MINING PAYOUT</small>
+                <strong>+{record.amountNodeUnits.toLocaleString('en-US')} units</strong>
+              </div>)}
+            </div>
+          : <div className="wallet-node-activity wallet-node-activity--empty">
+              <strong>NO NODE ACTIVITY</strong>
+              <span>This Wallet has not received NODE.</span>
+            </div>}
+      </div>
     </section>}
   </section>
 }

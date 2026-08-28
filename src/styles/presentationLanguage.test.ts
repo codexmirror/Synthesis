@@ -14,6 +14,9 @@ import filesSource from '../apps/files/Files.tsx?raw'
 import systemSource from '../apps/system/System.tsx?raw'
 import walletSource from '../apps/wallet/Wallet.tsx?raw'
 import dollarClientSource from '../apps/wallet/DollarClient.tsx?raw'
+import dollarSendSource from '../apps/wallet/DollarSend.tsx?raw'
+import dollarAccessSource from '../apps/wallet/DollarAccess.tsx?raw'
+import walletControlsSource from '../apps/wallet/walletControls.tsx?raw'
 import notesSource from '../apps/notes/Notes.tsx?raw'
 import mailSource from '../apps/mail/Mail.tsx?raw'
 import terminalSource from '../apps/terminal/Terminal.tsx?raw'
@@ -31,7 +34,7 @@ import rackosSource from '../apps/rackos/RackOS.tsx?raw'
 
 const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss]
-const applicationSources = [filesSource, systemSource, walletSource, dollarClientSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
+const applicationSources = [filesSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
 function referencedCustomProperties(css: string): string[] {
   return [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1])
@@ -156,7 +159,7 @@ describe('NODE-OS presentation language', () => {
     // Deliberately absent: Wallet and Notes are their own subject, and
     // NodeScan's breadcrumb and object heading already identify the browsed
     // object. A masthead must not be added to these for uniformity alone.
-    const keepsOwn = [['Wallet', walletSource], ['Dollar client', dollarClientSource], ['Notes', notesSource], ['NodeScan', networkSource]] as const
+    const keepsOwn = [['Wallet', walletSource], ['Dollar client', dollarClientSource], ['Dollar SEND', dollarSendSource], ['Dollar access', dollarAccessSource], ['Notes', notesSource], ['NodeScan', networkSource]] as const
     for (const [name, source] of keepsOwn) {
       expect(source, `${name} intentionally keeps its own presentation`).not.toMatch(/node-masthead/)
     }
