@@ -234,6 +234,27 @@ interface, Notes, editing/viewport presentation.
 - DOCUMENTATION IMPACT OWNER → [`current/INTERFACE_SHELL.md`](current/INTERFACE_SHELL.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
+### VEYRA company and consumer-product identity
+
+VEYRA corporate/product identity, VEYRA OS product philosophy, and ordinary
+VEYRA Device presentation direction.
+
+- DESIGN AUTHORITY →
+  [`design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md)
+- ARCHITECTURE → A02 in
+  [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
+  A05–A07 in
+  [`architecture/INTERFACES_AND_PRESENTATION.md`](architecture/INTERFACES_AND_PRESENTATION.md)
+  and [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md);
+  A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md);
+  A17 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md);
+  A18 in [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
+- CURRENT TRUTH → none; VEYRA is not implemented
+- DOCUMENTATION IMPACT OWNER →
+  [`design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md)
+- NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated current-truth domains,
+  archived work orders
+
 ### Workflow, review, delivery, and work orders
 
 How work is selected, implemented, validated, reviewed, delivered, and
