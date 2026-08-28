@@ -166,13 +166,16 @@ GameProcess runtime, executor scheduling, cancellation, Activity Monitor.
 ### NODE economy and Wallet
 
 NODE units, mining production and payout, economic recipients, `node-miner`
-CLI, Wallet.
+CLI, Wallet, and the Dollar economic slice the Wallet presents beside NODE.
 
 - CURRENT TRUTH → [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md)
 - ARCHITECTURE → A18 in
   [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
 - DESIGN → [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md) when a
   software release's represented behavior changes
+- DESIGN → [`design/DOLLAR_FINANCIAL_PROVIDER_V1.md`](design/DOLLAR_FINANCIAL_PROVIDER_V1.md)
+  (Dollar Financial Provider, Account, Credential and Financial Session work
+  only; design authority, not current truth)
 - CODE → `src/core/game/nodeMiner.ts`, `src/core/game/nodeEconomy.ts`,
   `src/core/game/nodeMinerPayoutLog.ts`, `src/apps/wallet/`,
   `src/apps/terminal/commands/nodeMiner.ts`
