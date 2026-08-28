@@ -2,52 +2,253 @@
  * Wallet: the Civic Dollar financial client and, beneath it, the separate NODE
  * economic system.
  *
- * The Dollar client needs a stronger hierarchy than a key/value facts list can
- * give it — one balance reads as the subject of the screen, two actions are
- * obviously primary, and everything else stays quiet — so this application owns
- * that layout. It stays inside the NODE-OS language: the shared tokens, the
- * shared section headings, rows, fields, notes, empty states and actions.
+ * A financial product needs a stronger hierarchy than a key/value facts list
+ * can give it — one balance reads as the subject of the screen, a compact
+ * action strip is obviously the next step, and everything else stays quiet — so
+ * this application owns that layout. It stays inside the NODE-OS language: the
+ * shared palette tokens, and the shared section headings, rows, fields, notes,
+ * empty states, chips and actions wherever those are still the better control.
+ *
+ * The Wallet-owned pieces are the ones the shared primitives cannot carry: the
+ * layered module, the balance hero and its trajectory, the icon action tiles,
+ * the consequential primary action and the compact activity row.
  *
  * `.app-content` still owns the scrolling gutter; nothing here redeclares it.
  */
 
-.wallet-app { max-width: 560px; }
+.wallet-app {
+  max-width: 560px;
+
+  /* Wallet-local depth. The palette stays shared; only the layering is local. */
+  --wallet-module-line: #232e28;
+  --wallet-hero-top: #0c1310;
+  --wallet-hero-bottom: #080b09;
+  --wallet-mint-veil: rgb(140 255 178 / 7%);
+}
 
 .dollar-client { display: block; min-width: 0; }
 
-.dollar-provider { margin: 0; }
+/* Line iconography. Every use sets its own size; this is the shared shape. */
+.wallet-icon {
+  flex: none;
+  display: block;
+  width: 16px;
+  height: 16px;
+  color: inherit;
+}
+
+/*
+ * The layered module. Depth comes from a raised surface and one hairline, not
+ * from shadow, gloss or a rounded consumer card.
+ */
+.wallet-module {
+  min-width: 0;
+  padding: 14px 15px;
+  border: 1px solid var(--wallet-module-line);
+  background: var(--surface-raised);
+}
+
+/* ── Dollar hero ─────────────────────────────────────────────────────────── */
+
+/*
+ * The balance is the subject of the Wallet. It sits in a deliberate module
+ * rather than as loose text, over a currency mark held far enough back to read
+ * as surface rather than as content.
+ */
+.dollar-hero {
+  position: relative;
+  min-width: 0;
+  padding: 17px 16px 15px;
+  overflow: hidden;
+  border: 1px solid var(--wallet-module-line);
+  border-top: 1px solid var(--line-accent);
+  background: linear-gradient(168deg, var(--wallet-hero-top), var(--wallet-hero-bottom));
+}
+
+.dollar-hero::after {
+  content: "$";
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  transform: translateY(-52%);
+  color: var(--wallet-mint-veil);
+  font: 500 6.5rem Inter, system-ui, sans-serif;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.dollar-provider { margin: 0; color: var(--text-secondary); }
 
 .balance {
-  margin: 10px 0 0;
+  position: relative;
+  margin: 9px 0 0;
   color: var(--green);
   font: 500 clamp(2rem, 9vw, 2.9rem) Inter, system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -.01em;
+  letter-spacing: -.015em;
+  line-height: 1.05;
   overflow-wrap: anywhere;
 }
 
+/* Account identity: readable and useful, deliberately quieter than the balance. */
+.dollar-identity {
+  position: relative;
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
 .dollar-account-reference {
-  margin: 6px 0 0;
+  min-width: 0;
   color: var(--text-secondary);
   font-size: .7rem;
   letter-spacing: .06em;
   overflow-wrap: anywhere;
 }
 
-/* The two primary actions. Full-width targets at narrow widths, side by side once there is room. */
+/* Inline rather than a flex row, so the copy control follows the last line of a
+   long reference instead of floating beside the wrapped block. */
+.dollar-account-reference .dollar-copy { vertical-align: middle; margin-left: 1px; }
+
+.dollar-identity-note {
+  color: var(--text-muted);
+  font-size: .62rem;
+  letter-spacing: .04em;
+}
+
+/*
+ * Balance trajectory: the represented balance states in canonical Transaction
+ * order. It carries no axis and no label because no represented time, range or
+ * rate exists to label it with, and it is absent entirely where there is only
+ * one represented balance state.
+ */
+.dollar-trajectory {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 46px;
+  margin-top: 12px;
+}
+
+.dollar-trajectory-line {
+  fill: none;
+  stroke: var(--accent-fill);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.dollar-trajectory-area { fill: var(--wallet-mint-veil); stroke: none; }
+
+.dollar-hero--review { padding-bottom: 17px; }
+.dollar-hero--review + .dollar-terms { margin-top: 10px; }
+.dollar-terms + .dollar-primary { margin-top: 12px; }
+.dollar-hero--review .eyebrow { color: var(--text-muted); }
+.dollar-hero--review .balance { color: var(--text-strong); }
+
+.dollar-hero--locked { border-top-color: var(--line-strong); }
+.dollar-hero--locked::after { color: rgb(140 255 178 / 3%); }
+
+.dollar-signed-out {
+  position: relative;
+  margin: 9px 0 0;
+  color: var(--text-strong);
+  font: 500 1.3rem Inter, system-ui, sans-serif;
+}
+
+.dollar-signed-out-note {
+  position: relative;
+  margin: 7px 0 0;
+  max-width: 34ch;
+  color: var(--text-muted);
+  font-size: .66rem;
+  line-height: 1.5;
+}
+
+/* ── Action strip ────────────────────────────────────────────────────────── */
+
+/*
+ * Compact shortcuts rather than large generic controls: an icon, a label, and
+ * an equal share of the row at every width down to 320px. Every tile opens a
+ * surface that actually exists.
+ */
 .dollar-actions {
-  margin-top: 20px;
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dollar-action {
+  min-height: 68px;
+  padding: 11px 6px 10px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.dollar-actions .node-action {
-  flex: 1 1 140px;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--wallet-module-line);
+  background: var(--surface-raised);
+  color: var(--accent);
+  font: inherit;
+  font-size: .58rem;
+  letter-spacing: .1em;
+  cursor: pointer;
 }
 
-.dollar-activity { justify-content: space-between; }
+.dollar-action .wallet-icon { width: 21px; height: 21px; color: var(--accent-mark); }
+
+.dollar-action:focus-visible {
+  border-color: var(--line-accent);
+  background: var(--surface-hover);
+  color: var(--accent-strong);
+  outline: 0;
+}
+
+@media (hover: hover) {
+  .dollar-action:hover {
+    border-color: var(--line-accent);
+    background: var(--surface-hover);
+    color: var(--accent-strong);
+  }
+}
+
+.dollar-action:focus-visible .wallet-icon,
+.dollar-action:hover .wallet-icon { color: var(--accent-strong); }
+
+.dollar-notice { margin: 12px 0 0; }
+
+/* ── Activity ────────────────────────────────────────────────────────────── */
+
+/*
+ * Direction, counterparty and signed amount, readable in one pass. Compact
+ * enough that several rows fit an iPhone screen under the hero and the actions.
+ */
+.dollar-activity {
+  min-height: 50px;
+  padding: 7px 12px;
+  gap: 11px;
+  justify-content: space-between;
+  border-color: var(--wallet-module-line);
+}
+
+.dollar-activity .node-row-copy { gap: 3px; }
+.dollar-activity .node-row-copy strong { font-size: .74rem; }
+.dollar-activity .node-row-copy small { font-size: .52rem; }
+
+.dollar-activity-mark {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-quiet);
+}
+
+.dollar-activity-mark .wallet-icon { width: 14px; height: 14px; }
+.dollar-activity-mark--outgoing { color: var(--text-secondary); }
+.dollar-activity-mark--incoming { color: var(--accent-mark); border-color: var(--line-accent); }
 
 .dollar-amount {
   flex: none;
@@ -59,100 +260,262 @@
 .dollar-amount--outgoing { color: var(--text-strong); }
 .dollar-amount--incoming { color: var(--green); }
 
-/* Send, sign-in and account forms share one column. */
-.dollar-form {
-  display: grid;
+/* ── Focused surfaces ────────────────────────────────────────────────────── */
+
+/* One BACK and the name of the task the surface is now dedicated to. */
+.dollar-focused-head {
+  display: flex;
+  align-items: center;
   gap: 14px;
-  justify-items: start;
+  margin-bottom: 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
 }
 
+.dollar-focused-head .node-back { margin-bottom: 0; }
+.dollar-focused-head .eyebrow { color: var(--text-strong); font-size: .62rem; letter-spacing: .16em; }
+
+/* Send, sign-in and account forms share one column. */
+.dollar-form { display: grid; gap: 13px; justify-items: start; }
 .dollar-form .node-note { width: 100%; margin: 0; }
-.dollar-form .node-action { margin-top: 2px; }
+.dollar-form .wallet-module { width: 100%; }
 
-/* Review: the amount and destination are the whole screen, so a mistyped transfer is visible before it is real. */
-.dollar-review-amount {
-  margin: 14px 0 0;
-  color: var(--text-strong);
-  font: 500 clamp(1.8rem, 8vw, 2.5rem) Inter, system-ui, sans-serif;
+/* The amount leads SEND, so its input carries the amount's own weight. */
+.dollar-amount-field .node-input {
+  min-height: 54px;
+  font-size: 1.35rem;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
 }
-
-.dollar-review-recipient {
-  margin: 8px 0 0;
-  color: var(--text);
-  font-size: .78rem;
-  overflow-wrap: anywhere;
-}
-
-.dollar-review-source {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: .66rem;
-  overflow-wrap: anywhere;
-}
-
-.dollar-current-reference {
-  margin: 12px 0 0;
-  color: var(--text-strong);
-  font: 600 1rem Inter, system-ui, sans-serif;
-  overflow-wrap: anywhere;
-}
-
-.dollar-current-context {
-  margin: 5px 0 0;
-  color: var(--text-muted);
-  font-size: .66rem;
-  overflow-wrap: anywhere;
-}
-
-.dollar-saved { display: grid; gap: 4px; justify-items: start; padding-top: 4px; }
-
-.dollar-saved-login {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: .82rem;
-  overflow-wrap: anywhere;
-}
-
-.dollar-saved-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: .62rem;
-}
-
-.dollar-saved .node-note { width: 100%; }
-.dollar-saved .node-action { margin-top: 10px; }
-
-.dollar-signed-out {
-  margin: 12px 0 0;
-  color: var(--text-secondary);
-  font-size: .8rem;
-}
-
-.dollar-sign-out { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line-quiet); }
 
 /*
- * NODE is a second economic system, not more of the banking screen. A rule and
- * a real gap separate it, and its own colour and address treatment keep it
- * recognizably more technical than the Dollar account above it.
+ * Labeled financial terms — the accounts and amounts a transfer concerns.
+ * Wallet-owned rather than the shared facts list, because these are one
+ * module's contents rather than a technical fact table.
+ */
+.dollar-terms { margin: 0; display: grid; gap: 11px; }
+.dollar-terms > div { display: grid; grid-template-columns: minmax(62px, 24%) minmax(0, 1fr); align-items: baseline; gap: 12px; }
+.dollar-terms dt { color: var(--text-quiet); font-size: .52rem; letter-spacing: var(--label-tracking); }
+
+.dollar-terms dd {
+  min-width: 0;
+  margin: 0;
+  display: grid;
+  gap: 3px;
+  color: var(--text-strong);
+  font-size: .76rem;
+  overflow-wrap: anywhere;
+}
+
+.dollar-terms dd span { color: var(--text-muted); font-size: .6rem; }
+.dollar-terms-amount { font-variant-numeric: tabular-nums; }
+.dollar-terms--inset { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line-quiet); }
+
+/*
+ * The consequential action. Confirming a transfer, or continuing into the saved
+ * personal Account, is the primary act of its surface and is filled rather than
+ * outlined; every secondary control on the same surface stays outlined.
+ *
+ * REVIEW is deliberately not one of them. It opens the decision rather than
+ * making it, so it takes the full-width outlined action below and the filled
+ * treatment stays the mark of money actually moving.
+ */
+.dollar-primary {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--accent-rule);
+  background: var(--accent-fill);
+  color: #06120b;
+  font: inherit;
+  font-size: .64rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.dollar-primary:focus-visible { border-color: var(--accent-strong); background: var(--accent-strong); outline: 0; }
+
+@media (hover: hover) {
+  .dollar-primary:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
+}
+
+.dollar-submit {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-accent);
+  background: var(--surface-raised);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: .62rem;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.dollar-submit:focus-visible { border-color: var(--accent-rule); background: var(--surface-hover); outline: 0; }
+
+@media (hover: hover) {
+  .dollar-submit:hover { border-color: var(--accent-rule); background: var(--surface-hover); }
+}
+
+/* ── Receive ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Nothing but the Account reference a represented sender would use. No request,
+ * no amount, no code: the reference is the whole mechanic.
+ */
+.dollar-receive { display: grid; justify-items: start; gap: 3px; }
+
+.dollar-receive-reference {
+  margin: 4px 0 0;
+  color: var(--text-strong);
+  font: 500 1.35rem Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  overflow-wrap: anywhere;
+}
+
+.dollar-receive .dollar-copy { margin-top: 11px; }
+
+/* ── Account identity ────────────────────────────────────────────────────── */
+
+.dollar-identity-card { display: block; }
+
+.dollar-identity-head { display: flex; align-items: center; gap: 11px; }
+
+.dollar-monogram {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-accent);
+  background: var(--wallet-mint-veil);
+  color: var(--accent-strong);
+  font-size: .68rem;
+  letter-spacing: .06em;
+}
+
+.dollar-identity-name { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.dollar-identity-name strong { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.dollar-identity-name small { color: var(--text-muted); font-size: .58rem; letter-spacing: .06em; overflow-wrap: anywhere; }
+
+/* The saved personal path, presented as an identity rather than a second form. */
+.dollar-saved { display: block; }
+.dollar-saved-head { display: flex; align-items: center; gap: 11px; }
+
+.dollar-saved-mark {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  color: var(--accent-mark);
+}
+
+.dollar-saved-mark .wallet-icon { width: 18px; height: 18px; }
+.dollar-saved-login { font-family: inherit; font-size: .78rem; }
+.dollar-saved .node-note { width: 100%; }
+.dollar-saved .dollar-primary { margin-top: 13px; }
+
+/* Manual login is the secondary path and reads as one. */
+.dollar-form--secondary { gap: 11px; }
+.dollar-form--secondary .node-input { background: var(--surface); }
+.dollar-form--secondary .node-action { margin-top: 1px; }
+
+/* Signing out is not a finance action and is never presented as one. */
+.dollar-sign-out { border-color: var(--caution-line); }
+
+/* ── Copy affordance ─────────────────────────────────────────────────────── */
+
+.dollar-copy {
+  min-height: 34px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: .58rem;
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+
+.dollar-copy .wallet-icon { width: 13px; height: 13px; }
+.dollar-copy--labeled { min-height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); color: var(--accent); }
+.dollar-copy--labeled .wallet-icon { width: 14px; height: 14px; }
+.dollar-copy:focus-visible { color: var(--accent-strong); outline: 1px solid var(--line-accent); outline-offset: 1px; }
+.dollar-copy[data-copy-state="copied"] { color: var(--green); }
+.dollar-copy[data-copy-state="failed"] { color: var(--caution); }
+
+@media (hover: hover) {
+  .dollar-copy:hover { color: var(--accent-strong); }
+}
+
+/* ── NODE ────────────────────────────────────────────────────────────────── */
+
+/*
+ * NODE is a second economic system, not more of the banking screen. A real gap
+ * and a rule separate it; it is a visibly smaller module than the Dollar hero,
+ * and its own amber colour and address treatment keep it recognizably more
+ * technical than the Account above it.
  */
 .wallet-node {
   display: block;
-  margin-top: 34px;
-  padding-top: 4px;
+  margin-top: 30px;
+  padding-top: 2px;
   border-top: 1px solid var(--line);
 }
 
-.balance--node {
-  margin: 10px 0 0;
+.wallet-node-module { position: relative; }
+
+.wallet-node-mark {
+  position: absolute;
+  top: 13px;
+  right: 14px;
   color: var(--caution);
-  font-size: clamp(1.5rem, 6vw, 2rem);
+  opacity: .55;
+}
+
+.wallet-node-mark .wallet-icon { width: 22px; height: 22px; }
+
+.balance--node {
+  margin: 0;
+  padding-right: 34px;
+  color: var(--caution);
+  font-size: clamp(1.35rem, 5.5vw, 1.7rem);
 }
 
 .wallet-node-address {
   margin: 6px 0 0;
   color: var(--text-muted);
-  font-size: .66rem;
+  font-size: .64rem;
   letter-spacing: .04em;
   overflow-wrap: anywhere;
+}
+
+.wallet-node-row { min-height: 48px; padding: 7px 12px; border-color: var(--wallet-module-line); }
+.wallet-node-row .node-row-copy { gap: 3px; }
+.wallet-node-row .node-row-copy strong { color: var(--caution); font-size: .74rem; }
+.wallet-node-row .node-row-copy small { font-size: .52rem; }
+
+/* Narrow phones: the hero keeps its weight, the surrounding modules tighten. */
+@media (max-width: 380px) {
+  .dollar-hero { padding: 15px 13px 13px; }
+  .dollar-hero::after { font-size: 5.4rem; }
+  .wallet-module { padding: 13px; }
+  .dollar-action { min-height: 62px; letter-spacing: .06em; }
+  .dollar-activity { padding: 7px 10px; gap: 9px; }
+  .dollar-terms > div { grid-template-columns: minmax(0, 1fr); gap: 3px; }
 }
