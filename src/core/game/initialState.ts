@@ -3,7 +3,7 @@ import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 39
+export const GAME_STATE_VERSION = 40
 
 export function createInitialGameState(): GameState {
   return {
@@ -35,6 +35,8 @@ export function createInitialGameState(): GameState {
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
           { id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId, name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version },
         ],
+        // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.
+        savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', label: 'Personal account', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },
       },
     },
     dollarFinance: {
@@ -42,6 +44,8 @@ export function createInitialGameState(): GameState {
       accounts: [{ id: 'dollar-account-local-v0', accountReference: 'CD-1042-7781', balanceCents: 125_000 }],
       credentials: [{ id: 'dollar-credential-local-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' }],
       sessions: { nextId: 2, active: [{ id: 'dollar-session-0001', accountId: 'dollar-account-local-v0', clientDeviceId: 'device-local-v0' }] },
+      // No Dollar transfer has happened in the represented world yet, so there is no Transaction to represent.
+      transactions: { nextId: 1, records: [] },
     },
     nodeWallet: {
       id: 'wallet-node-local-v0',

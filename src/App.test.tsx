@@ -1827,7 +1827,7 @@ describe('NODE-OS shell and applications', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: /open wallet/i }))
-    expect(screen.getByText('DOLLARS')).toBeInTheDocument()
+    expect(screen.getByText('Civic Dollar')).toBeInTheDocument()
     expect(screen.getByText('$1,250.00')).toBeInTheDocument()
     expect(screen.queryByText('MODULE')).not.toBeInTheDocument()
     expect(screen.queryByText(/05\s*\/\s*07/)).not.toBeInTheDocument()

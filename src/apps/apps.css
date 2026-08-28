@@ -64,20 +64,6 @@
 
 .notes textarea:focus { border-color: var(--line-accent); }
 
-/* Wallet */
-
-.wallet-app { max-width: 560px; }
-
-.balance {
-  margin: 18px 0 0;
-  color: var(--green);
-  font: 500 clamp(1.7rem, 7vw, 2.4rem) Inter, system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-}
-
-/* NODE is a distinct economic concern from Dollars; keep it visually distinct. */
-.balance--node { color: var(--caution); }
-
 /* Files */
 
 .files-app,

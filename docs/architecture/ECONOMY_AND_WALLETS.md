@@ -63,6 +63,14 @@ line, or currency that simply disappears. Resolving a destination is an exact
 match against represented recipients: when no represented recipient holds an
 address, nothing is credited, and no fallback recipient may absorb it.
 
+Represented economic history is attributed to the addressing attributes that
+were actually in effect when the value moved. Because addresses and account
+references are mutable and are not identity, a record of a completed movement
+must preserve the user-facing reference each side carried at that moment;
+changing an attribute afterwards must never rewrite what already happened. The
+record still names the stable entities involved — the snapshot is presentation
+truth about the past, not a second identity.
+
 A Wallet's own activity history is what that Wallet actually received. It is
 not a ledger of a payer's behavior and must not reveal a payer's other
 destinations. Where currency was routed is truth owned by whatever performed

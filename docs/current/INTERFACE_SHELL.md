@@ -65,7 +65,10 @@ grid rather than a scrolling document, its padding must be safe-area aware
 because the prompt sits at the bottom edge under the software keyboard, and it
 is switched at the established editing breakpoint rather than at the density
 breakpoint. Applications otherwise share the same uppercase technical labels,
-and each still keeps whatever layout is specific to it. This primitive set is
+and each still keeps whatever layout is specific to it: Wallet's Dollar client
+owns its own `src/apps/wallet/wallet.css` because a financial product needs a
+stronger hierarchy than the shared facts list gives it, and it composes the
+shared primitives for everything else. This primitive set is
 NODE-OS Firmware presentation and is not a universal Firmware framework:
 RACK-OS remains deliberately foreign and owns its own palette and structure.
 

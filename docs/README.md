@@ -165,7 +165,7 @@ GameProcess runtime, executor scheduling, cancellation, Activity Monitor.
 
 ### Dollar finance, NODE economy, and Wallet
 
-Dollar Provider Accounts, Credentials, Financial Sessions and Wallet presentation; plus NODE units, mining production and payout, economic recipients, and `node-miner` CLI.
+Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactions, activity, saved sign-in and Wallet presentation; plus NODE units, mining production and payout, economic recipients, and `node-miner` CLI.
 
 - CURRENT TRUTH → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md) for Dollars; [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md) for NODE
 - ARCHITECTURE → A18 in
@@ -173,13 +173,18 @@ Dollar Provider Accounts, Credentials, Financial Sessions and Wallet presentatio
 - DESIGN → [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md) when a
   software release's represented behavior changes
 - DESIGN → [`design/DOLLAR_FINANCIAL_PROVIDER_V1.md`](design/DOLLAR_FINANCIAL_PROVIDER_V1.md)
-  (Dollar Financial Provider, Account, Credential and Financial Session work
-  only; design authority, not current truth)
+  (Dollar Financial Provider, Account, Credential and Financial Session identity
+  and authority work only; design authority, not current truth)
+- DESIGN → [`design/DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md`](design/DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md)
+  (Dollar transfers, Transactions, Account activity, Device saved sign-in,
+  Account switching and the Finance client; design authority, not current truth)
 - CODE → `src/core/game/dollarFinance.ts`, `src/core/game/nodeMiner.ts`, `src/core/game/nodeEconomy.ts`,
   `src/core/game/nodeMinerPayoutLog.ts`, `src/apps/wallet/`,
+  `src/apps/dollarFormat.ts`,
   `src/apps/terminal/commands/nodeMiner.ts`
 - TESTS → `src/core/game/nodeMiner.test.ts`,
-  `src/core/game/dollarFinance.test.ts`, `src/core/game/nodeEconomy.test.ts`, `src/apps/wallet/Wallet.test.tsx`
+  `src/core/game/dollarFinance.test.ts`, `src/core/game/nodeEconomy.test.ts`,
+  `src/apps/dollarFormat.test.ts`, `src/apps/wallet/Wallet.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md) for Dollars; [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md) for NODE
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
