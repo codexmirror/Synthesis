@@ -129,7 +129,8 @@ any Account, as much as on RECEIVE.
 
 Grouping is carried by a layered module — a raised surface and one hairline —
 rather than by stacked section dividers. Depth comes from surface and rule, not
-from shadow, gloss, rounding or a consumer card.
+from shadow, gloss, rounding or a consumer card; section 11 states precisely
+which depth cues that excludes and which restrained inset ones it allows.
 
 The Wallet owns the primitives the shared NODE-OS set cannot carry: the module,
 the balance hero and its trajectory, the icon action tile, the consequential
@@ -277,9 +278,23 @@ below both, and a hairline that only separates rows inside one surface. A module
 is lifted by a small step in value plus a one-pixel highlight along its top
 edge, so light reads as coming from above. Outer borders are quieter than V1's,
 because the highlight and the value step carry the edge and the border only
-finishes it. No shadow, gloss, rounding, glassmorphism or saturated gradient
-enters the palette: it stays near-black, dark green-black, mint, muted
-grey-green and amber, plus the caution and danger hues already in use.
+finishes it. The palette stays near-black, dark green-black, mint, muted
+grey-green and amber, plus the caution and danger hues already in use, and no
+saturated fintech gradient enters it.
+
+What that rule excludes is elevation language and consumer-card styling, not
+depth cues as such. Refusing: an outer or drop shadow used to float a surface
+above the page, rounded card corners, and any glossy, glassmorphic or
+translucent-panel treatment. Allowed, and used: restrained *inset* depth — the
+one-pixel top highlight that lights a module, and the soft inner shadow that
+sinks a recessed plate or well; a small glow on the trajectory stroke, which
+draws attention along a line rather than lifting a surface; and a deliberately
+circular small mark where the shape itself carries meaning, as the activity
+direction marks do. The distinction is the test: a treatment that says *this
+surface floats* is out, a treatment that says *this surface is lit, or sunk, or
+this mark is a movement* is in, and depth stays primarily tonal either way.
+Section 4's shorthand — depth from surface and rule rather than shadow, gloss
+or a consumer card — means exactly this.
 
 **Not every group takes a border.** Grouping is carried by a shared parent
 surface, spacing, alignment, typography and a subordinate hairline, in that
@@ -341,6 +356,19 @@ specific Wallet rule loses the tie silently; the doubled selector wins
 regardless of order and states that the Wallet is tuning a shared control rather
 than owning one.
 
+**No Wallet rule shrinks an editable below the Shell's mobile floor.** The Shell
+holds every editable at 16px at the mobile/coarse breakpoint, because Mobile
+Safari auto-zooms a focused field set below that and the resulting viewport
+scale change lands in the Shell-owned editing system — the one thing this pass
+must not disturb. That floor is held at `.os-shell input` specificity, so any
+two-class Wallet rule outranks it silently: the Wallet therefore states surface,
+spacing, border and label treatment on an editable and leaves its size to the
+shared and Shell rules that own it. A larger size is still the Wallet's to set,
+as the SEND amount is; only going under the floor is refused, and the Wallet
+never reaches for a viewport, scale or zoom-prevention workaround instead. The
+same protection is required of Terminal by section 9 of
+[`TERMINAL_INTERACTION_V1.md`](TERMINAL_INTERACTION_V1.md).
+
 Fidelity is subordinate to truth and to the real device. Where a treatment taken
 from the reference fails a long account reference, a zero-Transaction Account,
 320px, the software keyboard or the permanent Shell chrome, the real interface
@@ -383,3 +411,5 @@ general chart framework; and a general design-system rewrite.
 | 16 | Is the zero-Transaction hero a degraded populated hero? | No — it is its own finished state (11) |
 | 17 | Does NODE still get two headings and two modules? | No — one heading, one module (11) |
 | 18 | Can colour alone carry a transfer's direction? | No — mark, wording and sign do (11) |
+| 19 | May a Wallet rule set an editable below 16px on mobile? | No — the Shell's floor stands (11) |
+| 20 | Is an inset highlight or a circular mark a banned depth cue? | No — only elevation and card styling are (11) |

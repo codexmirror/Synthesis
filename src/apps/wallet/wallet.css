@@ -452,6 +452,11 @@
  * The amount is the subject of SEND, so the currency mark is drawn by the
  * surface and is always there. An empty entry therefore reads as a money field
  * waiting for a figure rather than as the string `0.00` sitting in a box.
+ *
+ * This rule does out-specify the Shell's mobile editable safety rule, but only
+ * upwards: the amount is set far above 16px at every width, so the focused
+ * field never invites a Mobile Safari auto-zoom. Any future change here has to
+ * stay above 16px for the same reason.
  */
 .node-field.dollar-entry--amount { position: relative; }
 
@@ -681,11 +686,19 @@
 
 .dollar-form--secondary .node-field > span { color: var(--text-quiet); font-size: .52rem; }
 
+/*
+ * Surface only. This selector out-specifies the Shell's mobile editable safety
+ * rule (`.os-shell input { font-size: 16px }`), so a `font-size` here would
+ * silently defeat it and let Mobile Safari auto-zoom the focused field — which
+ * would push viewport scale changes into the Shell-owned editing system. The
+ * de-emphasis is carried by the recessed group, the quiet labels and the
+ * borderless treatment instead, and editable sizing stays with the shared and
+ * Shell rules that own it.
+ */
 .dollar-form--secondary .node-input {
   border-color: var(--wallet-edge);
   background: var(--wallet-inset);
   box-shadow: var(--wallet-sunk);
-  font-size: .74rem;
 }
 
 .dollar-form--secondary .node-input:focus-visible { border-color: var(--line-accent); }
