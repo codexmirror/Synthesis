@@ -3,7 +3,7 @@ import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 38
+export const GAME_STATE_VERSION = 39
 
 export function createInitialGameState(): GameState {
   return {
@@ -37,8 +37,11 @@ export function createInitialGameState(): GameState {
         ],
       },
     },
-    wallet: {
-      balance: 1250,
+    dollarFinance: {
+      provider: { id: 'dollar-provider-civic-v0', displayName: 'Civic Dollar' },
+      accounts: [{ id: 'dollar-account-local-v0', accountReference: 'CD-1042-7781', balanceCents: 125_000 }],
+      credentials: [{ id: 'dollar-credential-local-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' }],
+      sessions: { nextId: 2, active: [{ id: 'dollar-session-0001', accountId: 'dollar-account-local-v0', clientDeviceId: 'device-local-v0' }] },
     },
     nodeWallet: {
       id: 'wallet-node-local-v0',

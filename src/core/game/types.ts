@@ -281,8 +281,35 @@ export interface LocalDeviceState {
   readonly installedSoftware: readonly InstalledSoftware[]
 }
 
-export interface WalletState {
-  readonly balance: number
+export interface DollarFinancialAccount {
+  /** Stable Provider-internal identity; never an account reference or login. */
+  readonly id: string
+  readonly accountReference: string
+  /** Canonical integer cents. */
+  readonly balanceCents: number
+}
+
+export interface DollarCredential {
+  /** Stable Credential identity; authentication material is not authority. */
+  readonly id: string
+  readonly accountId: string
+  readonly loginIdentifier: string
+  readonly password: string
+}
+
+export interface DollarFinancialSession {
+  /** Stable Session identity, newly allocated on every successful authentication. */
+  readonly id: string
+  readonly accountId: string
+  readonly clientDeviceId: string
+}
+
+/** The one concrete represented Dollar Financial Provider. */
+export interface DollarFinanceState {
+  readonly provider: { readonly id: string; readonly displayName: string }
+  readonly accounts: readonly DollarFinancialAccount[]
+  readonly credentials: readonly DollarCredential[]
+  readonly sessions: { readonly nextId: number; readonly active: readonly DollarFinancialSession[] }
 }
 
 /**
@@ -307,7 +334,7 @@ export interface NodeWalletActivityState {
 
 /**
  * Represented local NODE economic entity. Deliberately separate from
- * `WalletState`: NODE and Dollar are independent canonical economic
+ * `DollarFinanceState`: NODE and Dollar are independent canonical economic
  * concerns (see ARCHITECTURE.md A18). `address` is a mutable-shaped
  * addressing attribute, not stable Wallet identity.
  */
@@ -550,7 +577,7 @@ export interface RecentActivityState { readonly entries: readonly RecentActivity
 export interface GameState {
   readonly version: number
   readonly player: PlayerState
-  readonly wallet: WalletState
+  readonly dollarFinance: DollarFinanceState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
   readonly world: WorldState

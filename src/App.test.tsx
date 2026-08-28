@@ -1744,7 +1744,7 @@ describe('NODE-OS shell and applications', () => {
     render(<App />)
     expect(screen.getByTestId('os-shell')).toBeInTheDocument()
     expect(screen.getAllByText('198.51.100.23')).toHaveLength(2)
-    expect(screen.queryByText('$1,250')).not.toBeInTheDocument()
+    expect(screen.queryByText('$1,250.00')).not.toBeInTheDocument()
     expect(screen.getByText('CPU').parentElement).toHaveTextContent('18%')
     expect(screen.getByText('NET').parentElement).toHaveTextContent('ONLINE')
     expect(screen.getByLabelText('Network ONLINE')).toHaveAttribute(
@@ -1828,7 +1828,7 @@ describe('NODE-OS shell and applications', () => {
     render(<App />)
     await user.click(screen.getByRole('button', { name: /open wallet/i }))
     expect(screen.getByText('DOLLARS')).toBeInTheDocument()
-    expect(screen.getByText('$1,250')).toBeInTheDocument()
+    expect(screen.getByText('$1,250.00')).toBeInTheDocument()
     expect(screen.queryByText('MODULE')).not.toBeInTheDocument()
     expect(screen.queryByText(/05\s*\/\s*07/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /back to home/i }))

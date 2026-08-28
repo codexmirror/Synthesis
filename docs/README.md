@@ -163,12 +163,11 @@ GameProcess runtime, executor scheduling, cancellation, Activity Monitor.
 - DOCUMENTATION IMPACT OWNER → [`current/PROCESSES_ACTIVITY.md`](current/PROCESSES_ACTIVITY.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
-### NODE economy and Wallet
+### Dollar finance, NODE economy, and Wallet
 
-NODE units, mining production and payout, economic recipients, `node-miner`
-CLI, Wallet, and the Dollar economic slice the Wallet presents beside NODE.
+Dollar Provider Accounts, Credentials, Financial Sessions and Wallet presentation; plus NODE units, mining production and payout, economic recipients, and `node-miner` CLI.
 
-- CURRENT TRUTH → [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md)
+- CURRENT TRUTH → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md) for Dollars; [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md) for NODE
 - ARCHITECTURE → A18 in
   [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
 - DESIGN → [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md) when a
@@ -176,12 +175,12 @@ CLI, Wallet, and the Dollar economic slice the Wallet presents beside NODE.
 - DESIGN → [`design/DOLLAR_FINANCIAL_PROVIDER_V1.md`](design/DOLLAR_FINANCIAL_PROVIDER_V1.md)
   (Dollar Financial Provider, Account, Credential and Financial Session work
   only; design authority, not current truth)
-- CODE → `src/core/game/nodeMiner.ts`, `src/core/game/nodeEconomy.ts`,
+- CODE → `src/core/game/dollarFinance.ts`, `src/core/game/nodeMiner.ts`, `src/core/game/nodeEconomy.ts`,
   `src/core/game/nodeMinerPayoutLog.ts`, `src/apps/wallet/`,
   `src/apps/terminal/commands/nodeMiner.ts`
 - TESTS → `src/core/game/nodeMiner.test.ts`,
-  `src/core/game/nodeEconomy.test.ts`, `src/apps/wallet/Wallet.test.tsx`
-- DOCUMENTATION IMPACT OWNER → [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md)
+  `src/core/game/dollarFinance.test.ts`, `src/core/game/nodeEconomy.test.ts`, `src/apps/wallet/Wallet.test.tsx`
+- DOCUMENTATION IMPACT OWNER → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md) for Dollars; [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md) for NODE
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
 ### Devices, world, and System

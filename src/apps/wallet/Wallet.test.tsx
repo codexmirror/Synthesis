@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { GameProvider } from '../../app/GameContext'
 import { advanceGameState } from '../../core/game/gameAdvancement'
@@ -21,7 +22,7 @@ describe('Wallet', () => {
   it('presents the canonical Dollar balance and the separate canonical NODE balance and address', () => {
     render(<GameProvider><Wallet /></GameProvider>)
     expect(screen.getByText('DOLLARS')).toBeInTheDocument()
-    expect(screen.getByText('$1,250')).toBeInTheDocument()
+    expect(screen.getByText('$1,250.00')).toBeInTheDocument()
     expect(screen.getByText('NODE')).toBeInTheDocument()
     expect(screen.getByText('0 NODE')).toBeInTheDocument()
     expect(screen.getByText('node-wallet-addr-0001')).toBeInTheDocument()
@@ -29,11 +30,11 @@ describe('Wallet', () => {
 
   it('derives both balances from canonical GameState rather than owning its own presentation truth', () => {
     const base = createInitialGameState()
-    const state: GameState = { ...base, wallet: { balance: 42 }, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 7 } }
+    const state: GameState = { ...base, dollarFinance: { ...base.dollarFinance, accounts: base.dollarFinance.accounts.map((account) => ({ ...account, balanceCents: 4200 })) }, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 7 } }
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
-    expect(screen.getByText('$42')).toBeInTheDocument()
+    expect(screen.getByText('$42.00')).toBeInTheDocument()
     expect(screen.getByText('0.000007 NODE')).toBeInTheDocument()
-    expect(screen.queryByText('$1,250')).not.toBeInTheDocument()
+    expect(screen.queryByText('$1,250.00')).not.toBeInTheDocument()
   })
 
   it('formats the canonical integer atomic NODE balance as human-readable NODE without floating-point loss', () => {
@@ -52,9 +53,9 @@ describe('Wallet', () => {
 
   it('keeps Dollar and NODE visually distinguishable', () => {
     const base = createInitialGameState()
-    const state: GameState = { ...base, wallet: { balance: 42 }, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 7 } }
+    const state: GameState = { ...base, dollarFinance: { ...base.dollarFinance, accounts: base.dollarFinance.accounts.map((account) => ({ ...account, balanceCents: 4200 })) }, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 7 } }
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
-    const dollarBalance = screen.getByText('$42')
+    const dollarBalance = screen.getByText('$42.00')
     const nodeBalance = screen.getByText('0.000007 NODE')
     expect(dollarBalance.className).not.toBe(nodeBalance.className)
   })
@@ -90,9 +91,36 @@ describe('Wallet', () => {
     expect(wallet.textContent).not.toMatch(/DEVELOPER|FEE|STOLEN|1,000 units/i)
   })
 
-  it('records no Dollar transaction history alongside NODE activity', () => {
+  it('does not invent Dollar transaction history alongside NODE activity', () => {
     render(<GameProvider initialState={minedState(10_000)}><Wallet /></GameProvider>)
-    expect(screen.getByText('Virtual account · No transactions yet')).toBeInTheDocument()
-    expect(screen.getByText('$1,250')).toBeInTheDocument()
+    expect(screen.queryByText(/Dollar activity|transactions/i)).not.toBeInTheDocument()
+    expect(screen.getByText('$1,250.00')).toBeInTheDocument()
+  })
+
+  it('fails closed to a signed-out login surface without leaking Account truth', () => {
+    const base = createInitialGameState()
+    const state: GameState = { ...base, dollarFinance: { ...base.dollarFinance, sessions: { ...base.dollarFinance.sessions, active: [] } } }
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+    expect(screen.getByRole('form', { name: 'Dollar account sign in' })).toBeInTheDocument()
+    expect(screen.getByLabelText('LOGIN ID')).toBeInTheDocument(); expect(screen.getByLabelText('PASSWORD')).toHaveAttribute('type', 'password')
+    expect(screen.queryByText('$1,250.00')).not.toBeInTheDocument(); expect(screen.queryByText('CD-1042-7781')).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toContain('violet-orbit-7')
+  })
+
+  it('authenticates through the real UI and leaves invalid credentials signed out', async () => {
+    const user = userEvent.setup(); const base = createInitialGameState()
+    const state: GameState = { ...base, dollarFinance: { ...base.dollarFinance, sessions: { ...base.dollarFinance.sessions, active: [] } } }
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+    await user.type(screen.getByLabelText('LOGIN ID'), 'local.civic'); await user.type(screen.getByLabelText('PASSWORD'), 'wrong'); await user.click(screen.getByRole('button', { name: 'SIGN IN' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid login ID or password.'); expect(screen.queryByText('$1,250.00')).not.toBeInTheDocument()
+    await user.clear(screen.getByLabelText('PASSWORD')); await user.type(screen.getByLabelText('PASSWORD'), 'violet-orbit-7'); await user.click(screen.getByRole('button', { name: 'SIGN IN' }))
+    expect(screen.getByText('$1,250.00')).toBeInTheDocument(); expect(screen.getByText('SIGNED IN')).toBeInTheDocument(); expect(document.body.textContent).not.toContain('violet-orbit-7')
+  })
+
+  it('presents only the Account reached by the local Device Session', () => {
+    const base = createInitialGameState(); const unrelated = { id: 'unrelated-account', accountReference: 'CD-OTHER', balanceCents: 9_999_999 }
+    const state: GameState = { ...base, dollarFinance: { ...base.dollarFinance, accounts: [unrelated, ...base.dollarFinance.accounts] } }
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+    expect(screen.getByText('$1,250.00')).toBeInTheDocument(); expect(screen.queryByText('$99,999.99')).not.toBeInTheDocument(); expect(screen.queryByText('CD-OTHER')).not.toBeInTheDocument()
   })
 })

@@ -28,7 +28,7 @@ GameState
 │       └── installed software
 │           ├── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
 │           └── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
-├── wallet
+├── dollarFinance
 ├── nodeWallet
 ├── nodeEconomy
 ├── world
