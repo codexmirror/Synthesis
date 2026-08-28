@@ -37,8 +37,23 @@ Possessing a Device, Wallet application, address, or remembered Wallet
 information must not automatically imply possession of the Wallet’s secret
 authority.
 
+Represented authority is not the same thing as the secret that can establish
+it. Knowing credential or key material permits an authentication attempt; only
+a represented authority relationship authorizes an operation. Where such
+authority is represented, it is scoped to the economic entity it was
+established for and to the concrete context it was established from, it is
+revocable, and it is not ownership. Establishing, refreshing, losing or
+revoking it must not change economic identity, balances, or the secret
+material itself, and it must never be reduced to a stored flag such as
+`authenticated` or `walletHacked`.
+
 Currency balances, transfers, mining payouts, and later market activity must
 derive from canonical economic state rather than interface-local counters.
+
+Canonical monetary value is an exact integer in that currency's smallest
+represented unit. Human-readable amounts, decimal points, currency symbols and
+grouping are formatting and input concerns; floating-point or decimal values
+must never become canonical balance truth.
 
 More than one represented economic recipient now exists. Every destination
 that actually receives currency must be represented economic state with its
@@ -53,6 +68,13 @@ not a ledger of a payer's behavior and must not reveal a payer's other
 destinations. Where currency was routed is truth owned by whatever performed
 the routing, and reaches the player only through that thing's own represented
 consequences.
+
+Separately represented economic domains stay separate in canonical truth. One
+currency's accounts, addresses, credentials, keys or authority never authorize
+operations in another's, and no implicit bridge between them exists. One
+interface may present several economic domains together; that presentation
+never creates a shared canonical account, a universal money owner, or a
+combined authority object.
 
 Payout behavior can be a property of a concrete represented software release
 rather than a law of the economy: two releases of the same product may route
