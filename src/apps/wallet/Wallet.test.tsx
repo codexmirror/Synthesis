@@ -409,6 +409,23 @@ describe('Wallet RECEIVE', () => {
     expect(within(receive).queryByRole('textbox')).not.toBeInTheDocument()
   })
 
+  it('describes the Account rather than attributing it to the operator', async () => {
+    const user = userEvent.setup()
+    const base = withRecipient()
+    // The Device holds a Session over an Account it never saved. Using an
+    // Account is not owning it, so nothing here may call it the player's.
+    const foreign: GameState = { ...base, dollarFinance: { ...base.dollarFinance, sessions: { nextId: 3, active: [{ id: 'dollar-session-0002', accountId: RECIPIENT.id, clientDeviceId: base.player.localDevice.id }] } } }
+    render(<GameProvider initialState={foreign}><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'RECEIVE' }))
+
+    const receive = screen.getByLabelText('Receive money')
+    // Exactly the Account the Session reaches, not the saved personal one.
+    expect(within(receive).getByText(RECIPIENT.accountReference)).toBeInTheDocument()
+    expect(within(receive).queryByText('CD-1042-7781')).not.toBeInTheDocument()
+    expect(receive.textContent).toMatch(/this account/i)
+    expect(receive.textContent).not.toMatch(/\byou\b|\byour\b|\byours\b|\bmy\b|\bmine\b/i)
+  })
+
   it('shows only the Account the Device Session actually reaches', async () => {
     const user = userEvent.setup()
     const base = createInitialGameState()
@@ -551,6 +568,21 @@ describe('Wallet ACCOUNT composition', () => {
     expect(within(card).getByText('BALANCE').closest('div')).toHaveTextContent('$1,250.00')
   })
 
+  it('states no Account status, because the Provider represents none', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
+
+    // A visible authorized Account is already what signed in means. A status
+    // marker beside it would read as Provider-side Account state, which is not
+    // represented — `dollarFinance` carries no status on an Account at all.
+    const surface = screen.getByLabelText('Account management')
+    expect(surface.querySelector('.node-chip')).toBeNull()
+    expect(surface.textContent).not.toMatch(/\bACTIVE\b|\bONLINE\b|\bAUTHORI[SZ]ED\b|\bSIGNED IN\b|\bVERIFIED\b|\bOPEN\b/i)
+    // Everything the module does state still derives from canonical state.
+    expect(within(screen.getByLabelText('Account management')).getByText('CD-1042-7781')).toBeInTheDocument()
+  })
+
   it('keeps SIGN OUT secondary and destructive rather than a primary finance action', async () => {
     const user = userEvent.setup()
     render(<GameProvider><Wallet /></GameProvider>)
@@ -588,5 +620,17 @@ describe('Wallet signed out composition', () => {
     expect(surface.querySelector('.dollar-trajectory')).toBeNull()
     expect(surface.textContent).not.toContain('$')
     expect(surface.textContent).not.toContain('CD-1042-7781')
+  })
+
+  it('does not present a Financial Account as something this Device owns', () => {
+    render(<GameProvider initialState={signedOut()}><Wallet /></GameProvider>)
+    const surface = screen.getByLabelText('Dollar account signed out')
+
+    // The Device holds saved material and, once signed in, one Financial
+    // Session. The Account is the Provider's, and manual sign-in may reach any
+    // Account, so the copy must not attach an Account to this Device or player.
+    expect(surface.textContent).toMatch(/Sign in to access a Civic Dollar account on this device\./)
+    expect(surface.textContent).not.toMatch(/(this )?device'?s? (own )?(civic dollar )?account/i)
+    expect(surface.textContent).not.toMatch(/\byour account\b|\bmy account\b|\byour civic dollar\b/i)
   })
 })

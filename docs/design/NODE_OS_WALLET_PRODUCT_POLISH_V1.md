@@ -110,8 +110,18 @@ Personal-account context is stated only where it is truthfully derivable from
 this Device's saved sign-in. There is no personal flag.
 
 Developer-style `PROVIDER / ACCOUNT / STATUS` fact rows are not the composition.
-A visible authorized Account is what signed-in means, and no status row restates
-it.
+A visible authorized Account is what signed-in means, and nothing restates it —
+not a fact row and not a status chip. `ACTIVE`, `ONLINE`, `AUTHORIZED` and
+`SIGNED IN` markers are all refused for the same reason: besides being
+redundant, they read as Provider-side Account status, and the Provider
+represents no status on an Account.
+
+Client copy names the current Account, never an owner. A Financial Account is
+Provider truth; this Device holds saved material and at most one Financial
+Session over one, and a Session may be over an Account the Device never saved.
+So Wallet wording says *this account*, not *this device's account* and not
+*your account*, on every surface — signed out, where manual sign-in may reach
+any Account, as much as on RECEIVE.
 
 
 ## 4. Module composition
@@ -124,8 +134,8 @@ The Wallet owns the primitives the shared NODE-OS set cannot carry: the module,
 the balance hero and its trajectory, the icon action tile, the consequential
 filled action, the labeled financial terms list, and the compact activity row.
 It keeps composing the shared primitives — section heading, list row, field,
-input, chip, note, empty state, back control and outlined action — wherever
-those are still the better control. It reuses the shared palette and the
+input, note, empty state, back control and outlined action — wherever those are
+still the better control. It reuses the shared palette and the
 technical typography DNA, and it redeclares nothing the Shell or `.app-content`
 owns.
 
@@ -271,5 +281,7 @@ general chart framework; and a general design-system rewrite.
 | 8 | Is NODE a Dollar sub-account or part of a total? | No (8) |
 | 9 | Does an open sub-surface reach `GameState`? | No (9) |
 | 10 | Is any control filled other than the consequential act? | No (5) |
+| 10b | Does any surface state an Account status? | No — none is represented (3) |
+| 10c | Does any copy attribute an Account to the Device or player? | No (3) |
 | 11 | Does the Wallet manage viewport or keyboard geometry? | No — the Shell owns it (10) |
 | 12 | Does this document define any Dollar or NODE semantics? | No (Status and purpose) |

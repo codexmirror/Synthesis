@@ -252,7 +252,9 @@ function Receive({ account, providerName, onCancel }: { account: DollarFinancial
       <p className="dollar-receive-reference">{account.accountReference}</p>
       <CopyControl value={account.accountReference} label={`Copy account number ${account.accountReference}`}>COPY NUMBER</CopyControl>
     </div>
-    <p className="node-note">Give this account number to someone sending you Dollars. It is the same number your own transfers are sent from.</p>
+    {/* Scoped to the Account, not to the operator: a Session over a foreign
+        Account does not make that Account the player's. */}
+    <p className="node-note">Share this account number with someone sending Dollars to this account. Transfers from this account use the same reference.</p>
   </section>
 }
 
@@ -280,8 +282,6 @@ function Account({ account, providerName, savedSignIn, onSwitched, onSignedOut, 
           <strong>{account.accountReference}</strong>
           <small>{providerName}</small>
         </span>
-        {/* Truthful: this Device holds an active Financial Session over this Account. */}
-        <span className="node-chip">ACTIVE</span>
       </div>
       <dl className="dollar-terms dollar-terms--inset">
         <div><dt>BALANCE</dt><dd className="dollar-terms-amount">{formatDollarCents(account.balanceCents)}</dd></div>
@@ -313,7 +313,10 @@ function SignedOut({ providerName, savedSignIn, onSignedIn }: {
     <div className="dollar-hero dollar-hero--locked">
       <p className="eyebrow dollar-provider">{providerName}</p>
       <p className="dollar-signed-out">Signed out</p>
-      <p className="dollar-signed-out-note">Sign in to reach this device's Civic Dollar account.</p>
+      {/* The Device holds saved material and at most one Financial Session; the
+          Account is the Provider's. Manual sign-in may reach any Account, so
+          the copy must not imply this Device owns one. */}
+      <p className="dollar-signed-out-note">Sign in to access a Civic Dollar account on this device.</p>
     </div>
     {savedSignIn && <SavedSignIn saved={savedSignIn} onContinue={onSignedIn} />}
     <ManualSignIn onSignedIn={onSignedIn} />

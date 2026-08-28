@@ -71,8 +71,8 @@ hierarchy than the shared facts list gives it, and it owns the primitives that
 set carries no equivalent of — the layered module, the balance hero and its
 trajectory, the icon action tile, the consequential filled action, the labeled
 financial terms list and the compact activity row — while composing the shared
-section heading, list row, field, input, chip, note, empty state, back control
-and outlined action for everything else. What that Wallet presentation is meant
+section heading, list row, field, input, note, empty state, back control and
+outlined action for everything else. What that Wallet presentation is meant
 to achieve is owned by `docs/design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`. This primitive set is
 NODE-OS Firmware presentation and is not a universal Firmware framework:
 RACK-OS remains deliberately foreign and owns its own palette and structure.
