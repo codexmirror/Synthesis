@@ -132,7 +132,7 @@ describe('GameProvider service-analysis actions', () => {
     expect(state.knowledge).toEqual(initial.knowledge)
     expect(state.world).toEqual(initial.world)
     expect(state.player).toEqual(initial.player)
-    expect(state.wallet).toEqual(initial.wallet)
+    expect(state.dollarFinance).toEqual(initial.dollarFinance)
   })
   it('keeps completed remote history when NODE-OS clears local history', () => {
     const base = createInitialGameState()

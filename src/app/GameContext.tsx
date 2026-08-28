@@ -18,6 +18,7 @@ import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
 import { submitRackUpdatePackageFromObservation, type RackUpdateObservation, type SubmitRackUpdatePackageResult } from '../core/game/rackUpdate'
+import { authenticateDollarAccount, type AuthenticateDollarAccountResult } from '../core/game/dollarFinance'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -47,6 +48,7 @@ export interface GameActions {
   stopRemoteNodeMiner(processId: string): StopRemoteNodeMinerResult
   retargetLocalNodeMinerPayout(payoutAddress: string): RetargetLocalNodeMinerPayoutResult
   retargetNodeMinerPayout(payoutAddress: string): RetargetNodeMinerPayoutResult
+  authenticateDollarAccount(loginIdentifier: string, password: string): AuthenticateDollarAccountResult
   openMailThread(threadId: string): void
   sendMailReply(threadId: string, text: string): SendMailReplyResult
   clearRecentActivity(): void
@@ -210,6 +212,11 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, retargetNodeMinerPayout(payoutAddress) {
     const result = retargetNodeMinerPayout(currentState.current, payoutAddress)
     if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, authenticateDollarAccount(loginIdentifier, password) {
+    const state = currentState.current
+    const result = authenticateDollarAccount(state, state.player.localDevice.id, loginIdentifier, password)
+    if (result.status === 'authenticated') { currentState.current = result.state; setGameState(result.state) }
     return result
   }, openMailThread(threadId) {
     const state = currentState.current

@@ -174,10 +174,7 @@ or source-Device-aware observation is not part of this integration.
 ## Wallet
 
 Wallet is a separate current domain slice presenting two independent
-canonical economic concerns side by side: the existing Dollar balance and
-the newly represented NODE balance and payout address. `GameState.wallet`
-(Dollars) and `GameState.nodeWallet` (NODE) remain distinct canonical
-state; mining never mutates the Dollar balance, and the represented local
+canonical economic concerns side by side: the Session-authorized Dollar Financial Account and the represented NODE balance and payout address. `GameState.dollarFinance` and `GameState.nodeWallet` remain distinct canonical state; mining never mutates Dollar finance, and the represented local
 NODE Wallet stores a stable identity, a payout address (an addressing
 attribute, not Wallet identity), and a canonical integer `balanceNodeUnits`
 (atomic NODE units), which the Wallet application formats as human-readable
@@ -195,7 +192,7 @@ NODE address, and that received activity (newest first, e.g. `+900 units ·
 MINING PAYOUT`), visually distinguished, and owns no production or payout
 logic of its own. Wallet truth is only what this Wallet received: it never
 presents a payer's gross production, the unofficial Miner's developer fee,
-or that address. Dollars keep no transaction history.
+or that address. Dollar presentation and authority are owned by `DOLLAR_FINANCE.md`; no Dollar transaction history is represented.
 
 `GameState.nodeEconomy` holds the represented NODE recipients that exist
 besides that Wallet — currently exactly one, the account

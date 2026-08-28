@@ -6,9 +6,7 @@ composition — Financial Provider, Financial Account, Credential,
 authentication, and Device-bound Financial Session — and for the canonical
 Dollar monetary representation that composition assumes. It is a design
 contract, not a description of what is currently implemented.
-Normative owner of current implemented behavior: `../current/NODE_ECONOMY.md`
-(canonical economic state and the Wallet application) and
-`../current/DEVICE_SYSTEM.md` (Devices and `GameState` areas).
+Normative owner of current implemented behavior: `../current/DOLLAR_FINANCE.md` (Dollar state, operations, and Wallet presentation) and `../current/DEVICE_SYSTEM.md` (Devices and `GameState` areas).
 
 ## Status and purpose
 
@@ -30,14 +28,12 @@ Durable economic invariants stay in A18. This document selects one concrete
 composition that must respect them; where A18 already states a rule, this
 document references it instead of restating it.
 
-Nothing here is implemented. No Financial Provider, Financial Account,
-Credential, authentication operation or Financial Session exists on current
-`main`.
+The V1 foundation described here is implemented. `../current/DOLLAR_FINANCE.md` owns the exact current composition and operation behavior.
 
 
-## 1. Current truth this design will change
+## 1. Pre-implementation baseline
 
-Verified against accepted `main` at the time of writing:
+Historical baseline verified when this contract was accepted:
 
 - Dollars are canonical state (`GameState.wallet`), but only as a single
   balance number. There is no represented provider, account, credential,
@@ -62,8 +58,7 @@ current truth:
 2. A Financial Account, not the Wallet slice, becomes the canonical owner of
    the Dollar balance the interface resolves.
 
-Until an implementation PR lands, `docs/current/...` continues to describe the
-shallow Dollar balance truthfully.
+The implemented current truth now belongs to `../current/DOLLAR_FINANCE.md`; this baseline remains design history.
 
 
 ## 2. V1 is one concrete provider

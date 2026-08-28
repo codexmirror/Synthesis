@@ -228,8 +228,8 @@ describe('NODE Miner continuous runtime and mining accounting', () => {
   it('leaves the Dollar Wallet balance completely unaffected by NODE mining', () => {
     const started = run(readyState())
     const advanced = advanceGameState(started.state, 10_000)
-    expect(advanced.wallet).toEqual(started.state.wallet)
-    expect(advanced.wallet).toEqual({ balance: 1250 })
+    expect(advanced.dollarFinance).toEqual(started.state.dollarFinance)
+    expect(advanced.dollarFinance).toEqual(started.state.dollarFinance)
   })
 
   it('never reads NodeScan computeClass or Discovery as economic truth', () => {
@@ -474,7 +474,7 @@ describe('unofficial NODE Miner 1.0 payout behavior', () => {
   it('leaves the Dollar Wallet untouched while both NODE recipients are credited', () => {
     const started = run(readyState())
     const advanced = advanceGameState(started.state, 10_000)
-    expect(advanced.wallet).toEqual({ balance: 1250 })
+    expect(advanced.dollarFinance).toEqual(started.state.dollarFinance)
   })
 })
 
