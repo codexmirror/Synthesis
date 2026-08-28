@@ -188,9 +188,12 @@ ID (`node-activity-0001`, following the Authentication History pattern), the
 received `amountNodeUnits`, and its `mining_payout` kind, with retention
 bounded to the most recent 20 records. No timestamps or world clock are
 represented. The Wallet application presents both canonical balances, the
-NODE address, and that received activity (newest first, e.g. `+900 units ·
-MINING PAYOUT`), visually distinguished, and owns no production or payout
-logic of its own. Wallet truth is only what this Wallet received: it never
+NODE address, and that received activity (newest first, each row stating
+`MINING PAYOUT` and the received amount, e.g. `+900 units`), visually
+distinguished, and owns no production or payout logic of its own. NODE's
+balance, payout address and activity are presented on one module under one
+`NODE` heading rather than as two modules under two headings; its empty activity
+state is stated on that same module. Wallet truth is only what this Wallet received: it never
 presents a payer's gross production, the unofficial Miner's developer fee,
 or that address. Dollar presentation, authority, transfers and Transaction history are owned by `DOLLAR_FINANCE.md`; NODE has no transfer operation and gains none from it.
 

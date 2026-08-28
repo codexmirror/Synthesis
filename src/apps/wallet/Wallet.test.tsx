@@ -182,7 +182,7 @@ describe('Wallet SEND', () => {
 
     expect(screen.getByText('$1,224.50')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Sent $25.50 to CD-2000-0002.')
-    const activity = screen.getByText('−$25.50').closest('.node-row') as HTMLElement
+    const activity = screen.getByText('−$25.50').closest('.dollar-activity') as HTMLElement
     expect(within(activity).getByText('CD-2000-0002')).toBeInTheDocument()
     expect(within(activity).getByText('SENT')).toBeInTheDocument()
     expect(screen.queryByText('NO ACTIVITY YET')).not.toBeInTheDocument()
@@ -515,12 +515,43 @@ describe('Wallet activity presentation', () => {
     await send(user, RECIPIENT.accountReference, '25.50')
     await confirmSend(user)
 
-    const row = screen.getByText('−$25.50').closest('.node-row') as HTMLElement
+    const row = screen.getByText('−$25.50').closest('.dollar-activity') as HTMLElement
     expect(within(row).getByText('CD-2000-0002')).toBeInTheDocument()
     expect(within(row).getByText('SENT')).toBeInTheDocument()
     expect(row.querySelector('.dollar-activity-mark--outgoing')).not.toBeNull()
     // No time, no category, no counterparty name, no status, no memo.
     expect(row.textContent).toBe('CD-2000-0002SENT−$25.50')
+  })
+
+  it('composes the transfers as one list rather than one bordered card each', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    await send(user, RECIPIENT.accountReference, '25.50')
+    await confirmSend(user)
+    await send(user, RECIPIENT.accountReference, '10.00')
+    await confirmSend(user)
+
+    // Every row lives in the same module, so activity reads as a history
+    // instead of as a stack of repeated objects. The shared bordered list row
+    // is deliberately not the primitive here.
+    const modules = document.querySelectorAll('.dollar-activity-module')
+    expect(modules).toHaveLength(1)
+    expect(modules[0].querySelectorAll('.dollar-activity')).toHaveLength(2)
+    expect(modules[0].querySelector('.node-row')).toBeNull()
+  })
+
+  it('keeps direction legible without relying on colour', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    await send(user, RECIPIENT.accountReference, '25.50')
+    await confirmSend(user)
+
+    // Three non-colour cues carry direction: the mark, the wording, and the
+    // explicit sign on the amount.
+    const row = screen.getByText('−$25.50').closest('.dollar-activity') as HTMLElement
+    expect(row.querySelector('.dollar-activity-mark--incoming')).toBeNull()
+    expect(within(row).getByText('SENT')).toBeInTheDocument()
+    expect(within(row).getByText('−$25.50')).toBeInTheDocument()
   })
 })
 

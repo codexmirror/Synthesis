@@ -14,6 +14,9 @@ import filesSource from '../apps/files/Files.tsx?raw'
 import systemSource from '../apps/system/System.tsx?raw'
 import walletSource from '../apps/wallet/Wallet.tsx?raw'
 import dollarClientSource from '../apps/wallet/DollarClient.tsx?raw'
+import dollarSendSource from '../apps/wallet/DollarSend.tsx?raw'
+import dollarAccessSource from '../apps/wallet/DollarAccess.tsx?raw'
+import walletControlsSource from '../apps/wallet/walletControls.tsx?raw'
 import notesSource from '../apps/notes/Notes.tsx?raw'
 import mailSource from '../apps/mail/Mail.tsx?raw'
 import terminalSource from '../apps/terminal/Terminal.tsx?raw'
@@ -31,7 +34,7 @@ import rackosSource from '../apps/rackos/RackOS.tsx?raw'
 
 const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss]
-const applicationSources = [filesSource, systemSource, walletSource, dollarClientSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
+const applicationSources = [filesSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
 function referencedCustomProperties(css: string): string[] {
   return [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1])
@@ -156,7 +159,7 @@ describe('NODE-OS presentation language', () => {
     // Deliberately absent: Wallet and Notes are their own subject, and
     // NodeScan's breadcrumb and object heading already identify the browsed
     // object. A masthead must not be added to these for uniformity alone.
-    const keepsOwn = [['Wallet', walletSource], ['Dollar client', dollarClientSource], ['Notes', notesSource], ['NodeScan', networkSource]] as const
+    const keepsOwn = [['Wallet', walletSource], ['Dollar client', dollarClientSource], ['Dollar SEND', dollarSendSource], ['Dollar access', dollarAccessSource], ['Notes', notesSource], ['NodeScan', networkSource]] as const
     for (const [name, source] of keepsOwn) {
       expect(source, `${name} intentionally keeps its own presentation`).not.toMatch(/node-masthead/)
     }
@@ -189,4 +192,63 @@ describe('NODE-OS presentation language', () => {
     expect(rackosCss).not.toMatch(/var\(--green\)|var\(--accent/)
     expect(referencedSharedClasses(rackosSource)).toEqual([])
   })
+
+  it('lets no application shrink an editable below the Shell mobile safety size', () => {
+    /*
+     * Mobile Safari auto-zooms a focused editable set below 16 CSS px, which
+     * changes viewport scale and geometry — the exact inputs the Shell-owned
+     * editing system reads. The Shell holds that floor at the mobile/coarse
+     * breakpoint, but only at `.os-shell input` specificity, so any
+     * two-class application rule silently outranks it. Wallet's
+     * `.dollar-form--secondary .node-input` did, at .74rem.
+     *
+     * A larger size is fine: only shrinking below the floor invites the zoom.
+     */
+    const shellFloor = shellCss.match(/@media \(max-width: 700px\), \(max-width: 900px\) and \(pointer: coarse\)\s*{[\s\S]*?\.os-shell input,[\s\S]*?{([^}]*)}/)?.[1]
+    expect(shellFloor, 'the Shell mobile editable rule moved').toMatch(/font-size:\s*16px/)
+
+    const editableClasses = new Set(applicationSources.flatMap((source) =>
+      [...source.matchAll(/<(?:input|textarea)\b[^>]*className="([^"]*)"/g)]
+        .flatMap((match) => match[1].split(/\s+/))
+        .filter(Boolean)))
+    // The classes below are what the applications actually put on an editable;
+    // an empty set would make this test pass while checking nothing.
+    expect(editableClasses.size).toBeGreaterThan(0)
+
+    const tooSmall: string[] = []
+    for (const [name, css] of [['apps', appsCss], ['network', networkCss], ['processes', processesCss], ['mail', mailCss], ['terminal', terminalCss], ['wallet', walletCss]] as const) {
+      for (const rule of stripComments(css).matchAll(/([^{}]+){([^}]*)}/g)) {
+        const [, selector, body] = rule
+        // A pseudo-element is not the control itself, and the zoom decision
+        // reads the control's own computed size.
+        if (selector.includes('::') || !selector.includes('.')) continue
+        if (![...editableClasses].some((editable) => selector.includes(`.${editable}`))) continue
+        if (!outSpecifiesShellEditableRule(selector)) continue
+
+        const size = declaredFontSizePx(body)
+        if (size !== undefined && size < 16) tooSmall.push(`${name}: ${selector.trim()} → ${size}px`)
+      }
+    }
+    expect(tooSmall).toEqual([])
+  })
 })
+
+/**
+ * Whether a selector outranks `.os-shell input` — one class plus one element.
+ * Only such a rule can defeat the Shell's mobile editable floor.
+ */
+function outSpecifiesShellEditableRule(selector: string): boolean {
+  const last = selector.split(',').map((part) => part.trim()).filter(Boolean)
+  return last.some((part) => {
+    const classes = (part.match(/[.:[]/g) ?? []).length
+    const elements = (part.match(/(^|[\s>+~])[a-z]/g) ?? []).length
+    return classes > 1 || (classes === 1 && elements > 1)
+  })
+}
+
+/** The px a rule declares through `font-size` or the `font` shorthand, at the 16px root. */
+function declaredFontSizePx(body: string): number | undefined {
+  const declared = /font-size:\s*([\d.]+)(rem|px)/.exec(body) ?? /font:\s*[^;]*?\b([\d.]+)(rem|px)/.exec(body)
+  if (!declared) return undefined
+  return Number(declared[1]) * (declared[2] === 'rem' ? 16 : 1)
+}

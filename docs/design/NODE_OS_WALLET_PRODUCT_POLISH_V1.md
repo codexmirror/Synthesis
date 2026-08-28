@@ -4,8 +4,9 @@ Status: Accepted
 Scope: Design authority for how the NODE-OS Wallet **presents** the Civic
 Dollar client and the NODE Wallet — hierarchy, module composition, action
 hierarchy, balance-trajectory semantics, the Dollar/NODE visual relationship,
-focused sub-surface behavior, mobile priorities, and how the visual reference
-is to be read. Presentation only.
+focused sub-surface behavior, mobile priorities, how the visual reference is to
+be read, and the surface, typography and interaction execution that composition
+is drawn with (section 11). Presentation only.
 Normative owner of current implemented behavior: `../current/DOLLAR_FINANCE.md`
 (Dollars) and `../current/NODE_ECONOMY.md` (NODE).
 
@@ -128,16 +129,22 @@ any Account, as much as on RECEIVE.
 
 Grouping is carried by a layered module — a raised surface and one hairline —
 rather than by stacked section dividers. Depth comes from surface and rule, not
-from shadow, gloss, rounding or a consumer card.
+from shadow, gloss, rounding or a consumer card; section 11 states precisely
+which depth cues that excludes and which restrained inset ones it allows.
 
 The Wallet owns the primitives the shared NODE-OS set cannot carry: the module,
 the balance hero and its trajectory, the icon action tile, the consequential
-filled action, the labeled financial terms list, and the compact activity row.
-It keeps composing the shared primitives — section heading, list row, field,
-input, note, empty state, back control and outlined action — wherever those are
-still the better control. It reuses the shared palette and the
-technical typography DNA, and it redeclares nothing the Shell or `.app-content`
-owns.
+filled action, the labeled financial terms list, the amount entry, the compact
+activity row and its quiet empty state. It keeps composing the shared
+primitives — section heading, field, input, note, back control and outlined
+action — wherever those are still the better control. It reuses the shared
+palette and the technical typography DNA, and it redeclares nothing the Shell or
+`.app-content` owns.
+
+The shared bordered list row and the shared empty state are deliberately *not*
+among them any more: both draw a complete rectangle per item, which is exactly
+what turned a transfer history into a stack of repeated objects. Section 11
+states what replaced them.
 
 
 ## 5. Action hierarchy
@@ -255,7 +262,120 @@ keyboard offsets. A copy affordance must not open the software keyboard or
 disturb an interaction already in progress.
 
 
-## 11. Explicitly out of scope
+## 11. V2 visual execution
+
+V1 selected the composition and it is accepted. What V1 did not reach was
+execution: the screen was structurally right and visually shallow — near-equal
+surfaces, a complete border around almost every group, repeated section rules,
+and one uniform typographic weight for facts of very different importance. The
+rules below are that gap closed. They change no Dollar or NODE semantics and add
+no represented fact; every one of them is about how an already-selected truth is
+drawn.
+
+**Depth is tonal.** The Wallet distinguishes five levels — the Shell's black,
+the module raised off it, an interactive surface raised again, a recessed inset
+below both, and a hairline that only separates rows inside one surface. A module
+is lifted by a small step in value plus a one-pixel highlight along its top
+edge, so light reads as coming from above. Outer borders are quieter than V1's,
+because the highlight and the value step carry the edge and the border only
+finishes it. The palette stays near-black, dark green-black, mint, muted
+grey-green and amber, plus the caution and danger hues already in use, and no
+saturated fintech gradient enters it.
+
+What that rule excludes is elevation language and consumer-card styling, not
+depth cues as such. Refusing: an outer or drop shadow used to float a surface
+above the page, rounded card corners, and any glossy, glassmorphic or
+translucent-panel treatment. Allowed, and used: restrained *inset* depth — the
+one-pixel top highlight that lights a module, and the soft inner shadow that
+sinks a recessed plate or well; a small glow on the trajectory stroke, which
+draws attention along a line rather than lifting a surface; and a deliberately
+circular small mark where the shape itself carries meaning, as the activity
+direction marks do. The distinction is the test: a treatment that says *this
+surface floats* is out, a treatment that says *this surface is lit, or sunk, or
+this mark is a movement* is in, and depth stays primarily tonal either way.
+Section 4's shorthand — depth from surface and rule rather than shadow, gloss
+or a consumer card — means exactly this.
+
+**Not every group takes a border.** Grouping is carried by a shared parent
+surface, spacing, alignment, typography and a subordinate hairline, in that
+order; a complete rectangle is the last resort rather than the default. Two
+consecutive horizontal rules are a composition error.
+
+**Typography carries hierarchy so borders do not have to.** The split is by what
+a value *is*, not by where it sits. Every identifier, label, technical
+metadata line and piece of prose stays in the mono face NODE-OS speaks in —
+account references included, wherever they appear. The cleaner application face
+already used across NODE-OS carries quantities and the one strong non-identifier
+value of a surface: the balance, an amount, a NODE figure, `Signed out`. No font
+is added for this, and no third face exists.
+
+**The hero is the strongest area of the screen and is finished in both states.**
+It is lit from one corner, the currency motif sits behind the balance line as
+surface rather than beside it as content, and the trajectory runs the full width
+of the module and rests on its lower edge so that movement belongs to the
+balance instead of being appended under it. The zero-Transaction hero is a
+first-class composition, not the populated hero with a hole in it: it simply
+ends after the account identity, and nothing is invented to fill the space.
+
+**The action strip is one system.** The three tiles align their marks and labels
+down a common leading edge, share a narrow gutter, and sit tight against the
+hero. Icons are one family — one grid, one stroke weight, one cap and joint —
+and an icon never carries a control alone.
+
+**Activity is a list, not a stack of cards.** Rows share one module and are
+separated by a hairline. Direction survives with no colour at all: the mark
+points the way the money went, the wording says it, and the amount is explicitly
+signed. Amounts return to a common trailing edge in tabular figures so two rows
+can be compared. A credit stays quieter than the hero balance, so the balance
+remains the brightest figure on the screen.
+
+**NODE is one smaller instrument.** Its balance, payout address and activity
+live on a single warmer surface under a single heading, rather than in two
+modules under two headings. It stays clearly separate, clearly secondary,
+clearly not Civic Dollar, and still offers no action.
+
+**Entering money is not filling in a field.** The amount is engraved into a
+recessed plate at the amount's own scale, and the currency mark is drawn by the
+surface rather than typed into it, so an empty entry reads as a money field
+rather than as the string `0.00` in a box.
+
+**An action that belongs to one module may sit on that module's own lower
+edge.** Continuing from a saved sign-in, and copying the reference RECEIVE
+exists to show, are both acts of the module above them rather than of the page,
+so both are drawn as its footer instead of as a control floating inside it or
+stranded below it.
+
+**Feedback is fast and small.** Press, focus-visible, hover where it exists, and
+a copy result that lasts about a second and a half. Transitions are of the order
+the Shell already uses. Nothing shimmers, bounces, pulses, fakes progress or
+animates for its own sake, and `prefers-reduced-motion` removes what remains.
+
+**A Wallet modifier of a shared primitive is written as `.node-x.dollar-y`.**
+The application stylesheet is emitted before `nodeui.css`, so an equally
+specific Wallet rule loses the tie silently; the doubled selector wins
+regardless of order and states that the Wallet is tuning a shared control rather
+than owning one.
+
+**No Wallet rule shrinks an editable below the Shell's mobile floor.** The Shell
+holds every editable at 16px at the mobile/coarse breakpoint, because Mobile
+Safari auto-zooms a focused field set below that and the resulting viewport
+scale change lands in the Shell-owned editing system — the one thing this pass
+must not disturb. That floor is held at `.os-shell input` specificity, so any
+two-class Wallet rule outranks it silently: the Wallet therefore states surface,
+spacing, border and label treatment on an editable and leaves its size to the
+shared and Shell rules that own it. A larger size is still the Wallet's to set,
+as the SEND amount is; only going under the floor is refused, and the Wallet
+never reaches for a viewport, scale or zoom-prevention workaround instead. The
+same protection is required of Terminal by section 9 of
+[`TERMINAL_INTERACTION_V1.md`](TERMINAL_INTERACTION_V1.md).
+
+Fidelity is subordinate to truth and to the real device. Where a treatment taken
+from the reference fails a long account reference, a zero-Transaction Account,
+320px, the software keyboard or the permanent Shell chrome, the real interface
+wins and the treatment adapts.
+
+
+## 12. Explicitly out of scope
 
 The Ordinary Phone, NPC Devices and any consumer Civic app; new Firmware;
 password reset, recovery authority, password rotation and Session revocation;
@@ -267,7 +387,7 @@ transfers and any change to NODE mining; canonical Wallet styling state; a
 general chart framework; and a general design-system rewrite.
 
 
-## 12. Contract self-test
+## 13. Contract self-test
 
 | # | Question | Answer |
 | — | — | — |
@@ -285,3 +405,11 @@ general chart framework; and a general design-system rewrite.
 | 10c | Does any copy attribute an Account to the Device or player? | No (3) |
 | 11 | Does the Wallet manage viewport or keyboard geometry? | No — the Shell owns it (10) |
 | 12 | Does this document define any Dollar or NODE semantics? | No (Status and purpose) |
+| 13 | Did V2 change what any surface states? | No — only how it is drawn (11) |
+| 14 | Is an account reference ever set in the application face? | No — identifiers stay mono (11) |
+| 15 | Does every information group get its own border? | No — a rectangle is the last resort (11) |
+| 16 | Is the zero-Transaction hero a degraded populated hero? | No — it is its own finished state (11) |
+| 17 | Does NODE still get two headings and two modules? | No — one heading, one module (11) |
+| 18 | Can colour alone carry a transfer's direction? | No — mark, wording and sign do (11) |
+| 19 | May a Wallet rule set an editable below 16px on mobile? | No — the Shell's floor stands (11) |
+| 20 | Is an inset highlight or a circular mark a banned depth cue? | No — only elevation and card styling are (11) |
