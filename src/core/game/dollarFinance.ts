@@ -9,14 +9,22 @@ export type LogoutDollarAccountResult =
   | { readonly status: 'not_signed_in'; readonly state: GameState }
 
 function representedDeviceExists(state: GameState, deviceId: string): boolean {
-  return state.player.localDevice.id === deviceId || state.world.network.hosts.some(({ id }) => id === deviceId)
+  if (state.player.localDevice.id === deviceId) return true
+  const host = state.world.network.hosts.find(({ id }) => id === deviceId)
+  return host !== undefined
+    && host.firmware !== undefined
+    && host.filesystem !== undefined
+    && host.hardware !== undefined
+    && host.runtime !== undefined
+    && host.installedSoftware !== undefined
 }
 
 /** Exact represented authentication. A Credential can establish authority but is never authority itself. */
 export function authenticateDollarAccount(state: GameState, clientDeviceId: string, loginIdentifier: string, password: string): AuthenticateDollarAccountResult {
   if (!representedDeviceExists(state, clientDeviceId)) return { status: 'device_not_found', state }
-  const credential = state.dollarFinance.credentials.find((candidate) => candidate.loginIdentifier === loginIdentifier)
-  if (!credential || credential.password !== password) return { status: 'invalid_credentials', state }
+  const credentials = state.dollarFinance.credentials.filter((candidate) => candidate.loginIdentifier === loginIdentifier)
+  if (credentials.length !== 1 || credentials[0].password !== password) return { status: 'invalid_credentials', state }
+  const credential = credentials[0]
   const account = state.dollarFinance.accounts.find(({ id }) => id === credential.accountId)
   if (!account) return { status: 'account_unavailable', state }
 
@@ -40,8 +48,4 @@ export function logoutDollarAccount(state: GameState, clientDeviceId: string): L
   const active = state.dollarFinance.sessions.active.filter((session) => session.clientDeviceId !== clientDeviceId)
   if (active.length === state.dollarFinance.sessions.active.length) return { status: 'not_signed_in', state }
   return { status: 'logged_out', state: { ...state, dollarFinance: { ...state.dollarFinance, sessions: { ...state.dollarFinance.sessions, active } } } }
-}
-
-export function formatDollarCents(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
 }

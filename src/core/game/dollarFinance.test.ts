@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { authenticateDollarAccount, formatDollarCents, logoutDollarAccount, resolveDollarAccountForDevice } from './dollarFinance'
+import { authenticateDollarAccount, logoutDollarAccount, resolveDollarAccountForDevice } from './dollarFinance'
 import type { GameState, NetworkHost } from './types'
 
 const signedOut = (state = createInitialGameState()): GameState => ({ ...state, dollarFinance: { ...state.dollarFinance, sessions: { ...state.dollarFinance.sessions, active: [] } } })
@@ -33,6 +33,23 @@ describe('Dollar Financial Provider', () => {
   it.each([['wrong password', 'local.civic', 'wrong'], ['unknown login', 'nobody', 'violet-orbit-7']])('%s creates no authority', (_label, login, password) => {
     const before = signedOut(); const result = authenticateDollarAccount(before, before.player.localDevice.id, login, password)
     expect(result.status).toBe('invalid_credentials'); expect(result.state).toBe(before); expect(result.state.dollarFinance.sessions.active).toHaveLength(0)
+  })
+
+  it('fails closed when duplicate login identifiers make Credential resolution ambiguous', () => {
+    const before = createInitialGameState()
+    const credential = before.dollarFinance.credentials[0]
+    const malformed: GameState = {
+      ...before,
+      dollarFinance: {
+        ...before.dollarFinance,
+        credentials: [...before.dollarFinance.credentials, { ...credential, id: 'dollar-credential-duplicate', password: 'different-secret' }],
+      },
+    }
+    const result = authenticateDollarAccount(malformed, before.player.localDevice.id, credential.loginIdentifier, credential.password)
+    expect(result).toEqual({ status: 'invalid_credentials', state: malformed })
+    expect(result.state.dollarFinance.sessions).toBe(malformed.dollarFinance.sessions)
+    expect(result.state.nodeWallet).toBe(malformed.nodeWallet)
+    expect(result.state.nodeEconomy).toBe(malformed.nodeEconomy)
   })
 
   it('failed authentication preserves an existing valid Session', () => {
@@ -71,5 +88,11 @@ describe('Dollar Financial Provider', () => {
     expect(resolveDollarAccountForDevice(dangling, base.player.localDevice.id)).toBeUndefined()
   })
 
-  it('formats canonical integer cents', () => { expect(formatDollarCents(125_000)).toBe('$1,250.00'); expect(formatDollarCents(1_234)).toBe('$12.34'); expect(formatDollarCents(0)).toBe('$0.00') })
+  it('rejects a shallow NetworkHost as a Financial Session client', () => {
+    const before = signedOut()
+    const shallowHost = before.world.network.hosts.find(({ id }) => id === 'host-training-002')!
+    const result = authenticateDollarAccount(before, shallowHost.id, 'local.civic', 'violet-orbit-7')
+    expect(result).toEqual({ status: 'device_not_found', state: before })
+    expect(result.state.dollarFinance.sessions.active).toHaveLength(0)
+  })
 })

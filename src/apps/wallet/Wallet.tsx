@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
-import { formatDollarCents, resolveDollarAccountForDevice } from '../../core/game/dollarFinance'
+import { resolveDollarAccountForDevice } from '../../core/game/dollarFinance'
+import { formatDollarCents } from '../dollarFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
 
 export function Wallet() {

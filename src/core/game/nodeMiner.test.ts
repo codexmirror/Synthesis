@@ -229,7 +229,6 @@ describe('NODE Miner continuous runtime and mining accounting', () => {
     const started = run(readyState())
     const advanced = advanceGameState(started.state, 10_000)
     expect(advanced.dollarFinance).toEqual(started.state.dollarFinance)
-    expect(advanced.dollarFinance).toEqual(started.state.dollarFinance)
   })
 
   it('never reads NodeScan computeClass or Discovery as economic truth', () => {
