@@ -279,6 +279,33 @@ export interface LocalDeviceState {
   readonly hardware: HardwareState
   readonly runtime: RuntimeState
   readonly installedSoftware: readonly InstalledSoftware[]
+  /** Client-side Dollar sign-in this Device has stored; absent on a Device that saved none. */
+  readonly savedDollarSignIn?: DeviceSavedDollarSignIn
+}
+
+/**
+ * Authentication material a Device has saved locally so its operator does not
+ * retype it. It is Device-owned client state, deliberately not the Provider's
+ * `DollarCredential`: the Provider's password can change without this copy
+ * changing, which is exactly how a saved sign-in becomes stale. Holding it is
+ * not authority, and it is not implied by (nor implies) a Financial Session.
+ */
+export interface DeviceSavedDollarSignIn {
+  /** Stable identity of the saved sign-in itself; never Credential or Account identity. */
+  readonly id: string
+  /**
+   * The stable Financial Account this saved sign-in is intended to
+   * authenticate. It records intent, not authority: it is not ownership, not a
+   * Session, not Credential identity, not Player identity, and it is never
+   * submitted to the Provider or used to bypass authentication. It exists so
+   * that a mutable login identifier cannot silently redirect the saved sign-in
+   * to a different Account, and so the client can tell whether the Account it
+   * is currently using already is the saved one.
+   */
+  readonly accountId: string
+  readonly loginIdentifier: string
+  /** Locally stored copy of a password, exact at the moment it was saved. */
+  readonly password: string
 }
 
 export interface DollarFinancialAccount {
@@ -304,12 +331,36 @@ export interface DollarFinancialSession {
   readonly clientDeviceId: string
 }
 
+/**
+ * Represented truth that one transfer between two Financial Accounts actually
+ * happened. It is Provider-owned, not Device, interface or Player state, and
+ * it is deliberately not a ledger: there is no pending or settled state, no
+ * fee, no reversal and no double entry.
+ *
+ * `sourceAccountReference` and `destinationAccountReference` are historical
+ * snapshots of a mutable Account attribute (A01), captured because activity
+ * must keep saying what the counterparty was called when the money moved; a
+ * later reference change must never rewrite history.
+ */
+export interface DollarTransaction {
+  /** Stable Transaction identity, monotonic in canonical insertion order. */
+  readonly id: string
+  readonly sourceAccountId: string
+  readonly destinationAccountId: string
+  /** Canonical integer cents actually moved; always positive. */
+  readonly amountCents: number
+  readonly sourceAccountReference: string
+  readonly destinationAccountReference: string
+}
+
 /** The one concrete represented Dollar Financial Provider. */
 export interface DollarFinanceState {
   readonly provider: { readonly id: string; readonly displayName: string }
   readonly accounts: readonly DollarFinancialAccount[]
   readonly credentials: readonly DollarCredential[]
   readonly sessions: { readonly nextId: number; readonly active: readonly DollarFinancialSession[] }
+  /** Provider-owned Transactions in canonical insertion order, oldest first. */
+  readonly transactions: { readonly nextId: number; readonly records: readonly DollarTransaction[] }
 }
 
 /**

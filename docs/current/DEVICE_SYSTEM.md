@@ -25,9 +25,10 @@ GameState
 │       ├── network address
 │       ├── hardware
 │       ├── runtime state
-│       └── installed software
-│           ├── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
-│           └── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
+│       ├── installed software
+│       │   ├── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
+│       │   └── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
+│       └── saved Dollar sign-in
 ├── dollarFinance
 ├── nodeWallet
 ├── nodeEconomy
@@ -80,6 +81,13 @@ completed Processes. NODE-OS remains Firmware rather than an installed-software
 entry. Each installation has a stable product `id` and a distinct opaque
 `releaseId`; display name, version, and channel are release presentation
 metadata rather than identity.
+
+The local Device additionally owns `savedDollarSignIn`, the sign-in material
+this Device itself stored for the Dollar Provider, together with the stable
+Financial Account ID that material was saved for. It is Device state and
+deliberately not the Provider's Credential, it grants no authority, and a Device
+that represents none simply has none. Its semantics belong to
+`docs/current/DOLLAR_FINANCE.md`.
 
 
 ## Represented World

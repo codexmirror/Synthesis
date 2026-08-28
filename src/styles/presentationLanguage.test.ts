@@ -7,11 +7,13 @@ import networkCss from '../apps/network/network.css?raw'
 import processesCss from '../apps/processes/processes.css?raw'
 import mailCss from '../apps/mail/mail.css?raw'
 import terminalCss from '../apps/terminal/terminal.css?raw'
+import walletCss from '../apps/wallet/wallet.css?raw'
 import shellCss from '../shell/shell.css?raw'
 import rackosCss from '../apps/rackos/rackos.css?raw'
 import filesSource from '../apps/files/Files.tsx?raw'
 import systemSource from '../apps/system/System.tsx?raw'
 import walletSource from '../apps/wallet/Wallet.tsx?raw'
+import dollarClientSource from '../apps/wallet/DollarClient.tsx?raw'
 import notesSource from '../apps/notes/Notes.tsx?raw'
 import mailSource from '../apps/mail/Mail.tsx?raw'
 import terminalSource from '../apps/terminal/Terminal.tsx?raw'
@@ -27,9 +29,9 @@ import rackosSource from '../apps/rackos/RackOS.tsx?raw'
  * styled by none, and Terminal referenced an undefined `--muted`.
  */
 
-const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, shellCss]
+const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss]
-const applicationSources = [filesSource, systemSource, walletSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
+const applicationSources = [filesSource, systemSource, walletSource, dollarClientSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
 function referencedCustomProperties(css: string): string[] {
   return [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1])
@@ -98,7 +100,7 @@ describe('NODE-OS presentation language', () => {
       [processesCss, 'activity-monitor'],
       [appsCss, 'files-app'],
       [appsCss, 'system-app'],
-      [appsCss, 'wallet-app'],
+      [walletCss, 'wallet-app'],
       [mailCss, 'mail-app'],
     ]
     for (const [css, className] of surfaces) {
@@ -154,7 +156,7 @@ describe('NODE-OS presentation language', () => {
     // Deliberately absent: Wallet and Notes are their own subject, and
     // NodeScan's breadcrumb and object heading already identify the browsed
     // object. A masthead must not be added to these for uniformity alone.
-    const keepsOwn = [['Wallet', walletSource], ['Notes', notesSource], ['NodeScan', networkSource]] as const
+    const keepsOwn = [['Wallet', walletSource], ['Dollar client', dollarClientSource], ['Notes', notesSource], ['NodeScan', networkSource]] as const
     for (const [name, source] of keepsOwn) {
       expect(source, `${name} intentionally keeps its own presentation`).not.toMatch(/node-masthead/)
     }

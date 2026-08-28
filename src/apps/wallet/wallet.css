@@ -1,0 +1,158 @@
+/*
+ * Wallet: the Civic Dollar financial client and, beneath it, the separate NODE
+ * economic system.
+ *
+ * The Dollar client needs a stronger hierarchy than a key/value facts list can
+ * give it — one balance reads as the subject of the screen, two actions are
+ * obviously primary, and everything else stays quiet — so this application owns
+ * that layout. It stays inside the NODE-OS language: the shared tokens, the
+ * shared section headings, rows, fields, notes, empty states and actions.
+ *
+ * `.app-content` still owns the scrolling gutter; nothing here redeclares it.
+ */
+
+.wallet-app { max-width: 560px; }
+
+.dollar-client { display: block; min-width: 0; }
+
+.dollar-provider { margin: 0; }
+
+.balance {
+  margin: 10px 0 0;
+  color: var(--green);
+  font: 500 clamp(2rem, 9vw, 2.9rem) Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+
+.dollar-account-reference {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: .7rem;
+  letter-spacing: .06em;
+  overflow-wrap: anywhere;
+}
+
+/* The two primary actions. Full-width targets at narrow widths, side by side once there is room. */
+.dollar-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dollar-actions .node-action {
+  flex: 1 1 140px;
+  justify-content: center;
+}
+
+.dollar-activity { justify-content: space-between; }
+
+.dollar-amount {
+  flex: none;
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dollar-amount--outgoing { color: var(--text-strong); }
+.dollar-amount--incoming { color: var(--green); }
+
+/* Send, sign-in and account forms share one column. */
+.dollar-form {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+
+.dollar-form .node-note { width: 100%; margin: 0; }
+.dollar-form .node-action { margin-top: 2px; }
+
+/* Review: the amount and destination are the whole screen, so a mistyped transfer is visible before it is real. */
+.dollar-review-amount {
+  margin: 14px 0 0;
+  color: var(--text-strong);
+  font: 500 clamp(1.8rem, 8vw, 2.5rem) Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.dollar-review-recipient {
+  margin: 8px 0 0;
+  color: var(--text);
+  font-size: .78rem;
+  overflow-wrap: anywhere;
+}
+
+.dollar-review-source {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: .66rem;
+  overflow-wrap: anywhere;
+}
+
+.dollar-current-reference {
+  margin: 12px 0 0;
+  color: var(--text-strong);
+  font: 600 1rem Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.dollar-current-context {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: .66rem;
+  overflow-wrap: anywhere;
+}
+
+.dollar-saved { display: grid; gap: 4px; justify-items: start; padding-top: 4px; }
+
+.dollar-saved-login {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+
+.dollar-saved-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .62rem;
+}
+
+.dollar-saved .node-note { width: 100%; }
+.dollar-saved .node-action { margin-top: 10px; }
+
+.dollar-signed-out {
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+  font-size: .8rem;
+}
+
+.dollar-sign-out { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line-quiet); }
+
+/*
+ * NODE is a second economic system, not more of the banking screen. A rule and
+ * a real gap separate it, and its own colour and address treatment keep it
+ * recognizably more technical than the Dollar account above it.
+ */
+.wallet-node {
+  display: block;
+  margin-top: 34px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.balance--node {
+  margin: 10px 0 0;
+  color: var(--caution);
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+.wallet-node-address {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: .66rem;
+  letter-spacing: .04em;
+  overflow-wrap: anywhere;
+}

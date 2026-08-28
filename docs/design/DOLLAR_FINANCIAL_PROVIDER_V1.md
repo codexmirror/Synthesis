@@ -28,7 +28,7 @@ Durable economic invariants stay in A18. This document selects one concrete
 composition that must respect them; where A18 already states a rule, this
 document references it instead of restating it.
 
-The V1 foundation described here is implemented. `../current/DOLLAR_FINANCE.md` owns the exact current composition and operation behavior.
+The V1 foundation described here is implemented. `../current/DOLLAR_FINANCE.md` owns the exact current composition and operation behavior. The semantics this contract deliberately excluded — transfers, Transactions, activity, saved sign-in and client behavior — are owned by [`DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md`](DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md), not by later edits to this document.
 
 
 ## 1. Pre-implementation baseline
@@ -454,6 +454,13 @@ Do not add a ledger architecture because transactions will exist later, and do
 not manufacture transaction history in current truth (A03: represented truth is
 what actually happened). Dollars keep no history until a concrete mechanic
 produces one.
+
+That mechanic now exists. Transfers, Transactions, Account activity, Device
+saved sign-in and the Finance client are selected by
+[`DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md`](DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md),
+which builds on this contract rather than replacing it: everything below about
+Account, Credential and Session identity and authority remains authoritative,
+and section 13's exclusions remain the record of what V1 itself excluded.
 
 
 ## 13. Explicitly out of scope for V1
