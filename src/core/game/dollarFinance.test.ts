@@ -297,8 +297,85 @@ describe('Device saved Dollar sign-in', () => {
     expect(saved).toBeDefined()
     expect(state.dollarFinance.credentials).not.toContain(saved)
     expect(saved.id).not.toBe(credential.id)
-    expect(saved).not.toHaveProperty('accountId')
     expect(findDeviceSavedDollarSignIn(state, state.player.localDevice.id)).toBe(saved)
+  })
+
+  it('names the stable Financial Account it is for, and nothing else', () => {
+    const state = createInitialGameState()
+    const saved = state.player.localDevice.savedDollarSignIn!
+    const account = state.dollarFinance.accounts[0]
+    const credential = state.dollarFinance.credentials[0]
+    expect(saved.accountId).toBe(account.id)
+    // Intent, not identity of anything else: not the Credential, Device, Player, Session or account reference.
+    expect(saved.accountId).not.toBe(saved.id)
+    expect(saved.accountId).not.toBe(credential.id)
+    expect(saved.accountId).not.toBe(saved.loginIdentifier)
+    expect(saved.accountId).not.toBe(account.accountReference)
+    expect(saved.accountId).not.toBe(state.player.localDevice.id)
+    expect(saved.accountId).not.toBe(state.player.id)
+    expect(saved.accountId).not.toBe(state.dollarFinance.sessions.active[0].id)
+    // And it carries no presentation alias of its own.
+    expect(saved).not.toHaveProperty('label')
+  })
+
+  it('submits only the saved login and password, never the Account ID, to the Provider', () => {
+    const before = signedOut()
+    const saved = before.player.localDevice.savedDollarSignIn!
+    // Same Account, but the Provider's credential for it no longer matches the saved login identifier.
+    const relogged: GameState = { ...before, dollarFinance: { ...before.dollarFinance, credentials: before.dollarFinance.credentials.map((credential) => ({ ...credential, loginIdentifier: 'moved.civic' })) } }
+    expect(relogged.dollarFinance.credentials[0].accountId).toBe(saved.accountId)
+    // Naming the right Account is not authentication: the saved login no longer resolves a Credential.
+    expect(authenticateDollarAccountWithSavedSignIn(relogged, before.player.localDevice.id)).toEqual({ status: 'invalid_credentials', state: relogged })
+  })
+
+  it('fails closed when the saved login material would now authenticate to a different Account', () => {
+    const base = createInitialGameState()
+    const saved = base.player.localDevice.savedDollarSignIn!
+    const otherAccount = { id: 'dollar-account-other', accountReference: 'CD-8000-0008', balanceCents: 50_000 }
+    // The Provider re-associated exactly this login material with another Account.
+    const redirected: GameState = {
+      ...base,
+      dollarFinance: {
+        ...base.dollarFinance,
+        accounts: [...base.dollarFinance.accounts, otherAccount],
+        credentials: base.dollarFinance.credentials.map((credential) => ({ ...credential, accountId: otherAccount.id })),
+      },
+    }
+    // The credentials themselves are valid, so plain authentication would succeed and reach the other Account.
+    const wouldSucceed = authenticateDollarAccount(redirected, base.player.localDevice.id, saved.loginIdentifier, saved.password)
+    expect(wouldSucceed.status).toBe('authenticated')
+
+    const result = authenticateDollarAccountWithSavedSignIn(redirected, base.player.localDevice.id)
+    expect(result).toEqual({ status: 'invalid_credentials', state: redirected })
+    // Nothing was created, replaced or disclosed: the Device keeps the Session it already had.
+    expect(result.state.dollarFinance.sessions).toBe(redirected.dollarFinance.sessions)
+    expect(resolveDollarAccountForDevice(result.state, base.player.localDevice.id)?.id).toBe('dollar-account-local-v0')
+    expect(result.state.dollarFinance.accounts).toBe(redirected.dollarFinance.accounts)
+    expect(result.state.dollarFinance.credentials).toBe(redirected.dollarFinance.credentials)
+    expect(result.state.dollarFinance.transactions).toBe(redirected.dollarFinance.transactions)
+    expect(result.state.nodeWallet).toBe(redirected.nodeWallet)
+    expect(result.state.nodeEconomy).toBe(redirected.nodeEconomy)
+    // The refusal itself discloses nothing: the same non-revealing status a wrong
+    // password gives, carrying no session and no hint of what did match.
+    expect(Object.keys(result).sort()).toEqual(['state', 'status'])
+    expect(result.state).toBe(redirected)
+    expect(result.status).toBe(authenticateDollarAccount(redirected, base.player.localDevice.id, 'local.civic', 'wrong').status)
+  })
+
+  it('fails closed the same way from a signed-out Device, creating no Session at all', () => {
+    const base = signedOut()
+    const otherAccount = { id: 'dollar-account-other', accountReference: 'CD-8000-0008', balanceCents: 50_000 }
+    const redirected: GameState = {
+      ...base,
+      dollarFinance: {
+        ...base.dollarFinance,
+        accounts: [...base.dollarFinance.accounts, otherAccount],
+        credentials: base.dollarFinance.credentials.map((credential) => ({ ...credential, accountId: otherAccount.id })),
+      },
+    }
+    const result = authenticateDollarAccountWithSavedSignIn(redirected, base.player.localDevice.id)
+    expect(result).toEqual({ status: 'invalid_credentials', state: redirected })
+    expect(result.state.dollarFinance.sessions.active).toHaveLength(0)
   })
 
   it('authenticates through the same canonical operation and produces an ordinary Session', () => {
@@ -349,7 +426,12 @@ describe('Device saved Dollar sign-in', () => {
 
     const back = authenticateDollarAccountWithSavedSignIn(switched.state, base.player.localDevice.id)
     if (back.status !== 'authenticated') throw new Error(back.status)
+    // An ordinary Session, indistinguishable from one the manual form would produce.
+    const manual = authenticateDollarAccount(switched.state, base.player.localDevice.id, 'local.civic', 'violet-orbit-7')
+    if (manual.status !== 'authenticated') throw new Error(manual.status)
+    expect(back.state.dollarFinance.sessions).toEqual(manual.state.dollarFinance.sessions)
     expect(resolveDollarAccountForDevice(back.state, base.player.localDevice.id)?.id).toBe(localAccount.id)
+    expect(back.state.dollarFinance.sessions.active[0].accountId).toBe(base.player.localDevice.savedDollarSignIn!.accountId)
     expect(back.state.dollarFinance.sessions.active.filter(({ clientDeviceId }) => clientDeviceId === base.player.localDevice.id)).toHaveLength(1)
     expect(back.state.dollarFinance.accounts).toEqual(switched.state.dollarFinance.accounts)
   })

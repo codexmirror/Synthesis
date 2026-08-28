@@ -36,7 +36,7 @@ export function createInitialGameState(): GameState {
           { id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId, name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version },
         ],
         // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.
-        savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', label: 'Personal account', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },
+        savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },
       },
     },
     dollarFinance: {

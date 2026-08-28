@@ -182,15 +182,18 @@ function Account({ account, providerName, savedSignIn, onSwitched, onSignedOut, 
   onCancel: () => void
 }) {
   const actions = useGameActions()
+  // Derived from stable Account identity and Session truth, never a stored flag:
+  // returning to an Account this Device is already using is not an action.
+  const alreadyPersonal = savedSignIn !== undefined && savedSignIn.accountId === account.id
 
   return <section className="dollar-client" aria-label="Account management">
     <button className="node-back" type="button" onClick={onCancel}>← BACK</button>
 
     <div className="node-section"><span>CURRENT</span></div>
     <p className="dollar-current-reference">{account.accountReference}</p>
-    <p className="dollar-current-context">{providerName} · {formatDollarCents(account.balanceCents)}</p>
+    <p className="dollar-current-context">{providerName} · {formatDollarCents(account.balanceCents)}{alreadyPersonal ? ' · Personal account' : ''}</p>
 
-    {savedSignIn && <SavedSignIn saved={savedSignIn} onContinue={() => onSwitched(`Signed in to ${savedSignIn.label.toLowerCase()}.`)} />}
+    {savedSignIn && !alreadyPersonal && <SavedSignIn saved={savedSignIn} onContinue={() => onSwitched('Signed in to your personal account.')} />}
     <ManualSignIn onSignedIn={() => onSwitched('Signed in to the other account.')} />
 
     <div className="dollar-sign-out">
@@ -213,16 +216,18 @@ function SignedOut({ providerName, savedSignIn, onSignedIn }: {
 }
 
 /**
- * The saved sign-in path. CONTINUE submits only what this Device stored, through
- * the same authentication operation the manual form uses; nothing here reads the
- * Provider's current password, and the saved password is never rendered.
+ * The saved sign-in path back to the personal Account. CONTINUE submits only
+ * what this Device stored, through the same authentication operation the manual
+ * form uses; nothing here reads the Provider's current password, and the saved
+ * password is never rendered. It is offered only where it is actually a way
+ * somewhere — signed out, or signed in to some other Account.
  */
 function SavedSignIn({ saved, onContinue }: { saved: DeviceSavedDollarSignIn; onContinue: () => void }) {
   const actions = useGameActions()
   const [stale, setStale] = useState(false)
 
   return <>
-    <div className="node-section"><span>{saved.label.toUpperCase()}</span></div>
+    <div className="node-section"><span>PERSONAL ACCOUNT</span></div>
     <div className="dollar-saved">
       <p className="dollar-saved-login">{saved.loginIdentifier}</p>
       <p className="dollar-saved-note">Saved sign-in on this device</p>

@@ -147,12 +147,25 @@ export type AuthenticateWithSavedDollarSignInResult =
 
 /**
  * Signs in using only what this Device saved, through the ordinary
- * authentication operation. It never reads the Provider's current Credential,
- * so a saved copy that no longer matches the Provider simply fails
- * authentication like any other wrong password.
+ * authentication operation. The saved login identifier and password are the
+ * only material submitted: it never reads the Provider's current Credential, so
+ * a saved copy that no longer matches simply fails like any other wrong
+ * password.
+ *
+ * A credential match is accepted only when the Session it produced resolves
+ * exactly the Account the saved sign-in was saved for. A login identifier is a
+ * mutable attribute (A01), so the Provider could later associate this saved
+ * material with a different Account; that must not silently redirect the saved
+ * personal sign-in. It fails closed to the same non-revealing
+ * `invalid_credentials` and the original pre-attempt state, so no Session is
+ * created or replaced and nothing discloses which other Account matched.
  */
 export function authenticateDollarAccountWithSavedSignIn(state: GameState, clientDeviceId: string): AuthenticateWithSavedDollarSignInResult {
   const saved = findDeviceSavedDollarSignIn(state, clientDeviceId)
   if (!saved) return { status: 'no_saved_sign_in', state }
-  return authenticateDollarAccount(state, clientDeviceId, saved.loginIdentifier, saved.password)
+  const result = authenticateDollarAccount(state, clientDeviceId, saved.loginIdentifier, saved.password)
+  if (result.status !== 'authenticated') return result
+  const reached = resolveDollarAccountForDevice(result.state, clientDeviceId)
+  if (reached?.id !== saved.accountId) return { status: 'invalid_credentials', state }
+  return result
 }

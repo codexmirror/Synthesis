@@ -293,8 +293,16 @@ export interface LocalDeviceState {
 export interface DeviceSavedDollarSignIn {
   /** Stable identity of the saved sign-in itself; never Credential or Account identity. */
   readonly id: string
-  /** How this Device names the saved sign-in to its operator; a presentation attribute. */
-  readonly label: string
+  /**
+   * The stable Financial Account this saved sign-in is intended to
+   * authenticate. It records intent, not authority: it is not ownership, not a
+   * Session, not Credential identity, not Player identity, and it is never
+   * submitted to the Provider or used to bypass authentication. It exists so
+   * that a mutable login identifier cannot silently redirect the saved sign-in
+   * to a different Account, and so the client can tell whether the Account it
+   * is currently using already is the saved one.
+   */
+  readonly accountId: string
   readonly loginIdentifier: string
   /** Locally stored copy of a password, exact at the moment it was saved. */
   readonly password: string

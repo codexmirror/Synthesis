@@ -83,7 +83,8 @@ entry. Each installation has a stable product `id` and a distinct opaque
 metadata rather than identity.
 
 The local Device additionally owns `savedDollarSignIn`, the sign-in material
-this Device itself stored for the Dollar Provider. It is Device state and
+this Device itself stored for the Dollar Provider, together with the stable
+Financial Account ID that material was saved for. It is Device state and
 deliberately not the Provider's Credential, it grants no authority, and a Device
 that represents none simply has none. Its semantics belong to
 `docs/current/DOLLAR_FINANCE.md`.

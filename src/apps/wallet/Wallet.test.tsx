@@ -234,30 +234,52 @@ describe('Wallet SEND', () => {
 })
 
 describe('Wallet ACCOUNT', () => {
-  it('states the current Account and offers both the saved personal path and manual sign-in', async () => {
+  it('offers no redundant return-to-personal action while the saved Account is already current', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
 
     expect(screen.getByText('CURRENT')).toBeInTheDocument()
     expect(screen.getByText('CD-1042-7781')).toBeInTheDocument()
-    expect(screen.getByText('PERSONAL ACCOUNT')).toBeInTheDocument()
-    expect(screen.getByText('local.civic')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeInTheDocument()
+    expect(screen.getByText(/Personal account/)).toBeInTheDocument()
+    // Continuing into the Account this Device is already using is not an action.
+    expect(screen.queryByRole('button', { name: 'CONTINUE' })).not.toBeInTheDocument()
+    expect(screen.queryByText('PERSONAL ACCOUNT')).not.toBeInTheDocument()
+    // Everything else the surface owns stays available.
     expect(screen.getByRole('form', { name: 'Dollar account sign in' })).toBeInTheDocument()
     expect(screen.getByLabelText('PASSWORD')).toHaveAttribute('type', 'password')
+    expect(screen.getByRole('button', { name: 'SIGN OUT' })).toBeInTheDocument()
     expect(document.body.textContent).not.toContain('violet-orbit-7')
   })
 
-  it('derives the saved sign-in presentation from Device state, not from the Provider Credential', async () => {
+  it('derives that from stable Account identity rather than the current account reference or login', async () => {
     const user = userEvent.setup()
     const base = withRecipient()
-    const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, savedDollarSignIn: { id: 'saved-fixture', label: 'Everyday account', loginIdentifier: 'renamed.civic', password: 'violet-orbit-7' } } } }
+    // Same Account, renamed; the saved sign-in still points at its stable ID.
+    const renamed: GameState = { ...base, dollarFinance: { ...base.dollarFinance, accounts: base.dollarFinance.accounts.map((account) => account.id === 'dollar-account-local-v0' ? { ...account, accountReference: 'CD-7777-0007' } : account) } }
+    render(<GameProvider initialState={renamed}><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
+    expect(screen.getByText('CD-7777-0007')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'CONTINUE' })).not.toBeInTheDocument()
+  })
+
+  it('offers the saved personal path from Device state while another Account is current', async () => {
+    const user = userEvent.setup()
+    const base = withRecipient()
+    const state: GameState = {
+      ...base,
+      // The Device is signed in to the other Account, and saved different login material for its own.
+      dollarFinance: { ...base.dollarFinance, sessions: { nextId: 3, active: [{ id: 'dollar-session-0002', accountId: RECIPIENT.id, clientDeviceId: base.player.localDevice.id }] } },
+      player: { ...base.player, localDevice: { ...base.player.localDevice, savedDollarSignIn: { id: 'saved-fixture', accountId: 'dollar-account-local-v0', loginIdentifier: 'renamed.civic', password: 'violet-orbit-7' } } },
+    }
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
-    expect(screen.getByText('EVERYDAY ACCOUNT')).toBeInTheDocument()
+
+    expect(screen.getByText('CD-2000-0002')).toBeInTheDocument()
+    expect(screen.getByText('PERSONAL ACCOUNT')).toBeInTheDocument()
     expect(screen.getByText('renamed.civic')).toBeInTheDocument()
     expect(screen.queryByText('local.civic')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeInTheDocument()
   })
 
   it('switches to another Account through manual sign-in and back through the saved personal sign-in', async () => {

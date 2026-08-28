@@ -157,28 +157,50 @@ A Device may store its own copy of sign-in material for this Provider.
 ```text
 PROVIDER CREDENTIAL          DEVICE SAVED SIGN-IN
 = current provider-side      = one Device's locally stored
-  login secret                 authentication material
+  login secret                 authentication material,
+                               and the stable Financial
+                               Account it was saved for
 
 owned by the Provider        owned by the Device
 ```
 
-These are distinct represented state with distinct owners. They may begin with
-the same literal values, and they diverge the moment either changes — which is
-precisely how a Device's saved sign-in becomes stale, and the reason it is
-represented now rather than inferred later.
+These are distinct represented state with distinct owners. The stored login and
+password may begin with the same literal values as the Credential, and they
+diverge the moment either changes — which is precisely how a Device's saved
+sign-in becomes stale, and the reason it is represented now rather than inferred
+later.
+
+The saved sign-in also names the stable Financial Account it is *for*. That is
+intent, not authority: not ownership, not a Session, not Credential or Player
+identity, and never material submitted to the Provider. It exists because a
+login identifier is a mutable attribute (A01), so without it the saved personal
+sign-in would be identified only by mutable material — and a client could not
+tell the Account it is already using from the one it saved.
 
 Binding rules:
 
 - saved sign-in is **not** authority; it only permits an authentication attempt,
   exactly like any other credential material (foundation section 5);
-- signing in with it goes through the ordinary authentication operation and
-  produces an ordinary Financial Session;
+- signing in with it submits only the stored login identifier and password,
+  through the ordinary authentication operation, and produces an ordinary
+  Financial Session;
+- the saved Account ID is a **verification**, never a bypass: a credential match
+  is accepted only when the Session it produced resolves exactly that Account.
+  If the saved material would authenticate somewhere else, the attempt fails
+  closed — the original pre-attempt state, no Session created or replaced, the
+  same non-revealing refusal as a wrong password, and no disclosure of what did
+  match;
 - it must never be derived from the Provider's current Credential at sign-in or
   render time — a stale copy must actually fail;
 - it must never be inferred from the existence of a Financial Session, and a
   Session must never be inferred from it;
 - it exists only where it is represented. A Device that saved nothing has no
   one-tap path, whatever Sessions it holds.
+
+The saved sign-in carries no alias of its own. V1 represents exactly one saved
+personal sign-in on one Device, and the client names it with the truthful
+product label; a stored name would be presentation state standing in for that
+label, and user-defined saved-account aliases are not a represented requirement.
 
 A future Device may independently have a Session, saved material, both, or
 neither, and each combination must behave correctly. That independence is the
@@ -206,6 +228,13 @@ No Account is created, deleted, re-parented or re-owned; no Player relationship
 changes; the previous Account's balance, Credential and Transactions are exactly
 as they were. Returning to the personal Account uses the Device's saved sign-in
 through the same authentication operation, never a bypass.
+
+Returning to an Account the Device is already using is not an action. Where the
+current Account is exactly the saved sign-in's Account, the client states that
+and offers no redundant continue; where it is another Account, or the Device is
+signed out, the saved personal path is offered. Both are derived from stable
+Account identity and Session truth — never a stored personal, current or
+signed-in flag.
 
 Sign-out is the existing logout operation. Because a represented saved sign-in
 now gives the local Device a legitimate way back in, exposing it in the client
@@ -286,6 +315,8 @@ Account takeover.
 | 7 | Is saved sign-in the Provider Credential? | No — distinct state, distinct owner (5) |
 | 8 | Can a Session imply saved sign-in, or the reverse? | No, in either direction (5) |
 | 9 | Can a Provider password change make a saved sign-in fail? | Yes — that is why it is represented (5) |
+| 9b | Can the saved Account ID authenticate anything by itself? | No — it verifies the result, never bypasses it (5) |
+| 9c | Can saved material redirect to another Account? | No — it fails closed and reveals nothing (5) |
 | 10 | Does switching Accounts change ownership? | No — only the Device's Session (6) |
 | 11 | Is there a second Dollar authority object? | No (1, 6) |
 | 12 | Does the player need domain vocabulary to use the client? | No (7) |
