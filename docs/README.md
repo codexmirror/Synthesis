@@ -178,13 +178,19 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 - DESIGN → [`design/DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md`](design/DOLLAR_TRANSFERS_FINANCE_CLIENT_V1.md)
   (Dollar transfers, Transactions, Account activity, Device saved sign-in,
   Account switching and the Finance client; design authority, not current truth)
+- DESIGN → [`design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`](design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md)
+  (Wallet presentation work only: hierarchy, modules, action hierarchy, balance
+  trajectory, Dollar/NODE visual relationship, focused sub-surfaces, mobile
+  priorities, and how `assets/node-os-wallet-v1-reference.png` is to be read;
+  Presentation authority, not financial or economic truth)
 - CODE → `src/core/game/dollarFinance.ts`, `src/core/game/nodeMiner.ts`, `src/core/game/nodeEconomy.ts`,
   `src/core/game/nodeMinerPayoutLog.ts`, `src/apps/wallet/`,
   `src/apps/dollarFormat.ts`,
   `src/apps/terminal/commands/nodeMiner.ts`
 - TESTS → `src/core/game/nodeMiner.test.ts`,
   `src/core/game/dollarFinance.test.ts`, `src/core/game/nodeEconomy.test.ts`,
-  `src/apps/dollarFormat.test.ts`, `src/apps/wallet/Wallet.test.tsx`
+  `src/apps/dollarFormat.test.ts`, `src/apps/wallet/Wallet.test.tsx`,
+  `src/apps/wallet/balanceTrajectory.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md) for Dollars; [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md) for NODE
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 

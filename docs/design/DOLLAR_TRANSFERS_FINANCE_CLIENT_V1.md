@@ -254,13 +254,11 @@ The Dollar client is a believable financial product, not a state inspector. The
 player should not need the words Financial Session, Credential, provider
 authority, `GameState` or Transaction internals to use it.
 
-Information hierarchy:
-
-1. which provider and account this is;
-2. the current balance, as the visual subject of the screen;
-3. two primary actions — SEND and ACCOUNT;
-4. recent activity, or an honest empty state;
-5. NODE, clearly separate and secondary.
+> The client's information hierarchy, module composition, action set and visual
+> treatment are now owned by
+> [`NODE_OS_WALLET_PRODUCT_POLISH_V1.md`](NODE_OS_WALLET_PRODUCT_POLISH_V1.md),
+> which supersedes the ordered list this section previously carried. Everything
+> below remains this contract's own: what the client must and must not do.
 
 SEND is a two-step flow: enter recipient and amount, review the exact formatted
 amount and destination, then confirm. The review step exists because the

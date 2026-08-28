@@ -39,6 +39,9 @@ async function send(user: ReturnType<typeof userEvent.setup>, recipient: string,
   await user.click(screen.getByRole('button', { name: 'REVIEW' }))
 }
 
+/** Review's confirm control. It is deliberately not named SEND: opening the flow and moving the money are different acts. */
+const confirmSend = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'CONFIRM & SEND' }))
+
 describe('Wallet dashboard', () => {
   it('leads with the Session-authorized Dollar balance and account context, and presents NODE as a separate system', () => {
     render(<GameProvider><Wallet /></GameProvider>)
@@ -150,7 +153,7 @@ describe('Wallet NODE section', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={withRecipient(minedState(10_000))}><Wallet /></GameProvider>)
     await send(user, RECIPIENT.accountReference, '25.00')
-    await user.click(screen.getByRole('button', { name: 'SEND' }))
+    await confirmSend(user)
     expect(screen.getByText('+670 units')).toBeInTheDocument()
     expect(within(screen.getByLabelText('NODE wallet')).getByText('0.00067 NODE')).toBeInTheDocument()
   })
@@ -164,8 +167,9 @@ describe('Wallet SEND', () => {
 
     expect(screen.getByLabelText('Review transfer')).toBeInTheDocument()
     expect(screen.getByText('$25.50')).toBeInTheDocument()
-    expect(screen.getByText(`to ${RECIPIENT.accountReference}`)).toBeInTheDocument()
-    expect(screen.getByText('from CD-1042-7781')).toBeInTheDocument()
+    const review = screen.getByLabelText('Review transfer')
+    expect(within(review).getByText('TO').closest('div')).toHaveTextContent(RECIPIENT.accountReference)
+    expect(within(review).getByText('FROM').closest('div')).toHaveTextContent('CD-1042-7781')
     // Nothing has been transferred yet.
     expect(screen.queryByText('$1,224.50')).not.toBeInTheDocument()
   })
@@ -174,7 +178,7 @@ describe('Wallet SEND', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
     await send(user, RECIPIENT.accountReference, '25.50')
-    await user.click(screen.getByRole('button', { name: 'SEND' }))
+    await confirmSend(user)
 
     expect(screen.getByText('$1,224.50')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Sent $25.50 to CD-2000-0002.')
@@ -194,7 +198,7 @@ describe('Wallet SEND', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
     await send(user, recipient, amount)
-    await user.click(screen.getByRole('button', { name: 'SEND' }))
+    await confirmSend(user)
 
     expect(screen.getByRole('alert')).toHaveTextContent(message)
     await user.click(screen.getByRole('button', { name: '← BACK' }))
@@ -239,7 +243,7 @@ describe('Wallet ACCOUNT', () => {
     render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
 
-    expect(screen.getByText('CURRENT')).toBeInTheDocument()
+    expect(screen.getByText('CURRENT ACCOUNT')).toBeInTheDocument()
     expect(screen.getByText('CD-1042-7781')).toBeInTheDocument()
     expect(screen.getByText(/Personal account/)).toBeInTheDocument()
     // Continuing into the Account this Device is already using is not an action.
@@ -365,5 +369,224 @@ describe('Wallet signed out', () => {
     await user.click(screen.getByRole('button', { name: 'SIGN IN' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid login ID or password.')
     expect(screen.queryByText('$1,250.00')).not.toBeInTheDocument()
+  })
+})
+
+describe('Wallet action strip', () => {
+  it('offers exactly the three Dollar surfaces that exist, and nothing the world does not represent', () => {
+    render(<GameProvider><Wallet /></GameProvider>)
+    const strip = document.querySelector('.dollar-actions') as HTMLElement
+    expect([...strip.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['SEND', 'RECEIVE', 'ACCOUNT'])
+    // There is no represented finance scanner, payment request or QR identity,
+    // so the Wallet must not offer a control that implies one.
+    expect(screen.queryByRole('button', { name: 'SCAN' })).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/SCAN|QR|REQUEST|INVOICE/i)
+  })
+
+  it('labels every action in text rather than relying on its icon alone', () => {
+    render(<GameProvider><Wallet /></GameProvider>)
+    for (const name of ['SEND', 'RECEIVE', 'ACCOUNT']) {
+      const action = screen.getByRole('button', { name })
+      expect(action).toHaveAccessibleName(name)
+      expect(action.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    }
+  })
+})
+
+describe('Wallet RECEIVE', () => {
+  it('presents the authorized Account reference and no receiving mechanic at all', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'RECEIVE' }))
+
+    const receive = screen.getByLabelText('Receive money')
+    expect(within(receive).getByText('CD-1042-7781')).toBeInTheDocument()
+    expect(within(receive).getByText('Civic Dollar')).toBeInTheDocument()
+    expect(within(receive).getByRole('button', { name: 'Copy account number CD-1042-7781' })).toBeInTheDocument()
+    // Nothing here creates or promises money.
+    expect(receive.querySelector('canvas, img')).toBeNull()
+    expect(receive.textContent).not.toMatch(/QR|REQUEST|INVOICE|AMOUNT|ARRIV|SETTLE|GUARANTEE/i)
+    expect(within(receive).queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('shows only the Account the Device Session actually reaches', async () => {
+    const user = userEvent.setup()
+    const base = createInitialGameState()
+    const unrelated = { id: 'unrelated-account', accountReference: 'CD-OTHER-0009', balanceCents: 100 }
+    render(<GameProvider initialState={{ ...base, dollarFinance: { ...base.dollarFinance, accounts: [unrelated, ...base.dollarFinance.accounts] } }}><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'RECEIVE' }))
+    expect(screen.getByText('CD-1042-7781')).toBeInTheDocument()
+    expect(screen.queryByText('CD-OTHER-0009')).not.toBeInTheDocument()
+  })
+
+  it('changes no canonical state by being opened and left', async () => {
+    const user = userEvent.setup()
+    const before = withRecipient(minedState(10_000))
+    render(<GameProvider initialState={before}><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'RECEIVE' }))
+    expect(screen.queryByLabelText('NODE wallet')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← BACK' }))
+
+    expect(screen.getByText('$1,250.00')).toBeInTheDocument()
+    expect(screen.getByText('NO ACTIVITY YET')).toBeInTheDocument()
+    expect(screen.getByLabelText('NODE wallet')).toBeInTheDocument()
+    expect(before.dollarFinance.transactions.records).toEqual([])
+    expect(before.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-local-v0')?.balanceCents).toBe(125_000)
+  })
+})
+
+describe('Wallet balance trajectory', () => {
+  const trajectory = () => document.querySelector('.dollar-trajectory polyline')
+  const vertices = () => trajectory()?.getAttribute('points')?.trim().split(/\s+/) ?? []
+
+  it('draws no history for an Account that has none', () => {
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    expect(screen.getByText('$1,250.00')).toBeInTheDocument()
+    expect(trajectory()).toBeNull()
+  })
+
+  it('draws exactly the two represented balance states after one real transfer', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    await send(user, RECIPIENT.accountReference, '25.50')
+    await confirmSend(user)
+
+    expect(screen.getByText('$1,224.50')).toBeInTheDocument()
+    expect(vertices()).toHaveLength(2)
+  })
+
+  it('reconstructs the whole sequence from canonical Transactions and the canonical balance', () => {
+    const base = withRecipient()
+    const local = 'dollar-account-local-v0'
+    const state: GameState = {
+      ...base,
+      dollarFinance: {
+        ...base.dollarFinance,
+        // $1,250.00 → −$100.00 → +$25.00 → −$5.00 = $1,170.00, exactly as canonical state says.
+        accounts: base.dollarFinance.accounts.map((account) => account.id === local ? { ...account, balanceCents: 117_000 } : account),
+        transactions: { nextId: 4, records: [
+          { id: 'dollar-transaction-0001', sourceAccountId: local, destinationAccountId: RECIPIENT.id, amountCents: 10_000, sourceAccountReference: 'CD-1042-7781', destinationAccountReference: RECIPIENT.accountReference },
+          { id: 'dollar-transaction-0002', sourceAccountId: RECIPIENT.id, destinationAccountId: local, amountCents: 2_500, sourceAccountReference: RECIPIENT.accountReference, destinationAccountReference: 'CD-1042-7781' },
+          { id: 'dollar-transaction-0003', sourceAccountId: local, destinationAccountId: RECIPIENT.id, amountCents: 500, sourceAccountReference: 'CD-1042-7781', destinationAccountReference: RECIPIENT.accountReference },
+        ] },
+      },
+    }
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+
+    expect(screen.getByText('$1,170.00')).toBeInTheDocument()
+    // Four represented balance states for three Transactions, oldest first, and
+    // the opening state ($1,250.00) is the highest of them.
+    const points = vertices().map((point) => point.split(',').map(Number))
+    expect(points).toHaveLength(4)
+    expect(points[0]).toEqual([0, 0])
+    expect(points[3][0]).toBe(100)
+    expect(points[1][1]).toBeGreaterThan(points[2][1])
+  })
+
+  it('keeps no derived trajectory in canonical state', () => {
+    const state = withRecipient()
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+    expect(Object.keys(state.dollarFinance)).toEqual(['provider', 'accounts', 'credentials', 'sessions', 'transactions'])
+    expect(JSON.stringify(state)).not.toMatch(/trajectory|balanceHistory|sparkline/i)
+  })
+})
+
+describe('Wallet activity presentation', () => {
+  it('states direction, counterparty and signed amount, and invents nothing beside them', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    await send(user, RECIPIENT.accountReference, '25.50')
+    await confirmSend(user)
+
+    const row = screen.getByText('−$25.50').closest('.node-row') as HTMLElement
+    expect(within(row).getByText('CD-2000-0002')).toBeInTheDocument()
+    expect(within(row).getByText('SENT')).toBeInTheDocument()
+    expect(row.querySelector('.dollar-activity-mark--outgoing')).not.toBeNull()
+    // No time, no category, no counterparty name, no status, no memo.
+    expect(row.textContent).toBe('CD-2000-0002SENT−$25.50')
+  })
+})
+
+describe('Wallet SEND composition', () => {
+  it('leads with the amount and states the source Account without adding transfer mechanics', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'SEND' }))
+
+    const entry = screen.getByLabelText('Send money')
+    const fields = [...entry.querySelectorAll('.node-field > span')].map((label) => label.textContent)
+    expect(fields).toEqual(['AMOUNT', 'TO ACCOUNT'])
+    expect(within(entry).getByText('AVAILABLE').closest('div')).toHaveTextContent('$1,250.00')
+    expect(within(entry).getByText('FROM').closest('div')).toHaveTextContent('CD-1042-7781')
+    expect(entry.textContent).not.toMatch(/ARRIV|SETTLE|SPEED|SECURE|GUARANTEE|NETWORK/i)
+  })
+
+  it('makes review the consequential step and carries no unrepresented transfer facts', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    await send(user, RECIPIENT.accountReference, '700')
+
+    const review = screen.getByLabelText('Review transfer')
+    expect(within(review).getByText('$700.00')).toBeInTheDocument()
+    expect(within(review).getByRole('button', { name: 'CONFIRM & SEND' })).toBeInTheDocument()
+    expect(review.textContent).not.toMatch(/ARRIV|SETTLE|TOTAL|SPEED|SECURE|GUARANTEE|PENDING/i)
+    // Still nothing has moved.
+    expect(screen.queryByText('$550.00')).not.toBeInTheDocument()
+  })
+})
+
+describe('Wallet ACCOUNT composition', () => {
+  it('presents the current Account as one identity module derived from canonical state', async () => {
+    const user = userEvent.setup()
+    const base = createInitialGameState()
+    const state: GameState = { ...base, dollarFinance: { ...base.dollarFinance, provider: { ...base.dollarFinance.provider, displayName: 'Meridian Dollar' } } }
+    render(<GameProvider initialState={state}><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
+
+    const card = document.querySelector('.dollar-identity-card') as HTMLElement
+    expect(within(card).getByText('CD-1042-7781')).toBeInTheDocument()
+    expect(within(card).getByText('Meridian Dollar')).toBeInTheDocument()
+    // The monogram is a projection of the represented provider name, not a brand.
+    expect(within(card).getByText('MD')).toBeInTheDocument()
+    expect(within(card).getByText('BALANCE').closest('div')).toHaveTextContent('$1,250.00')
+  })
+
+  it('keeps SIGN OUT secondary and destructive rather than a primary finance action', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
+
+    const signOut = screen.getByRole('button', { name: 'SIGN OUT' })
+    expect(signOut.className).toContain('node-action--destructive')
+    expect(signOut.className).not.toContain('dollar-primary')
+    // The saved personal path is the primary one wherever it is offered.
+    expect(screen.queryByRole('button', { name: 'CONTINUE' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'SIGN IN' }).className).not.toContain('dollar-primary')
+  })
+
+  it('never renders saved or submitted password material in the signed-in DOM', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider><Wallet /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ACCOUNT' }))
+    await user.type(screen.getByLabelText('PASSWORD'), 'violet-orbit-7')
+
+    expect(screen.getByLabelText('PASSWORD')).toHaveAttribute('type', 'password')
+    expect(document.body.textContent).not.toContain('violet-orbit-7')
+    expect(document.querySelector('[type="text"][name="password"]')).toBeNull()
+  })
+})
+
+describe('Wallet signed out composition', () => {
+  it('stays a composed financial surface and still exposes no Account truth', () => {
+    render(<GameProvider initialState={signedOut()}><Wallet /></GameProvider>)
+    const surface = screen.getByLabelText('Dollar account signed out')
+    expect(surface.querySelector('.dollar-hero')).not.toBeNull()
+    expect(within(surface).getByText('Civic Dollar')).toBeInTheDocument()
+    expect(within(surface).getByText('Signed out')).toBeInTheDocument()
+    expect(within(surface).getByText('PERSONAL ACCOUNT')).toBeInTheDocument()
+    expect(within(surface).getByText('local.civic')).toBeInTheDocument()
+    expect(surface.querySelector('.dollar-trajectory')).toBeNull()
+    expect(surface.textContent).not.toContain('$')
+    expect(surface.textContent).not.toContain('CD-1042-7781')
   })
 })
