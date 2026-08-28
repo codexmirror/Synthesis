@@ -132,6 +132,21 @@ become the implicit primary key of a Financial Account. Resolving an Account
 from an addressing attribute is a lookup, and a lookup that finds nothing finds
 nothing — it never invents an Account.
 
+For that lookup to be deterministic, V1 requires uniqueness **within the one
+concrete Provider**:
+
+- the login identifier is unique within this Provider, so a credential resolves
+  to at most one Account and an authentication attempt is never ambiguous;
+- any account number or provider reference used as an Account-addressing lookup
+  is unique within this Provider, so addressing resolves to at most one Account;
+- both remain mutable attributes of the Account, never its stable identity, and
+  changing either changes nothing about which Account it is.
+
+Uniqueness is a property this one Provider's represented Accounts satisfy, not
+a mechanism: V1 introduces no uniqueness framework, identifier registry, index
+abstraction or provider namespace system. Ambiguity is a modelling error to
+prevent, never something an operation resolves by picking one candidate.
+
 
 ## 4. Credentials
 
@@ -196,10 +211,23 @@ account operations. In V1 that mechanism is the Financial Session, and there is
 no second one. An operation that cannot name the Session authorizing it is not
 authorized.
 
-Authentication is an operation with an outcome, not a stored verdict. It never
-writes a "logged in", "authenticated" or "account hacked" flag anywhere; its
-only represented consequence is a Financial Session (created or refreshed), or
-nothing.
+Authentication is an operation with an outcome, not stored authority. It never
+writes a "logged in", "authenticated", "account hacked" or equivalent verdict
+flag anywhere.
+
+> The only V1 authority consequence of successful authentication is a Financial
+> Session.
+
+Concretely: successful authentication creates, replaces or refreshes the acting
+Device's Financial Session for this Provider (section 6). Failed authentication
+creates no Financial Session and no authority of any kind.
+
+That statement is about **authority**, not a claim that authentication may never
+have other represented consequences. Future represented consequences —
+provider-side audit records, Device or Provider logs, security signals — are
+simply not part of V1. Each would be its own concrete represented mechanic with
+its own owner and its own authority, and none of them may become a second path
+to authorizing an account operation. None of them is designed here.
 
 
 ## 6. The Financial Session contract
@@ -232,6 +260,34 @@ Loss or invalidation of a Session:
 Two Devices may each hold their own Session for the same Account, each created
 by its own successful authentication. There is no global "the session" for an
 Account, and one Device's logout never invalidates another Device's Session.
+
+V1 also fixes the other direction of that cardinality, because the Finance
+client must be able to answer "signed in as which Account?" from Session truth
+alone:
+
+> A Device holds at most one active Financial Session for the one concrete
+> Dollar Financial Provider.
+
+Therefore, on one Device:
+
+- successful authentication where that Device has no Provider Session creates
+  one;
+- successful authentication where that Device already has a Provider Session
+  replaces or refreshes that Session rather than adding a second
+  simultaneously active one;
+- authenticating to a *different* Account changes that Device's current
+  Provider Session; it does not create parallel per-Account Sessions;
+- logout invalidates that Device's active Provider Session only.
+
+Sessions on other Devices are untouched by any of it, and no global Session
+exists. A Device therefore resolves at most one current Provider Account, and
+SIGNED IN / SIGNED OUT (section 7) has exactly one candidate to derive from.
+
+Whether replacement or refresh preserves the Session's own ID is deliberately
+not selected here; that is implementation-owned, since no V1 rule depends on it.
+Out of scope, and a future design change rather than an implementation
+liberty: multi-account client sessions, account-switching history, session
+stacks, and any session-manager framework.
 
 V1 selects **no** time-based expiry model. A Financial Session ends because
 something represented ends it, not because time passed. Out of scope
@@ -275,10 +331,11 @@ FINANCE — SIGNED OUT
 ```
 
 That state is derived from represented Session truth, per A11 (mutate causes,
-derive consequences). It is not a stored `signedIn` flag, and it is never
-special-cased from account ownership. This is the design authority a future
-ordinary NPC Device would rely on; neither that Device nor its Firmware is in
-scope here.
+derive consequences), and the Account a signed-in client presents is the one
+its Device's single Provider Session authorizes (section 6). It is not a stored
+`signedIn` flag, and it is never special-cased from account ownership. This is
+the design authority a future ordinary NPC Device would rely on; neither that
+Device nor its Firmware is in scope here.
 
 
 ## 8. Device access is not financial authority
@@ -379,7 +436,7 @@ Presentation may aggregate them. Canonical truth never does: no shared
 | Financial Account | financial domain identity | No — identity is not authority | No |
 | Account number / login identifier | addressing / authentication material | No | No |
 | Credential (login identifier + password) | authentication material | No — it permits an authentication attempt | No |
-| Financial Session | Dollar financial authority | **Yes** — the only V1 mechanism | **Yes** — exactly one Device |
+| Financial Session | Dollar financial authority | **Yes** — the only V1 mechanism | **Yes** — exactly one Device, and at most one per Device for this Provider |
 | NODE Wallet / future NODE secret authority | separate crypto domain | No Dollar authority; separate NODE semantics | separate NODE semantics |
 
 Note on `DeviceAccess`: it is an established relationship between stable
@@ -430,10 +487,11 @@ Frozen here, and not to be reopened by the implementation:
 - stable Financial Account identity, separate from every addressing and
   authentication attribute;
 - Credential as authentication material only;
-- authentication as an operation whose only represented consequence is a
-  Session;
+- authentication as an operation whose only V1 authority consequence is a
+  Session, and which never stores a verdict flag;
 - the Financial Session as the single, revocable, one-Account,
-  one-Device authority mechanism, with no expiry model;
+  one-Device authority mechanism, with no expiry model and at most one active
+  Session per Device for this Provider;
 - integer-cent canonical Dollar money;
 - Dollar and NODE as separate authority domains that presentation may show
   together;
@@ -444,7 +502,8 @@ semantic boundaries: type and field names; where the represented Provider,
 Accounts, Credentials and Sessions live in `GameState`; the seeded Provider
 name, Account, credential values and starting cent balance (including how
 today's `1250` converts); the shape of the authentication and logout
-operations and their result statuses; and how the Wallet/Finance interface
+operations and their result statuses; whether replacing or refreshing a Device's
+Session preserves that Session's ID; and how the Wallet/Finance interface
 resolves the Account through a legitimate Session, including what it shows when
 no Session exists.
 
@@ -470,3 +529,6 @@ by the section named.
 | 12 | Can a future Device present FINANCE — SIGNED IN / SIGNED OUT from Session truth alone? | Yes, derived, no ownership special case (7) |
 | 13 | Can the implementation avoid an Account `ownerId` overlapping Player/Device/Account ID? | Yes — required (7) |
 | 14 | Does this avoid turning one provider into a provider framework? | Yes (2, 13) |
+| 15 | Can one Device resolve exactly one current Account from Session truth? | Yes — at most one Provider Session per Device (6) |
+| 16 | Can duplicate login identifiers make authentication ambiguous? | No — provider-scoped uniqueness (3) |
+| 17 | Does V1 forbid future audit or log consequences of authentication? | No — they are out of scope, not prohibited (5) |
