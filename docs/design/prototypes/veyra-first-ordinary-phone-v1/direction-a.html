@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEYRA exploration — Direction A (Index)</title>
+<link rel="stylesheet" href="harness.css">
+<script defer src="harness.js"></script>
+<style>
+/*
+ * DIRECTION A — "Index"
+ *
+ * Product idea: the phone is a quiet printed index of a person's life.
+ * Hierarchy is carried entirely by TYPE and WHITESPACE. There are no cards,
+ * no panels, no elevation, no fills, no icons and no bars. The only structural
+ * device is a hairline. Chrome appears only where it leads somewhere.
+ *
+ * The one systemic rule: THE SUBJECT IS ALWAYS SERIF, everything that is not
+ * the subject is small sans. Entering a Domain therefore demotes the Domain
+ * name from subject to label, and promotes its content.
+ */
+
+.a {
+  --paper: #f5f2ec;
+  --ink: #191a1b;
+  --ink-soft: #45464a;
+  --ink-mute: #86847f;
+  --rule: #d9d4ca;
+  --rule-soft: #e5e0d6;
+  --mark: #1f4a45;
+
+  --serif: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "DejaVu Serif", serif;
+  --sans: "Liberation Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  height: 100%;
+  padding: 30px 26px 26px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- control line: the whole of Direction A's OS chrome ---- */
+.a-controls {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.a-controls:empty { min-height: 4px; }
+
+.a-back,
+.a-home {
+  min-height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font: 400 12.5px/1 var(--sans);
+  letter-spacing: .02em;
+  cursor: pointer;
+}
+.a-back { margin-left: -2px; }
+.a-back i { font-style: normal; font-size: 13px; color: var(--ink-mute); }
+.a-home::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--mark);
+}
+
+/* ---- shared type ---- */
+.a-body { min-height: 0; overflow: hidden; padding-top: 26px; }
+.a-body--index { display: grid; align-content: center; padding-top: 0; }
+
+.a-label {
+  margin: 0 0 10px;
+  color: var(--ink-mute);
+  font: 400 11.5px/1 var(--sans);
+  letter-spacing: .15em;
+}
+
+.a-subject {
+  margin: 0;
+  font: 400 27px/1.15 var(--serif);
+  letter-spacing: -.01em;
+}
+
+.a-rule { height: 1px; background: var(--rule); border: 0; margin: 0; }
+
+/* ---- Home: three typographic groups, each one tap target ---- */
+.a-index { display: grid; align-content: center; gap: 0; }
+
+.a-group {
+  width: calc(100% + 8px);
+  margin-left: -4px;
+  padding: 0 4px 34px;
+  display: block;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.a-group:first-child { border-top: 0; }
+.a-group + .a-group { padding-top: 33px; }
+
+.a-group .a-label { margin-bottom: 13px; }
+
+.a-person {
+  display: block;
+  font: 400 25px/1.62 var(--serif);
+  letter-spacing: -.005em;
+}
+
+.a-balance {
+  display: block;
+  font: 400 36px/1.1 var(--serif);
+  letter-spacing: -.02em;
+}
+.a-provider {
+  display: block;
+  margin-top: 7px;
+  color: var(--ink-mute);
+  font: 400 12.5px/1 var(--sans);
+  letter-spacing: .03em;
+}
+.a-device {
+  display: block;
+  color: var(--ink-soft);
+  font: 400 20px/1.3 var(--serif);
+}
+
+/* ---- list rows: one grammar for conversations, money actions, settings ---- */
+.a-list { border-top: 1px solid var(--rule-soft); }
+
+.a-row {
+  width: 100%;
+  min-height: 62px;
+  padding: 15px 0 16px;
+  display: grid;
+  gap: 5px;
+  border: 0;
+  border-bottom: 1px solid var(--rule-soft);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.a-row__name { font: 400 21px/1.25 var(--serif); }
+.a-row__note {
+  color: var(--ink-mute);
+  font: 400 13px/1.35 var(--sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.a-row--flat { grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; min-height: 56px; }
+.a-row--flat .a-row__name { font-size: 19px; }
+.a-row--flat .a-row__state { color: var(--ink-mute); font: 400 12.5px/1 var(--sans); }
+
+/* ---- conversation transcript ---- */
+.a-thread { display: grid; align-content: start; gap: 22px; padding-top: 22px; }
+.a-msg { display: grid; gap: 6px; }
+.a-msg__who {
+  color: var(--ink-mute);
+  font: 400 12px/1 var(--sans);
+  letter-spacing: .04em;
+}
+.a-msg__body { margin: 0; font: 400 17px/1.55 var(--serif); }
+.a-msg--own { margin-left: 34px; padding-left: 14px; border-left: 1px solid var(--rule); }
+.a-msg--own .a-msg__body { color: var(--ink-soft); }
+
+/* ---- money ---- */
+.a-hero { padding: 6px 0 28px; }
+.a-hero .a-balance { font-size: 46px; }
+
+.a-activity { display: grid; }
+.a-act {
+  padding: 15px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 14px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.a-act__dir { font: 400 14px/1 var(--sans); letter-spacing: .01em; color: var(--ink-soft); }
+.a-act__ref { grid-column: 1; color: var(--ink-mute); font: 400 12.5px/1.3 var(--sans); }
+.a-act__amt { grid-column: 2; grid-row: 1 / span 2; align-self: center; font: 400 19px/1 var(--serif); }
+
+/* ---- settings facts ---- */
+.a-facts { border-top: 1px solid var(--rule-soft); }
+.a-fact { padding: 16px 0; display: grid; gap: 6px; border-bottom: 1px solid var(--rule-soft); }
+.a-fact dt { color: var(--ink-mute); font: 400 12.5px/1 var(--sans); letter-spacing: .03em; }
+.a-fact dd { margin: 0; font: 400 19px/1.3 var(--serif); }
+
+.a--quiet { color: var(--ink-soft); }
+
+/* Wide viewports centre the column rather than stretching the measure. */
+.a { padding-inline: max(26px, calc((100% - 520px) / 2)); }
+</style>
+</head>
+<body>
+
+<header class="harness-head">
+  <h1>VEYRA First Ordinary Phone — Visual Exploration V1 · Direction A “Index”</h1>
+  <p>Hierarchy from type and whitespace only. No cards, panels, elevation, fills, icons or bars —
+     the only structural device is a hairline. The subject is always serif; everything that is not
+     the subject is small sans. Chrome appears only where it leads somewhere.</p>
+  <p>Rendered at 390 × 800, approximating the Synthesis mobile viewport.
+     <a href="index.html">Back to exploration index</a></p>
+  <p class="harness-flag">VISUAL MOCKUP CONTENT — NOT SELECTED CANONICAL WORLD TRUTH</p>
+</header>
+
+<div class="board">
+
+  <!-- ============ 1. HOME ============ -->
+  <figure class="plate">
+    <figcaption>1 · Home</figcaption>
+    <div class="screen" id="a-home">
+      <div class="a">
+        <div class="a-controls"></div>
+        <div class="a-body a-body--index">
+          <div class="a-index">
+            <button class="a-group">
+              <p class="a-label">Communication</p>
+              <span class="a-person">Ana</span>
+              <span class="a-person">Mirek</span>
+              <span class="a-person">Sofie</span>
+            </button>
+            <button class="a-group">
+              <p class="a-label">Money</p>
+              <span class="a-balance">$1,250.00</span>
+              <span class="a-provider">Civic Dollar</span>
+            </button>
+            <button class="a-group">
+              <p class="a-label">Settings</p>
+              <span class="a-device">Petra’s Phone</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 2. COMMUNICATION ROOT ============ -->
+  <figure class="plate">
+    <figcaption>2 · Communication root</figcaption>
+    <div class="screen" id="a-communication">
+      <div class="a">
+        <div class="a-controls">
+          <span></span>
+          <button class="a-home">Home</button>
+        </div>
+        <div class="a-body">
+          <p class="a-label">Communication</p>
+          <div class="a-list">
+            <button class="a-row">
+              <span class="a-row__name">Ana</span>
+              <span class="a-row__note">Can you bring the blue folder on Saturday?</span>
+            </button>
+            <button class="a-row">
+              <span class="a-row__name">Mirek</span>
+              <span class="a-row__note">I left the key with the neighbour.</span>
+            </button>
+            <button class="a-row">
+              <span class="a-row__name">Sofie</span>
+              <span class="a-row__note">Thanks — that worked.</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 3. CONVERSATION DETAIL ============ -->
+  <figure class="plate">
+    <figcaption>3 · Conversation detail</figcaption>
+    <div class="screen" id="a-conversation">
+      <div class="a">
+        <div class="a-controls">
+          <button class="a-back"><i>↑</i>Communication</button>
+          <button class="a-home">Home</button>
+        </div>
+        <div class="a-body">
+          <h1 class="a-subject">Ana</h1>
+          <div class="a-thread">
+            <div class="a-msg">
+              <span class="a-msg__who">Ana</span>
+              <p class="a-msg__body">Are you still coming on Saturday?</p>
+            </div>
+            <div class="a-msg a-msg--own">
+              <span class="a-msg__who">Petra</span>
+              <p class="a-msg__body">Yes. Around four.</p>
+            </div>
+            <div class="a-msg">
+              <span class="a-msg__who">Ana</span>
+              <p class="a-msg__body">Can you bring the blue folder? The one from the office.</p>
+            </div>
+            <div class="a-msg a-msg--own">
+              <span class="a-msg__who">Petra</span>
+              <p class="a-msg__body">I’ll put it in the car tonight.</p>
+            </div>
+            <div class="a-msg">
+              <span class="a-msg__who">Ana</span>
+              <p class="a-msg__body">Thank you.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 4. MONEY ROOT ============ -->
+  <figure class="plate">
+    <figcaption>4 · Money root</figcaption>
+    <div class="screen" id="a-money">
+      <div class="a">
+        <div class="a-controls">
+          <span></span>
+          <button class="a-home">Home</button>
+        </div>
+        <div class="a-body">
+          <p class="a-label">Money</p>
+          <div class="a-hero">
+            <span class="a-balance">$1,250.00</span>
+            <span class="a-provider">Civic Dollar</span>
+          </div>
+          <div class="a-list">
+            <button class="a-row a-row--flat"><span class="a-row__name">Send</span></button>
+            <button class="a-row a-row--flat"><span class="a-row__name">Receive</span></button>
+            <button class="a-row a-row--flat"><span class="a-row__name">Account</span></button>
+          </div>
+          <p class="a-label" style="margin:30px 0 4px">Activity</p>
+          <div class="a-activity">
+            <div class="a-act">
+              <span class="a-act__dir">Sent</span>
+              <span class="a-act__ref">CD-4471-2298</span>
+              <span class="a-act__amt">−$120.00</span>
+            </div>
+            <div class="a-act">
+              <span class="a-act__dir">Received</span>
+              <span class="a-act__ref">CD-9930-1120</span>
+              <span class="a-act__amt">+$400.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 5. SETTINGS ROOT ============ -->
+  <figure class="plate">
+    <figcaption>5 · Settings root</figcaption>
+    <div class="screen" id="a-settings">
+      <div class="a a--quiet">
+        <div class="a-controls">
+          <span></span>
+          <button class="a-home">Home</button>
+        </div>
+        <div class="a-body">
+          <p class="a-label">Settings</p>
+          <h1 class="a-subject">Petra’s Phone</h1>
+          <div class="a-list" style="margin-top:26px">
+            <button class="a-row a-row--flat"><span class="a-row__name">This Device</span></button>
+            <button class="a-row a-row--flat">
+              <span class="a-row__name">Connection</span>
+              <span class="a-row__state">Connected</span>
+            </button>
+            <button class="a-row a-row--flat"><span class="a-row__name">Apps &amp; Software</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 6. SETTINGS DETAIL ============ -->
+  <figure class="plate">
+    <figcaption>6 · Settings detail — This Device</figcaption>
+    <div class="screen" id="a-settings-device">
+      <div class="a a--quiet">
+        <div class="a-controls">
+          <button class="a-back"><i>↑</i>Settings</button>
+          <button class="a-home">Home</button>
+        </div>
+        <div class="a-body">
+          <h1 class="a-subject">This Device</h1>
+          <dl class="a-facts" style="margin-top:30px">
+            <div class="a-fact"><dt>Name</dt><dd>Petra’s Phone</dd></div>
+            <div class="a-fact"><dt>System</dt><dd>VEYRA OS 4.1</dd></div>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+</div>
+</body>
+</html>

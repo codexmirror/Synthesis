@@ -1,0 +1,79 @@
+/*
+ * VEYRA First Ordinary Phone — visual exploration harness chrome.
+ *
+ * THIS IS NOT PRODUCTION SYNTHESIS CODE.
+ *
+ * These files are standalone static design references. They import nothing from
+ * `src/`, are not built by Vite, are not typechecked, are not tested, and are
+ * never mounted by the Synthesis Shell. They exist so a human can compare three
+ * candidate VEYRA product languages at realistic Synthesis mobile widths.
+ *
+ * This stylesheet owns only the comparison board around the screens. Each
+ * direction owns its own visual language inside its own file and shares no
+ * tokens with the others — that isolation is deliberate, because the point of
+ * the exercise is three independent languages rather than three themes of one.
+ */
+
+:root { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 28px 22px 60px;
+  background: #1a1a1c;
+  color: #e6e4e0;
+  font: 400 14px/1.5 "Liberation Sans", Arial, system-ui, sans-serif;
+}
+
+.harness-head { max-width: 1280px; margin: 0 auto 26px; }
+.harness-head h1 { margin: 0 0 6px; font-size: 19px; font-weight: 700; letter-spacing: .01em; }
+.harness-head p { margin: 0 0 4px; max-width: 78ch; color: #9d9a95; font-size: 13px; }
+.harness-head a { color: #9ec8d8; }
+
+.harness-flag {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 7px 11px;
+  border: 1px solid #6a5c3a;
+  background: #2a2519;
+  color: #d8c68f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .09em;
+}
+
+.board {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 34px 26px;
+}
+
+.plate { width: 390px; }
+
+.plate figcaption {
+  margin: 0 0 9px;
+  color: #8e8b86;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/*
+ * The screen itself. 390 x 800 approximates the Synthesis mobile viewport: the
+ * primary reference width is ~390 CSS px, and the usable height inside browser
+ * chrome is smaller than a device's full 844.
+ */
+.screen {
+  width: 390px;
+  height: 800px;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+.plate--wide { width: auto; }
+.plate--wide .screen { width: var(--w); }

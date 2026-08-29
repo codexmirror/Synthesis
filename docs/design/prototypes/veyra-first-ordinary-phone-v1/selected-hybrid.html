@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEYRA — human-selected B/C refinement</title>
+<link rel="stylesheet" href="harness.css">
+<script defer src="harness.js"></script>
+<style>
+/*
+ * HUMAN-SELECTED B/C REFINEMENT — the single final candidate.
+ *
+ * This is not Direction B made light, and not Direction C with a different
+ * Home. It is one system built from the parts human review selected:
+ *
+ *   VISUAL LANGUAGE      <- C   surfaces, typography, restraint, spacing, colour
+ *   HOME COMPOSITION     <- B   unequal, human content first, quiet Settings
+ *   COMMUNICATION        <- B   people-first, scannable, previews
+ *   CONVERSATION         <- B   two-sided grammar, refined away from chat-app
+ *   MONEY HIERARCHY      <- B   balance / provider / Send / Receive / Account
+ *   SETTINGS + DEVICE    <- C   near-directly; This Device is the visual anchor
+ *   NAVIGATION           <- C   edge band, refined to name its destination
+ *
+ * C's Home is rejected outright: no fixed frame, no three full-height Domain
+ * regions, no 54/27/19 split, no whole-screen Domain colour coding.
+ *
+ * The system rules, stated once:
+ *
+ *   ONE ground family. Paper is the world; one tone deeper is a recessed band;
+ *   there is no third surface and there are no cards.
+ *   NO SHADOWS. Depth is tone, never elevation.
+ *   ROUNDING only on filled objects (6px). Rows, bands and the page never round.
+ *   ONE type family, two weights (400 / 500). Hierarchy is size and space.
+ *   LABELS ARE SENTENCE CASE. Nothing here speaks in tracked uppercase.
+ *   ONE FILLED OBJECT PER SCREEN, AT MOST: the single consequential action.
+ *   ROWS are full-bleed and separated by a hairline, in every Domain.
+ */
+
+.v {
+  --sans: "Liberation Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --paper: #f2efe9;         /* the world */
+  --recess: #e8e4db;        /* one tone deeper: a recessed full-bleed band */
+  --tint: #dbe2dd;          /* the same idea, pulled cool, for the owner's voice */
+
+  --ink: #22211e;           /* deep graphite */
+  --ink-2: #57554f;
+  --ink-3: #8a867c;         /* quiet labels */
+  --line: rgba(34, 33, 30, .11);
+
+  --accent: #2b3e3a;        /* the one filled surface in the system */
+  --on-accent: #f2efe9;
+
+  --gutter: 24px;
+  --radius: 6px;
+
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.v-screen { min-height: 0; overflow: hidden; }
+
+/* ---------- type ---------- */
+.v-title {
+  margin: 0;
+  font: 500 30px/1.14 var(--sans);
+  letter-spacing: -.021em;
+}
+.v-sub { margin: 7px 0 0; color: var(--ink-3); font: 400 14px/1.3 var(--sans); }
+
+.v-label {
+  margin: 0 0 14px;
+  color: var(--ink-3);
+  font: 400 13px/1 var(--sans);
+  letter-spacing: 0;
+}
+
+.v-head { padding: 34px var(--gutter) 20px; }
+
+/* ---------- rows: one grammar everywhere ---------- */
+.v-row {
+  width: 100%;
+  min-height: 66px;
+  padding: 15px var(--gutter);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 16px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.v-row__name { font: 500 18px/1.3 var(--sans); }
+.v-row__note {
+  grid-column: 1;
+  color: var(--ink-3);
+  font: 400 14px/1.35 var(--sans);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v-row__side { display: flex; align-items: center; gap: 12px; color: var(--ink-3); font: 400 14px/1 var(--sans); }
+.v-chev { color: var(--ink-3); font: 400 17px/1 var(--sans); opacity: .55; }
+
+/* ---------- Home ---------- */
+.v-home {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, .78fr) auto minmax(0, 1.22fr) auto;
+}
+
+.v-people { padding: 58px var(--gutter) 0; }
+.v-person {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: 500 30px/1.74 var(--sans);
+  letter-spacing: -.016em;
+}
+
+/*
+ * The recessed band. C's ground-change idea kept, but spent once, on one
+ * subject, at a size that reads as a value rather than as a coloured region.
+ */
+.v-value {
+  width: 100%;
+  padding: 28px var(--gutter) 30px;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  background: var(--recess);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.v-value .v-label { margin-bottom: 11px; }
+.v-people .v-label { margin-bottom: 18px; }
+.v-amount { display: block; font: 500 34px/1 var(--sans); letter-spacing: -.028em; }
+.v-provider { display: block; margin-top: 11px; color: var(--ink-2); font: 400 14px/1 var(--sans); }
+
+.v-quiet-row {
+  width: 100%;
+  min-height: 62px;
+  padding: 16px var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--ink-2);
+  font: 400 17px/1.3 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+.v-quiet-row .v-row__side { font-size: 14px; }
+
+/* ---------- conversation ---------- */
+.v-thread { padding: 12px var(--gutter) 26px; display: grid; gap: 10px; }
+.v-msg {
+  max-width: 84%;
+  margin: 0;
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  background: var(--recess);
+  font: 400 16px/1.5 var(--sans);
+}
+/* The owner's own voice is the same idea pulled cool, not a louder bubble. */
+.v-msg--own { justify-self: end; background: var(--tint); }
+
+/* ---------- money ---------- */
+.v-money-head {
+  padding: 30px var(--gutter) 30px;
+  background: var(--recess);
+}
+.v-money-head .v-title { margin-bottom: 22px; }
+.v-balance { display: block; font: 500 44px/1 var(--sans); letter-spacing: -.032em; }
+.v-money-head .v-provider { margin-top: 13px; }
+
+.v-actions { padding: 22px var(--gutter) 22px; display: flex; gap: 10px; }
+.v-action {
+  flex: 1;
+  min-height: 54px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink);
+  font: 500 16px/1 var(--sans);
+  cursor: pointer;
+}
+.v-action--primary { flex: 1.35; background: var(--accent); color: var(--on-accent); }
+.v-action--secondary { border-color: rgba(34, 33, 30, .22); }
+
+.v-section { margin: 0; padding: 30px var(--gutter) 12px; color: var(--ink-3); font: 400 13px/1 var(--sans); }
+
+.v-activity { padding: 15px var(--gutter); border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px 16px; }
+.v-activity__dir { font: 400 16px/1.3 var(--sans); }
+.v-activity__ref { grid-column: 1; color: var(--ink-3); font: 400 13.5px/1.3 var(--sans); }
+.v-activity__amt { grid-column: 2; grid-row: 1 / span 2; font: 500 17px/1 var(--sans); letter-spacing: -.01em; }
+
+/* ---------- facts: the This Device anchor ---------- */
+.v-fact { padding: 20px var(--gutter); display: grid; gap: 8px; border-top: 1px solid var(--line); }
+.v-fact dt { color: var(--ink-3); font: 400 13px/1 var(--sans); }
+.v-fact dd { margin: 0; font: 500 19px/1.3 var(--sans); }
+
+/* ---------- navigation: an edge, not an object ---------- */
+.v-edge {
+  min-height: 62px;
+  padding: 0 14px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+.v-edge button {
+  min-height: 46px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 400 14.5px/1 var(--sans);
+  cursor: pointer;
+}
+.v-edge__back { justify-self: start; margin-left: -4px; }
+.v-edge__home { grid-column: 2; color: var(--ink); font-weight: 500; }
+
+/* Wide viewports hold the measure instead of stretching it. */
+.v-head, .v-row, .v-people, .v-value, .v-quiet-row, .v-thread,
+.v-money-head, .v-actions, .v-section, .v-activity, .v-fact {
+  padding-inline: max(var(--gutter), calc((100% - 560px) / 2));
+}
+</style>
+</head>
+<body>
+
+<header class="harness-head">
+  <h1>VEYRA First Ordinary Phone — <b>human-selected B/C refinement</b></h1>
+  <p><strong>This is the single final candidate.</strong> Direction A is not a base. Direction B
+     supplies the product and interaction composition for Home, Communication and Money. Direction C
+     supplies the visual language throughout, and Settings / This Device almost directly.
+     Direction C's Home is rejected and replaced.</p>
+  <p>One ground family and no cards; depth is tone, never elevation; rounding only on filled objects;
+     one type family at two weights with sentence-case labels; at most one filled surface per screen,
+     spent on the single consequential action.</p>
+  <p>Rendered at 390 × 800, approximating the Synthesis mobile viewport.
+     <a href="index.html">Back to exploration index</a></p>
+  <p class="harness-flag">VISUAL MOCKUP CONTENT — NOT SELECTED CANONICAL WORLD TRUTH</p>
+</header>
+
+<div class="board">
+
+  <!-- ============ 1. HOME ============ -->
+  <figure class="plate">
+    <figcaption>1 · Home</figcaption>
+    <div class="screen" id="v-home">
+      <div class="v" style="grid-template-rows: minmax(0, 1fr)">
+        <div class="v-screen">
+          <div class="v-home">
+            <div class="v-people">
+              <p class="v-label">Communication</p>
+              <button class="v-person">Ana</button>
+              <button class="v-person">Mirek</button>
+              <button class="v-person">Sofie</button>
+            </div>
+            <div></div>
+            <button class="v-value">
+              <p class="v-label">Money</p>
+              <span class="v-amount">$248.60</span>
+              <span class="v-provider">Civic Dollar</span>
+            </button>
+            <div></div>
+            <button class="v-quiet-row">
+              Settings
+              <span class="v-row__side">Petra’s Phone <span class="v-chev">›</span></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 2. COMMUNICATION ROOT ============ -->
+  <figure class="plate">
+    <figcaption>2 · Communication root</figcaption>
+    <div class="screen" id="v-communication">
+      <div class="v">
+        <div class="v-screen">
+          <div class="v-head"><h1 class="v-title">Communication</h1></div>
+          <button class="v-row">
+            <span class="v-row__name">Ana</span>
+            <span class="v-chev">›</span>
+            <span class="v-row__note">Can you bring the blue folder on Saturday?</span>
+          </button>
+          <button class="v-row">
+            <span class="v-row__name">Mirek</span>
+            <span class="v-chev">›</span>
+            <span class="v-row__note">I left the key with the neighbour.</span>
+          </button>
+          <button class="v-row">
+            <span class="v-row__name">Sofie</span>
+            <span class="v-chev">›</span>
+            <span class="v-row__note">Thanks — that worked.</span>
+          </button>
+        </div>
+        <nav class="v-edge">
+          <span></span>
+          <button class="v-edge__home">Home</button>
+          <span></span>
+        </nav>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 3. CONVERSATION DETAIL ============ -->
+  <figure class="plate">
+    <figcaption>3 · Conversation detail</figcaption>
+    <div class="screen" id="v-conversation">
+      <div class="v">
+        <div class="v-screen">
+          <div class="v-head">
+            <h1 class="v-title">Ana</h1>
+            <p class="v-sub">with Petra</p>
+          </div>
+          <div class="v-thread">
+            <p class="v-msg">Are you still coming on Saturday?</p>
+            <p class="v-msg v-msg--own">Yes. Around four.</p>
+            <p class="v-msg">Can you bring the blue folder? The one from the office.</p>
+            <p class="v-msg v-msg--own">I’ll put it in the car tonight.</p>
+            <p class="v-msg">Thank you.</p>
+          </div>
+        </div>
+        <nav class="v-edge">
+          <button class="v-edge__back">‹ Communication</button>
+          <button class="v-edge__home">Home</button>
+          <span></span>
+        </nav>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 4. MONEY ROOT ============ -->
+  <figure class="plate">
+    <figcaption>4 · Money root</figcaption>
+    <div class="screen" id="v-money">
+      <div class="v">
+        <div class="v-screen">
+          <div class="v-money-head">
+            <h1 class="v-title">Money</h1>
+            <span class="v-balance">$248.60</span>
+            <span class="v-provider">Civic Dollar</span>
+          </div>
+          <div class="v-actions">
+            <button class="v-action v-action--primary">Send</button>
+            <button class="v-action v-action--secondary">Receive</button>
+          </div>
+          <button class="v-row">
+            <span class="v-row__name">Account</span>
+            <span class="v-chev">›</span>
+          </button>
+          <p class="v-section">Activity</p>
+          <div class="v-activity">
+            <span class="v-activity__dir">Sent</span>
+            <span class="v-activity__ref">CD-3318-0472</span>
+            <span class="v-activity__amt">−$36.40</span>
+          </div>
+          <div class="v-activity">
+            <span class="v-activity__dir">Received</span>
+            <span class="v-activity__ref">CD-7025-1194</span>
+            <span class="v-activity__amt">+$120.00</span>
+          </div>
+        </div>
+        <nav class="v-edge">
+          <span></span>
+          <button class="v-edge__home">Home</button>
+          <span></span>
+        </nav>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 5. SETTINGS ROOT ============ -->
+  <figure class="plate">
+    <figcaption>5 · Settings root</figcaption>
+    <div class="screen" id="v-settings">
+      <div class="v">
+        <div class="v-screen">
+          <div class="v-head"><h1 class="v-title">Settings</h1></div>
+          <button class="v-row">
+            <span class="v-row__name">This Device</span>
+            <span class="v-row__side">Petra’s Phone <span class="v-chev">›</span></span>
+          </button>
+          <button class="v-row">
+            <span class="v-row__name">Connection</span>
+            <span class="v-row__side">Connected <span class="v-chev">›</span></span>
+          </button>
+          <button class="v-row">
+            <span class="v-row__name">Apps &amp; Software</span>
+            <span class="v-chev">›</span>
+          </button>
+        </div>
+        <nav class="v-edge">
+          <span></span>
+          <button class="v-edge__home">Home</button>
+          <span></span>
+        </nav>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 6. THIS DEVICE ============ -->
+  <figure class="plate">
+    <figcaption>6 · Settings detail — This Device</figcaption>
+    <div class="screen" id="v-this-device">
+      <div class="v">
+        <div class="v-screen">
+          <div class="v-head"><h1 class="v-title">This Device</h1></div>
+          <dl style="margin:0">
+            <div class="v-fact"><dt>Name</dt><dd>Petra’s Phone</dd></div>
+            <div class="v-fact"><dt>System</dt><dd>VEYRA OS 4.1</dd></div>
+          </dl>
+        </div>
+        <nav class="v-edge">
+          <button class="v-edge__back">‹ Settings</button>
+          <button class="v-edge__home">Home</button>
+          <span></span>
+        </nav>
+      </div>
+    </div>
+  </figure>
+
+</div>
+</body>
+</html>
