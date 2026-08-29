@@ -145,6 +145,7 @@ describe('command dispatcher', () => {
       [{ status: 'started' as const, processId: 'process-9' }, null],
       [{ status: 'already_running' as const }, ['ATTEMPT ALREADY RUNNING']],
       [{ status: 'access_established' as const }, ['ACCESS ALREADY ESTABLISHED']],
+      [{ status: 'submission_enabled' as const }, ['SUBMISSION ALREADY ENABLED']],
       [{ status: 'insufficient_memory' as const, requiredMiB: 896, availableMiB: 539.4 }, ['INSUFFICIENT MEMORY', '896 MiB required', '539 MiB available']],
       [{ status: 'endpoint_not_found' as const }, ['ENDPOINT NOT AVAILABLE']],
       [{ status: 'not_available' as const }, ['NO KNOWN ATTACK METHOD']],

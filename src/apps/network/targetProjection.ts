@@ -1,9 +1,10 @@
-import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit, findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
+import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit, findInstalledNodeScan, findInstalledRollbackExploitToolkit, nodeScanSupportsInspect, rollbackExploitToolkitSupports } from '../../core/game/software'
 import type {
   CredentialAccessProcess,
   GameState,
   GameProcess,
   LocalDeviceState,
+  RackUpdateExploitProcess,
   ServiceAnalysisProcess,
 } from '../../core/game/types'
 
@@ -18,7 +19,7 @@ import type {
  * vulnerability presence and attack feasibility cannot reach the interface
  * even by accident.
  */
-export type PlayerInformation = Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'process' | 'deviceAccess' | 'remoteSession'>
+export type PlayerInformation = Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'process' | 'deviceAccess' | 'remoteSession' | 'rackUpdate'>
 
 /** Currently installed NodeScan release and the capability it actually supplies. */
 export interface NodeScanRelease {
@@ -110,6 +111,40 @@ export interface LocalPackage {
 }
 
 /**
+ * A legitimate ATTACK opportunity against RackUpdate's own package-submission
+ * interface: earned `UPD-001` Knowledge, plus an installed tool that actually
+ * supports it. Exactly like a Credential `TargetRoute`, this never predicts
+ * success and is never derived from hidden current World Truth.
+ */
+export interface PackageSubmissionRoute {
+  readonly vulnerabilityId: string
+  readonly vulnerabilityLabel: string
+  readonly toolName: string
+}
+
+/**
+ * RackUpdate's package-submission lifecycle: an ATTACK opportunity while
+ * `enabled` is false, finite ATTACK progress while `attacking`, the narrow
+ * submission capability plus candidate packages once `enabled`, and finite
+ * upload progress while `submitting`. Successful ATTACK never implies
+ * DeviceAccess or a RemoteSession — only this one Service's own submission
+ * interface.
+ */
+export interface PackageSubmission {
+  readonly serviceId: string
+  readonly serviceName: string
+  readonly endpoint: string
+  readonly enabled: boolean
+  readonly route?: PackageSubmissionRoute
+  readonly attacking: boolean
+  readonly attackPercent?: number
+  readonly lastAttackFailed: boolean
+  readonly candidates: readonly LocalPackage[]
+  readonly submitting: boolean
+  readonly submitPercent?: number
+}
+
+/**
  * One remembered Network as relationship context for the targets inside it.
  * It is presentation grouping over `networkDeviceRelations`, not a level of
  * navigation: the Network itself is not openable and carries no action.
@@ -154,16 +189,11 @@ export interface Target extends TargetSummary {
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
   readonly session?: { readonly privilege: 'USER'; readonly connectedAddress: string; readonly viaServiceName?: string }
   /**
-   * RackUpdate's concrete rollback avenue, named only where earned Knowledge
-   * and a remembered package-submission interface both justify it. Advanced
-   * depth: it changes a target, it is not a way in.
+   * RackUpdate's package-submission lifecycle, named only where a remembered
+   * package-submission interface justifies it. Advanced depth: it is not the
+   * target's primary way-in decision.
    */
-  readonly rollback?: {
-    readonly serviceId: string
-    readonly serviceName: string
-    readonly endpoint: string
-    readonly candidates: readonly LocalPackage[]
-  }
+  readonly packageSubmission?: PackageSubmission
 }
 
 function percentOf(process: { workCompleted: number; workRequired: number }): number {
@@ -172,6 +202,7 @@ function percentOf(process: { workCompleted: number; workRequired: number }): nu
 
 function isServiceAnalysis(process: GameProcess): process is ServiceAnalysisProcess { return process.kind === 'service_analysis' }
 function isCredentialAccess(process: GameProcess): process is CredentialAccessProcess { return process.kind === 'credential_access' }
+function isRackUpdateExploit(process: GameProcess): process is RackUpdateExploitProcess { return process.kind === 'rack_update_exploit' }
 
 /** Aggregate canonical progress of one kind of work currently running against one target. */
 function runningPercent(processes: readonly { workCompleted: number; workRequired: number }[]): number {
@@ -186,7 +217,7 @@ function runningPercent(processes: readonly { workCompleted: number; workRequire
  * remembered Service row never adopts work aimed at a different endpoint of
  * the same stable Service identity.
  */
-function serviceProcesses<T extends ServiceAnalysisProcess | CredentialAccessProcess>(
+function serviceProcesses<T extends ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess>(
   processes: readonly T[], targetDeviceId: string, serviceId: string, endpoint: string,
 ): readonly T[] {
   return processes.filter((process) => process.targetDeviceId === targetDeviceId && process.serviceId === serviceId && process.startedEndpoint === endpoint)
@@ -305,6 +336,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
 
   const analyses = information.process.processes.filter(isServiceAnalysis)
   const attempts = information.process.processes.filter(isCredentialAccess)
+  const exploits = information.process.processes.filter(isRackUpdateExploit)
   const established = accessFor(information, device.id)
   const activeAccess = established.find(({ id }) => id === information.remoteSession.active?.accessId)
   const serviceName = (serviceId: string) => device.services.find(({ id }) => id === serviceId)?.name
@@ -398,32 +430,64 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
         },
       }
       : {}),
-    ...(selectRollback(information, device.id, services) ?? {}),
+    ...(selectPackageSubmission(information, device.id, exploits, services) ?? {}),
   }
 }
 
 /**
- * RackUpdate rollback stays exactly as demanding as it was: it is offered only
- * where a remembered package-submission interface and earned `UPD-001`
- * Knowledge both exist, it names the kind of artifact required rather than
- * where to find one, and it lists only packages already in SELF's canonical
- * filesystem. It is deliberately not part of the target's primary decision.
+ * RackUpdate's package submission stays exactly as demanding as the earlier
+ * rollback avenue was: it is offered only where a remembered package-
+ * submission interface and earned `UPD-001` Knowledge both exist. It reads no
+ * hidden target World Truth: candidate packages are compared only against
+ * what Enhanced Inspect actually remembered, ATTACK availability is derived
+ * only from the player's own Knowledge and installed tool, and progress comes
+ * only from the player's own Process and submission runtime. It is
+ * deliberately not part of the target's primary decision.
  */
-function selectRollback(information: PlayerInformation, deviceId: string, services: readonly TargetService[]): Pick<Target, 'rollback'> | undefined {
+function selectPackageSubmission(information: PlayerInformation, deviceId: string, exploits: readonly RackUpdateExploitProcess[], services: readonly TargetService[]): Pick<Target, 'packageSubmission'> | undefined {
   const rackUpdate = services.find((service) =>
     service.observed?.interface === 'Package submission' && service.weaknesses.some(({ id }) => id === 'UPD-001'))
   const managed = services.find((service) => service.observed?.implementation.startsWith('GateSSH '))
   const remembered = managed?.observed?.implementation.slice('GateSSH '.length)
   if (!rackUpdate || !remembered) return undefined
+
+  const localDeviceId = information.player.localDevice.id
+  const enabled = information.rackUpdate.access.established.some((access) =>
+    access.sourceDeviceId === localDeviceId && access.targetDeviceId === deviceId && access.viaServiceId === rackUpdate.id)
+
+  const attack = serviceProcesses(exploits, deviceId, rackUpdate.id, rackUpdate.endpoint)
+  const running = attack.find(({ status }) => status === 'running')
+  const lastAttack = [...attack].reverse().find((process) => process.status === 'completed' && process.result)?.result
+
+  const toolkit = findInstalledRollbackExploitToolkit(information.player.localDevice)
+  const weakness = rackUpdate.weaknesses.find(({ id }) => id === 'UPD-001')
+  // Exactly one represented rollback-exploit tool currently exists, so where
+  // it supports a weakness the player has actually learned about, there is no
+  // meaningful choice to force on them. The tool stays a real requirement:
+  // without the installation the opportunity is never formed at all.
+  const route: PackageSubmissionRoute | undefined = !enabled && toolkit && weakness && rollbackExploitToolkitSupports(toolkit, weakness.id)
+    ? { vulnerabilityId: weakness.id, vulnerabilityLabel: weakness.label, toolName: toolkit.name }
+    : undefined
+
+  const submission = information.rackUpdate.submission.active
+  const submitting = Boolean(submission && submission.sourceDeviceId === localDeviceId && submission.targetDeviceId === deviceId && submission.serviceId === rackUpdate.id)
+
   return {
-    rollback: {
+    packageSubmission: {
       serviceId: rackUpdate.id,
       serviceName: rackUpdate.name,
       endpoint: rackUpdate.endpoint,
-      candidates: information.player.localDevice.filesystem.files.flatMap((file) =>
+      enabled,
+      ...(route ? { route } : {}),
+      attacking: Boolean(running),
+      ...(running ? { attackPercent: percentOf(running) } : {}),
+      lastAttackFailed: lastAttack?.status === 'attempt_failed',
+      candidates: enabled ? information.player.localDevice.filesystem.files.flatMap((file) =>
         file.kind === 'software_package' && file.productId === 'gate-ssh' && isOlder(file.version, remembered)
           ? [{ id: file.id, path: file.path, label: `${file.name} ${file.version}` }]
-          : []),
+          : []) : [],
+      submitting,
+      ...(submitting && submission ? { submitPercent: Math.floor(submission.bytesTransferred / submission.bytesTotal * 100) } : {}),
     },
   }
 }

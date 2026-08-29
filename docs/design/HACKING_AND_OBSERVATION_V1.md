@@ -840,19 +840,28 @@ observed public package-submission interface
 +
 learned rollback weakness
 +
-a legitimately possessed older compatible package
+a supporting installed tool
 ↓
-submission
+ATTACK: finite represented work
+↓
+narrow package-submission capability (not access, not a session)
++
+a legitimately possessed compatible package
+↓
+submission: finite represented upload work
 ↓
 the target's managed GateSSH release actually changes
 ↓
-no access, no session, no Process
+no access, no session, no DeviceAccess or RemoteSession at any step
 ↓
 an existing technique that did not previously apply now applies
 
-This is the concrete counter-example to a hacking pipeline: the player did not
-advance through stages, they changed the world and the world's own rules
-produced a new avenue. Current implemented behavior is owned by
+The proof no longer rests on the interaction being instantaneous or
+Process-free: both ATTACK and submission are real elapsed represented work.
+What the proof demonstrates is untouched by that — the player never advances
+through stages toward access, they change the world and the world's own
+rules produce a new avenue, without ever creating DeviceAccess or a
+RemoteSession. Current implemented behavior is owned by
 `docs/current/NETWORK_ACCESS.md`.
 
 ⸻

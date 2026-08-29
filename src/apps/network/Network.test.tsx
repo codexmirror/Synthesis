@@ -10,7 +10,6 @@ import { scanNetworkTarget } from '../../core/game/scan'
 import { rememberInspect, rememberPing, rememberScan } from '../../core/game/discovery'
 import { inspectKnownTarget } from '../../core/game/inspect'
 import { pingNetworkTarget } from '../../core/game/ping'
-import { submitRackUpdatePackageFromObservation } from '../../core/game/rackUpdate'
 import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
 import { Network } from './Network'
 import { selectKnownSpace, selectTarget, selectTargets } from './targetProjection'
@@ -81,7 +80,8 @@ function withAccess(state: GameState = knownWeakness()): GameState {
 function actionStubs(): GameContext.GameActions {
   return {
     pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
-    startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
+    startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(),
+    startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
     removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
@@ -286,23 +286,21 @@ describe('NodeScan information boundary', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
   })
 
-  it('keeps stale remembered information stale after the world changes underneath it', async () => {
-    // A legitimate RackUpdate rollback changes the represented GateSSH release
-    // on a second target. Remembered evidence must not silently refresh.
+  it('keeps stale remembered information stale after the world changes for a reason the player never observed', async () => {
+    // Some other cause changed the represented GateSSH release on a second
+    // target (not the player's own submission). Remembered evidence must not
+    // silently refresh from hidden World Truth.
     const observed = withNodeScan11(createInitialGameState())
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
     let discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
     discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), observed.player.localDevice.id)
-    const gatePackage = observed.world.network.hosts.find(({ id }) => id === SRV_01)!.filesystem!.files.find(({ id }) => id === 'file-0003')!
-    const carrying = { ...observed, discovery, player: { ...observed.player, localDevice: { ...observed.player.localDevice, filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } } }
-    const applied = submitRackUpdatePackageFromObservation(
-      { ...carrying, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] } },
-      { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443', localFileId: 'file-local-gate' },
-    )
-    expect(applied.status).toBe('applied')
+    const changedWorld = {
+      ...observed, discovery,
+      world: { network: { ...observed.world.network, hosts: observed.world.network.hosts.map((host) => host.id !== 'host-lan-002' ? host : { ...host, services: host.services!.map((service) => service.id !== 'service-ssh-002' ? service : { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' } }) }) } },
+    }
 
     const user = userEvent.setup()
-    render(<GameProvider initialState={applied.state}><Network /></GameProvider>)
+    render(<GameProvider initialState={changedWorld}><Network /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
     // The world now runs GateSSH 1.3.2, which is vulnerable. Player memory says 1.3.3.
     expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
@@ -464,7 +462,7 @@ describe('NodeScan technical details', () => {
 
 /* ------------------------------------------------ RackUpdate as depth only */
 
-describe('RackUpdate after the reset', () => {
+describe('RackUpdate exploit and package submission', () => {
   function srv02(): GameState {
     const observed = withNodeScan11(createInitialGameState())
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
@@ -490,22 +488,8 @@ describe('RackUpdate after the reset', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
     expect(view.textContent!.replace(details.textContent!, '')).not.toContain('RackUpdate')
     // The whole avenue lives behind the disclosure, never on the decision surface.
-    expect(screen.getByRole('combobox', { name: 'Rollback package' }).closest('details')).toBe(details)
-  })
-
-  it('remains a complete avenue underneath, named only where Knowledge justifies it', async () => {
-    const user = userEvent.setup()
-    render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
-    await openDetails(user)
-
-    expect(screen.getByText(/does not enforce rollback protection/)).toBeInTheDocument()
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Rollback package' }), 'file-local-gate')
-    await user.click(screen.getByRole('button', { name: 'APPLY PACKAGE' }))
-
-    expect(screen.getByText('PACKAGE APPLIED')).toBeInTheDocument()
-    const managed = currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
-    expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.2')
+    await user.click(screen.getByText('RECON INTELLIGENCE'))
+    expect(screen.getByRole('button', { name: 'ATTACK' }).closest('details')).toBe(details)
   })
 
   it('does not offer the avenue before UPD-001 is earned', async () => {
@@ -515,7 +499,50 @@ describe('RackUpdate after the reset', () => {
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
     await openDetails(user)
 
-    expect(screen.queryByText('PACKAGE ROLLBACK')).not.toBeInTheDocument()
+    expect(screen.queryByText('PACKAGE SUBMISSION')).not.toBeInTheDocument()
+  })
+
+  it('offers no ATTACK opportunity without the represented tool, on identical Knowledge', async () => {
+    const withoutTool = { ...srv02(), player: { ...srv02().player, localDevice: { ...srv02().player.localDevice, installedSoftware: srv02().player.localDevice.installedSoftware.filter(({ id }) => id !== 'rollback-exploit-toolkit') } } }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withoutTool}><Network /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    await openDetails(user)
+
+    expect(screen.getByText(/does not enforce rollback protection/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'ATTACK' })).not.toBeInTheDocument()
+    expect(screen.getByText('No installed tool currently supports this weakness.')).toBeInTheDocument()
+  })
+
+  it('requires a finite ATTACK before the package-submission interface is usable, then applies the submitted release only once the upload completes', async () => {
+    vi.useFakeTimers()
+    render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: `Open target 203.0.113.42` }))
+    fireEvent.click(screen.getByText('RECON INTELLIGENCE'))
+
+    // ATTACK grants only the narrow submission capability: finite work, no immediate consequence.
+    fireEvent.click(screen.getByRole('button', { name: 'ATTACK' }))
+    expect(screen.getByRole('group', { name: 'Attack progress' })).toBeInTheDocument()
+    expect(currentState().rackUpdate.access.established).toEqual([])
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+
+    expect(currentState().rackUpdate.access.established).toHaveLength(1)
+    expect(currentState().deviceAccess.established).toEqual([])
+    expect(currentState().remoteSession.active).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'Rollback package' })).toBeInTheDocument()
+
+    // Package submission is represented upload work, not an instant mutation.
+    fireEvent.change(screen.getByRole('combobox', { name: 'Rollback package' }), { target: { value: 'file-local-gate' } })
+    fireEvent.click(screen.getByRole('button', { name: 'SUBMIT PACKAGE' }))
+    expect(screen.getByRole('group', { name: 'Submission progress' })).toBeInTheDocument()
+    let managed = currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
+    expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.3')
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+    managed = currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
+    expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.2')
+    expect(currentState().deviceAccess.established).toEqual([])
+    expect(currentState().remoteSession.active).toBeNull()
   })
 })
 

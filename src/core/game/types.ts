@@ -63,6 +63,28 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly result?: CredentialAccessResult
 }
 
+export type RackUpdateExploitResult =
+  | { readonly status: 'submission_enabled'; readonly accessId: string }
+  | { readonly status: 'attempt_failed'; readonly message: 'Exploit attempt failed.' }
+
+/**
+ * Finite represented work attacking RackUpdate's public package-submission
+ * protocol through its `UPD-001` rollback-protection weakness. Unlike
+ * `CredentialAccessProcess`, success never creates `DeviceAccess`: it grants
+ * only the narrow `RackUpdateSubmissionAccess` relationship that enables the
+ * one RackUpdate Service's own package-submission interaction (see
+ * `rackUpdate.ts`). ATTACK stays distinct from ACCESS.
+ */
+export interface RackUpdateExploitProcess extends ProcessBase {
+  readonly kind: 'rack_update_exploit'
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  readonly startedEndpoint: string
+  readonly vulnerabilityId: string
+  readonly toolId: 'rollback-exploit-toolkit'
+  readonly result?: RackUpdateExploitResult
+}
+
 /**
  * Continuous Device-owned executable runtime. Unlike the finite GameProcess
  * kinds above, it never reaches `completed` from elapsed work: STOP removes
@@ -178,7 +200,7 @@ export interface SoftwareRemovalProcess extends ProcessBase {
   readonly result?: SoftwareRemovalResult
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess
 
 export interface ProcessState {
   readonly nextId: number
@@ -262,6 +284,11 @@ export interface NodeScanInstallation extends InstalledSoftware {
 
 export interface BasicCredentialToolkitInstallation extends InstalledSoftware {
   readonly id: 'basic-credential-toolkit'
+}
+
+/** The concrete represented offensive tool supporting `UPD-001`; its role stays narrow, exactly like Basic Credential Toolkit's `AUTH-017` role. */
+export interface RollbackExploitToolkitInstallation extends InstalledSoftware {
+  readonly id: 'rollback-exploit-toolkit'
 }
 
 export interface NodeMinerInstallation extends InstalledSoftware {
@@ -698,6 +725,49 @@ export interface FileTransfer {
 
 export interface FileTransferState { readonly nextId: number; readonly active: FileTransfer | null }
 
+/**
+ * The narrow relationship a successful RackUpdate exploit grants: the right
+ * to use exactly one RackUpdate Service's own package-submission interface.
+ * Deliberately not `DeviceAccess`: it carries no privilege, authorizes no
+ * filesystem, RemoteSession, or credential authority, and enables nothing
+ * beyond that one Service's own submission protocol.
+ */
+export interface RackUpdateSubmissionAccess {
+  readonly id: string
+  readonly sourceDeviceId: string
+  readonly targetDeviceId: string
+  readonly viaServiceId: string
+}
+
+export interface RackUpdateAccessState { readonly nextId: number; readonly established: readonly RackUpdateSubmissionAccess[] }
+
+/**
+ * Represented finite network upload work carrying one local GateSSH package's
+ * bytes to a RackUpdate Service's own package-submission interface. Distinct
+ * from `FileTransfer`: the destination is a Service interaction, not a
+ * foreign filesystem path, so completion never creates a destination
+ * filesystem artifact — it applies the submitted release to the target's
+ * canonical Service implementation instead (see `rackUpdate.ts`).
+ */
+export interface RackUpdatePackageSubmission {
+  readonly id: string
+  /** The `RackUpdateSubmissionAccess` that authorized this submission. */
+  readonly accessId: string
+  readonly sourceDeviceId: string
+  readonly sourceFileId: string
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  readonly bytesTotal: number
+  readonly bytesTransferred: number
+}
+
+export interface RackUpdateSubmissionState { readonly nextId: number; readonly active: RackUpdatePackageSubmission | null }
+
+export interface RackUpdateState {
+  readonly access: RackUpdateAccessState
+  readonly submission: RackUpdateSubmissionState
+}
+
 export type RecentActivityEntry =
   | { readonly kind: 'process'; readonly id: string; readonly process: GameProcess; readonly termination?: 'cancelled' }
   | {
@@ -724,6 +794,7 @@ export interface GameState {
   readonly deviceAccess: DeviceAccessState
   readonly remoteSession: RemoteSessionState
   readonly fileTransfer: FileTransferState
+  readonly rackUpdate: RackUpdateState
   /** The player's represented in-world mailbox; communication, not Discovery or Knowledge. */
   readonly mail: MailState
   /** Bounded Device-runtime observations; not a world event history. */

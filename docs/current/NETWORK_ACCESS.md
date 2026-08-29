@@ -78,25 +78,35 @@ address, remembered Inspect evidence and its capability note, the provenance
 of established Access, the explanation of each way in (method, tool, service,
 remembered software fingerprint, weakness label and identity), the remembered
 Services with their endpoints, fingerprints, weaknesses and per-Service
-Analyze action, and RackUpdate's rollback avenue. Opening it browses
-remembered information: it performs no observation and starts no gameplay.
-Unobserved depth is stated explicitly there and never rendered as an observed
-empty result.
+Analyze action, and RackUpdate's package-submission lifecycle. Opening it
+browses remembered information: it performs no observation and starts no
+gameplay. Unobserved depth is stated explicitly there and never rendered as an
+observed empty result.
 
-The RackUpdate `ROLLBACK GATESSH` avenue is projected only when remembered
+RackUpdate's package-submission lifecycle is projected only when remembered
 Enhanced Inspect evidence includes its package-submission interface and earned
-`UPD-001` Knowledge explains that avenue, and only inside RECON INTELLIGENCE. It
-describes the need for an older compatible GateSSH package and lists only
-candidate package artifacts in SELF's canonical filesystem, identified by
-stable local file ID. With no candidate it reports `None`; it does not reveal a
-hidden package, path, source Device, or prescribed next observation. It is
-never presented as a way in, because no installed tool supports `UPD-001`.
+`UPD-001` Knowledge explains it, and only inside RECON INTELLIGENCE — never on
+the primary decision surface. Before the narrow submission capability exists,
+it states an ATTACK opportunity exactly like a credential way in: it names the
+weakness, the supporting installed tool, and offers ATTACK only where the
+Rollback Exploit Toolkit is actually installed; without that tool it states
+that no installed tool currently supports the weakness. ATTACK starts a real
+finite `rack_update_exploit` Process (see Service Analysis / Credential Access
+above for the shared Process model) and shows its own progress while running.
+Once that Process completes successfully, RackUpdate grants the player's local
+Device a narrow `RackUpdateSubmissionAccess` relationship scoped to exactly
+that Service — never `DeviceAccess`, never a `RemoteSession`, and never
+filesystem or credential authority. Only then does the interface describe the
+need for an older compatible GateSSH package and list only candidate package
+artifacts in SELF's canonical filesystem, identified by stable local file ID;
+with no candidate it reports `None`. It does not reveal a hidden package,
+path, source Device, or prescribed next observation.
 
-This projection reads no hidden target World Truth to label an avenue, predict
-success, refresh a fingerprint, or expose a way in. Consequently a successful
-rollback leaves the remembered GateSSH 1.3.3 fingerprint unchanged until a
-later legitimate Enhanced Inspect, and the resulting AUTH-017 route still
-requires legitimate Service Analysis.
+This projection reads no hidden target World Truth to label the opportunity,
+predict success, refresh a fingerprint, or expose a way in: ATTACK opportunity,
+progress, and the narrow submission capability are all derived from the
+player's own Knowledge, installed software, Process, and `RackUpdateSubmissionAccess`
+state alone.
 
 Because there is no canonical "analyzed" state, a Service that has not
 produced Knowledge claims no analysis state at all. A completed no-weakness or
@@ -335,7 +345,13 @@ It does not establish access immediately.
 
 Completion resolves against current World Truth and validates the represented target, service, endpoint relationship, service availability, current weakness, and represented credential-access context. Success creates persistent USER `DeviceAccess`; failure creates no access and does not rewrite historical Discovery or Knowledge.
 
-RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release, but Knowledge is informative rather than submission authority. The canonical synchronous submission operation resolves the observed stable Device and Service identities and endpoint plus a stable local file ID. A valid represented GateSSH 1.3.2 package changes only a managed GateSSH 1.3.3 Service implementation to 1.3.2. It grants no access or session and starts no Process or FileTransfer. Existing Analysis and Credential Access subsequently react to the newly applicable `AUTH-017`. Historical Inspect evidence remains stale until another Inspect. This is the current concrete proof that interaction is not access: represented state mutation changes which existing technique applies.
+RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release. Knowledge alone is informative rather than submission authority: exploiting it requires an installed tool that actually supports `UPD-001` — the Rollback Exploit Toolkit — exactly as Credential Access requires the Basic Credential Toolkit for `AUTH-017`, and this tool's role stays equally narrow.
+
+ATTACK against RackUpdate starts a real finite `rack_update_exploit` Process (see Service Analysis above for the shared Process model). Completion resolves against current World Truth exactly once and, on success, grants the attacking Device a narrow `RackUpdateSubmissionAccess` relationship scoped to that one RackUpdate Service (`GameState.rackUpdate.access`) — never `DeviceAccess`, never a `RemoteSession`, and no filesystem or credential authority. Failure creates no such relationship and does not rewrite historical Discovery or Knowledge, mirroring Credential Access's failure semantics.
+
+Only a Device holding that narrow capability may submit a compatible local GateSSH package. Submission is represented finite upload work (`GameState.rackUpdate.submission`), a distinct network runtime from `GameProcess` and from `FileTransfer` — it is not a filesystem Upload and requires neither `RemoteSession` nor `DeviceAccess`. It resolves the observed stable Device and Service identities and endpoint plus a stable local file ID, admits one active submission at a time, and its effective byte rate is derived through the same Device/LocalNetwork transfer-capacity model `docs/current/DEVICE_SYSTEM.md` and `docs/current/FILES_SOFTWARE.md` describe for `FileTransfer`. Cancelling or losing the route (an offline endpoint, a changed RackUpdate Service, ambiguous or invalid transfer capacity) ends the submission with no part of the package applied; a terminal outcome (COMPLETED, CANCELLED, or INTERRUPTED) appends the same Network-owned transfer evidence `FileTransfer` produces, reusing the identical evidence and membership-resolution functions rather than a parallel model, and never once per advancement tick.
+
+Only when the upload actually completes does a valid represented GateSSH 1.3.2 package change a managed GateSSH 1.3.3 Service implementation to 1.3.2; cancellation, interruption, or failure changes nothing. Existing Analysis and Credential Access subsequently react to the newly applicable `AUTH-017`. This successful submission is also the player's own legitimate observation of what they just applied: it refreshes only that Service's own already-remembered Enhanced Inspect implementation fingerprint, and touches no other remembered evidence and no hidden World Truth. This remains the current concrete proof that interaction is not access: represented state mutation, reached only through represented elapsed work, changes which existing technique applies.
 
 ## Reaching the represented personal phone
 
@@ -548,3 +564,9 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   failed attempt.
 - NodeScan target Scan, Inspect, and Analyze remain separate explicit operations.
   None relaxes the admission or information boundary of another.
+- `RackUpdateSubmissionAccess` is not `DeviceAccess`. It is a narrower grant
+  scoped to exactly one RackUpdate Service's own package-submission interface,
+  never a privilege, filesystem, credential, or session authority.
+- RackUpdate package submission is finite network runtime, not a `GameProcess`
+  and not a filesystem `FileTransfer`. It never partially applies its package:
+  the release swap happens exactly once, only at real upload completion.

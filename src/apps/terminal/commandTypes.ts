@@ -2,6 +2,7 @@ import type { ScanResult } from '../../core/game/scan'
 import type { PingResult } from '../../core/game/ping'
 import type { InspectResult } from '../../core/game/inspect'
 import type { StartCredentialAccessResult } from '../../core/game/credentialAccess'
+import type { StartRackUpdateExploitResult } from '../../core/game/rackUpdate'
 import type { ListDirectoryResult, ReadTextFileResult } from '../../core/game/filesystem'
 import type { ConnectRemoteResult, DisconnectRemoteResult } from '../../core/game/remoteSession'
 import type { InstalledSoftware } from '../../core/game/types'
@@ -9,7 +10,8 @@ import type { InstallLocalSoftwarePackageResult } from '../../core/game/software
 import type { NodeMinerTerminalOperations } from '../nodeMinerTerminal'
 
 type WithoutState<T> = T extends { state: unknown } ? Omit<T, 'state'> : T
-export type TerminalAttackResult = WithoutState<StartCredentialAccessResult>
+/** ATTACK dispatches to the technique the observed weakness actually is; a Credential attack and a RackUpdate exploit report distinct terminal outcomes ('access_established' vs 'submission_enabled'), so both shapes are represented. */
+export type TerminalAttackResult = WithoutState<StartCredentialAccessResult> | WithoutState<StartRackUpdateExploitResult>
 export type TerminalAnalyzeResult =
   | { status: 'started'; processId: string }
   | { status: 'invalid_endpoint' | 'endpoint_not_found' | 'software_unavailable' | 'unavailable' | 'already_running' }

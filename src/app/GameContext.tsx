@@ -18,7 +18,7 @@ import { payoutLocalNodeMiner, payoutNodeMiner, retargetLocalNodeMinerPayout, re
 import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
-import { submitRackUpdatePackageFromObservation, type RackUpdateObservation, type SubmitRackUpdatePackageResult } from '../core/game/rackUpdate'
+import { cancelRackUpdatePackageSubmission, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission, type CancelRackUpdatePackageSubmissionResult, type RackUpdateExploitObservation, type RackUpdateSubmissionObservation, type StartRackUpdateExploitResult, type StartRackUpdatePackageSubmissionResult } from '../core/game/rackUpdate'
 import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, logoutDollarAccount, transferDollars, transferDollarsFromOperatedRemoteDevice, type AuthenticateDollarAccountResult, type AuthenticateWithSavedDollarSignInResult, type LogoutDollarAccountResult, type TransferDollarsResult, type TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 
 const GameContext = createContext<GameState | null>(null)
@@ -38,7 +38,9 @@ export interface GameActions {
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
   startObservedServiceAnalyses(observed: readonly ObservedServiceTarget[]): ObservedServiceAnalysisBatchResult
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
-  submitRackUpdatePackageFromObservation(observed: RackUpdateObservation): SubmitRackUpdatePackageResult
+  startRackUpdateExploitAttemptFromObservation(observed: RackUpdateExploitObservation): StartRackUpdateExploitResult
+  startRackUpdatePackageSubmission(observed: RackUpdateSubmissionObservation): StartRackUpdatePackageSubmissionResult
+  cancelRackUpdatePackageSubmission(submissionId: string): CancelRackUpdatePackageSubmissionResult
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
   disconnectRemoteSession(): DisconnectRemoteResult
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
@@ -149,9 +151,23 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       setGameState(result.state)
     }
     return result
-  }, submitRackUpdatePackageFromObservation(observed) {
-    const result = submitRackUpdatePackageFromObservation(currentState.current, observed)
-    if (result.status === 'applied') { currentState.current = result.state; setGameState(result.state) }
+  }, startRackUpdateExploitAttemptFromObservation(observed) {
+    const result = startRackUpdateExploitAttemptFromObservation(currentState.current, observed)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, startRackUpdatePackageSubmission(observed) {
+    const result = startRackUpdatePackageSubmission(currentState.current, observed)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, cancelRackUpdatePackageSubmission(submissionId) {
+    const result = cancelRackUpdatePackageSubmission(currentState.current, submissionId)
+    if (result.status === 'cancelled') { currentState.current = result.state; setGameState(result.state) }
     return result
   }, connectRemoteFromObservation(observed) {
     const result = connectRemoteFromObservation(currentState.current, observed)

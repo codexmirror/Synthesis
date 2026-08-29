@@ -12,7 +12,8 @@ type CompletedProjection =
   | { kind: 'service_analysis'; label: string; endpoint: string; result: 'weaknesses_detected'; vulnerabilityLabels: readonly string[] }
   | { kind: 'service_analysis'; label: string; endpoint: string; result: 'no_weakness_detected' | 'service_unavailable' }
   | { kind: 'credential_access'; label: string; endpoint: string; result: 'access_established'; privilege?: 'USER' }
-  | { kind: 'credential_access'; label: string; endpoint: string; result: 'attempt_failed'; message: string }
+  | { kind: 'credential_access' | 'rack_update_exploit'; label: string; endpoint: string; result: 'attempt_failed'; message: string }
+  | { kind: 'rack_update_exploit'; label: string; endpoint: string; result: 'submission_enabled' }
 
 type Entry =
   | { command: string; output: TerminalLine[] }
@@ -51,6 +52,9 @@ function CompletedProcessProjection({ completed }: { completed: CompletedProject
       {completed.result === 'weaknesses_detected' && <><strong>WEAKNESS DETECTED</strong>{completed.vulnerabilityLabels.map((label, index) => <div key={index}>{label}</div>)}<div className="known-interaction">Known interaction<br />attack <TargetToken value={completed.endpoint} scope="external" /></div></>}
       {completed.result === 'no_weakness_detected' && <strong>NO WEAKNESS DETECTED</strong>}
       {completed.result === 'service_unavailable' && <strong>SERVICE UNAVAILABLE</strong>}
+    </> : completed.kind === 'rack_update_exploit' ? <>
+      {completed.result === 'submission_enabled' && <strong>SUBMISSION ENABLED</strong>}
+      {completed.result === 'attempt_failed' && <><strong>ATTEMPT FAILED</strong><div>{completed.message}</div></>}
     </> : <>
       {completed.result === 'access_established' && <><strong>ACCESS ESTABLISHED</strong>{completed.privilege && <div>{completed.privilege}</div>}</>}
       {completed.result === 'attempt_failed' && <><strong>ATTEMPT FAILED</strong><div>{completed.message}</div></>}
@@ -68,6 +72,7 @@ function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess;
     <strong>{process.label}</strong>
     <div><TargetToken value={process.startedEndpoint} scope="external" /></div>
     {process.kind === 'credential_access' && process.status === 'running' && <div className="muted">Basic Credential Toolkit</div>}
+    {process.kind === 'rack_update_exploit' && process.status === 'running' && <div className="muted">Rollback Exploit Toolkit</div>}
     <div className="process-state">{process.status.toUpperCase()}</div>
     {process.status === 'running' ? <>
       <div aria-label={`${progress}% complete`}><span aria-hidden="true">{'█'.repeat(filled)}{'░'.repeat(10 - filled)}</span> {progress}%</div>
@@ -76,6 +81,9 @@ function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess;
       {process.result?.status === 'weaknesses_detected' && <><strong>WEAKNESS DETECTED</strong>{process.result.vulnerabilities.map((item) => <div key={item.vulnerabilityId}>{item.observedLabel}</div>)}<div className="known-interaction">Known interaction<br />attack <TargetToken value={process.startedEndpoint} scope="external" /></div></>}
       {process.result?.status === 'no_weakness_detected' && <strong>NO WEAKNESS DETECTED</strong>}
       {process.result?.status === 'service_unavailable' && <strong>SERVICE UNAVAILABLE</strong>}
+    </> : process.kind === 'rack_update_exploit' ? <>
+      {process.result?.status === 'submission_enabled' && <strong>SUBMISSION ENABLED</strong>}
+      {process.result?.status === 'attempt_failed' && <><strong>ATTEMPT FAILED</strong><div>{process.result.message}</div></>}
     </> : <>
       {process.result?.status === 'access_established' && <><strong>ACCESS ESTABLISHED</strong>{access && <div>{access.privilege}</div>}</>}
       {process.result?.status === 'attempt_failed' && <><strong>ATTEMPT FAILED</strong><div>{process.result.message}</div></>}
@@ -101,6 +109,10 @@ export function Terminal() {
           completed = process.result.status === 'weaknesses_detected'
             ? { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status, vulnerabilityLabels: process.result.vulnerabilities.map(({ observedLabel }) => observedLabel) }
             : { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status }
+        } else if (process.kind === 'rack_update_exploit') {
+          completed = process.result.status === 'submission_enabled'
+            ? { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status }
+            : { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status, message: process.result.message }
         } else if (process.result.status === 'access_established') {
           const accessId = process.result.accessId
           const privilege = gameState.deviceAccess.established.find(({ id }) => id === accessId)?.privilege

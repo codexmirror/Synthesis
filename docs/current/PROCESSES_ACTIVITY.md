@@ -19,6 +19,14 @@ Current production Process consumers are:
 
 - Service Analysis
 - Credential Access
+- RackUpdate Exploit (`rack_update_exploit`) — finite work attacking
+  RackUpdate's package-submission interface through its `UPD-001` weakness;
+  success grants only a narrow `RackUpdateSubmissionAccess` relationship
+  (`docs/current/NETWORK_ACCESS.md`), never `DeviceAccess`. RackUpdate's
+  actual package-submission upload is a distinct non-Process network runtime,
+  owned by `docs/current/NETWORK_ACCESS.md` and governed by the same
+  Device/LocalNetwork transfer-capacity model `docs/current/DEVICE_SYSTEM.md`
+  and `docs/current/FILES_SOFTWARE.md` describe for `FileTransfer`.
 - Software Installation and Software Removal
 - NODE Miner, the one continuous Process kind: it never reaches `completed`
   from elapsed work

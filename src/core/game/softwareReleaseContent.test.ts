@@ -6,14 +6,16 @@ import {
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
   NODE_MINER_1_0,
+  ROLLBACK_EXPLOIT_TOOLKIT_1_0,
 } from './softwareReleaseContent'
 
 describe('authored software release content', () => {
-  it('owns the four current releases under their exact stable release IDs', () => {
+  it('owns the five current releases under their exact stable release IDs', () => {
     expect(AUTHORED_SOFTWARE_RELEASES.map(({ releaseId }) => releaseId)).toEqual([
       'nodescan-1.0-standard',
       'nodescan-1.1-experimental',
       'basic-credential-toolkit-1.0',
+      'rollback-exploit-toolkit-1.0',
       'node-miner-1.0',
     ])
   })
@@ -28,6 +30,10 @@ describe('authored software release content', () => {
     expect(installed.find(({ id }) => id === BASIC_CREDENTIAL_TOOLKIT_1_0.productId)).toEqual({
       id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId,
       name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version,
+    })
+    expect(installed.find(({ id }) => id === ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId)).toEqual({
+      id: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId, releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId,
+      name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
     })
   })
 

@@ -2,6 +2,7 @@ import './network.css'
 import { useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
+import { ROLLBACK_EXPLOIT_TOOLKIT_ID } from '../../core/game/rackUpdate'
 import { isValidIpv4 } from '../../core/game/networkTarget'
 import {
   resolveNodeScanRelease,
@@ -199,15 +200,33 @@ export function Network() {
     else setNotice(result.started ? null : 'NO ANALYSIS AVAILABLE')
   }
 
+  function attackPackageSubmission(target: Target) {
+    const packageSubmission = target.packageSubmission
+    if (!packageSubmission?.route) return
+    const result = actions.startRackUpdateExploitAttemptFromObservation({
+      endpoint: packageSubmission.endpoint, targetDeviceId: target.id, serviceId: packageSubmission.serviceId,
+      vulnerabilityId: packageSubmission.route.vulnerabilityId, toolId: ROLLBACK_EXPLOIT_TOOLKIT_ID,
+    })
+    if (result.status === 'started') setNotice(null)
+    else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
+    else setNotice(result.status === 'already_running' ? 'ALREADY RUNNING'
+      : result.status === 'submission_enabled' ? 'SUBMISSION ALREADY ENABLED'
+      : result.status === 'endpoint_not_found' ? 'TARGET NOT AVAILABLE'
+      : 'NOT AVAILABLE')
+  }
+
   function submitPackage(target: Target) {
-    const rollback = target.rollback
-    if (!rollback) return
-    const result = actions.submitRackUpdatePackageFromObservation({ targetDeviceId: target.id, serviceId: rollback.serviceId, endpoint: rollback.endpoint, localFileId: selectedPackageId })
-    setNotice(result.status === 'applied' ? 'PACKAGE APPLIED'
+    const packageSubmission = target.packageSubmission
+    if (!packageSubmission) return
+    const result = actions.startRackUpdatePackageSubmission({ targetDeviceId: target.id, serviceId: packageSubmission.serviceId, endpoint: packageSubmission.endpoint, localFileId: selectedPackageId })
+    setNotice(result.status === 'started' ? 'SUBMISSION STARTED'
       : result.status === 'observation_required' ? 'OBSERVATION REQUIRED'
-        : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
-          : result.status === 'package_rejected' ? 'PACKAGE REJECTED'
-            : 'PACKAGE NOT APPLIED')
+        : result.status === 'access_required' ? 'ATTACK RACKUPDATE FIRST'
+          : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
+            : result.status === 'package_incompatible' ? 'PACKAGE REJECTED'
+              : result.status === 'submission_in_progress' ? 'SUBMISSION ALREADY IN PROGRESS'
+                : result.status === 'capacity_unavailable' ? 'NETWORK UNAVAILABLE'
+                  : 'PACKAGE NOT SUBMITTED')
   }
 
   async function copy(value: string) {
@@ -247,6 +266,7 @@ export function Network() {
         onAnalyzeAll={() => analyzeAll(target)}
         onCopy={copy}
         onSelectPackage={setSelectedPackageId}
+        onAttackPackageSubmission={() => attackPackageSubmission(target)}
         onSubmitPackage={() => submitPackage(target)}
       />
     </section>
@@ -365,7 +385,7 @@ function TargetRow({ target, showLocation, onOpen }: { target: TargetSummary; sh
  * One target, one decision. The stage panel states where this target's line of
  * action currently is and offers the single action that continues it.
  */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onHack, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onHack, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onAttackPackageSubmission, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -382,6 +402,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   onAnalyzeAll(): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
+  onAttackPackageSubmission(): void
   onSubmitPackage(): void
 }) {
   const routes = target.routes.length
@@ -464,6 +485,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         onAnalyze={onAnalyze}
         onCopy={onCopy}
         onSelectPackage={onSelectPackage}
+        onAttackPackageSubmission={onAttackPackageSubmission}
         onSubmitPackage={onSubmitPackage}
       />
     </details>
@@ -495,7 +517,7 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
  * information and their own represented resources; none of it is a new
  * observation, and none of it reads current target truth.
  */
-function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onAttackPackageSubmission, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   copyState: CopyState
@@ -504,6 +526,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
   onAnalyze(service: TargetService): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
+  onAttackPackageSubmission(): void
   onSubmitPackage(): void
 }) {
   return <div className="ns-detail-panel">
@@ -575,18 +598,38 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
             : <button type="button" className="node-action" aria-label={`Analyze ${service.name}`} onClick={() => onAnalyze(service)}>ANALYZE</button>}
         </article>)}</div>}
 
-    {target.rollback && <>
-      <div className="node-section"><span>PACKAGE ROLLBACK</span></div>
-      <div className="ns-rollback">
-        <p className="ns-quiet-note">{target.rollback.serviceName} accepts submitted packages and does not enforce rollback protection. Requires an older compatible GateSSH package.</p>
-        <label className="node-field">
-          <span>AVAILABLE</span>
-          <select className="node-input" aria-label="Rollback package" value={selectedPackageId} onChange={(event) => onSelectPackage(event.target.value)}>
-            <option value="">{target.rollback.candidates.length ? 'Select local package' : 'None'}</option>
-            {target.rollback.candidates.map((file) => <option key={file.id} value={file.id}>{file.label} · {file.path}</option>)}
-          </select>
-        </label>
-        {target.rollback.candidates.length > 0 && <button type="button" className="node-action" onClick={onSubmitPackage}>APPLY PACKAGE</button>}
+    {target.packageSubmission && <>
+      <div className="node-section"><span>PACKAGE SUBMISSION</span></div>
+      <div className="ns-package-submission">
+        <p className="ns-quiet-note">{target.packageSubmission.serviceName} accepts submitted packages and does not enforce rollback protection.</p>
+
+        {!target.packageSubmission.enabled && target.packageSubmission.route && !target.packageSubmission.attacking && <>
+          <dl className="node-facts">
+            <div><dt>METHOD</dt><dd>Rollback exploit</dd></div>
+            <div><dt>TOOL</dt><dd>{target.packageSubmission.route.toolName}</dd></div>
+            <div><dt>WEAKNESS</dt><dd>{target.packageSubmission.route.vulnerabilityLabel} · {target.packageSubmission.route.vulnerabilityId}</dd></div>
+          </dl>
+          {target.packageSubmission.lastAttackFailed && <p className="ns-quiet-note">The last attack failed.</p>}
+          <button type="button" className="node-action" onClick={onAttackPackageSubmission}>{target.packageSubmission.lastAttackFailed ? 'ATTACK AGAIN' : 'ATTACK'}</button>
+        </>}
+
+        {target.packageSubmission.attacking && <Progress percent={target.packageSubmission.attackPercent ?? 0} label="Attack progress" />}
+
+        {!target.packageSubmission.enabled && !target.packageSubmission.route && !target.packageSubmission.attacking && <p className="ns-quiet-note">No installed tool currently supports this weakness.</p>}
+
+        {target.packageSubmission.enabled && !target.packageSubmission.submitting && <>
+          <p className="ns-quiet-note">Submission enabled. Requires an older compatible GateSSH package.</p>
+          <label className="node-field">
+            <span>AVAILABLE</span>
+            <select className="node-input" aria-label="Rollback package" value={selectedPackageId} onChange={(event) => onSelectPackage(event.target.value)}>
+              <option value="">{target.packageSubmission.candidates.length ? 'Select local package' : 'None'}</option>
+              {target.packageSubmission.candidates.map((file) => <option key={file.id} value={file.id}>{file.label} · {file.path}</option>)}
+            </select>
+          </label>
+          {target.packageSubmission.candidates.length > 0 && <button type="button" className="node-action" onClick={onSubmitPackage}>SUBMIT PACKAGE</button>}
+        </>}
+
+        {target.packageSubmission.submitting && <Progress percent={target.packageSubmission.submitPercent ?? 0} label="Submission progress" />}
       </div>
     </>}
   </div>

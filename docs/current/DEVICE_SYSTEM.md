@@ -27,7 +27,8 @@ GameState
 │       ├── runtime state
 │       ├── installed software
 │       │   ├── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
-│       │   └── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
+│       │   ├── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
+│       │   └── Rollback Exploit Toolkit (`rollback-exploit-toolkit`, release `rollback-exploit-toolkit-1.0`) 1.0
 │       └── saved Dollar sign-in
 ├── dollarFinance
 ├── nodeWallet
@@ -48,6 +49,9 @@ GameState
 ├── deviceAccess
 ├── remoteSession
 ├── fileTransfer
+├── rackUpdate
+│   ├── access — narrow RackUpdate package-submission capability grants
+│   └── submission — the one active RackUpdate package-submission upload runtime
 ├── mail
 │   └── the player's represented in-world mailbox
 └── recentActivity
@@ -201,6 +205,13 @@ stored, and none of it — Device capacity or LocalNetwork capacity — is
 exposed through Scan, Discovery, Inspect, or any other player-facing
 surface. Both are canonical World Truth, not Player Knowledge.
 
+RackUpdate package submission (`docs/current/NETWORK_ACCESS.md`) is a second
+consumer of this same model: its finite upload runtime reuses
+`deriveEffectiveTransferRateBytesPerSecond` and
+`deriveCrossNetworkTransferRateBytesPerSecond` directly rather than
+duplicating a parallel rate derivation, so the same same-Network/cross-Network
+and ambiguous-membership rules that govern `FileTransfer` govern it too.
+
 Both represented servers and the represented personal phone also own concrete
 CPU, RAM, and baseline CPU/RAM runtime state. This resource truth is not exposed through Scan, Discovery, or
 Inspect. The shallow training hosts remain non-resource-capable, and
@@ -245,6 +256,15 @@ source/destination address snapshots, the bytes actually transferred at that
 terminal moment (not necessarily `bytesTotal`), and the terminal result. It
 deliberately excludes filesystem path, filename, file contents, and
 software/vulnerability/Dollar semantics.
+
+RackUpdate package submission (`docs/current/NETWORK_ACCESS.md`) reaches its
+terminal outcome through the same `NetworkTransferRecord` shape and the same
+`appendNetworkFileTransferEvidence` function `FileTransfer` uses, rather than
+a parallel evidence family: from a Network's own perspective this is the same
+observable fact — bytes moved between two Device addresses, ending in a
+terminal result — whether the destination is a filesystem or a Service
+interaction, and the record already deliberately excludes the software
+semantics that would otherwise distinguish them.
 
 Which Network(s) receive a record is resolved from the same canonical
 membership model `deriveCrossNetworkTransferRateBytesPerSecond` already
@@ -361,3 +381,8 @@ is observed through RACK-OS, never listed here.
   rather than reimplementing a routing rule that could disagree with it.
 - Network activity evidence is canonical World Truth, never exposed through
   Scan, Inspect, Discovery, or any current UI.
+- RackUpdate package submission is a second, independent consumer of transfer
+  capacity and Network activity evidence, not a duplicate model. It reuses the
+  same derivation and evidence functions `FileTransfer` uses rather than a
+  parallel implementation, and it is neither a `FileTransfer` nor a
+  `GameProcess`.
