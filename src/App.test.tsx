@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useRef } from 'react'
 import {
   act,
   cleanup,
@@ -18,7 +19,7 @@ import {
   exportViewportDiagnosticCapture,
   summarizeFocus,
 } from './shell/viewportDiagnostics'
-import type { EditingViewportState } from './shell/useEditingViewport'
+import { useEditingViewport, type EditingViewportState } from './shell/useEditingViewport'
 import { connectRemoteFromObservation } from './core/game/remoteSession'
 import { createInitialGameState } from './core/game/initialState'
 import { RACK_OS_FIRMWARE_ID } from './core/game/firmwareIdentity'
@@ -57,6 +58,24 @@ function viewportState(
     viewportLifecycle: 'active',
     ...overrides,
   }
+}
+
+function EditingViewportHarness({ standalone = true }: { standalone?: boolean }) {
+  const shellRef = useRef<HTMLDivElement>(null)
+  const viewport = useEditingViewport({ shellRef, standalone })
+  return (
+    <div
+      ref={shellRef}
+      data-testid="editing-viewport-harness"
+      data-host-height={viewport.hostHeight}
+      data-edit-height={viewport.editHeight}
+      data-editing={String(viewport.editing)}
+      data-phase={viewport.presentationPhase}
+      data-ready={String(viewport.recoveryReady)}
+    >
+      <input aria-label="Neutral Shell editor" />
+    </div>
+  )
 }
 
 class ViewportStub extends EventTarget {
@@ -447,6 +466,59 @@ describe('standalone presentation contract', () => {
 })
 
 describe('dedicated editing viewport', () => {
+  it('rebases a stable idle normal viewport before editing and recovers to it', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 910
+    installViewport(viewport)
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 910 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 910 })
+    let scrollY = 0
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => scrollY })
+    render(<EditingViewportHarness />)
+    const harness = screen.getByTestId('editing-viewport-harness')
+    const input = screen.getByLabelText('Neutral Shell editor')
+
+    // Standalone settles to a different, internally coherent normal viewport
+    // before any editing interaction. Its lack of position movement makes it a
+    // weak candidate relative to NORMAL A, so bounded confirmation must rebase it.
+    viewport.height = 846
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 846 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 846 })
+    await updateViewport(viewport, {})
+    expect(harness).toHaveAttribute('data-host-height', '846')
+    expect(harness).toHaveAttribute('data-edit-height', '846')
+    expect(harness).toHaveAttribute('data-editing', 'false')
+    expect(harness).toHaveAttribute('data-phase', 'normal')
+    expect(harness).toHaveAttribute('data-ready', 'true')
+
+    act(() => input.focus())
+    viewport.height = 492
+    viewport.offsetTop = viewport.pageTop = 354
+    scrollY = 354
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 492 })
+    await updateViewport(viewport, {})
+    expect(harness).toHaveAttribute('data-host-height', '846')
+    expect(harness).toHaveAttribute('data-edit-height', '492')
+    expect(harness).toHaveAttribute('data-editing', 'true')
+    expect(harness).toHaveAttribute('data-phase', 'editing')
+    expect(harness).toHaveAttribute('data-ready', 'false')
+
+    act(() => input.blur())
+    await Promise.resolve()
+    viewport.height = 846
+    viewport.offsetTop = viewport.pageTop = 0
+    scrollY = 0
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 846 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 846 })
+    await updateViewport(viewport, {})
+    expect(harness).toHaveAttribute('data-host-height', '846')
+    expect(harness).toHaveAttribute('data-edit-height', '846')
+    expect(harness).toHaveAttribute('data-editing', 'false')
+    expect(harness).toHaveAttribute('data-phase', 'normal')
+    expect(harness).toHaveAttribute('data-ready', 'true')
+  })
+
   it('ignores editable focus outside the Shell-owned boundary', () => {
     const viewport = new ViewportStub()
     installViewport(viewport)

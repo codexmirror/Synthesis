@@ -351,7 +351,10 @@ export function useEditingViewport({ shellRef, standalone, onDiagnostic }: Editi
         }
         const mayConfirmOpening = phase === 'awaiting-geometry' &&
           editableFocused && !suppressUntilNewFocus
-        if (!mayConfirmOpening) return
+        const mayConfirmNormalRebase = phase === 'normal' &&
+          presentationPhase === 'normal' && !editableFocused &&
+          !lastAcceptedGeometry.current.editing
+        if (!mayConfirmOpening && !mayConfirmNormalRebase) return
         if (source === 'browser-event') {
           weakFramesRemaining = WEAK_FOLLOW_UP_FRAMES
         }
@@ -359,6 +362,11 @@ export function useEditingViewport({ shellRef, standalone, onDiagnostic }: Editi
         else { weakCandidate = snapshot; weakConfirmations = 1 }
         if (weakConfirmations >= WEAK_CONFIRMATIONS_REQUIRED) {
           clearWeakSampling()
+          if (mayConfirmNormalRebase) {
+            observe('NORMAL REBASE CONFIRMED')
+            acceptNormal(snapshot)
+            return
+          }
           const geometry = deriveEditingViewportGeometry(snapshot)
           acceptEditing(snapshot, geometry.editTop, geometry.editHeight)
           return
