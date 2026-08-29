@@ -9,7 +9,9 @@ import { ViewportDebug } from './ViewportDebug'
 import { useGameActions, useGameState } from '../app/GameContext'
 import { resolveActiveRemoteTarget } from '../core/game/remoteSession'
 import { RackOS } from '../apps/rackos/RackOS'
+import { VeyraOS } from '../apps/veyra/VeyraOS'
 import { RemoteSessionHandoff } from './RemoteSessionHandoff'
+import { selectRemoteOperatingSurface } from './remoteOperatingSurface'
 
 type ShellStyle = CSSProperties & {
   '--node-host-height': string
@@ -37,6 +39,11 @@ export function Shell() {
   const [pendingOperatingContext, setPendingOperatingContext] = useState<'local' | 'remote' | null>(null)
   const remoteTarget = resolveActiveRemoteTarget(useGameState())
   const remoteSessionId = remoteTarget?.session.id
+  /* Which foreign environment this target actually runs, decided from its own
+     represented Firmware identity. Firmware this Shell cannot present resolves
+     to nothing and is refused at the handoff rather than being shown somebody
+     else's operating surface. */
+  const remoteSurface = selectRemoteOperatingSurface(remoteTarget?.target.firmware)
   const { disconnectRemoteSession } = useGameActions()
   const activeApp = activeAppId ? appRegistry[activeAppId] : null
   const ActiveComponent = activeApp?.component
@@ -83,7 +90,11 @@ export function Shell() {
     setPendingOperatingContext(destination)
   }
 
-  const remoteEntered = Boolean(remoteTarget && enteredRemoteSessionId === remoteTarget.session.id)
+  /* Entry requires a presentable surface, and staying entered requires one
+     too: if the target's Firmware ever stopped resolving to an implemented
+     environment, the Session falls back to the handoff that says so rather
+     than to an empty operating context. */
+  const remoteEntered = Boolean(remoteTarget && enteredRemoteSessionId === remoteTarget.session.id && remoteSurface)
   const presentingRemote = remoteEntered && operatingContext === 'remote'
   const presentingHandoff = Boolean(remoteTarget && !remoteEntered)
 
@@ -138,6 +149,7 @@ export function Shell() {
         <RemoteSessionHandoff
           context={remoteTarget}
           ready={viewport.recoveryReady}
+          supported={remoteSurface !== undefined}
           onEnter={() => {
             setEnteredRemoteSessionId(remoteTarget.session.id)
             setOperatingContext('remote')
@@ -145,8 +157,18 @@ export function Shell() {
           onDisconnect={disconnectRemoteSession}
         />
       )}
-      {remoteTarget && remoteEntered && (
+      {remoteTarget && remoteEntered && remoteSurface === 'rack-os' && (
         <RackOS
+          key={remoteTarget.session.id}
+          context={remoteTarget}
+          hidden={!presentingRemote}
+          onReturnLocal={() => switchOperatingContext('local')}
+          editingRecoveryReady={viewport.recoveryReady}
+          onEndEditing={endEditing}
+        />
+      )}
+      {remoteTarget && remoteEntered && remoteSurface === 'veyra-os' && (
+        <VeyraOS
           key={remoteTarget.session.id}
           context={remoteTarget}
           hidden={!presentingRemote}

@@ -1,9 +1,10 @@
+import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID, VEYRA_OS_FIRMWARE_ID } from './firmwareIdentity'
 import { createInitialMailState } from './mail'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 40
+export const GAME_STATE_VERSION = 41
 
 export function createInitialGameState(): GameState {
   return {
@@ -13,7 +14,7 @@ export function createInitialGameState(): GameState {
       localDevice: {
         id: 'device-local-v0',
         displayName: 'node-01',
-        firmware: { id: 'firmware-node-os-v1', name: 'NODE-OS', version: '1.0' },
+        firmware: { id: NODE_OS_FIRMWARE_ID, name: 'NODE-OS', version: '1.0' },
         filesystem: {
           nextFileId: 3,
           files: [
@@ -41,9 +42,17 @@ export function createInitialGameState(): GameState {
     },
     dollarFinance: {
       provider: { id: 'dollar-provider-civic-v0', displayName: 'Civic Dollar' },
-      accounts: [{ id: 'dollar-account-local-v0', accountReference: 'CD-1042-7781', balanceCents: 125_000 }],
+      accounts: [
+        { id: 'dollar-account-local-v0', accountReference: 'CD-1042-7781', balanceCents: 125_000 },
+        // The Account the represented VEYRA phone is signed in to. It is an ordinary Civic Dollar Account like the player's, owned by the Provider rather than by VEYRA or by that Device.
+        { id: 'dollar-account-veyra-phone-v0', accountReference: 'CD-3318-2204', balanceCents: 34_250 },
+      ],
       credentials: [{ id: 'dollar-credential-local-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' }],
-      sessions: { nextId: 2, active: [{ id: 'dollar-session-0001', accountId: 'dollar-account-local-v0', clientDeviceId: 'device-local-v0' }] },
+      sessions: { nextId: 3, active: [
+        { id: 'dollar-session-0001', accountId: 'dollar-account-local-v0', clientDeviceId: 'device-local-v0' },
+        // The phone is already signed in to its own Account, which is what makes a consumer Wallet openable on it. It authorizes exactly that Account for exactly that Device.
+        { id: 'dollar-session-0002', accountId: 'dollar-account-veyra-phone-v0', clientDeviceId: 'host-phone-001' },
+      ] },
       // No Dollar transfer has happened in the represented world yet, so there is no Transaction to represent.
       transactions: { nextId: 1, records: [] },
     },
@@ -71,7 +80,7 @@ export function createInitialGameState(): GameState {
     world: {
       network: {
         localNetworks: [
-          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'] },
+          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001', 'host-phone-001'] },
         ],
         hosts: [
           {
@@ -81,7 +90,7 @@ export function createInitialGameState(): GameState {
             online: true,
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 },
-            firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
+            firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 160 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 12, baselineRamUsage: 18 },
             // Device-owned and entirely independent of node-01's inventory: srv-01 currently has no software installed on it.
@@ -104,7 +113,7 @@ export function createInitialGameState(): GameState {
             online: true,
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
-            firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' },
+            firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
             installedSoftware: [],
@@ -114,6 +123,25 @@ export function createInitialGameState(): GameState {
             services: [
               { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3' }, credentialAccess: { privilege: 'USER' } },
               { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', name: 'RackUpdate', version: '1.0' } },
+            ],
+            authenticationHistory: { nextId: 1, records: [] },
+          },
+          {
+            id: 'host-phone-001',
+            displayName: 'Petra’s Phone',
+            ip: '198.51.100.61',
+            online: true,
+            // Concretely represented like the other operable Devices, so an existing transfer to it is refused on real grounds rather than for want of a represented capability.
+            transferCapacity: { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 4_194_304 },
+            firmware: { id: VEYRA_OS_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
+            hardware: { cpu: { name: 'Mobile CPU', computeCapacity: 70 }, ram: { name: '6 GB', capacityMiB: 6144 } },
+            runtime: { baselineCpuLoad: 6, baselineRamUsage: 34 },
+            // Represented like any other concretely operable Device: it owns a software inventory and a filesystem, both of which are simply empty rather than filled with invented personal content.
+            installedSoftware: [],
+            filesystem: { nextFileId: 1, files: [] },
+            services: [
+              // The same concrete vulnerable GateSSH release the existing access loop already resolves. The phone is reachable through that represented weakness, not through a phone-specific mechanic.
+              { id: 'service-ssh-003', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
             ],
             authenticationHistory: { nextId: 1, records: [] },
           },

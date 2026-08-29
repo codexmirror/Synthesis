@@ -16,11 +16,15 @@ It exists before any VEYRA product is represented so later ordinary-phone work
 has a durable product test without treating corporate worldbuilding as
 simulation truth.
 
-VEYRA and VEYRA OS are **not currently implemented**. This contract does not
-create a Company entity, Device, Firmware release, application, mechanic, or
-`GameState` owner. Canonical simulation state, implemented current-truth
-documents, and the architecture invariants remain authoritative over anything
-shown by a future VEYRA interface.
+This contract itself creates no Company entity, Device, Firmware release,
+application, mechanic, or `GameState` owner. Canonical simulation state,
+implemented current-truth documents, and the architecture invariants remain
+authoritative over anything a VEYRA interface shows.
+
+A first concrete VEYRA OS surface and one represented VEYRA phone have since
+been implemented; what is actually built is owned by
+[`../current/VEYRA_OS.md`](../current/VEYRA_OS.md), not by this contract. This
+document continues to own only the selected identity and product philosophy.
 
 
 ## 2. Why VEYRA exists

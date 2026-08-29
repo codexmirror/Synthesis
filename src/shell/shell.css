@@ -223,6 +223,7 @@
 .remote-handoff dt { color: #68736c; font-size: .62rem; letter-spacing: .12em; }
 .remote-handoff dd { margin: 0; overflow-wrap: anywhere; color: #cbd4ce; font-size: .72rem; }
 .remote-handoff__release { margin: 20px 0 0; color: #7f8b84; font-size: .62rem; letter-spacing: .12em; }
+.remote-handoff__unsupported { margin: 20px 0 0; color: var(--caution); font-size: .62rem; letter-spacing: .12em; }
 .remote-handoff__actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px; }
 .remote-handoff__actions button { min-height: 44px; padding: 0 18px; border: 1px solid var(--line); background: transparent; cursor: pointer; font: inherit; font-size: .68rem; letter-spacing: .1em; }
 .remote-handoff__enter { color: var(--green); }

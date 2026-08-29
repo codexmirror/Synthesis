@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, findDeviceSavedDollarSignIn, logoutDollarAccount, projectDollarAccountActivity, resolveDollarAccountForDevice, transferDollars } from './dollarFinance'
+import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, findDeviceSavedDollarSignIn, logoutDollarAccount, projectDollarAccountActivity, resolveDollarAccountForDevice, resolveDollarAccountForOperatedRemoteDevice, transferDollars, transferDollarsFromOperatedRemoteDevice } from './dollarFinance'
+import { connectRemoteFromObservation } from './remoteSession'
 import type { GameState, NetworkHost } from './types'
 
 const signedOut = (state = createInitialGameState()): GameState => ({ ...state, dollarFinance: { ...state.dollarFinance, sessions: { ...state.dollarFinance.sessions, active: [] } } })
@@ -9,7 +10,8 @@ const secondDevice = (state: GameState): NetworkHost => state.world.network.host
 describe('Dollar Financial Provider', () => {
   it('seeds separate Provider, Account, Credential and local Device-bound Session identities with preserved wealth and unique references', () => {
     const state = createInitialGameState(); const account = state.dollarFinance.accounts[0]; const credential = state.dollarFinance.credentials[0]
-    expect(state.dollarFinance.accounts).toHaveLength(1); expect(account.balanceCents).toBe(125_000)
+    // Two concrete Accounts: the player's, and the one the represented VEYRA phone is signed in to.
+    expect(state.dollarFinance.accounts).toHaveLength(2); expect(account.balanceCents).toBe(125_000)
     expect(new Set(state.dollarFinance.accounts.map(({ accountReference }) => accountReference)).size).toBe(state.dollarFinance.accounts.length)
     expect(new Set(state.dollarFinance.credentials.map(({ loginIdentifier }) => loginIdentifier)).size).toBe(state.dollarFinance.credentials.length)
     expect(account.id).not.toBe(account.accountReference); expect(account.id).not.toBe(credential.loginIdentifier)
@@ -25,7 +27,7 @@ describe('Dollar Financial Provider', () => {
     expect(result.state.dollarFinance.accounts).toEqual(before.dollarFinance.accounts)
     expect(result.state.dollarFinance.credentials).toEqual(before.dollarFinance.credentials)
     expect(resolveDollarAccountForDevice(result.state, before.player.localDevice.id)).toEqual(account)
-    expect(result.state.dollarFinance.sessions.active).toEqual([{ id: 'dollar-session-0002', accountId: account.id, clientDeviceId: before.player.localDevice.id }])
+    expect(result.state.dollarFinance.sessions.active).toEqual([{ id: 'dollar-session-0003', accountId: account.id, clientDeviceId: before.player.localDevice.id }])
     expect(result.state.dollarFinance.sessions.active[0]).not.toHaveProperty('password')
     expect(JSON.stringify(result.state.dollarFinance.sessions.active)).not.toContain(credential.password)
   })
@@ -431,8 +433,66 @@ describe('Device saved Dollar sign-in', () => {
     if (manual.status !== 'authenticated') throw new Error(manual.status)
     expect(back.state.dollarFinance.sessions).toEqual(manual.state.dollarFinance.sessions)
     expect(resolveDollarAccountForDevice(back.state, base.player.localDevice.id)?.id).toBe(localAccount.id)
-    expect(back.state.dollarFinance.sessions.active[0].accountId).toBe(base.player.localDevice.savedDollarSignIn!.accountId)
+    expect(back.state.dollarFinance.sessions.active.find(({ clientDeviceId }) => clientDeviceId === base.player.localDevice.id)?.accountId).toBe(base.player.localDevice.savedDollarSignIn!.accountId)
     expect(back.state.dollarFinance.sessions.active.filter(({ clientDeviceId }) => clientDeviceId === base.player.localDevice.id)).toHaveLength(1)
     expect(back.state.dollarFinance.accounts).toEqual(switched.state.dollarFinance.accounts)
+  })
+})
+
+/*
+ * The remote application boundary. It adds no financial rule: it resolves who
+ * is acting from the active Remote Session and then calls the same canonical
+ * transfer, which still derives the source Account from that Device's own
+ * Financial Session.
+ */
+describe('Dollars acted by the operated remote Device', () => {
+  const PHONE = 'host-phone-001'
+
+  function operatingPhone(state = createInitialGameState()): GameState {
+    const accessed: GameState = { ...state, deviceAccess: { nextId: 2, established: [{ id: 'access-phone', sourceDeviceId: state.player.localDevice.id, targetDeviceId: PHONE, viaServiceId: 'service-ssh-003', privilege: 'USER' }] } }
+    return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE, address: '198.51.100.61' }).state
+  }
+
+  it('resolves the operated Device Account, never the local one, and nothing without a Session', () => {
+    const operating = operatingPhone()
+    expect(resolveDollarAccountForOperatedRemoteDevice(operating)?.id).toBe('dollar-account-veyra-phone-v0')
+    expect(resolveDollarAccountForDevice(operating, operating.player.localDevice.id)?.id).toBe('dollar-account-local-v0')
+    expect(resolveDollarAccountForOperatedRemoteDevice(createInitialGameState())).toBeUndefined()
+  })
+
+  it('moves the operated Device money and leaves the local Device out of it', () => {
+    const before = operatingPhone()
+    const result = transferDollarsFromOperatedRemoteDevice(before, 'CD-1042-7781', 2_000)
+    expect(result.status).toBe('transferred'); if (result.status !== 'transferred') return
+
+    const balance = (state: GameState, id: string) => state.dollarFinance.accounts.find((account) => account.id === id)!.balanceCents
+    expect(balance(result.state, 'dollar-account-veyra-phone-v0')).toBe(34_250 - 2_000)
+    expect(balance(result.state, 'dollar-account-local-v0')).toBe(125_000 + 2_000)
+    expect(result.state.dollarFinance.transactions.records).toHaveLength(1)
+    expect(result.state.dollarFinance.transactions.records[0]).toMatchObject({ sourceAccountId: 'dollar-account-veyra-phone-v0', destinationAccountId: 'dollar-account-local-v0' })
+    // Sessions, Credentials, access and the Session itself are untouched.
+    expect(result.state.dollarFinance.sessions).toEqual(before.dollarFinance.sessions)
+    expect(result.state.dollarFinance.credentials).toEqual(before.dollarFinance.credentials)
+    expect(result.state.remoteSession).toBe(before.remoteSession)
+    expect(result.state.deviceAccess).toBe(before.deviceAccess)
+  })
+
+  it('refuses without an active Session rather than falling back to the local Device', () => {
+    const before = createInitialGameState()
+    const result = transferDollarsFromOperatedRemoteDevice(before, 'CD-3318-2204', 500)
+    expect(result).toEqual({ status: 'session_unavailable', state: before })
+    expect(result.state.dollarFinance.accounts).toEqual(before.dollarFinance.accounts)
+  })
+
+  it('refuses when the operated Device has no Financial Session of its own', () => {
+    const base = createInitialGameState()
+    const signedOutPhone: GameState = { ...base, dollarFinance: { ...base.dollarFinance, sessions: { ...base.dollarFinance.sessions, active: base.dollarFinance.sessions.active.filter(({ clientDeviceId }) => clientDeviceId !== PHONE) } } }
+    const before = operatingPhone(signedOutPhone)
+    const result = transferDollarsFromOperatedRemoteDevice(before, 'CD-1042-7781', 500)
+
+    // A Remote Session is operating context, not financial authority: the
+    // player's own Session must not authorize the phone's Wallet.
+    expect(result.status).toBe('not_signed_in')
+    expect(result.state.dollarFinance.accounts).toEqual(before.dollarFinance.accounts)
   })
 })

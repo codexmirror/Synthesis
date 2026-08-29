@@ -22,6 +22,7 @@ vi.mock('../../core/game/scan', async (importOriginal) => {
 
 const SRV_01 = 'host-lan-001'
 const SRV_01_ADDRESS = '198.51.100.47'
+const PHONE_ADDRESS = '198.51.100.61'
 
 /* ---------------------------------------------------------------- fixtures */
 
@@ -82,7 +83,7 @@ function actionStubs(): GameContext.GameActions {
     startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
-    removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+    removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
   }
 }
 
@@ -209,7 +210,7 @@ describe('NodeScan information boundary', () => {
     const known = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
     const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
 
-    expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route']])
+    expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route'], [PHONE_ADDRESS, 'unscanned']])
     const target = selectTarget(information, SRV_01)!
     expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Basic Credential Toolkit' })])
   })
@@ -532,7 +533,7 @@ describe('Known Space topology', () => {
 
     expect(space.self.address).toBe('198.51.100.23')
     expect(space.networks.map(({ name, includesSelf, membersObserved }) => [name, includesSelf, membersObserved])).toEqual([['home-net', true, true]])
-    expect(space.networks[0].targets.map(({ address }) => address)).toEqual([SRV_01_ADDRESS])
+    expect(space.networks[0].targets.map(({ address }) => address)).toEqual([SRV_01_ADDRESS, PHONE_ADDRESS])
     expect(space.elsewhere).toEqual([])
     // srv-02 exists in the world and has never been observed, so it is nowhere.
     expect(space.networks[0].targets.some(({ id }) => id === 'host-lan-002')).toBe(false)
@@ -556,8 +557,10 @@ describe('Known Space topology', () => {
     expect(network).toHaveTextContent('SELF')
     expect(network).toHaveTextContent('198.51.100.23')
     expect(within(network).queryByRole('button', { name: 'Open target 198.51.100.23' })).not.toBeInTheDocument()
-    // SELF is not a target and adds no control of its own.
-    expect(within(network).getAllByRole('button')).toHaveLength(1)
+    // SELF is not a target and adds no control of its own: the only controls
+    // on this Network are its remembered targets.
+    expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
+      .toEqual([`Open target ${SRV_01_ADDRESS}`, `Open target ${PHONE_ADDRESS}`])
   })
 
   it('keeps a Device with no remembered Network relationship visibly separate', () => {

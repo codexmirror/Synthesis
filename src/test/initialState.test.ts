@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from '../core/game/nodeMiner'
+import { VEYRA_OS_FIRMWARE_ID } from '../core/game/firmwareIdentity'
+import { resolveDollarAccountForDevice } from '../core/game/dollarFinance'
+import { AUTH_017, vulnerabilitiesForService } from '../core/game/serviceImplementations'
 
 describe('createInitialGameState', () => {
   it('creates an independent local-device and world graph for every session', () => {
@@ -32,13 +35,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 40', () => {
+  it('separates identities and seeds canonical local-device state in schema version 41', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(40)
+    expect(GAME_STATE_VERSION).toBe(41)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(40)
+    expect(state.version).toBe(41)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
@@ -79,10 +82,11 @@ describe('createInitialGameState', () => {
     expect(state.world.network.hosts.map(({ id, ip }) => ({ id, ip }))).toEqual([
       { id: 'host-lan-001', ip: '198.51.100.47' },
       { id: 'host-lan-002', ip: '203.0.113.42' },
+      { id: 'host-phone-001', ip: '198.51.100.61' },
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([
-      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'] },
+      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001', 'host-phone-001'] },
     ])
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')
@@ -102,7 +106,8 @@ describe('createInitialGameState', () => {
     // The operable server owns the same semantic concern as node-01 and starts with nothing installed on it.
     expect(server?.installedSoftware).toEqual([])
     expect(server?.installedSoftware).not.toBe(state.player.localDevice.installedSoftware)
-    const shallowTrainingHosts = state.world.network.hosts.filter(({ id }) => id !== 'host-lan-001' && id !== 'host-lan-002')
+    const concreteHostIds = ['host-lan-001', 'host-lan-002', 'host-phone-001']
+    const shallowTrainingHosts = state.world.network.hosts.filter(({ id }) => !concreteHostIds.includes(id))
     expect(shallowTrainingHosts.length).toBeGreaterThan(0)
     expect(shallowTrainingHosts.every((host) => !host.displayName && !host.firmware && !host.filesystem && !host.hardware && !host.runtime)).toBe(true)
     // Shallow hosts are deliberately shallow: no fabricated inventory to make the shapes uniform.
@@ -131,12 +136,71 @@ describe('createInitialGameState', () => {
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })
 
-  it('seeds srv-01 vulnerable and srv-02 patched GateSSH release identities', () => {
+  it('seeds srv-01 vulnerable, srv-02 patched, and the phone vulnerable GateSSH release identities', () => {
     const ssh = createInitialGameState().world.network.hosts.flatMap((host) => host.services ?? []).filter((service) => service.name === 'SSH')
-    expect(ssh).toHaveLength(2)
+    expect(ssh).toHaveLength(3)
     expect(ssh.map(({ implementation }) => implementation)).toEqual([
       { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' },
       { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3' },
+      { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' },
     ])
+  })
+
+  /*
+   * The first concrete ordinary personal Device. Everything asserted here is
+   * what the existing access loop and the existing finance domain actually
+   * need, and nothing else: no phone model, no owner entity, no invented
+   * personal content, and no phone-specific access mechanic.
+   */
+  it('seeds one concrete VEYRA phone reachable through the existing credential-access loop', () => {
+    const state = createInitialGameState()
+    const phone = state.world.network.hosts.find(({ id }) => id === 'host-phone-001')
+
+    expect(phone).toMatchObject({
+      id: 'host-phone-001',
+      displayName: 'Petra\u2019s Phone',
+      ip: '198.51.100.61',
+      online: true,
+      firmware: { id: VEYRA_OS_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
+      hardware: { cpu: { name: 'Mobile CPU', computeCapacity: 70 }, ram: { name: '6 GB', capacityMiB: 6144 } },
+      runtime: { baselineCpuLoad: 6, baselineRamUsage: 34 },
+      transferCapacity: { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 4_194_304 },
+    })
+    // An ordinary personal Device, not a server: it carries no server role.
+    expect(phone?.role).toBeUndefined()
+    // Represented like any other concretely operable Device, and empty rather than filled with invented personal content.
+    expect(phone?.installedSoftware).toEqual([])
+    expect(phone?.filesystem).toEqual({ nextFileId: 1, files: [] })
+    // Reachable through the same represented weakness the existing loop already resolves.
+    expect(phone?.services).toEqual([
+      { id: 'service-ssh-003', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
+    ])
+    expect(vulnerabilitiesForService(phone!.services![0])).toEqual([AUTH_017])
+    // Discoverable by the existing Scan grammar rather than by a shortcut.
+    expect(state.world.network.localNetworks[0].memberDeviceIds).toContain('host-phone-001')
+    expect(phone?.authenticationHistory).toEqual({ nextId: 1, records: [] })
+  })
+
+  it('gives the VEYRA phone its own Civic Dollar Account through its own Device-bound Financial Session', () => {
+    const state = createInitialGameState()
+    const local = state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-local-v0')
+    const phone = state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')
+
+    // One Provider, two ordinary Accounts. VEYRA owns neither.
+    expect(state.dollarFinance.provider).toEqual({ id: 'dollar-provider-civic-v0', displayName: 'Civic Dollar' })
+    expect(phone).toEqual({ id: 'dollar-account-veyra-phone-v0', accountReference: 'CD-3318-2204', balanceCents: 34_250 })
+    expect(phone?.accountReference).not.toBe(local?.accountReference)
+    expect(local?.balanceCents).toBe(125_000)
+    // The phone resolves its own Account, and only through its own Session.
+    expect(resolveDollarAccountForDevice(state, 'host-phone-001')).toEqual(phone)
+    expect(resolveDollarAccountForDevice(state, state.player.localDevice.id)).toEqual(local)
+    expect(state.dollarFinance.sessions.active).toEqual([
+      { id: 'dollar-session-0001', accountId: 'dollar-account-local-v0', clientDeviceId: 'device-local-v0' },
+      { id: 'dollar-session-0002', accountId: 'dollar-account-veyra-phone-v0', clientDeviceId: 'host-phone-001' },
+    ])
+    // Nothing has moved in the represented world yet.
+    expect(state.dollarFinance.transactions).toEqual({ nextId: 1, records: [] })
+    // The phone stores no sign-in of its own: a Session is not saved material.
+    expect(phone).not.toHaveProperty('savedDollarSignIn')
   })
 })

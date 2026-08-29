@@ -335,14 +335,16 @@ permanent character-class flag.
 
 Established access and active operation remain distinct. The first concrete,
 single active Remote Session lifecycle and compact RACK-OS foreign operating
-environment now exist.
+environment now exist, and a second foreign environment — the VEYRA OS consumer
+phone surface — is now selected by the entered Device's represented Firmware
+identity.
 
 Long-term progression may include:
 
 ```text
 DEVICE ACCESS
       ↓ (implemented CONNECT / Remote Session lifecycle)
-FOREIGN OPERATING ENVIRONMENT (first RACK-OS surface implemented)
+FOREIGN OPERATING ENVIRONMENT (RACK-OS and VEYRA OS surfaces implemented)
       ↓
 FILES / SYSTEM / TERMINAL / OTHER SURFACES
 ```
@@ -353,7 +355,7 @@ operate rather than only another detail card.
 NODE-OS should remain the player’s local environment while a remote Session
 opens a second operating context.
 
-Richer foreign Firmware and operating surfaces, remote Process execution,
+Further foreign Firmware and operating surfaces, remote Process execution,
 multiple simultaneous Sessions, firewall/reachability and pivoting, and
 connection artifacts/logging remain future mechanics.
 

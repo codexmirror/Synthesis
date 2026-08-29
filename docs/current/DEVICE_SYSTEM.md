@@ -34,10 +34,14 @@ GameState
 ├── nodeEconomy
 ├── world
 │   └── network
-│       └── two independent foreign servers
-│           ├── display identity and Firmware
-│           ├── canonical Device-owned filesystem
-│           └── canonical Device-owned installed software
+│       ├── two independent foreign servers
+│       │   ├── display identity and Firmware
+│       │   ├── canonical Device-owned filesystem
+│       │   └── canonical Device-owned installed software
+│       └── one foreign personal phone
+│           ├── display identity and VEYRA OS Firmware
+│           ├── canonical Device-owned filesystem (represented and empty)
+│           └── canonical Device-owned installed software (represented and empty)
 ├── process
 ├── knowledge
 ├── discovery
@@ -92,7 +96,7 @@ that represents none simply has none. Its semantics belong to
 
 ## Represented World
 
-The current World contains the represented `home-net` LocalNetwork with node-01 and `srv-01`, while `srv-02` is the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Mira's authored mail remains historical text and creates no Discovery.
+The current World contains the represented `home-net` LocalNetwork with node-01, `srv-01` and the personal phone `host-phone-001`, while `srv-02` is the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Mira's authored mail remains historical text and creates no Discovery.
 
 `srv-01` owns RACK-OS 1.0, GateSSH 1.3.2 on its stable SSH Service, Basic HTTP, and its independent filesystem. GateSSH 1.3.2 derives `AUTH-017`; this weakness is never stored separately.
 
@@ -100,13 +104,27 @@ The current World contains the represented `home-net` LocalNetwork with node-01 
 
 RackUpdate can replace the managed GateSSH implementation release while preserving Device and Service identity and all unrelated state. The resulting vulnerability set is derived from the new release truth rather than synchronized by a vulnerability flag.
 
+### The represented personal phone
+
+`host-phone-001` is the one represented ordinary personal Device: display name `Petra’s Phone`, address `198.51.100.61`, online, and a member of `home-net`. It owns VEYRA OS 4.1 Firmware (`firmware-veyra-os-v4-1`), concrete Mobile CPU / 6 GB hardware and CPU/RAM runtime baselines, its own filesystem, and its own installed-software inventory. It carries no `role`, because it is not a server, and owns its own `NetworkTransferCapacity` (2 MiB/s upload, 4 MiB/s download) like the other concretely represented Devices, so an existing transfer involving it is decided on real grounds rather than for want of a represented capability.
+
+Its filesystem and installed-software inventory are both represented and empty. That is the truthful minimum for this slice: a Device that owns those concerns but currently holds nothing, rather than one filled with invented personal content. It owns an empty Authentication History like the other resource-capable Devices.
+
+It exposes one open Service, `service-ssh-003`, whose implementation is the same GateSSH 1.3.2 the world already represents, with `credentialAccess` at `USER`. It therefore derives the same `AUTH-017` and is reached by the same Credential Access loop as `srv-01`; no phone-specific weakness, tool, operation or shortcut exists. What that loop is belongs to `docs/current/NETWORK_ACCESS.md`.
+
+The three represented Firmware release identities — NODE-OS, RACK-OS and VEYRA OS — are named once in `src/core/game/firmwareIdentity.ts` so that code deciding *which* environment a Device runs resolves stable identity rather than a mutable display name. The Firmware a Device owns is still ordinary Device state; the constants are identity, not a Firmware registry or family model.
+
+The phone is signed in to its own Civic Dollar Account through its own Device-bound Financial Session (`docs/current/DOLLAR_FINANCE.md`), and the operating surface it presents belongs to `docs/current/VEYRA_OS.md`.
+
 ## Network transfer capacity
 
 The local Device (`node-01`) and both concretely represented servers
 (`srv-01`, `srv-02`) each own a canonical `NetworkTransferCapacity`
 (`uploadBytesPerSecond`, `downloadBytesPerSecond`) on their network state:
 node-01 is 1 MiB/s upload and 2 MiB/s download; srv-01 is a symmetric 8 MiB/s;
-srv-02 is a symmetric 1 MiB/s, deliberately slower than srv-01. Upload and
+srv-02 is a symmetric 1 MiB/s, deliberately slower than srv-01; the personal
+phone is 2 MiB/s upload and 4 MiB/s download. The shallow training hosts are
+deliberately given none. Upload and
 download are always interpreted from the perspective of the Device that owns
 the capacity. This capacity is a pure maximum-capability value, not runtime
 usage, and remains distinct from existing availability state
@@ -120,8 +138,8 @@ advancement step rather than storing it, and it is not exposed through Scan,
 Discovery, or any other player-facing surface. This capacity is canonical
 World Truth, not Player Knowledge.
 
-Both represented servers also own concrete CPU, RAM, and baseline CPU/RAM
-runtime state. This resource truth is not exposed through Scan, Discovery, or
+Both represented servers and the represented personal phone also own concrete
+CPU, RAM, and baseline CPU/RAM runtime state. This resource truth is not exposed through Scan, Discovery, or
 Inspect. The shallow training hosts remain non-resource-capable, and
 `NetworkHost.online` remains the sole server availability truth.
 

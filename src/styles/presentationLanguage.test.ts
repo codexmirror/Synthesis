@@ -10,6 +10,7 @@ import terminalCss from '../apps/terminal/terminal.css?raw'
 import walletCss from '../apps/wallet/wallet.css?raw'
 import shellCss from '../shell/shell.css?raw'
 import rackosCss from '../apps/rackos/rackos.css?raw'
+import veyraCss from '../apps/veyra/veyra.css?raw'
 import filesSource from '../apps/files/Files.tsx?raw'
 import systemSource from '../apps/system/System.tsx?raw'
 import walletSource from '../apps/wallet/Wallet.tsx?raw'
@@ -24,6 +25,9 @@ import networkSource from '../apps/network/Network.tsx?raw'
 import processesSource from '../apps/processes/Processes.tsx?raw'
 import activityMonitorSource from '../apps/processes/activityMonitor.ts?raw'
 import rackosSource from '../apps/rackos/RackOS.tsx?raw'
+import veyraSource from '../apps/veyra/VeyraOS.tsx?raw'
+import veyraWalletSource from '../apps/veyra/VeyraWallet.tsx?raw'
+import veyraSettingsSource from '../apps/veyra/VeyraSettings.tsx?raw'
 
 /**
  * The NODE-OS presentation language is shared, so a class or custom property
@@ -33,7 +37,7 @@ import rackosSource from '../apps/rackos/RackOS.tsx?raw'
  */
 
 const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, shellCss]
-const allStylesheets = [...nodeOsStylesheets, rackosCss]
+const allStylesheets = [...nodeOsStylesheets, rackosCss, veyraCss]
 const applicationSources = [filesSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
 function referencedCustomProperties(css: string): string[] {
@@ -191,6 +195,36 @@ describe('NODE-OS presentation language', () => {
   it('keeps RACK-OS on its own foreign presentation rather than NODE-OS primitives', () => {
     expect(rackosCss).not.toMatch(/var\(--green\)|var\(--accent/)
     expect(referencedSharedClasses(rackosSource)).toEqual([])
+  })
+
+  it('keeps VEYRA on its own foreign consumer presentation rather than NODE-OS primitives', () => {
+    // The second foreign Firmware surface. Like RACK-OS it owns its whole
+    // palette and structure; unlike RACK-OS it is a light consumer product, so
+    // it must also not inherit NODE-OS's monospace product typography.
+    expect(veyraCss).not.toMatch(/var\(--green\)|var\(--accent(?!-)/)
+    for (const source of [veyraSource, veyraWalletSource, veyraSettingsSource]) {
+      expect(referencedSharedClasses(source)).toEqual([])
+    }
+    expect(ruleBody(veyraCss, '.veyra')).toMatch(/--veyra-sans:[^;]*-apple-system/)
+    expect(ruleBody(veyraCss, '.veyra')).toMatch(/font-family:\s*var\(--veyra-sans\)/)
+
+    // VEYRA's scrolling region is VEYRA's, and it reads no viewport of its own:
+    // it consumes the Shell's editing recovery contract exactly as RACK-OS does.
+    const viewport = ruleBody(veyraCss, '.veyra-viewport')
+    expect(viewport).toMatch(/overflow-y:\s*auto/)
+    expect(viewport).toMatch(/overscroll-behavior-y:\s*contain/)
+    for (const source of [veyraSource, veyraWalletSource, veyraSettingsSource]) {
+      expect(source).not.toMatch(/visualViewport|scrollIntoView|window\.scrollTo|innerHeight/)
+    }
+
+    // The same mobile safety floor the NODE-OS applications are held to below:
+    // below 16 CSS px Mobile Safari auto-zooms a focused editable, which moves
+    // the exact geometry the Shell-owned editing system reads.
+    const sizes = [...stripComments(veyraCss).matchAll(/\.veyra-input[^{]*{([^}]*)}/g)]
+      .map((rule) => declaredFontSizePx(rule[1]))
+      .filter((size): size is number => size !== undefined)
+    expect(sizes.length).toBeGreaterThan(0)
+    expect(sizes.filter((size) => size < 16)).toEqual([])
   })
 
   it('lets no application shrink an editable below the Shell mobile safety size', () => {

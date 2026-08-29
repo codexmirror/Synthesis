@@ -5,6 +5,7 @@ import { GameProvider, useGameState } from '../../app/GameContext'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 import { installRemoteSoftwarePackage } from '../../core/game/softwareInstallation'
 import { createInitialGameState } from '../../core/game/initialState'
+import { RACK_OS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
 import { Shell } from '../../shell/Shell'
 import type { ExecutableFile, GameProcess, GameState, NetworkHost, NodeMinerProcess } from '../../core/game/types'
 import { rememberScan } from '../../core/game/discovery'
@@ -27,7 +28,7 @@ function discoveredAccessState(): GameState {
 function connectedState(): GameState {
   const base = createInitialGameState()
   const host = base.world.network.hosts[0]
-  const altered = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, displayName: 'live-server', ip: '192.0.2.99', firmware: { id: 'firmware-test', name: 'STATE-OS', version: '7.4' }, filesystem: { nextFileId: 50, files: [{ kind: 'text' as const, id: 'file-fixture-text', path: '/srv/proof.txt', content: 'Foreign canonical proof.' }] } }, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-test', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-http-001', privilege: 'USER' as const }] } }
+  const altered = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, displayName: 'live-server', ip: '192.0.2.99', firmware: { id: RACK_OS_FIRMWARE_ID, name: 'STATE-OS', version: '7.4' }, filesystem: { nextFileId: 50, files: [{ kind: 'text' as const, id: 'file-fixture-text', path: '/srv/proof.txt', content: 'Foreign canonical proof.' }] } }, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-test', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-http-001', privilege: 'USER' as const }] } }
   const connected = connectRemoteFromObservation(altered, { targetDeviceId: host.id, address: '192.0.2.99' }).state
   return { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '198.51.100.47' } } }
 }
@@ -1002,7 +1003,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
   it('derives the Firmware Help heading from the operated target', async () => {
     const state = operatingState()
     const target = state.world.network.hosts[0]
-    const altered: GameState = { ...state, world: { ...state.world, network: { ...state.world.network, hosts: [{ ...target, firmware: { id: 'firmware-altered', name: 'VAULT-OS', version: '9.2' } }, ...state.world.network.hosts.slice(1)] } } }
+    const altered: GameState = { ...state, world: { ...state.world, network: { ...state.world.network, hosts: [{ ...target, firmware: { id: RACK_OS_FIRMWARE_ID, name: 'VAULT-OS', version: '9.2' } }, ...state.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup()
     render(<GameProvider initialState={altered}><Shell /></GameProvider>)
     await enterRemote(user)
