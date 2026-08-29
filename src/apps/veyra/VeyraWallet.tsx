@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import {
   projectDollarAccountActivity,
@@ -28,9 +28,11 @@ export type VeyraWalletDetail = 'send' | 'receive' | 'account'
  * calls the shared canonical transfer, which derives the source Account from
  * that same Device. Nothing here can name whose money moves.
  */
-export function VeyraWallet({ detail, onDetail }: {
+export function VeyraWallet({ detail, onDetail, editingRecoveryReady, onEndEditing }: {
   detail?: VeyraWalletDetail
   onDetail: (detail?: VeyraWalletDetail) => void
+  editingRecoveryReady: boolean
+  onEndEditing(): void
 }) {
   const state = useGameState()
   const { transferRemoteDollars } = useGameActions()
@@ -58,6 +60,8 @@ export function VeyraWallet({ detail, onDetail }: {
       providerName={providerName}
       transfer={transferRemoteDollars}
       onSent={(amountCents, recipient) => returnToRoot(`Sent ${formatDollarCents(amountCents)} to ${recipient}.`)}
+      editingRecoveryReady={editingRecoveryReady}
+      onEndEditing={onEndEditing}
     />
   }
 
@@ -148,16 +152,27 @@ function VeyraActivity({ activity }: { activity: readonly DollarAccountActivityE
  * fee, arrival estimate, settlement or processing state, because none is
  * represented.
  */
-function VeyraSend({ account, providerName, transfer, onSent }: {
+function VeyraSend({ account, providerName, transfer, onSent, editingRecoveryReady, onEndEditing }: {
   account: DollarFinancialAccount
   providerName: string
   transfer: (recipientAccountReference: string, amountCents: number) => TransferRemoteDollarsResult
   onSent: (amountCents: number, recipientAccountReference: string) => void
+  editingRecoveryReady: boolean
+  onEndEditing(): void
 }) {
   const [recipient, setRecipient] = useState('')
   const [amount, setAmount] = useState('')
   const [review, setReview] = useState<{ recipient: string; amountCents: number }>()
+  const [pendingReview, setPendingReview] = useState<{ recipient: string; amountCents: number }>()
   const [refusal, setRefusal] = useState<string>()
+  const [submitted, setSubmitted] = useState(false)
+  const submissionCommitted = useRef(false)
+
+  useEffect(() => {
+    if (!pendingReview || !editingRecoveryReady) return
+    setReview(pendingReview)
+    setPendingReview(undefined)
+  }, [pendingReview, editingRecoveryReady])
 
   function openReview(event: FormEvent) {
     event.preventDefault()
@@ -166,13 +181,19 @@ function VeyraSend({ account, providerName, transfer, onSent }: {
     const amountCents = parseDollarAmountToCents(amount)
     if (amountCents === undefined) return setRefusal('Enter an amount like 25.00.')
     setRefusal(undefined)
-    setReview({ recipient: trimmed, amountCents })
+    onEndEditing()
+    setPendingReview({ recipient: trimmed, amountCents })
   }
 
   function send() {
-    if (!review) return
+    if (!review || submissionCommitted.current) return
+    submissionCommitted.current = true
     const result = transfer(review.recipient, review.amountCents)
-    if (result.status === 'transferred') return onSent(review.amountCents, review.recipient)
+    if (result.status === 'transferred') {
+      setSubmitted(true)
+      return onSent(review.amountCents, review.recipient)
+    }
+    submissionCommitted.current = false
     setReview(undefined)
     setRefusal(transferRefusal(result.status))
   }
@@ -188,8 +209,10 @@ function VeyraSend({ account, providerName, transfer, onSent }: {
         <div className="veyra-row veyra-row--static"><dt>To</dt><dd>{review.recipient}</dd></div>
         <div className="veyra-row veyra-row--static"><dt>From</dt><dd>{account.accountReference}</dd></div>
       </dl>
-      <button className="veyra-submit" type="button" onClick={send}>Send {formatDollarCents(review.amountCents)}</button>
-      <button className="veyra-quiet" type="button" onClick={() => setReview(undefined)}>Edit</button>
+      <button className="veyra-submit" type="button" onClick={send} disabled={submitted}>
+        {submitted ? `Sent ${formatDollarCents(review.amountCents)}` : `Send ${formatDollarCents(review.amountCents)}`}
+      </button>
+      {!submitted && <button className="veyra-quiet" type="button" onClick={() => setReview(undefined)}>Edit</button>}
     </section>
   }
 

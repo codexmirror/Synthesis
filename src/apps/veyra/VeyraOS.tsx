@@ -86,7 +86,12 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
 
     <main className="veyra-viewport">
       {location.app === 'home' && <VeyraHome entries={entries} onOpen={(app) => go({ app })} />}
-      {location.app === 'wallet' && <VeyraWallet detail={location.detail} onDetail={(detail) => go(detail ? { app: 'wallet', detail } : { app: 'wallet' })} />}
+      {location.app === 'wallet' && <VeyraWallet
+        detail={location.detail}
+        onDetail={(detail) => go(detail ? { app: 'wallet', detail } : { app: 'wallet' })}
+        editingRecoveryReady={editingRecoveryReady}
+        onEndEditing={onEndEditing}
+      />}
       {location.app === 'settings' && <VeyraSettings device={target} detail={location.detail} onDetail={(detail) => go(detail ? { app: 'settings', detail } : { app: 'settings' })} />}
     </main>
 
