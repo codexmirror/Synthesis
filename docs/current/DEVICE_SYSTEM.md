@@ -178,16 +178,23 @@ connectivity, not internal LAN fabric, so it deliberately does not apply
 inside `home-net` (`node-01` ↔ `srv-01`). When the endpoints resolve to two
 different LocalNetworks — the represented route to `srv-02` or to the
 personal phone, both on `remote-segment-01` — every represented bottleneck
-participates. LocalNetwork membership resolves only when it is unambiguous:
-a Device with zero represented memberships, and a Device with two or more,
-both contribute no extra bottleneck on that side rather than blocking an
-otherwise legitimate transfer — the latter deliberately does not pick a
-Network by `localNetworks` array order. The currently represented fixtures
+participates. Membership resolution distinguishes three states rather than
+collapsing to a binary "has a Network or not": a Device with **zero**
+represented LocalNetwork memberships contributes no extra bottleneck on
+that side — the existing V1 compatibility fallback for a Device with no
+represented Network — and a transfer still proceeds; a Device with
+**exactly one** membership uses that Network normally; a Device with **two
+or more** memberships is **ambiguous** — represented topology exists but the
+route cannot be resolved without picking a Network by `localNetworks` array
+order, which is not implemented. Ambiguous membership is never treated as
+"no Network": the FileTransfer runtime resolves it the same as any other
+unavailable endpoint (a removed DeviceAccess, an offline Device), hard-
+aborting the transfer through the existing interruption/archive path rather
+than silently falling back to endpoint-only throughput or advancing at an
+arbitrarily chosen Network's capacity. The currently represented fixtures
 give every resource-capable Device at most one applicable LocalNetwork
 membership, so this resolution is unambiguous today; generic multi-Network
-route selection remains unimplemented, and a future Device with genuinely
-ambiguous membership degrades to endpoint-only capacity rather than an
-arbitrarily chosen route.
+route selection remains unimplemented.
 
 The effective rate is derived fresh on every advancement step rather than
 stored, and none of it — Device capacity or LocalNetwork capacity — is

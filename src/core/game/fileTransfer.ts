@@ -97,17 +97,23 @@ interface TransferEndpoints {
 }
 
 /**
- * Resolve the represented LocalNetwork a Device currently belongs to.
- * Resolves only an unambiguous single membership: zero memberships and two
- * or more memberships both resolve to `undefined` rather than picking one
- * by array order, because generic multi-Network route selection is
- * deliberately not implemented. An unresolved membership contributes no
- * extra bottleneck on that side (see `resolveTransferEndpoints`) rather
- * than blocking an otherwise legitimate transfer or inventing a route.
+ * A Device's current represented LocalNetwork membership has three distinct
+ * meanings, not two: no represented Network at all, one unambiguous Network,
+ * or more than one represented Network with no represented basis to choose
+ * between them. These are never collapsed into a single "no Network"
+ * result — see `resolveTransferEndpoints` for how each is used.
  */
-function resolveDeviceLocalNetwork(network: Readonly<NetworkState>, deviceId: string): Readonly<LocalNetwork> | undefined {
+type LocalNetworkMembership =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unique'; readonly network: Readonly<LocalNetwork> }
+  | { readonly kind: 'ambiguous' }
+
+/** Resolve the represented LocalNetwork membership(s) a Device currently belongs to, without picking one by array order. */
+function resolveDeviceLocalNetworkMembership(network: Readonly<NetworkState>, deviceId: string): LocalNetworkMembership {
   const memberships = network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(deviceId))
-  return memberships.length === 1 ? memberships[0] : undefined
+  if (memberships.length === 0) return { kind: 'none' }
+  if (memberships.length === 1) return { kind: 'unique', network: memberships[0] }
+  return { kind: 'ambiguous' }
 }
 
 function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): TransferEndpoints | undefined {
@@ -129,13 +135,20 @@ function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): Tra
 
   const sourceDeviceId = direction === 'download' ? remoteHost.id : local.id
   const destinationDeviceId = direction === 'download' ? local.id : remoteHost.id
-  const sourceNetwork = resolveDeviceLocalNetwork(state.world.network, sourceDeviceId)
-  const destinationNetwork = resolveDeviceLocalNetwork(state.world.network, destinationDeviceId)
+  const sourceMembership = resolveDeviceLocalNetworkMembership(state.world.network, sourceDeviceId)
+  const destinationMembership = resolveDeviceLocalNetworkMembership(state.world.network, destinationDeviceId)
+  // Ambiguous membership is not "no Network": represented topology exists
+  // but the route cannot be resolved without picking a Network by array
+  // order, which is not implemented. Treat the transfer as unable to
+  // presently advance, the same as any other unresolved endpoint below.
+  if (sourceMembership.kind === 'ambiguous' || destinationMembership.kind === 'ambiguous') return undefined
+  const sourceNetwork = sourceMembership.kind === 'unique' ? sourceMembership.network : undefined
+  const destinationNetwork = destinationMembership.kind === 'unique' ? destinationMembership.network : undefined
   // Same-Network transfer uses endpoint capacity only: LocalNetwork transfer
   // capacity represents external connectivity, not internal LAN fabric. A
-  // Device with no unambiguously resolved LocalNetwork membership (none, or
-  // more than one) contributes no extra bottleneck rather than blocking an
-  // otherwise legitimate transfer or picking a Network by array order.
+  // Device with zero represented LocalNetwork membership contributes no
+  // extra bottleneck rather than blocking an otherwise legitimate transfer —
+  // the existing V1 compatibility fallback for no represented Network.
   const isCrossNetwork = !!sourceNetwork && !!destinationNetwork && sourceNetwork.id !== destinationNetwork.id
   let rateBytesPerSecond: number
   if (isCrossNetwork) {

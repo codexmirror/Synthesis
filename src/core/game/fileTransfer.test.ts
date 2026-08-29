@@ -759,10 +759,10 @@ describe('cross-Network vs same-Network transfer capacity', () => {
     expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
   })
 
-  describe('unresolved LocalNetwork membership (zero or ambiguous)', () => {
-    // Distinct from remote-segment-01's own 8 MiB/s and from node-01/srv-02's endpoint capacities, so picking it would be visible in the resulting rate.
+  describe('LocalNetwork membership resolution: none vs. unique vs. ambiguous', () => {
+    // Distinct from remote-segment-01's own 8 MiB/s and from node-01/srv-02's endpoint capacities, so a wrongly picked Network would be visible in the resulting rate.
     const SHADOW_NETWORK = { id: 'network-shadow-test', name: 'shadow-net', memberDeviceIds: ['host-lan-002'], transferCapacity: { uploadBytesPerSecond: 3_000_000, downloadBytesPerSecond: 3_000_000 } }
-    // srv-02's own 1 MiB/s upload remains the narrowest bottleneck whenever no LocalNetwork capacity is contributed, whether because none is represented or because membership is ambiguous.
+    // srv-02's own 1 MiB/s upload is the narrowest bottleneck when no LocalNetwork capacity is contributed (the zero-membership fallback).
     const ENDPOINT_ONLY_RATE = 1_048_576
 
     function withoutMembership(state: GameState, deviceId: string): GameState {
@@ -774,7 +774,7 @@ describe('cross-Network vs same-Network transfer capacity', () => {
       return { ...state, world: { ...state.world, network: { ...state.world.network, localNetworks } } }
     }
 
-    it('falls back to endpoint-only capacity when an endpoint has zero represented LocalNetwork memberships', () => {
+    it('1. falls back to endpoint-only capacity when an endpoint has zero represented LocalNetwork memberships', () => {
       const state = withoutMembership(connectedStateToSrv02(2_000_000), 'host-lan-002')
       const started = startRemoteFileDownload(state, BIG_FILE_PATH)
       if (started.status !== 'started') throw new Error('expected started')
@@ -782,37 +782,60 @@ describe('cross-Network vs same-Network transfer capacity', () => {
       expect(advanced.fileTransfer.active?.bytesTransferred).toBe(ENDPOINT_ONLY_RATE)
     })
 
-    it('resolves normally and applies cross-Network composition when an endpoint has exactly one represented LocalNetwork membership', () => {
+    it('2. resolves normally and applies cross-Network composition when an endpoint has exactly one represented LocalNetwork membership', () => {
       const started = startRemoteFileDownload(connectedStateToSrv02(2_000_000), BIG_FILE_PATH)
       if (started.status !== 'started') throw new Error('expected started')
       const advanced = advanceFileTransfer(started.state, 1_000)
       expect(advanced.fileTransfer.active?.bytesTransferred).toBe(ENDPOINT_ONLY_RATE)
     })
 
-    it('does not select either candidate LocalNetwork by array order when an endpoint belongs to two, falling back to endpoint-only capacity instead', () => {
+    it('3. does not select either candidate LocalNetwork by array order when an endpoint belongs to two', () => {
       for (const position of ['append', 'prepend'] as const) {
         const state = withShadowMembership(connectedStateToSrv02(2_000_000), position)
         const started = startRemoteFileDownload(state, BIG_FILE_PATH)
         if (started.status !== 'started') throw new Error('expected started')
         const advanced = advanceFileTransfer(started.state, 1_000)
-        // Neither remote-segment-01's 8 MiB/s nor the shadow Network's 3,000,000 B/s is applied; only endpoint capacity decides the rate.
-        expect(advanced.fileTransfer.active?.bytesTransferred).toBe(ENDPOINT_ONLY_RATE)
+        // Aborted rather than proceeding at either remote-segment-01's 8 MiB/s or the shadow Network's 3,000,000 B/s.
+        expect(advanced.fileTransfer.active).toBeNull()
       }
     })
 
-    it('keeps the selected transfer rate identical regardless of the ambiguous LocalNetworks\' array order', () => {
+    it('4. does not fall back to endpoint-only throughput when an endpoint\'s membership is ambiguous', () => {
+      // The zero-membership case (test 1) advances normally at ENDPOINT_ONLY_RATE with a non-null active transfer.
+      // Ambiguous represented topology is a distinct, unresolved-route condition and must not be silently treated the same way.
+      const state = withShadowMembership(connectedStateToSrv02(2_000_000), 'append')
+      const started = startRemoteFileDownload(state, BIG_FILE_PATH)
+      if (started.status !== 'started') throw new Error('expected started')
+      const advanced = advanceFileTransfer(started.state, 1_000)
+      expect(advanced.fileTransfer.active).toBeNull()
+      expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
+    })
+
+    it('5. has no semantic effect from reordering the ambiguous LocalNetworks: both orders abort identically', () => {
       const appended = withShadowMembership(connectedStateToSrv02(2_000_000), 'append')
       const prepended = withShadowMembership(connectedStateToSrv02(2_000_000), 'prepend')
       const startedAppended = startRemoteFileDownload(appended, BIG_FILE_PATH)
       const startedPrepended = startRemoteFileDownload(prepended, BIG_FILE_PATH)
       if (startedAppended.status !== 'started' || startedPrepended.status !== 'started') throw new Error('expected started')
-      const rateAppended = advanceFileTransfer(startedAppended.state, 1_000).fileTransfer.active?.bytesTransferred
-      const ratePrepended = advanceFileTransfer(startedPrepended.state, 1_000).fileTransfer.active?.bytesTransferred
-      expect(rateAppended).toBe(ratePrepended)
-      expect(rateAppended).toBe(ENDPOINT_ONLY_RATE)
+      expect(advanceFileTransfer(startedAppended.state, 1_000).fileTransfer.active).toBeNull()
+      expect(advanceFileTransfer(startedPrepended.state, 1_000).fileTransfer.active).toBeNull()
     })
 
-    it('leaves every currently authored, unambiguously routed transfer unchanged', () => {
+    it('6. terminates an already active transfer through the existing interruption/archive path once its membership becomes ambiguous, creating no destination artifact', () => {
+      const started = startRemoteFileDownload(connectedStateToSrv02(2_000_000), BIG_FILE_PATH)
+      if (started.status !== 'started') throw new Error('expected started')
+      // Still unambiguous and running normally before the second membership appears.
+      const partway = advanceFileTransfer(started.state, 1_000)
+      expect(partway.fileTransfer.active?.bytesTransferred).toBe(ENDPOINT_ONLY_RATE)
+
+      const madeAmbiguous = withShadowMembership(partway, 'append')
+      const advanced = advanceFileTransfer(madeAmbiguous, 1_000)
+      expect(advanced.fileTransfer.active).toBeNull()
+      expect(advanced.recentActivity.entries.at(-1)).toMatchObject({ kind: 'file_transfer', id: started.transferId })
+      expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
+    })
+
+    it('7. leaves every currently authored, unambiguously routed transfer unchanged', () => {
       // srv-01 (home-net, same Network as node-01): unaffected by ambiguity handling, still endpoint-only.
       const sameNetwork = startRemoteFileDownload(connectedState(), NODESCAN_PATH)
       if (sameNetwork.status !== 'started') throw new Error('expected started')
