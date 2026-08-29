@@ -10,7 +10,7 @@ export function rememberPing(discovery: DiscoveryState, result: PingResult, self
   if (result.status !== 'device' || result.targetId === selfDeviceId) return discovery
   const index = discovery.devices.findIndex(({ id }) => id === result.targetId)
   const previous = discovery.devices[index]
-  const device = { id: result.targetId, address: result.address, scope: result.scope === 'self' ? 'lan' as const : result.scope,
+  const device = { id: result.targetId, address: result.address, scope: previous?.scope ?? 'unknown' as const,
     servicesObserved: previous?.servicesObserved ?? false, services: previous?.services ?? [], ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
   const devices = [...discovery.devices]
   if (index < 0) devices.push(device); else devices[index] = device
@@ -50,14 +50,14 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
     if (result.targetId !== selfDeviceId) {
       const index = devices.findIndex((item) => item.id === result.targetId)
       const previous = devices[index]
-      const services = [...(previous?.services ?? [])]
-      for (const service of result.services) {
-        const previousService = services.find((item) => item.id === service.id)
-        const observed = { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}) }
-        const serviceIndex = services.findIndex((item) => item.id === service.id)
-        if (serviceIndex < 0) services.push(observed); else services[serviceIndex] = observed
-      }
-      const next = { id: result.targetId, address: result.address, scope: result.scope === 'self' ? 'lan' as const : result.scope, servicesObserved: true, services, ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
+      // A successful Device Scan refreshes the whole exposed-Service snapshot.
+      // Inspect evidence survives only for Services that remain exposed by
+      // stable identity; removed/closed Services no longer appear as current.
+      const services = result.services.map((service) => {
+        const previousService = previous?.services.find((item) => item.id === service.id)
+        return { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}) }
+      })
+      const next = { id: result.targetId, address: result.address, scope: previous?.scope ?? (result.scope === 'self' ? 'lan' as const : 'remote' as const), servicesObserved: true, services, ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
       if (index < 0) devices.push(next); else devices[index] = next
     }
   }

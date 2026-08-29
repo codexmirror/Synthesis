@@ -4,10 +4,10 @@ import { pingNetworkTarget } from './ping'
 import { rememberPing } from './discovery'
 
 describe('PING observation boundary', () => {
-  it('returns only stable identity, observed address, and scope', () => {
+  it('returns only stable identity and observed address', () => {
     const state = createInitialGameState()
     expect(pingNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '203.0.113.42')).toEqual({
-      status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote',
+      status: 'device', targetId: 'host-lan-002', address: '203.0.113.42',
     })
   })
 
@@ -16,7 +16,7 @@ describe('PING observation boundary', () => {
     const targets = { localDevice: state.player.localDevice, network: state.world.network }
     const remembered = rememberPing(state.discovery, pingNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
     expect(remembered).toEqual({ networks: [], networkDeviceRelations: [], devices: [{
-      id: 'host-lan-002', address: '203.0.113.42', scope: 'remote', servicesObserved: false, services: [],
+      id: 'host-lan-002', address: '203.0.113.42', scope: 'unknown', servicesObserved: false, services: [],
     }] })
     expect(rememberPing(state.discovery, pingNetworkTarget(targets, '192.0.2.250'), state.player.localDevice.id)).toBe(state.discovery)
   })

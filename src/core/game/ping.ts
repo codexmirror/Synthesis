@@ -2,7 +2,7 @@ import { isValidIpv4, resolveNetworkTarget, type NetworkTargets } from './networ
 
 export type PingTargets = NetworkTargets
 export type PingResult =
-  | { readonly status: 'device'; readonly targetId: string; readonly address: string; readonly scope: 'self' | 'lan' | 'remote' }
+  | { readonly status: 'device'; readonly targetId: string; readonly address: string }
   | { readonly status: 'no_response'; readonly address: string }
   | { readonly status: 'invalid_address'; readonly input: string }
 
@@ -13,6 +13,6 @@ export function pingNetworkTarget(targets: Readonly<PingTargets>, input: string)
   if (!resolved) return { status: 'no_response', address: input }
   const online = resolved.scope === 'self' ? resolved.entity.runtime.networkStatus === 'ONLINE' : resolved.entity.online
   return online
-    ? { status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope }
+    ? { status: 'device', targetId: resolved.entity.id, address: input }
     : { status: 'no_response', address: input }
 }

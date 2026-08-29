@@ -545,7 +545,8 @@ export interface EnhancedInspectEvidence {
 export interface DiscoveredDeviceSnapshot {
   readonly id: string
   readonly address: string
-  readonly scope: 'lan' | 'remote'
+  /** Coarse remembered location; PING deliberately records no topology classification. */
+  readonly scope: 'unknown' | 'lan' | 'remote'
   readonly servicesObserved: boolean
   readonly services: readonly DiscoveredServiceSnapshot[]
   readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server'; readonly enhanced?: EnhancedInspectEvidence }

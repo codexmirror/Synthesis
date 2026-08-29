@@ -55,7 +55,7 @@ const STAGE_MARK: Record<TargetStage, string> = {
 }
 
 function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): string {
-  return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'lan' ? 'Local network' : 'Remote'
+  return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'unknown' ? 'Membership not observed' : target.scope === 'lan' ? 'Local network' : 'Remote'
 }
 
 function kindOf(target: Target): string {
@@ -146,12 +146,18 @@ export function Network() {
     const generation = beginRequest(target.id)
     if (generation === null) return
     try {
-      const result = await actions.sweepTarget({ targetDeviceId: target.id, address: target.address })
+      const result = await actions.scanTarget(target.address)
       if (!finishRequest(target.id, generation)) return
-      if (result.status !== 'observed') {
-        setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : result.status === 'no_response' ? 'NO RESPONSE' : 'UNKNOWN TARGET')
-      } else if (result.insufficientMemory && result.analysesStarted === 0) setNotice('NOT ENOUGH MEMORY')
+      if (result.status !== 'device' || result.targetId !== target.id) setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : result.status === 'no_response' ? 'NO RESPONSE' : 'UNKNOWN TARGET')
     } catch { finishRequest(target.id, generation) }
+  }
+
+  function inspect(target: Target) {
+    const result = actions.inspectTarget(target.address)
+    setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
+      : result.status === 'capability_unavailable' ? 'INSPECT UNAVAILABLE'
+        : result.status === 'no_response' ? 'NO RESPONSE'
+          : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
   }
 
   function hack(route: TargetRoute, targetDeviceId: string) {
@@ -224,6 +230,7 @@ export function Network() {
         selectedPackageId={selectedPackageId}
         onBack={() => open({ kind: 'targets' })}
         onScan={() => scan(target)}
+        onInspect={() => inspect(target)}
         onHack={(route) => hack(route, target.id)}
         onConnect={() => connect(target)}
         onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
@@ -349,7 +356,7 @@ function TargetRow({ target, showLocation, onOpen }: { target: TargetSummary; sh
  * One target, one decision. The stage panel states where this target's line of
  * action currently is and offers the single action that continues it.
  */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onHack, onConnect, onDisconnect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onHack, onConnect, onDisconnect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -358,6 +365,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   selectedPackageId: string
   onBack(): void
   onScan(): void
+  onInspect(): void
   onHack(route: TargetRoute): void
   onConnect(): void
   onDisconnect(): void
@@ -430,6 +438,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         release={release}
         copyState={copyState}
         selectedPackageId={selectedPackageId}
+        onInspect={onInspect}
         onAnalyze={onAnalyze}
         onCopy={onCopy}
         onSelectPackage={onSelectPackage}
@@ -464,11 +473,12 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
  * information and their own represented resources; none of it is a new
  * observation, and none of it reads current target truth.
  */
-function TechnicalDetails({ target, release, copyState, selectedPackageId, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   copyState: CopyState
   selectedPackageId: string
+  onInspect(): void
   onAnalyze(service: TargetService): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
@@ -488,6 +498,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onAna
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
     {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
+    {release.canInspect && <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>}
 
     {(target.access || target.session) && <>
       <div className="node-section"><span>ACCESS</span></div>

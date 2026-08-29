@@ -5,6 +5,21 @@ import type { GameState } from '../core/game/types'
 import { createLocalScanTarget } from './localScanOperation'
 
 describe('local Scan application operation', () => {
+  it('keeps a stale Service snapshot until a later successful Scan refreshes the exposed surface', async () => {
+    let state = createInitialGameState()
+    state = { ...state, discovery: { networks: [], networkDeviceRelations: [], devices: [{ id: 'host-lan-001', address: '198.51.100.47', scope: 'unknown', servicesObserved: false, services: [] }] } }
+    const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
+
+    await scanTarget('198.51.100.47')
+    expect(state.discovery.devices[0].services.map(({ name }) => name)).toEqual(['SSH', 'HTTP'])
+    state = { ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, services: host.services?.map((service) => service.name === 'SSH' ? { ...service, open: false } : service) } : host) } } }
+
+    // World Truth changed, but browsing remembered Discovery does not refresh it.
+    expect(state.discovery.devices[0].services.map(({ name }) => name)).toEqual(['SSH', 'HTTP'])
+    await scanTarget('198.51.100.47')
+    expect(state.discovery.devices[0].services.map(({ name }) => name)).toEqual(['HTTP'])
+  })
+
   it('returns the existing structured domain observation', async () => {
     let state = createInitialGameState()
     state = { ...state, discovery: { ...state.discovery, networks: [{ id: 'network-local-001', name: 'home-net', membersObserved: false }] } }

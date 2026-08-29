@@ -22,7 +22,7 @@ reconnaissance software shipped with NODE-OS. Its current direct Terminal comman
 Scan is available through both Terminal and the graphical NodeScan application.
 Both interfaces invoke the same shared Scan gameplay/application operation.
 
-Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, pasting, or locally validating it is presentation state only. A positive PING remembers only stable Device identity, the observed address, and justified reachability scope; it observes no name, Firmware, Services, vulnerabilities, Network membership, or topology. Invalid input is rejected before observation, no response creates no Discovery, and PING creates no Process. A foreign Device learned this way appears under ELSEWHERE as NOT SCANNED.
+Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, pasting, or locally validating it is presentation state only. A positive PING remembers only stable Device identity and the observed address; it observes no name, Firmware, Services, vulnerabilities, Network membership, or topology. Invalid input is rejected before observation, no response creates no Discovery, and PING creates no Process. A foreign Device learned this way appears under ELSEWHERE as NOT SCANNED.
 
 NodeScan is presented as two screens and three player actions. KNOWN SPACE
 presents the remembered relationship shape around the player; a target card is
@@ -115,7 +115,7 @@ The four reconnaissance roles are distinct observations, not mandatory progressi
 
 ```text
 PING address
-→ observe response; retain only identity, address, and justified scope
+→ observe response; retain only identity and address
 
 SCAN known Device
 → observe currently open represented Services
@@ -135,7 +135,7 @@ ANALYZE known Service
 
 A foreign Device Scan does not reveal Network membership. NodeScan 1.0 Standard supplies PING, SCAN, and Service Analysis but no target Inspect. NodeScan 1.1 Experimental supplies the same roles plus Enhanced Inspect through concrete release capability logic.
 
-The underlying observation sequence a target sweep composes is therefore:
+The opening Scan sequence is therefore:
 
 ```text
 ip
@@ -161,18 +161,15 @@ IPv4 Scan results currently distinguish:
 
 according to represented world relationships.
 
-Successful positive Scan observations are remembered in canonical Discovery. Observations are retained snapshots, not live references to World Truth: later address, Service, Firmware, or implementation changes do not rewrite or erase remembered information. Only a later legitimate observation refreshes its own information boundary. Analyze Knowledge has the same historical boundary.
+Successful positive Scan observations are remembered in canonical Discovery. A later successful Device Scan replaces the prior exposed-Service snapshot while preserving unrelated Knowledge and applicable deeper evidence. Observations are retained snapshots, not live references to World Truth: later address, Service, Firmware, or implementation changes do not rewrite or erase remembered information. Only a later legitimate observation refreshes its own information boundary. Analyze Knowledge has the same historical boundary.
 
 Opening or navigating remembered information in the graphical Scan application
 does not itself perform a new observation.
 
 
-## Target sweep and target discovery
+## Target discovery and explicit target actions
 
-NodeScan performs the routine technical work behind its two SCAN actions.
-Both are application-level compositions of existing canonical operations; they
-introduce no gameplay rule and no canonical state of their own, and Terminal
-still exposes every underlying step individually.
+NodeScan keeps target SCAN, explicit INSPECT, and per-Service ANALYZE as separate player decisions over the same canonical operations exposed by Terminal. Known-Space Network refresh composes only Scan observations and introduces no canonical state of its own.
 
 `findTargets` (SCAN AGAIN on Known Space) is offered only after at least one
 Network is remembered. It refreshes SELF's Network relationships, then observes
@@ -183,26 +180,7 @@ player must first Scan intrinsic SELF to remember its Network relationship. With
 `software_unavailable`; where SELF is offline it reports `no_response` and
 remembers nothing.
 
-`sweepTarget` (SCAN on a target card) observes the target's currently open
-Services, then — only where the installed release supplies Inspect — performs
-Enhanced Inspect of the target and its remembered Services, then starts
-Service Analysis for every Service the player now legitimately remembers.
-Service Analysis stays real work: each investigation is a canonical Process
-with its own RAM cost and elapsed time, started through the same
-observation-bound operation the per-Service action uses. Where represented
-memory carries only some of them, those start and the contention is reported;
-where it carries none, the Scan observation still stands. A target that does
-not respond leaves remembered information exactly as it was, and where another
-Device now answers the remembered address that observation is remembered as
-its own Device while this target is left untouched and nothing is
-investigated on its behalf.
-
-The installed NodeScan release supplies the Inspect capability, so a sweep
-under NodeScan 1.0 Standard performs Scan and Service Analysis only.
-Remembered Inspect evidence is unaffected by that capability: where evidence
-exists but the installed release cannot Inspect, the target states that the
-evidence is remembered from an earlier observation.
-
+Target SCAN invokes only the canonical Device Scan and refreshes the currently exposed Service snapshot. It never invokes Inspect or starts Service Analysis. NodeScan 1.1 Experimental presents INSPECT as an explicit target action; NodeScan 1.0 Standard does not. Each Service presents its own explicit ANALYZE action, which alone starts the canonical elapsed Service Analysis Process.
 
 ## Inspect
 
@@ -222,8 +200,7 @@ Current LocalNetwork Inspect reports the represented network's own information,
 including whether canonical membership connects SELF, without enumerating
 members.
 
-Inspect is exposed directly as `inspect <ipv4|network-name>` and from
-remembered Device and LocalNetwork pages in NodeScan. Both interfaces use the
+Inspect is exposed directly as `inspect <ipv4|network-name>` and as an explicit action on remembered Device targets in NodeScan. Both interfaces use the
 same synchronous application operation.
 
 Inspect and Scan are separate architectural/domain operations. Player-facing
@@ -563,6 +540,5 @@ empty state.
   never a prediction. Removing the supporting tool removes the offer without
   touching the Knowledge, and a stale endpoint can still produce a legitimate
   failed attempt.
-- A target sweep automates canonical operations; it does not relax any of
-  them. It never scans, inspects or analyzes anything outside remembered
-  Discovery, and it never reads hidden target truth to decide what to run.
+- NodeScan target Scan, Inspect, and Analyze remain separate explicit operations.
+  None relaxes the admission or information boundary of another.

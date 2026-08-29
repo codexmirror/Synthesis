@@ -7,7 +7,7 @@ import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { createLocalPingTarget, type PingTargetOperation } from './localPingOperation'
 import { createLocalInspectTarget, type InspectTargetOperation } from './localInspectOperation'
-import { createFindTargets, createSweepTarget, type FindTargetsOperation, type SweepTargetOperation } from './targetSweepOperation'
+import { createFindTargets, type FindTargetsOperation } from './targetDiscoveryOperation'
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
@@ -29,7 +29,6 @@ export interface GameActions {
   scanTarget: ScanTargetOperation
   inspectTarget: InspectTargetOperation
   findTargets: FindTargetsOperation
-  sweepTarget: SweepTargetOperation
   startServiceAnalysis(targetDeviceId: string, serviceId: string): NodeScanStartServiceAnalysisResult
   startServiceAnalysisAtEndpoint(endpoint: string): NodeScanEndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
@@ -85,10 +84,6 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     currentState.current = nextState
     setGameState(nextState)
   }))
-  const [sweepTarget] = useState(() => createSweepTarget(() => currentState.current, (nextState) => {
-    currentState.current = nextState
-    setGameState(nextState)
-  }))
   useEffect(() => {
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
@@ -100,7 +95,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     }, 250)
     return () => window.clearInterval(timer)
   }, [])
-  const actions: GameActions = { pingTarget, scanTarget, inspectTarget, findTargets, sweepTarget, startServiceAnalysis(targetDeviceId, serviceId) {
+  const actions: GameActions = { pingTarget, scanTarget, inspectTarget, findTargets, startServiceAnalysis(targetDeviceId, serviceId) {
     const state = currentState.current
     if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
     const result = startServiceAnalysis(state, targetDeviceId, serviceId)
