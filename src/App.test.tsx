@@ -519,6 +519,62 @@ describe('dedicated editing viewport', () => {
     expect(harness).toHaveAttribute('data-ready', 'true')
   })
 
+  it('does not rebase a stable weak candidate to normal while an editable is focused and opening', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 844
+    installViewport(viewport)
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 844 })
+    render(<EditingViewportHarness />)
+    const harness = screen.getByTestId('editing-viewport-harness')
+    const input = screen.getByLabelText('Neutral Shell editor')
+
+    // Focus keeps the controller on the opening path (phase !== 'normal'), so
+    // even a stable weak candidate with no position movement can never take
+    // the idle normal-rebase branch, which requires phase === 'normal'.
+    act(() => input.focus())
+    viewport.height = 780
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 780 })
+    await updateViewport(viewport, {})
+
+    expect(harness).toHaveAttribute('data-host-height', '844')
+    expect(harness).toHaveAttribute('data-editing', 'true')
+    expect(harness).toHaveAttribute('data-phase', 'editing')
+    expect(harness).toHaveAttribute('data-ready', 'false')
+  })
+
+  it('does not normalize a coherent keyboard-like shrink while an editable is focused', async () => {
+    const viewport = new ViewportStub()
+    viewport.height = 844
+    installViewport(viewport)
+    installEditingPresentation()
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 844 })
+    let scrollY = 0
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => scrollY })
+    render(<EditingViewportHarness />)
+    const harness = screen.getByTestId('editing-viewport-harness')
+    const input = screen.getByLabelText('Neutral Shell editor')
+
+    // A valid normal viewport is accepted first, then the editable is focused
+    // and a coherent reduced viewport (position sensors moved, resembling a
+    // keyboard opening) is presented. The bounded confirmation flow may
+    // legitimately accept this as editing geometry, but it must never publish
+    // it as a new normal baseline.
+    act(() => input.focus())
+    viewport.height = 480
+    viewport.offsetTop = viewport.pageTop = 364
+    scrollY = 364
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 480 })
+    await updateViewport(viewport, {})
+
+    expect(harness).toHaveAttribute('data-editing', 'true')
+    expect(harness).not.toHaveAttribute('data-editing', 'false')
+    expect(harness).toHaveAttribute('data-host-height', '844')
+    expect(harness).toHaveAttribute('data-ready', 'false')
+  })
+
   it('ignores editable focus outside the Shell-owned boundary', () => {
     const viewport = new ViewportStub()
     installViewport(viewport)
