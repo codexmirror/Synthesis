@@ -1,14 +1,15 @@
 # VEYRA First Ordinary Phone — Visual Exploration V1
 
-Status: Draft — Exploration / Candidate. **NOT Accepted.** No visual direction is
-selected. Human selection comes next.
-Scope: A visual and product-language exploration of the already-frozen first
-ordinary VEYRA phone structure. Round 1 compared three candidate directions.
-Round 2 records the human review result and carries one selected B/C synthesis
-candidate, rendered as a six-screen set, back for review. It selects no
-structure, no world truth, and no implementation.
+Status: Draft — Historical Exploration / Rejected Home Candidate. **NOT
+Accepted.** No visual direction is selected.
+Scope: Historical visual and product-language exploration of the former
+Personal Index structure. The Personal Index Home concept was rejected by an
+explicit later human product decision. Communication, Money, and Settings work
+may still inform a revised visual pass where it agrees with the accepted
+first-phone contract. This document selects no structure, world truth, or
+implementation.
 
-Structural design authority (unchanged and authoritative over this document):
+Structural design authority (revised and authoritative over this document):
 [`VEYRA_FIRST_ORDINARY_PHONE_V1.md`](VEYRA_FIRST_ORDINARY_PHONE_V1.md).
 Parent identity authority:
 [`VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md).
@@ -17,14 +18,14 @@ Parent identity authority:
 
 ## 1. What this document is and is not
 
-This is the visual exploration pass that
-[`VEYRA_FIRST_ORDINARY_PHONE_V1.md`](VEYRA_FIRST_ORDINARY_PHONE_V1.md) §35 asks
-for. It interprets the accepted structure; it does not redefine it.
+This was the visual exploration pass for the former accepted structure. It is
+retained as historical exploration and does not redefine the revised accepted
+contract.
 
-It has been through one round of human review. §11 records that review's result
-and §12–§14 carry the single candidate it produced. The three-direction material
-in §4–§9 is retained as the historical record of how that candidate was reached,
-and its round-1 recommendation is now superseded by the human selection.
+It went through one round of human review. §11 records that review's result and
+§12–§14 carry the candidate it produced. The Personal Index Home in that
+candidate is now rejected. The exploration remains useful only as
+non-authoritative history and as possible input to revised internal screens.
 
 It is **not** a product-structure authority. Where anything here appears to
 disagree with the accepted first-phone contract, the accepted contract wins and

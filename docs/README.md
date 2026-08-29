@@ -245,15 +245,14 @@ VEYRA Device presentation direction.
   direction)
 - FIRST ORDINARY PHONE DESIGN AUTHORITY →
   [`design/VEYRA_FIRST_ORDINARY_PHONE_V1.md`](design/VEYRA_FIRST_ORDINARY_PHONE_V1.md)
-  (first ordinary-phone product structure, Personal Domains, Home,
-  Communication / Money / Settings structure, Back / Home navigation, Domain
-  projection, and first-phone truthfulness / absence behavior)
+  (first ordinary-phone product structure, conventional consumer app Home,
+  application / system-surface navigation, Communication / Wallet / Settings
+  direction, and first-phone truthfulness / absence behavior)
 - FIRST ORDINARY PHONE VISUAL EXPLORATION →
   [`design/VEYRA_FIRST_ORDINARY_PHONE_VISUAL_EXPLORATION_V1.md`](design/VEYRA_FIRST_ORDINARY_PHONE_VISUAL_EXPLORATION_V1.md)
-  (Draft exploration only, not Accepted and not a product-structure authority:
-  the round-1 three-direction exploration, the human review result, and the one
-  selected B/C synthesis candidate and its rendered reference screens, awaiting
-  human review)
+  (Draft historical exploration only, not Accepted and not a product-structure
+  authority: its Personal Index Home was rejected; internal-screen work may
+  still inform a revised pass)
 - ARCHITECTURE → A02 in
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
   A05–A07 in
