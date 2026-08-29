@@ -985,6 +985,19 @@ other organizations.
 Named organizations may have strong fictional identities without requiring
 special laws of simulation.
 
+### Actors, organizations, and world reaction
+
+The accepted long-term direction connects represented people and Organizations
+with observable evidence, differentiated information, and concrete reactions,
+so World Truth may change in response to player activity. Player-related and
+foreign/NPC-related infrastructure should eventually be capable of using the
+same underlying world structures rather than unrelated simulation models.
+
+The semantic boundaries and reaction grammar are owned by
+[`design/ACTORS_ORGANIZATIONS_WORLD_REACTION_V1.md`](design/ACTORS_ORGANIZATIONS_WORLD_REACTION_V1.md).
+That future design contract is not Current Truth or implementation authority;
+this document does not duplicate its normative detail.
+
 
 ## Fictional currencies
 
