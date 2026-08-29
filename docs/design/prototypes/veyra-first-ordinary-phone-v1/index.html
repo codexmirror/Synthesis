@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEYRA First Ordinary Phone — Visual Exploration V1</title>
+<link rel="stylesheet" href="harness.css">
+<style>
+  .links { max-width: 1280px; margin: 0 auto; display: grid; gap: 12px; }
+  .links a {
+    padding: 16px 18px;
+    display: block;
+    border: 1px solid #34332f;
+    background: #232320;
+    color: #e6e4e0;
+    text-decoration: none;
+  }
+  .links a b { display: block; font-size: 15px; }
+  .links a span { display: block; margin-top: 5px; color: #9d9a95; font-size: 13px; }
+  .note { max-width: 1280px; margin: 30px auto 0; color: #9d9a95; font-size: 13px; }
+  .note code { color: #cfc7b6; }
+</style>
+</head>
+<body>
+<header class="harness-head">
+  <h1>VEYRA First Ordinary Phone — Visual Exploration V1</h1>
+  <p>Three candidate product languages for the accepted VEYRA ordinary-phone structure, each rendered
+     as a six-screen set at the Synthesis mobile reference width.</p>
+  <p><strong>These files are design references, not Synthesis implementation.</strong> They are plain
+     static HTML: they import nothing from <code>src/</code>, are not built, typechecked, tested or
+     mounted by the Shell, and touch no <code>GameState</code>. The structural product contract they
+     interpret is
+     <code>docs/design/VEYRA_FIRST_ORDINARY_PHONE_V1.md</code>; the written comparison is
+     <code>docs/design/VEYRA_FIRST_ORDINARY_PHONE_VISUAL_EXPLORATION_V1.md</code>.</p>
+  <p class="harness-flag">VISUAL MOCKUP CONTENT — NOT SELECTED CANONICAL WORLD TRUTH</p>
+</header>
+
+<div class="links">
+  <a href="direction-a.html"><b>Direction A — “Index”</b>
+    <span>Light warm paper. Hierarchy from type and whitespace only; hairlines are the sole
+          structural device. Chrome appears only where it leads somewhere.</span></a>
+  <a href="direction-b.html"><b>Direction B — “Held”</b>
+    <span>Warm graphite. Hierarchy from surface size and elevation; Domains are unequal objects and
+          Settings deliberately has no surface. Navigation is a physical control object.</span></a>
+  <a href="direction-c.html"><b>Direction C — “Frame”</b>
+    <span>Domain grounds. Home never scrolls: three unequal full-bleed regions whose proportions are
+          the hierarchy. Entering a Domain expands its ground to fill the frame.</span></a>
+</div>
+
+<p class="note">
+  Each direction page can be reduced to a single screen at a chosen width — useful for checking the
+  design on a real phone — with a query string, for example
+  <code>direction-c.html?only=home&amp;w=320</code>. Valid <code>only</code> values are
+  <code>home</code>, <code>communication</code>, <code>conversation</code>, <code>money</code>,
+  <code>settings</code> and <code>settings-device</code>.
+</p>
+<p class="note">
+  <code>capture.mjs</code> re-renders the reference images under
+  <code>docs/assets/veyra-first-ordinary-phone-v1/</code>. It uses whatever Playwright the machine
+  provides and is deliberately not a repository dependency.
+</p>
+</body>
+</html>

@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEYRA exploration — Direction B (Held)</title>
+<link rel="stylesheet" href="harness.css">
+<script defer src="harness.js"></script>
+<style>
+/*
+ * DIRECTION B — "Held"
+ *
+ * Product idea: the phone is a small set of physical things you hold. Hierarchy
+ * is carried by SURFACE SIZE and ELEVATION on a warm graphite ground. Domains
+ * are unequal objects, not equal tiles: Communication is the largest surface,
+ * Money is a smaller raised one, and Settings deliberately has no surface at all
+ * — it lies flat on the base ground, which is how the OS says "this is quieter".
+ *
+ * One sans family, hierarchy from WEIGHT (300 -> 700). Navigation is a physical
+ * control object: a floating capsule that is always the same shape in the same
+ * place, gaining a Back half only at depth.
+ */
+
+.b {
+  --base: #16130f;
+  --panel: #211c16;
+  --raise: #2b241c;
+  --line: rgba(255, 246, 230, .075);
+  --text: #f3eee5;
+  --text-2: #b8ae9f;
+  --text-3: #8a8175;
+  --clay: #d89a6b;
+
+  --sans: "Liberation Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  height: 100%;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--base);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.b-top { padding: 30px 20px 6px; }
+.b-title { margin: 0; font: 600 25px/1.2 var(--sans); letter-spacing: -.015em; }
+.b-sub { margin: 5px 0 0; color: var(--text-3); font: 400 13px/1.3 var(--sans); }
+
+.b-body { min-height: 0; overflow: hidden; padding: 14px 20px 108px; }
+.b-body--home { padding-top: 22px; padding-bottom: 22px; display: grid; align-content: center; }
+
+.b-label {
+  margin: 0 0 12px;
+  color: var(--text-3);
+  font: 600 11px/1 var(--sans);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+/* ---- surfaces ---- */
+.b-panel {
+  padding: 24px 20px;
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .42);
+}
+.b-panel--raised { background: var(--raise); box-shadow: 0 14px 34px rgba(0, 0, 0, .5); }
+.b-panel--flush { padding: 0; overflow: hidden; }
+
+button.b-panel { width: 100%; border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; display: block; }
+
+/* ---- Home ---- */
+.b-home-stack { display: grid; align-content: start; gap: 16px; }
+
+.b-people { display: flex; gap: 10px; padding: 6px 0 8px; }
+.b-person { flex: 1; min-width: 0; display: grid; justify-items: center; gap: 12px; }
+
+.b-mono {
+  width: 58px; height: 58px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--raise);
+  color: var(--text-2);
+  font: 500 21px/1 var(--sans);
+  letter-spacing: .01em;
+}
+.b-panel--raised .b-mono { background: #362e24; }
+
+.b-person span {
+  max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 500 15px/1 var(--sans);
+}
+
+.b-money-face { display: grid; gap: 9px; }
+.b-amount { font: 300 37px/1 var(--sans); letter-spacing: -.025em; }
+.b-provider { color: var(--text-3); font: 400 13px/1 var(--sans); }
+
+/* Settings on Home: the one element with no surface. */
+.b-flat-row {
+  width: 100%;
+  min-height: 56px;
+  padding: 15px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: 500 16px/1.2 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+.b-flat-row + .b-flat-row { border-top: 1px solid var(--line); }
+.b-flat-row b { font-weight: 500; color: var(--text); }
+.b-flat-row em { font-style: normal; color: var(--text-3); font-size: 13px; font-weight: 400; }
+.b-flat-row svg { flex: none; color: var(--text-3); }
+
+/* ---- conversation list ---- */
+.b-conv {
+  width: 100%;
+  min-height: 76px;
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  border: 0;
+  background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.b-conv + .b-conv { border-top: 1px solid var(--line); }
+.b-conv .b-mono { width: 46px; height: 46px; font-size: 17px; }
+.b-conv__copy { min-width: 0; display: grid; gap: 4px; }
+.b-conv__name { font: 600 17px/1.2 var(--sans); }
+.b-conv__note {
+  color: var(--text-3);
+  font: 400 13.5px/1.3 var(--sans);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---- thread ---- */
+.b-thread-head { display: flex; align-items: center; gap: 14px; padding: 4px 0 4px; }
+.b-thread-head .b-mono { width: 46px; height: 46px; font-size: 17px; }
+
+.b-thread { display: grid; gap: 12px; padding-top: 20px; }
+.b-bubble {
+  max-width: 84%;
+  margin: 0;
+  padding: 13px 16px;
+  border-radius: 20px 20px 20px 6px;
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  font: 400 15.5px/1.45 var(--sans);
+}
+.b-bubble--own {
+  justify-self: end;
+  border-radius: 20px 20px 6px 20px;
+  background: var(--raise);
+  color: var(--text);
+}
+.b-run {
+  justify-self: end;
+  margin: 8px 2px 0;
+  color: var(--text-3);
+  font: 600 10.5px/1 var(--sans);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.b-run--them { justify-self: start; margin-top: 0; }
+
+/* ---- money ---- */
+.b-hero { display: grid; gap: 10px; padding: 24px 20px 22px; }
+.b-hero .b-amount { font-size: 45px; }
+
+.b-actions { display: flex; gap: 10px; margin-top: 14px; }
+.b-act {
+  flex: 1;
+  min-height: 54px;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .38);
+  color: var(--text);
+  font: 600 14.5px/1 var(--sans);
+  cursor: pointer;
+}
+.b-act--primary { background: var(--clay); color: #241a11; }
+
+.b-act-row {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 10px;
+  padding: 0 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  border: 0; border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  font: 500 15px/1 var(--sans);
+  cursor: pointer;
+}
+.b-act-row svg { color: var(--text-3); }
+
+.b-act-item {
+  padding: 15px 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+}
+.b-act-item + .b-act-item { border-top: 1px solid var(--line); }
+.b-act-item__copy { min-width: 0; display: grid; gap: 4px; }
+.b-act-item__dir { font: 500 14.5px/1 var(--sans); }
+.b-act-item__ref { color: var(--text-3); font: 400 12.5px/1 var(--sans); }
+.b-act-item__amt { flex: none; font: 400 17px/1 var(--sans); letter-spacing: -.01em; }
+
+/* ---- settings facts ---- */
+.b-facts { margin: 6px 0 0; }
+.b-fact { padding: 17px 4px; display: grid; gap: 6px; border-bottom: 1px solid var(--line); }
+.b-fact:first-child { border-top: 1px solid var(--line); }
+.b-fact dt { color: var(--text-3); font: 600 11px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; }
+.b-fact dd { margin: 0; font: 400 18px/1.3 var(--sans); }
+
+/* ---- the control object ---- */
+.b-puck {
+  position: absolute;
+  left: 50%; bottom: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: stretch;
+  border-radius: 999px;
+  background: rgba(43, 36, 28, .94);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .55);
+  overflow: hidden;
+}
+.b-puck button {
+  min-height: 50px;
+  padding: 0 20px;
+  display: flex; align-items: center; gap: 9px;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: 600 13px/1 var(--sans);
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+.b-puck button + button { border-left: 1px solid rgba(255, 246, 230, .09); }
+.b-puck .b-puck__home { color: var(--text); }
+.b-puck .b-puck__home svg { color: var(--clay); }
+.b-puck--current .b-puck__home { color: var(--text-3); }
+.b-puck--current .b-puck__home svg { color: var(--text-3); }
+
+/* Wide viewports centre the surfaces rather than stretching them. */
+.b-top, .b-body { padding-inline: max(20px, calc((100% - 520px) / 2)); }
+</style>
+</head>
+<body>
+
+<header class="harness-head">
+  <h1>VEYRA First Ordinary Phone — Visual Exploration V1 · Direction B “Held”</h1>
+  <p>Hierarchy from surface size and elevation on a warm graphite ground. Domains are unequal
+     objects rather than equal tiles; Settings deliberately has no surface at all. One sans family,
+     hierarchy from weight. Navigation is a physical control object in a constant position.</p>
+  <p>Rendered at 390 × 800, approximating the Synthesis mobile viewport.
+     <a href="index.html">Back to exploration index</a></p>
+  <p class="harness-flag">VISUAL MOCKUP CONTENT — NOT SELECTED CANONICAL WORLD TRUTH</p>
+</header>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- The Home mark is the personal index itself: three unequal rounded bars. -->
+    <g id="b-i-home" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none">
+      <path d="M4 6h13M4 11h9M4 16h5"/>
+    </g>
+    <g id="b-i-back" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M12.5 5 6 11l6.5 6"/>
+    </g>
+    <g id="b-i-next" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M8.5 5 15 11l-6.5 6"/>
+    </g>
+    <g id="b-i-send" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M5 17 17 5M9 5h8v8"/>
+    </g>
+    <g id="b-i-receive" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M17 5 5 17M13 17H5V9"/>
+    </g>
+  </defs>
+</svg>
+
+<div class="board">
+
+  <!-- ============ 1. HOME ============ -->
+  <figure class="plate">
+    <figcaption>1 · Home</figcaption>
+    <div class="screen" id="b-home">
+      <div class="b">
+        <div class="b-top"></div>
+        <div class="b-body b-body--home">
+          <div class="b-home-stack">
+            <button class="b-panel">
+              <p class="b-label">Communication</p>
+              <div class="b-people">
+                <span class="b-person"><i class="b-mono">A</i><span>Ana</span></span>
+                <span class="b-person"><i class="b-mono">M</i><span>Mirek</span></span>
+                <span class="b-person"><i class="b-mono">S</i><span>Sofie</span></span>
+              </div>
+            </button>
+            <button class="b-panel b-panel--raised">
+              <p class="b-label">Money</p>
+              <span class="b-money-face">
+                <span class="b-amount">$1,250.00</span>
+                <span class="b-provider">Civic Dollar</span>
+              </span>
+            </button>
+            <button class="b-flat-row" style="margin-top:6px">
+              <b>Settings</b>
+              <span style="display:flex;align-items:center;gap:10px">
+                <em>Petra’s Phone</em>
+                <svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-next"/></svg>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 2. COMMUNICATION ROOT ============ -->
+  <figure class="plate">
+    <figcaption>2 · Communication root</figcaption>
+    <div class="screen" id="b-communication">
+      <div class="b">
+        <div class="b-top"><h1 class="b-title">Communication</h1></div>
+        <div class="b-body">
+          <div class="b-panel b-panel--flush">
+            <button class="b-conv">
+              <i class="b-mono">A</i>
+              <span class="b-conv__copy">
+                <span class="b-conv__name">Ana</span>
+                <span class="b-conv__note">Can you bring the blue folder on Saturday?</span>
+              </span>
+            </button>
+            <button class="b-conv">
+              <i class="b-mono">M</i>
+              <span class="b-conv__copy">
+                <span class="b-conv__name">Mirek</span>
+                <span class="b-conv__note">I left the key with the neighbour.</span>
+              </span>
+            </button>
+            <button class="b-conv">
+              <i class="b-mono">S</i>
+              <span class="b-conv__copy">
+                <span class="b-conv__name">Sofie</span>
+                <span class="b-conv__note">Thanks — that worked.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <div class="b-puck">
+          <button><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-home"/></svg>Home</button>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 3. CONVERSATION DETAIL ============ -->
+  <figure class="plate">
+    <figcaption>3 · Conversation detail</figcaption>
+    <div class="screen" id="b-conversation">
+      <div class="b">
+        <div class="b-top">
+          <div class="b-thread-head">
+            <i class="b-mono">A</i>
+            <div>
+              <h1 class="b-title">Ana</h1>
+              <p class="b-sub">with Petra</p>
+            </div>
+          </div>
+        </div>
+        <div class="b-body">
+          <div class="b-thread">
+            <p class="b-bubble">Are you still coming on Saturday?</p>
+            <p class="b-bubble b-bubble--own">Yes. Around four.</p>
+            <p class="b-bubble">Can you bring the blue folder? The one from the office.</p>
+            <p class="b-bubble b-bubble--own">I’ll put it in the car tonight.</p>
+            <p class="b-bubble">Thank you.</p>
+          </div>
+        </div>
+        <div class="b-puck">
+          <button><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-back"/></svg>Back</button>
+          <button class="b-puck__home"><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-home"/></svg>Home</button>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 4. MONEY ROOT ============ -->
+  <figure class="plate">
+    <figcaption>4 · Money root</figcaption>
+    <div class="screen" id="b-money">
+      <div class="b">
+        <div class="b-top"><h1 class="b-title">Money</h1></div>
+        <div class="b-body">
+          <div class="b-panel b-panel--raised b-hero">
+            <span class="b-amount">$1,250.00</span>
+            <span class="b-provider">Civic Dollar</span>
+          </div>
+          <div class="b-actions">
+            <button class="b-act b-act--primary"><svg width="20" height="20" viewBox="0 0 22 22"><use href="#b-i-send"/></svg>Send</button>
+            <button class="b-act"><svg width="20" height="20" viewBox="0 0 22 22"><use href="#b-i-receive"/></svg>Receive</button>
+          </div>
+          <button class="b-act-row">Account<svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-next"/></svg></button>
+          <p class="b-label" style="margin:28px 0 12px">Activity</p>
+          <div class="b-panel b-panel--flush">
+            <div class="b-act-item">
+              <span class="b-act-item__copy">
+                <span class="b-act-item__dir">Sent</span>
+                <span class="b-act-item__ref">CD-4471-2298</span>
+              </span>
+              <span class="b-act-item__amt">−$120.00</span>
+            </div>
+            <div class="b-act-item">
+              <span class="b-act-item__copy">
+                <span class="b-act-item__dir">Received</span>
+                <span class="b-act-item__ref">CD-9930-1120</span>
+              </span>
+              <span class="b-act-item__amt">+$400.00</span>
+            </div>
+          </div>
+        </div>
+        <div class="b-puck">
+          <button class="b-puck__home"><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-home"/></svg>Home</button>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 5. SETTINGS ROOT ============ -->
+  <figure class="plate">
+    <figcaption>5 · Settings root</figcaption>
+    <div class="screen" id="b-settings">
+      <div class="b">
+        <div class="b-top">
+          <h1 class="b-title">Settings</h1>
+          <p class="b-sub">Petra’s Phone</p>
+        </div>
+        <div class="b-body">
+          <div style="margin-top:10px">
+            <button class="b-flat-row"><b>This Device</b><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-next"/></svg></button>
+            <button class="b-flat-row">
+              <b>Connection</b>
+              <span style="display:flex;align-items:center;gap:10px">
+                <em>Connected</em>
+                <svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-next"/></svg>
+              </span>
+            </button>
+            <button class="b-flat-row"><b>Apps &amp; Software</b><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-next"/></svg></button>
+          </div>
+        </div>
+        <div class="b-puck">
+          <button class="b-puck__home"><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-home"/></svg>Home</button>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ============ 6. SETTINGS DETAIL ============ -->
+  <figure class="plate">
+    <figcaption>6 · Settings detail — This Device</figcaption>
+    <div class="screen" id="b-settings-device">
+      <div class="b">
+        <div class="b-top"><h1 class="b-title">This Device</h1></div>
+        <div class="b-body">
+          <dl class="b-facts">
+            <div class="b-fact"><dt>Name</dt><dd>Petra’s Phone</dd></div>
+            <div class="b-fact"><dt>System</dt><dd>VEYRA OS 4.1</dd></div>
+          </dl>
+        </div>
+        <div class="b-puck">
+          <button><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-back"/></svg>Back</button>
+          <button class="b-puck__home"><svg width="22" height="22" viewBox="0 0 22 22"><use href="#b-i-home"/></svg>Home</button>
+        </div>
+      </div>
+    </div>
+  </figure>
+
+</div>
+</body>
+</html>
