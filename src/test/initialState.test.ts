@@ -86,7 +86,7 @@ describe('createInitialGameState', () => {
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([
-      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001', 'host-phone-001'] },
+      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'] },
     ])
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')
@@ -176,8 +176,8 @@ describe('createInitialGameState', () => {
       { id: 'service-ssh-003', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
     ])
     expect(vulnerabilitiesForService(phone!.services![0])).toEqual([AUTH_017])
-    // Discoverable by the existing Scan grammar rather than by a shortcut.
-    expect(state.world.network.localNetworks[0].memberDeviceIds).toContain('host-phone-001')
+    // Directly discoverable by the existing Scan grammar, but not leaked by SELF's temporary Network topology.
+    expect(state.world.network.localNetworks[0].memberDeviceIds).not.toContain('host-phone-001')
     expect(phone?.authenticationHistory).toEqual({ nextId: 1, records: [] })
   })
 

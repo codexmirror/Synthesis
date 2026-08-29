@@ -270,7 +270,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
           inputMode="decimal"
           autoComplete="off"
           spellCheck={false}
-          placeholder="198.51.100.61"
+          placeholder="IPv4 address"
           value={directAddress}
           onChange={(event) => onDirectAddressChange(event.target.value)}
         />
@@ -308,10 +308,10 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
       </div>
       : <div className="node-empty"><strong>NOTHING KNOWN YET</strong><span>Nothing has been found around this Device yet.</span></div>}
 
-    <div className="ns-primary-slot">
-      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>{known ? 'SCAN AGAIN' : 'SCAN'}</button>
-      <p className="ns-primary-note">Look for devices around you.</p>
-    </div>
+    {space.networks.length > 0 && <div className="ns-primary-slot">
+      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>SCAN AGAIN</button>
+      <p className="ns-primary-note">Look for devices on known Networks.</p>
+    </div>}
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
   </div>
 }
