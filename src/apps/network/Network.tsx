@@ -265,7 +265,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
       <div className="ns-direct-row">
         <input
           id="nodescan-target-address"
-          className="node-field"
+          className="node-input"
           type="text"
           inputMode="decimal"
           autoComplete="off"
