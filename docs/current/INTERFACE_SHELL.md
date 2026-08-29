@@ -242,6 +242,10 @@ Its editing lifecycle validates and classifies a complete sensor snapshot,
 then either accepts it or holds the last accepted normal/editing geometry.
 Bounded animation-frame resampling can confirm a weak coherent candidate;
 invalid and contradictory observations never move the published edit plane.
+While the controller and presentation are fully normal and no Shell editable is
+focused, that same bounded confirmation can accept a stable weak candidate as
+the new normal baseline. Active editing transitions cannot use this idle rebase
+path.
 
 Shell-owned editable focus is independent presentation truth. It activates
 EDITING / DONE immediately and keeps normal Shell chrome hidden through
