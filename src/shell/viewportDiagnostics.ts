@@ -10,7 +10,6 @@ export interface FocusEvidence {
   editable: boolean
   connected: boolean
   insideShell: boolean
-  rect?: string
 }
 
 export interface ViewportDiagnosticEntry {
@@ -65,13 +64,11 @@ export function summarizeFocus(target: EventTarget | null): FocusEvidence {
     const identifier = safeToken(surface.getAttribute('data-testid')) || surface.tagName.toLowerCase()
     bits.push(`surface=${identifier}`)
   }
-  const rect = target.getBoundingClientRect()
   return {
     element: bits.join(' '),
     editable: isEditable(target),
     connected: target.isConnected,
     insideShell: Boolean(target.closest('.os-shell')),
-    rect: `${rect.top.toFixed(0)}/${rect.bottom.toFixed(0)}/${rect.height.toFixed(0)}`,
   }
 }
 
@@ -122,7 +119,7 @@ export function exportViewportDiagnosticCapture(capture: ViewportDiagnosticCaptu
     `SYNTHESIS MOBILE EDITING DIAGNOSTICS V${VIEWPORT_DIAGNOSTICS_VERSION}`,
     `captured=${capture.capturedAt} presentation=${capture.standalone ? 'standalone' : 'browser-tab'}`,
     `window ${capture.window}`,
-    `focus ${focus.element} connected=${focus.connected} editable=${focus.editable} shell=${focus.insideShell}${focus.rect ? ` rect=${focus.rect}` : ''}`,
+    `focus ${focus.element} connected=${focus.connected} editable=${focus.editable} shell=${focus.insideShell}`,
     `userAgent=${capture.userAgent}`,
     'TRACE',
     ...capture.entries.map((entry) =>

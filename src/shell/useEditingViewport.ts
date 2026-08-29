@@ -215,6 +215,7 @@ export function useEditingViewport({ shellRef, standalone, onDiagnostic }: Editi
       shell.style.removeProperty('--node-presentation-height')
     }
     const finishPresentation = () => {
+      const completesRecovery = presentationPhase === 'recovering'
       presentationPhase = 'normal'
       targetViewportTop = 0
       shellTop = 0
@@ -223,7 +224,7 @@ export function useEditingViewport({ shellRef, standalone, onDiagnostic }: Editi
       presentationHeight = lastAcceptedGeometry.current.hostHeight
       viewportLifecycle = 'active'
       clearPresentationVariables()
-      observe('RECOVERY COMPLETE')
+      if (completesRecovery) observe('RECOVERY COMPLETE')
       publish()
     }
     const updatePresentationMapping = () => {

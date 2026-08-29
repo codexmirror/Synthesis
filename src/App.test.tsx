@@ -344,6 +344,7 @@ describe('standalone presentation contract', () => {
     const scrollY = vi.spyOn(window, 'scrollY', 'get').mockReturnValue(291)
 
     const recorder = new ViewportDiagnosticsRecorder()
+    const layoutRead = vi.spyOn(Element.prototype, 'getBoundingClientRect')
     render(
       <ViewportDebug diagnostics={recorder} viewport={viewportState({
         hostHeight: 775,
@@ -362,7 +363,39 @@ describe('standalone presentation contract', () => {
     expect(recorder.snapshot().some((entry) => entry.name === 'visualViewport.scrollend')).toBe(true)
     expect(recorder.snapshot().some((entry) => entry.name === 'pagehide')).toBe(true)
     expect(diagnostics.querySelectorAll('li').length).toBeLessThanOrEqual(before)
+    expect(layoutRead).not.toHaveBeenCalled()
+    layoutRead.mockRestore()
     scrollY.mockRestore()
+  })
+
+  it('records structural focus relatedTarget evidence without values or layout reads', () => {
+    installMediaQueries()
+    const recorder = new ViewportDiagnosticsRecorder()
+    const layoutRead = vi.spyOn(Element.prototype, 'getBoundingClientRect')
+    render(
+      <div className="os-shell">
+        <input aria-label="First editor" defaultValue="private first value" />
+        <textarea aria-label="Second editor" defaultValue="private second value" />
+        <ViewportDebug diagnostics={recorder} viewport={viewportState()} />
+      </div>,
+    )
+    const first = screen.getByLabelText('First editor')
+    const second = screen.getByLabelText('Second editor')
+    act(() => first.dispatchEvent(new FocusEvent('focusin', { bubbles: true, relatedTarget: second })))
+    act(() => first.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: second })))
+
+    const focusEntries = recorder.snapshot().filter((entry) => entry.name === 'focusin' || entry.name === 'focusout')
+    expect(focusEntries).toHaveLength(2)
+    expect(focusEntries[0].detail.relatedTarget).toMatchObject({
+      element: expect.stringContaining('textarea'),
+      editable: true,
+      connected: true,
+      insideShell: true,
+    })
+    expect(JSON.stringify(focusEntries)).not.toContain('private first value')
+    expect(JSON.stringify(focusEntries)).not.toContain('private second value')
+    expect(layoutRead).not.toHaveBeenCalled()
+    layoutRead.mockRestore()
   })
 
   it('keeps a bounded long-lived chronological trace across interactions', () => {
@@ -1444,6 +1477,38 @@ describe('dedicated editing viewport', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
     await updateViewport(viewport, { height: 844 })
     await waitFor(() => expect(shell).toHaveAttribute('data-editing-geometry', 'false'))
+  })
+
+  it('reports recovery completion only for a real recovery transition', async () => {
+    window.history.replaceState(null, '', '/?viewportDebug=1')
+    const record = vi.spyOn(ViewportDiagnosticsRecorder.prototype, 'record')
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation()
+    const { user, input, shell } = await openTerminal()
+
+    await user.click(input)
+    await updateViewport(viewport, { height: 538, offsetTop: 306 })
+    await user.click(screen.getByRole('button', { name: /finish editing/i }))
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
+    await updateViewport(viewport, { height: 844, offsetTop: 0 })
+    await waitFor(() => expect(shell).toHaveAttribute('data-recovery-ready', 'true'))
+
+    expect(record.mock.calls.filter(([, name]) => name === 'RECOVERY COMPLETE')).toHaveLength(1)
+    record.mockRestore()
+  })
+
+  it('does not report recovery completion for ordinary non-mobile normalization', async () => {
+    window.history.replaceState(null, '', '/?viewportDebug=1')
+    const record = vi.spyOn(ViewportDiagnosticsRecorder.prototype, 'record')
+    const viewport = new ViewportStub()
+    installViewport(viewport)
+    installEditingPresentation(false)
+    render(<App />)
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
+    expect(record.mock.calls.some(([, name]) => name === 'RECOVERY COMPLETE')).toBe(false)
+    record.mockRestore()
   })
 })
 

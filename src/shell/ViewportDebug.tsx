@@ -10,15 +10,14 @@ import {
 
 const DOCUMENT_EVENTS = ['pointerdown', 'touchstart', 'focusin', 'focusout', 'selectionchange'] as const
 
-function browserDetail(target: EventTarget | null) {
+function browserDetail(event: Event | null) {
   const visual = window.visualViewport
-  const shell = document.querySelector('.os-shell')?.getBoundingClientRect()
   return {
     active: summarizeFocus(document.activeElement),
-    target: summarizeFocus(target),
+    target: summarizeFocus(event?.target ?? null),
+    relatedTarget: summarizeFocus(event instanceof FocusEvent ? event.relatedTarget : null),
     vv: visual ? `${visual.height}/${visual.offsetTop}/${visual.pageTop}/${visual.pageLeft}@${visual.scale}` : '—',
     window: `${window.innerHeight}/${document.documentElement.clientHeight}/${window.scrollY}`,
-    shell: shell ? `${shell.top.toFixed(0)}/${shell.bottom.toFixed(0)}/${shell.height.toFixed(0)}` : '—',
     visibility: document.visibilityState,
   }
 }
@@ -40,7 +39,7 @@ export function ViewportDebug({ viewport, diagnostics, standalone }: {
 
   useEffect(() => {
     if (!diagnostics) return
-    const record = (name: string, event: Event) => diagnostics.record('BROWSER', name, browserDetail(event.target))
+    const record = (name: string, event: Event) => diagnostics.record('BROWSER', name, browserDetail(event))
     const documentHandlers = DOCUMENT_EVENTS.map((name) => {
       const handler = (event: Event) => record(name, event)
       document.addEventListener(name, handler, true)
