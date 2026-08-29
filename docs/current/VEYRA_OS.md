@@ -105,9 +105,12 @@ The consumer hierarchy is balance, Provider, SEND / RECEIVE, ACCOUNT, ACTIVITY:
   calls `transferDollarsFromOperatedRemoteDevice`, which performs the canonical
   `transferDollars` acted by the operated Device; the source Account is still
   derived by the domain from that Device's Session, so this surface cannot name
-  whose money moves. Refusals are restated in ordinary product wording and move
-  nothing. No fee, total, arrival estimate, settlement, processing state or
-  security claim is shown, because none is represented.
+  whose money moves. One rendered successful confirmation is locally latched
+  immediately and can create at most one canonical Transaction, even while the
+  Wallet root is waiting to be presented; a refusal releases that guard and
+  returns to the editable form. Refusals are restated in ordinary product
+  wording and move nothing. No fee, total, arrival estimate, settlement,
+  processing state or security claim is shown, because none is represented.
 - **RECEIVE** presents the Account reference, the Provider and a copy control.
   It creates no payment request, invoice, amount request or QR identity, and
   opening or leaving it changes no canonical state.
@@ -186,7 +189,9 @@ The surface is mobile-first at a 390px reference and usable at 320, 430 and
 VEYRA's scrolling region owns its own scrolling, and VEYRA reads no viewport
 and keeps no keyboard state: moving between surfaces ends editing and waits for
 the Shell's recovered editing geometry, the same contract RACK-OS consumes
-(`docs/current/INTERFACE_SHELL.md`).
+(`docs/current/INTERFACE_SHELL.md`). This includes SEND's editable form moving
+to its Review presentation: the form remains mounted after requesting the
+Shell-owned end-editing intent and is replaced only after recovery is ready.
 
 
 ## Gotchas

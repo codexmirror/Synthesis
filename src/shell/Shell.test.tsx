@@ -96,6 +96,21 @@ describe('Remote Session handoff', () => {
     expect(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' })).toBeEnabled()
   })
 
+  it('keeps DISCONNECT canonical while ENTER is waiting for editing recovery', async () => {
+    const user = userEvent.setup()
+    viewport = { ...viewport, editing: true, editingPresentation: true, presentationPhase: 'editing', recoveryReady: false }
+    render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)
+
+    expect(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' })).toBeDisabled()
+    expect(screen.getByText('RELEASING LOCAL INPUT')).toBeInTheDocument()
+    const disconnect = screen.getByRole('button', { name: 'DISCONNECT' })
+    expect(disconnect).toBeEnabled()
+
+    await user.click(disconnect)
+    expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
+    expect(screen.queryByLabelText('Remote session handoff')).not.toBeInTheDocument()
+  })
+
   it('enters without mutating GameState, disconnects canonically, and gates a later session again', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)

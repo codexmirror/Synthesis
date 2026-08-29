@@ -165,6 +165,63 @@ describe('VEYRA Wallet', () => {
     expect(wallet).toHaveTextContent(PLAYER_REFERENCE)
   })
 
+  it('keeps the editable Send form mounted until Shell recovery, then presents Review', async () => {
+    const initial = phoneConnectedState()
+    const user = userEvent.setup()
+    const view = render(<GameProvider initialState={initial}><Shell /><State /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ENTER VEYRA OS →' }))
+    await user.click(screen.getByRole('button', { name: 'Wallet' }))
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await user.type(screen.getByLabelText('Amount'), '20.00')
+    await user.type(screen.getByLabelText('To account number'), PLAYER_REFERENCE)
+
+    viewport = { ...viewport, editing: true, editingPresentation: true, presentationPhase: 'editing', recoveryReady: false }
+    view.rerender(<GameProvider initialState={initial}><Shell /><State /></GameProvider>)
+    endEditing.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Review' }))
+
+    expect(endEditing).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('region', { name: 'Send money' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount')).toHaveValue('20.00')
+    expect(screen.queryByRole('region', { name: 'Review transfer' })).not.toBeInTheDocument()
+
+    viewport = { ...viewport, editing: false, editingPresentation: false, presentationPhase: 'normal', recoveryReady: true }
+    view.rerender(<GameProvider initialState={initial}><Shell /><State /></GameProvider>)
+    expect(await screen.findByRole('region', { name: 'Review transfer' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Send money' })).not.toBeInTheDocument()
+  })
+
+  it('commits one transfer per successful Review while Wallet navigation waits for recovery', async () => {
+    const initial = phoneConnectedState()
+    const user = userEvent.setup()
+    const view = render(<GameProvider initialState={initial}><Shell /><State /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ENTER VEYRA OS →' }))
+    await user.click(screen.getByRole('button', { name: 'Wallet' }))
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await user.type(screen.getByLabelText('Amount'), '20.00')
+    await user.type(screen.getByLabelText('To account number'), PLAYER_REFERENCE)
+    await user.click(screen.getByRole('button', { name: 'Review' }))
+
+    viewport = { ...viewport, editing: false, editingPresentation: true, presentationPhase: 'recovering', recoveryReady: false }
+    const confirm = screen.getByRole('button', { name: 'Send $20.00' })
+    await user.click(confirm)
+    await user.click(confirm)
+
+    const pending = canonical()
+    expect(accountBalance(pending, PHONE_ACCOUNT_ID)).toBe(34_250 - 2_000)
+    expect(accountBalance(pending, 'dollar-account-local-v0')).toBe(125_000 + 2_000)
+    expect(pending.dollarFinance.transactions.records).toHaveLength(1)
+    expect(screen.getByRole('region', { name: 'Review transfer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sent $20.00' })).toBeDisabled()
+
+    viewport = { ...viewport, editingPresentation: false, presentationPhase: 'normal', recoveryReady: true }
+    view.rerender(<GameProvider initialState={initial}><Shell /><State /></GameProvider>)
+    const wallet = await screen.findByRole('region', { name: 'Wallet' })
+    expect(wallet).toHaveTextContent('$322.50')
+    expect(wallet).toHaveTextContent('−$20.00')
+    expect(canonical().dollarFinance.transactions.records).toHaveLength(1)
+  })
+
   it('derives Activity only from canonical Transactions', async () => {
     const base = createInitialGameState()
     const withHistory: GameState = { ...base, dollarFinance: { ...base.dollarFinance, transactions: { nextId: 2, records: [{
@@ -209,6 +266,12 @@ describe('VEYRA Wallet', () => {
     const after = canonical()
     expect(accountBalance(after, PHONE_ACCOUNT_ID)).toBe(34_250)
     expect(after.dollarFinance.transactions.records).toEqual([])
+
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(screen.getByRole('region', { name: 'Wallet' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await user.click(screen.getByRole('button', { name: 'Home' }))
+    expect(screen.getByRole('region', { name: 'Home' })).toBeInTheDocument()
   })
 
   it('presents RECEIVE as the represented reference and nothing more', async () => {
