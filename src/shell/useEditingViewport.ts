@@ -133,9 +133,10 @@ function statesMatch(a: EditingViewportState, b: EditingViewportState): boolean 
 interface EditingViewportOptions {
   shellRef: RefObject<HTMLElement>
   standalone: boolean
+  onDiagnostic?: (name: string, detail?: Record<string, unknown>) => void
 }
 
-export function useEditingViewport({ shellRef, standalone }: EditingViewportOptions): EditingViewportControl {
+export function useEditingViewport({ shellRef, standalone, onDiagnostic }: EditingViewportOptions): EditingViewportControl {
   const initial = initialSnapshot()
   const initialAccepted = isValidViewportSensorSnapshot(initial)
     ? initial
@@ -174,6 +175,14 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
     let focusExitToken = 0
     let suspended = false
     let viewportLifecycle: ViewportLifecycle = 'active'
+
+    const observe = (name: string, detail: Record<string, unknown> = {}) => onDiagnostic?.(name, {
+      phase, presentationPhase, editableFocused, suppressUntilNewFocus, epoch,
+      geometryEditing: lastAcceptedGeometry.current.editing,
+      lifecycle: viewportLifecycle, suspended, framePending: Boolean(frame),
+      weakFramePending: Boolean(weakFrame), weakConfirmations, weakFramesRemaining,
+      ...detail,
+    })
 
     const publish = () => {
       const geometry = lastAcceptedGeometry.current
@@ -214,6 +223,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       presentationHeight = lastAcceptedGeometry.current.hostHeight
       viewportLifecycle = 'active'
       clearPresentationVariables()
+      observe('RECOVERY COMPLETE')
       publish()
     }
     const updatePresentationMapping = () => {
@@ -239,23 +249,33 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       publish()
     }
     const maybeFinishPresentationRecovery = (snapshot: ViewportSensorSnapshot) => {
-      if (presentationPhase !== 'recovering' || editableFocused ||
-        lastAcceptedGeometry.current.editing ||
-        !isValidViewportSensorSnapshot(snapshot) ||
-        !hasEditingViewportRecovered(snapshot.hostHeight, snapshot.visualHeight)) return
+      if (presentationPhase !== 'recovering') return
+      if (editableFocused) { observe('RECOVERY BLOCKED', { reason: 'editable-focus' }); return }
+      if (lastAcceptedGeometry.current.editing) { observe('RECOVERY BLOCKED', { reason: 'accepted-editing-geometry' }); return }
+      if (!isValidViewportSensorSnapshot(snapshot)) { observe('RECOVERY BLOCKED', { reason: 'invalid-snapshot' }); return }
+      const heightRecovered = hasEditingViewportRecovered(snapshot.hostHeight, snapshot.visualHeight)
+      if (!heightRecovered) { observe('RECOVERY BLOCKED', { reason: 'viewport-height', hostHeight: snapshot.hostHeight, visualHeight: snapshot.visualHeight }); return }
       if (!standalone) {
         const shell = shellRef.current
-        if (!shell || Math.abs(shell.getBoundingClientRect().top - targetViewportTop) > RECOVERY_TOLERANCE) return
+        if (!shell) { observe('RECOVERY BLOCKED', { reason: 'shell-missing' }); return }
+        const actualShellTop = shell.getBoundingClientRect().top
+        const delta = Math.abs(actualShellTop - targetViewportTop)
+        if (delta > RECOVERY_TOLERANCE) {
+          observe('RECOVERY BLOCKED', { reason: 'shell-displacement', targetViewportTop, actualShellTop, delta, tolerance: RECOVERY_TOLERANCE, heightRecovered })
+          return
+        }
       }
       finishPresentation()
     }
     const acceptNormal = (snapshot: ViewportSensorSnapshot) => {
+      const matchesNormalBaseline = viewportSnapshotsAreEquivalent(snapshot, acceptedNormalSnapshot)
       const height = healthyHostHeight(snapshot)
       const accepted = { ...snapshot, hostHeight: height }
       acceptedNormalSnapshot = accepted
       transitionBaseline = accepted
       phase = 'normal'
       weakCandidate = undefined
+      observe('GEOMETRY ACCEPT NORMAL', { matchesNormalBaseline })
       publishAccepted(normalState(height))
     }
     const acceptEditing = (snapshot: ViewportSensorSnapshot, editTop: number, editHeight: number) => {
@@ -263,6 +283,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       if (presentationPhase !== 'recovering') presentationPhase = 'editing'
       viewportLifecycle = 'active'
       weakCandidate = undefined
+      observe('GEOMETRY ACCEPT EDITING', { editTop, editHeight })
       publishAccepted({ hostHeight: transitionBaseline.hostHeight, editTop, editHeight, editing: true })
       // The accepted sensor state is the baseline for subsequent editing updates.
       transitionBaseline = snapshot
@@ -287,7 +308,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       measurementEpoch: number,
       source: MeasurementSource,
     ) => {
-      if (measurementEpoch !== epoch) return
+      if (measurementEpoch !== epoch) { observe('STALE EPOCH DISCARDED', { measurementEpoch, currentEpoch: epoch, source }); return }
       if (!supportsEditingPresentation()) {
         editableFocused = false
         phase = 'normal'
@@ -296,6 +317,13 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         return
       }
       const classification = classifyViewportSensorSnapshot(snapshot, transitionBaseline)
+      observe('SNAPSHOT CLASSIFIED', {
+        classification: classification.kind === 'pending' ? `pending:${classification.reason}` : classification.kind,
+        source,
+        measurementEpoch,
+        matchesNormalBaseline: viewportSnapshotsAreEquivalent(snapshot, acceptedNormalSnapshot),
+        heightRecovered: hasEditingViewportRecovered(snapshot.hostHeight, snapshot.visualHeight),
+      })
       if (classification.kind === 'invalid') return
       if (classification.kind === 'pending') {
         if (classification.reason === 'hard-contradiction') { clearWeakSampling(); return }
@@ -339,6 +367,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
           const scheduledEpoch = epoch
           weakFrame = requestAnimationFrame(() => {
             weakFrame = 0
+            observe('WEAK SAMPLE FIRED', { scheduledEpoch })
             processSnapshot(
               readSnapshot(transitionBaseline.hostHeight),
               scheduledEpoch,
@@ -409,15 +438,21 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
         presentationPhase !== 'normal' ||
         lastAcceptedGeometry.current.editing
       if (!hasEditingInteraction) return
-      if (!editableFocused && presentationPhase === 'recovering') { schedule(); return }
+      if (!editableFocused && presentationPhase === 'recovering') { observe('RECOVERY REPROBE REQUESTED'); schedule(); return }
       editableFocused = false
       advanceEpoch()
       phase = 'recovering'
       presentationPhase = 'recovering'
+      observe('RECOVERY ENTER')
       publish()
       schedule(); cancelCloseProbe()
       const timerEpoch = epoch
-      closeTimer = setTimeout(() => { closeTimer = undefined; if (timerEpoch === epoch) schedule() }, CLOSE_PROBE_DELAY)
+      observe('CLOSE PROBE SCHEDULED', { timerEpoch, delay: CLOSE_PROBE_DELAY })
+      closeTimer = setTimeout(() => {
+        closeTimer = undefined
+        observe('CLOSE PROBE FIRED', { timerEpoch, currentEpoch: epoch })
+        if (timerEpoch === epoch) schedule()
+      }, CLOSE_PROBE_DELAY)
     }
 
     /**
@@ -437,6 +472,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       const shell = shellRef.current
       const active = document.activeElement
       if (shell && isEditable(active) && shell.contains(active)) return
+      observe('FOCUS INTENT RECONCILED', { reason: 'stale-browser-focus' })
       releaseEditingIntent()
     }
 
@@ -448,6 +484,7 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
      */
     endEditingRef.current = () => {
       if (suspended) return
+      observe('EDITING END REQUESTED')
       const shell = shellRef.current
       const active = document.activeElement
       if (shell && active instanceof HTMLElement && isEditable(active) && shell.contains(active)) {
@@ -496,12 +533,14 @@ export function useEditingViewport({ shellRef, standalone }: EditingViewportOpti
       advanceEpoch()
       cancelCloseProbe()
       resetTouchGesture()
+      observe('SUSPEND')
       publish()
     }
 
     const onResume = () => {
       if (!suspended) return
       suspended = false
+      observe('RESUME')
       const shell = shellRef.current
       const active = document.activeElement
       if (shell && isEditable(active) && shell.contains(active as Node) &&

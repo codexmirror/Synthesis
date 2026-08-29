@@ -12,6 +12,12 @@ import App from './App'
 import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
 import { ViewportDebug } from './shell/ViewportDebug'
+import {
+  VIEWPORT_DEBUG_TIMELINE_LIMIT,
+  ViewportDiagnosticsRecorder,
+  exportViewportDiagnosticCapture,
+  summarizeFocus,
+} from './shell/viewportDiagnostics'
 import type { EditingViewportState } from './shell/useEditingViewport'
 import { connectRemoteFromObservation } from './core/game/remoteSession'
 import { createInitialGameState } from './core/game/initialState'
@@ -325,7 +331,7 @@ describe('standalone presentation contract', () => {
     expect(screen.queryByLabelText('Viewport diagnostics')).not.toBeInTheDocument()
   })
 
-  it('captures independent visual viewport page coordinates and scrollend events', async () => {
+  it('records browser lifecycle events in the background and freezes before panel activity', async () => {
     installMediaQueries()
     window.history.replaceState(null, '', '/?viewportDebug=1')
     const viewport = new ViewportStub()
@@ -337,113 +343,73 @@ describe('standalone presentation contract', () => {
     installViewport(viewport)
     const scrollY = vi.spyOn(window, 'scrollY', 'get').mockReturnValue(291)
 
+    const recorder = new ViewportDiagnosticsRecorder()
     render(
-      <ViewportDebug viewport={viewportState({
+      <ViewportDebug diagnostics={recorder} viewport={viewportState({
         hostHeight: 775,
         editTop: 0,
         editHeight: 455,
         editing: true,
       })} />,
     )
-    await screen.findByLabelText('Viewport diagnostics')
-
     act(() => viewport.dispatchEvent(new Event('resize')))
     act(() => viewport.dispatchEvent(new Event('scrollend')))
-
-    const diagnostics = screen.getByLabelText('Viewport diagnostics')
-    expect(diagnostics).toHaveTextContent('RAW EVENT visualViewport.resize')
-    expect(diagnostics).toHaveTextContent('RAW EVENT visualViewport.scrollend')
-    expect(diagnostics).toHaveTextContent(
-      /RAW vv h=455 off=0 page=320\/17 s=1\.3 win=\d+\/\d+ y=291/,
-    )
+    act(() => window.dispatchEvent(new Event('pagehide')))
+    const before = recorder.snapshot().length
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Freeze viewport diagnostics' }))
+    const diagnostics = await screen.findByLabelText('Viewport diagnostics')
+    expect(diagnostics).toHaveTextContent('MOBILE EDITING DIAGNOSTICS V2')
+    expect(recorder.snapshot().some((entry) => entry.name === 'visualViewport.scrollend')).toBe(true)
+    expect(recorder.snapshot().some((entry) => entry.name === 'pagehide')).toBe(true)
+    expect(diagnostics.querySelectorAll('li').length).toBeLessThanOrEqual(before)
     scrollY.mockRestore()
   })
 
-  it('starts one fresh timeline for pointerdown and touchstart from the same tap', async () => {
+  it('keeps a bounded long-lived chronological trace across interactions', () => {
     installMediaQueries()
     window.history.replaceState(null, '', '/?viewportDebug=1')
     let now = 0
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
-    render(
-      <ViewportDebug viewport={viewportState({
-        hostHeight: 844,
-        editTop: 0,
-        editHeight: 844,
-        editing: false,
-      })} />,
-    )
-    await screen.findByLabelText('Viewport diagnostics')
-
-    now = 100
-    act(() => document.dispatchEvent(new Event('selectionchange')))
-    now = 400
-    act(() => document.dispatchEvent(new Event('pointerdown')))
-    act(() => document.dispatchEvent(new Event('touchstart')))
-
-    const diagnostics = screen.getByLabelText('Viewport diagnostics')
-    expect(diagnostics).not.toHaveTextContent('selectionchange')
-    expect(diagnostics.querySelectorAll('span')).toHaveLength(2)
-    expect(diagnostics).toHaveTextContent('+0.0ms RAW EVENT pointerdown')
-    expect(diagnostics).toHaveTextContent('+0.0ms RAW EVENT touchstart')
+    const recorder = new ViewportDiagnosticsRecorder()
+    for (let index = 0; index < VIEWPORT_DEBUG_TIMELINE_LIMIT + 5; index += 1) {
+      now = index
+      recorder.record(index % 2 ? 'BROWSER' : 'CONTROLLER', index === 3 ? 'pointerdown' : `event-${index}`)
+    }
+    const entries = recorder.snapshot()
+    expect(entries).toHaveLength(VIEWPORT_DEBUG_TIMELINE_LIMIT)
+    expect(entries[0].id).toBe(6)
+    expect(entries.map((entry) => entry.kind)).toContain('BROWSER')
+    expect(entries.map((entry) => entry.kind)).toContain('CONTROLLER')
     clock.mockRestore()
   })
 
-  it('records raw events and Hook commits as separate bounded timeline entries', async () => {
+  it('freezes immutably, exports privacy-safe focus structure, and resumes for another capture', async () => {
     installMediaQueries()
     window.history.replaceState(null, '', '/?viewportDebug=1')
-    const initial = viewportState({
-      hostHeight: 844,
-      editTop: 0,
-      editHeight: 844,
-      editing: false,
-    })
-    const current = viewportState({
-      hostHeight: 873,
-      editTop: 386,
-      editHeight: 487,
-      editing: true,
-      editingPresentation: true,
-      presentationPhase: 'editing',
-      recoveryReady: false,
-    })
-    const { rerender } = render(
-      <div className="os-shell" data-standalone="true">
-        <ViewportDebug viewport={initial} />
-      </div>,
-    )
-    await screen.findByLabelText('Viewport diagnostics')
-
-    const diagnostics = screen.getByLabelText('Viewport diagnostics')
-    expect(diagnostics).toHaveTextContent('HOOK COMMIT viewport')
-
-    act(() => document.dispatchEvent(new Event('selectionchange')))
-
-    rerender(
-      <div className="os-shell" data-standalone="true">
-        <ViewportDebug viewport={current} />
-      </div>,
-    )
-    await waitFor(() =>
-      expect(diagnostics).toHaveTextContent(
-        'GEOMETRY host/top/h=873/386/487 edit=true',
-      ),
-    )
-    expect(diagnostics).toHaveTextContent('RAW EVENT selectionchange')
-    const rows = diagnostics.querySelectorAll('span')
-    expect(Array.from(rows).some((row) =>
-      row.textContent?.includes('RAW EVENT selectionchange') &&
-      row.textContent.includes('edit=false'),
-    )).toBe(true)
-    expect(Array.from(rows).some((row) =>
-      row.textContent?.includes('HOOK COMMIT viewport') && row.textContent.includes('edit=true'),
-    )).toBe(true)
-
-    for (let index = 0; index < 25; index += 1) {
-      act(() => document.dispatchEvent(new Event('input')))
-    }
-    expect(diagnostics.querySelectorAll('span')).toHaveLength(20)
-    expect(diagnostics).toHaveTextContent('app=—')
-    expect(diagnostics).toHaveTextContent('rack=—')
+    const recorder = new ViewportDiagnosticsRecorder()
+    recorder.record('CONTROLLER', 'RECOVERY BLOCKED', { reason: 'shell-displacement' })
+    const input = document.createElement('input')
+    input.value = 'never export me'
+    input.name = 'account'
+    input.setAttribute('aria-label', 'Safe label')
+    document.body.append(input); input.focus()
+    expect(summarizeFocus(input)).toMatchObject({ editable: true, connected: true, insideShell: false })
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    render(<ViewportDebug diagnostics={recorder} viewport={viewportState({ presentationPhase: 'recovering', recoveryReady: false })} />)
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Freeze viewport diagnostics' }))
+    expect(await screen.findByLabelText('Viewport diagnostics')).toHaveTextContent('shell-displacement')
+    recorder.record('BROWSER', 'AFTER FREEZE')
+    await userEvent.click(screen.getByRole('button', { name: 'COPY TRACE' }))
+    const exported = writeText.mock.calls[0][0] as string
+    expect(exported).toContain('CONTROLLER RECOVERY BLOCKED')
+    expect(exported).not.toContain('AFTER FREEZE')
+    expect(exported).not.toContain('never export me')
+    await userEvent.click(screen.getByRole('button', { name: 'RESUME' }))
+    expect(screen.getByRole('button', { name: 'Freeze viewport diagnostics' })).toBeInTheDocument()
+    const later = recorder.freeze(viewportState(), false)
+    expect(exportViewportDiagnosticCapture(later)).toContain('AFTER FREEZE')
+    input.remove()
   })
 })
 
