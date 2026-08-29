@@ -3,8 +3,9 @@
 Status: Draft — Exploration / Candidate. **NOT Accepted.** No visual direction is
 selected. Human selection comes next.
 Scope: A visual and product-language exploration of the already-frozen first
-ordinary VEYRA phone structure. It compares three candidate directions, renders
-each as a six-screen set, and recommends one for human selection. It selects no
+ordinary VEYRA phone structure. Round 1 compared three candidate directions.
+Round 2 records the human review result and carries one selected B/C synthesis
+candidate, rendered as a six-screen set, back for review. It selects no
 structure, no world truth, and no implementation.
 
 Structural design authority (unchanged and authoritative over this document):
@@ -19,6 +20,11 @@ Parent identity authority:
 This is the visual exploration pass that
 [`VEYRA_FIRST_ORDINARY_PHONE_V1.md`](VEYRA_FIRST_ORDINARY_PHONE_V1.md) §35 asks
 for. It interprets the accepted structure; it does not redefine it.
+
+It has been through one round of human review. §11 records that review's result
+and §12–§14 carry the single candidate it produced. The three-direction material
+in §4–§9 is retained as the historical record of how that candidate was reached,
+and its round-1 recommendation is now superseded by the human selection.
 
 It is **not** a product-structure authority. Where anything here appears to
 disagree with the accepted first-phone contract, the accepted contract wins and
@@ -36,21 +42,26 @@ TRUTH**. It exists only to make hierarchy judgeable. Nothing in it selects a
 correspondent, an owner, a conversation, a Device display name, a Firmware
 release, or a Transaction.
 
-Two things in the images are deliberately shape-truthful rather than invented,
-because their represented shape is already known and designing against a fake
-shape would have wasted the pass:
+One thing in the images is deliberately shape-truthful rather than invented,
+because its represented shape is already known and designing against a fake shape
+would have wasted the pass: activity rows carry only what a represented
+Transaction actually projects — a counterparty account-reference snapshot,
+direction, and a signed amount, with no timestamp, merchant, category, fee or
+status. The account references themselves, and the fact that any Transaction
+exists at all, are mockup. Initial represented state has **no** Transactions, so a
+truthful first render of Money would show the empty case; activity is drawn only
+so activity presentation can be judged.
 
-- the balance `$1,250.00` and the provider name `Civic Dollar` are the
-  represented initial Dollar Account balance and Provider display name
-  (`docs/current/DOLLAR_FINANCE.md`);
-- activity rows carry only what a represented Transaction actually projects — a
-  counterparty account-reference snapshot, direction, and a signed amount, with
-  no timestamp, merchant, category, fee or status.
+`Civic Dollar` is the represented Provider display name
+(`docs/current/DOLLAR_FINANCE.md`). It appears because the accepted contract
+explicitly contemplates VEYRA presenting Civic Dollar; it selects no Account and
+no relationship between that Provider and any foreign Device.
 
-The account references themselves, and the fact that any Transaction exists at
-all, are mockup. Initial represented state has **no** Transactions, so a truthful
-first render of Money would show the empty case; activity is drawn here only so
-the three directions' activity presentation can be compared.
+**Balances differ between rounds, deliberately.** The round-1 direction boards use
+`$1,250.00`, the represented initial Dollar Account balance. That was too close to
+implying the future foreign Device owns the player's Account, so the selected
+candidate in §12 uses an obviously illustrative `$248.60` instead. No balance in
+any image is a selection.
 
 ---
 
@@ -151,6 +162,8 @@ discarded because the next pass — and the human selection this pass exists to
 support — needs to open these screens in a real browser at a real width, which a
 PNG cannot provide. Each direction page reduces to a single screen at a chosen
 width with `?only=home&w=320`, so a direction can be opened on an actual phone.
+Round 2 added `selected-hybrid.html`, the single selected candidate; the three
+round-1 direction pages are kept beside it as historical reference.
 
 Rendered references are under
 [`../assets/veyra-first-ordinary-phone-v1/`](../assets/veyra-first-ordinary-phone-v1/).
@@ -167,6 +180,15 @@ serif therefore renders as DejaVu Serif and the sans of all three renders as
 Liberation Sans. On the platforms Synthesis actually targets these stacks resolve
 to different faces, and Direction A in particular will look materially warmer and
 sturdier on iOS/macOS than these images show. No remote font is used or proposed.
+
+---
+
+## Round 1 — the three-direction exploration (§4–§9)
+
+The following six sections are the historical record of round 1. They are
+retained because the selected candidate in §12 is only legible as a set of
+choices between them. Round 1's recommendation in §9 is **superseded** by the
+human review recorded in §11.
 
 ---
 
@@ -437,7 +459,12 @@ rule.
 
 ---
 
-## 9. Recommendation
+## 9. Recommendation (round 1 — superseded by §11)
+
+> **Superseded.** Human review did not take any direction wholesale. It selected
+> C's visual language and B's product composition. The reasoning below is kept
+> because the human decision agreed with part of it and overruled another part —
+> notably C's Home, which this section did not identify as a problem. See §11.
 
 **Direction C, “Frame”.**
 
@@ -502,7 +529,7 @@ selection is the next step.
 
 ---
 
-## 10. What this pass did not do
+## 10. What this work did not do
 
 No production code, `GameState`, Shell routing, Remote Session, NODE application,
 style token or test was changed. No gameplay or domain implementation occurred. No
@@ -517,3 +544,254 @@ names in its §33: foreign communication truth, Firmware-driven foreign-surface
 selection at the Shell boundary, the concrete first-phone representation, the
 Money adapter boundary, and a represented basis for each Domain. A selected visual
 direction does not unblock any of them.
+
+---
+
+## Round 2 — human review and the selected candidate (§11–§14)
+
+## 11. Human review result
+
+Round 1 succeeded by exposing which parts of each direction work rather than by
+producing a winner. The human decision is:
+
+| | Result |
+| — | — |
+| **Direction A “Index”** | **Not selected as a base.** |
+| **Direction B “Held”** | **Strongest product / interaction composition** for Home, Communication and Money. |
+| **Direction C “Frame”** | **Strongest visual language** overall — typography, restraint, cleanliness, spacing, colour. |
+| **Direction C Settings / This Device** | Selected as the **strongest visual anchor** in the whole exploration. |
+| **Direction C Home** | **Explicitly rejected.** |
+
+C's Home is rejected outright, not refined. Nothing of its fixed frame, its three
+full-height Domain regions, its 54 / 27 / 19 split, or its whole-screen Domain
+colour segmentation survives.
+
+The selected outcome is therefore neither direction. It is one deliberate
+synthesis:
+
+```text
+C VISUAL DISCIPLINE
+        +
+B PRODUCT COMPOSITION
+```
+
+with this ownership:
+
+```text
+GLOBAL VISUAL LANGUAGE   -> C
+HOME COMPOSITION         -> B-derived, on C's surface
+COMMUNICATION ROOT       -> B-derived, on C's surface
+CONVERSATION DETAIL      -> B-derived, refined away from chat-app convention
+MONEY HIERARCHY          -> B-derived, on C's surface
+SETTINGS                 -> C
+THIS DEVICE              -> C, treated as the anchor
+NAVIGATION               -> C's edge, refined to name its destination
+```
+
+---
+
+## 12. The selected candidate
+
+Prototype:
+[`prototypes/veyra-first-ordinary-phone-v1/selected-hybrid.html`](prototypes/veyra-first-ordinary-phone-v1/selected-hybrid.html).
+
+Board:
+[`selected-hybrid-board.png`](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-board.png).
+
+![Selected B/C refinement — full board](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-board.png)
+
+### The system, stated once
+
+These rules hold in every Domain. Only content hierarchy varies.
+
+- **One ground family.** Paper (`#f2efe9`) is the world; one tone deeper
+  (`#e8e4db`) is a recessed full-bleed band; a cool sibling of it (`#dbe2dd`) is
+  the owner's own voice. There is no third surface, and there are **no cards** —
+  every recessed area runs edge to edge.
+- **No shadows anywhere.** Depth is tone, never elevation. This is what removes
+  B's heavy dark cards without losing B's composition.
+- **Rounding only on filled objects** (6px): messages and actions. Rows, bands
+  and the page never round.
+- **One type family, two weights** (400 and 500). Hierarchy is size and space.
+  Nothing is bold to be important.
+- **Labels are sentence case.** `Communication`, `Money`, `Activity`, `Name`,
+  `System`. C's tracked uppercase micro-labels are gone; they were the one place
+  the visual language still sounded like NODE in a lighter colour.
+- **At most one filled surface per screen**, spent on the single consequential
+  action. In the whole six-screen set that is exactly one object: `Send`.
+- **Rows are full-bleed and hairline-separated**, in every Domain.
+
+The last two rules are what answers the "would it still be VEYRA without a logo,
+the word VEYRA, or the accent colour" test. Strip the accent and `Send` is still
+the only filled object on any screen; strip all colour and the recessed value
+band, the full-bleed rows, the sentence-case labels and the quiet edge are still
+a specific product grammar rather than a generic one.
+
+### Home
+
+![Selected candidate — Home](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-home.png)
+
+Built from B's unequal-composition thinking, on C's surface, with C's Home
+discarded entirely.
+
+- **Communication dominates through human content.** The people are the largest
+  type on the screen (30px) and the first thing present. They carry no avatars,
+  no previews, no counts and no metadata — which is also how Home stays distinct
+  from Communication root, where previews and chevrons appear.
+- **Money is compact but clearly valuable.** It is a single recessed full-bleed
+  band carrying the amount, with the provider beneath it. This is the one idea
+  carried forward from C's rejected Home — a ground change — but spent *once*, on
+  *one subject*, at a height that reads as a value rather than as a coloured
+  region. It is not a card: it has no radius, no shadow and no margin.
+- **Settings is a single quiet row at the bottom edge**, in secondary ink, above
+  a hairline, with the Device name as its side value.
+- The two breaths are deliberately unequal — smaller between the people and the
+  money, larger between the money and Settings — so the descent from the person's
+  life to the Device's management reads as hierarchy rather than as a gap.
+- Home carries **no navigation control at all**, because Home has nowhere upward
+  to go, and **no masthead**, because the contract forbids proving the brand with
+  chrome.
+
+### Communication root and conversation
+
+![Selected candidate — Communication root](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-communication.png)
+![Selected candidate — conversation](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-conversation.png)
+
+B's people-first, scannable composition, minus its generic-smartphone vocabulary:
+**no avatar circles**. The name is the subject at 18px/500, the represented
+preview is one quiet ellipsized line, and the row is C's full-bleed hairline row —
+the same row used by Settings and by Money's Account.
+
+The conversation keeps B's two-sided grammar and refines the bubble toward VEYRA:
+flat, unelevated, single 6px radius, no tail, no timestamp, no read marker, no
+presence, no per-message labelling. The two people are separated by tone and
+alignment alone — warm stone for the correspondent, its cool sibling for the
+owner — which is legible at a glance without either voice becoming loud.
+
+The two parties are named once, in the header (`Ana` / `with Petra`). Naming the
+owner rather than writing "You" is the cheapest way to say *this is somebody
+else's phone*, and it commits to no Person model, no owner identity and no
+canonical correspondent.
+
+There is still **no composer**, for the same reason as round 1: foreign
+communication truth is unresolved, and a composer would be an implementation
+promise.
+
+### Money
+
+![Selected candidate — Money](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-money.png)
+
+B's information and action hierarchy kept intact and not flattened into equal
+rows:
+
+```text
+BALANCE    primary subject, largest type on the screen, on the recessed band
+PROVIDER   secondary, a quiet line beneath it
+SEND       primary action, the only filled surface in the system, given more width
+RECEIVE    secondary action, outlined
+ACCOUNT    tertiary, an ordinary full-bleed row
+ACTIVITY   compact supporting information
+```
+
+The recessed band is the same object as Home's money band, at a larger scale —
+which is what ties the Domain to the index without a coloured Domain ground.
+
+It is not a bank app: there is no card art, no chart, no category, no merchant,
+no fee, no pending state, no timestamp. Activity carries direction, counterparty
+reference and a signed amount, and direction survives without colour because the
+word and the explicit sign both carry it.
+
+### Settings and This Device
+
+![Selected candidate — Settings](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-settings.png)
+![Selected candidate — This Device](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-this-device.png)
+
+C, preserved almost directly, because this is what human review called the
+anchor: a quiet title, simple full-width rows, no card container, almost no
+decoration, generous but controlled spacing, subdued secondary state, clean
+ground.
+
+This Device states two facts and stops. Nothing was added to make it look
+complete — no battery, storage, serial, security, update state, CPU, RAM or
+network detail. That restraint is the clearest proof in the set of VEYRA's
+philosophy: the Device contains complex truth and the owner has no reason to see
+it.
+
+### Navigation
+
+C's edge, refined. It is part of the ground rather than an object floating over
+it, so B's capsule — ergonomic but generic consumer chrome — is not carried
+forward. The refinements over C are that it speaks in sentence case, and that
+**Back names its destination**:
+
+```text
+Domain root      ->  Home
+Domain detail    ->  ‹ Communication        Home
+                     ‹ Settings             Home
+Home             ->  no control at all
+```
+
+Semantics are unchanged from the accepted contract: Back is one level up inside
+the current Domain, Home returns to the personal index, and neither ever means
+return-to-NODE. No app switcher, tab bar, recents or gesture-only navigation
+exists.
+
+---
+
+## 13. Refinement performed on the rendered candidate
+
+The first assembly was rendered and rejected on three counts, each fixed and
+re-rendered:
+
+1. **Home had a ~300px void.** Pinning Settings to the bottom edge left one large
+   hole rather than composition. Fixed by distributing the space into two unequal
+   breaths and tightening the people to their label, so the screen descends
+   instead of gapping.
+2. **The two voices in the conversation were barely separable.** The owner's tone
+   was too close to the correspondent's, leaving alignment to do all the work.
+   The cool tone was strengthened until both are legible at a glance while both
+   stay quiet.
+3. **Send and Receive were equal width**, which undercut the action hierarchy the
+   fill was meant to establish. Send now takes more of the row.
+
+### Width behaviour
+
+Verified at 320, 390, 430 and 834 CSS px
+([width board](../assets/veyra-first-ordinary-phone-v1/width-plausibility.png), last
+row). No label overflows, no row clips and nothing overlaps at 320. At 834 the
+measure is held at 560px while the recessed band stays full-bleed, so the layout
+widens without the text line growing.
+
+---
+
+## 14. Self-test on the candidate
+
+| Question | Answer |
+| — | — |
+| Does it look like one operating system? | Yes — one ground, one row, one edge, one type scale, one filled-action rule across all six screens. |
+| Did B's composition survive? | Yes — unequal Home, people-first Communication, two-sided conversation, and Money's full Send / Receive / Account hierarchy. |
+| Did C's cleanliness survive? | Yes — no cards, no shadows, hairline rows, generous spacing, low saturation, large calm subjects. |
+| Does Home work now? | Yes, and it is no longer three coloured slabs. It reads as a person's index with a compact value and a quiet Device row. |
+| Is Home still not a launcher? | Yes — no grid, no tiles, no icons, no equal cells; three unequal groups of real content. |
+| Does Communication feel personal? | Yes, and without avatar circles or chat-app decoration. |
+| Does Money keep real action hierarchy? | Yes — one filled primary, one outlined secondary, one tertiary row. |
+| Do Settings and This Device keep what made C strong? | Yes — they are the least changed screens in the set. |
+| Is it "iOS with beige colours"? | No. No tab bar, no card stacks, no grouped-inset table views, no blue, no avatars, no shadows, no large-title collapse, no floating home indicator. Familiar where familiarity is useful; the grammar is its own. |
+| Is it "NODE in a lighter colour"? | No. Nothing is monospace, nothing is tracked uppercase, there is no facts-list chrome and no technical value anywhere. |
+| Would it still be VEYRA without the logo, the word, or the accent? | Yes — the one-filled-action rule, the recessed value band, the full-bleed rows and the quiet edge carry it structurally. |
+| Has it invented represented truth? | No. No battery, storage, signal, clock, notification, badge, unread count, timestamp, presence, fee, merchant, category or pending state, and no Remote Session leakage into owner-facing Connection. |
+
+### Open questions the human should decide
+
+1. **The illustrative balance.** `$248.60` is deliberately not the represented
+   `$1,250.00`. If a later concrete phone represents its own financial
+   relationship, that number changes; nothing here selects one.
+2. **Home's whitespace.** The candidate treats the space below the money band as
+   hierarchy. It is the largest single judgement call in the set, and it is the
+   thing most likely to want a second opinion on a real device.
+3. **Where a reply would sit**, if foreign communication ever represents one: a
+   single field in the owner's tone directly above the edge band. Not proposed
+   now.
+
+This candidate is still **Draft / Candidate. NOT Accepted.** Human review comes
+next, and the accepted visual authority does not exist yet.

@@ -31,6 +31,12 @@ const directions = [
   { key: 'c', file: 'direction-c.html' },
 ]
 
+/* The human-selected B/C refinement: the one final candidate. */
+const hybrid = {
+  file: 'selected-hybrid.html',
+  screens: ['home', 'communication', 'conversation', 'money', 'settings', 'this-device'],
+}
+
 /* Playwright is machine tooling here, not a repository dependency: resolve it
    from the local install if there is one, otherwise from the global root. */
 async function loadPlaywright() {
@@ -60,6 +66,15 @@ for (const direction of directions) {
   console.log(`captured direction ${direction.key.toUpperCase()}`)
 }
 
+await page.setViewportSize({ width: 1400, height: 1200 })
+await page.goto(pathToFileURL(resolve(here, hybrid.file)).href)
+await page.waitForTimeout(150)
+for (const screen of hybrid.screens) {
+  await page.locator(`#v-${screen}`).screenshot({ path: resolve(outDir, `selected-hybrid-${screen}.png`) })
+}
+await page.locator('.board').screenshot({ path: resolve(outDir, 'selected-hybrid-board.png') })
+console.log('captured selected hybrid')
+
 /*
  * Width plausibility board: every direction's Home at 320 / 390 / 430 / 834.
  *
@@ -68,10 +83,11 @@ for (const direction of directions) {
  * scratch files; only the assembled board is kept.
  */
 const widths = [320, 390, 430, 834]
+const widthSubjects = [...directions, { key: 'v', file: hybrid.file }]
 const scratch = mkdtempSync(join(tmpdir(), 'veyra-widths-'))
 const cells = []
 
-for (const direction of directions) {
+for (const direction of widthSubjects) {
   for (const width of widths) {
     const file = resolve(scratch, `${direction.key}-${width}.png`)
     await page.setViewportSize({ width: width + 80, height: 900 })
@@ -82,8 +98,13 @@ for (const direction of directions) {
   }
 }
 
-const rows = directions.map((direction) => {
-  const label = { a: 'Direction A “Index”', b: 'Direction B “Held”', c: 'Direction C “Frame”' }[direction.key]
+const rows = widthSubjects.map((direction) => {
+  const label = {
+    a: 'Direction A “Index” (historical)',
+    b: 'Direction B “Held” (historical)',
+    c: 'Direction C “Frame” (historical)',
+    v: 'SELECTED B/C REFINEMENT',
+  }[direction.key]
   const frames = cells
     .filter((cell) => cell.key === direction.key)
     .map((cell) => `<div class="cell"><span>${cell.width}</span>` +

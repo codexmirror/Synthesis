@@ -16,6 +16,8 @@
     text-decoration: none;
   }
   .links a b { display: block; font-size: 15px; }
+  .links a.links__selected { border-color: #6a6a5c; background: #2c2c26; }
+  .links a.links__selected b { color: #e9e4d4; }
   .links a span { display: block; margin-top: 5px; color: #9d9a95; font-size: 13px; }
   .note { max-width: 1280px; margin: 30px auto 0; color: #9d9a95; font-size: 13px; }
   .note code { color: #cfc7b6; }
@@ -24,8 +26,9 @@
 <body>
 <header class="harness-head">
   <h1>VEYRA First Ordinary Phone — Visual Exploration V1</h1>
-  <p>Three candidate product languages for the accepted VEYRA ordinary-phone structure, each rendered
-     as a six-screen set at the Synthesis mobile reference width.</p>
+  <p>Human review of the first A/B/C exploration selected a specific synthesis rather than any one
+     direction wholesale. The single final candidate is the <b>human-selected B/C refinement</b>
+     below; the three original directions are kept as historical reference for how it was reached.</p>
   <p><strong>These files are design references, not Synthesis implementation.</strong> They are plain
      static HTML: they import nothing from <code>src/</code>, are not built, typechecked, tested or
      mounted by the Shell, and touch no <code>GameState</code>. The structural product contract they
@@ -34,6 +37,15 @@
      <code>docs/design/VEYRA_FIRST_ORDINARY_PHONE_VISUAL_EXPLORATION_V1.md</code>.</p>
   <p class="harness-flag">VISUAL MOCKUP CONTENT — NOT SELECTED CANONICAL WORLD TRUTH</p>
 </header>
+
+<div class="links">
+  <a class="links__selected" href="selected-hybrid.html"><b>SELECTED — human-selected B/C refinement</b>
+    <span>The one final candidate. Direction C's visual language, typography, restraint and
+          Settings / This Device; Direction B's product composition for Home, Communication and
+          Money. Direction C's Home is rejected and replaced.</span></a>
+</div>
+
+<p class="note">Historical exploration, superseded by the candidate above:</p>
 
 <div class="links">
   <a href="direction-a.html"><b>Direction A — “Index”</b>

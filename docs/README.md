@@ -251,8 +251,9 @@ VEYRA Device presentation direction.
 - FIRST ORDINARY PHONE VISUAL EXPLORATION →
   [`design/VEYRA_FIRST_ORDINARY_PHONE_VISUAL_EXPLORATION_V1.md`](design/VEYRA_FIRST_ORDINARY_PHONE_VISUAL_EXPLORATION_V1.md)
   (Draft exploration only, not Accepted and not a product-structure authority:
-  three candidate visual/product languages, their rendered reference screens, and
-  a recommendation awaiting human selection)
+  the round-1 three-direction exploration, the human review result, and the one
+  selected B/C synthesis candidate and its rendered reference screens, awaiting
+  human review)
 - ARCHITECTURE → A02 in
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
   A05–A07 in
