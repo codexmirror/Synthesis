@@ -76,11 +76,11 @@ or content comes from wall-clock time, randomness, or the browser.
 A message body is a snapshot of what was communicated, written when the message
 is created. It never live-projects mutable World Truth.
 
-Mira's staging address is authored correspondence content: the literal
-`203.0.113.42` is stored in the message she sent. It is not a stored Device
+Myra's first target address is authored correspondence content: the literal
+`198.51.100.61` is stored in the message she sent. It is not a stored Device
 reference resolved to `target.ip` at render time. If that Device's address later
 changes, or the Device stops being represented at all, the old message still
-says exactly what Mira said.
+says exactly what Myra said.
 
 
 ## Read state
@@ -126,30 +126,29 @@ Two threads currently exist.
 confirming the account is active. It is read-only: the mailbox accepts no reply
 into it.
 
-**Mira Keller · staging endpoint** (`mira@vector-node.net`). One incoming
-message offering an address the player has to ask for. It is the one
-interactive correspondence.
+**Myra Keller · something for you** (`mira@vector-node.net`). One unread
+incoming message tentatively offering the unfamiliar player a possible target,
+without exposing its address. It is the one interactive correspondence.
 
 The player writes the whole reply themselves. There are no offered response
 options.
 
-What Mira says is a concrete thread-specific authored rule
-(`resolveMiraStagingReply`), deliberately not a dialogue engine, intent
+What Myra says is a concrete thread-specific authored rule
+(`resolveMyraFirstContactReply`), deliberately not a dialogue engine, intent
 resolver, or entity extractor (`A16`). It matches a deliberately small
 vocabulary against the player's own words, case-insensitively:
 
-| Player wording | Mira's answer |
+| Player wording | Myra's answer |
 | — | — |
-| host information (`ip`, `address`, `host`, `server`, `endpoint`) | the staging address `203.0.113.42` |
-| credentials (`password`, `passwd`, `credential(s)`, `login`) | refuses to send credentials over mail |
-| both in one message | gives the address and refuses the credentials |
-| anything else | says what she means and invites the question again |
+| clear interest (`yes`, `interested`, `send it`, `what do you have`, `let me see`, `tell me`, or an address request) | the first target address `198.51.100.61` and limited context |
+| credentials (`password`, `passwd`, `credential(s)`, `login`) | says she has no credentials for the player and does not reveal the address |
+| anything else | leaves the choice with the player and invites clear interest |
 
 Unrecognized wording is still a real message: it is preserved verbatim in the
 history and answered naturally. Nothing emits parser or intent-failure
 language.
 
-Whether Mira has already given the address is read from the messages she
+Whether Myra has already given the address is read from the messages she
 actually sent, not from a stored conversation stage. The slice deliberately
 holds no `conversationStage`, `lastIntent`, `hostInfoAlreadyGiven`, `npcMood`
 or trust value: the represented history is the conversation truth.
@@ -157,7 +156,7 @@ or trust value: the represented history is the conversation truth.
 
 ## The boundary with observation
 
-After Mira communicates the address:
+After Myra communicates the address:
 
 - the mail history contains that literal string;
 - Discovery, Knowledge and DeviceAccess are unchanged — receiving mail is not
