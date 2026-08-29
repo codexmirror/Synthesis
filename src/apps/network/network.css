@@ -94,6 +94,42 @@
 
 /* Known Space --------------------------------------------------------- */
 
+.ns-direct-scan {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 24px;
+}
+
+.ns-direct-scan label {
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+.ns-direct-row { display: flex; gap: 8px; }
+.ns-direct-row .node-field {
+  min-width: 0;
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.ns-direct-row button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  cursor: pointer;
+}
+.ns-direct-row button:disabled { border-color: var(--line-strong); color: var(--text-muted); cursor: default; }
+.ns-direct-row button:focus-visible { border-color: var(--green); color: var(--green); outline: 0; }
+
+@media (hover: hover) {
+  .ns-direct-row button:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+}
+
 .ns-space {
   display: grid;
   gap: 26px;
