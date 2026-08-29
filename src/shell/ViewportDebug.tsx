@@ -1,196 +1,103 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { EditingViewportState } from './useEditingViewport'
+import {
+  exportViewportDiagnosticCapture,
+  summarizeFocus,
+  type ViewportDiagnosticCapture,
+  type ViewportDiagnosticEntry,
+  type ViewportDiagnosticsRecorder,
+} from './viewportDiagnostics'
 
-type EntryKind = 'RAW EVENT' | 'HOOK COMMIT'
+const DOCUMENT_EVENTS = ['pointerdown', 'touchstart', 'focusin', 'focusout', 'selectionchange'] as const
 
-interface BrowserSample {
-  visualHeight: number | '—'
-  visualOffsetTop: number | '—'
-  visualPageTop: number | '—'
-  visualPageLeft: number | '—'
-  visualScale: number | '—'
-  innerHeight: number
-  clientHeight: number
-  scrollY: number
-  activeElement: string
-  target: string
-  rects: Record<string, string>
-}
-
-interface TimelineEntry {
-  id: number
-  kind: EntryKind
-  name: string
-  elapsed: number
-  raw: BrowserSample
-  hook: EditingViewportState
-}
-
-export const VIEWPORT_DEBUG_TIMELINE_LIMIT = 20
-
-const DOCUMENT_EVENTS = [
-  'pointerdown',
-  'touchstart',
-  'focusin',
-  'focusout',
-  'selectionchange',
-  'beforeinput',
-  'input',
-] as const
-
-const RECTS = [
-  ['shell', '.os-shell'],
-  ['app', '.app-view'],
-  ['term', '.terminal'],
-  ['term-in', '.terminal-input'],
-  ['rack', '.rack-os'],
-  ['rack-term', '.rack-terminal'],
-  ['rack-out', '.rack-output'],
-  ['rack-in', '.rack-terminal input[aria-label="Remote command"]'],
-] as const
-
-function elementSummary(element: Element | null): string {
-  if (!element) return '—'
-  const id = element.id ? `#${element.id}` : ''
-  const className = element.classList.length ? `.${element.classList[0]}` : ''
-  return `${element.tagName.toLowerCase()}${id}${className}`
-}
-
-function rectSummary(element: Element | null): string {
-  if (!element) return '—'
-  const rect = element.getBoundingClientRect()
-  return `${rect.top.toFixed(0)}/${rect.bottom.toFixed(0)}/${rect.height.toFixed(0)}`
-}
-
-function browserSample(target: EventTarget | null): BrowserSample {
+function browserDetail(event: Event | null) {
   const visual = window.visualViewport
   return {
-    visualHeight: visual?.height ?? '—',
-    visualOffsetTop: visual?.offsetTop ?? '—',
-    visualPageTop: visual?.pageTop ?? '—',
-    visualPageLeft: visual?.pageLeft ?? '—',
-    visualScale: visual?.scale ?? '—',
-    innerHeight: window.innerHeight,
-    clientHeight: document.documentElement.clientHeight,
-    scrollY: window.scrollY,
-    activeElement: elementSummary(document.activeElement),
-    target: target instanceof Element ? elementSummary(target) : '—',
-    rects: Object.fromEntries(
-      RECTS.map(([label, selector]) => [
-        label,
-        rectSummary(document.querySelector(selector)),
-      ]),
-    ),
+    active: summarizeFocus(document.activeElement),
+    target: summarizeFocus(event?.target ?? null),
+    relatedTarget: summarizeFocus(event instanceof FocusEvent ? event.relatedTarget : null),
+    vv: visual ? `${visual.height}/${visual.offsetTop}/${visual.pageTop}/${visual.pageLeft}@${visual.scale}` : '—',
+    window: `${window.innerHeight}/${document.documentElement.clientHeight}/${window.scrollY}`,
+    visibility: document.visibilityState,
   }
 }
 
-function isDebugEnabled(): boolean {
-  return new URLSearchParams(window.location.search).get('viewportDebug') === '1'
+function meaningful(entries: readonly ViewportDiagnosticEntry[]) {
+  return entries.filter((entry) => entry.kind !== 'REACT' || entry.name !== 'VIEWPORT COMMIT').slice(-24)
 }
 
-function compact(value: number | '—'): string {
-  return typeof value === 'number' ? value.toFixed(1).replace(/\.0$/, '') : value
+function latestBlocker(entries: readonly ViewportDiagnosticEntry[]) {
+  return [...entries].reverse().find((entry) => entry.name === 'RECOVERY BLOCKED')
 }
 
-export function ViewportDebug({ viewport }: { viewport: EditingViewportState }) {
-  const enabled = isDebugEnabled()
-  const committedViewport = useRef(viewport)
-  const startTime = useRef(0)
-  const lastInteractionStart = useRef(Number.NEGATIVE_INFINITY)
-  const nextId = useRef(0)
-  const [timeline, setTimeline] = useState<TimelineEntry[]>([])
+export function ViewportDebug({ viewport, diagnostics, standalone }: {
+  viewport: EditingViewportState
+  diagnostics?: ViewportDiagnosticsRecorder
+  standalone?: boolean
+}) {
+  const [capture, setCapture] = useState<ViewportDiagnosticCapture>()
 
-  const append = (
-    kind: EntryKind,
-    name: string,
-    hook: EditingViewportState,
-    target: EventTarget | null,
-  ) => {
-    const now = performance.now()
-    const startsInteraction =
-      kind === 'RAW EVENT' &&
-      (name === 'pointerdown' || name === 'touchstart') &&
-      now - lastInteractionStart.current > 250
-    if (startsInteraction) {
-      startTime.current = now
-      lastInteractionStart.current = now
-    }
-    const entry: TimelineEntry = {
-      id: nextId.current++,
-      kind,
-      name,
-      elapsed: now - startTime.current,
-      raw: browserSample(target),
-      hook: { ...hook },
-    }
-    setTimeline((entries) => {
-      const currentInteraction = startsInteraction ? [] : entries
-      return [...currentInteraction, entry].slice(-VIEWPORT_DEBUG_TIMELINE_LIMIT)
+  useEffect(() => {
+    if (!diagnostics) return
+    const record = (name: string, event: Event) => diagnostics.record('BROWSER', name, browserDetail(event))
+    const documentHandlers = DOCUMENT_EVENTS.map((name) => {
+      const handler = (event: Event) => record(name, event)
+      document.addEventListener(name, handler, true)
+      return [name, handler] as const
     })
+    const windowEvents = ['resize', 'scroll', 'orientationchange', 'pagehide', 'pageshow'] as const
+    const windowHandlers = windowEvents.map((name) => {
+      const handler = (event: Event) => record(name, event)
+      window.addEventListener(name, handler, true)
+      return [name, handler] as const
+    })
+    const visibility = (event: Event) => record('visibilitychange', event)
+    document.addEventListener('visibilitychange', visibility, true)
+    const visualEvents = ['resize', 'scroll', 'scrollend'] as const
+    const visualHandlers = visualEvents.map((name) => {
+      const handler = (event: Event) => record(`visualViewport.${name}`, event)
+      window.visualViewport?.addEventListener(name, handler)
+      return [name, handler] as const
+    })
+    diagnostics.record('BROWSER', 'DIAGNOSTICS START', browserDetail(null))
+    return () => {
+      documentHandlers.forEach(([name, handler]) => document.removeEventListener(name, handler, true))
+      windowHandlers.forEach(([name, handler]) => window.removeEventListener(name, handler, true))
+      document.removeEventListener('visibilitychange', visibility, true)
+      visualHandlers.forEach(([name, handler]) => window.visualViewport?.removeEventListener(name, handler))
+    }
+  }, [diagnostics])
+
+  useEffect(() => {
+    diagnostics?.record('REACT', 'VIEWPORT COMMIT', { ...viewport })
+  }, [diagnostics, viewport])
+
+  if (!diagnostics) return null
+
+  const openCapture = () => {
+    // Freeze synchronously in pointer-down, before the button can move focus or
+    // opening the panel can produce browser/React diagnostic activity.
+    if (!capture) setCapture(diagnostics.freeze(viewport, Boolean(standalone)))
+  }
+  if (!capture) {
+    return <button type="button" className="viewport-debug-trigger" onPointerDown={openCapture} aria-label="Freeze viewport diagnostics">DBG</button>
   }
 
-  useEffect(() => {
-    if (!enabled) return
-    startTime.current = performance.now()
-
-    const handleDocumentEvent = (event: Event) =>
-      append('RAW EVENT', event.type, committedViewport.current, event.target)
-    const handleWindowResize = (event: Event) =>
-      append('RAW EVENT', 'window.resize', committedViewport.current, event.target)
-    const handleOrientation = (event: Event) =>
-      append('RAW EVENT', 'orientationchange', committedViewport.current, event.target)
-    const handleVisualResize = (event: Event) =>
-      append('RAW EVENT', 'visualViewport.resize', committedViewport.current, event.target)
-    const handleVisualScroll = (event: Event) =>
-      append('RAW EVENT', 'visualViewport.scroll', committedViewport.current, event.target)
-    const handleVisualScrollEnd = (event: Event) =>
-      append('RAW EVENT', 'visualViewport.scrollend', committedViewport.current, event.target)
-
-    DOCUMENT_EVENTS.forEach((name) =>
-      document.addEventListener(name, handleDocumentEvent, true),
-    )
-    window.addEventListener('resize', handleWindowResize)
-    window.addEventListener('orientationchange', handleOrientation)
-    window.visualViewport?.addEventListener('resize', handleVisualResize)
-    window.visualViewport?.addEventListener('scroll', handleVisualScroll)
-    window.visualViewport?.addEventListener('scrollend', handleVisualScrollEnd)
-
-    return () => {
-      DOCUMENT_EVENTS.forEach((name) =>
-        document.removeEventListener(name, handleDocumentEvent, true),
-      )
-      window.removeEventListener('resize', handleWindowResize)
-      window.removeEventListener('orientationchange', handleOrientation)
-      window.visualViewport?.removeEventListener('resize', handleVisualResize)
-      window.visualViewport?.removeEventListener('scroll', handleVisualScroll)
-      window.visualViewport?.removeEventListener('scrollend', handleVisualScrollEnd)
-    }
-    // Instrumentation is intentionally installed only when the URL flag changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled])
-
-  useEffect(() => {
-    if (!enabled) return
-    committedViewport.current = viewport
-    append('HOOK COMMIT', 'viewport', viewport, null)
-    // Each viewport identity represents a committed Hook state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, viewport])
-
-  if (!enabled || timeline.length === 0) return null
-
+  const blocker = latestBlocker(capture.entries)
   return (
-    <output className="viewport-debug" aria-label="Viewport diagnostics">
-      <strong>VIEWPORT TRANSITIONS · NEWEST FIRST ({timeline.length}/{VIEWPORT_DEBUG_TIMELINE_LIMIT})</strong>
-      {[...timeline].reverse().map((entry) => (
-        <span className={entry.kind === 'RAW EVENT' ? 'viewport-debug-raw' : 'viewport-debug-hook'} key={entry.id}>
-          <b>+{entry.elapsed.toFixed(1)}ms {entry.kind}</b> {entry.name}
-          {'\n'}RAW vv h={compact(entry.raw.visualHeight)} off={compact(entry.raw.visualOffsetTop)} page={compact(entry.raw.visualPageTop)}/{compact(entry.raw.visualPageLeft)} s={compact(entry.raw.visualScale)} win={entry.raw.innerHeight}/{entry.raw.clientHeight} y={compact(entry.raw.scrollY)}
-          {'\n'}PRESENT phase={entry.hook.presentationPhase} lifecycle={entry.hook.viewportLifecycle} active={String(entry.hook.editingPresentation)} target={entry.hook.targetViewportTop} shell={entry.hook.shellTop}/{entry.hook.shellBottom} plane={entry.hook.presentationTop}/{entry.hook.presentationHeight}
-          {'\n'}GEOMETRY host/top/h={entry.hook.hostHeight}/{entry.hook.editTop}/{entry.hook.editHeight} edit={String(entry.hook.editing)} ready={String(entry.hook.recoveryReady)} active={entry.raw.activeElement} target={entry.raw.target}
-          {'\n'}RECT {RECTS.map(([label]) => `${label}=${entry.raw.rects[label]}`).join(' ')}
-        </span>
-      ))}
-    </output>
+    <section className="viewport-debug" aria-label="Viewport diagnostics">
+      <header><strong>MOBILE EDITING DIAGNOSTICS V2</strong></header>
+      <h2>CURRENT</h2>
+      <p>presentation={capture.viewport.presentationPhase} lifecycle={capture.viewport.viewportLifecycle} geometry={capture.viewport.editing ? 'editing' : 'normal'} ready={String(capture.viewport.recoveryReady)}</p>
+      <p>focus={capture.focus.element} connected={String(capture.focus.connected)} editable={String(capture.focus.editable)} shell={String(capture.focus.insideShell)}</p>
+      <h2>BLOCKED BY</h2>
+      <p>{blocker ? `${blocker.detail.reason ?? 'unknown'} (${blocker.detail.detail ?? ''})` : 'No explicit recovery blocker recorded.'}</p>
+      <h2>RECENT</h2>
+      <ol>{meaningful(capture.entries).map((entry) => <li key={entry.id}>+{entry.elapsed.toFixed(0)} {entry.kind} {entry.name} {String(entry.detail.reason ?? '')}</li>)}</ol>
+      <footer>
+        <button type="button" onClick={() => navigator.clipboard.writeText(exportViewportDiagnosticCapture(capture))}>COPY TRACE</button>
+        <button type="button" onClick={() => setCapture(undefined)}>RESUME</button>
+      </footer>
+    </section>
   )
 }

@@ -11,12 +11,8 @@ import shellSource from './Shell.tsx?raw'
 import handoffSource from './RemoteSessionHandoff.tsx?raw'
 
 describe('mobile editing presentation contract', () => {
-  it('keeps viewport diagnostics tap-transparent and visibly translucent', () => {
-    const debugRule = css.match(/\.viewport-debug\s*\{([^}]+)\}/)?.[1] ?? ''
-    expect(debugRule).toMatch(/pointer-events:\s*none/)
-    const opacity = Number(debugRule.match(/background:\s*rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/)?.[1])
-    expect(opacity).toBeLessThan(.88)
-    expect(opacity).toBeGreaterThanOrEqual(.55)
+  it('keeps closed viewport diagnostics to one small fixed trigger', () => {
+    expect(css).toMatch(/\.viewport-debug-trigger\s*\{\s*position:\s*fixed;[^}]+padding:\s*4px;[^}]+opacity:\s*\.55/)
   })
 
   it('uses presentation mapping in browser tabs and accepted geometry for standalone fixed', () => {

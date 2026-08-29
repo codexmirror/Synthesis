@@ -12,6 +12,7 @@ import { RackOS } from '../apps/rackos/RackOS'
 import { VeyraOS } from '../apps/veyra/VeyraOS'
 import { RemoteSessionHandoff } from './RemoteSessionHandoff'
 import { selectRemoteOperatingSurface } from './remoteOperatingSurface'
+import { createViewportDiagnostics } from './viewportDiagnostics'
 
 type ShellStyle = CSSProperties & {
   '--node-host-height': string
@@ -49,7 +50,14 @@ export function Shell() {
   const ActiveComponent = activeApp?.component
   const standalonePresentation = isStandalonePresentation()
   const shellRef = useRef<HTMLDivElement>(null)
-  const viewport = useEditingViewport({ shellRef, standalone: standalonePresentation })
+  const [viewportDiagnostics] = useState(createViewportDiagnostics)
+  const viewport = useEditingViewport({
+    shellRef,
+    standalone: standalonePresentation,
+    onDiagnostic: viewportDiagnostics
+      ? (name, detail) => viewportDiagnostics.record('CONTROLLER', name, detail)
+      : undefined,
+  })
   const shellStyle: ShellStyle = {
     '--node-host-height': `${viewport.hostHeight}px`,
     '--node-edit-top': `${viewport.editTop}px`,
@@ -177,7 +185,7 @@ export function Shell() {
           onEndEditing={endEditing}
         />
       )}
-      <ViewportDebug viewport={viewport} />
+      <ViewportDebug viewport={viewport} diagnostics={viewportDiagnostics} standalone={standalonePresentation} />
     </div>
   )
 }

@@ -316,10 +316,14 @@ The optional:
 ```
 
 diagnostic remains internal mobile investigation tooling and is not gameplay.
-When enabled, it keeps a bounded high-resolution timeline that records native
-browser viewport/input events synchronously and React editing-viewport commits
-as distinct entries, alongside NODE/RACK layout rects. No diagnostic listeners
-or recording are installed without the query flag.
+When enabled, it continuously keeps a bounded, session-long high-resolution
+timeline that distinguishes native browser events, editing-controller decisions
+and React editing-viewport commits. Only a small `DBG` trigger remains visible
+during normal use. Activating it freezes the preceding evidence before opening
+a diagnosis-first panel; the immutable capture can be copied as privacy-safe
+plain text or dismissed with `RESUME` for another capture. Structural focus
+evidence never includes editable values or other player-entered text. No
+diagnostic listeners, recording or UI are installed without the query flag.
 
 
 ## Gotchas
