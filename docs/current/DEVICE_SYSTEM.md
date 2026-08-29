@@ -178,12 +178,16 @@ connectivity, not internal LAN fabric, so it deliberately does not apply
 inside `home-net` (`node-01` ↔ `srv-01`). When the endpoints resolve to two
 different LocalNetworks — the represented route to `srv-02` or to the
 personal phone, both on `remote-segment-01` — every represented bottleneck
-participates. A Device with no represented LocalNetwork membership
-contributes no extra bottleneck rather than blocking an otherwise
-legitimate transfer; the currently represented fixtures give every
-resource-capable Device at most one applicable LocalNetwork membership, so
-this resolution is unambiguous and generic multi-Network route selection is
-not implemented.
+participates. LocalNetwork membership resolves only when it is unambiguous:
+a Device with zero represented memberships, and a Device with two or more,
+both contribute no extra bottleneck on that side rather than blocking an
+otherwise legitimate transfer — the latter deliberately does not pick a
+Network by `localNetworks` array order. The currently represented fixtures
+give every resource-capable Device at most one applicable LocalNetwork
+membership, so this resolution is unambiguous today; generic multi-Network
+route selection remains unimplemented, and a future Device with genuinely
+ambiguous membership degrades to endpoint-only capacity rather than an
+arbitrarily chosen route.
 
 The effective rate is derived fresh on every advancement step rather than
 stored, and none of it — Device capacity or LocalNetwork capacity — is
