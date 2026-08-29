@@ -658,3 +658,104 @@ describe('bidirectional Upload core', () => {
     expect(JSON.stringify(activity)).not.toContain('203.0.113.250')
   })
 })
+
+describe('cross-Network vs same-Network transfer capacity', () => {
+  const CROSS_ACCESS_ID = 'access-cross'
+  const HOME_NET_ID = 'network-local-001'
+  const REMOTE_NET_ID = 'network-foreign-001'
+  const BIG_FILE_PATH = '/srv/large-file.bin'
+  const BIG_FILE_BYTES = 50_000
+
+  // srv-02 (host-lan-002, remote-segment-01) is on a different LocalNetwork than node-01 (home-net), so this is the concrete cross-Network route.
+  function connectedStateToSrv02(fileBytes: number = BIG_FILE_BYTES): GameState {
+    const base = createInitialGameState()
+    const host = base.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    const bigFile = { kind: 'text' as const, id: 'file-large', path: BIG_FILE_PATH, content: 'x'.repeat(fileBytes) }
+    const withBigFile: GameState = {
+      ...base,
+      world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem: { ...candidate.filesystem!, files: [...candidate.filesystem!.files, bigFile] } } : candidate) } },
+    }
+    const access = { id: CROSS_ACCESS_ID, sourceDeviceId: withBigFile.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
+    const authorized = { ...withBigFile, deviceAccess: { nextId: 2, established: [access] } }
+    return connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
+  }
+
+  function withNetworkCapacity(state: GameState, networkId: string, transferCapacity: { uploadBytesPerSecond: number; downloadBytesPerSecond: number }): GameState {
+    return { ...state, world: { ...state.world, network: { ...state.world.network, localNetworks: state.world.network.localNetworks.map((network) => network.id === networkId ? { ...network, transferCapacity } : network) } } }
+  }
+
+  function withHostUploadCapacity(state: GameState, hostId: string, uploadBytesPerSecond: number): GameState {
+    return { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === hostId ? { ...host, transferCapacity: { ...host.transferCapacity!, uploadBytesPerSecond } } : host) } } }
+  }
+
+  function withLocalDownloadCapacity(state: GameState, downloadBytesPerSecond: number): GameState {
+    return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, network: { ...state.player.localDevice.network, transferCapacity: { ...state.player.localDevice.network.transferCapacity, downloadBytesPerSecond } } } } }
+  }
+
+  it('limits a cross-Network Download by source Device upload capacity when it is the narrowest bottleneck', () => {
+    const state = withHostUploadCapacity(connectedStateToSrv02(), 'host-lan-002', 10_000)
+    const started = startRemoteFileDownload(state, BIG_FILE_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const advanced = advanceFileTransfer(started.state, 1_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBe(10_000)
+  })
+
+  it('limits a cross-Network Download by source Network upload capacity when it is the narrowest bottleneck', () => {
+    const state = withNetworkCapacity(connectedStateToSrv02(), REMOTE_NET_ID, { uploadBytesPerSecond: 20_000, downloadBytesPerSecond: 20_000 })
+    const started = startRemoteFileDownload(state, BIG_FILE_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const advanced = advanceFileTransfer(started.state, 1_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBe(20_000)
+  })
+
+  it('limits a cross-Network Download by destination Network download capacity when it is the narrowest bottleneck', () => {
+    const state = withNetworkCapacity(connectedStateToSrv02(), HOME_NET_ID, { uploadBytesPerSecond: 30_000, downloadBytesPerSecond: 30_000 })
+    const started = startRemoteFileDownload(state, BIG_FILE_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const advanced = advanceFileTransfer(started.state, 1_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBe(30_000)
+  })
+
+  it('limits a cross-Network Download by destination Device download capacity when it is the narrowest bottleneck', () => {
+    const state = withLocalDownloadCapacity(connectedStateToSrv02(), 40_000)
+    const started = startRemoteFileDownload(state, BIG_FILE_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const advanced = advanceFileTransfer(started.state, 1_000)
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBe(40_000)
+  })
+
+  it('ignores collapsed LocalNetwork capacity for a same-Network transfer and uses endpoint capacities only', () => {
+    const state = withNetworkCapacity(connectedState(), HOME_NET_ID, { uploadBytesPerSecond: 1, downloadBytesPerSecond: 1 })
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const advanced = advanceFileTransfer(started.state, 1_000)
+    // Still node-01's ordinary 2 MiB/s download capacity, unaffected by home-net's collapsed capacity.
+    expect(advanced.fileTransfer.active?.bytesTransferred).toBe(2_097_152)
+  })
+
+  it('changes subsequent active-transfer advancement when a participating Network\'s capacity changes, without mutating Device capacity', () => {
+    const started = startRemoteFileDownload(connectedStateToSrv02(2_000_000), BIG_FILE_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const localCapacityBefore = started.state.player.localDevice.network.transferCapacity
+    const remoteCapacityBefore = started.state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.transferCapacity
+
+    const baseline = advanceFileTransfer(started.state, 1_000)
+    expect(baseline.fileTransfer.active?.bytesTransferred).toBe(1_048_576) // srv-02's own 1 MiB/s upload is the default narrowest bottleneck here
+
+    const throttled = withNetworkCapacity(started.state, REMOTE_NET_ID, { uploadBytesPerSecond: 5_000, downloadBytesPerSecond: 5_000 })
+    const throttledAdvanced = advanceFileTransfer(throttled, 1_000)
+    expect(throttledAdvanced.fileTransfer.active?.bytesTransferred).toBe(5_000)
+
+    expect(throttled.player.localDevice.network.transferCapacity).toBe(localCapacityBefore)
+    expect(throttled.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.transferCapacity).toBe(remoteCapacityBefore)
+  })
+
+  it('aborts an active cross-Network transfer without creating a destination artifact when a participating Network capacity becomes invalid', () => {
+    const started = startRemoteFileDownload(connectedStateToSrv02(), BIG_FILE_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const invalidated = withNetworkCapacity(started.state, REMOTE_NET_ID, { uploadBytesPerSecond: 0, downloadBytesPerSecond: 8_388_608 })
+    const advanced = advanceFileTransfer(invalidated, 1_000)
+    expect(advanced.fileTransfer.active).toBeNull()
+    expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
+  })
+})

@@ -571,6 +571,14 @@ export interface LocalNetwork {
   readonly name: string
   /** Canonical membership relation for devices represented on this network. */
   readonly memberDeviceIds: readonly string[]
+  /**
+   * The Network's own represented external connectivity capability — its
+   * uplink/downlink to the rest of the world, not internal LAN/switch
+   * fabric between its members. Distinct from any member Device's own
+   * endpoint `NetworkTransferCapacity` and from current usage, which V1
+   * does not represent.
+   */
+  readonly transferCapacity: NetworkTransferCapacity
 }
 
 export interface NetworkState {

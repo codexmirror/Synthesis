@@ -118,6 +118,15 @@ The phone is signed in to its own Civic Dollar Account through its own Device-bo
 
 ## Network transfer capacity
 
+Three distinct concerns make up represented transfer throughput, and V1
+represents only the first two:
+
+```text
+DEVICE TRANSFER CAPACITY = the maximum transfer capability of that Device endpoint
+NETWORK TRANSFER CAPACITY = the represented external connectivity capacity of that LocalNetwork
+CURRENT USAGE / CONGESTION = not represented yet
+```
+
 The local Device (`node-01`) and both concretely represented servers
 (`srv-01`, `srv-02`) each own a canonical `NetworkTransferCapacity`
 (`uploadBytesPerSecond`, `downloadBytesPerSecond`) on their network state:
@@ -130,13 +139,56 @@ the capacity. This capacity is a pure maximum-capability value, not runtime
 usage, and remains distinct from existing availability state
 (`runtime.networkStatus` on the local Device, `online` on a `NetworkHost`):
 an offline endpoint still carries its normal capacity rather than a zeroed
-one. The shallow training hosts are not given an invented capacity. A pure
-`deriveEffectiveTransferRateBytesPerSecond` helper derives the narrower of a
-source's upload capacity and a destination's download capacity; the
-FileTransfer runtime derives the current effective rate from it on every
-advancement step rather than storing it, and it is not exposed through Scan,
-Discovery, or any other player-facing surface. This capacity is canonical
-World Truth, not Player Knowledge.
+one. The shallow training hosts are not given an invented capacity.
+
+Each `LocalNetwork` also owns its own canonical `NetworkTransferCapacity`,
+representing that Network's own external uplink/downlink rather than any
+member Device's endpoint capability and rather than internal LAN/switch
+fabric between its members. `home-net` is a symmetric 16 MiB/s and
+`remote-segment-01` is a symmetric 8 MiB/s; both are deliberately authored
+above every member Device's own endpoint capacity so neither is the
+bottleneck for the currently represented default routes. A Network's
+capacity is independent state from any member Device's capacity: changing
+one never mutates the other.
+
+A pure `deriveEffectiveTransferRateBytesPerSecond` helper derives the
+narrower of a source's upload capacity and a destination's download
+capacity for two endpoint capacities alone. A separate
+`deriveCrossNetworkTransferRateBytesPerSecond` helper composes all four
+represented bottlenecks for a transfer whose source and destination Devices
+belong to two different LocalNetworks: the source Device's own upload
+capacity, the source Network's upload capacity, the destination Network's
+download capacity, and the destination Device's own download capacity.
+
+```text
+cross-Network effective throughput =
+  min(source Device upload, source Network upload, destination Network download, destination Device download)
+
+same-Network effective throughput =
+  min(source Device upload, destination Device download)
+```
+
+The FileTransfer runtime resolves each endpoint Device's current
+LocalNetwork membership from canonical World Truth (`memberDeviceIds`) on
+every advancement step, never by a redundant `sourceNetworkId` /
+`destinationNetworkId` stored on the `FileTransfer` itself. When both
+endpoints resolve to the same LocalNetwork, the transfer is decided by
+endpoint capacity alone — LocalNetwork capacity represents external
+connectivity, not internal LAN fabric, so it deliberately does not apply
+inside `home-net` (`node-01` ↔ `srv-01`). When the endpoints resolve to two
+different LocalNetworks — the represented route to `srv-02` or to the
+personal phone, both on `remote-segment-01` — every represented bottleneck
+participates. A Device with no represented LocalNetwork membership
+contributes no extra bottleneck rather than blocking an otherwise
+legitimate transfer; the currently represented fixtures give every
+resource-capable Device at most one applicable LocalNetwork membership, so
+this resolution is unambiguous and generic multi-Network route selection is
+not implemented.
+
+The effective rate is derived fresh on every advancement step rather than
+stored, and none of it — Device capacity or LocalNetwork capacity — is
+exposed through Scan, Discovery, Inspect, or any other player-facing
+surface. Both are canonical World Truth, not Player Knowledge.
 
 Both represented servers and the represented personal phone also own concrete
 CPU, RAM, and baseline CPU/RAM runtime state. This resource truth is not exposed through Scan, Discovery, or
@@ -210,8 +262,13 @@ is observed through RACK-OS, never listed here.
   identity.
 - `NetworkTransferCapacity` is capability, not usage, and not availability. An
   offline endpoint still carries its normal capacity.
-- Server CPU/RAM truth and transfer capacity are World Truth. Do not expose
-  them through Scan, Inspect, or Discovery.
+- Device transfer capacity and LocalNetwork transfer capacity are two
+  distinct capacities. Do not conflate them, and do not let a same-Network
+  transfer apply LocalNetwork capacity — that field represents external
+  connectivity, not internal LAN fabric.
+- Server CPU/RAM truth, Device transfer capacity, and LocalNetwork transfer
+  capacity are all World Truth. Do not expose them through Scan, Inspect, or
+  Discovery.
 - Shallow training hosts are deliberately shallow. Do not invent hardware,
   capacity, filesystems, or installed-software inventories for them to make a
   view or a type uniform.

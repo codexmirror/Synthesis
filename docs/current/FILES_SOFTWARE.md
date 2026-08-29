@@ -85,11 +85,22 @@ DeviceAccess remains untouched as before. The canonical `gameAdvancement`
 boundary independently advances the FileTransfer runtime alongside Process
 runtime on every elapsed-time step, so a transfer progresses even while no
 Process is running or changing and while no RemoteSession exists. Elapsed
-work derives the current effective transfer rate fresh via
-`deriveEffectiveTransferRateBytesPerSecond` rather than storing it, and
-accumulates `bytesTransferred` accordingly, clamped to `bytesTotal`. The
-destination artifact is copied, and its destination-local file ID allocated,
-exactly once, at the moment `bytesTransferred` reaches `bytesTotal`; there is
+work derives the current effective transfer rate fresh on every advancement
+step rather than storing it, and accumulates `bytesTransferred` accordingly,
+clamped to `bytesTotal`. Which derivation applies depends on whether the two
+endpoint Devices currently resolve, from canonical World Truth
+(`LocalNetwork.memberDeviceIds`), to the same LocalNetwork: when they share
+one, `deriveEffectiveTransferRateBytesPerSecond` alone decides the rate from
+endpoint capacity (same-Network transfer does not use LocalNetwork
+capacity, which represents external connectivity rather than internal LAN
+fabric); when they resolve to two different LocalNetworks,
+`deriveCrossNetworkTransferRateBytesPerSecond` additionally floors the rate
+by both Networks' own external upload/download capacity. Neither derivation
+nor any resolved Network ID is stored on the `FileTransfer` itself; both are
+resolved fresh, and this domain's owning transfer-capacity model belongs to
+`docs/current/DEVICE_SYSTEM.md`. The destination artifact is copied, and its
+destination-local file ID allocated, exactly once, at the moment
+`bytesTransferred` reaches `bytesTotal`; there is
 still no partial-file representation, so no destination artifact exists before
 that point.
 
@@ -98,8 +109,10 @@ the transfer's own `accessId`: the referenced DeviceAccess must still exist
 and still authorize the one represented remote endpoint while the other
 endpoint is the explicit local Device. Both Devices must remain online, both
 filesystems must remain available, the source file's stable ID must still be
-present on its recorded source Device, and source/destination capacities must
-remain valid. Losing any of these hard-aborts the transfer without creating a
+present on its recorded source Device, and source/destination Device
+capacities — and, for a cross-Network transfer, both participating
+LocalNetworks' capacities — must remain valid. Losing any of these
+hard-aborts the transfer without creating a
 destination artifact or allocating a destination file ID. Mutable
 presentation attributes never retarget or kill a transfer: the source Device's
 IP, display name, and the source file's path may all change while the

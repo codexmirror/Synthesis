@@ -1,7 +1,7 @@
 import { checkDestinationPlacement, copyFilesystemFileToPath, getFilesystemFile, getFilesystemFileSizeBytes } from './filesystem'
-import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
+import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { resolveActiveRemoteTarget } from './remoteSession'
-import type { FileTransfer, FilesystemState, GameState, NetworkHost, NetworkTransferCapacity } from './types'
+import type { FileTransfer, FilesystemState, GameState, LocalNetwork, NetworkHost, NetworkState } from './types'
 import { archiveFileTransfer } from './recentActivity'
 
 export function deriveDownloadDestinationPath(sourcePath: string): string {
@@ -93,8 +93,17 @@ interface TransferEndpoints {
   readonly remoteHost: NetworkHost
   readonly sourceFilesystem: FilesystemState
   readonly destinationFilesystem: FilesystemState
-  readonly sourceCapacity: NetworkTransferCapacity
-  readonly destinationCapacity: NetworkTransferCapacity
+  readonly rateBytesPerSecond: number
+}
+
+/**
+ * Resolve the represented LocalNetwork a Device currently belongs to. The
+ * current represented fixtures give every resource-capable Device at most
+ * one applicable membership, so the first match is that unique Network;
+ * generic multi-Network route selection is deliberately not implemented.
+ */
+function resolveDeviceLocalNetwork(network: Readonly<NetworkState>, deviceId: string): Readonly<LocalNetwork> | undefined {
+  return network.localNetworks.find(({ memberDeviceIds }) => memberDeviceIds.includes(deviceId))
 }
 
 function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): TransferEndpoints | undefined {
@@ -109,11 +118,36 @@ function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): Tra
   if (!remoteHost?.online || !remoteHost.filesystem || !remoteHost.transferCapacity) return undefined
   const sourceFilesystem = direction === 'download' ? remoteHost.filesystem : local.filesystem
   const destinationFilesystem = direction === 'download' ? local.filesystem : remoteHost.filesystem
-  const sourceCapacity = direction === 'download' ? remoteHost.transferCapacity : local.network.transferCapacity
-  const destinationCapacity = direction === 'download' ? local.network.transferCapacity : remoteHost.transferCapacity
-  if (!isValidNetworkTransferCapacity(sourceCapacity) || !isValidNetworkTransferCapacity(destinationCapacity)) return undefined
+  const sourceDeviceCapacity = direction === 'download' ? remoteHost.transferCapacity : local.network.transferCapacity
+  const destinationDeviceCapacity = direction === 'download' ? local.network.transferCapacity : remoteHost.transferCapacity
+  if (!isValidNetworkTransferCapacity(sourceDeviceCapacity) || !isValidNetworkTransferCapacity(destinationDeviceCapacity)) return undefined
   if (!sourceFilesystem.files.some(({ id }) => id === transfer.sourceFileId)) return undefined
-  return { direction, remoteHost, sourceFilesystem, destinationFilesystem, sourceCapacity, destinationCapacity }
+
+  const sourceDeviceId = direction === 'download' ? remoteHost.id : local.id
+  const destinationDeviceId = direction === 'download' ? local.id : remoteHost.id
+  const sourceNetwork = resolveDeviceLocalNetwork(state.world.network, sourceDeviceId)
+  const destinationNetwork = resolveDeviceLocalNetwork(state.world.network, destinationDeviceId)
+  // Same-Network transfer uses endpoint capacity only: LocalNetwork transfer
+  // capacity represents external connectivity, not internal LAN fabric. A
+  // Device with no represented LocalNetwork membership contributes no extra
+  // bottleneck rather than blocking an otherwise legitimate transfer.
+  const isCrossNetwork = !!sourceNetwork && !!destinationNetwork && sourceNetwork.id !== destinationNetwork.id
+  let rateBytesPerSecond: number
+  if (isCrossNetwork) {
+    if (!isValidNetworkTransferCapacity(sourceNetwork.transferCapacity) || !isValidNetworkTransferCapacity(destinationNetwork.transferCapacity)) return undefined
+    rateBytesPerSecond = deriveCrossNetworkTransferRateBytesPerSecond(
+      sourceDeviceCapacity, sourceNetwork.transferCapacity, destinationNetwork.transferCapacity, destinationDeviceCapacity,
+    )
+  } else {
+    rateBytesPerSecond = deriveEffectiveTransferRateBytesPerSecond(sourceDeviceCapacity, destinationDeviceCapacity)
+  }
+
+  return { direction, remoteHost, sourceFilesystem, destinationFilesystem, rateBytesPerSecond }
+}
+
+/** Current effective throughput for the active FileTransfer, derived fresh rather than stored. Zero when it cannot presently advance. */
+export function deriveActiveFileTransferRateBytesPerSecond(state: GameState, transfer: FileTransfer): number {
+  return resolveTransferEndpoints(state, transfer)?.rateBytesPerSecond ?? 0
 }
 
 /** Retained as the narrow Download-facing resolver used by existing presentation. */
@@ -127,8 +161,7 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
   if (!transfer) return state
   const endpoints = resolveTransferEndpoints(state, transfer)
   if (!endpoints) return archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, transfer)
-  const rate = deriveEffectiveTransferRateBytesPerSecond(endpoints.sourceCapacity, endpoints.destinationCapacity)
-  const bytesTransferred = Math.min(transfer.bytesTotal, transfer.bytesTransferred + rate * (Math.max(0, elapsedMs) / 1000))
+  const bytesTransferred = Math.min(transfer.bytesTotal, transfer.bytesTransferred + endpoints.rateBytesPerSecond * (Math.max(0, elapsedMs) / 1000))
   if (bytesTransferred < transfer.bytesTotal) return { ...state, fileTransfer: { ...state.fileTransfer, active: { ...transfer, bytesTransferred } } }
 
   const finalTransfer = { ...transfer, bytesTransferred }
