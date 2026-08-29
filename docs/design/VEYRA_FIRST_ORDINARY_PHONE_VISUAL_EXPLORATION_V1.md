@@ -33,7 +33,10 @@ this document is wrong. It creates no simulation state, selects no NPC, no Devic
 model, no VEYRA OS release, no authored content, and authorizes no
 implementation.
 
-VEYRA remains unimplemented. `docs/current/` is untouched by this pass.
+VEYRA was unimplemented when this pass was made, and `docs/current/` was
+untouched by it. A first VEYRA OS surface has since been implemented; what is
+built is owned by [`../current/VEYRA_OS.md`](../current/VEYRA_OS.md), and this
+exploration remains non-authoritative history rather than a record of it.
 
 ### Placeholder content
 

@@ -81,7 +81,8 @@ stack of repeated objects; a Wallet modifier of a shared primitive is written as
 presentation is meant to achieve is owned by
 `docs/design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`. This primitive set is
 NODE-OS Firmware presentation and is not a universal Firmware framework:
-RACK-OS remains deliberately foreign and owns its own palette and structure.
+RACK-OS and VEYRA OS each remain deliberately foreign and own their own palette
+and structure (`docs/current/VEYRA_OS.md`).
 
 A row or control states what it does by the mark it ends with, and the two
 marks mean different things. The arrow means the control opens a further
@@ -295,7 +296,8 @@ reports recovered editing geometry, so a destination never mounts into the
 keyboard geometry the outgoing editable is being unmounted out of. With nothing
 being edited that is already true and the section changes immediately. RACK-OS
 reads no viewport, keeps no keyboard state, and owns none of this timing; it
-consumes the Shell's recovery contract.
+consumes the Shell's recovery contract. Moving between VEYRA surfaces consumes
+exactly the same contract in exactly the same way.
 
 Explicit application regions own their own scrolling.
 
@@ -341,6 +343,13 @@ or recording are installed without the query flag.
   or alerts for atmosphere.
 
 ## Device-scoped software command integration
+
+The Shell mounts a foreign operating surface by the entered target's own
+represented Firmware identity rather than by a single hard-coded remote
+environment, and mounts none at all for Firmware it has no implementation for.
+That selection, and the VEYRA OS surface it can now select, belong to
+`docs/current/VEYRA_OS.md`; the Shell's own remote handoff, operating-context
+switch and editing contract are unchanged by it.
 
 NODE-OS and RACK-OS remain distinct Firmware-owned Terminal surfaces with their
 own built-ins, prompts, rendering, and interaction. When NODE Miner is available

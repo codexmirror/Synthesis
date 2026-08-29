@@ -15,6 +15,7 @@ import { ViewportDebug } from './shell/ViewportDebug'
 import type { EditingViewportState } from './shell/useEditingViewport'
 import { connectRemoteFromObservation } from './core/game/remoteSession'
 import { createInitialGameState } from './core/game/initialState'
+import { RACK_OS_FIRMWARE_ID } from './core/game/firmwareIdentity'
 import type { FileTransfer, GameState } from './core/game/types'
 
 function withActiveTransfer(direction: 'download' | 'upload', base: GameState = createInitialGameState()): GameState {
@@ -242,7 +243,7 @@ function remoteConnectedState(): GameState {
     world: { network: { ...base.world.network, hosts: [{
       ...target,
       displayName: 'truth-server',
-      firmware: { id: 'firmware-truth', name: 'TRUTH-OS', version: '2.4' },
+      firmware: { id: RACK_OS_FIRMWARE_ID, name: 'TRUTH-OS', version: '2.4' },
     }, ...base.world.network.hosts.slice(1)] } },
     deviceAccess: { nextId: 2, established: [{
       id: 'access-truth', sourceDeviceId: base.player.localDevice.id,

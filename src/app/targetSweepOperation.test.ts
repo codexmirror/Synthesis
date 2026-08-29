@@ -37,9 +37,9 @@ describe('findTargets', () => {
     const state = store(createInitialGameState())
     const result = await createFindTargets(state.read, state.write)()
 
-    expect(result).toEqual({ status: 'observed', networksKnown: 1, targetsKnown: 1 })
+    expect(result).toEqual({ status: 'observed', networksKnown: 1, targetsKnown: 2 })
     expect(state.current.discovery.networks.map(({ name, membersObserved }) => [name, membersObserved])).toEqual([['home-net', true]])
-    expect(state.current.discovery.devices.map(({ id, servicesObserved }) => [id, servicesObserved])).toEqual([['host-lan-001', false]])
+    expect(state.current.discovery.devices.map(({ id, servicesObserved }) => [id, servicesObserved])).toEqual([['host-lan-001', false], ['host-phone-001', false]])
   })
 
   it('never reaches beyond the Networks the player legitimately remembers', async () => {

@@ -130,7 +130,7 @@ discover home-net
 ↓
 scan home-net
 ↓
-discover LAN server
+discover LAN server and personal phone
 ↓
 scan LAN server
 ↓
@@ -342,6 +342,24 @@ Completion resolves against current World Truth and validates the represented ta
 
 RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release, but Knowledge is informative rather than submission authority. The canonical synchronous submission operation resolves the observed stable Device and Service identities and endpoint plus a stable local file ID. A valid represented GateSSH 1.3.2 package changes only a managed GateSSH 1.3.3 Service implementation to 1.3.2. It grants no access or session and starts no Process or FileTransfer. Existing Analysis and Credential Access subsequently react to the newly applicable `AUTH-017`. Historical Inspect evidence remains stale until another Inspect. This is the current concrete proof that interaction is not access: represented state mutation changes which existing technique applies.
 
+## Reaching the represented personal phone
+
+The represented VEYRA phone (`docs/current/DEVICE_SYSTEM.md`) is reached through
+exactly the loop above and nothing else. It is a member of `home-net`, so
+`scan home-net` — or NodeScan's SCAN on Known Space — discovers it as an
+ordinary LAN target. Scanning it observes its one open SSH Service; Service
+Analysis of that Service records the same `AUTH-017` Knowledge, because its
+implementation is the same represented GateSSH 1.3.2 release; the same Basic
+Credential Toolkit forms the same way in; the attempt creates the same
+Credential Access Process and, on success, the same USER `DeviceAccess`; and
+CONNECT opens the same kind of Session.
+
+No phone-specific weakness, tool, operation, mechanic or developer shortcut
+exists. Removing the credential tool removes the offer without touching the
+Knowledge, exactly as for any other target. The only thing that differs after
+entry is which operating surface the Shell presents.
+
+
 ## DeviceAccess
 
 `DeviceAccess` is current canonical gameplay state.
@@ -388,10 +406,20 @@ An active resolvable Session first presents a Shell-owned Remote Session handoff
 The successful connect has already established canonical Session truth; the
 handoff is not simulated connection progress. It ends local editing and waits
 for the existing Shell editing state to recover before enabling explicit entry
-to the remote environment. Accepting that presentation gate mounts RACK-OS
-without changing GameState. Each stable Session identity receives its own
-handoff, while disconnecting from the handoff uses the canonical Session
-operation and restores the preserved NODE-OS presentation.
+to the remote environment. Accepting that presentation gate mounts the operating
+environment the target Device actually runs, without changing GameState. Each
+stable Session identity receives its own handoff, while disconnecting from the
+handoff uses the canonical Session operation and restores the preserved NODE-OS
+presentation.
+
+Which environment that is, is selected from the target's own represented
+Firmware identity rather than its mutable display name: `firmware-rack-os-v1`
+mounts RACK-OS and `firmware-veyra-os-v4-1` mounts VEYRA OS. Firmware the Shell
+has no implementation for mounts nothing — the handoff states that there is no
+operating surface for it and offers no entry, while the Session itself remains
+real, stated, and disconnectable. There is no fallback to RACK-OS and no generic
+foreign-OS framework. The selection and the VEYRA surface belong to
+`docs/current/VEYRA_OS.md`; everything below in this section describes RACK-OS.
 
 After explicit entry, the Session presents the distinct RACK-OS operating
 surface. Its target is resolved by stable `RemoteSession.accessId` through
@@ -500,6 +528,9 @@ empty state.
   hidden current-truth conditions must never be named in failure presentation.
 - RACK-OS is a live authorized view of target truth, resolved through
   `accessId` → target identity, never through the connected address.
+- A Session is not the operating surface. Which environment is mounted comes
+  from the target's represented Firmware identity, and unsupported Firmware is
+  refused rather than shown as RACK-OS.
 - A Session admits a command; it does not own the lifetime of the work that
   command started. Disconnecting never cancels admitted Device-owned work,
   never stops a Miner running on the target, and never removes DeviceAccess.

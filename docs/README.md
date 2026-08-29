@@ -261,9 +261,21 @@ VEYRA Device presentation direction.
   A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md);
   A17 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md);
   A18 in [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
-- CURRENT TRUTH → none; VEYRA is not implemented
+- CURRENT TRUTH → [`current/VEYRA_OS.md`](current/VEYRA_OS.md) (the implemented
+  VEYRA OS operating surface and how it is selected); the represented phone
+  Device → [`current/DEVICE_SYSTEM.md`](current/DEVICE_SYSTEM.md); the access
+  loop and Remote Session that reach it →
+  [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md); its Civic Dollar
+  Account, Session and transfers →
+  [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md)
+- CODE → `src/apps/veyra/`, `src/shell/remoteOperatingSurface.ts`,
+  `src/core/game/firmwareIdentity.ts`
+- TESTS → `src/apps/veyra/Veyra.test.tsx`,
+  `src/shell/remoteOperatingSurface.test.ts`,
+  `src/core/game/veyraPhoneAccess.test.ts`
 - DOCUMENTATION IMPACT OWNER →
-  the design authority owning the changed VEYRA truth above
+  [`current/VEYRA_OS.md`](current/VEYRA_OS.md) for implemented VEYRA behavior,
+  or the design authority owning the changed VEYRA product direction above
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated current-truth domains,
   archived work orders
 

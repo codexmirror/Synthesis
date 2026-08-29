@@ -5,10 +5,16 @@ Scope: Design authority for the first ordinary VEYRA personal-phone product
 structure, Home and application navigation grammar, and the representative
 Communication, financial, and Settings product areas.
 
-This document defines selected future product and presentation behavior. It
-does not define current implemented behavior, create simulation state, select a
-concrete NPC, or authorize implementation beyond represented truth and the
-architecture boundaries owned elsewhere.
+This document defines selected product and presentation behavior. It does not
+define current implemented behavior, create simulation state, select a concrete
+NPC, or authorize implementation beyond represented truth and the architecture
+boundaries owned elsewhere.
+
+A first slice of it — Firmware-driven surface selection, one represented phone,
+the Home launcher, Wallet and Settings — has since been implemented. What is
+actually built is owned by [`../current/VEYRA_OS.md`](../current/VEYRA_OS.md);
+the non-goals in §11 remain the boundaries of *this contract*, not claims about
+the repository. Communication is still not implemented.
 
 Parent design authority:
 [`VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md).

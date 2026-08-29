@@ -3,11 +3,13 @@ import type { ActiveRemoteTarget } from '../core/game/remoteSession'
 interface RemoteSessionHandoffProps {
   readonly context: ActiveRemoteTarget
   readonly ready: boolean
+  /** Whether this Shell can actually present the target's represented Firmware. */
+  readonly supported: boolean
   readonly onEnter: () => void
   readonly onDisconnect: () => void
 }
 
-export function RemoteSessionHandoff({ context, ready, onEnter, onDisconnect }: RemoteSessionHandoffProps) {
+export function RemoteSessionHandoff({ context, ready, supported, onEnter, onDisconnect }: RemoteSessionHandoffProps) {
   const { session, target, access, service } = context
 
   return (
@@ -26,11 +28,16 @@ export function RemoteSessionHandoff({ context, ready, onEnter, onDisconnect }: 
           <div><dt>REMOTE ENVIRONMENT</dt><dd>{target.firmware?.name} {target.firmware?.version}</dd></div>
           <div><dt>SESSION</dt><dd>{session.id}</dd></div>
         </dl>
-        {!ready && <p className="remote-handoff__release" role="status">RELEASING LOCAL INPUT</p>}
+        {!ready && supported && <p className="remote-handoff__release" role="status">RELEASING LOCAL INPUT</p>}
+        {/* The Session is real and stays real; what NODE-OS cannot do is
+            present this Firmware. Refusing here is the point — the alternative
+            would be operating a foreign environment through somebody else's
+            operating surface. */}
+        {!supported && <p className="remote-handoff__unsupported" role="status">NO OPERATING SURFACE FOR THIS FIRMWARE</p>}
         <div className="remote-handoff__actions">
-          <button type="button" className="remote-handoff__enter" disabled={!ready} onClick={onEnter}>
+          {supported && <button type="button" className="remote-handoff__enter" disabled={!ready} onClick={onEnter}>
             ENTER {target.firmware?.name} →
-          </button>
+          </button>}
           <button type="button" className="remote-handoff__disconnect" onClick={onDisconnect}>DISCONNECT</button>
         </div>
       </section>

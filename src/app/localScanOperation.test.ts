@@ -36,7 +36,8 @@ describe('local Scan application operation', () => {
     expect(await scanTarget(host.ip)).toEqual({ status: 'no_response', address: host.ip })
     expect(await scanTarget('home-net')).toMatchObject({
       status: 'network',
-      devices: [{ targetId: state.player.localDevice.id }],
+      // srv-01 is offline; SELF and the phone still respond.
+      devices: [{ targetId: state.player.localDevice.id }, { targetId: 'host-phone-001' }],
     })
   })
 
@@ -56,6 +57,6 @@ it('merges back-to-back observations against the latest canonical Discovery', as
   await scan(state.player.localDevice.network.ip)
   await scan('home-net')
   expect(state.discovery.networks).toMatchObject([{ name: 'home-net', membersObserved: true }])
-  expect(state.discovery.networkDeviceRelations).toHaveLength(2)
-  expect(state.discovery.devices).toMatchObject([{ id: 'host-lan-001', servicesObserved: false }])
+  expect(state.discovery.networkDeviceRelations).toHaveLength(3)
+  expect(state.discovery.devices).toMatchObject([{ id: 'host-lan-001', servicesObserved: false }, { id: 'host-phone-001', servicesObserved: false }])
 })

@@ -18,7 +18,7 @@ import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
 import { submitRackUpdatePackageFromObservation, type RackUpdateObservation, type SubmitRackUpdatePackageResult } from '../core/game/rackUpdate'
-import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, logoutDollarAccount, transferDollars, type AuthenticateDollarAccountResult, type AuthenticateWithSavedDollarSignInResult, type LogoutDollarAccountResult, type TransferDollarsResult } from '../core/game/dollarFinance'
+import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, logoutDollarAccount, transferDollars, transferDollarsFromOperatedRemoteDevice, type AuthenticateDollarAccountResult, type AuthenticateWithSavedDollarSignInResult, type LogoutDollarAccountResult, type TransferDollarsResult, type TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -52,6 +52,8 @@ export interface GameActions {
   authenticateDollarAccountWithSavedSignIn(): AuthenticateWithSavedDollarSignInResult
   logoutDollarAccount(): LogoutDollarAccountResult
   transferDollars(recipientAccountReference: string, amountCents: number): TransferDollarsResult
+  /** The same canonical transfer, acted by the Device the player is currently operating remotely. */
+  transferRemoteDollars(recipientAccountReference: string, amountCents: number): TransferRemoteDollarsResult
   openMailThread(threadId: string): void
   sendMailReply(threadId: string, text: string): SendMailReplyResult
   clearRecentActivity(): void
@@ -234,6 +236,11 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, transferDollars(recipientAccountReference, amountCents) {
     const state = currentState.current
     const result = transferDollars(state, state.player.localDevice.id, recipientAccountReference, amountCents)
+    if (result.status === 'transferred') { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, transferRemoteDollars(recipientAccountReference, amountCents) {
+    // Deliberately no Device argument: the acting Device is resolved from the active Remote Session inside the domain operation.
+    const result = transferDollarsFromOperatedRemoteDevice(currentState.current, recipientAccountReference, amountCents)
     if (result.status === 'transferred') { currentState.current = result.state; setGameState(result.state) }
     return result
   }, openMailThread(threadId) {

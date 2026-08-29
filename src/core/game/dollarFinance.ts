@@ -1,3 +1,4 @@
+import { resolveActiveRemoteTarget } from './remoteSession'
 import type { DeviceSavedDollarSignIn, DollarFinancialAccount, DollarTransaction, GameState } from './types'
 
 export type AuthenticateDollarAccountResult =
@@ -108,6 +109,52 @@ export function transferDollars(state: GameState, clientDeviceId: string, recipi
     transactionId: transaction.id,
     state: { ...state, dollarFinance: { ...state.dollarFinance, accounts, transactions: { nextId: transactions.nextId + 1, records: [...transactions.records, transaction] } } },
   }
+}
+
+/**
+ * The Account authorized on the Device the player is currently operating
+ * through a Remote Session, resolved the only way any Account is resolved:
+ *
+ * ```text
+ * operated Device -> its Financial Session -> Account
+ * ```
+ *
+ * The operated Device identity comes from the active Session's own
+ * `accessId` -> target relationship, never from a caller, so a foreign
+ * financial client cannot name the Account it would like to see. With no
+ * Session, no resolvable target, or no Financial Session on that Device this
+ * resolves nothing.
+ */
+export function resolveDollarAccountForOperatedRemoteDevice(state: GameState): DollarFinancialAccount | undefined {
+  const remote = resolveActiveRemoteTarget(state)
+  if (!remote) return undefined
+  return resolveDollarAccountForDevice(state, remote.target.id)
+}
+
+export type TransferRemoteDollarsResult =
+  | TransferDollarsResult
+  | { readonly status: 'session_unavailable'; readonly state: GameState }
+
+/**
+ * The same canonical transfer, performed by the Device the player is currently
+ * operating remotely rather than by the local Device.
+ *
+ * This adds no transfer rule and no authority of its own: it resolves *who is
+ * acting* from the active Remote Session and then calls `transferDollars`,
+ * which still derives the source Account from that Device's Financial Session.
+ * A caller therefore cannot choose whose money moves here either, and a client
+ * running on a Device with no Financial Session is refused exactly as the local
+ * client would be.
+ *
+ * A Remote Session is the operating context that decides which Device is
+ * commanded — the same admission role it already plays for remote installation,
+ * execution and transfer — and it is deliberately not financial authority: it
+ * grants no Account, and holding one changes no Provider state.
+ */
+export function transferDollarsFromOperatedRemoteDevice(state: GameState, recipientAccountReference: string, amountCents: number): TransferRemoteDollarsResult {
+  const remote = resolveActiveRemoteTarget(state)
+  if (!remote) return { status: 'session_unavailable', state }
+  return transferDollars(state, remote.target.id, recipientAccountReference, amountCents)
 }
 
 /** One Transaction as it concerns one Account, with nothing about the counterparty beyond the reference it used at the time. */

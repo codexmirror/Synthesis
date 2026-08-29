@@ -5,7 +5,8 @@ import { GameProvider, useGameActions, useGameState, type GameActions } from '..
 import { connectRemoteFromObservation } from '../core/game/remoteSession'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
-import type { GameState } from '../core/game/types'
+import { RACK_OS_FIRMWARE_ID } from '../core/game/firmwareIdentity'
+import type { FirmwareState, GameState } from '../core/game/types'
 import { Shell } from './Shell'
 import type { EditingViewportState } from './useEditingViewport'
 import shellCss from './shell.css?raw'
@@ -28,7 +29,7 @@ function accessedState(): GameState {
     world: { network: { ...base.world.network, hosts: [{
       ...target,
       displayName: 'truth-server',
-      firmware: { id: 'firmware-truth', name: 'TRUTH-OS', version: '2.4' },
+      firmware: { id: RACK_OS_FIRMWARE_ID, name: 'TRUTH-OS', version: '2.4' },
     }, ...base.world.network.hosts.slice(1)] } },
     deviceAccess: { nextId: 2, established: [{
       id: 'access-truth', sourceDeviceId: base.player.localDevice.id,
@@ -115,7 +116,7 @@ describe('Remote Session handoff', () => {
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
-    expect(GAME_STATE_VERSION).toBe(40)
+    expect(GAME_STATE_VERSION).toBe(41)
   })
 
   it('switches between an entered remote context and usable NODE-OS without changing canonical session authority', async () => {
@@ -255,5 +256,62 @@ describe('Remote Session handoff', () => {
     // The address is the part that must stay legible when the control is
     // squeezed, so only it may be truncated.
     expect(shellCss).toMatch(/\.remote-context__address\s*{[^}]*max-width:\s*100%;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;/)
+  })
+})
+
+describe('Firmware-driven remote operating surface', () => {
+  const phoneObservation = { targetDeviceId: 'host-phone-001', address: '198.51.100.61' }
+
+  /** An entered-Session world for the represented VEYRA phone, optionally running other Firmware. */
+  function phoneConnectedState(firmware?: FirmwareState): GameState {
+    const base = createInitialGameState()
+    const hosts = base.world.network.hosts.map((host) =>
+      host.id === phoneObservation.targetDeviceId && firmware ? { ...host, firmware } : host)
+    const accessed: GameState = {
+      ...base,
+      world: { network: { ...base.world.network, hosts } },
+      deviceAccess: { nextId: 2, established: [{
+        id: 'access-phone', sourceDeviceId: base.player.localDevice.id,
+        targetDeviceId: phoneObservation.targetDeviceId, viaServiceId: 'service-ssh-003', privilege: 'USER',
+      }] },
+    }
+    return connectRemoteFromObservation(accessed, phoneObservation).state
+  }
+
+  it('mounts VEYRA for a VEYRA OS target and never RACK-OS', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={phoneConnectedState()}><Shell /></GameProvider>)
+
+    const handoff = screen.getByLabelText('Remote session handoff')
+    expect(handoff).toHaveTextContent('VEYRA OS 4.1')
+    await user.click(screen.getByRole('button', { name: 'ENTER VEYRA OS →' }))
+
+    expect(screen.getByLabelText('VEYRA OS personal device environment')).toBeInTheDocument()
+    expect(screen.queryByLabelText('VEYRA OS remote operating environment')).not.toBeInTheDocument()
+    expect(document.querySelector('.rack-os')).not.toBeInTheDocument()
+  })
+
+  it('still mounts RACK-OS for a RACK-OS target', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
+
+    expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBeInTheDocument()
+    expect(document.querySelector('.veyra')).not.toBeInTheDocument()
+  })
+
+  it('refuses entry for Firmware it cannot present rather than falling back to RACK-OS', () => {
+    render(<GameProvider initialState={phoneConnectedState({ id: 'firmware-vault-os-v2', name: 'VAULT-OS', version: '2.0' })}><Shell /></GameProvider>)
+
+    const handoff = screen.getByLabelText('Remote session handoff')
+    // The Session is real and is still stated; only the operating surface is missing.
+    expect(handoff).toHaveTextContent('SESSION ESTABLISHED')
+    expect(handoff).toHaveTextContent('VAULT-OS 2.0')
+    expect(handoff).toHaveTextContent('NO OPERATING SURFACE FOR THIS FIRMWARE')
+    expect(screen.queryByRole('button', { name: /^ENTER / })).not.toBeInTheDocument()
+    expect(document.querySelector('.rack-os')).not.toBeInTheDocument()
+    expect(document.querySelector('.veyra')).not.toBeInTheDocument()
+    // Leaving is still possible: a Session that cannot be presented can be ended.
+    expect(screen.getByRole('button', { name: 'DISCONNECT' })).toBeInTheDocument()
   })
 })
