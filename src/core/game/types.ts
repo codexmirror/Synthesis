@@ -671,7 +671,34 @@ export interface NetworkTransferRecord {
   readonly result: 'COMPLETED' | 'CANCELLED' | 'INTERRUPTED'
 }
 
-export type NetworkActivityRecord = NetworkConnectionAttemptRecord | NetworkTransferRecord
+/**
+ * One historical Network-owned RackUpdate package-submission record, appended
+ * only once an admitted submission reaches a terminal outcome, observed from
+ * this Network's own local perspective. Deliberately its own concrete record
+ * kind rather than `NetworkTransferRecord`: a RackUpdate submission is not a
+ * FileTransfer, and canonical Network World Truth must not claim one
+ * occurred when the represented cause was a Service package submission.
+ * Shares `NetworkTransferRecord`'s exact retention, membership/perspective,
+ * and terminal-result semantics, and equally excludes filesystem path,
+ * filename, file contents, and software/vulnerability/Dollar semantics.
+ */
+export interface NetworkPackageSubmissionRecord {
+  /** Deterministic per-Network record identity and ordering. */
+  readonly id: string
+  readonly kind: 'package_submission'
+  readonly perspective: NetworkActivityPerspective
+  readonly sourceDeviceId: string
+  readonly destinationDeviceId: string
+  /** Fictional source address observed at the terminal moment; a historical snapshot, not live state. */
+  readonly sourceAddress: string
+  /** Fictional destination address observed at the terminal moment; a historical snapshot, not live state. */
+  readonly destinationAddress: string
+  /** Bytes actually transferred at the terminal moment, not necessarily `bytesTotal`. */
+  readonly bytesTransferred: number
+  readonly result: 'COMPLETED' | 'CANCELLED' | 'INTERRUPTED'
+}
+
+export type NetworkActivityRecord = NetworkConnectionAttemptRecord | NetworkTransferRecord | NetworkPackageSubmissionRecord
 
 export interface NetworkActivityHistoryState {
   /** Per-Network monotonic record identity; never rewinds even as old records are evicted. */

@@ -355,7 +355,7 @@ describe('Terminal local installation', () => {
     await user.type(input, `install ${packageFile.path}{enter}`)
     expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
     const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
-    expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }, { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0' }, { id: 'rollback-exploit-toolkit', releaseId: 'rollback-exploit-toolkit-1.0' }])
+    expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }, { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0' }])
     vi.useRealTimers()
   })
 })

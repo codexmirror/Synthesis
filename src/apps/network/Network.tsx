@@ -618,7 +618,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
         {!target.packageSubmission.enabled && !target.packageSubmission.route && !target.packageSubmission.attacking && <p className="ns-quiet-note">No installed tool currently supports this weakness.</p>}
 
         {target.packageSubmission.enabled && !target.packageSubmission.submitting && <>
-          <p className="ns-quiet-note">Submission enabled. Requires an older compatible GateSSH package.</p>
+          <p className="ns-quiet-note">Submission enabled. Requires a compatible GateSSH package that differs from the currently deployed release.</p>
           <label className="node-field">
             <span>AVAILABLE</span>
             <select className="node-input" aria-label="Rollback package" value={selectedPackageId} onChange={(event) => onSelectPackage(event.target.value)}>

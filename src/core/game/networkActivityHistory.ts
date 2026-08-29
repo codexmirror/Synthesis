@@ -138,3 +138,27 @@ export function appendNetworkFileTransferEvidence(world: WorldState, observation
     result: observation.result,
   }))
 }
+
+/**
+ * Same observation shape as a FileTransfer's terminal evidence — bytes moved
+ * between two Device addresses, ending in a terminal result — but recorded
+ * under its own `package_submission` kind rather than `file_transfer`: a
+ * RackUpdate package submission is not a FileTransfer, and Network World
+ * Truth must not claim one occurred. Shares the exact same membership,
+ * perspective, retention, and terminal-result semantics. Callers must only
+ * invoke this once per admitted submission's terminal outcome, never per
+ * advancement tick.
+ */
+export function appendNetworkPackageSubmissionEvidence(world: WorldState, observation: NetworkFileTransferObservation): WorldState {
+  const placements = resolveNetworkActivityPlacements(world.network, observation.sourceDeviceId, observation.destinationDeviceId)
+  return appendToPlacedNetworks(world, placements, (perspective) => ({
+    kind: 'package_submission',
+    perspective,
+    sourceDeviceId: observation.sourceDeviceId,
+    destinationDeviceId: observation.destinationDeviceId,
+    sourceAddress: observation.sourceAddress,
+    destinationAddress: observation.destinationAddress,
+    bytesTransferred: observation.bytesTransferred,
+    result: observation.result,
+  }))
+}

@@ -11,7 +11,7 @@ import {
   vulnerabilitiesForService,
 } from './serviceImplementations'
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
-import { appendNetworkFileTransferEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
+import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
 import { refreshSubmittedServiceImplementation } from './discovery'
 import type { GameState, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
@@ -222,18 +222,19 @@ function resolveDeviceNetworkAddress(state: GameState, deviceId: string): string
 }
 
 /**
- * Terminal Network-owned evidence for this upload's traffic, reusing the same
- * FileTransfer-outcome evidence family: from the Network's own perspective,
- * this is bytes moved between two Devices exactly like any other admitted
- * transfer, and that record shape already deliberately excludes filesystem
- * and software semantics. Appended only once, at the terminal outcome — never
- * once per advancement tick.
+ * Terminal Network-owned evidence for this upload's traffic, under its own
+ * `package_submission` record kind — never `file_transfer`, because a
+ * RackUpdate submission is not a FileTransfer and Network World Truth must
+ * not claim one occurred. It reuses the exact same membership, perspective,
+ * retention, and terminal-result semantics `FileTransfer` evidence uses.
+ * Appended only once, at the terminal outcome — never once per advancement
+ * tick.
  */
 function appendSubmissionNetworkEvidence(state: GameState, submission: RackUpdatePackageSubmission, result: 'COMPLETED' | 'CANCELLED' | 'INTERRUPTED', bytesTransferred: number): GameState {
   const sourceAddress = resolveDeviceNetworkAddress(state, submission.sourceDeviceId)
   const destinationAddress = resolveDeviceNetworkAddress(state, submission.targetDeviceId)
   if (!sourceAddress || !destinationAddress) return state
-  const world = appendNetworkFileTransferEvidence(state.world, {
+  const world = appendNetworkPackageSubmissionEvidence(state.world, {
     sourceDeviceId: submission.sourceDeviceId, destinationDeviceId: submission.targetDeviceId,
     sourceAddress, destinationAddress, bytesTransferred, result,
   })

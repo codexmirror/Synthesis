@@ -27,8 +27,7 @@ GameState
 │       ├── runtime state
 │       ├── installed software
 │       │   ├── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
-│       │   ├── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
-│       │   └── Rollback Exploit Toolkit (`rollback-exploit-toolkit`, release `rollback-exploit-toolkit-1.0`) 1.0
+│       │   └── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
 │       └── saved Dollar sign-in
 ├── dollarFinance
 ├── nodeWallet
@@ -223,17 +222,18 @@ Inspect. The shallow training hosts remain non-resource-capable, and
 Each represented `LocalNetwork` also owns its own canonical, bounded
 `NetworkActivityHistoryState` (`src/core/game/networkActivityHistory.ts`):
 concrete historical evidence of activity that actually passed through that
-Network, for two event families only — Credential Access connection attempts
-and terminal FileTransfer outcomes. It is canonical World Truth owned by the
+Network, for three event families only — Credential Access connection
+attempts, terminal FileTransfer outcomes, and terminal RackUpdate
+package-submission outcomes. It is canonical World Truth owned by the
 Network itself, deliberately distinct from Device-owned Authentication
 History, from Recent Activity, and from Player Knowledge/Discovery: the same
 represented action legitimately produces separate concrete artifacts from
 each owner's own perspective (for example a reached credential attempt
 appends both the target Device's `AuthenticationHistoryRecord` and the
 participating Network's own `NetworkConnectionAttemptRecord`). It is not a
-generic event bus, application log, or universal evidence framework; the two
-record shapes are concrete and closed, matching only this V1's two event
-families.
+generic event bus, application log, or universal evidence framework; the
+three record shapes are concrete and closed, matching only this V1's three
+event families.
 
 Retention follows the same bounded/monotonic convention `authenticationHistory.ts`
 already established: a fixed V1 capacity of 20 records
@@ -257,14 +257,18 @@ terminal moment (not necessarily `bytesTotal`), and the terminal result. It
 deliberately excludes filesystem path, filename, file contents, and
 software/vulnerability/Dollar semantics.
 
-RackUpdate package submission (`docs/current/NETWORK_ACCESS.md`) reaches its
-terminal outcome through the same `NetworkTransferRecord` shape and the same
-`appendNetworkFileTransferEvidence` function `FileTransfer` uses, rather than
-a parallel evidence family: from a Network's own perspective this is the same
-observable fact — bytes moved between two Device addresses, ending in a
-terminal result — whether the destination is a filesystem or a Service
-interaction, and the record already deliberately excludes the software
-semantics that would otherwise distinguish them.
+`NetworkPackageSubmissionRecord` is RackUpdate package submission's own
+distinct record kind (`docs/current/NETWORK_ACCESS.md`), appended only once
+an admitted submission reaches a terminal outcome, never once per
+advancement tick. It is deliberately its own concrete `kind` —
+`package_submission`, not `file_transfer` — because a RackUpdate submission
+is not a FileTransfer and canonical Network World Truth must not claim one
+occurred when the represented cause was a Service package submission. It
+carries the exact same fields, membership/perspective placement, retention,
+and terminal-result semantics `NetworkTransferRecord` does, produced through
+the sibling `appendNetworkPackageSubmissionEvidence` function rather than a
+duplicated derivation, and equally excludes filesystem path, filename, file
+contents, and software/vulnerability/Dollar semantics.
 
 Which Network(s) receive a record is resolved from the same canonical
 membership model `deriveCrossNetworkTransferRateBytesPerSecond` already
@@ -382,7 +386,9 @@ is observed through RACK-OS, never listed here.
 - Network activity evidence is canonical World Truth, never exposed through
   Scan, Inspect, Discovery, or any current UI.
 - RackUpdate package submission is a second, independent consumer of transfer
-  capacity and Network activity evidence, not a duplicate model. It reuses the
-  same derivation and evidence functions `FileTransfer` uses rather than a
-  parallel implementation, and it is neither a `FileTransfer` nor a
-  `GameProcess`.
+  capacity, not a duplicate model: it reuses the same rate-derivation
+  functions `FileTransfer` uses. Its terminal Network Activity evidence is
+  its own `NetworkPackageSubmissionRecord`/`package_submission` kind, produced
+  through a sibling function sharing `NetworkTransferRecord`'s exact shape and
+  semantics — never recorded as `file_transfer`, because it is not a
+  FileTransfer. It is neither a `FileTransfer` nor a `GameProcess`.

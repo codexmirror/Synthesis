@@ -443,6 +443,14 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
  * only from the player's own Knowledge and installed tool, and progress comes
  * only from the player's own Process and submission runtime. It is
  * deliberately not part of the target's primary decision.
+ *
+ * RackUpdate's submission protocol itself is a general package-submission
+ * mechanism, not an older-release-only one: candidates are any remembered
+ * GateSSH product package whose version differs from the remembered current
+ * release, older or newer alike. `UPD-001` ("Rollback protection not
+ * enforced") remains the specific explanation for why a rollback to an
+ * *older* release is accepted; it is not restated as a general submission
+ * requirement.
  */
 function selectPackageSubmission(information: PlayerInformation, deviceId: string, exploits: readonly RackUpdateExploitProcess[], services: readonly TargetService[]): Pick<Target, 'packageSubmission'> | undefined {
   const rackUpdate = services.find((service) =>
@@ -483,20 +491,11 @@ function selectPackageSubmission(information: PlayerInformation, deviceId: strin
       ...(running ? { attackPercent: percentOf(running) } : {}),
       lastAttackFailed: lastAttack?.status === 'attempt_failed',
       candidates: enabled ? information.player.localDevice.filesystem.files.flatMap((file) =>
-        file.kind === 'software_package' && file.productId === 'gate-ssh' && isOlder(file.version, remembered)
+        file.kind === 'software_package' && file.productId === 'gate-ssh' && file.version !== remembered
           ? [{ id: file.id, path: file.path, label: `${file.name} ${file.version}` }]
           : []) : [],
       submitting,
       ...(submitting && submission ? { submitPercent: Math.floor(submission.bytesTransferred / submission.bytesTotal * 100) } : {}),
     },
   }
-}
-
-function isOlder(candidate: string, remembered: string): boolean {
-  const left = candidate.split('.').map(Number)
-  const right = remembered.split('.').map(Number)
-  for (let index = 0; index < Math.max(left.length, right.length); index++) {
-    if ((left[index] ?? 0) !== (right[index] ?? 0)) return (left[index] ?? 0) < (right[index] ?? 0)
-  }
-  return false
 }

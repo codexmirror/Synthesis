@@ -15,6 +15,7 @@ import { vulnerabilitiesForService } from './serviceImplementations'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
 import { BASIC_CREDENTIAL_TOOLKIT_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
 import type { GameState, NetworkHost, NetworkService } from './types'
 
 const RACK_UPDATE_ENDPOINT = { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443' }
@@ -37,8 +38,13 @@ function withLocalGateSsh132(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { ...remotePackage, id: 'file-local-gatessh', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } } }
 }
 
+/** V1 has no represented acquisition path for the Rollback Exploit Toolkit; fixtures that need it install it explicitly rather than relying on default Current Truth. */
+function withRollbackExploitToolkit(state: GameState): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId, releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version } ] } } }
+}
+
 function ready(): GameState {
-  return withLocalGateSsh132(withUpd001Knowledge(observed()))
+  return withRollbackExploitToolkit(withLocalGateSsh132(withUpd001Knowledge(observed())))
 }
 
 function alterTarget(state: GameState, alter: (host: NetworkHost) => NetworkHost): GameState {
@@ -161,7 +167,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
   it('supports the general direction of applying a compatible newer release, not only an older one', () => {
     // The mechanism is not hardcoded to exactly 1.3.2 replacing exactly 1.3.3: any recognized
     // GateSSH release differing from the currently managed one is a valid submission.
-    const state = grantSubmissionAccess(withUpd001Knowledge(observed()))
+    const state = grantSubmissionAccess(withRollbackExploitToolkit(withUpd001Knowledge(observed())))
     const remotePackage = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!.filesystem!.files.find(({ id }) => id === 'file-0003')!
     const newerPackage = { ...remotePackage, id: 'file-local-newer', path: '/home/user/downloads/gatessh-1.4.0.pkg', releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }
     const withNewerPackage = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, newerPackage] } } } }
@@ -220,8 +226,8 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(foreignNet()?.activityHistory.records).toEqual([])
 
     state = advanceGameState(state, 20_000)
-    expect(homeNet()?.activityHistory.records).toEqual([expect.objectContaining({ kind: 'file_transfer', perspective: 'outbound', result: 'COMPLETED', bytesTransferred: 6_400_000, sourceDeviceId: 'device-local-v0', destinationDeviceId: 'host-lan-002' })])
-    expect(foreignNet()?.activityHistory.records).toEqual([expect.objectContaining({ kind: 'file_transfer', perspective: 'inbound', result: 'COMPLETED', bytesTransferred: 6_400_000 })])
+    expect(homeNet()?.activityHistory.records).toEqual([expect.objectContaining({ kind: 'package_submission', perspective: 'outbound', result: 'COMPLETED', bytesTransferred: 6_400_000, sourceDeviceId: 'device-local-v0', destinationDeviceId: 'host-lan-002' })])
+    expect(foreignNet()?.activityHistory.records).toEqual([expect.objectContaining({ kind: 'package_submission', perspective: 'inbound', result: 'COMPLETED', bytesTransferred: 6_400_000 })])
 
     // Advancing further after completion never appends a second record.
     state = advanceGameState(state, 20_000)

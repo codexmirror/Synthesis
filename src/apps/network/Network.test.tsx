@@ -463,6 +463,7 @@ describe('NodeScan technical details', () => {
 /* ------------------------------------------------ RackUpdate as depth only */
 
 describe('RackUpdate exploit and package submission', () => {
+  // V1 has no represented acquisition path for the Rollback Exploit Toolkit; it is deliberately not preinstalled, so this fixture installs it explicitly.
   function srv02(): GameState {
     const observed = withNodeScan11(createInitialGameState())
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
@@ -473,7 +474,14 @@ describe('RackUpdate exploit and package submission', () => {
       ...observed,
       discovery,
       knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] },
-      player: { ...observed.player, localDevice: { ...observed.player.localDevice, filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } },
+      player: {
+        ...observed.player,
+        localDevice: {
+          ...observed.player.localDevice,
+          installedSoftware: [...observed.player.localDevice.installedSoftware, { id: 'rollback-exploit-toolkit', releaseId: 'rollback-exploit-toolkit-1.0', name: 'Rollback Exploit Toolkit', version: '1.0' }],
+          filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] },
+        },
+      },
     }
   }
 
@@ -543,6 +551,22 @@ describe('RackUpdate exploit and package submission', () => {
     expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.2')
     expect(currentState().deviceAccess.established).toEqual([])
     expect(currentState().remoteSession.active).toBeNull()
+  })
+
+  it('offers both older and newer compatible GateSSH candidates once submission is enabled, from Player Information alone', () => {
+    const base = srv02()
+    const newerPackage = { ...base.player.localDevice.filesystem.files.find(({ id }) => id === 'file-local-gate')!, id: 'file-local-newer', path: '/home/user/downloads/gatessh-1.4.0.pkg', releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }
+    const withCandidates: GameState = {
+      ...base,
+      rackUpdate: { access: { nextId: 2, established: [{ id: 'rack-update-access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-rack-update-002' }] }, submission: { nextId: 1, active: null } },
+      player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, newerPackage] } } },
+    }
+    const target = selectTarget(withCandidates, 'host-lan-002')!
+    expect(target.packageSubmission?.enabled).toBe(true)
+    expect(target.packageSubmission?.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'file-local-gate', label: 'GateSSH 1.3.2' }),
+      expect.objectContaining({ id: 'file-local-newer', label: 'GateSSH 1.4.0' }),
+    ]))
   })
 })
 

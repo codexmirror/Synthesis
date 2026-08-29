@@ -31,10 +31,8 @@ describe('authored software release content', () => {
       id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId,
       name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version,
     })
-    expect(installed.find(({ id }) => id === ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId)).toEqual({
-      id: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId, releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId,
-      name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
-    })
+    // The Rollback Exploit Toolkit is authored release content, but V1 has no represented acquisition path for it yet, so it is deliberately not preinstalled.
+    expect(installed.find(({ id }) => id === ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId)).toBeUndefined()
   })
 
   it('authors package metadata without replacing concrete artifact truth', () => {
