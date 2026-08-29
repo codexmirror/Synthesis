@@ -239,8 +239,15 @@ interface, Notes, editing/viewport presentation.
 VEYRA corporate/product identity, VEYRA OS product philosophy, and ordinary
 VEYRA Device presentation direction.
 
-- DESIGN AUTHORITY →
+- PARENT DESIGN AUTHORITY →
   [`design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md)
+  (company identity, ecosystem philosophy, and VEYRA OS Firmware-family
+  direction)
+- FIRST ORDINARY PHONE DESIGN AUTHORITY →
+  [`design/VEYRA_FIRST_ORDINARY_PHONE_V1.md`](design/VEYRA_FIRST_ORDINARY_PHONE_V1.md)
+  (first ordinary-phone product structure, Personal Domains, Home,
+  Communication / Money / Settings structure, Back / Home navigation, Domain
+  projection, and first-phone truthfulness / absence behavior)
 - ARCHITECTURE → A02 in
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
   A05–A07 in
@@ -251,7 +258,7 @@ VEYRA Device presentation direction.
   A18 in [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
 - CURRENT TRUTH → none; VEYRA is not implemented
 - DOCUMENTATION IMPACT OWNER →
-  [`design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md)
+  the design authority owning the changed VEYRA truth above
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated current-truth domains,
   archived work orders
 
