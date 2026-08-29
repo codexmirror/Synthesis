@@ -98,6 +98,8 @@ export interface TargetService {
   readonly analysisPercent?: number
   /** Retained, disposable Process history — never permanent Knowledge. */
   readonly analysisOutcome?: AnalysisOutcome
+  /** Whether the latest remembered evidence still justifies a canonical Analyze attempt. */
+  readonly analysisRequired: boolean
   readonly accessPrivilege?: 'USER'
 }
 
@@ -239,10 +241,10 @@ function stageOf(input: {
   if (input.hasAccess) return 'access'
   if (input.hacking) return 'hacking'
   if (input.analyzing) return 'analyzing'
-  if (input.routes > 0) return 'route'
   if (!input.servicesObserved) return 'unscanned'
   if (input.inspectAvailable && !input.inspected) return 'inspect'
-  if (input.services.some((service) => service.weaknesses.length === 0 && !service.analysisOutcome)) return 'analysis_ready'
+  if (input.routes > 0) return 'route'
+  if (input.services.some((service) => service.analysisRequired)) return 'analysis_ready'
   return 'no_route'
 }
 
@@ -341,6 +343,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       endpoint: service.endpoint,
       ...(observed ? { observed } : {}),
       weaknesses,
+      analysisRequired: weaknesses.length === 0 && outcome !== 'no_weakness_detected' && outcome !== 'weaknesses_detected',
       ...(running ? { analysisPercent: percentOf(running) } : {}),
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),

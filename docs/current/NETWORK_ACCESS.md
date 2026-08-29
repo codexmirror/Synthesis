@@ -54,9 +54,12 @@ action for it. Its derived progression distinguishes NOT SCANNED, SERVICES
 FOUND / INSPECT available, SERVICES FOUND / ANALYZE available, ANALYZING,
 NO WAY IN FOUND, `n` WAY(S) IN FOUND, BYPASS work in progress, ACCESS GRANTED,
 and CONNECTED. NO WAY IN FOUND is shown only after every currently observed
-Service has a completed analysis result or weakness Knowledge; an absence of
+Service has either weakness Knowledge or a completed `no_weakness_detected`
+result; `service_unavailable` is inconclusive and remains retryable. An absence of
 Knowledge immediately after Scan is not a negative conclusion. A live Remote
-Session and established DeviceAccess still outrank reconnaissance work.
+Session, established DeviceAccess, and a running credential attempt still outrank
+reconnaissance work. Pending NodeScan 1.1 Inspect depth outranks a merely known
+route, including when the release was installed after that route was learned.
 
 
 A way in is derived from the player's own Knowledge of a weakness on a

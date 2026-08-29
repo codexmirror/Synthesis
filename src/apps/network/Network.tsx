@@ -193,7 +193,7 @@ export function Network() {
   }
 
   function analyzeAll(target: Target) {
-    const relevant = target.services.filter((service) => service.weaknesses.length === 0 && service.analysisOutcome === undefined && service.analysisPercent === undefined)
+    const relevant = target.services.filter((service) => service.analysisRequired && service.analysisPercent === undefined)
     const result = actions.startObservedServiceAnalyses(relevant.map((service) => ({ endpoint: service.endpoint, targetDeviceId: target.id, serviceId: service.id })))
     if (result.insufficientMemory) setNotice(`${result.started ? `${result.started} ANALYSIS${result.started === 1 ? '' : 'ES'} STARTED · ` : ''}NOT ENOUGH MEMORY FOR ALL SERVICES · ${result.insufficientMemory.requiredMiB} MiB required · ${Math.floor(result.insufficientMemory.availableMiB)} MiB available`)
     else setNotice(result.started ? null : 'NO ANALYSIS AVAILABLE')

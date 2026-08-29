@@ -233,6 +233,38 @@ describe('NodeScan information boundary', () => {
     expect(target.stage).toBe('no_route')
   })
 
+  it('prioritizes newly available Inspect over a route learned under NodeScan 1.0, then restores BYPASS', async () => {
+    const learnedUnder10 = knownWeakness(scannedTarget())
+    expect(selectTarget(learnedUnder10, SRV_01)?.stage).toBe('route')
+
+    const upgraded = withNodeScan11(learnedUnder10)
+    expect(upgraded.discovery.devices.find(({ id }) => id === SRV_01)?.inspect?.enhanced).toBeUndefined()
+    expect(selectTarget(upgraded, SRV_01)?.stage).toBe('inspect')
+
+    const user = await openTarget(upgraded)
+    const primaryInspect = within(screen.getByLabelText('Target status')).getByRole('button', { name: 'INSPECT' })
+    expect(primaryInspect).toBeInTheDocument()
+    await user.click(primaryInspect)
+    expect(selectTarget(currentState(), SRV_01)?.stage).toBe('route')
+    expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
+  })
+
+  it('treats service-unavailable analysis as inconclusive and offers a canonical retry', async () => {
+    const outcomes = [
+      { ...analysisProcess('process-0001', 'service-ssh-001', 1000), status: 'completed' as const, result: { status: 'service_unavailable' as const } },
+      { ...analysisProcess('process-0002', 'service-http-001', 1000), status: 'completed' as const, result: { status: 'no_weakness_detected' as const } },
+    ]
+    const inconclusive = withProcesses(scannedTarget(), outcomes)
+    expect(selectTarget(inconclusive, SRV_01)?.stage).toBe('analysis_ready')
+
+    await openTarget(inconclusive)
+    expect(screen.queryByText('NO WAY IN FOUND')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'ANALYZE' }))
+    expect(currentState().process.processes.filter(({ status }) => status === 'running')).toEqual([
+      expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-ssh-001' }),
+    ])
+  })
+
   it('offers no way in without the represented tool, on identical Knowledge', () => {
     const withTool = selectTarget(knownWeakness(), SRV_01)!
     const withoutTool = selectTarget(withoutSoftware(knownWeakness(), 'basic-credential-toolkit'), SRV_01)!
