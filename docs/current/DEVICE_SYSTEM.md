@@ -207,6 +207,75 @@ Inspect. The shallow training hosts remain non-resource-capable, and
 `NetworkHost.online` remains the sole server availability truth.
 
 
+## Network activity evidence
+
+Each represented `LocalNetwork` also owns its own canonical, bounded
+`NetworkActivityHistoryState` (`src/core/game/networkActivityHistory.ts`):
+concrete historical evidence of activity that actually passed through that
+Network, for two event families only — Credential Access connection attempts
+and terminal FileTransfer outcomes. It is canonical World Truth owned by the
+Network itself, deliberately distinct from Device-owned Authentication
+History, from Recent Activity, and from Player Knowledge/Discovery: the same
+represented action legitimately produces separate concrete artifacts from
+each owner's own perspective (for example a reached credential attempt
+appends both the target Device's `AuthenticationHistoryRecord` and the
+participating Network's own `NetworkConnectionAttemptRecord`). It is not a
+generic event bus, application log, or universal evidence framework; the two
+record shapes are concrete and closed, matching only this V1's two event
+families.
+
+Retention follows the same bounded/monotonic convention `authenticationHistory.ts`
+already established: a fixed V1 capacity of 20 records
+(`NETWORK_ACTIVITY_HISTORY_CAPACITY`), oldest record evicted first, with a
+per-Network `nextId` counter that never rewinds even as records are evicted.
+
+`NetworkConnectionAttemptRecord` is appended only when a Credential Access
+attempt actually reaches the represented target Device/service (the same
+`reached` condition that gates Device Authentication History), carrying
+source/target Device identity, source/target address snapshots, service
+identity and service-name snapshot, and the SUCCESS/FAILURE result. It
+deliberately excludes Player identity, toolkit identity, vulnerability
+identity, and attack labels — none of those are network-observable/topology
+truth.
+
+`NetworkTransferRecord` is appended only once an admitted FileTransfer
+reaches a terminal outcome — COMPLETED, CANCELLED, or INTERRUPTED — never
+once per advancement tick, carrying source/destination Device identity,
+source/destination address snapshots, the bytes actually transferred at that
+terminal moment (not necessarily `bytesTotal`), and the terminal result. It
+deliberately excludes filesystem path, filename, file contents, and
+software/vulnerability/Dollar semantics.
+
+Which Network(s) receive a record is resolved from the same canonical
+membership model `deriveCrossNetworkTransferRateBytesPerSecond` already
+established, reused rather than duplicated
+(`resolveDeviceLocalNetworkMembership` in `networkActivityHistory.ts`, shared
+by `fileTransfer.ts`): when both endpoint Devices resolve to the same unique
+LocalNetwork, that Network gets exactly one record carrying an `internal`
+perspective; when they resolve to two distinct unique LocalNetworks, each
+Network gets its own record — `outbound` on the source-side Network,
+`inbound` on the destination-side Network — representing each Network's own
+view of the one real activity rather than a duplicated global event. When
+only one endpoint uniquely resolves, only that Network's legitimate side is
+recorded and the other side is never fabricated. Ambiguous membership (two or
+more represented LocalNetworks with no represented basis to choose between
+them) is never resolved by array order and contributes no record for that
+side — this is not the same as zero membership. For FileTransfer throughput,
+zero membership is the existing compatibility fallback that contributes no
+extra bottleneck while the transfer still proceeds, whereas ambiguous
+membership is an unresolved-route condition that hard-aborts the transfer
+through the existing interruption/archive path. Network activity evidence
+follows that same distinction rather than treating the two alike: an
+ambiguous side simply omits its own record, and the opposite endpoint's
+otherwise-legitimate unique Network still retains its own inbound/outbound
+record for the same activity.
+
+Network activity evidence is canonical World Truth only. It is not exposed
+through Scan, Inspect, Discovery, Known Space, or any current Network UI:
+`NETWORK HAS EVIDENCE` does not imply `PLAYER CAN READ EVIDENCE`. Presenting
+it to the player is explicitly out of scope for this slice.
+
+
 ## System application
 
 System is the local Device's machine-level sheet. It presents represented
@@ -283,3 +352,12 @@ is observed through RACK-OS, never listed here.
 - Shallow training hosts are deliberately shallow. Do not invent hardware,
   capacity, filesystems, or installed-software inventories for them to make a
   view or a type uniform.
+- Network activity evidence ≠ Device Authentication History ≠ Recent Activity
+  ≠ Player Knowledge. One real action may legitimately create several
+  concrete artifacts, one per owner's own perspective; that is not
+  duplication.
+- Never select a LocalNetwork for activity evidence by `localNetworks` array
+  order under ambiguous membership. Reuse the shared membership resolver
+  rather than reimplementing a routing rule that could disagree with it.
+- Network activity evidence is canonical World Truth, never exposed through
+  Scan, Inspect, Discovery, or any current UI.

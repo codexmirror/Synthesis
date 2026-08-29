@@ -58,7 +58,7 @@ describe('scanNetworkTarget outward discovery', () => {
   })
 
   it('classifies LAN only when the target shares represented membership with SELF', () => {
-    const hostOnlyNetwork = { id: 'network-other', name: 'other-net', memberDeviceIds: ['host-lan-001'], transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 } }
+    const hostOnlyNetwork = { id: 'network-other', name: 'other-net', memberDeviceIds: ['host-lan-001'], transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 }, activityHistory: { nextId: 1, records: [] } }
     expect(scanNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [hostOnlyNetwork] } }, '198.51.100.47')).toMatchObject({
       status: 'device', targetId: 'host-lan-001', scope: 'remote',
     })

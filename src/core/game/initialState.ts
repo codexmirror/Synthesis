@@ -4,7 +4,7 @@ import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 42
+export const GAME_STATE_VERSION = 43
 
 export function createInitialGameState(): GameState {
   return {
@@ -81,9 +81,9 @@ export function createInitialGameState(): GameState {
       network: {
         localNetworks: [
           // External connectivity capacity, deliberately well above every member Device's own endpoint capacity so it is never the bottleneck for the currently authored same-Network home-net route.
-          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 } },
+          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
           // srv-02's and the phone's shared external uplink/downlink; deliberately the cross-Network route node-01 actually exercises.
-          { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 } },
+          { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
         ],
         hosts: [
           {

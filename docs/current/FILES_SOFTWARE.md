@@ -140,6 +140,14 @@ Activity cards. Cancellation archives the transfer's final represented progress
 and route before removing it from active network runtime; completed transfers
 are archived the same way.
 
+Reaching a terminal outcome — COMPLETED, CANCELLED, or INTERRUPTED — also
+appends separate Network-owned evidence to the participating represented
+LocalNetwork(s), preserving the exact bytes transferred at that terminal
+moment; a still-running transfer never appends one, so this happens once per
+transfer rather than once per advancement tick. That model — retention,
+record shape, and membership/perspective placement — is owned by
+`docs/current/DEVICE_SYSTEM.md`.
+
 
 ## Download and Upload surfaces
 

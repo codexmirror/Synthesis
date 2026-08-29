@@ -38,11 +38,11 @@ describe('createInitialGameState', () => {
 
   it('separates identities and seeds canonical local-device state in schema version 41', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(42)
+    expect(GAME_STATE_VERSION).toBe(43)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(42)
+    expect(state.version).toBe(43)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
@@ -87,8 +87,8 @@ describe('createInitialGameState', () => {
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([
-      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 } },
-      { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 } },
+      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
+      { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
     ])
     for (const localNetwork of state.world.network.localNetworks) {
       expect(isValidNetworkTransferCapacity(localNetwork.transferCapacity)).toBe(true)

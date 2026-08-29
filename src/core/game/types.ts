@@ -579,6 +579,77 @@ export interface LocalNetwork {
    * does not represent.
    */
   readonly transferCapacity: NetworkTransferCapacity
+  /**
+   * The Network's own bounded historical evidence of activity that actually
+   * passed through it: canonical World Truth, entirely independent of any
+   * Device's own AuthenticationHistory, of Recent Activity, and of Player
+   * Knowledge/Discovery. Never exposed through Scan, Inspect, or Discovery.
+   */
+  readonly activityHistory: NetworkActivityHistoryState
+}
+
+/**
+ * Which side of one real activity this Network's own record represents.
+ * `internal` means both endpoint Devices resolved to this same Network;
+ * `outbound` means this Network is the source-side Network of a
+ * cross-Network (or otherwise not-both-sides-resolved) activity; `inbound`
+ * means this Network is the destination-side Network.
+ */
+export type NetworkActivityPerspective = 'internal' | 'outbound' | 'inbound'
+
+/**
+ * One historical Network-owned connection-attempt record: a Credential
+ * Access attempt that actually reached the represented target Device/service,
+ * observed from this Network's own local perspective. Deliberately excludes
+ * Player identity, toolkit identity, vulnerability identity, and attack
+ * labels, none of which are network-observable/topology-relevant truth.
+ */
+export interface NetworkConnectionAttemptRecord {
+  /** Deterministic per-Network record identity and ordering. */
+  readonly id: string
+  readonly kind: 'connection_attempt'
+  readonly perspective: NetworkActivityPerspective
+  readonly sourceDeviceId: string
+  readonly targetDeviceId: string
+  /** Fictional source address observed at resolution time; a historical snapshot, not live state. */
+  readonly sourceAddress: string
+  /** Fictional target address observed at resolution time; a historical snapshot, not live state. */
+  readonly targetAddress: string
+  /** Canonical internal service provenance; not player-facing. */
+  readonly serviceId: string
+  /** Player-presentable snapshot of the represented service name at resolution time. */
+  readonly serviceName: string
+  readonly result: 'SUCCESS' | 'FAILURE'
+}
+
+/**
+ * One historical Network-owned FileTransfer record, appended only once an
+ * admitted FileTransfer reaches a terminal outcome, observed from this
+ * Network's own local perspective. Deliberately excludes filesystem path,
+ * filename, file contents, and software/vulnerability/Dollar semantics.
+ */
+export interface NetworkTransferRecord {
+  /** Deterministic per-Network record identity and ordering. */
+  readonly id: string
+  readonly kind: 'file_transfer'
+  readonly perspective: NetworkActivityPerspective
+  readonly sourceDeviceId: string
+  readonly destinationDeviceId: string
+  /** Fictional source address observed at the terminal moment; a historical snapshot, not live state. */
+  readonly sourceAddress: string
+  /** Fictional destination address observed at the terminal moment; a historical snapshot, not live state. */
+  readonly destinationAddress: string
+  /** Bytes actually transferred at the terminal moment, not necessarily `bytesTotal`. */
+  readonly bytesTransferred: number
+  readonly result: 'COMPLETED' | 'CANCELLED' | 'INTERRUPTED'
+}
+
+export type NetworkActivityRecord = NetworkConnectionAttemptRecord | NetworkTransferRecord
+
+export interface NetworkActivityHistoryState {
+  /** Per-Network monotonic record identity; never rewinds even as old records are evicted. */
+  readonly nextId: number
+  readonly records: readonly NetworkActivityRecord[]
 }
 
 export interface NetworkState {

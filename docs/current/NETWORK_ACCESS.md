@@ -505,6 +505,12 @@ presents the current target's own history read-only, oldest first, without
 exposing internal Device or Service IDs; an empty history shows a compact
 empty state.
 
+A Credential Access attempt that actually reaches the represented target
+also appends separate Network-owned connection evidence to the participating
+represented LocalNetwork(s), independent of this Device-owned history. That
+model — retention, record shape, and membership/perspective placement — is
+owned by `docs/current/DEVICE_SYSTEM.md`.
+
 
 ## Gotchas
 

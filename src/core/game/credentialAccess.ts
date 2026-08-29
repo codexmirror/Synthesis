@@ -4,6 +4,7 @@ import type { CredentialAccessProcess, GameState } from './types'
 import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit } from './software'
 import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
+import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
 
 export const BASIC_CREDENTIAL_TOOLKIT_ID = 'basic-credential-toolkit' as const
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
@@ -77,8 +78,12 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
   // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
   const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
+  const result = succeeds ? 'SUCCESS' as const : 'FAILURE' as const
   const world = sourceAddress
-    ? appendAuthenticationHistoryForHost(state.world, process.targetDeviceId, { serviceId: service.id, serviceName: service.name, sourceAddress, result: succeeds ? 'SUCCESS' : 'FAILURE' })
+    ? appendNetworkConnectionAttemptEvidence(
+        appendAuthenticationHistoryForHost(state.world, process.targetDeviceId, { serviceId: service.id, serviceName: service.name, sourceAddress, result }),
+        { sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, sourceAddress, targetAddress: host!.ip, serviceId: service.id, serviceName: service.name, result },
+      )
     : state.world
   if (!succeeds) return { ...failedResult, world }
 
