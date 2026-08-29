@@ -1,7 +1,7 @@
 import { checkDestinationPlacement, copyFilesystemFileToPath, getFilesystemFile, getFilesystemFileSizeBytes } from './filesystem'
-import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
+import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { resolveActiveRemoteTarget } from './remoteSession'
-import type { FileTransfer, FilesystemState, GameState, NetworkHost, NetworkTransferCapacity } from './types'
+import type { FileTransfer, FilesystemState, GameState, LocalNetwork, NetworkHost, NetworkState } from './types'
 import { archiveFileTransfer } from './recentActivity'
 
 export function deriveDownloadDestinationPath(sourcePath: string): string {
@@ -93,8 +93,27 @@ interface TransferEndpoints {
   readonly remoteHost: NetworkHost
   readonly sourceFilesystem: FilesystemState
   readonly destinationFilesystem: FilesystemState
-  readonly sourceCapacity: NetworkTransferCapacity
-  readonly destinationCapacity: NetworkTransferCapacity
+  readonly rateBytesPerSecond: number
+}
+
+/**
+ * A Device's current represented LocalNetwork membership has three distinct
+ * meanings, not two: no represented Network at all, one unambiguous Network,
+ * or more than one represented Network with no represented basis to choose
+ * between them. These are never collapsed into a single "no Network"
+ * result — see `resolveTransferEndpoints` for how each is used.
+ */
+type LocalNetworkMembership =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unique'; readonly network: Readonly<LocalNetwork> }
+  | { readonly kind: 'ambiguous' }
+
+/** Resolve the represented LocalNetwork membership(s) a Device currently belongs to, without picking one by array order. */
+function resolveDeviceLocalNetworkMembership(network: Readonly<NetworkState>, deviceId: string): LocalNetworkMembership {
+  const memberships = network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(deviceId))
+  if (memberships.length === 0) return { kind: 'none' }
+  if (memberships.length === 1) return { kind: 'unique', network: memberships[0] }
+  return { kind: 'ambiguous' }
 }
 
 function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): TransferEndpoints | undefined {
@@ -109,11 +128,44 @@ function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): Tra
   if (!remoteHost?.online || !remoteHost.filesystem || !remoteHost.transferCapacity) return undefined
   const sourceFilesystem = direction === 'download' ? remoteHost.filesystem : local.filesystem
   const destinationFilesystem = direction === 'download' ? local.filesystem : remoteHost.filesystem
-  const sourceCapacity = direction === 'download' ? remoteHost.transferCapacity : local.network.transferCapacity
-  const destinationCapacity = direction === 'download' ? local.network.transferCapacity : remoteHost.transferCapacity
-  if (!isValidNetworkTransferCapacity(sourceCapacity) || !isValidNetworkTransferCapacity(destinationCapacity)) return undefined
+  const sourceDeviceCapacity = direction === 'download' ? remoteHost.transferCapacity : local.network.transferCapacity
+  const destinationDeviceCapacity = direction === 'download' ? local.network.transferCapacity : remoteHost.transferCapacity
+  if (!isValidNetworkTransferCapacity(sourceDeviceCapacity) || !isValidNetworkTransferCapacity(destinationDeviceCapacity)) return undefined
   if (!sourceFilesystem.files.some(({ id }) => id === transfer.sourceFileId)) return undefined
-  return { direction, remoteHost, sourceFilesystem, destinationFilesystem, sourceCapacity, destinationCapacity }
+
+  const sourceDeviceId = direction === 'download' ? remoteHost.id : local.id
+  const destinationDeviceId = direction === 'download' ? local.id : remoteHost.id
+  const sourceMembership = resolveDeviceLocalNetworkMembership(state.world.network, sourceDeviceId)
+  const destinationMembership = resolveDeviceLocalNetworkMembership(state.world.network, destinationDeviceId)
+  // Ambiguous membership is not "no Network": represented topology exists
+  // but the route cannot be resolved without picking a Network by array
+  // order, which is not implemented. Treat the transfer as unable to
+  // presently advance, the same as any other unresolved endpoint below.
+  if (sourceMembership.kind === 'ambiguous' || destinationMembership.kind === 'ambiguous') return undefined
+  const sourceNetwork = sourceMembership.kind === 'unique' ? sourceMembership.network : undefined
+  const destinationNetwork = destinationMembership.kind === 'unique' ? destinationMembership.network : undefined
+  // Same-Network transfer uses endpoint capacity only: LocalNetwork transfer
+  // capacity represents external connectivity, not internal LAN fabric. A
+  // Device with zero represented LocalNetwork membership contributes no
+  // extra bottleneck rather than blocking an otherwise legitimate transfer —
+  // the existing V1 compatibility fallback for no represented Network.
+  const isCrossNetwork = !!sourceNetwork && !!destinationNetwork && sourceNetwork.id !== destinationNetwork.id
+  let rateBytesPerSecond: number
+  if (isCrossNetwork) {
+    if (!isValidNetworkTransferCapacity(sourceNetwork.transferCapacity) || !isValidNetworkTransferCapacity(destinationNetwork.transferCapacity)) return undefined
+    rateBytesPerSecond = deriveCrossNetworkTransferRateBytesPerSecond(
+      sourceDeviceCapacity, sourceNetwork.transferCapacity, destinationNetwork.transferCapacity, destinationDeviceCapacity,
+    )
+  } else {
+    rateBytesPerSecond = deriveEffectiveTransferRateBytesPerSecond(sourceDeviceCapacity, destinationDeviceCapacity)
+  }
+
+  return { direction, remoteHost, sourceFilesystem, destinationFilesystem, rateBytesPerSecond }
+}
+
+/** Current effective throughput for the active FileTransfer, derived fresh rather than stored. Zero when it cannot presently advance. */
+export function deriveActiveFileTransferRateBytesPerSecond(state: GameState, transfer: FileTransfer): number {
+  return resolveTransferEndpoints(state, transfer)?.rateBytesPerSecond ?? 0
 }
 
 /** Retained as the narrow Download-facing resolver used by existing presentation. */
@@ -127,8 +179,7 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
   if (!transfer) return state
   const endpoints = resolveTransferEndpoints(state, transfer)
   if (!endpoints) return archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, transfer)
-  const rate = deriveEffectiveTransferRateBytesPerSecond(endpoints.sourceCapacity, endpoints.destinationCapacity)
-  const bytesTransferred = Math.min(transfer.bytesTotal, transfer.bytesTransferred + rate * (Math.max(0, elapsedMs) / 1000))
+  const bytesTransferred = Math.min(transfer.bytesTotal, transfer.bytesTransferred + endpoints.rateBytesPerSecond * (Math.max(0, elapsedMs) / 1000))
   if (bytesTransferred < transfer.bytesTotal) return { ...state, fileTransfer: { ...state.fileTransfer, active: { ...transfer, bytesTransferred } } }
 
   const finalTransfer = { ...transfer, bytesTransferred }

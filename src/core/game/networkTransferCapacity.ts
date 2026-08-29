@@ -27,3 +27,41 @@ export function deriveEffectiveTransferRateBytesPerSecond(
   }
   return Math.min(source.uploadBytesPerSecond, destination.downloadBytesPerSecond)
 }
+
+/**
+ * Derive the effective byte rate for a transfer whose source and
+ * destination Devices belong to two different represented LocalNetworks.
+ * Every represented bottleneck participates: the source Device's own
+ * upload capability, the source Network's external upload capability, the
+ * destination Network's external download capability, and the destination
+ * Device's own download capability. This deliberately does not apply when
+ * both endpoints share one LocalNetwork — a same-Network transfer is
+ * decided by `deriveEffectiveTransferRateBytesPerSecond` alone, because
+ * LocalNetwork transfer capacity represents external connectivity, not
+ * internal LAN/switch fabric.
+ */
+export function deriveCrossNetworkTransferRateBytesPerSecond(
+  sourceDeviceCapacity: Readonly<NetworkTransferCapacity>,
+  sourceNetworkCapacity: Readonly<NetworkTransferCapacity>,
+  destinationNetworkCapacity: Readonly<NetworkTransferCapacity>,
+  destinationDeviceCapacity: Readonly<NetworkTransferCapacity>,
+): number {
+  if (!isValidNetworkTransferCapacity(sourceDeviceCapacity)) {
+    throw new RangeError('Source Device capacity must have finite upload and download values greater than zero')
+  }
+  if (!isValidNetworkTransferCapacity(sourceNetworkCapacity)) {
+    throw new RangeError('Source Network capacity must have finite upload and download values greater than zero')
+  }
+  if (!isValidNetworkTransferCapacity(destinationNetworkCapacity)) {
+    throw new RangeError('Destination Network capacity must have finite upload and download values greater than zero')
+  }
+  if (!isValidNetworkTransferCapacity(destinationDeviceCapacity)) {
+    throw new RangeError('Destination Device capacity must have finite upload and download values greater than zero')
+  }
+  return Math.min(
+    sourceDeviceCapacity.uploadBytesPerSecond,
+    sourceNetworkCapacity.uploadBytesPerSecond,
+    destinationNetworkCapacity.downloadBytesPerSecond,
+    destinationDeviceCapacity.downloadBytesPerSecond,
+  )
+}

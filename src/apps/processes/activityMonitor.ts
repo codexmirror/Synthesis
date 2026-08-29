@@ -1,5 +1,4 @@
-import { deriveFileTransferDirection } from '../../core/game/fileTransfer'
-import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from '../../core/game/networkTransferCapacity'
+import { deriveActiveFileTransferRateBytesPerSecond, deriveFileTransferDirection } from '../../core/game/fileTransfer'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
 import { NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
 import type { DeviceAccess, DiscoveryState, FileTransfer, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess, RecentActivityEntry } from '../../core/game/types'
@@ -252,12 +251,7 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
   if (!access || access.sourceDeviceId !== device.id || access.targetDeviceId !== remoteDeviceId) return undefined
   const remote = state.world.network.hosts.find(({ id }) => id === remoteDeviceId)
   const sourceFile = (direction === 'upload' ? device.filesystem : remote?.filesystem)?.files.find(({ id }) => id === transfer.sourceFileId)
-  const sourceCapacity = direction === 'upload' ? device.network.transferCapacity : remote?.transferCapacity
-  const destinationCapacity = direction === 'upload' ? remote?.transferCapacity : device.network.transferCapacity
-  const online = device.runtime.networkStatus === 'ONLINE' && remote?.online === true
-  const rateBytesPerSecond = online && sourceCapacity && destinationCapacity && isValidNetworkTransferCapacity(sourceCapacity) && isValidNetworkTransferCapacity(destinationCapacity)
-    ? deriveEffectiveTransferRateBytesPerSecond(sourceCapacity, destinationCapacity)
-    : 0
+  const rateBytesPerSecond = deriveActiveFileTransferRateBytesPerSecond(state, transfer)
   const connectedAddress = state.remoteSession.active?.accessId === transfer.accessId ? state.remoteSession.active.connectedAddress : undefined
   // Floor rather than round: running work must never read as 100% complete.
   const progressPercent = transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0

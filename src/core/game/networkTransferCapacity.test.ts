@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
+import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 
 function findHost(state: ReturnType<typeof createInitialGameState>, id: string) {
   return state.world.network.hosts.find((host) => host.id === id)!
@@ -107,6 +107,72 @@ describe('deriveEffectiveTransferRateBytesPerSecond', () => {
       { uploadBytesPerSecond: 4_000_000, downloadBytesPerSecond: 1 },
       { uploadBytesPerSecond: 1, downloadBytesPerSecond: 2_000_000 },
     )).toBe(2_000_000)
+  })
+})
+
+describe('canonical represented LocalNetwork capacities', () => {
+  function findNetwork(state: ReturnType<typeof createInitialGameState>, id: string) {
+    return state.world.network.localNetworks.find((network) => network.id === id)!
+  }
+
+  it('every authored LocalNetwork owns a valid transfer capacity', () => {
+    const state = createInitialGameState()
+    expect(state.world.network.localNetworks.length).toBeGreaterThan(0)
+    for (const network of state.world.network.localNetworks) {
+      expect(isValidNetworkTransferCapacity(network.transferCapacity)).toBe(true)
+    }
+  })
+
+  it('gives home-net and remote-segment-01 distinct, independently valid capacities', () => {
+    const state = createInitialGameState()
+    expect(findNetwork(state, 'network-local-001').transferCapacity).toEqual({ uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 })
+    expect(findNetwork(state, 'network-foreign-001').transferCapacity).toEqual({ uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 })
+  })
+})
+
+describe('deriveCrossNetworkTransferRateBytesPerSecond', () => {
+  const AMPLE = { uploadBytesPerSecond: 100_000_000, downloadBytesPerSecond: 100_000_000 }
+
+  it('is limited by source Device upload when it is the narrowest bottleneck', () => {
+    const rate = deriveCrossNetworkTransferRateBytesPerSecond(
+      { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 100_000_000 },
+      AMPLE, AMPLE, AMPLE,
+    )
+    expect(rate).toBe(1_048_576)
+  })
+
+  it('is limited by source Network upload when it is the narrowest bottleneck', () => {
+    const rate = deriveCrossNetworkTransferRateBytesPerSecond(
+      AMPLE,
+      { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 100_000_000 },
+      AMPLE, AMPLE,
+    )
+    expect(rate).toBe(2_097_152)
+  })
+
+  it('is limited by destination Network download when it is the narrowest bottleneck', () => {
+    const rate = deriveCrossNetworkTransferRateBytesPerSecond(
+      AMPLE, AMPLE,
+      { uploadBytesPerSecond: 100_000_000, downloadBytesPerSecond: 3_145_728 },
+      AMPLE,
+    )
+    expect(rate).toBe(3_145_728)
+  })
+
+  it('is limited by destination Device download when it is the narrowest bottleneck', () => {
+    const rate = deriveCrossNetworkTransferRateBytesPerSecond(
+      AMPLE, AMPLE, AMPLE,
+      { uploadBytesPerSecond: 100_000_000, downloadBytesPerSecond: 524_288 },
+    )
+    expect(rate).toBe(524_288)
+  })
+
+  it('rejects an invalid capacity at any of the four positions', () => {
+    const invalid = { uploadBytesPerSecond: 0, downloadBytesPerSecond: 1 }
+    expect(() => deriveCrossNetworkTransferRateBytesPerSecond(invalid, AMPLE, AMPLE, AMPLE)).toThrow(RangeError)
+    expect(() => deriveCrossNetworkTransferRateBytesPerSecond(AMPLE, invalid, AMPLE, AMPLE)).toThrow(RangeError)
+    expect(() => deriveCrossNetworkTransferRateBytesPerSecond(AMPLE, AMPLE, invalid, AMPLE)).toThrow(RangeError)
+    expect(() => deriveCrossNetworkTransferRateBytesPerSecond(AMPLE, AMPLE, AMPLE, invalid)).toThrow(RangeError)
   })
 })
 
