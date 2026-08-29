@@ -85,7 +85,7 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
 
 function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget; onDisconnect(): void }) {
   const state = useGameState()
-  const { startRemoteFileDownload, startRemoteFileUpload, runRemoteNodeMiner, stopRemoteNodeMiner, retargetNodeMinerPayout } = useGameActions()
+  const { startRemoteFileDownload, startRemoteFileUpload, runRemoteNodeMiner, stopRemoteNodeMiner, retargetNodeMinerPayout, payoutNodeMiner } = useGameActions()
   const [input, setInput] = useState('')
   const [lines, setLines] = useState<readonly { command: string; output: readonly string[] }[]>([])
   function submit(event: FormEvent) {
@@ -109,9 +109,14 @@ function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget
         const process = findRunningNodeMiner(state, context.target.id)
         if (!process) return { status: 'not_running' as const }
         const result = stopRemoteNodeMiner(process.id)
-        return result.status === 'stopped' ? { status: 'stopped' as const, processId: process.id } : { status: result.status === 'not_found' ? 'not_running' as const : result.status }
+        return result.status === 'stopped' ? { status: 'stopped' as const, processId: process.id, settledGrossUnits: result.settledGrossNodeUnits, payoutUnits: result.payoutNodeUnits } : { status: result.status === 'not_found' ? 'not_running' as const : result.status }
       },
-      payout: (payoutAddress: string) => {
+      payout: () => {
+        const result = payoutNodeMiner()
+        if (result.status === 'paid') return { status: result.status, processId: result.processId, settledGrossUnits: result.settledGrossNodeUnits, payoutUnits: result.payoutNodeUnits }
+        return result.status === 'nothing_unpaid' ? { status: result.status, processId: result.processId } : { status: result.status }
+      },
+      configurePayout: (payoutAddress: string) => {
         const result = retargetNodeMinerPayout(payoutAddress)
         return result.status === 'retargeted' ? { status: result.status, processId: result.processId, payoutAddress: result.payoutAddress } : { status: result.status }
       },

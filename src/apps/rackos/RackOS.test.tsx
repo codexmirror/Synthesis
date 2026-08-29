@@ -913,9 +913,9 @@ describe('RACK-OS remote NODE Miner execution', () => {
     await enterRemote(user)
     const before = snapshot()
 
-    await user.type(screen.getByLabelText('Remote command'), 'node-miner payout node-addr-relay-77{enter}')
+    await user.type(screen.getByLabelText('Remote command'), 'node-miner config payout node-addr-relay-77{enter}')
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
-    expect(rackOs).toHaveTextContent('PAYOUT RETARGETED')
+    expect(rackOs).toHaveTextContent('PAYOUT CONFIGURED')
     expect(rackOs).toHaveTextContent('process-0060')
 
     const after = snapshot()
@@ -945,10 +945,10 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const input = screen.getByLabelText('Remote command')
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
 
-    await user.type(input, 'node-miner payout node-addr-relay-77{enter}')
+    await user.type(input, 'node-miner config payout node-addr-relay-77{enter}')
     expect(rackOs).toHaveTextContent('NOT RUNNING')
-    await user.type(input, 'node-miner payout{enter}')
-    expect(rackOs).toHaveTextContent('Usage: node-miner payout <address>')
+    await user.type(input, 'node-miner config payout{enter}')
+    expect(rackOs).toHaveTextContent('Usage: node-miner config payout <address>')
     await user.type(input, 'node-miner status{enter}')
     expect(rackOs).toHaveTextContent('STATUS IDLE')
     expect(snapshot().process.processes).toEqual([])
@@ -971,7 +971,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     await user.type(input, 'help{enter}')
     expect(rackOs).not.toHaveTextContent('node-miner')
     await user.type(input, 'miner payout node-addr-relay-77{enter}')
-    await user.type(input, 'node-miner payout node-addr-relay-77{enter}')
+    await user.type(input, 'node-miner config payout node-addr-relay-77{enter}')
     expect(rackOs).toHaveTextContent('COMMAND NOT FOUND')
 
     // The copied supported artifact remains directly runnable through Files;
@@ -997,7 +997,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     expect(rackOs).toHaveTextContent('node-miner run --payout <address>')
     expect(rackOs).toHaveTextContent('node-miner status')
     expect(rackOs).toHaveTextContent('node-miner stop')
-    expect(rackOs).toHaveTextContent('node-miner payout <address>')
+    expect(rackOs).toHaveTextContent('node-miner config payout <address>')
   })
 
   it('derives the Firmware Help heading from the operated target', async () => {
@@ -1028,7 +1028,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     expect(rackOs).toHaveTextContent('RAM 512 MiB')
     expect(rackOs).toHaveTextContent('ADDRESS node-addr-remote-cli')
 
-    await user.type(input, 'node-miner payout node-addr-retargeted{enter}')
+    await user.type(input, 'node-miner config payout node-addr-retargeted{enter}')
     expect((snapshot().process.processes.find(({ id }) => id === started.id) as NodeMinerProcess).payoutAddress).toBe('node-addr-retargeted')
     await user.type(input, 'node-miner stop{enter}')
     expect(snapshot().process.processes).toHaveLength(0)
@@ -1053,7 +1053,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
 
     await user.type(input, 'help{enter}')
     expect(rackOs).not.toHaveTextContent('node-miner')
-    await user.type(input, 'node-miner payout node-addr-relay-77{enter}')
+    await user.type(input, 'node-miner config payout node-addr-relay-77{enter}')
     expect(rackOs).toHaveTextContent('COMMAND NOT FOUND')
   })
 })

@@ -77,8 +77,7 @@ CPU headroom as any other running Process on that executor, re-segmented the
 instant a finite Process completes mid-interval. There is one advancement loop,
 not a second scheduler for continuous work.
 
-STOP consumes zero simulation time, performs no final work, and immediately
-removes the Process (releasing its RAM/CPU) without a generic stopped/history
+STOP consumes zero simulation time, performs no final mining work, settles all accrued whole production through the release-specific NODE economy operation, and immediately removes the Process (releasing its RAM/CPU) without a generic stopped/history
 state; global Process ID progression is unaffected, so a later RUN receives a
 new identity. Local STOP and the remote STOP offered on the operated Device are
 separate operations scoped to their own executor: neither can end the other
@@ -104,7 +103,7 @@ Running finite local Process cards offer CANCEL through canonical
 scheduler, releases its CPU/RAM allocation, and prevents its completion
 consequence. The running FileTransfer card keeps its distinct CANCEL control
 for either direction through canonical `cancelFileTransfer`, the running NODE
-Miner card offers STOP through canonical `stopNodeMiner`, and Recent Activity cards offer REMOVE
+Miner card offers PAYOUT and STOP through canonical `stopNodeMiner`, and Recent Activity cards offer REMOVE
 instead.
 
 
@@ -155,7 +154,7 @@ and never current target truth: where the player remembers no Service at that
 identity, the operation truthfully falls back to naming its historical
 endpoint alone. Software operations name their package or software release.
 The continuous NODE Miner operation shows CPU, RAM, configured payout
-address, cumulative gross produced, pending batch progress, and a derived
+address, cumulative gross produced, accrued unpaid production, and a derived
 units/s rate, deliberately without a percentage progress bar. A
 FileTransfer is labelled DOWNLOAD or UPLOAD and shows its artifact,
 direction-aware source-to-destination relationship, transferred and total

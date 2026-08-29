@@ -5,28 +5,30 @@ export type NodeMinerTerminalRunResult =
 
 export type NodeMinerTerminalStatus =
   | { readonly status: 'idle' }
-  | { readonly status: 'running'; readonly processId: string; readonly cpuPercent: number; readonly ramMiB: number; readonly payoutAddress: string; readonly producedUnits: number; readonly pendingUnits: number; readonly payoutBatchGrossUnits: number; readonly ratePerSecondUnits: number }
+  | { readonly status: 'running'; readonly processId: string; readonly cpuPercent: number; readonly ramMiB: number; readonly payoutAddress: string; readonly producedUnits: number; readonly unpaidUnits: number; readonly ratePerSecondUnits: number }
 
 export type NodeMinerTerminalStopResult =
-  | { readonly status: 'stopped'; readonly processId: string }
+  | { readonly status: 'stopped'; readonly processId: string; readonly settledGrossUnits: number; readonly payoutUnits: number }
   | { readonly status: 'not_running' | 'session_unavailable' | 'target_offline' }
 
 export type NodeMinerTerminalPayoutResult =
-  | { readonly status: 'retargeted'; readonly processId: string; readonly payoutAddress: string }
-  | { readonly status: 'not_running' | 'invalid_payout_address' | 'session_unavailable' | 'target_offline' }
+  | { readonly status: 'paid'; readonly processId: string; readonly settledGrossUnits: number; readonly payoutUnits: number }
+  | { readonly status: 'nothing_unpaid'; readonly processId: string }
+  | { readonly status: 'not_running' | 'session_unavailable' | 'target_offline' }
 
 /** The narrow operated-Device boundary consumed by the one NODE Miner CLI. */
 export interface NodeMinerTerminalOperations {
   readonly run: (payoutAddress: string) => NodeMinerTerminalRunResult
   readonly status: () => NodeMinerTerminalStatus
   readonly stop: () => NodeMinerTerminalStopResult
-  readonly payout: (payoutAddress: string) => NodeMinerTerminalPayoutResult
+  readonly payout: () => NodeMinerTerminalPayoutResult
+  readonly configurePayout: (payoutAddress: string) => { readonly status: 'retargeted'; readonly processId: string; readonly payoutAddress: string } | { readonly status: 'not_running' | 'invalid_payout_address' | 'session_unavailable' | 'target_offline' }
 }
 
 export const NODE_MINER_TERMINAL_DESCRIPTION = 'Control NODE Miner on this Device'
 export const NODE_MINER_TERMINAL_HELP = [
   'NODE MINER', '', 'node-miner help', 'node-miner run --payout <address>',
-  'node-miner status', 'node-miner stop', 'node-miner payout <address>',
+  'node-miner status', 'node-miner payout', 'node-miner config payout <address>', 'node-miner stop',
 ] as const
 
 /** Product syntax and presentation shared by NODE-OS and RACK-OS. */
@@ -44,16 +46,23 @@ export function runNodeMinerTerminal(args: readonly string[], operations: NodeMi
   if (subcommand === 'status' && rest.length === 0) {
     const status = operations.status()
     if (status.status === 'idle') return ['STATUS  IDLE']
-    return ['STATUS   RUNNING', `PROCESS  ${status.processId}`, `CPU      ${Math.round(status.cpuPercent)}%`, `RAM      ${status.ramMiB} MiB`, `ADDRESS  ${status.payoutAddress}`, `PRODUCED ${status.producedUnits.toLocaleString('en-US')} units`, `PENDING  ${status.pendingUnits.toLocaleString('en-US')} / ${status.payoutBatchGrossUnits.toLocaleString('en-US')} units`, `RATE     ${Math.round(status.ratePerSecondUnits).toLocaleString('en-US')} units/s`]
+    return ['STATUS   RUNNING', `PROCESS  ${status.processId}`, `CPU      ${Math.round(status.cpuPercent)}%`, `RAM      ${status.ramMiB} MiB`, `ADDRESS  ${status.payoutAddress}`, `PRODUCED ${status.producedUnits.toLocaleString('en-US')} units`, `UNPAID   ${status.unpaidUnits.toLocaleString('en-US')} units`, `RATE     ${Math.round(status.ratePerSecondUnits).toLocaleString('en-US')} units/s`]
   }
   if (subcommand === 'stop' && rest.length === 0) {
     const result = operations.stop()
-    return result.status === 'stopped' ? ['STOPPED', `PROCESS  ${result.processId}`] : [failureText(result.status)]
+    return result.status === 'stopped' ? [...(result.settledGrossUnits > 0 ? [`FINAL PAYOUT ${result.settledGrossUnits.toLocaleString('en-US')} gross units`, `ROUTED   ${result.payoutUnits.toLocaleString('en-US')} units`] : []), 'STOPPED', `PROCESS  ${result.processId}`] : [failureText(result.status)]
   }
   if (subcommand === 'payout') {
-    if (rest.length !== 1 || !rest[0]?.trim()) return ['Usage: node-miner payout <address>']
-    const result = operations.payout(rest[0])
-    return result.status === 'retargeted' ? ['PAYOUT RETARGETED', `PROCESS  ${result.processId}`, `PAYOUT   ${result.payoutAddress}`] : [failureText(result.status)]
+    if (rest.length !== 0) return ['Usage: node-miner payout']
+    const result = operations.payout()
+    if (result.status === 'paid') return ['PAYOUT COMPLETE', `PROCESS  ${result.processId}`, `GROSS    ${result.settledGrossUnits.toLocaleString('en-US')} units`, `ROUTED   ${result.payoutUnits.toLocaleString('en-US')} units`]
+    if (result.status === 'nothing_unpaid') return ['NOTHING UNPAID', `PROCESS  ${result.processId}`]
+    return [failureText(result.status)]
+  }
+  if (subcommand === 'config' && rest[0] === 'payout') {
+    if (rest.length !== 2 || !rest[1]?.trim()) return ['Usage: node-miner config payout <address>']
+    const result = operations.configurePayout(rest[1])
+    return result.status === 'retargeted' ? ['PAYOUT CONFIGURED', `PROCESS  ${result.processId}`, `PAYOUT   ${result.payoutAddress}`] : [failureText(result.status)]
   }
   return NODE_MINER_TERMINAL_HELP
 }

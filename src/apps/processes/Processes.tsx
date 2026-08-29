@@ -12,7 +12,7 @@ const EMPTY_STATE: Record<ActivityFilterId, { headline: string; note: string }> 
 
 export function Processes() {
   const state = useGameState()
-  const { clearRecentActivity, removeRecentActivity, cancelFileTransfer, cancelLocalProcess, stopNodeMiner } = useGameActions()
+  const { clearRecentActivity, removeRecentActivity, cancelFileTransfer, cancelLocalProcess, stopNodeMiner, payoutLocalNodeMiner } = useGameActions()
   const [filter, setFilter] = useState<ActivityFilterId>('all')
   /** Whether CLEAR is awaiting its confirmation. Presentation only. */
   const [confirmingClear, setConfirmingClear] = useState(false)
@@ -51,7 +51,7 @@ export function Processes() {
 
     <div className="node-section"><span>RUNNING</span><span className="am-section-count">{running.length}</span></div>
     {running.length > 0
-      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : activity.cancellable ? () => cancelLocalProcess(activity.id) : undefined} onStop={activity.stoppable ? () => stopNodeMiner(activity.id) : undefined} />)}</div>
+      ? <div className="am-list">{running.map((activity) => <ActivityCard activity={activity} key={activity.id} onCancel={activity.category === 'transfer' ? () => cancelFileTransfer(activity.id) : activity.cancellable ? () => cancelLocalProcess(activity.id) : undefined} onStop={activity.stoppable ? () => stopNodeMiner(activity.id) : undefined} onPayout={activity.stoppable ? () => payoutLocalNodeMiner() : undefined} />)}</div>
       : <div className="node-empty"><strong>{empty.headline}</strong><span>{empty.note}</span></div>}
 
     {recent.length > 0 && <>
@@ -84,7 +84,7 @@ function Stat({ label, value, note, percent }: { label: string; value: string; n
   </div>
 }
 
-function ActivityCard({ activity, onRemove, onCancel, onStop }: { activity: MonitorActivity; onRemove?: () => void; onCancel?: () => void; onStop?: () => void }) {
+function ActivityCard({ activity, onRemove, onCancel, onStop, onPayout }: { activity: MonitorActivity; onRemove?: () => void; onCancel?: () => void; onStop?: () => void; onPayout?: () => void }) {
   return <article className="am-activity" data-category={activity.category} data-status={activity.status}>
     <div className="am-activity-head">
       <span className="am-kind">{activity.kindLabel}</span>
@@ -92,6 +92,7 @@ function ActivityCard({ activity, onRemove, onCancel, onStop }: { activity: Moni
         {activity.status === 'running' && <span className="am-state"><i aria-hidden="true" />RUNNING</span>}
         {activity.status === 'recent' && onRemove && <button className="am-remove" type="button" aria-label={`Remove recent ${activity.kindLabel} activity`} onClick={onRemove}>REMOVE</button>}
         {activity.status === 'running' && (activity.category === 'transfer' || activity.cancellable) && onCancel && <button className="am-cancel" type="button" aria-label={`Cancel active ${activity.kindLabel}`} onClick={onCancel}>CANCEL</button>}
+        {activity.status === 'running' && activity.stoppable && onPayout && <button className="am-cancel" type="button" aria-label={`Payout ${activity.kindLabel}`} onClick={onPayout}>PAYOUT</button>}
         {activity.status === 'running' && activity.stoppable && onStop && <button className="am-cancel" type="button" aria-label={`Stop ${activity.kindLabel}`} onClick={onStop}>STOP</button>}
       </span>
     </div>
