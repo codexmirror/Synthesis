@@ -56,9 +56,9 @@ export function scanNetworkTarget(targets: Readonly<ScanTargets>, input: string)
     : resolved.entity.online
   if (!online) return { status: 'no_response', address: input }
 
-  const networks = targets.network.localNetworks
+  const networks = resolved.scope === 'self' ? targets.network.localNetworks
     .filter(({ memberDeviceIds }) => memberDeviceIds.includes(resolved.entity.id))
-    .map(({ id, name }) => ({ id, name }))
+    .map(({ id, name }) => ({ id, name })) : []
   const services = resolved.scope === 'self'
     ? []
     : (resolved.entity.services ?? [])

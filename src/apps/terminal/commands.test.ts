@@ -42,9 +42,9 @@ const labeledTarget = (label: string, value: string, scope: 'local' | 'external'
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'scan', 'inspect', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect', 'node-miner'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'ping', 'scan', 'inspect', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect', 'node-miner'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(14)
+    expect(new Set(Object.values(commands)).size).toBe(15)
   })
 
   it('groups current commands by their concrete provider', () => {
@@ -58,7 +58,7 @@ describe('command dispatcher', () => {
         'cat — Read a local text file by absolute path',
         'install — <local-absolute-file-path>  Install a local software package',
         'connect — <ipv4>  Open a remote session using established access', 'disconnect — Close the active remote session',
-        '', 'NODESCAN 1.0 STANDARD', '', 'scan — Discover devices, relationships, and exposed services',
+        '', 'NODESCAN 1.0 STANDARD', '', 'ping — Check whether a Device responds at an IPv4 address', 'scan — Discover devices, relationships, and exposed services',
         'analyze — Investigate a service endpoint', '', 'BASIC CREDENTIAL TOOLKIT 1.0', '',
         'attack — Attempt a known attack method against an observed service',
       ])
@@ -189,13 +189,13 @@ describe('command dispatcher', () => {
   it('renders server services without exposing IDs or making service facts Target Tokens', () => {
     const output = dispatch('scan 198.51.100.47')
     expect(output).toEqual({ type: 'output', lines: [
-      'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'home-net'),
+      'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 0',
       '', 'SERVICES FOUND: 2', '', 'SSH', labeledTarget('Endpoint: ', '198.51.100.47:22'), 'Protocol: TCP', '', 'HTTP', labeledTarget('Endpoint: ', '198.51.100.47:80'), 'Protocol: TCP',
     ] })
     expect(JSON.stringify(output)).not.toMatch(/service-ssh-001|host-lan-001/)
     if (output.type === 'output') {
       expect(output.lines.flatMap((line) => typeof line === 'string' ? [] : line).filter(({ type }) => type === 'target'))
-        .toEqual([target('home-net'), target('198.51.100.47:22'), target('198.51.100.47:80')])
+        .toEqual([target('198.51.100.47:22'), target('198.51.100.47:80')])
     }
   })
 

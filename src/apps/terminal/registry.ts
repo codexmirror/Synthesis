@@ -5,6 +5,7 @@ import { createHelpCommand } from './commands/help'
 import { ipCommand } from './commands/ip'
 import { statusCommand } from './commands/status'
 import { scanCommand } from './commands/scan'
+import { pingCommand } from './commands/ping'
 import { analyzeCommand } from './commands/analyze'
 import { attackCommand } from './commands/attack'
 import { lsCommand } from './commands/ls'
@@ -28,7 +29,7 @@ export const commands: Record<string, TerminalCommand> = {
     const nodeMinerSoftware = localDevice.installedSoftware.find(({ id }) => id === 'node-miner')
     return [
       { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'install', 'connect', 'disconnect']) },
-      ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version}${nodeScan.channel ? ` ${nodeScan.channel.toUpperCase()}` : ''}`, commands: commandEntries(nodeScanSupportsInspect(nodeScan) ? ['scan', 'inspect', 'analyze'] : ['scan', 'analyze']) }] : []),
+      ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version}${nodeScan.channel ? ` ${nodeScan.channel.toUpperCase()}` : ''}`, commands: commandEntries(nodeScanSupportsInspect(nodeScan) ? ['ping', 'scan', 'inspect', 'analyze'] : ['ping', 'scan', 'analyze']) }] : []),
       ...(toolkit ? [{ heading: `${toolkit.name.toUpperCase()} ${toolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
       ...(nodeMiner.available && nodeMinerSoftware ? [{ heading: `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, commands: [['node-miner', commands['node-miner']] as [string, TerminalCommand]] }] : []),
     ]
@@ -36,6 +37,7 @@ export const commands: Record<string, TerminalCommand> = {
   clear: clearCommand,
   ip: ipCommand,
   status: statusCommand,
+  ping: pingCommand,
   scan: scanCommand,
   inspect: inspectCommand,
   analyze: analyzeCommand,

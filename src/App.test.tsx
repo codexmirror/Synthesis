@@ -1960,6 +1960,7 @@ describe('Terminal', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     const { user, input } = await openTerminal()
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    await user.type(input, 'scan 198.51.100.23{enter}')
     await user.type(input, 'scan home-net{enter}')
     input.blur()
     const token = await screen.findByRole('button', {

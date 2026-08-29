@@ -7,6 +7,7 @@ import { createLocalScanTarget } from './localScanOperation'
 describe('local Scan application operation', () => {
   it('returns the existing structured domain observation', async () => {
     let state = createInitialGameState()
+    state = { ...state, discovery: { ...state.discovery, networks: [{ id: 'network-local-001', name: 'home-net', membersObserved: false }] } }
     const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
 
     expect(await scanTarget('home-net')).toEqual(scanNetworkTarget({
@@ -21,6 +22,7 @@ describe('local Scan application operation', () => {
 
   it('reads current canonical state for every request instead of capturing initial World', async () => {
     let state: GameState = createInitialGameState()
+    state = { ...state, discovery: { networks: [{ id: 'network-local-001', name: 'home-net', membersObserved: false }], devices: [{ id: 'host-lan-001', address: '198.51.100.47', scope: 'lan', servicesObserved: false, services: [] }], networkDeviceRelations: [] } }
     const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
     const host = state.world.network.hosts[0]
     state = {

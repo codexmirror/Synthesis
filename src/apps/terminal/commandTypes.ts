@@ -1,4 +1,5 @@
 import type { ScanResult } from '../../core/game/scan'
+import type { PingResult } from '../../core/game/ping'
 import type { InspectResult } from '../../core/game/inspect'
 import type { StartCredentialAccessResult } from '../../core/game/credentialAccess'
 import type { ListDirectoryResult, ReadTextFileResult } from '../../core/game/filesystem'
@@ -29,6 +30,7 @@ export interface CommandContext {
     readonly available: boolean
   }
   readonly operations: {
+    readonly pingTarget?: (target: string) => PingResult | { status: 'software_unavailable' }
     readonly scanTarget: (target: string) => ScanResult | { status: 'software_unavailable' } | Promise<ScanResult | { status: 'software_unavailable' }>
     readonly inspectTarget: (target: string) => InspectResult | { status: 'software_unavailable' } | { status: 'capability_unavailable' }
     readonly analyzeEndpoint: (endpoint: string) => TerminalAnalyzeResult

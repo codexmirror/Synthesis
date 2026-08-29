@@ -114,7 +114,17 @@ export function Network() {
     } catch { finishRequest('targets', generation) }
   }
 
-  async function scanDirectAddress() {
+  async function scanSelf() {
+    const generation = beginRequest('self')
+    if (generation === null) return
+    try {
+      const result = await actions.scanTarget(gameState.player.localDevice.network.ip)
+      if (!finishRequest('self', generation)) return
+      if (result.status !== 'device') setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : 'NO RESPONSE')
+    } catch { finishRequest('self', generation) }
+  }
+
+  async function pingDirectAddress() {
     const address = directAddress.trim()
     if (!isValidIpv4(address)) {
       setNotice('INVALID ADDRESS')
@@ -123,7 +133,7 @@ export function Network() {
     const generation = beginRequest('direct-address')
     if (generation === null) return
     try {
-      const result = await actions.scanTarget(address)
+      const result = actions.pingTarget(address)
       if (!finishRequest('direct-address', generation)) return
       setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
         : result.status === 'no_response' ? 'NO RESPONSE'
@@ -234,14 +244,15 @@ export function Network() {
       directAddress={directAddress}
       notice={notice}
       onFind={findTargets}
+      onScanSelf={scanSelf}
       onDirectAddressChange={setDirectAddress}
-      onDirectScan={scanDirectAddress}
+      onDirectScan={pingDirectAddress}
       onOpen={(deviceId) => open({ kind: 'target', deviceId })}
     />
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, onFind, onDirectAddressChange, onDirectScan, onOpen }: {
+function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
@@ -249,11 +260,11 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   directAddress: string
   notice: string | null
   onFind(): void
+  onScanSelf(): void
   onDirectAddressChange(value: string): void
   onDirectScan(): void
   onOpen(deviceId: string): void
 }) {
-  const known = space.networks.length > 0 || space.elsewhere.length > 0
   return <div className="ns-view">
     <header className="ns-masthead">
       <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
@@ -274,12 +285,15 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
           value={directAddress}
           onChange={(event) => onDirectAddressChange(event.target.value)}
         />
-        <button type="submit" aria-label="Scan target address" disabled={directPending}>SCAN</button>
+        <button type="submit" aria-label="Ping target address" disabled={directPending}>PING</button>
       </div>
     </form>
 
-    {known
-      ? <div className="ns-space">
+    <div className="ns-space">
+        {!space.networks.some(({ includesSelf }) => includesSelf) && <section className="ns-group" aria-label="Self">
+          <header className="ns-group-head"><span className="ns-eyebrow">SELF</span></header>
+          <button type="button" className="ns-node ns-node--self" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}><span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span><span className="ns-stage">NOT SCANNED</span></span><span>SCAN</span></button>
+        </section>}
         {space.networks.map((network) => <section className="ns-group" key={network.id} aria-label={`Network ${network.name}`}>
           <header className="ns-group-head">
             <span className="ns-eyebrow">NETWORK</span>
@@ -306,7 +320,6 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
           <div className="ns-loose">{space.elsewhere.map((target) => <TargetRow key={target.id} target={target} onOpen={onOpen} showLocation />)}</div>
         </section>}
       </div>
-      : <div className="node-empty"><strong>NOTHING KNOWN YET</strong><span>Nothing has been found around this Device yet.</span></div>}
 
     {space.networks.length > 0 && <div className="ns-primary-slot">
       <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>SCAN AGAIN</button>

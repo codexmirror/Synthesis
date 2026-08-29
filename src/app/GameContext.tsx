@@ -5,6 +5,7 @@ import { startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnaly
 import { clearRecentActivity, removeRecentActivity } from '../core/game/recentActivity'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
+import { createLocalPingTarget, type PingTargetOperation } from './localPingOperation'
 import { createLocalInspectTarget, type InspectTargetOperation } from './localInspectOperation'
 import { createFindTargets, createSweepTarget, type FindTargetsOperation, type SweepTargetOperation } from './targetSweepOperation'
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
@@ -24,6 +25,7 @@ const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
 export type NodeScanEndpointAnalysisResult = EndpointAnalysisResult | { status: 'software_unavailable'; state: GameState }
 export interface GameActions {
+  pingTarget: PingTargetOperation
   scanTarget: ScanTargetOperation
   inspectTarget: InspectTargetOperation
   findTargets: FindTargetsOperation
@@ -71,6 +73,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     currentState.current = nextState
     setGameState(nextState)
   }))
+  const [pingTarget] = useState(() => createLocalPingTarget(() => currentState.current, (nextState) => {
+    currentState.current = nextState
+    setGameState(nextState)
+  }))
   const [inspectTarget] = useState(() => createLocalInspectTarget(() => currentState.current, (nextState) => {
     currentState.current = nextState
     setGameState(nextState)
@@ -94,7 +100,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     }, 250)
     return () => window.clearInterval(timer)
   }, [])
-  const actions: GameActions = { scanTarget, inspectTarget, findTargets, sweepTarget, startServiceAnalysis(targetDeviceId, serviceId) {
+  const actions: GameActions = { pingTarget, scanTarget, inspectTarget, findTargets, sweepTarget, startServiceAnalysis(targetDeviceId, serviceId) {
     const state = currentState.current
     if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
     const result = startServiceAnalysis(state, targetDeviceId, serviceId)

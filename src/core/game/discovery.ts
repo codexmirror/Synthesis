@@ -1,8 +1,21 @@
 import type { ScanResult } from './scan'
 import type { InspectResult } from './inspect'
+import type { PingResult } from './ping'
 import type { DiscoveryState } from './types'
 
 export const createEmptyDiscovery = (): DiscoveryState => ({ networks: [], devices: [], networkDeviceRelations: [] })
+
+/** Remember the deliberately minimal positive result of a reachability observation. */
+export function rememberPing(discovery: DiscoveryState, result: PingResult, selfDeviceId: string): DiscoveryState {
+  if (result.status !== 'device' || result.targetId === selfDeviceId) return discovery
+  const index = discovery.devices.findIndex(({ id }) => id === result.targetId)
+  const previous = discovery.devices[index]
+  const device = { id: result.targetId, address: result.address, scope: result.scope === 'self' ? 'lan' as const : result.scope,
+    servicesObserved: previous?.servicesObserved ?? false, services: previous?.services ?? [], ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
+  const devices = [...discovery.devices]
+  if (index < 0) devices.push(device); else devices[index] = device
+  return { ...discovery, devices }
+}
 
 /** Add the positive facts in one successful observation to canonical player memory. */
 export function rememberScan(discovery: DiscoveryState, result: ScanResult, selfDeviceId: string): DiscoveryState {

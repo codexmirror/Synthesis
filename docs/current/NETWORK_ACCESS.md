@@ -15,22 +15,14 @@ document wins. Durable rules behind this behavior belong to
 ## NodeScan and Scan
 
 The graphical reconnaissance application is presented as NodeScan, first-party
-reconnaissance software shipped with NODE-OS. Its current direct Terminal
-commands remain `scan <ipv4|network-name>` and `analyze <ipv4:port>`; no product
-namespace is required.
+reconnaissance software shipped with NODE-OS. Its current direct Terminal commands are `ping <ipv4>`, `scan
+<ipv4|network-name>`, `inspect <ipv4|network-name>`, and `analyze
+<ipv4:port>`; no product namespace is required.
 
 Scan is available through both Terminal and the graphical NodeScan application.
 Both interfaces invoke the same shared Scan gameplay/application operation.
 
-Known Space also accepts a player-supplied IPv4 address for a direct Scan,
-including an address absent from remembered Discovery. Typing, pasting or
-locally validating that address is presentation state only: a supplied address
-is not a remembered Device and reveals no target truth. A valid submission uses
-the shared Scan operation; only a successful positive observation can update
-canonical Discovery, after which the Device appears through the normal Known
-Space projection. The field begins empty and uses only neutral guidance rather
-than represented address truth. Invalid IPv4 input is rejected before
-observation, and a valid address with no response creates no Discovery.
+Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, pasting, or locally validating it is presentation state only. A positive PING remembers only stable Device identity, the observed address, and justified reachability scope; it observes no name, Firmware, Services, vulnerabilities, Network membership, or topology. Invalid input is rejected before observation, no response creates no Discovery, and PING creates no Process. A foreign Device learned this way appears under ELSEWHERE as NOT SCANNED.
 
 NodeScan is presented as two screens and three player actions. KNOWN SPACE
 presents the remembered relationship shape around the player; a target card is
@@ -42,10 +34,11 @@ installed software, DeviceAccess and RemoteSession. World truth is deliberately
 outside the slice that view model is built from.
 
 Known Space groups remembered targets under the remembered Networks they
-belong to, drawn as a one-level relationship scaffold. SELF appears as a
-non-interactive anchor inside a Network only where the player legitimately
-remembers its own membership of that Network; it is topology context, not a
-target, and carries no control. A Device appears under every Network it is
+belong to, drawn as a one-level relationship scaffold. SELF and its current address appear intrinsically on fresh Known Space without a
+synthetic Discovery record or a claimed Network relationship. Before its
+Network relationship is known, SELF offers Scan and reports NOT SCANNED. Once
+its membership is legitimately observed, SELF appears as the topology anchor
+inside that Network. A Device appears under every Network it is
 remembered in, and a remembered Device with no remembered relationship to any
 known Network stays visibly separate under ELSEWHERE with its own scope
 stated. Unobserved membership is stated explicitly rather than reported as an
@@ -118,16 +111,29 @@ available through Terminal `inspect <network-name>`, and remembered Network
 Inspect evidence is unaffected.
 
 
-Current Scan behavior is:
+The four reconnaissance roles are distinct observations, not mandatory progression stages or stored flags:
 
 ```text
-scan Device/IP
-→ observe represented network relationships
-→ observe currently open represented services
+PING address
+→ observe response; retain only identity, address, and justified scope
 
-scan LocalNetwork/name
-→ observe responding represented member Devices
+SCAN known Device
+→ observe currently open represented Services
+
+SCAN SELF
+→ may also observe SELF's represented Network relationship
+
+SCAN known Network
+→ observe currently responding represented member Devices
+
+INSPECT known target
+→ observe deeper represented target evidence within release capability
+
+ANALYZE known Service
+→ canonical elapsed Service Analysis Process; may earn weakness Knowledge
 ```
+
+A foreign Device Scan does not reveal Network membership. NodeScan 1.0 Standard supplies PING, SCAN, and Service Analysis but no target Inspect. NodeScan 1.1 Experimental supplies the same roles plus Enhanced Inspect through concrete release capability logic.
 
 The underlying observation sequence a target sweep composes is therefore:
 
@@ -155,7 +161,7 @@ IPv4 Scan results currently distinguish:
 
 according to represented world relationships.
 
-Successful positive Scan observations are remembered in canonical Discovery.
+Successful positive Scan observations are remembered in canonical Discovery. Observations are retained snapshots, not live references to World Truth: later address, Service, Firmware, or implementation changes do not rewrite or erase remembered information. Only a later legitimate observation refreshes its own information boundary. Analyze Knowledge has the same historical boundary.
 
 Opening or navigating remembered information in the graphical Scan application
 does not itself perform a new observation.
@@ -173,8 +179,7 @@ Network is remembered. It refreshes SELF's Network relationships, then observes
 the responding members of every Network the player legitimately remembers.
 Nothing outside remembered Discovery is
 scanned, and zero-knowledge Known Space does not expose this shortcut: the
-player must first use direct-address Scan to observe SELF and remember its
-Network relationship. Without an installed NodeScan release it reports
+player must first Scan intrinsic SELF to remember its Network relationship. Without an installed NodeScan release it reports
 `software_unavailable`; where SELF is offline it reports `no_response` and
 remembers nothing.
 

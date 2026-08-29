@@ -79,7 +79,7 @@ function withAccess(state: GameState = knownWeakness()): GameState {
 
 function actionStubs(): GameContext.GameActions {
   return {
-    scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), sweepTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
+    pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), sweepTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
     startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
@@ -116,11 +116,10 @@ describe('NodeScan first hack', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
 
-    // Nothing is known: direct address Scan is the reconnaissance entry point.
-    expect(screen.getByText('NOTHING KNOWN YET')).toBeInTheDocument()
+    // SELF is intrinsic; Scan SELF reveals its represented Network relationship.
+    expect(screen.getByRole('region', { name: 'Self' })).toHaveTextContent('NOT SCANNED')
     const directAddress = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
-    fireEvent.change(directAddress, { target: { value: createInitialGameState().player.localDevice.network.ip } })
-    fireEvent.click(screen.getByRole('button', { name: 'Scan target address' }))
+    fireEvent.click(screen.getByRole('button', { name: 'SCAN SELF' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     fireEvent.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
@@ -540,7 +539,7 @@ describe('Known Space topology', () => {
     expect(screen.queryByText(PHONE_ADDRESS)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'SCAN AGAIN' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Scan target address' }))
+    await user.click(screen.getByRole('button', { name: 'Ping target address' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('INVALID ADDRESS')
     expect(scanTargetSpy).not.toHaveBeenCalled()
@@ -564,9 +563,9 @@ describe('Known Space topology', () => {
     expect(screen.queryByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
 
-    await user.click(within(form).getByRole('button', { name: 'Scan target address' }))
+    await user.click(within(form).getByRole('button', { name: 'Ping target address' }))
 
-    expect(scanTargetSpy).toHaveBeenCalledWith(expect.anything(), PHONE_ADDRESS)
+    expect(scanTargetSpy).not.toHaveBeenCalled()
     expect(currentState().discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS }))
     expect(screen.getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toBeInTheDocument()
   })
@@ -578,7 +577,7 @@ describe('Known Space topology', () => {
     const before = screen.getByTestId('game-state').textContent
 
     await user.type(input, '198.51.100.999')
-    await user.click(within(input.closest('form')!).getByRole('button', { name: 'Scan target address' }))
+    await user.click(within(input.closest('form')!).getByRole('button', { name: 'Ping target address' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('INVALID ADDRESS')
     expect(scanTargetSpy).not.toHaveBeenCalled()
@@ -589,7 +588,7 @@ describe('Known Space topology', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
     const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
-    const scan = within(input.closest('form')!).getByRole('button', { name: 'Scan target address' })
+    const scan = within(input.closest('form')!).getByRole('button', { name: 'Ping target address' })
 
     await user.type(input, '192.0.2.250')
     await user.click(scan)
@@ -601,9 +600,8 @@ describe('Known Space topology', () => {
     await user.click(scan)
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(currentState().discovery.networks).toContainEqual(expect.objectContaining({ name: 'home-net', membersObserved: false }))
-    expect(screen.getByRole('region', { name: 'Network home-net' })).toHaveTextContent('SELF')
-    expect(screen.getByRole('button', { name: 'SCAN AGAIN' })).toBeInTheDocument()
+    expect(currentState().discovery.networks).toEqual([])
+    expect(screen.getByRole('region', { name: 'Self' })).toHaveTextContent('SELF')
   })
 
   it('derives the relationship shape from remembered Discovery alone', () => {
