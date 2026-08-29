@@ -80,7 +80,7 @@ export function createInitialGameState(): GameState {
     world: {
       network: {
         localNetworks: [
-          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001', 'host-phone-001'] },
+          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'] },
         ],
         hosts: [
           {

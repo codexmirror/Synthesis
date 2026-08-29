@@ -28,8 +28,9 @@ locally validating that address is presentation state only: a supplied address
 is not a remembered Device and reveals no target truth. A valid submission uses
 the shared Scan operation; only a successful positive observation can update
 canonical Discovery, after which the Device appears through the normal Known
-Space projection. Invalid IPv4 input is rejected before observation, and a
-valid address with no response creates no Discovery.
+Space projection. The field begins empty and uses only neutral guidance rather
+than represented address truth. Invalid IPv4 input is rejected before
+observation, and a valid address with no response creates no Discovery.
 
 NodeScan is presented as two screens and three player actions. KNOWN SPACE
 presents the remembered relationship shape around the player; a target card is
@@ -139,7 +140,7 @@ discover home-net
 ↓
 scan home-net
 ↓
-discover LAN server and personal phone
+discover LAN server
 ↓
 scan LAN server
 ↓
@@ -167,10 +168,13 @@ Both are application-level compositions of existing canonical operations; they
 introduce no gameplay rule and no canonical state of their own, and Terminal
 still exposes every underlying step individually.
 
-`findTargets` (SCAN on Known Space) observes SELF's own Network
-relationships, then observes the responding members of every Network the
-player now legitimately remembers. Nothing outside remembered Discovery is
-scanned. Without an installed NodeScan release it reports
+`findTargets` (SCAN AGAIN on Known Space) is offered only after at least one
+Network is remembered. It refreshes SELF's Network relationships, then observes
+the responding members of every Network the player legitimately remembers.
+Nothing outside remembered Discovery is
+scanned, and zero-knowledge Known Space does not expose this shortcut: the
+player must first use direct-address Scan to observe SELF and remember its
+Network relationship. Without an installed NodeScan release it reports
 `software_unavailable`; where SELF is offline it reports `no_response` and
 remembers nothing.
 
@@ -354,9 +358,10 @@ RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as
 ## Reaching the represented personal phone
 
 The represented VEYRA phone (`docs/current/DEVICE_SYSTEM.md`) is reached through
-exactly the loop above and nothing else. It is a member of `home-net`, so
-`scan home-net` — or NodeScan's SCAN on Known Space — discovers it as an
-ordinary LAN target. Scanning it observes its one open SSH Service; Service
+exactly the ordinary access loop above and nothing else. It is not a member of
+SELF's temporary `home-net`, so Network Scan does not reveal it. Directly
+scanning its communicated address discovers it as a remote Device and observes
+its one open SSH Service; Service
 Analysis of that Service records the same `AUTH-017` Knowledge, because its
 implementation is the same represented GateSSH 1.3.2 release; the same Basic
 Credential Toolkit forms the same way in; the attempt creates the same

@@ -201,7 +201,7 @@ describe('command dispatcher', () => {
 
   it('scans real network names without exposing stable IDs', () => {
     const output = dispatch('scan home-net')
-    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 3', '', [target('198.51.100.23', 'local')], [target('198.51.100.47')], [target('198.51.100.61')]] })
+    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', [target('198.51.100.23', 'local')], [target('198.51.100.47')]] })
     expect(JSON.stringify(output)).not.toMatch(/network-local-001|device-local-v0|host-lan-001|host-phone-001/)
   })
 

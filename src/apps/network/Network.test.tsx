@@ -116,9 +116,13 @@ describe('NodeScan first hack', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
 
-    // Nothing is known: one obvious action.
+    // Nothing is known: direct address Scan is the reconnaissance entry point.
     expect(screen.getByText('NOTHING KNOWN YET')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
+    const directAddress = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
+    fireEvent.change(directAddress, { target: { value: createInitialGameState().player.localDevice.network.ip } })
+    fireEvent.click(screen.getByRole('button', { name: 'Scan target address' }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    fireEvent.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
     fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
@@ -210,7 +214,7 @@ describe('NodeScan information boundary', () => {
     const known = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
     const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
 
-    expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route'], [PHONE_ADDRESS, 'unscanned']])
+    expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route']])
     const target = selectTarget(information, SRV_01)!
     expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Basic Credential Toolkit' })])
   })
@@ -526,6 +530,23 @@ describe('NodeScan software and request lifecycle', () => {
 /* -------------------------------------------------------- known space */
 
 describe('Known Space topology', () => {
+  it('starts with an empty neutral direct-address field and no broad topology shortcut', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+    const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
+
+    expect(input).toHaveValue('')
+    expect(input).toHaveAttribute('placeholder', 'IPv4 address')
+    expect(screen.queryByText(PHONE_ADDRESS)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'SCAN AGAIN' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Scan target address' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent('INVALID ADDRESS')
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(currentState().discovery).toEqual(createInitialGameState().discovery)
+  })
+
   it('scans a player-supplied unknown IPv4 through canonical Scan and projects the discovered Device normally', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
@@ -582,6 +603,7 @@ describe('Known Space topology', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(currentState().discovery.networks).toContainEqual(expect.objectContaining({ name: 'home-net', membersObserved: false }))
     expect(screen.getByRole('region', { name: 'Network home-net' })).toHaveTextContent('SELF')
+    expect(screen.getByRole('button', { name: 'SCAN AGAIN' })).toBeInTheDocument()
   })
 
   it('derives the relationship shape from remembered Discovery alone', () => {
@@ -591,7 +613,7 @@ describe('Known Space topology', () => {
 
     expect(space.self.address).toBe('198.51.100.23')
     expect(space.networks.map(({ name, includesSelf, membersObserved }) => [name, includesSelf, membersObserved])).toEqual([['home-net', true, true]])
-    expect(space.networks[0].targets.map(({ address }) => address)).toEqual([SRV_01_ADDRESS, PHONE_ADDRESS])
+    expect(space.networks[0].targets.map(({ address }) => address)).toEqual([SRV_01_ADDRESS])
     expect(space.elsewhere).toEqual([])
     // srv-02 exists in the world and has never been observed, so it is nowhere.
     expect(space.networks[0].targets.some(({ id }) => id === 'host-lan-002')).toBe(false)
@@ -618,7 +640,7 @@ describe('Known Space topology', () => {
     // SELF is not a target and adds no control of its own: the only controls
     // on this Network are its remembered targets.
     expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
-      .toEqual([`Open target ${SRV_01_ADDRESS}`, `Open target ${PHONE_ADDRESS}`])
+      .toEqual([`Open target ${SRV_01_ADDRESS}`])
   })
 
   it('keeps a Device with no remembered Network relationship visibly separate', () => {

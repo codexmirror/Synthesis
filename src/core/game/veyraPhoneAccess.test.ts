@@ -20,13 +20,13 @@ const observation = { endpoint: `${PHONE_ADDRESS}:22`, targetDeviceId: PHONE, se
  * operation or shortcut exists, and this proves each step actually happens.
  */
 describe('reaching the VEYRA phone through the existing access loop', () => {
-  it('is discovered by scanning the Network the player already knows', () => {
+  it('is not discovered by scanning SELF\'s Network', () => {
     const state = createInitialGameState()
     const targets = { localDevice: state.player.localDevice, network: state.world.network }
     const result = scanNetworkTarget(targets, 'home-net')
 
     expect(result.status).toBe('network'); if (result.status !== 'network') return
-    expect(result.devices.map(({ targetId }) => targetId)).toContain(PHONE)
+    expect(result.devices.map(({ targetId }) => targetId)).not.toContain(PHONE)
   })
 
   it('yields a way in only after real Scan and Service Analysis, then establishes access and connects', () => {
@@ -37,6 +37,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     expect(canFormCredentialAccessAttempt(base, observation)).toBe(false)
 
     const scanned: GameState = { ...base, discovery: rememberScan(base.discovery, scanNetworkTarget(targets, PHONE_ADDRESS), base.player.localDevice.id) }
+    expect(scanned.discovery.devices).toContainEqual(expect.objectContaining({ id: PHONE, address: PHONE_ADDRESS, scope: 'remote' }))
     // A remembered Service is not a weakness.
     expect(canFormCredentialAccessAttempt(scanned, observation)).toBe(false)
 
