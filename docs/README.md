@@ -118,7 +118,7 @@ state, authored replies, NodeMail.
   A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md)
 - DESIGN → [`design/NODEMAIL_V1.md`](design/NODEMAIL_V1.md)
 - CODE → `src/core/game/mail.ts`,
-  `src/core/game/miraStagingCorrespondence.ts`, `src/apps/mail/`
+  `src/core/game/myraFirstContactCorrespondence.ts`, `src/apps/mail/`
 - TESTS → `src/core/game/mail.test.ts`, `src/apps/mail/Mail.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/COMMUNICATION.md`](current/COMMUNICATION.md)
   (NodeMail presentation impact → [`current/INTERFACE_SHELL.md`](current/INTERFACE_SHELL.md))

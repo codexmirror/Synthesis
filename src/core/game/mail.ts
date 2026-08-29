@@ -1,12 +1,12 @@
 import {
-  MIRA_CORRESPONDENT_ADDRESS,
-  MIRA_CORRESPONDENT_ID,
-  MIRA_CORRESPONDENT_NAME,
-  MIRA_STAGING_OPENING_MESSAGE,
-  MIRA_STAGING_THREAD_ID,
-  MIRA_STAGING_THREAD_SUBJECT,
-  resolveMiraStagingReply,
-} from './miraStagingCorrespondence'
+  MYRA_CORRESPONDENT_ADDRESS,
+  MYRA_CORRESPONDENT_ID,
+  MYRA_CORRESPONDENT_NAME,
+  MYRA_FIRST_CONTACT_OPENING_MESSAGE,
+  MYRA_FIRST_CONTACT_THREAD_ID,
+  MYRA_FIRST_CONTACT_THREAD_SUBJECT,
+  resolveMyraFirstContactReply,
+} from './myraFirstContactCorrespondence'
 import type { GameState, IncomingMailMessage, MailCorrespondent, MailMessage, MailState, MailThread, OutgoingMailMessage } from './types'
 
 /**
@@ -42,11 +42,11 @@ export function createInitialMailState(): MailState {
     account: { id: PLAYER_MAIL_ACCOUNT_ID, address: PLAYER_MAIL_ACCOUNT_ADDRESS },
     correspondents: [
       { id: NODEMAIL_SYSTEM_CORRESPONDENT_ID, name: NODEMAIL_SYSTEM_CORRESPONDENT_NAME, address: NODEMAIL_SYSTEM_CORRESPONDENT_ADDRESS },
-      { id: MIRA_CORRESPONDENT_ID, name: MIRA_CORRESPONDENT_NAME, address: MIRA_CORRESPONDENT_ADDRESS },
+      { id: MYRA_CORRESPONDENT_ID, name: MYRA_CORRESPONDENT_NAME, address: MYRA_CORRESPONDENT_ADDRESS },
     ],
     threads: [
       { id: WELCOME_THREAD_ID, correspondentId: NODEMAIL_SYSTEM_CORRESPONDENT_ID, subject: WELCOME_THREAD_SUBJECT },
-      { id: MIRA_STAGING_THREAD_ID, correspondentId: MIRA_CORRESPONDENT_ID, subject: MIRA_STAGING_THREAD_SUBJECT },
+      { id: MYRA_FIRST_CONTACT_THREAD_ID, correspondentId: MYRA_CORRESPONDENT_ID, subject: MYRA_FIRST_CONTACT_THREAD_SUBJECT },
     ],
     nextMessageId: 3,
     messages: [
@@ -60,11 +60,11 @@ export function createInitialMailState(): MailState {
       },
       {
         id: formatMailMessageId(2),
-        threadId: MIRA_STAGING_THREAD_ID,
+        threadId: MYRA_FIRST_CONTACT_THREAD_ID,
         sender: 'correspondent',
-        correspondentId: MIRA_CORRESPONDENT_ID,
+        correspondentId: MYRA_CORRESPONDENT_ID,
         read: false,
-        body: MIRA_STAGING_OPENING_MESSAGE,
+        body: MYRA_FIRST_CONTACT_OPENING_MESSAGE,
       },
     ],
   }
@@ -106,7 +106,7 @@ export function deriveUnreadMailCount(mail: Readonly<MailState>): number {
  * could disagree with it.
  */
 export function threadAcceptsReply(threadId: string): boolean {
-  return threadId === MIRA_STAGING_THREAD_ID
+  return threadId === MYRA_FIRST_CONTACT_THREAD_ID
 }
 
 /**
@@ -165,7 +165,7 @@ export function sendMailReply(state: GameState, threadId: string, text: string):
     sender: 'correspondent',
     correspondentId: thread.correspondentId,
     read: true,
-    body: resolveMiraStagingReply(listThreadMessages(mail, thread.id), text),
+    body: resolveMyraFirstContactReply(listThreadMessages(mail, thread.id), text),
   }
 
   return {

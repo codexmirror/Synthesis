@@ -96,7 +96,7 @@ that represents none simply has none. Its semantics belong to
 
 ## Represented World
 
-The current World contains the represented `home-net` LocalNetwork with node-01, `srv-01` and the personal phone `host-phone-001`, while `srv-02` is the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Mira's authored mail remains historical text and creates no Discovery.
+The current World contains the represented `home-net` LocalNetwork with node-01, `srv-01` and the personal phone `host-phone-001`, while `srv-02` is the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Myra's authored first-target mail communicates the phone address as historical text and creates no Discovery.
 
 `srv-01` owns RACK-OS 1.0, GateSSH 1.3.2 on its stable SSH Service, Basic HTTP, and its independent filesystem. GateSSH 1.3.2 derives `AUTH-017`; this weakness is never stored separately.
 

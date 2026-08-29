@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { openMailThread, sendMailReply } from '../../core/game/mail'
-import { MIRA_STAGING_ENDPOINT_ADDRESS, MIRA_STAGING_THREAD_ID } from '../../core/game/miraStagingCorrespondence'
+import { MYRA_FIRST_TARGET_ADDRESS, MYRA_FIRST_CONTACT_THREAD_ID } from '../../core/game/myraFirstContactCorrespondence'
 import type { GameState } from '../../core/game/types'
 import { Home } from '../../shell/Home'
 import { appEntries } from '../../shell/appRegistry'
@@ -25,14 +25,14 @@ function renderMail(initialState?: GameState) {
   return render(<GameProvider initialState={initialState}><Mail /><Capture /></GameProvider>)
 }
 
-async function openMiraThread() {
+async function openMyraThread() {
   const user = userEvent.setup()
   renderMail()
-  await user.click(screen.getByRole('button', { name: 'Open staging endpoint from Mira Keller' }))
+  await user.click(screen.getByRole('button', { name: 'Open something for you from Myra Keller' }))
   return user
 }
 
-const composer = () => screen.getByRole('textbox', { name: 'Reply to Mira Keller' }) as HTMLTextAreaElement
+const composer = () => screen.getByRole('textbox', { name: 'Reply to Myra Keller' }) as HTMLTextAreaElement
 /** The application surface only, so the state probe rendered beside it never satisfies a query. */
 const app = () => document.querySelector('.mail-app') as HTMLElement
 const launcher = () => screen.getByRole('button', { name: 'Open NodeMail' })
@@ -54,11 +54,11 @@ describe('NodeMail on Home', () => {
     renderHome()
     expect(within(launcher()).getByText('2 UNREAD')).toBeInTheDocument()
 
-    const read = openMailThread(createInitialGameState(), MIRA_STAGING_THREAD_ID)
+    const read = openMailThread(createInitialGameState(), MYRA_FIRST_CONTACT_THREAD_ID)
     renderHome(read)
     expect(within(launcher()).getByText('1 UNREAD')).toBeInTheDocument()
 
-    const sent = sendMailReply(read, MIRA_STAGING_THREAD_ID, 'address?')
+    const sent = sendMailReply(read, MYRA_FIRST_CONTACT_THREAD_ID, 'address?')
     if (sent.status !== 'sent') throw new Error(sent.status)
     renderHome(sent.state)
     // The reply the player just triggered is not a new unread message.
@@ -79,22 +79,22 @@ describe('Inbox', () => {
     expect(within(app()).getByText('2 UNREAD')).toBeInTheDocument()
 
     const rows = screen.getAllByRole('button', { name: /^Open / })
-    expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual(['NodeMail', 'Mira Keller'])
+    expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual(['NodeMail', 'Myra Keller'])
     expect(within(rows[0]).getByText('Welcome to NodeMail')).toBeInTheDocument()
     expect(within(rows[0]).getByText(/Your account user@node.mail is active/)).toBeInTheDocument()
-    expect(within(rows[1]).getByText('staging endpoint')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('something for you')).toBeInTheDocument()
     expect(rows.every((row) => within(row).getByText('UNREAD'))).toBe(true)
     expect(within(app()).queryByText(/MISSION|OBJECTIVE|REWARD|ACCEPT/i)).not.toBeInTheDocument()
   })
 
   it('projects the preview from canonical message state, not a stored preview field', async () => {
-    const user = await openMiraThread()
-    await user.type(composer(), 'ip?')
+    const user = await openMyraThread()
+    await user.type(composer(), 'interested')
     await user.click(screen.getByRole('button', { name: 'SEND' }))
     await user.click(screen.getByRole('button', { name: 'Back to inbox' }))
 
-    const miraRow = screen.getByRole('button', { name: 'Open staging endpoint from Mira Keller' })
-    expect(miraRow.querySelector('.mail-preview')?.textContent).toBe(`Use ${MIRA_STAGING_ENDPOINT_ADDRESS}. That's the staging endpoint I have.`)
+    const miraRow = screen.getByRole('button', { name: 'Open something for you from Myra Keller' })
+    expect(miraRow.querySelector('.mail-preview')?.textContent).toBe(`Alright. First one's free. Try ${MYRA_FIRST_TARGET_ADDRESS}. Consumer endpoint. Small operation. That's all I have.`)
     expect(captured().mail).not.toHaveProperty('threadPreview')
     expect(captured().mail.threads[1]).not.toHaveProperty('preview')
   })
@@ -107,7 +107,7 @@ describe('Inbox', () => {
 
     expect(within(app()).getByText('1 UNREAD')).toBeInTheDocument()
     const welcomeRow = screen.getByRole('button', { name: 'Open Welcome to NodeMail from NodeMail' })
-    const miraRow = screen.getByRole('button', { name: 'Open staging endpoint from Mira Keller' })
+    const miraRow = screen.getByRole('button', { name: 'Open something for you from Myra Keller' })
     expect(within(welcomeRow).queryByText('UNREAD')).not.toBeInTheDocument()
     expect(within(miraRow).getByText('UNREAD')).toBeInTheDocument()
     expect(welcomeRow.className).not.toBe(miraRow.className)
@@ -132,56 +132,56 @@ describe('Thread', () => {
   })
 
   it('distinguishes the player from the correspondent in the message history', async () => {
-    const user = await openMiraThread()
-    await user.type(composer(), 'what is the address?')
+    const user = await openMyraThread()
+    await user.type(composer(), "I'm interested")
     await user.click(screen.getByRole('button', { name: 'SEND' }))
 
     const messages = Array.from(document.querySelectorAll('.mail-message'))
     expect(messages.map((message) => message.querySelector('.mail-message-author')?.textContent))
-      .toEqual(['Mira Keller', 'YOU', 'Mira Keller'])
+      .toEqual(['Myra Keller', 'YOU', 'Myra Keller'])
     expect(messages[1].className).not.toBe(messages[2].className)
-    expect(messages[1]).toHaveTextContent('what is the address?')
-    expect(messages[2]).toHaveTextContent("Use 203.0.113.42. That's the staging endpoint I have.")
+    expect(messages[1]).toHaveTextContent("I'm interested")
+    expect(messages[2]).toHaveTextContent("Alright. First one's free. Try 198.51.100.61. Consumer endpoint. Small operation. That's all I have.")
   })
 
   it('accepts multiline free text, keeps Enter as a newline, and only sends on SEND', async () => {
-    const user = await openMiraThread()
+    const user = await openMyraThread()
     const input = composer()
     expect(input.tagName).toBe('TEXTAREA')
     expect(input).not.toHaveFocus()
 
     await user.click(input)
-    await user.keyboard('Mira —{Enter}what is the staging address?')
-    expect(input.value).toBe('Mira —\nwhat is the staging address?')
+    await user.keyboard('Myra —{Enter}send it')
+    expect(input.value).toBe('Myra —\nsend it')
     expect(captured().mail.messages).toHaveLength(2)
     expect(document.querySelectorAll('.mail-message')).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: 'SEND' }))
     const messages = captured().mail.messages
     expect(messages).toHaveLength(4)
-    expect(messages[2]).toEqual({ id: 'message-0003', threadId: MIRA_STAGING_THREAD_ID, sender: 'account', body: 'Mira —\nwhat is the staging address?' })
+    expect(messages[2]).toEqual({ id: 'message-0003', threadId: MYRA_FIRST_CONTACT_THREAD_ID, sender: 'account', body: 'Myra —\nsend it' })
     expect(composer().value).toBe('')
   })
 
   it('keeps SEND unavailable until the player has actually written something', async () => {
-    const user = await openMiraThread()
+    const user = await openMyraThread()
     expect(screen.getByRole('button', { name: 'SEND' })).toBeDisabled()
     await user.type(composer(), '   ')
     expect(screen.getByRole('button', { name: 'SEND' })).toBeDisabled()
-    await user.type(composer(), 'ip')
+    await user.type(composer(), 'yes')
     expect(screen.getByRole('button', { name: 'SEND' })).toBeEnabled()
   })
 
   it('keeps the whole exchange in history across navigation', async () => {
-    const user = await openMiraThread()
+    const user = await openMyraThread()
     await user.type(composer(), 'password?')
     await user.click(screen.getByRole('button', { name: 'SEND' }))
     await user.click(screen.getByRole('button', { name: 'Back to inbox' }))
-    await user.click(screen.getByRole('button', { name: 'Open staging endpoint from Mira Keller' }))
+    await user.click(screen.getByRole('button', { name: 'Open something for you from Myra Keller' }))
 
     expect(within(app()).getByText('password?')).toBeInTheDocument()
-    expect(within(app()).getByText("I'm not sending credentials over mail.")).toBeInTheDocument()
-    // Mira's thread now holds her opening message, the player's, and her answer.
+    expect(within(app()).getByText("I don't have credentials for you.")).toBeInTheDocument()
+    // Myra's thread now holds her opening message, the player's, and her answer.
     expect(within(app()).getByText('MESSAGES').parentElement).toHaveTextContent('3')
     expect(document.querySelectorAll('.mail-message')).toHaveLength(3)
   })
@@ -189,15 +189,15 @@ describe('Thread', () => {
 
 describe('communicated address affordance', () => {
   it('offers copying the communicated address and nothing that acts on the World', async () => {
-    const user = await openMiraThread()
+    const user = await openMyraThread()
     await user.type(composer(), 'address?')
     await user.click(screen.getByRole('button', { name: 'SEND' }))
 
-    const address = screen.getByRole('button', { name: `Copy address ${MIRA_STAGING_ENDPOINT_ADDRESS}` })
+    const address = screen.getByRole('button', { name: `Copy address ${MYRA_FIRST_TARGET_ADDRESS}` })
     const writeText = vi.spyOn(navigator.clipboard, 'writeText')
     const before = captured()
     await user.click(address)
-    expect(writeText).toHaveBeenCalledExactlyOnceWith(MIRA_STAGING_ENDPOINT_ADDRESS)
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(MYRA_FIRST_TARGET_ADDRESS)
     expect(captured()).toEqual(before)
     expect(captured().discovery).toEqual(createInitialGameState().discovery)
 
@@ -230,7 +230,7 @@ describe('NodeMail presentation contract', () => {
     // While the Shell is in editing presentation a vertical gesture outside a
     // declared scroll owner is refused, so re-reading the thread mid-reply
     // depends on the thread surface declaring itself one.
-    await openMiraThread()
+    await openMyraThread()
     const surface = app()
     expect(surface).toHaveAttribute('data-editing-scroll-owner')
     expect(composer()).toHaveAttribute('data-editing-scroll-owner')
