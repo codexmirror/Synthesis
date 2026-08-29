@@ -133,7 +133,8 @@ node-miner help
 node-miner run --payout <address>
 node-miner status
 node-miner stop
-node-miner payout <address>
+node-miner payout
+node-miner config payout <address>
 ```
 
 Terminal supports:

@@ -43,7 +43,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     openMailThread: () => {}, sendMailReply: () => ({ status: 'thread_unavailable', state }),
     clearRecentActivity: () => {}, removeRecentActivity: () => {}, authenticateDollarAccount: () => ({ status: 'invalid_credentials', state }), authenticateDollarAccountWithSavedSignIn: () => ({ status: 'no_saved_sign_in', state }), logoutDollarAccount: () => ({ status: 'not_signed_in', state }), transferDollars: () => ({ status: 'not_signed_in', state }), transferRemoteDollars: () => ({ status: 'session_unavailable', state }), cancelFileTransfer: () => ({ status: 'not_found', state }), cancelLocalProcess: () => ({ status: 'not_cancellable', state }),
     runNodeMiner: () => ({ status: 'source_not_found', state }), stopNodeMiner: () => ({ status: 'not_found', state }),
-    runRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), stopRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: () => ({ status: 'session_unavailable', state }),
+    runRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), stopRemoteNodeMiner: () => ({ status: 'session_unavailable', state }), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: () => ({ status: 'session_unavailable', state }),
   }
   vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
   vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
@@ -250,7 +250,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), sweepTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
-      startCredentialAccessAttemptFromObservation, submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+      startCredentialAccessAttemptFromObservation, submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
@@ -389,14 +389,14 @@ describe('Terminal NODE Miner CLI', () => {
     expect(screen.getByText('ALREADY RUNNING')).toBeInTheDocument()
   }, 15_000)
 
-  it('retargets a local run in place through the shared payout command', async () => {
+  it('configures payout for a local run in place without restarting it', async () => {
     const state = installedState()
     render(<GameProvider initialState={state}><Terminal /></GameProvider>)
     const user = userEvent.setup(); const input = screen.getByLabelText('Command input')
 
     await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
-    await user.type(input, 'node-miner payout node-addr-local-retarget{enter}')
-    expect(screen.getByText('PAYOUT RETARGETED')).toBeInTheDocument()
+    await user.type(input, 'node-miner config payout node-addr-local-retarget{enter}')
+    expect(screen.getByText('PAYOUT CONFIGURED')).toBeInTheDocument()
     expect(screen.getAllByText('PROCESS process-0001')).toHaveLength(2)
 
     await user.type(input, 'node-miner status{enter}')

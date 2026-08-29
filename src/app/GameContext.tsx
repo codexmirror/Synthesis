@@ -13,7 +13,7 @@ import { findInstalledNodeScan } from '../core/game/software'
 import { cancelFileTransfer, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
 import { installLocalSoftwarePackage, installRemoteSoftwarePackage, type InstallLocalSoftwarePackageResult, type InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
 import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
-import { retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type RetargetLocalNodeMinerPayoutResult, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
+import { payoutLocalNodeMiner, payoutNodeMiner, retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type PayoutNodeMinerResult, type RetargetLocalNodeMinerPayoutResult, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
 import type { InstalledSoftware } from '../core/game/types'
 import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
 import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
@@ -48,6 +48,8 @@ export interface GameActions {
   stopRemoteNodeMiner(processId: string): StopRemoteNodeMinerResult
   retargetLocalNodeMinerPayout(payoutAddress: string): RetargetLocalNodeMinerPayoutResult
   retargetNodeMinerPayout(payoutAddress: string): RetargetNodeMinerPayoutResult
+  payoutLocalNodeMiner(): PayoutNodeMinerResult
+  payoutNodeMiner(): PayoutNodeMinerResult
   authenticateDollarAccount(loginIdentifier: string, password: string): AuthenticateDollarAccountResult
   authenticateDollarAccountWithSavedSignIn(): AuthenticateWithSavedDollarSignInResult
   logoutDollarAccount(): LogoutDollarAccountResult
@@ -216,6 +218,14 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, retargetNodeMinerPayout(payoutAddress) {
     const result = retargetNodeMinerPayout(currentState.current, payoutAddress)
+    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, payoutLocalNodeMiner() {
+    const result = payoutLocalNodeMiner(currentState.current)
+    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, payoutNodeMiner() {
+    const result = payoutNodeMiner(currentState.current)
     if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
     return result
   }, authenticateDollarAccount(loginIdentifier, password) {

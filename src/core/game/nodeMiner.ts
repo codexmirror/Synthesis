@@ -31,7 +31,6 @@ export const NODE_MINER_EXECUTABLE_SIZE_BYTES = 2_100_000
  */
 export const NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS = 'node-addr-9f31c7a4d2'
 export const NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT = 33
-export const NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS = 1_000
 
 /**
  * Exactly what NODE Miner execution needs from the Device it runs on:
@@ -192,12 +191,12 @@ function resolveRemoteNodeMinerExecutor(host: NetworkHost): NodeMinerExecutor | 
   return { id: host.id, filesystem: host.filesystem, hardware: host.hardware, runtime: host.runtime }
 }
 
-export type StopNodeMinerResult = { readonly status: 'stopped' | 'not_found'; readonly state: GameState }
-export type StopRemoteNodeMinerResult = { readonly status: 'stopped' | 'not_found' | OperatedDeviceFailure; readonly state: GameState }
+export type StopNodeMinerResult = { readonly status: 'stopped'; readonly state: GameState; readonly settledGrossNodeUnits: number; readonly payoutNodeUnits: number } | { readonly status: 'not_found'; readonly state: GameState }
+export type StopRemoteNodeMinerResult = { readonly status: 'stopped'; readonly state: GameState; readonly settledGrossNodeUnits: number; readonly payoutNodeUnits: number } | { readonly status: 'not_found' | OperatedDeviceFailure; readonly state: GameState }
 
 /**
- * STOP removes the running Miner immediately: zero elapsed simulation time,
- * zero additional mining work, no hidden final reward, and immediate
+ * STOP settles accrued production and removes the running Miner atomically:
+ * zero elapsed simulation time, zero additional mining work, and immediate
  * release of its RAM/CPU allocation. A final observation is archived without
  * keeping it in the scheduler; global Process ID progression is
  * untouched, so a later RUN receives a new Process identity. This local
@@ -206,14 +205,16 @@ export type StopRemoteNodeMinerResult = { readonly status: 'stopped' | 'not_foun
 export function stopNodeMiner(state: GameState, processId: string): StopNodeMinerResult {
   const process = state.process.processes.find(({ id }) => id === processId)
   if (!process || process.kind !== 'node_miner' || process.status !== 'running' || process.executorDeviceId !== state.player.localDevice.id) return { status: 'not_found', state }
-  const withoutRuntime = { ...state, process: { ...state.process, processes: state.process.processes.filter(({ id }) => id !== processId) } }
-  return { status: 'stopped', state: archiveProcess(withoutRuntime, process) }
+  const settlement = settleNodeMinerOnExecutor(state, state.player.localDevice.id)
+  const settledProcess = findRunningNodeMiner(settlement.state, state.player.localDevice.id)!
+  const withoutRuntime = { ...settlement.state, process: { ...settlement.state.process, processes: settlement.state.process.processes.filter(({ id }) => id !== processId) } }
+  return { status: 'stopped', state: archiveProcess(withoutRuntime, settledProcess), settledGrossNodeUnits: settlement.status === 'paid' ? settlement.settledGrossNodeUnits : 0, payoutNodeUnits: settlement.status === 'paid' ? settlement.payoutNodeUnits : 0 }
 }
 
 /**
  * STOP for a Miner running on the Device currently operated through RACK-OS.
  * It removes exactly that Device's Miner — never the player's own — with the
- * same immediate release and absence of any final reward as local STOP.
+ * same final settlement and immediate release as local STOP.
  *
  * It archives nothing. Recent Activity is the local Device's own runtime
  * observation (the Activity Monitor filters both its history and its CLEAR
@@ -227,7 +228,56 @@ export function stopRemoteNodeMiner(state: GameState, processId: string): StopRe
   if (operated.status !== 'ok') return { status: operated.status, state }
   const process = state.process.processes.find(({ id }) => id === processId)
   if (!process || process.kind !== 'node_miner' || process.status !== 'running' || process.executorDeviceId !== operated.target.id) return { status: 'not_found', state }
-  return { status: 'stopped', state: { ...state, process: { ...state.process, processes: state.process.processes.filter(({ id }) => id !== processId) } } }
+  const settlement = settleNodeMinerOnExecutor(state, operated.target.id)
+  return { status: 'stopped', state: { ...settlement.state, process: { ...settlement.state.process, processes: settlement.state.process.processes.filter(({ id }) => id !== processId) } }, settledGrossNodeUnits: settlement.status === 'paid' ? settlement.settledGrossNodeUnits : 0, payoutNodeUnits: settlement.status === 'paid' ? settlement.payoutNodeUnits : 0 }
+}
+
+export type PayoutNodeMinerResult =
+  | { readonly status: 'paid'; readonly state: GameState; readonly processId: string; readonly settledGrossNodeUnits: number; readonly payoutNodeUnits: number }
+  | { readonly status: 'nothing_unpaid'; readonly state: GameState; readonly processId: string }
+  | { readonly status: 'not_running' | OperatedDeviceFailure; readonly state: GameState }
+
+function settleNodeMinerOnExecutor(state: GameState, executorDeviceId: string): PayoutNodeMinerResult {
+  const process = findRunningNodeMiner(state, executorDeviceId)
+  if (!process) return { status: 'not_running', state }
+  const previouslySettledGross = process.payoutNodeUnits + process.developerFeeNodeUnits
+  const settledGrossNodeUnits = process.producedNodeUnits - previouslySettledGross
+  if (settledGrossNodeUnits <= 0) return { status: 'nothing_unpaid', state, processId: process.id }
+
+  const developer = releaseDeveloperPayout(process.releaseId, process.producedNodeUnits)
+  const cumulativeDeveloper = developer?.feeNodeUnits ?? 0
+  const developerDelta = cumulativeDeveloper - process.developerFeeNodeUnits
+  const cumulativePayout = process.producedNodeUnits - cumulativeDeveloper
+  const payoutNodeUnits = cumulativePayout - process.payoutNodeUnits
+  let recipients: NodeRecipients = creditNodeAddress({ nodeWallet: state.nodeWallet, nodeEconomy: state.nodeEconomy }, process.payoutAddress, payoutNodeUnits)
+  if (developer) recipients = creditNodeAddress(recipients, developer.address, developerDelta)
+  const settled: NodeMinerProcess = {
+    ...process,
+    payoutNodeUnits: cumulativePayout,
+    developerFeeNodeUnits: cumulativeDeveloper,
+    segmentPayoutNodeUnits: process.segmentPayoutNodeUnits + payoutNodeUnits,
+    segmentDeveloperFeeNodeUnits: process.segmentDeveloperFeeNodeUnits + developerDelta,
+  }
+  const record = {
+    processId: process.id, payoutSegment: process.payoutSegment,
+    grossNodeUnits: settled.segmentPayoutNodeUnits + settled.segmentDeveloperFeeNodeUnits,
+    payoutAddress: process.payoutAddress, payoutNodeUnits: settled.segmentPayoutNodeUnits,
+    ...(developer ? { developerAddress: developer.address, developerFeeNodeUnits: settled.segmentDeveloperFeeNodeUnits } : {}),
+  }
+  let player = state.player
+  let world = state.world
+  if (executorDeviceId === state.player.localDevice.id) player = { ...player, localDevice: { ...player.localDevice, filesystem: recordNodeMinerPayout(player.localDevice.filesystem, record) } }
+  else {
+    const host = state.world.network.hosts.find(({ id }) => id === executorDeviceId)
+    if (host?.filesystem) world = { ...world, network: { ...world.network, hosts: world.network.hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem: recordNodeMinerPayout(host.filesystem!, record) } : candidate) } }
+  }
+  return { status: 'paid', processId: process.id, settledGrossNodeUnits, payoutNodeUnits, state: { ...state, nodeWallet: recipients.nodeWallet, nodeEconomy: recipients.nodeEconomy, player, world, process: { ...state.process, processes: state.process.processes.map((candidate) => candidate.id === process.id ? settled : candidate) } } }
+}
+
+export function payoutLocalNodeMiner(state: GameState): PayoutNodeMinerResult { return settleNodeMinerOnExecutor(state, state.player.localDevice.id) }
+export function payoutNodeMiner(state: GameState): PayoutNodeMinerResult {
+  const operated = resolveOperatedDevice(state)
+  return operated.status === 'ok' ? settleNodeMinerOnExecutor(state, operated.target.id) : { status: operated.status, state }
 }
 
 export type RetargetNodeMinerPayoutResult =
@@ -259,9 +309,8 @@ export function retargetLocalNodeMinerPayout(state: GameState, payoutAddress: st
  * ownership, every accumulated economic counter and the pending fractional
  * work all survive it untouched. It consumes no simulation time, performs no
  * final payout, creates no second Process, and creates no STOP or RUN.
- * Production already routed stays exactly where it went; only payout batches
- * that complete after this instant follow the new address — pending
- * production is deliberately not reset merely because configuration changed.
+ * Production already routed stays exactly where it went; only settlements performed after this instant follow the new address;
+ * accrued production is deliberately not reset merely because configuration changed.
  *
  * It is lower-noise than STOP followed by RUN, not invisible: the Process
  * keeps reporting its current address to anything legitimately observing it,
@@ -277,9 +326,8 @@ export function retargetNodeMinerPayout(state: GameState, payoutAddress: string)
 /**
  * Cumulative deterministic integer allocation of gross production.
  *
- * Only completed fixed-size gross batches are allocated, so totals and
- * economic events depend only on cumulative production and never on how
- * advancement was chunked. Canonical currency stays integer throughout.
+ * Allocation is calculated from cumulative settled gross so manual payout
+ * frequency cannot change rounding. Canonical currency stays integer.
  *
  * Only the unofficial NODE Miner 1.0 release diverts anything, and only it
  * carries an embedded developer address; any other release routes its full
@@ -294,8 +342,8 @@ export function releaseDeveloperPayout(releaseId: string, grossNodeUnits: number
  * Converts each running Miner's newly accumulated fractional compute-work
  * (`workRemainder`, produced by the shared executor advancement in
  * `processes.ts`) into whole atomic NODE units of gross production, then
- * routes that gross production according to the behavior of the release
- * that Process is actually running.
+ * accrues it without routing any economic value. PAYOUT and STOP settlement
+ * are the only routing operations for this experimental release.
  *
  * Production and payout are deliberately distinct events. A Miner always
  * accumulates gross `producedNodeUnits` from its own compute; the running
@@ -312,9 +360,6 @@ export function releaseDeveloperPayout(releaseId: string, grossNodeUnits: number
  * `executorDeviceId` alone.
  */
 export function resolveNodeMinerProduction(state: GameState): GameState {
-  let recipients: NodeRecipients = { nodeWallet: state.nodeWallet, nodeEconomy: state.nodeEconomy }
-  let localDevice = state.player.localDevice
-  let hosts = state.world.network.hosts
   let changed = false
 
   const processes = state.process.processes.map((process) => {
@@ -323,58 +368,13 @@ export function resolveNodeMinerProduction(state: GameState): GameState {
     changed = true
     const workRemainder = process.workRemainder - wholeUnits * NODE_MINER_COMPUTE_SECONDS_PER_UNIT
     const producedNodeUnits = process.producedNodeUnits + wholeUnits
-    const previouslyPaidGross = process.payoutNodeUnits + process.developerFeeNodeUnits
-    const completedGross = Math.floor(producedNodeUnits / NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS) * NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS
-    const completedBatches = (completedGross - previouslyPaidGross) / NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS
-    const developer = releaseDeveloperPayout(process.releaseId, NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS)
-    const developerPerBatch = developer?.feeNodeUnits ?? 0
-    const payoutPerBatch = NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS - developerPerBatch
-
-    // Route batches individually so Wallet activity represents payout events,
-    // independent of how elapsed simulation time was chunked.
-    for (let batch = 0; batch < completedBatches; batch += 1) {
-      recipients = creditNodeAddress(recipients, process.payoutAddress, payoutPerBatch)
-      if (developer) recipients = creditNodeAddress(recipients, developer.address, developerPerBatch)
-    }
-    const payoutNodeUnits = process.payoutNodeUnits + completedBatches * payoutPerBatch
-    const developerFeeNodeUnits = process.developerFeeNodeUnits + completedBatches * developerPerBatch
-    /* The artifact records the current payout routing segment rather than the
-       whole run, so a Process that retargeted its payout address never
-       presents earlier payouts as having gone to the address configured now. */
-    const segmentPayoutNodeUnits = process.segmentPayoutNodeUnits + completedBatches * payoutPerBatch
-    const segmentDeveloperFeeNodeUnits = process.segmentDeveloperFeeNodeUnits + completedBatches * developerPerBatch
-    if (completedBatches > 0) {
-      const record = {
-        processId: process.id,
-        payoutSegment: process.payoutSegment,
-        grossNodeUnits: segmentPayoutNodeUnits + segmentDeveloperFeeNodeUnits,
-        payoutAddress: process.payoutAddress,
-        payoutNodeUnits: segmentPayoutNodeUnits,
-        ...(developer ? { developerAddress: developer.address, developerFeeNodeUnits: segmentDeveloperFeeNodeUnits } : {}),
-      }
-      // The payout artifact belongs to the Device that ran the work, never implicitly to node-01.
-      if (process.executorDeviceId === localDevice.id) {
-        localDevice = { ...localDevice, filesystem: recordNodeMinerPayout(localDevice.filesystem, record) }
-      } else {
-        const host = hosts.find(({ id }) => id === process.executorDeviceId)
-        if (host?.filesystem) {
-          const filesystem = recordNodeMinerPayout(host.filesystem, record)
-          if (filesystem !== host.filesystem) hosts = hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem } : candidate)
-        }
-      }
-    }
-
-    return { ...process, workRemainder, producedNodeUnits, payoutNodeUnits, developerFeeNodeUnits, segmentPayoutNodeUnits, segmentDeveloperFeeNodeUnits }
+    return { ...process, workRemainder, producedNodeUnits }
   })
 
   if (!changed) return state
   return {
     ...state,
     process: { ...state.process, processes },
-    nodeWallet: recipients.nodeWallet,
-    nodeEconomy: recipients.nodeEconomy,
-    player: localDevice === state.player.localDevice ? state.player : { ...state.player, localDevice },
-    world: hosts === state.world.network.hosts ? state.world : { ...state.world, network: { ...state.world.network, hosts } },
   }
 }
 
@@ -417,8 +417,7 @@ export function deriveNodeMinerRuntimeStatus(state: GameState, executor: Pick<No
   return {
     processId: process.id, cpuPercent, ramMiB: process.ramRequiredMiB, payoutAddress: process.payoutAddress,
     producedUnits: process.producedNodeUnits,
-    pendingUnits: process.producedNodeUnits % NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS,
-    payoutBatchGrossUnits: NODE_MINER_1_0_PAYOUT_BATCH_GROSS_UNITS,
+    unpaidUnits: process.producedNodeUnits - process.payoutNodeUnits - process.developerFeeNodeUnits,
     ratePerSecondUnits: executor.hardware.cpu.computeCapacity * cpuPercent / 100 / NODE_MINER_COMPUTE_SECONDS_PER_UNIT,
   }
 }

@@ -34,39 +34,13 @@ cumulative whole gross `producedNodeUnits` on the Process.
 
 ## Payout behavior of NODE Miner 1.0
 
-Payout is a separate, same-step concern owned by the release that is
-actually running. NODE Miner 1.0 is a concrete unofficial third-party
-release: its package and installed-software provenance state the
-`unofficial` channel and the `nm-dev` publisher, and its real hidden
-behavior batches gross production in completed 1,000-unit increments, routing
-670 units from each batch to the configured payout address and diverting 330
-units (33%) to one NODE address embedded in the build
-(`NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS`). This is a property of that one
-release, not a rule of NODE mining or a configurable fee/payout framework: a
-future release may divert nothing. Gross production is never redefined
-downward — the Process carries `producedNodeUnits` (gross),
-`payoutNodeUnits`, and `developerFeeNodeUnits`. The latter two describe only
-completed payout batches; their difference from gross is pending production.
-Each batch is one economic event, so the same total gross production produces
-identical 670/330 payout events however advancement is chunked.
+Production and settlement are separate concerns owned by the concrete release. NODE Miner 1.0 is an unofficial experimental third-party release: whole gross production accumulates continuously in `producedNodeUnits`, but crossing 1,000 units or any other threshold performs no automatic payout. `producedNodeUnits - payoutNodeUnits - developerFeeNodeUnits` is the canonical unpaid gross amount.
 
-Each allocation then reaches a represented economic recipient only when one
-currently holds that exact address by exact string match (accepted address
-text is retained without normalization): the local NODE Wallet, or a
-represented `NodeEconomy` account. Exactly one represented recipient must
-match; ambiguous duplicate addresses credit nobody. There is no fallback
-recipient — a Miner configured with a foreign address credits the local Wallet
-nothing while still diverting the developer share, and NODE routed to an
-address no represented recipient holds simply never arrives. Unrouted
-allocation is never retried or retroactively credited if the Wallet address
-later happens to match.
+Explicit PAYOUT settles every currently unpaid whole unit while leaving the same Process running. The release routes the operator allocation to the Process's current configured address and diverts 33% to `NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS`. Developer allocation is calculated from cumulative settled gross and each settlement routes only the delta, so one payout and arbitrarily many small payouts produce identical cumulative integer allocation. A zero-unpaid payout is a no-op and creates neither money, Wallet activity, nor payout-log history.
 
-Where the Miner is executing changes none of this. A Miner admitted onto a
-Device operated through RACK-OS produces from *that* Device's actual allocated
-compute and routes what it produces through these same exact-address rules, so
-a foreign machine can pay the player's own Wallet, some other represented
-account, or nobody at all on exactly the same terms node-01's Miner does.
+STOP first performs that same final settlement, without producing work or consuming simulation time, and then removes the runtime. Local STOP archives the settled Process in local Recent Activity; remote STOP creates no node-01 Recent Activity. Automatic payout is absent from this release; a future release may provide release-specific automation.
 
+Exact-address recipient routing remains unchanged: exactly one represented matching Wallet or NODE account is credited; ambiguous or absent recipients receive nothing, with no fallback or later retry. Executor location changes none of these economic rules.
 
 ## Live payout retarget
 
@@ -80,15 +54,13 @@ It is a configuration change, not a lifecycle event. The Process ID,
 `executorDeviceId`, `programId`/`releaseId`, RAM ownership, `producedNodeUnits`,
 `payoutNodeUnits`, `developerFeeNodeUnits` and the fractional `workRemainder`
 all survive untouched; it consumes zero simulation time, performs no final
-payout, creates no second Process, and fabricates no STOP or RUN. Pending
+payout, creates no second Process, and fabricates no STOP or RUN. Unpaid
 production is deliberately *not* reset merely because configuration changed, so
-the next batch completes from work partly produced under the previous address
-and routes wholly to the new one — future completed payout batches follow the
-new address and nothing else does. Everything already routed stays exactly
+the next explicit or final settlement routes all then-unpaid production to the new address; earlier settlements remain immutable. Everything already routed stays exactly
 where it went; past economic consequences are immutable. Setting the address
 the Miner already has is a no-op that changes nothing. The running release's
 payout behavior is unaffected: NODE Miner 1.0 keeps diverting its embedded 33%
-from every batch, before and after.
+from every settlement, before and after.
 
 It is lower-noise than STOP followed by RUN, not invisible. The Process never
 ends, so no stopped Miner appears in Recent Activity and Process identity stays
@@ -98,10 +70,9 @@ about what each address was actually paid. No surface hides or rewrites
 canonical truth to make the change stealthy, and no detection, forensic, or
 alert state exists to hide it from.
 
-Both NODE-OS and RACK-OS expose it through the shared `node-miner payout
-<address>` product command; that registered software command owns no state of its own and
+Both NODE-OS and RACK-OS expose it through the shared `node-miner config payout <address>` product command; that registered software command owns no state of its own and
 reports exactly what the canonical
-operation returned (`PAYOUT RETARGETED` with the unchanged Process ID and the
+operation returned (`PAYOUT CONFIGURED` with the unchanged Process ID and the
 new address, or `NOT RUNNING`, `INVALID PAYOUT ADDRESS`, `SESSION UNAVAILABLE`,
 `TARGET OFFLINE`). It remains absent from RACK-OS Files: this is the software
 Terminal integration's deeper control path, not a graphical convenience.
@@ -116,7 +87,7 @@ running on `srv-01` maintains `srv-01`'s artifact and never node-01's, and a
 local Miner still maintains node-01's; two Miners mining at once each record
 only their own run, on their own Device.
 
-It is created by the first completed payout batch rather than seeded, and keeps
+It is created by the first settlement rather than seeded, and keeps
 one running-total line per **payout routing segment** — the period during which
 one configured payout address has been in effect. A line is
 `<processId>#<segment> gross=<n> payout=<n> payout-address=<address> fee=<n>
@@ -131,7 +102,7 @@ previous address's line is frozen with what that address was actually paid and
 the new address's payouts append a new line: no line can ever present an earlier
 payout as having gone to an address configured later. Segments are an accounting
 boundary only — no Process ends, starts, or loses accumulated work at one — and
-nothing is written for a segment that never completed a payout batch, because
+nothing is written for a segment that never completed a settlement, because
 the artifact still records only real payouts.
 
 Retention is bounded to the most recent 8 segments, oldest evicted first,
@@ -146,8 +117,7 @@ activity) intact, and Files and Terminal observe it like any other file.
 
 NODE-OS and RACK-OS Terminal expose one shared application/presentation-level
 NODE Miner integration under the same `node-miner` product command. Its product
-syntax and result presentation are implemented once: `help`, `run --payout
-<address>`, `status`, `stop`, and `payout <address>`. Firmware continues to own
+syntax and result presentation are implemented once: `help`, `run --payout <address>`, `status`, `payout`, `config payout <address>`, and `stop`. Firmware continues to own
 each distinct Terminal surface and its built-ins; command metadata is not
 release-authored and no plugin or compatibility system exists.
 
@@ -162,11 +132,11 @@ without registering it.
 RUN resolves the executable from the bound Device and delegates to the existing
 local or Session-authorized remote operation. STATUS uses one NODE Miner-specific
 derived runtime view for Process ID, actual CPU allocation, RAM, payout address,
-gross and pending production, and current production rate. STOP preserves its
+gross and unpaid production, and current production rate. STOP preserves its
 context-specific consequence: local STOP enters local Recent Activity, while
 remote STOP creates no node-01 history. PAYOUT changes only the bound Device's
 running Miner through separate local and remote public authority boundaries;
-the shared internal mutation preserves Process identity, counters, pending work,
+the shared internal mutation preserves Process identity, counters, accrued and fractional work,
 and truthful payout routing segments. Local and remote Miners therefore remain
 fully independent even while both run simultaneously. NodeScan remote execution
 or source-Device-aware observation is not part of this integration.
@@ -217,7 +187,7 @@ Wallet state is separate from player and Device identity.
   the economy. Do not generalize the 670/330 split into a fee engine or
   payout-policy framework.
 - A live payout retarget never moves, re-routes, or re-labels NODE that already
-  arrived. It changes only where later completed batches go.
+  arrived. It changes only where later settlements go.
 - The payout artifact belongs to the Device that executed the work, resolved
   through `executorDeviceId`. Writing a remote Miner's payouts to node-01, or a
   local Miner's to a server, is a bug.

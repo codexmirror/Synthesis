@@ -457,26 +457,26 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
     expect(fact(minerCard, 'CPU')).toBe('82%')
     expect(fact(minerCard, 'RAM')).toBe('512 MiB')
     expect(fact(minerCard, 'PRODUCED')).toBe('0 units')
-    expect(fact(minerCard, 'PENDING')).toBe('0 / 1,000 units')
+    expect(fact(minerCard, 'UNPAID')).toBe('0 units')
     expect(within(minerCard).getByText('node-wallet-addr-0001')).toBeInTheDocument()
     expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
   })
 
-  it('derives gross produced and pending batch progress from real deterministic elapsed compute', () => {
+  it('derives gross produced and unpaid production from real deterministic elapsed compute', () => {
     const advanced = advanceGameState(minerState(), 3000)
     render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
     const minerCard = card('NODE MINER')
     // node-01: computeCapacity 100, baseline 18% -> ~82 atomic NODE units/s allocated while running alone.
     expect(fact(minerCard, 'PRODUCED')).toBe('246 units')
-    expect(fact(minerCard, 'PENDING')).toBe('246 / 1,000 units')
+    expect(fact(minerCard, 'UNPAID')).toBe('246 units')
   })
 
-  it('presents the same pending production whether or not the address matches the represented Wallet', () => {
+  it('presents the same unpaid production whether or not the address matches the represented Wallet', () => {
     const advanced = advanceGameState(minerState('an-unmatched-fictional-address'), 3000)
     render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
     const minerCard = card('NODE MINER')
     expect(fact(minerCard, 'PRODUCED')).toBe('246 units')
-    expect(fact(minerCard, 'PENDING')).toBe('246 / 1,000 units')
+    expect(fact(minerCard, 'UNPAID')).toBe('246 units')
     expect(within(minerCard).getByText('an-unmatched-fictional-address')).toBeInTheDocument()
   })
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { GameProvider } from '../../app/GameContext'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { createInitialGameState } from '../../core/game/initialState'
-import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, startNodeMiner } from '../../core/game/nodeMiner'
+import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, payoutLocalNodeMiner, startNodeMiner } from '../../core/game/nodeMiner'
 import type { ExecutableFile, GameState } from '../../core/game/types'
 import { Wallet } from './Wallet'
 
@@ -16,6 +16,11 @@ function minedState(elapsedMs: number): GameState {
   const started = startNodeMiner(withFile, minerFile.path, withFile.nodeWallet.address)
   if (started.status !== 'started') throw new Error(started.status)
   return advanceGameState(started.state, elapsedMs)
+}
+
+/** Accrue real Device-owned production, then explicitly settle it through the canonical Miner operation. */
+function settledMiningState(elapsedMs: number): GameState {
+  return payoutLocalNodeMiner(minedState(elapsedMs)).state
 }
 
 /**
@@ -105,7 +110,7 @@ describe('Wallet NODE section', () => {
   })
 
   it('presents the real NODE this Wallet received rather than an empty state', () => {
-    render(<GameProvider initialState={minedState(10_000)}><Wallet /></GameProvider>)
+    render(<GameProvider initialState={settledMiningState(10_000)}><Wallet /></GameProvider>)
     expect(screen.getByText('NODE ACTIVITY')).toBeInTheDocument()
     expect(screen.getByText('+670 units')).toBeInTheDocument()
     expect(screen.getByText('MINING PAYOUT')).toBeInTheDocument()
@@ -113,7 +118,10 @@ describe('Wallet NODE section', () => {
   })
 
   it('derives NODE activity from canonical Wallet state, newest first', () => {
-    const state = advanceGameState(minedState(10_000), 20_000)
+    let state = minedState(10_000)
+    state = payoutLocalNodeMiner(state).state
+    state = payoutLocalNodeMiner(advanceGameState(state, 10_000)).state
+    state = payoutLocalNodeMiner(advanceGameState(state, 10_000)).state
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
     expect(state.nodeWallet.activity.records.map(({ amountNodeUnits }) => amountNodeUnits)).toEqual([670, 670, 670])
     expect(screen.getAllByText(/^\+[\d,]+ units$/).map((element) => element.textContent)).toEqual(['+670 units', '+670 units', '+670 units'])
@@ -125,7 +133,7 @@ describe('Wallet NODE section', () => {
   })
 
   it('never reveals the hidden developer destination or claims anything about what a payer kept', () => {
-    const state = minedState(10_000)
+    const state = settledMiningState(10_000)
     render(<GameProvider initialState={state}><Wallet /></GameProvider>)
     const wallet = document.querySelector('.wallet-app') as HTMLElement
     expect(state.nodeEconomy.accounts[0].balanceNodeUnits).toBe(330)
@@ -151,7 +159,7 @@ describe('Wallet NODE section', () => {
 
   it('leaves NODE untouched when Dollars move', async () => {
     const user = userEvent.setup()
-    render(<GameProvider initialState={withRecipient(minedState(10_000))}><Wallet /></GameProvider>)
+    render(<GameProvider initialState={withRecipient(settledMiningState(10_000))}><Wallet /></GameProvider>)
     await send(user, RECIPIENT.accountReference, '25.00')
     await confirmSend(user)
     expect(screen.getByText('+670 units')).toBeInTheDocument()

@@ -34,7 +34,7 @@ const context: CommandContext = {
     connectAddress: () => ({ status: 'target_not_known' }),
     disconnectRemote: () => ({ status: 'not_connected' }),
     installLocalSoftwarePackage: () => ({ status: 'package_not_found' }),
-    nodeMiner: { run: () => ({ status: 'unavailable' }), status: () => ({ status: 'idle' }), stop: () => ({ status: 'not_running' }), payout: () => ({ status: 'not_running' }) },
+    nodeMiner: { run: () => ({ status: 'unavailable' }), status: () => ({ status: 'idle' }), stop: () => ({ status: 'not_running' }), payout: () => ({ status: 'not_running' }), configurePayout: () => ({ status: 'not_running' }) },
   },
 }
 const dispatch = (input: string) => dispatchCommand(parseCommand(input), context) as CommandResult
@@ -300,7 +300,7 @@ describe('node-miner command', () => {
     const available = { ...context, nodeMiner: { available: true } }
     expect(dispatchCommand(parseCommand('node-miner help'), available)).toEqual({
       type: 'output',
-      lines: ['NODE MINER', '', 'node-miner help', 'node-miner run --payout <address>', 'node-miner status', 'node-miner stop', 'node-miner payout <address>'],
+      lines: ['NODE MINER', '', 'node-miner help', 'node-miner run --payout <address>', 'node-miner status', 'node-miner payout', 'node-miner config payout <address>', 'node-miner stop'],
     })
     expect(dispatchCommand(parseCommand('node-miner'), available)).toEqual(dispatchCommand(parseCommand('node-miner help'), available))
   })
@@ -337,26 +337,26 @@ describe('node-miner command', () => {
 
     const localNodeMinerStatus = vi.fn(() => ({
       status: 'running' as const, processId: 'process-0004', cpuPercent: 82.4, ramMiB: 512,
-      payoutAddress: 'addr-1', producedUnits: 4281, pendingUnits: 281, payoutBatchGrossUnits: 1000, ratePerSecondUnits: 82.3,
+      payoutAddress: 'addr-1', producedUnits: 4281, unpaidUnits: 281, ratePerSecondUnits: 82.3,
     }))
     const result = dispatchCommand(parseCommand('node-miner status'), { ...available, operations: { ...available.operations, nodeMiner: { ...available.operations.nodeMiner, status: localNodeMinerStatus } } })
     expect(localNodeMinerStatus).toHaveBeenCalledOnce()
     expect(result).toEqual({
       type: 'output',
-      lines: ['STATUS   RUNNING', 'PROCESS  process-0004', 'CPU      82%', 'RAM      512 MiB', 'ADDRESS  addr-1', 'PRODUCED 4,281 units', 'PENDING  281 / 1,000 units', 'RATE     82 units/s'],
+      lines: ['STATUS   RUNNING', 'PROCESS  process-0004', 'CPU      82%', 'RAM      512 MiB', 'ADDRESS  addr-1', 'PRODUCED 4,281 units', 'UNPAID   281 units', 'RATE     82 units/s'],
     })
   })
 
   it('retargets payout through the same product command contract', () => {
-    const payout = vi.fn(() => ({ status: 'retargeted' as const, processId: 'process-0004', payoutAddress: 'addr-2' }))
-    const available = { ...context, nodeMiner: { available: true }, operations: { ...context.operations, nodeMiner: { ...context.operations.nodeMiner, payout } } }
-    expect(dispatchCommand(parseCommand('node-miner payout addr-2'), available)).toEqual({ type: 'output', lines: ['PAYOUT RETARGETED', 'PROCESS  process-0004', 'PAYOUT   addr-2'] })
-    expect(payout).toHaveBeenCalledExactlyOnceWith('addr-2')
+    const configurePayout = vi.fn(() => ({ status: 'retargeted' as const, processId: 'process-0004', payoutAddress: 'addr-2' }))
+    const available = { ...context, nodeMiner: { available: true }, operations: { ...context.operations, nodeMiner: { ...context.operations.nodeMiner, configurePayout } } }
+    expect(dispatchCommand(parseCommand('node-miner config payout addr-2'), available)).toEqual({ type: 'output', lines: ['PAYOUT CONFIGURED', 'PROCESS  process-0004', 'PAYOUT   addr-2'] })
+    expect(configurePayout).toHaveBeenCalledExactlyOnceWith('addr-2')
   })
 
   it('invokes the canonical STOP operation rather than removing the Process itself', () => {
     const available = { ...context, nodeMiner: { available: true } }
-    const stopLocalNodeMiner = vi.fn(() => ({ status: 'stopped' as const, processId: 'process-0004' }))
+    const stopLocalNodeMiner = vi.fn(() => ({ status: 'stopped' as const, processId: 'process-0004', settledGrossUnits: 0, payoutUnits: 0 }))
     expect(dispatchCommand(parseCommand('node-miner stop'), { ...available, operations: { ...available.operations, nodeMiner: { ...available.operations.nodeMiner, stop: stopLocalNodeMiner } } })).toEqual({ type: 'output', lines: ['STOPPED', 'PROCESS  process-0004'] })
     expect(stopLocalNodeMiner).toHaveBeenCalledOnce()
 

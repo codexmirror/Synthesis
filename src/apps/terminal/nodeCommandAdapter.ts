@@ -114,9 +114,14 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
         const process = findRunningLocalNodeMiner(gameState)
         if (!process) return { status: 'not_running' }
         const result = actions.stopNodeMiner(process.id)
-        return result.status === 'stopped' ? { status: 'stopped', processId: process.id } : { status: 'not_running' }
+        return result.status === 'stopped' ? { status: 'stopped', processId: process.id, settledGrossUnits: result.settledGrossNodeUnits, payoutUnits: result.payoutNodeUnits } : { status: 'not_running' }
       },
-      payout: (payoutAddress) => {
+      payout: () => {
+        const result = actions.payoutLocalNodeMiner()
+        if (result.status === 'paid') return { status: result.status, processId: result.processId, settledGrossUnits: result.settledGrossNodeUnits, payoutUnits: result.payoutNodeUnits }
+        return result.status === 'nothing_unpaid' ? { status: result.status, processId: result.processId } : { status: result.status }
+      },
+      configurePayout: (payoutAddress) => {
         const result = actions.retargetLocalNodeMinerPayout(payoutAddress)
         return result.status === 'retargeted' ? { status: 'retargeted', processId: result.processId, payoutAddress: result.payoutAddress } : { status: result.status }
       },
