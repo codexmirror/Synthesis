@@ -34,14 +34,14 @@ describe('Discovery memory', () => {
     discovery = rememberScan(discovery, observe('198.51.100.47'), state.player.localDevice.id)
     expect(discovery.devices[0].services.map((service) => service.name)).toEqual(['SSH', 'HTTP'])
   })
-  it('deduplicates stable identities, updates positive snapshots, and never deletes absent services', () => {
+  it('refreshes the exposed-Service snapshot while preserving stale memory until rescan', () => {
     let discovery = rememberScan(createEmptyDiscovery(), observe('198.51.100.47'), state.player.localDevice.id)
     const update: ScanResult = { status: 'device', targetId: 'host-lan-001', address: '198.51.100.83', scope: 'lan', networks: [], services: [{ id: 'service-http-001', name: 'WEB', port: 8080, protocol: 'TCP' }] }
     discovery = rememberScan(discovery, update, state.player.localDevice.id)
     expect(discovery.devices).toHaveLength(1)
     expect(discovery.devices[0].address).toBe('198.51.100.83')
-    expect(discovery.devices[0].services).toHaveLength(2)
-    expect(discovery.devices[0].services.find((service) => service.id === 'service-ssh-001')?.endpoint).toBe('198.51.100.47:22')
+    expect(discovery.devices[0].services).toHaveLength(1)
+    expect(discovery.devices[0].services.find((service) => service.id === 'service-ssh-001')).toBeUndefined()
     expect(discovery.devices[0].services.find((service) => service.id === 'service-http-001')?.endpoint).toBe('198.51.100.83:8080')
   })
   it('keeps deeper and unrelated memory during shallow observations', () => {

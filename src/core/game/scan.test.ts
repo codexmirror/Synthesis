@@ -83,7 +83,7 @@ describe('scanNetworkTarget outward discovery', () => {
 
   it('returns no relationships without inventing details for a responding remote device', () => {
     expect(scanNetworkTarget(targets, '198.51.100.47')).toMatchObject({
-      status: 'device', scope: 'lan', networks: [{ id: 'network-local-001', name: 'home-net' }],
+      status: 'device', scope: 'lan', networks: [],
     })
     expect(scanNetworkTarget(targets, '203.0.113.42')).toEqual({
       status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote', networks: [], services: [

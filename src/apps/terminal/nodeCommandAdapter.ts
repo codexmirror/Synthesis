@@ -26,6 +26,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
     },
     nodeMiner: { available: isNodeMinerAvailable(gameState.player.localDevice) },
     operations: {
+      pingTarget: actions.pingTarget,
       scanTarget: actions.scanTarget,
       inspectTarget: actions.inspectTarget,
       analyzeEndpoint: (endpoint) => {

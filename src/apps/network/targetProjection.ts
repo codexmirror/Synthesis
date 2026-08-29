@@ -129,7 +129,7 @@ export interface KnownSpace {
 export interface TargetSummary {
   readonly id: string
   readonly address: string
-  readonly scope: 'lan' | 'remote'
+  readonly scope: 'unknown' | 'lan' | 'remote'
   readonly networkNames: readonly string[]
   readonly stage: TargetStage
 }

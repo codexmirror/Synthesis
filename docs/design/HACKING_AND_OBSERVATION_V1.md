@@ -70,9 +70,15 @@ the interaction of concrete systems.
 
 1. Observation
 
-Synthesis uses three distinct observation roles.
+Synthesis uses four distinct observation roles.
 
 They are not stages in a mandatory pipeline.
+
+PING
+
+Does something respond at this address? PING observes only immediate reachability and may retain minimal target identity/address information. It does not observe topology, Services, Firmware, or weaknesses.
+
+⸻
 
 SCAN
 
@@ -218,6 +224,7 @@ evidence available to an operation; they do not need to invent a new verb.
 For the current concrete releases:
 
 NodeScan 1.0 Standard
+→ Ping
 → Scan
 → Service Analysis
 → no player-facing Inspect
@@ -225,6 +232,7 @@ NodeScan 1.0 Standard
 and:
 
 NodeScan 1.1 Experimental
+→ Ping
 → Scan
 → Service Analysis
 → provides Inspect

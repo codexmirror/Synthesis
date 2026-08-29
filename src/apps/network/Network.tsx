@@ -55,7 +55,7 @@ const STAGE_MARK: Record<TargetStage, string> = {
 }
 
 function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): string {
-  return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'lan' ? 'Local network' : 'Remote'
+  return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'unknown' ? 'Membership not observed' : target.scope === 'lan' ? 'Local network' : 'Remote'
 }
 
 function kindOf(target: Target): string {
@@ -114,7 +114,17 @@ export function Network() {
     } catch { finishRequest('targets', generation) }
   }
 
-  async function scanDirectAddress() {
+  async function scanSelf() {
+    const generation = beginRequest('self')
+    if (generation === null) return
+    try {
+      const result = await actions.scanTarget(gameState.player.localDevice.network.ip)
+      if (!finishRequest('self', generation)) return
+      if (result.status !== 'device') setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : 'NO RESPONSE')
+    } catch { finishRequest('self', generation) }
+  }
+
+  async function pingDirectAddress() {
     const address = directAddress.trim()
     if (!isValidIpv4(address)) {
       setNotice('INVALID ADDRESS')
@@ -123,7 +133,7 @@ export function Network() {
     const generation = beginRequest('direct-address')
     if (generation === null) return
     try {
-      const result = await actions.scanTarget(address)
+      const result = actions.pingTarget(address)
       if (!finishRequest('direct-address', generation)) return
       setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
         : result.status === 'no_response' ? 'NO RESPONSE'
@@ -136,12 +146,18 @@ export function Network() {
     const generation = beginRequest(target.id)
     if (generation === null) return
     try {
-      const result = await actions.sweepTarget({ targetDeviceId: target.id, address: target.address })
+      const result = await actions.scanTarget(target.address)
       if (!finishRequest(target.id, generation)) return
-      if (result.status !== 'observed') {
-        setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : result.status === 'no_response' ? 'NO RESPONSE' : 'UNKNOWN TARGET')
-      } else if (result.insufficientMemory && result.analysesStarted === 0) setNotice('NOT ENOUGH MEMORY')
+      if (result.status !== 'device' || result.targetId !== target.id) setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : result.status === 'no_response' ? 'NO RESPONSE' : 'UNKNOWN TARGET')
     } catch { finishRequest(target.id, generation) }
+  }
+
+  function inspect(target: Target) {
+    const result = actions.inspectTarget(target.address)
+    setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
+      : result.status === 'capability_unavailable' ? 'INSPECT UNAVAILABLE'
+        : result.status === 'no_response' ? 'NO RESPONSE'
+          : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
   }
 
   function hack(route: TargetRoute, targetDeviceId: string) {
@@ -214,6 +230,7 @@ export function Network() {
         selectedPackageId={selectedPackageId}
         onBack={() => open({ kind: 'targets' })}
         onScan={() => scan(target)}
+        onInspect={() => inspect(target)}
         onHack={(route) => hack(route, target.id)}
         onConnect={() => connect(target)}
         onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
@@ -234,14 +251,15 @@ export function Network() {
       directAddress={directAddress}
       notice={notice}
       onFind={findTargets}
+      onScanSelf={scanSelf}
       onDirectAddressChange={setDirectAddress}
-      onDirectScan={scanDirectAddress}
+      onDirectScan={pingDirectAddress}
       onOpen={(deviceId) => open({ kind: 'target', deviceId })}
     />
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, onFind, onDirectAddressChange, onDirectScan, onOpen }: {
+function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
@@ -249,11 +267,11 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   directAddress: string
   notice: string | null
   onFind(): void
+  onScanSelf(): void
   onDirectAddressChange(value: string): void
   onDirectScan(): void
   onOpen(deviceId: string): void
 }) {
-  const known = space.networks.length > 0 || space.elsewhere.length > 0
   return <div className="ns-view">
     <header className="ns-masthead">
       <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
@@ -274,12 +292,15 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
           value={directAddress}
           onChange={(event) => onDirectAddressChange(event.target.value)}
         />
-        <button type="submit" aria-label="Scan target address" disabled={directPending}>SCAN</button>
+        <button type="submit" aria-label="Ping target address" disabled={directPending}>PING</button>
       </div>
     </form>
 
-    {known
-      ? <div className="ns-space">
+    <div className="ns-space">
+        {!space.networks.some(({ includesSelf }) => includesSelf) && <section className="ns-group" aria-label="Self">
+          <header className="ns-group-head"><span className="ns-eyebrow">SELF</span></header>
+          <button type="button" className="ns-node ns-node--self" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}><span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span><span className="ns-stage">NOT SCANNED</span></span><span>SCAN</span></button>
+        </section>}
         {space.networks.map((network) => <section className="ns-group" key={network.id} aria-label={`Network ${network.name}`}>
           <header className="ns-group-head">
             <span className="ns-eyebrow">NETWORK</span>
@@ -306,7 +327,6 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
           <div className="ns-loose">{space.elsewhere.map((target) => <TargetRow key={target.id} target={target} onOpen={onOpen} showLocation />)}</div>
         </section>}
       </div>
-      : <div className="node-empty"><strong>NOTHING KNOWN YET</strong><span>Nothing has been found around this Device yet.</span></div>}
 
     {space.networks.length > 0 && <div className="ns-primary-slot">
       <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>SCAN AGAIN</button>
@@ -336,7 +356,7 @@ function TargetRow({ target, showLocation, onOpen }: { target: TargetSummary; sh
  * One target, one decision. The stage panel states where this target's line of
  * action currently is and offers the single action that continues it.
  */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onHack, onConnect, onDisconnect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onHack, onConnect, onDisconnect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -345,6 +365,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   selectedPackageId: string
   onBack(): void
   onScan(): void
+  onInspect(): void
   onHack(route: TargetRoute): void
   onConnect(): void
   onDisconnect(): void
@@ -417,6 +438,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         release={release}
         copyState={copyState}
         selectedPackageId={selectedPackageId}
+        onInspect={onInspect}
         onAnalyze={onAnalyze}
         onCopy={onCopy}
         onSelectPackage={onSelectPackage}
@@ -451,11 +473,12 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
  * information and their own represented resources; none of it is a new
  * observation, and none of it reads current target truth.
  */
-function TechnicalDetails({ target, release, copyState, selectedPackageId, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   copyState: CopyState
   selectedPackageId: string
+  onInspect(): void
   onAnalyze(service: TargetService): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
@@ -475,6 +498,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onAna
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
     {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
+    {release.canInspect && <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>}
 
     {(target.access || target.session) && <>
       <div className="node-section"><span>ACCESS</span></div>

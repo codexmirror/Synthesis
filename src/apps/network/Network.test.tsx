@@ -42,7 +42,7 @@ function foundTargets(state: GameState = createInitialGameState()): GameState {
   return { ...state, discovery }
 }
 
-/** Discovery after a target sweep: srv-01's Services are remembered too. */
+/** Discovery after an explicit Device Scan: srv-01's Services are remembered. */
 function scannedTarget(state: GameState = createInitialGameState()): GameState {
   const known = foundTargets(state)
   const targets = { localDevice: known.player.localDevice, network: known.world.network }
@@ -79,7 +79,7 @@ function withAccess(state: GameState = knownWeakness()): GameState {
 
 function actionStubs(): GameContext.GameActions {
   return {
-    scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), sweepTarget: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
+    pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
     startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
@@ -112,15 +112,14 @@ afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 /* ------------------------------------------------------------- the loop */
 
 describe('NodeScan first hack', () => {
-  it('walks SCAN, HACK and CONNECT without any technical vocabulary on the primary surface', async () => {
+  it('walks explicit SCAN and ANALYZE before HACK and CONNECT', async () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
 
-    // Nothing is known: direct address Scan is the reconnaissance entry point.
-    expect(screen.getByText('NOTHING KNOWN YET')).toBeInTheDocument()
+    // SELF is intrinsic; Scan SELF reveals its represented Network relationship.
+    expect(screen.getByRole('region', { name: 'Self' })).toHaveTextContent('NOT SCANNED')
     const directAddress = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
-    fireEvent.change(directAddress, { target: { value: createInitialGameState().player.localDevice.network.ip } })
-    fireEvent.click(screen.getByRole('button', { name: 'Scan target address' }))
+    fireEvent.click(screen.getByRole('button', { name: 'SCAN SELF' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     fireEvent.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
@@ -130,9 +129,11 @@ describe('NodeScan first hack', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('SCANNING')
-    expect(screen.getByRole('group', { name: 'Scan progress' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    expect(currentState().process.processes).toEqual([])
 
+    fireEvent.click(screen.getByText('TECHNICAL DETAILS'))
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze SSH' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
     expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
 
@@ -146,16 +147,7 @@ describe('NodeScan first hack', () => {
     fireEvent.click(screen.getByRole('button', { name: 'CONNECT' }))
     expect(screen.getByLabelText('Target status')).toHaveTextContent('CONNECTED')
 
-    // Nothing on that path required opening a Service, a Finding, a weakness
-    // identity, a tool, or an internal relationship name. Technical depth was
-    // never opened, so it is not part of the surface the player read.
-    const view = screen.getByLabelText('NodeScan')
-    const details = view.querySelector('details')!
-    expect(details).not.toHaveAttribute('open')
-    const surface = view.textContent!.replace(details.textContent!, '')
-    for (const jargon of ['AUTH-017', 'Basic Credential Toolkit', 'GateSSH', 'DeviceAccess', 'RemoteSession', 'Credential Access', 'Service Analysis', 'FINDINGS', 'AVAILABLE OPERATIONS']) {
-      expect(surface, `primary surface should not mention ${jargon}`).not.toContain(jargon)
-    }
+
   })
 
   it('produces canonical DeviceAccess and a canonical Remote Session, never a hacked flag', async () => {
@@ -182,13 +174,15 @@ describe('NodeScan first hack', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
   })
 
-  it('investigates every observed Service from the one SCAN', async () => {
+  it('keeps Scan surface-only and starts Analyze only from an explicit Service action', async () => {
     const user = await openTarget(foundTargets())
     await user.click(screen.getByRole('button', { name: 'SCAN' }))
 
-    await waitFor(() => expect(currentState().process.processes).toHaveLength(2))
-    expect(currentState().process.processes.map((process) => [process.kind, (process as ServiceAnalysisProcess).serviceId]))
-      .toEqual([['service_analysis', 'service-ssh-001'], ['service_analysis', 'service-http-001']])
+    expect(currentState().process.processes).toEqual([])
+    expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
+    await openDetails(user)
+    await user.click(screen.getByRole('button', { name: 'Analyze SSH' }))
+    expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-ssh-001' })])
   })
 
   it('offers the hack without asking the player to read a weakness identity or pick a tool', async () => {
@@ -325,6 +319,34 @@ describe('NodeScan progress', () => {
 /* ------------------------------------------------------- technical depth */
 
 describe('NodeScan technical details', () => {
+  it('offers no Inspect under 1.0 and performs no hidden Inspect or Analyze when 1.1 scans', async () => {
+    let user = await openTarget(scannedTarget())
+    await openDetails(user)
+    expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
+    cleanup()
+
+    user = await openTarget(foundTargets(withNodeScan11(createInitialGameState())))
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
+    expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
+    expect(currentState().process.processes).toEqual([])
+    await openDetails(user)
+    expect(screen.getByRole('button', { name: 'INSPECT' })).toBeInTheDocument()
+  })
+
+  it('stores deeper evidence only after explicit Inspect under 1.1', async () => {
+    const user = await openTarget(scannedTarget(withNodeScan11(createInitialGameState())))
+    // The fixture's scan is intentionally surface-only for this assertion.
+    const before = currentState()
+    const withoutInspect = { ...before, discovery: { ...before.discovery, devices: before.discovery.devices.map((device) => ({ ...device, inspect: undefined, services: device.services.map((service) => ({ ...service, inspect: undefined })) })) } }
+    cleanup()
+    const explicit = await openTarget(withoutInspect)
+    await openDetails(explicit)
+    await explicit.click(screen.getByRole('button', { name: 'INSPECT' }))
+    const observed = currentState().discovery.devices.find(({ id }) => id === SRV_01)
+    expect(observed?.inspect?.enhanced?.firmware).toEqual({ name: 'RACK-OS', version: '1.0' })
+    expect(observed?.services.find(({ id }) => id === 'service-ssh-001')?.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
+  })
+
   it('explains the route from player information and represented software', async () => {
     const user = await openTarget(withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState())))))
     await openDetails(user)
@@ -473,8 +495,8 @@ describe('NodeScan software and request lifecycle', () => {
   })
 
   it('deduplicates rapid requests for the same subject', async () => {
-    const pending = deferred<Awaited<ReturnType<GameContext.GameActions['sweepTarget']>>>()
-    const actions = { ...actionStubs(), sweepTarget: vi.fn(() => pending.promise) }
+    const pending = deferred<Awaited<ReturnType<GameContext.GameActions['scanTarget']>>>()
+    const actions = { ...actionStubs(), scanTarget: vi.fn(() => pending.promise) }
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
 
@@ -484,13 +506,13 @@ describe('NodeScan software and request lifecycle', () => {
     await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
     await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
 
-    expect(actions.sweepTarget).toHaveBeenCalledTimes(1)
-    await act(async () => { pending.resolve({ status: 'observed', servicesObserved: 2, analysesStarted: 2, insufficientMemory: false }) })
+    expect(actions.scanTarget).toHaveBeenCalledTimes(1)
+    await act(async () => { pending.resolve({ status: 'device', targetId: SRV_01, address: SRV_01_ADDRESS, scope: 'lan', networks: [], services: [] }) })
   })
 
   it('ignores a result that arrives after the player has moved on', async () => {
-    const pending = deferred<Awaited<ReturnType<GameContext.GameActions['sweepTarget']>>>()
-    const actions = { ...actionStubs(), sweepTarget: vi.fn(() => pending.promise) }
+    const pending = deferred<Awaited<ReturnType<GameContext.GameActions['scanTarget']>>>()
+    const actions = { ...actionStubs(), scanTarget: vi.fn(() => pending.promise) }
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
 
@@ -499,23 +521,11 @@ describe('NodeScan software and request lifecycle', () => {
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
     await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
     await user.click(screen.getByRole('button', { name: '← Known Space' }))
-    await act(async () => { pending.resolve({ status: 'no_response' }) })
+    await act(async () => { pending.resolve({ status: 'no_response', address: SRV_01_ADDRESS }) })
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('reports memory contention when nothing could be investigated', async () => {
-    const actions = { ...actionStubs(), sweepTarget: vi.fn(async () => ({ status: 'observed' as const, servicesObserved: 2, analysesStarted: 0, insufficientMemory: true })) }
-    vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
-
-    const user = userEvent.setup()
-    render(<Network />)
-    await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
-
-    expect(await screen.findByRole('status')).toHaveTextContent('NOT ENOUGH MEMORY')
-  })
 
   it('reports a coarse connection failure without leaking current target state', async () => {
     const offline = withAccess()
@@ -540,14 +550,14 @@ describe('Known Space topology', () => {
     expect(screen.queryByText(PHONE_ADDRESS)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'SCAN AGAIN' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Scan target address' }))
+    await user.click(screen.getByRole('button', { name: 'Ping target address' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('INVALID ADDRESS')
     expect(scanTargetSpy).not.toHaveBeenCalled()
     expect(currentState().discovery).toEqual(createInitialGameState().discovery)
   })
 
-  it('scans a player-supplied unknown IPv4 through canonical Scan and projects the discovered Device normally', async () => {
+  it('PINGs a player-supplied IPv4 without leaking its hidden Network membership', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
     const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
@@ -564,10 +574,12 @@ describe('Known Space topology', () => {
     expect(screen.queryByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
 
-    await user.click(within(form).getByRole('button', { name: 'Scan target address' }))
+    await user.click(within(form).getByRole('button', { name: 'Ping target address' }))
 
-    expect(scanTargetSpy).toHaveBeenCalledWith(expect.anything(), PHONE_ADDRESS)
-    expect(currentState().discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS }))
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(currentState().discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, scope: 'unknown' }))
+    expect(currentState().discovery.networkDeviceRelations).toEqual([])
+    expect(screen.getByRole('region', { name: 'Elsewhere' })).toHaveTextContent('Membership not observed')
     expect(screen.getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toBeInTheDocument()
   })
 
@@ -578,7 +590,7 @@ describe('Known Space topology', () => {
     const before = screen.getByTestId('game-state').textContent
 
     await user.type(input, '198.51.100.999')
-    await user.click(within(input.closest('form')!).getByRole('button', { name: 'Scan target address' }))
+    await user.click(within(input.closest('form')!).getByRole('button', { name: 'Ping target address' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('INVALID ADDRESS')
     expect(scanTargetSpy).not.toHaveBeenCalled()
@@ -589,7 +601,7 @@ describe('Known Space topology', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
     const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
-    const scan = within(input.closest('form')!).getByRole('button', { name: 'Scan target address' })
+    const scan = within(input.closest('form')!).getByRole('button', { name: 'Ping target address' })
 
     await user.type(input, '192.0.2.250')
     await user.click(scan)
@@ -601,9 +613,8 @@ describe('Known Space topology', () => {
     await user.click(scan)
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(currentState().discovery.networks).toContainEqual(expect.objectContaining({ name: 'home-net', membersObserved: false }))
-    expect(screen.getByRole('region', { name: 'Network home-net' })).toHaveTextContent('SELF')
-    expect(screen.getByRole('button', { name: 'SCAN AGAIN' })).toBeInTheDocument()
+    expect(currentState().discovery.networks).toEqual([])
+    expect(screen.getByRole('region', { name: 'Self' })).toHaveTextContent('SELF')
   })
 
   it('derives the relationship shape from remembered Discovery alone', () => {
