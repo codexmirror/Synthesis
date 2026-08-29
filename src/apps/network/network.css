@@ -107,7 +107,7 @@
 }
 
 .ns-direct-row { display: flex; gap: 8px; }
-.ns-direct-row .node-field {
+.ns-direct-row .node-input {
   min-width: 0;
   flex: 1;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
