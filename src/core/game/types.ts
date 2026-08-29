@@ -542,6 +542,12 @@ export interface EnhancedInspectEvidence {
   readonly computeClass: 'LOW' | 'STANDARD' | 'HIGH'
 }
 
+/** A Device-to-Network relationship observed at Inspect depth. */
+export interface InspectedNetworkRelationship {
+  readonly id: string
+  readonly name: string
+}
+
 export interface DiscoveredDeviceSnapshot {
   readonly id: string
   readonly address: string

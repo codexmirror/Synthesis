@@ -96,7 +96,7 @@ that represents none simply has none. Its semantics belong to
 
 ## Represented World
 
-The current World contains the represented `home-net` LocalNetwork with node-01, `srv-01` and the personal phone `host-phone-001`, while `srv-02` is the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Myra's authored first-target mail communicates the phone address as historical text and creates no Discovery.
+The current World contains `home-net` with node-01 and `srv-01`, plus the neutral foreign LocalNetwork `remote-segment-01` with the personal phone `host-phone-001` and `srv-02` (`host-lan-002`). `srv-02` remains the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Myra's authored first-target mail communicates the phone address as historical text and creates no Discovery.
 
 `srv-01` owns RACK-OS 1.0, GateSSH 1.3.2 on its stable SSH Service, Basic HTTP, and its independent filesystem. GateSSH 1.3.2 derives `AUTH-017`; this weakness is never stored separately.
 
@@ -106,7 +106,7 @@ RackUpdate can replace the managed GateSSH implementation release while preservi
 
 ### The represented personal phone
 
-`host-phone-001` is the one represented ordinary personal Device: display name `Petra’s Phone`, address `198.51.100.61`, online, and a member of `home-net`. It owns VEYRA OS 4.1 Firmware (`firmware-veyra-os-v4-1`), concrete Mobile CPU / 6 GB hardware and CPU/RAM runtime baselines, its own filesystem, and its own installed-software inventory. It carries no `role`, because it is not a server, and owns its own `NetworkTransferCapacity` (2 MiB/s upload, 4 MiB/s download) like the other concretely represented Devices, so an existing transfer involving it is decided on real grounds rather than for want of a represented capability.
+`host-phone-001` is the one represented ordinary personal Device: display name `Petra’s Phone`, address `198.51.100.61`, online, and a member of `remote-segment-01` with `host-lan-002`. It owns VEYRA OS 4.1 Firmware (`firmware-veyra-os-v4-1`), concrete Mobile CPU / 6 GB hardware and CPU/RAM runtime baselines, its own filesystem, and its own installed-software inventory. It carries no `role`, because it is not a server, and owns its own `NetworkTransferCapacity` (2 MiB/s upload, 4 MiB/s download) like the other concretely represented Devices, so an existing transfer involving it is decided on real grounds rather than for want of a represented capability.
 
 Its filesystem and installed-software inventory are both represented and empty. That is the truthful minimum for this slice: a Device that owns those concerns but currently holds nothing, rather than one filled with invented personal content. It owns an empty Authentication History like the other resource-capable Devices.
 

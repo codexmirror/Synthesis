@@ -7,8 +7,9 @@ import { createInitialGameState } from '../../core/game/initialState'
 import { appRegistry } from '../../shell/appRegistry'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { scanNetworkTarget } from '../../core/game/scan'
-import { rememberInspect, rememberScan } from '../../core/game/discovery'
+import { rememberInspect, rememberPing, rememberScan } from '../../core/game/discovery'
 import { inspectKnownTarget } from '../../core/game/inspect'
+import { pingNetworkTarget } from '../../core/game/ping'
 import { submitRackUpdatePackageFromObservation } from '../../core/game/rackUpdate'
 import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
 import { Network } from './Network'
@@ -80,7 +81,7 @@ function withAccess(state: GameState = knownWeakness()): GameState {
 function actionStubs(): GameContext.GameActions {
   return {
     pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
-    startServiceAnalysisFromObservation: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
+    startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), submitRackUpdatePackageFromObservation: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
     removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
@@ -98,7 +99,7 @@ async function openTarget(state: GameState) {
 }
 
 async function openDetails(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByText('TECHNICAL DETAILS'))
+  await user.click(screen.getByText('RECON INTELLIGENCE'))
 }
 
 function deferred<T>() {
@@ -112,7 +113,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 /* ------------------------------------------------------------- the loop */
 
 describe('NodeScan first hack', () => {
-  it('walks explicit SCAN and ANALYZE before HACK and CONNECT', async () => {
+  it('walks explicit SCAN and guided ANALYZE before BYPASS and CONNECT', async () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
 
@@ -129,15 +130,16 @@ describe('NodeScan first hack', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
+    expect(screen.queryByText('NO WAY IN FOUND')).not.toBeInTheDocument()
     expect(currentState().process.processes).toEqual([])
 
-    fireEvent.click(screen.getByText('TECHNICAL DETAILS'))
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze SSH' }))
+    fireEvent.click(screen.getByRole('button', { name: 'ANALYZE' }))
+    expect(currentState().process.processes).toHaveLength(2)
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
     expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
 
-    fireEvent.click(screen.getByRole('button', { name: 'HACK' }))
+    fireEvent.click(screen.getByRole('button', { name: 'BYPASS' }))
     expect(screen.getByLabelText('Target status')).toHaveTextContent('HACKING')
     expect(screen.getByRole('group', { name: 'Hack progress' })).toBeInTheDocument()
 
@@ -154,7 +156,7 @@ describe('NodeScan first hack', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={knownWeakness()}><Network /><StateSnapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    fireEvent.click(screen.getByRole('button', { name: 'HACK' }))
+    fireEvent.click(screen.getByRole('button', { name: 'BYPASS' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
 
     const afterHack = currentState()
@@ -193,7 +195,7 @@ describe('NodeScan first hack', () => {
     expect(status.textContent).not.toContain('Basic Credential Toolkit')
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'HACK' }))
+    await user.click(screen.getByRole('button', { name: 'BYPASS' }))
     // The tool and the technique are still real: the started attempt carries both.
     expect(currentState().process.processes).toEqual([expect.objectContaining({
       kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit', status: 'running',
@@ -217,8 +219,18 @@ describe('NodeScan information boundary', () => {
     // srv-01 really is vulnerable, and its Services are remembered. Without
     // earned Knowledge the interface must not know that.
     await openTarget(scannedTarget())
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
-    expect(screen.queryByRole('button', { name: 'HACK' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
+    expect(screen.queryByRole('button', { name: 'BYPASS' })).not.toBeInTheDocument()
+  })
+
+  it('reports no way in only after every observed Service has a completed negative analysis', () => {
+    const completed = ['service-ssh-001', 'service-http-001'].map((serviceId, index) => ({
+      ...analysisProcess(`process-000${index + 1}`, serviceId, 1000),
+      status: 'completed' as const,
+      result: { status: 'no_weakness_detected' as const },
+    }))
+    const target = selectTarget(withProcesses(scannedTarget(), completed), SRV_01)!
+    expect(target.stage).toBe('no_route')
   })
 
   it('offers no way in without the represented tool, on identical Knowledge', () => {
@@ -226,7 +238,7 @@ describe('NodeScan information boundary', () => {
     const withoutTool = selectTarget(withoutSoftware(knownWeakness(), 'basic-credential-toolkit'), SRV_01)!
 
     expect(withTool.stage).toBe('route')
-    expect(withoutTool.stage).toBe('no_route')
+    expect(withoutTool.stage).toBe('analysis_ready')
     expect(withoutTool.routes).toEqual([])
     // The Knowledge itself is untouched; only the capability is gone.
     expect(withoutTool.services.find(({ id }) => id === 'service-ssh-001')!.weaknesses).toEqual([{ id: 'AUTH-017', label: 'Weak authentication configuration' }])
@@ -234,12 +246,12 @@ describe('NodeScan information boundary', () => {
 
   it('withdraws the hack from the interface when the represented tool is gone', async () => {
     await openTarget(knownWeakness())
-    expect(screen.getByRole('button', { name: 'HACK' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
     cleanup()
 
     await openTarget(withoutSoftware(knownWeakness(), 'basic-credential-toolkit'))
-    expect(screen.queryByRole('button', { name: 'HACK' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    expect(screen.queryByRole('button', { name: 'BYPASS' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
   })
 
   it('keeps stale remembered information stale after the world changes underneath it', async () => {
@@ -261,7 +273,7 @@ describe('NodeScan information boundary', () => {
     render(<GameProvider initialState={applied.state}><Network /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
     // The world now runs GateSSH 1.3.2, which is vulnerable. Player memory says 1.3.3.
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
     await openDetails(user)
     expect(screen.getByText('GateSSH 1.3.3')).toBeInTheDocument()
     expect(screen.queryByText('GateSSH 1.3.2')).not.toBeInTheDocument()
@@ -296,7 +308,7 @@ describe('NodeScan information boundary', () => {
 describe('NodeScan progress', () => {
   it('takes scan progress from canonical Process state', async () => {
     await openTarget(withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 250), analysisProcess('process-0002', 'service-http-001', 750)]))
-    expect(screen.getByRole('group', { name: 'Scan progress' })).toHaveTextContent('50%')
+    expect(screen.getByRole('group', { name: 'Analysis progress' })).toHaveTextContent('50%')
   })
 
   it('takes hack progress from canonical Process state', async () => {
@@ -312,7 +324,7 @@ describe('NodeScan progress', () => {
     const status = screen.getByLabelText('Target status')
     expect(status).toHaveTextContent('1 WAY IN FOUND')
     expect(status).toHaveTextContent('The last attempt failed.')
-    expect(screen.getByRole('button', { name: 'HACK AGAIN' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'BYPASS AGAIN' })).toBeInTheDocument()
   })
 })
 
@@ -330,7 +342,7 @@ describe('NodeScan technical details', () => {
     expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
     expect(currentState().process.processes).toEqual([])
     await openDetails(user)
-    expect(screen.getByRole('button', { name: 'INSPECT' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'INSPECT' })).not.toHaveLength(0)
   })
 
   it('stores deeper evidence only after explicit Inspect under 1.1', async () => {
@@ -341,7 +353,7 @@ describe('NodeScan technical details', () => {
     cleanup()
     const explicit = await openTarget(withoutInspect)
     await openDetails(explicit)
-    await explicit.click(screen.getByRole('button', { name: 'INSPECT' }))
+    await explicit.click(screen.getAllByRole('button', { name: 'INSPECT' })[0])
     const observed = currentState().discovery.devices.find(({ id }) => id === SRV_01)
     expect(observed?.inspect?.enhanced?.firmware).toEqual({ name: 'RACK-OS', version: '1.0' })
     expect(observed?.services.find(({ id }) => id === 'service-ssh-001')?.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
@@ -443,7 +455,7 @@ describe('RackUpdate after the reset', () => {
     const view = screen.getByLabelText('NodeScan')
     const details = view.querySelector('details')!
     expect(details).not.toHaveAttribute('open')
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('NO WAY IN FOUND')
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
     expect(view.textContent!.replace(details.textContent!, '')).not.toContain('RackUpdate')
     // The whole avenue lives behind the disclosure, never on the decision surface.
     expect(screen.getByRole('combobox', { name: 'Rollback package' }).closest('details')).toBe(details)
@@ -498,13 +510,13 @@ describe('NodeScan software and request lifecycle', () => {
     const pending = deferred<Awaited<ReturnType<GameContext.GameActions['scanTarget']>>>()
     const actions = { ...actionStubs(), scanTarget: vi.fn(() => pending.promise) }
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(foundTargets())
 
     const user = userEvent.setup()
     render(<Network />)
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
-    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
 
     expect(actions.scanTarget).toHaveBeenCalledTimes(1)
     await act(async () => { pending.resolve({ status: 'device', targetId: SRV_01, address: SRV_01_ADDRESS, scope: 'lan', networks: [], services: [] }) })
@@ -514,12 +526,12 @@ describe('NodeScan software and request lifecycle', () => {
     const pending = deferred<Awaited<ReturnType<GameContext.GameActions['scanTarget']>>>()
     const actions = { ...actionStubs(), scanTarget: vi.fn(() => pending.promise) }
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
-    vi.spyOn(GameContext, 'useGameState').mockReturnValue(scannedTarget())
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(foundTargets())
 
     const user = userEvent.setup()
     render(<Network />)
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    await user.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
     await user.click(screen.getByRole('button', { name: '← Known Space' }))
     await act(async () => { pending.resolve({ status: 'no_response', address: SRV_01_ADDRESS }) })
 
@@ -581,6 +593,24 @@ describe('Known Space topology', () => {
     expect(currentState().discovery.networkDeviceRelations).toEqual([])
     expect(screen.getByRole('region', { name: 'Elsewhere' })).toHaveTextContent('Membership not observed')
     expect(screen.getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toBeInTheDocument()
+  })
+
+  it('regroups the foreign phone only after Inspect remembers its Network, then discovers peers only through Network Scan', () => {
+    const state = withNodeScan11(createInitialGameState())
+    const targets = { localDevice: state.player.localDevice, network: state.world.network }
+    const pinged = rememberPing(state.discovery, pingNetworkTarget(targets, PHONE_ADDRESS), state.player.localDevice.id)
+    const before = { ...state, discovery: pinged }
+    expect(selectKnownSpace(before).elsewhere.map(({ id }) => id)).toContain('host-phone-001')
+
+    const inspectedDiscovery = rememberInspect(pinged, inspectKnownTarget(targets, pinged, PHONE_ADDRESS, 'enhanced'), state.player.localDevice.id)
+    const inspected = { ...state, discovery: inspectedDiscovery }
+    const foreign = selectKnownSpace(inspected).networks.find(({ id }) => id === 'network-foreign-001')!
+    expect(foreign.name).toBe('remote-segment-01')
+    expect(foreign.targets.map(({ id }) => id)).toEqual(['host-phone-001'])
+    expect(inspectedDiscovery.devices.some(({ id }) => id === 'host-lan-002')).toBe(false)
+
+    const scanned = rememberScan(inspectedDiscovery, scanNetworkTarget(targets, 'remote-segment-01'), state.player.localDevice.id)
+    expect(scanned.devices.some(({ id }) => id === 'host-lan-002')).toBe(true)
   })
 
   it('rejects malformed direct input locally without observing or mutating canonical state', async () => {
@@ -676,7 +706,7 @@ describe('Known Space topology', () => {
 
     // One tap, straight to the decision: no Network page and no Device page between.
     expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
-    expect(screen.getByRole('button', { name: 'HACK' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
   })
 
   it('observes nothing by presenting topology', async () => {
@@ -706,7 +736,7 @@ describe('Known Space topology', () => {
   it('derives each row from canonical state rather than a stored label', () => {
     const scanning = withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 400)])
     render(<GameProvider initialState={scanning}><Network /></GameProvider>)
-    expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('SCANNING')
+    expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('ANALYZING')
   })
 
   it('advances real canonical work while the player is on the list', async () => {

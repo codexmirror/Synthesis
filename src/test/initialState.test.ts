@@ -87,6 +87,7 @@ describe('createInitialGameState', () => {
     ])
     expect(state.world.network.localNetworks).toEqual([
       { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'] },
+      { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002'] },
     ])
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')

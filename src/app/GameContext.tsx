@@ -24,6 +24,10 @@ import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, lo
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
 export type NodeScanEndpointAnalysisResult = EndpointAnalysisResult | { status: 'software_unavailable'; state: GameState }
+export interface ObservedServiceAnalysisBatchResult {
+  readonly started: number
+  readonly insufficientMemory?: { readonly requiredMiB: number; readonly availableMiB: number }
+}
 export interface GameActions {
   pingTarget: PingTargetOperation
   scanTarget: ScanTargetOperation
@@ -32,6 +36,7 @@ export interface GameActions {
   startServiceAnalysis(targetDeviceId: string, serviceId: string): NodeScanStartServiceAnalysisResult
   startServiceAnalysisAtEndpoint(endpoint: string): NodeScanEndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
+  startObservedServiceAnalyses(observed: readonly ObservedServiceTarget[]): ObservedServiceAnalysisBatchResult
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
   submitRackUpdatePackageFromObservation(observed: RackUpdateObservation): SubmitRackUpdatePackageResult
   connectRemoteFromObservation(observed: RemoteDeviceObservation): ConnectRemoteResult
@@ -123,6 +128,20 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       setGameState(result.state)
     }
     return result
+  }, startObservedServiceAnalyses(observed) {
+    let started = 0
+    let insufficientMemory: ObservedServiceAnalysisBatchResult['insufficientMemory']
+    for (const service of observed) {
+      const result = startServiceAnalysisFromObservation(currentState.current, service)
+      if (result.status === 'started') {
+        started++
+        currentState.current = result.state
+      } else if (result.status === 'insufficient_memory') {
+        insufficientMemory = { requiredMiB: result.requiredMiB, availableMiB: result.availableMiB }
+      }
+    }
+    if (started) setGameState(currentState.current)
+    return { started, ...(insufficientMemory ? { insufficientMemory } : {}) }
   }, startCredentialAccessAttemptFromObservation(observed) {
     const result = startCredentialAccessAttemptFromObservation(currentState.current, observed)
     if (result.status === 'started') {

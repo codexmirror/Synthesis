@@ -1,5 +1,5 @@
 import { isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
-import type { DiscoveryState, EnhancedInspectEvidence, NetworkHost, ServiceInspectSnapshot } from './types'
+import type { DiscoveryState, EnhancedInspectEvidence, InspectedNetworkRelationship, NetworkHost, ServiceInspectSnapshot } from './types'
 
 export type InspectTargets = NetworkTargets
 
@@ -23,6 +23,7 @@ export type InspectResult =
     readonly networkStatus: 'ONLINE'
     readonly deviceKind: 'device' | 'server'
     readonly enhanced?: EnhancedInspectEvidence
+    readonly networks?: readonly InspectedNetworkRelationship[]
     readonly serviceFingerprints?: readonly { readonly serviceId: string; readonly inspect: ServiceInspectSnapshot }[]
   }
   | {
@@ -67,6 +68,12 @@ function serviceFingerprintsFor(host: Readonly<NetworkHost>, knownServiceIds: Re
           : {}),
       },
     }))
+}
+
+function networkRelationshipsFor(targets: Readonly<InspectTargets>, deviceId: string): readonly InspectedNetworkRelationship[] {
+  return targets.network.localNetworks
+    .filter(({ memberDeviceIds }) => memberDeviceIds.includes(deviceId))
+    .map(({ id, name }) => ({ id, name }))
 }
 
 /** Look inward at one supported device or local network and report its properties without mutation. */
@@ -124,10 +131,12 @@ export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery:
   const serviceFingerprints = depth === 'enhanced'
     ? serviceFingerprintsFor(current.entity, new Set(remembered.services.map(({ id }) => id)))
     : undefined
+  const networks = depth === 'enhanced' ? networkRelationshipsFor(targets, current.entity.id) : undefined
   return {
     status: 'device', targetId: current.entity.id, address: input, scope: current.scope, networkStatus: 'ONLINE',
     deviceKind: current.entity.role === 'server' ? 'server' : 'device',
     ...(enhanced ? { enhanced } : {}),
     ...(serviceFingerprints ? { serviceFingerprints } : {}),
+    ...(networks ? { networks } : {}),
   }
 }

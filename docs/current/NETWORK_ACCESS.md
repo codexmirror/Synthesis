@@ -24,11 +24,9 @@ Both interfaces invoke the same shared Scan gameplay/application operation.
 
 Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, pasting, or locally validating it is presentation state only. A positive PING remembers only stable Device identity and the observed address; it observes no name, Firmware, Services, vulnerabilities, Network membership, or topology. Invalid input is rejected before observation, no response creates no Discovery, and PING creates no Process. A foreign Device learned this way appears under ELSEWHERE as NOT SCANNED.
 
-NodeScan is presented as two screens and three player actions. KNOWN SPACE
+NodeScan is presented as two screens with one guided next action at a time. KNOWN SPACE
 presents the remembered relationship shape around the player; a target card is
-one target's whole line of action. The three actions are SCAN (find out about
-the subject in view), HACK (use what was found to get in) and CONNECT (operate
-what access now allows). Both screens are built from a view model derived from
+one target's whole line of action. The guided actions preserve the separate canonical operations: SCAN observes Services, NodeScan 1.1 may next offer INSPECT, ANALYZE may start independent analyses for the observed Services, BYPASS uses a supported remembered route, and CONNECT operates established Access. Both screens are built from a view model derived from
 remembered Discovery, Knowledge, the player's own Processes, the player's own
 installed software, DeviceAccess and RemoteSession. World truth is deliberately
 outside the slice that view model is built from.
@@ -52,15 +50,14 @@ Device level or Service level between. Presenting topology performs no
 observation.
 
 The target card states one stage at a time and normally offers one primary
-action for it: NOT SCANNED, SCANNING with canonical progress, NO WAY IN FOUND,
-`n` WAY(S) IN FOUND, HACKING with canonical progress, ACCESS GRANTED, and
-CONNECTED. The stage is derived presentation, never stored: a live Remote
-Session outranks established DeviceAccess, which outranks a running Credential
-Access Process, which outranks running Service Analysis, which outranks a way
-in the player could start; a Device whose Services have never been observed
-reports that rather than reporting that nothing was found. Progress is the
-aggregate `workCompleted / workRequired` of the canonical Processes the
-current stage is waiting on.
+action for it. Its derived progression distinguishes NOT SCANNED, SERVICES
+FOUND / INSPECT available, SERVICES FOUND / ANALYZE available, ANALYZING,
+NO WAY IN FOUND, `n` WAY(S) IN FOUND, BYPASS work in progress, ACCESS GRANTED,
+and CONNECTED. NO WAY IN FOUND is shown only after every currently observed
+Service has a completed analysis result or weakness Knowledge; an absence of
+Knowledge immediately after Scan is not a negative conclusion. A live Remote
+Session and established DeviceAccess still outrank reconnaissance work.
+
 
 A way in is derived from the player's own Knowledge of a weakness on a
 remembered Service together with an installed tool that supports that
@@ -73,7 +70,7 @@ with one option. A way in never predicts success; stale Player Information can
 still produce a legitimately failed attempt, which is reported coarsely while
 the same route stays available.
 
-TECHNICAL DETAILS is one disclosure on the target card carrying the copyable
+RECON INTELLIGENCE is one disclosure on the target card carrying the copyable
 address, remembered Inspect evidence and its capability note, the provenance
 of established Access, the explanation of each way in (method, tool, service,
 remembered software fingerprint, weakness label and identity), the remembered
@@ -85,7 +82,7 @@ empty result.
 
 The RackUpdate `ROLLBACK GATESSH` avenue is projected only when remembered
 Enhanced Inspect evidence includes its package-submission interface and earned
-`UPD-001` Knowledge explains that avenue, and only inside TECHNICAL DETAILS. It
+`UPD-001` Knowledge explains that avenue, and only inside RECON INTELLIGENCE. It
 describes the need for an older compatible GateSSH package and lists only
 candidate package artifacts in SELF's canonical filesystem, identified by
 stable local file ID. With no candidate it reports `None`; it does not reveal a
@@ -180,7 +177,7 @@ player must first Scan intrinsic SELF to remember its Network relationship. With
 `software_unavailable`; where SELF is offline it reports `no_response` and
 remembers nothing.
 
-Target SCAN invokes only the canonical Device Scan and refreshes the currently exposed Service snapshot. It never invokes Inspect or starts Service Analysis. NodeScan 1.1 Experimental presents INSPECT as an explicit target action; NodeScan 1.0 Standard does not. Each Service presents its own explicit ANALYZE action, which alone starts the canonical elapsed Service Analysis Process.
+Target SCAN invokes only the canonical Device Scan and refreshes the currently exposed Service snapshot. It never invokes Inspect or starts Service Analysis. NodeScan 1.1 Experimental presents INSPECT as an explicit target action; NodeScan 1.0 Standard does not. Each Service retains its own explicit ANALYZE action. The guided ANALYZE action may also start one independent canonical Service Analysis Process for each observed Service still requiring investigation; normal per-Process RAM admission applies and partial admission is reported.
 
 ## Inspect
 
@@ -194,7 +191,7 @@ Current Device Inspect may report:
 - SELF hardware where owned by the local Device
 - represented server identity where present
 
-Current Device Inspect does not enumerate services.
+Current Device Inspect does not enumerate services. Enhanced Device Inspect also observes the target Device’s represented LocalNetwork relationships, remembering only the inspected Device relationship and not enumerating other members.
 
 Current LocalNetwork Inspect reports the represented network's own information,
 including whether canonical membership connects SELF, without enumerating
@@ -372,7 +369,7 @@ The current graphical NodeScan surface presents established access and active
 Remote Session state as one target stage: ACCESS GRANTED offers CONNECT, and an
 active Session presents CONNECTED and DISCONNECT in the same place without
 deleting the underlying `DeviceAccess`. The Service the relationship was
-established through is stated under TECHNICAL DETAILS as provenance; it offers
+established through is stated under RECON INTELLIGENCE as provenance; it offers
 no navigation of its own and never connects automatically. Persistent Service
 findings take priority over redundant successful analysis history, while useful
 no-finding results remain visible as secondary information.
