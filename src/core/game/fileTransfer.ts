@@ -1,7 +1,8 @@
 import { checkDestinationPlacement, copyFilesystemFileToPath, getFilesystemFile, getFilesystemFileSizeBytes } from './filesystem'
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
+import { appendNetworkFileTransferEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
 import { resolveActiveRemoteTarget } from './remoteSession'
-import type { FileTransfer, FilesystemState, GameState, LocalNetwork, NetworkHost, NetworkState } from './types'
+import type { FileTransfer, FilesystemState, GameState, NetworkHost } from './types'
 import { archiveFileTransfer } from './recentActivity'
 
 export function deriveDownloadDestinationPath(sourcePath: string): string {
@@ -96,26 +97,6 @@ interface TransferEndpoints {
   readonly rateBytesPerSecond: number
 }
 
-/**
- * A Device's current represented LocalNetwork membership has three distinct
- * meanings, not two: no represented Network at all, one unambiguous Network,
- * or more than one represented Network with no represented basis to choose
- * between them. These are never collapsed into a single "no Network"
- * result — see `resolveTransferEndpoints` for how each is used.
- */
-type LocalNetworkMembership =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'unique'; readonly network: Readonly<LocalNetwork> }
-  | { readonly kind: 'ambiguous' }
-
-/** Resolve the represented LocalNetwork membership(s) a Device currently belongs to, without picking one by array order. */
-function resolveDeviceLocalNetworkMembership(network: Readonly<NetworkState>, deviceId: string): LocalNetworkMembership {
-  const memberships = network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(deviceId))
-  if (memberships.length === 0) return { kind: 'none' }
-  if (memberships.length === 1) return { kind: 'unique', network: memberships[0] }
-  return { kind: 'ambiguous' }
-}
-
 function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): TransferEndpoints | undefined {
   const local = state.player.localDevice
   const direction = deriveFileTransferDirection(local.id, transfer)
@@ -174,22 +155,58 @@ export function resolveFileTransferSource(state: GameState, transfer: FileTransf
   return endpoints?.direction === 'download' ? endpoints.remoteHost : undefined
 }
 
+/**
+ * Current network address of the Device referenced by `deviceId`, for a
+ * Network activity evidence address snapshot. Returns `undefined` when that
+ * identity does not legitimately resolve to a represented Device; callers
+ * must never substitute another Device's address in that case, as doing so
+ * would fabricate provenance.
+ */
+function resolveDeviceNetworkAddress(state: GameState, deviceId: string): string | undefined {
+  if (deviceId === state.player.localDevice.id) return state.player.localDevice.network.ip
+  return state.world.network.hosts.find(({ id }) => id === deviceId)?.ip
+}
+
+/**
+ * Append terminal Network-owned FileTransfer evidence for the participating
+ * LocalNetwork(s), using the transfer's own stable source/destination
+ * identity rather than any transient endpoint resolution. An unresolvable
+ * address never fabricates provenance and simply appends no evidence.
+ */
+function appendFileTransferNetworkEvidence(state: GameState, transfer: FileTransfer, result: 'COMPLETED' | 'CANCELLED' | 'INTERRUPTED', bytesTransferred: number): GameState {
+  const sourceAddress = resolveDeviceNetworkAddress(state, transfer.sourceDeviceId)
+  const destinationAddress = resolveDeviceNetworkAddress(state, transfer.destinationDeviceId)
+  if (!sourceAddress || !destinationAddress) return state
+  const world = appendNetworkFileTransferEvidence(state.world, {
+    sourceDeviceId: transfer.sourceDeviceId, destinationDeviceId: transfer.destinationDeviceId,
+    sourceAddress, destinationAddress, bytesTransferred, result,
+  })
+  return world === state.world ? state : { ...state, world }
+}
+
 export function advanceFileTransfer(state: GameState, elapsedMs: number): GameState {
   const transfer = state.fileTransfer.active
   if (!transfer) return state
   const endpoints = resolveTransferEndpoints(state, transfer)
-  if (!endpoints) return archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, transfer)
+  if (!endpoints) {
+    const interrupted = appendFileTransferNetworkEvidence(state, transfer, 'INTERRUPTED', transfer.bytesTransferred)
+    return archiveFileTransfer({ ...interrupted, fileTransfer: { ...interrupted.fileTransfer, active: null } }, transfer)
+  }
   const bytesTransferred = Math.min(transfer.bytesTotal, transfer.bytesTransferred + endpoints.rateBytesPerSecond * (Math.max(0, elapsedMs) / 1000))
   if (bytesTransferred < transfer.bytesTotal) return { ...state, fileTransfer: { ...state.fileTransfer, active: { ...transfer, bytesTransferred } } }
 
   const finalTransfer = { ...transfer, bytesTransferred }
   const sourceFile = endpoints.sourceFilesystem.files.find(({ id }) => id === transfer.sourceFileId)!
   const copied = copyFilesystemFileToPath(sourceFile, endpoints.destinationFilesystem, transfer.destinationPath)
-  if (copied.status !== 'copied') return archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, finalTransfer)
+  if (copied.status !== 'copied') {
+    const interrupted = appendFileTransferNetworkEvidence(state, finalTransfer, 'INTERRUPTED', bytesTransferred)
+    return archiveFileTransfer({ ...interrupted, fileTransfer: { ...interrupted.fileTransfer, active: null } }, finalTransfer)
+  }
 
-  const completed = endpoints.direction === 'download'
+  const completedBase = endpoints.direction === 'download'
     ? { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: copied.filesystem } }, fileTransfer: { ...state.fileTransfer, active: null } }
     : { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === endpoints.remoteHost.id ? { ...host, filesystem: copied.filesystem } : host) } }, fileTransfer: { ...state.fileTransfer, active: null } }
+  const completed = appendFileTransferNetworkEvidence(completedBase, finalTransfer, 'COMPLETED', bytesTransferred)
   return archiveFileTransfer(completed, finalTransfer)
 }
 
@@ -197,5 +214,7 @@ export type CancelFileTransferResult = { readonly status: 'cancelled' | 'not_fou
 
 export function cancelFileTransfer(state: GameState, transferId: string): CancelFileTransferResult {
   if (state.fileTransfer.active?.id !== transferId) return { status: 'not_found', state }
-  return { status: 'cancelled', state: archiveFileTransfer({ ...state, fileTransfer: { ...state.fileTransfer, active: null } }, state.fileTransfer.active) }
+  const transfer = state.fileTransfer.active
+  const cancelled = appendFileTransferNetworkEvidence(state, transfer, 'CANCELLED', transfer.bytesTransferred)
+  return { status: 'cancelled', state: archiveFileTransfer({ ...cancelled, fileTransfer: { ...cancelled.fileTransfer, active: null } }, transfer) }
 }

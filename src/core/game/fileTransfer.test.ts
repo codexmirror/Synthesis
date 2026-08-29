@@ -480,6 +480,88 @@ describe('interaction with Process runtime', () => {
   })
 })
 
+describe('Network activity evidence', () => {
+  it('appends one internal COMPLETED Network record with final bytesTransferred for a same-Network Download completion', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, '/srv/readme.txt')
+    if (started.status !== 'started') throw new Error('expected started')
+    const bytesTotal = started.state.fileTransfer.active!.bytesTotal
+    const completed = advanceFileTransfer(started.state, 60_000)
+    const homeNet = completed.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
+    expect(homeNet?.activityHistory.records).toEqual([{
+      id: 'net-activity-0001', kind: 'file_transfer', perspective: 'internal',
+      sourceDeviceId: 'host-lan-001', destinationDeviceId: completed.player.localDevice.id,
+      sourceAddress: '198.51.100.47', destinationAddress: completed.player.localDevice.network.ip,
+      bytesTransferred: bytesTotal, result: 'COMPLETED',
+    }])
+  })
+
+  it('appends one CANCELLED record with the bytes actually transferred at cancellation, not bytesTotal', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const partial = advanceFileTransfer(started.state, 2_000)
+    const bytesAtCancel = partial.fileTransfer.active!.bytesTransferred
+    expect(bytesAtCancel).toBeGreaterThan(0)
+    const cancelled = cancelFileTransfer(partial, started.transferId)
+    const homeNet = cancelled.state.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
+    expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ result: 'CANCELLED', bytesTransferred: bytesAtCancel })])
+  })
+
+  it('appends one INTERRUPTED record with the bytes transferred so far, and creates no destination artifact, when an endpoint becomes unavailable mid-transfer', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (started.status !== 'started') throw new Error('expected started')
+    const partial = advanceFileTransfer(started.state, 2_000)
+    const bytesAtInterruption = partial.fileTransfer.active!.bytesTransferred
+    const offline: GameState = { ...partial, player: { ...partial.player, localDevice: { ...partial.player.localDevice, runtime: { ...partial.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    const interrupted = advanceFileTransfer(offline, 60_000)
+    expect(getFilesystemFile(interrupted.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
+    const homeNet = interrupted.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
+    expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ result: 'INTERRUPTED', bytesTransferred: bytesAtInterruption })])
+  })
+
+  it('does not append one record per advancement tick: exactly one record exists after several partial advances plus completion', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, '/srv/readme.txt')
+    if (started.status !== 'started') throw new Error('expected started')
+    let running = started.state
+    for (let tick = 0; tick < 5; tick += 1) running = advanceFileTransfer(running, 1)
+    const completed = advanceFileTransfer(running, 60_000)
+    const homeNet = completed.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
+    expect(homeNet?.activityHistory.records).toHaveLength(1)
+  })
+
+  it('appends distinct source-side and destination-side records for a completed cross-Network transfer', () => {
+    const base = createInitialGameState()
+    const srv02 = base.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    const bigFile = { kind: 'text' as const, id: 'file-large', path: '/srv/large-file.bin', content: 'x'.repeat(1000) }
+    const hosts = base.world.network.hosts.map((host) => host.id === srv02.id ? { ...host, filesystem: { ...host.filesystem!, files: [...host.filesystem!.files, bigFile] } } : host)
+    const withBigFile: GameState = { ...base, world: { ...base.world, network: { ...base.world.network, hosts } } }
+    const access = { id: 'access-cross-net', sourceDeviceId: withBigFile.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
+    const authorized = { ...withBigFile, deviceAccess: { nextId: 2, established: [access] } }
+    const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
+    const started = startRemoteFileDownload(connected, '/srv/large-file.bin')
+    if (started.status !== 'started') throw new Error('expected started')
+    const completed = advanceFileTransfer(started.state, 60_000)
+    const homeNet = completed.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
+    const foreignNet = completed.world.network.localNetworks.find(({ id }) => id === 'network-foreign-001')
+    expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ perspective: 'inbound', result: 'COMPLETED', sourceDeviceId: 'host-lan-002' })])
+    expect(foreignNet?.activityHistory.records).toEqual([expect.objectContaining({ perspective: 'outbound', result: 'COMPLETED', sourceDeviceId: 'host-lan-002' })])
+  })
+
+  it('never stores filesystem path, filename, or file contents on the Network record', () => {
+    const state = connectedState()
+    const started = startRemoteFileDownload(state, '/srv/readme.txt')
+    if (started.status !== 'started') throw new Error('expected started')
+    const completed = advanceFileTransfer(started.state, 60_000)
+    const record = completed.world.network.localNetworks.find(({ id }) => id === 'network-local-001')?.activityHistory.records[0]
+    expect(JSON.stringify(record)).not.toContain('readme')
+    expect(JSON.stringify(record)).not.toContain('Service workspace')
+    expect(record).not.toHaveProperty('destinationPath')
+  })
+})
+
 describe('deriveDownloadDestinationPath', () => {
   it('shares the exact destination policy used by the canonical operation', () => {
     expect(deriveDownloadDestinationPath('/opt/packages/nodescan-exp-1.1.pkg')).toBe('/home/user/downloads/nodescan-exp-1.1.pkg')
@@ -761,7 +843,7 @@ describe('cross-Network vs same-Network transfer capacity', () => {
 
   describe('LocalNetwork membership resolution: none vs. unique vs. ambiguous', () => {
     // Distinct from remote-segment-01's own 8 MiB/s and from node-01/srv-02's endpoint capacities, so a wrongly picked Network would be visible in the resulting rate.
-    const SHADOW_NETWORK = { id: 'network-shadow-test', name: 'shadow-net', memberDeviceIds: ['host-lan-002'], transferCapacity: { uploadBytesPerSecond: 3_000_000, downloadBytesPerSecond: 3_000_000 } }
+    const SHADOW_NETWORK = { id: 'network-shadow-test', name: 'shadow-net', memberDeviceIds: ['host-lan-002'], transferCapacity: { uploadBytesPerSecond: 3_000_000, downloadBytesPerSecond: 3_000_000 }, activityHistory: { nextId: 1, records: [] } }
     // srv-02's own 1 MiB/s upload is the narrowest bottleneck when no LocalNetwork capacity is contributed (the zero-membership fallback).
     const ENDPOINT_ONLY_RATE = 1_048_576
 
