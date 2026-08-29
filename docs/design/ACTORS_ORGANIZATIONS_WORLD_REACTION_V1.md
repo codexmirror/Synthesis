@@ -206,13 +206,14 @@ These examples do not select numeric traits, security levels, personality
 scores, universal priorities, or automatic responses.
 
 
-## 7. Communication as represented action
+## 7. Communication and retained Messages
 
 The long-term direction is:
 
 ```text
 MESSAGE
-= represented communication event / artifact between represented participants
+= represented communication content or a retained communication artifact
+  between represented participants
 
 not merely
 
@@ -220,8 +221,8 @@ MESSAGE
 = text authored so the player has something interesting to read
 ```
 
-Initial authored messages remain valid initial World Truth. Future generated or
-evolving messages should follow represented knowledge and an actual
+Initial authored Messages remain valid initial World Truth. Future generated or
+evolving Messages should follow represented knowledge and an actual
 communication action:
 
 ```text
@@ -231,14 +232,25 @@ Technician observes unusual access evidence
 Technician decides to inform Owner
         |
         v
-represented message is created
+represented communication occurs
+        |
+        v
+Message is created
 ```
 
-The message is a consequence of communication. Its existence is not the
+Represented communication may create a Message, but the communication action or
+occurrence and its retained Message do not have to be the same simulation
+concept. Nothing in this distinction requires every communication occurrence to
+create a retained Message. Where later systemic Messages do exist, they should
+arise from represented communication rather than decorative reaction text.
+
+The Message is a consequence of communication. Its existence is not the
 mechanism that causes the Technician to know about the access. Circular logic
-in which a message exists and therefore its sender magically knew an event is
-not valid. A message and a Person's information remain distinct, as do
-communication presentation and communication authority.
+in which a Message exists and therefore its sender magically knew an event is
+not valid. A Message and a Person's information remain distinct, as do
+communication presentation and communication authority. This design-level
+distinction selects no communication-event Type or schema, event bus, messaging
+engine, communication framework, `GameState`, or runtime behavior.
 
 
 ## 8. Epistemic precision in communication
@@ -512,4 +524,3 @@ Before accepting future work in this domain, ask:
     mechanic requires it?
 12. Could the same world structure eventually support player-owned
     infrastructure without creating a parallel fake management simulation?
-
