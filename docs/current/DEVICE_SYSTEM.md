@@ -260,7 +260,15 @@ only one endpoint uniquely resolves, only that Network's legitimate side is
 recorded and the other side is never fabricated. Ambiguous membership (two or
 more represented LocalNetworks with no represented basis to choose between
 them) is never resolved by array order and contributes no record for that
-side, exactly as it contributes no bottleneck for FileTransfer throughput.
+side — this is not the same as zero membership. For FileTransfer throughput,
+zero membership is the existing compatibility fallback that contributes no
+extra bottleneck while the transfer still proceeds, whereas ambiguous
+membership is an unresolved-route condition that hard-aborts the transfer
+through the existing interruption/archive path. Network activity evidence
+follows that same distinction rather than treating the two alike: an
+ambiguous side simply omits its own record, and the opposite endpoint's
+otherwise-legitimate unique Network still retains its own inbound/outbound
+record for the same activity.
 
 Network activity evidence is canonical World Truth only. It is not exposed
 through Scan, Inspect, Discovery, Known Space, or any current Network UI:
