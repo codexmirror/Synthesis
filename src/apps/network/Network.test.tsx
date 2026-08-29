@@ -526,6 +526,64 @@ describe('NodeScan software and request lifecycle', () => {
 /* -------------------------------------------------------- known space */
 
 describe('Known Space topology', () => {
+  it('scans a player-supplied unknown IPv4 through canonical Scan and projects the discovered Device normally', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+    const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
+    const form = input.closest('form')!
+    const before = currentState()
+
+    await user.type(input, PHONE_ADDRESS)
+
+    const entered = currentState()
+    expect(entered.discovery).toEqual(before.discovery)
+    expect(entered.knowledge).toEqual(before.knowledge)
+    expect(entered.deviceAccess).toEqual(before.deviceAccess)
+    expect(entered.remoteSession).toEqual(before.remoteSession)
+    expect(screen.queryByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).not.toBeInTheDocument()
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+
+    await user.click(within(form).getByRole('button', { name: 'Scan target address' }))
+
+    expect(scanTargetSpy).toHaveBeenCalledWith(expect.anything(), PHONE_ADDRESS)
+    expect(currentState().discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS }))
+    expect(screen.getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toBeInTheDocument()
+  })
+
+  it('rejects malformed direct input locally without observing or mutating canonical state', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+    const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
+    const before = screen.getByTestId('game-state').textContent
+
+    await user.type(input, '198.51.100.999')
+    await user.click(within(input.closest('form')!).getByRole('button', { name: 'Scan target address' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent('INVALID ADDRESS')
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(screen.getByTestId('game-state').textContent).toBe(before)
+  })
+
+  it('reports no response without false Discovery and permits a legitimate SELF observation', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+    const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
+    const scan = within(input.closest('form')!).getByRole('button', { name: 'Scan target address' })
+
+    await user.type(input, '192.0.2.250')
+    await user.click(scan)
+    expect(screen.getByRole('status')).toHaveTextContent('NO RESPONSE')
+    expect(currentState().discovery.devices).toEqual([])
+
+    await user.clear(input)
+    await user.type(input, createInitialGameState().player.localDevice.network.ip)
+    await user.click(scan)
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(currentState().discovery.networks).toContainEqual(expect.objectContaining({ name: 'home-net', membersObserved: false }))
+    expect(screen.getByRole('region', { name: 'Network home-net' })).toHaveTextContent('SELF')
+  })
+
   it('derives the relationship shape from remembered Discovery alone', () => {
     const known = withAccess()
     const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState

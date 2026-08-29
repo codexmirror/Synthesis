@@ -2,6 +2,7 @@ import './network.css'
 import { useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
+import { isValidIpv4 } from '../../core/game/networkTarget'
 import {
   resolveNodeScanRelease,
   selectKnownSpace,
@@ -70,6 +71,7 @@ export function Network() {
   const [copyState, setCopyState] = useState<CopyState>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [selectedPackageId, setSelectedPackageId] = useState('')
+  const [directAddress, setDirectAddress] = useState('')
   const [pending, setPending] = useState<string | null>(null)
   const pendingRef = useRef<string | null>(null)
   const requestGeneration = useRef(0)
@@ -110,6 +112,24 @@ export function Network() {
       if (result.status !== 'observed') setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : 'NO RESPONSE')
       else if (result.targetsKnown === 0) setNotice('NOTHING FOUND')
     } catch { finishRequest('targets', generation) }
+  }
+
+  async function scanDirectAddress() {
+    const address = directAddress.trim()
+    if (!isValidIpv4(address)) {
+      setNotice('INVALID ADDRESS')
+      return
+    }
+    const generation = beginRequest('direct-address')
+    if (generation === null) return
+    try {
+      const result = await actions.scanTarget(address)
+      if (!finishRequest('direct-address', generation)) return
+      setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
+        : result.status === 'no_response' ? 'NO RESPONSE'
+          : result.status === 'device' ? null
+            : 'INVALID ADDRESS')
+    } catch { finishRequest('direct-address', generation) }
   }
 
   async function scan(target: Target) {
@@ -210,19 +230,27 @@ export function Network() {
       space={selectKnownSpace(information)}
       release={release}
       pending={pending === 'targets'}
+      directPending={pending === 'direct-address'}
+      directAddress={directAddress}
       notice={notice}
       onFind={findTargets}
+      onDirectAddressChange={setDirectAddress}
+      onDirectScan={scanDirectAddress}
       onOpen={(deviceId) => open({ kind: 'target', deviceId })}
     />
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, notice, onFind, onOpen }: {
+function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, onFind, onDirectAddressChange, onDirectScan, onOpen }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
+  directPending: boolean
+  directAddress: string
   notice: string | null
   onFind(): void
+  onDirectAddressChange(value: string): void
+  onDirectScan(): void
   onOpen(deviceId: string): void
 }) {
   const known = space.networks.length > 0 || space.elsewhere.length > 0
@@ -231,6 +259,24 @@ function KnownSpaceView({ space, release, pending, notice, onFind, onOpen }: {
       <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
       <span className="ns-release">{release.version}{release.channel ? ` ${release.channel.toUpperCase()}` : ''}</span>
     </header>
+
+    <form className="ns-direct-scan" onSubmit={(event) => { event.preventDefault(); onDirectScan() }} noValidate>
+      <label htmlFor="nodescan-target-address">TARGET ADDRESS</label>
+      <div className="ns-direct-row">
+        <input
+          id="nodescan-target-address"
+          className="node-field"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="198.51.100.61"
+          value={directAddress}
+          onChange={(event) => onDirectAddressChange(event.target.value)}
+        />
+        <button type="submit" aria-label="Scan target address" disabled={directPending}>SCAN</button>
+      </div>
+    </form>
 
     {known
       ? <div className="ns-space">

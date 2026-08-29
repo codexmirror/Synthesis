@@ -22,6 +22,15 @@ namespace is required.
 Scan is available through both Terminal and the graphical NodeScan application.
 Both interfaces invoke the same shared Scan gameplay/application operation.
 
+Known Space also accepts a player-supplied IPv4 address for a direct Scan,
+including an address absent from remembered Discovery. Typing, pasting or
+locally validating that address is presentation state only: a supplied address
+is not a remembered Device and reveals no target truth. A valid submission uses
+the shared Scan operation; only a successful positive observation can update
+canonical Discovery, after which the Device appears through the normal Known
+Space projection. Invalid IPv4 input is rejected before observation, and a
+valid address with no response creates no Discovery.
+
 NodeScan is presented as two screens and three player actions. KNOWN SPACE
 presents the remembered relationship shape around the player; a target card is
 one target's whole line of action. The three actions are SCAN (find out about
