@@ -267,6 +267,39 @@ VEYRA Device presentation direction.
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated current-truth domains,
   archived work orders
 
+### Actors, organizations, and world reaction
+
+Future work involving people or NPC actors, roles, organizational
+relationships, the Organization/Network distinction, actor observation and
+knowledge, actor-driven communication, systemic world reactions, or eventual
+player/NPC organizational symmetry.
+
+- CURRENT TRUTH → none for a generic actor, Organization, Worker, or world
+  reaction model; none is currently implemented
+- FUTURE DESIGN AUTHORITY →
+  [`design/ACTORS_ORGANIZATIONS_WORLD_REACTION_V1.md`](design/ACTORS_ORGANIZATIONS_WORLD_REACTION_V1.md)
+  (Accepted future authority, not Current Truth and not implementation
+  authority by itself)
+- ARCHITECTURE → A01–A04 and A09 in
+  [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
+  A07–A08 and A17 in
+  [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md);
+  A10–A13 in
+  [`architecture/RUNTIME_AND_CONSEQUENCES.md`](architecture/RUNTIME_AND_CONSEQUENCES.md);
+  A14–A16 in
+  [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md);
+  A18 in [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
+- RELATED CURRENT BOUNDARIES →
+  [`current/COMMUNICATION.md`](current/COMMUNICATION.md),
+  [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md), and
+  [`current/DEVICE_SYSTEM.md`](current/DEVICE_SYSTEM.md) only when selected work
+  touches those currently implemented domains
+- DOCUMENTATION IMPACT OWNER → the future design contract above for its
+  selected semantic direction; the relevant current owner only when current
+  implemented truth actually changes
+- NOT REQUIRED BY DEFAULT → implementation code or current-truth documents for
+  a docs-only future design task
+
 ### Workflow, review, delivery, and work orders
 
 How work is selected, implemented, validated, reviewed, delivered, and
