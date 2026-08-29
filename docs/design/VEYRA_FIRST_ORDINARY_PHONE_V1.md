@@ -222,9 +222,22 @@ interpret represented truth through ordinary human purposes.
 
 ### 8.1 Communication
 
-Communication remains a valid human-purpose product area. Its root should
-foreground represented people, conversations, and content rather than provider
-or protocol machinery.
+Communication remains a valid human-purpose product area. Its root follows this
+consumer hierarchy:
+
+```text
+PEOPLE
+    -> CONVERSATIONS
+        -> CONTENT
+```
+
+Represented people and their conversations come before Provider, protocol,
+mailbox, or other implementation machinery.
+
+A conversation detail prioritizes its human subject, then represented message
+history, then represented actions. It must not invent timestamps, presence, read
+state, Provider metadata, or internal message IDs. A reply action or composer
+exists only when represented mechanics actually support replying.
 
 The first VEYRA phone requires concrete foreign-communication truth before this
 surface may appear. Current player mail must not be retargeted or relabelled as
@@ -242,15 +255,74 @@ Provider. Balance, Accounts, Financial Sessions, Transactions, and transfers
 remain owned by canonical Dollar systems; VEYRA may present their meaning but
 must not duplicate them.
 
+The selected consumer hierarchy is:
+
+```text
+BALANCE
+    -> Provider secondary
+    -> Send / Receive
+    -> Activity
+    -> Account
+```
+
+Balance derives from canonical Account truth. Activity derives only from
+canonical Transactions. Send uses represented canonical transfer mechanics.
+Receive exposes only truthful represented receiving information, such as an
+Account reference and a copy action, where available. Account detail may expose
+useful represented Account-facing identity, but never internal Account ID,
+Credential ID, Financial Session ID, credential material, or other hidden
+authority data.
+
+Do not invent QR codes, merchants, categories, fees, pending or settlement
+states, timestamps, or transfer estimates.
+
 ### 8.3 Settings
+
+The selected first-phone structure, where each entry has a represented basis,
+is:
+
+```text
+Settings
+|-- This Device
+|-- Connection
+`-- Apps & Software
+```
 
 Settings remains a likely Firmware-owned system surface. It interprets
 represented Device, Firmware, Software, and related facts through understandable
-human topics. It must not invent battery, storage, security, network, update, or
-other plausible consumer state merely to look complete.
+human topics. It must not invent battery, storage, security, network, update,
+telemetry, or other plausible consumer or software state merely to look
+complete.
 
 Settings does not own the facts it presents. **This Device**, if represented,
-is a detail beneath the Settings root rather than a competing Device model.
+is a detail beneath the Settings root rather than a competing Device model. It
+may present selected human-facing Device and Firmware identity.
+
+**Connection** is owner-facing Device connection presentation. It is not the
+player's `RemoteSession`, and VEYRA must never show “Connected” merely because
+the player currently holds one.
+
+**Apps & Software** may expose represented product, version, publisher, and
+manageable facts only where they exist. It does not authorize invented software
+inventory, installation state, updates, or management capability.
+
+### 8.4 Empty, absent, and unavailable
+
+The shared presentation states are:
+
+```text
+REPRESENTED APP / SURFACE BASIS + ZERO CONTENT
+    -> truthful empty state
+
+NO REPRESENTED BASIS
+    -> Home entry absent
+
+REPRESENTED RELATIONSHIP + AUTHORIZATION REQUIRED
+    -> truthful sign-in or unavailable state where canonical mechanics support it
+```
+
+These states derive from canonical facts. They never authorize filler content,
+fake sign-in, or an interface-local authorization flag.
 
 ---
 

@@ -82,7 +82,11 @@ Inspected `main` at `7eac2d756178bd18883b336817716324387c73e3`.
   a generic colourful app launcher.
 - Recognizably VEYRA without a logo.
 
-### Frozen by the First Ordinary Phone contract
+### Formerly frozen by the First Ordinary Phone contract
+
+**Historical premise — superseded.** The following paragraph records the
+structure this exploration was asked to interpret. It is not current authority;
+the revised accepted contract selects a conventional consumer app Home.
 
 Home is a personal index, not a launcher. Personal Domains are presentation over
 represented truth. The hierarchy is Communication → Money → Settings, with
@@ -163,8 +167,9 @@ discarded because the next pass — and the human selection this pass exists to
 support — needs to open these screens in a real browser at a real width, which a
 PNG cannot provide. Each direction page reduces to a single screen at a chosen
 width with `?only=home&w=320`, so a direction can be opened on an actual phone.
-Round 2 added `selected-hybrid.html`, the single selected candidate; the three
-round-1 direction pages are kept beside it as historical reference.
+Round 2 added `selected-hybrid.html`, the candidate selected within that now
+superseded exploration; the three round-1 direction pages are kept beside it as
+historical reference. None is a currently selected visual direction.
 
 Rendered references are under
 [`../assets/veyra-first-ordinary-phone-v1/`](../assets/veyra-first-ordinary-phone-v1/).
@@ -187,7 +192,7 @@ sturdier on iOS/macOS than these images show. No remote font is used or proposed
 ## Round 1 — the three-direction exploration (§4–§9)
 
 The following six sections are the historical record of round 1. They are
-retained because the selected candidate in §12 is only legible as a set of
+retained because the historical candidate in §12 is only legible as a set of
 choices between them. Round 1's recommendation in §9 is **superseded** by the
 human review recorded in §11.
 
@@ -349,6 +354,11 @@ All three implement exactly the frozen grammar and nothing else: Back moves one
 level up inside the current Domain, a Domain root carries no Back, and Home
 returns to the personal index regardless of depth. No app switcher, recents,
 tabs, cross-Domain history or gesture-only navigation appears in any direction.
+
+**Superseded:** the current grammar retains one-level Back and return to VEYRA
+Home, but Home is now the conventional app launcher defined by
+[`VEYRA_FIRST_ORDINARY_PHONE_V1.md`](VEYRA_FIRST_ORDINARY_PHONE_V1.md), not a
+Personal Index.
 
 - **A** — a control line at the top of the column. Back names its destination
   (`↑ Communication`), which is the clearest of the three; Home is a small marked
@@ -540,15 +550,15 @@ implemented. `docs/current/` and `docs/architecture/` are unchanged, and neither
 VEYRA contract was edited — the routing entry for this document lives in the
 documentation portal, where routing belongs.
 
-Implementation remains blocked on the prerequisites the accepted contract already
-names in its §33: foreign communication truth, Firmware-driven foreign-surface
-selection at the Shell boundary, the concrete first-phone representation, the
-Money adapter boundary, and a represented basis for each Domain. A selected visual
-direction does not unblock any of them.
+Implementation remains subject to the prerequisites the revised accepted
+contract names in its §10: concrete first-phone representation,
+Firmware-driven foreign-surface selection at the Shell boundary, and a truthful
+represented basis and ownership boundary for each visible Home entry. Historical
+visual selection does not unblock any of them.
 
 ---
 
-## Round 2 — human review and the selected candidate (§11–§14)
+## Round 2 — historical human review and superseded candidate (§11–§14)
 
 ## 11. Human review result
 
@@ -567,8 +577,8 @@ C's Home is rejected outright, not refined. Nothing of its fixed frame, its thre
 full-height Domain regions, its 54 / 27 / 19 split, or its whole-screen Domain
 colour segmentation survives.
 
-The selected outcome is therefore neither direction. It is one deliberate
-synthesis:
+The historical Round 2 outcome was therefore neither direction. It was one
+deliberate synthesis, since superseded as a current candidate:
 
 ```text
 C VISUAL DISCIPLINE
@@ -591,7 +601,12 @@ NAVIGATION               -> C's edge, refined to name its destination
 
 ---
 
-## 12. The selected candidate
+## 12. Historical B/C candidate — superseded
+
+This candidate was selected only within the former Personal Index exploration.
+It is not the selected final candidate or current visual authority. Its Home and
+all Home-dependent navigation wording are superseded. Communication, Money, and
+Settings work may remain reference input for a revised pass.
 
 Prototype:
 [`prototypes/veyra-first-ordinary-phone-v1/selected-hybrid.html`](prototypes/veyra-first-ordinary-phone-v1/selected-hybrid.html).
@@ -599,7 +614,7 @@ Prototype:
 Board:
 [`selected-hybrid-board.png`](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-board.png).
 
-![Selected B/C refinement — full board](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-board.png)
+![Historical B/C refinement — full board](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-board.png)
 
 ### The system, stated once
 
@@ -630,7 +645,7 @@ a specific product grammar rather than a generic one.
 
 ### Home
 
-![Selected candidate — Home](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-home.png)
+![Historical superseded candidate — Home](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-home.png)
 
 Built from B's unequal-composition thinking, on C's surface, with C's Home
 discarded entirely.
@@ -655,8 +670,8 @@ discarded entirely.
 
 ### Communication root and conversation
 
-![Selected candidate — Communication root](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-communication.png)
-![Selected candidate — conversation](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-conversation.png)
+![Historical candidate — Communication root](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-communication.png)
+![Historical candidate — conversation](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-conversation.png)
 
 B's people-first, scannable composition, minus its generic-smartphone vocabulary:
 **no avatar circles**. The name is the subject at 18px/500, the represented
@@ -680,7 +695,7 @@ promise.
 
 ### Money
 
-![Selected candidate — Money](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-money.png)
+![Historical candidate — Money](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-money.png)
 
 B's information and action hierarchy kept intact and not flattened into equal
 rows:
@@ -704,8 +719,8 @@ word and the explicit sign both carry it.
 
 ### Settings and This Device
 
-![Selected candidate — Settings](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-settings.png)
-![Selected candidate — This Device](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-this-device.png)
+![Historical candidate — Settings](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-settings.png)
+![Historical candidate — This Device](../assets/veyra-first-ordinary-phone-v1/selected-hybrid-this-device.png)
 
 C, preserved almost directly, because this is what human review called the
 anchor: a quiet title, simple full-width rows, no card container, almost no
@@ -732,10 +747,11 @@ Domain detail    ->  ‹ Communication        Home
 Home             ->  no control at all
 ```
 
-Semantics are unchanged from the accepted contract: Back is one level up inside
-the current Domain, Home returns to the personal index, and neither ever means
-return-to-NODE. No app switcher, tab bar, recents or gesture-only navigation
-exists.
+Historical semantics were: Back is one level up inside the current hierarchy,
+Home returns to the Personal Index, and neither means return-to-NODE. The
+Personal Index destination is **superseded**: current semantics return to the
+conventional VEYRA app Home defined by the accepted first-phone contract. No app
+switcher, tab bar, recents or gesture-only navigation was explored here.
 
 ---
 
