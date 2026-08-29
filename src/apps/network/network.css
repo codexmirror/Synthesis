@@ -196,6 +196,9 @@
 /* SELF is context, not a control: it states the player's own position only. */
 .ns-node--self .ns-target-copy > strong { color: var(--text-secondary); font-size: .72rem; letter-spacing: .12em; }
 .ns-node--self .ns-target-note { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ns-self-scan { min-height: 58px; cursor: pointer; }
+.ns-self-action { flex: none; color: var(--accent); font-size: .62rem; font-weight: 600; letter-spacing: .12em; }
+.ns-self-scan:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
 
 .ns-target-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
 .ns-target-copy > strong { color: var(--text-strong); font: 600 .9rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
@@ -211,8 +214,10 @@
 
 /* The three states worth noticing from the list: work running, a decision
  * waiting, and a relationship already held. */
-.ns-target-mark--scanning,
+.ns-target-mark--analyzing,
 .ns-target-mark--hacking { color: var(--caution); }
+.ns-target-mark--inspect,
+.ns-target-mark--analysis_ready,
 .ns-target-mark--route { color: var(--accent); }
 .ns-target-mark--access,
 .ns-target-mark--connected { color: var(--green); }

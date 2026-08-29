@@ -84,5 +84,15 @@ export function rememberInspect(discovery: DiscoveryState, result: InspectResult
     return inspect ? { ...service, inspect } : service
   })
   devices[index] = { ...devices[index], address: result.address, scope: result.scope, services, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(result.enhanced ? { enhanced: result.enhanced } : previousEnhanced ? { enhanced: previousEnhanced } : {}) } }
-  return { ...discovery, devices }
+  const networks = [...discovery.networks]
+  const relations = [...discovery.networkDeviceRelations]
+  for (const observed of result.networks ?? []) {
+    const networkIndex = networks.findIndex(({ id }) => id === observed.id)
+    if (networkIndex < 0) networks.push({ id: observed.id, name: observed.name, membersObserved: false })
+    else networks[networkIndex] = { ...networks[networkIndex], name: observed.name }
+    if (!relations.some(({ networkId, deviceId }) => networkId === observed.id && deviceId === result.targetId)) {
+      relations.push({ networkId: observed.id, deviceId: result.targetId })
+    }
+  }
+  return { ...discovery, networks, devices, networkDeviceRelations: relations }
 }

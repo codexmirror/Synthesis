@@ -34,6 +34,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     startServiceAnalysis: () => unavailable,
     startServiceAnalysisAtEndpoint: () => unavailable,
     startServiceAnalysisFromObservation: () => unavailable,
+    startObservedServiceAnalyses: () => ({ started: 0 }),
     startCredentialAccessAttemptFromObservation: () => ({ status: 'not_available', state }),
     submitRackUpdatePackageFromObservation: () => ({ status: 'observation_required', state }),
     connectRemoteFromObservation: () => ({ status: 'access_required', state }),
@@ -249,7 +250,7 @@ describe('Terminal credential access', () => {
     const startCredentialAccessAttemptFromObservation = vi.fn(() => ({ status: 'started' as const, processId: 'process-test', state }))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(),
+      pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
       startCredentialAccessAttemptFromObservation, submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     render(<Terminal />)

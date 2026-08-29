@@ -58,7 +58,9 @@ export interface KnownWeakness {
  */
 export type TargetStage =
   | 'unscanned'
-  | 'scanning'
+  | 'inspect'
+  | 'analysis_ready'
+  | 'analyzing'
   | 'no_route'
   | 'route'
   | 'hacking'
@@ -96,6 +98,8 @@ export interface TargetService {
   readonly analysisPercent?: number
   /** Retained, disposable Process history — never permanent Knowledge. */
   readonly analysisOutcome?: AnalysisOutcome
+  /** Whether the latest remembered evidence still justifies a canonical Analyze attempt. */
+  readonly analysisRequired: boolean
   readonly accessPrivilege?: 'USER'
 }
 
@@ -226,16 +230,22 @@ function stageOf(input: {
   connected: boolean
   hasAccess: boolean
   hacking: boolean
-  scanning: boolean
+  analyzing: boolean
   routes: number
   servicesObserved: boolean
+  services: readonly TargetService[]
+  inspectAvailable: boolean
+  inspected: boolean
 }): TargetStage {
   if (input.connected) return 'connected'
   if (input.hasAccess) return 'access'
   if (input.hacking) return 'hacking'
-  if (input.scanning) return 'scanning'
+  if (input.analyzing) return 'analyzing'
+  if (!input.servicesObserved) return 'unscanned'
+  if (input.inspectAvailable && !input.inspected) return 'inspect'
   if (input.routes > 0) return 'route'
-  return input.servicesObserved ? 'no_route' : 'unscanned'
+  if (input.services.some((service) => service.analysisRequired)) return 'analysis_ready'
+  return 'no_route'
 }
 
 /**
@@ -299,6 +309,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const activeAccess = established.find(({ id }) => id === information.remoteSession.active?.accessId)
   const serviceName = (serviceId: string) => device.services.find(({ id }) => id === serviceId)?.name
   const toolkit = findInstalledBasicCredentialToolkit(information.player.localDevice)
+  const nodeScan = findInstalledNodeScan(information.player.localDevice)
 
   const routes: TargetRoute[] = []
   const services = device.services.map((service): TargetService => {
@@ -332,13 +343,14 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       endpoint: service.endpoint,
       ...(observed ? { observed } : {}),
       weaknesses,
+      analysisRequired: weaknesses.length === 0 && outcome !== 'no_weakness_detected' && outcome !== 'weaknesses_detected',
       ...(running ? { analysisPercent: percentOf(running) } : {}),
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),
     }
   })
 
-  const scanning = analyses.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
+  const analyzing = analyses.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const hacking = attempts.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const passive = established[0]
   const lastAttempt = [...attempts]
@@ -348,9 +360,12 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     connected: Boolean(activeAccess && information.remoteSession.active),
     hasAccess: Boolean(passive),
     hacking: hacking.length > 0,
-    scanning: scanning.length > 0,
+    analyzing: analyzing.length > 0,
     routes: routes.length,
     servicesObserved: device.servicesObserved,
+    services,
+    inspectAvailable: Boolean(nodeScan && nodeScanSupportsInspect(nodeScan)),
+    inspected: Boolean(device.inspect?.enhanced),
   })
 
   return {
@@ -359,7 +374,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     scope: device.scope,
     networkNames: networkNamesOf(information, device.id),
     stage,
-    percent: stage === 'hacking' ? runningPercent(hacking) : stage === 'scanning' ? runningPercent(scanning) : 0,
+    percent: stage === 'hacking' ? runningPercent(hacking) : stage === 'analyzing' ? runningPercent(analyzing) : 0,
     routes,
     lastAttemptFailed: lastAttempt?.status === 'attempt_failed',
     ...(device.inspect

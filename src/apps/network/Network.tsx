@@ -27,14 +27,14 @@ import {
  * directly. It exists so the player can see where they are, not so they have
  * to navigate through it.
  *
- * A target card is one target's whole line of action: SCAN to find out about
- * it, HACK to use what was found, CONNECT once access exists. The card states
+ * A target card is one target's whole line of action: SCAN, optional INSPECT,
+ * ANALYZE, BYPASS, then CONNECT. The card states
  * one thing at a time, because at any moment there is one thing the player is
  * waiting on or deciding.
  *
  * The technical world underneath is unchanged and stays reachable: Services,
  * observed implementations, weakness identities, the tool a route uses and
- * RackUpdate's rollback avenue all live under TECHNICAL DETAILS. Opening that
+ * RackUpdate's rollback avenue all live under RECON INTELLIGENCE. Opening that
  * disclosure browses remembered information; it never observes.
  *
  * Every rendered fact comes from the view models in `targetProjection.ts`,
@@ -46,7 +46,9 @@ type CopyState = { value: string; status: 'copied' | 'failed' } | null
 
 const STAGE_MARK: Record<TargetStage, string> = {
   unscanned: 'NOT SCANNED',
-  scanning: 'SCANNING',
+  inspect: 'INSPECT AVAILABLE',
+  analysis_ready: 'SERVICES FOUND',
+  analyzing: 'ANALYZING',
   no_route: 'NO WAY IN',
   route: 'WAY IN FOUND',
   hacking: 'HACKING',
@@ -190,6 +192,13 @@ export function Network() {
       : 'SERVICE UNAVAILABLE')
   }
 
+  function analyzeAll(target: Target) {
+    const relevant = target.services.filter((service) => service.analysisRequired && service.analysisPercent === undefined)
+    const result = actions.startObservedServiceAnalyses(relevant.map((service) => ({ endpoint: service.endpoint, targetDeviceId: target.id, serviceId: service.id })))
+    if (result.insufficientMemory) setNotice(`${result.started ? `${result.started} ANALYSIS${result.started === 1 ? '' : 'ES'} STARTED · ` : ''}NOT ENOUGH MEMORY FOR ALL SERVICES · ${result.insufficientMemory.requiredMiB} MiB required · ${Math.floor(result.insufficientMemory.availableMiB)} MiB available`)
+    else setNotice(result.started ? null : 'NO ANALYSIS AVAILABLE')
+  }
+
   function submitPackage(target: Target) {
     const rollback = target.rollback
     if (!rollback) return
@@ -235,6 +244,7 @@ export function Network() {
         onConnect={() => connect(target)}
         onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
         onAnalyze={(service) => analyze(target, service)}
+        onAnalyzeAll={() => analyzeAll(target)}
         onCopy={copy}
         onSelectPackage={setSelectedPackageId}
         onSubmitPackage={() => submitPackage(target)}
@@ -298,8 +308,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
 
     <div className="ns-space">
         {!space.networks.some(({ includesSelf }) => includesSelf) && <section className="ns-group" aria-label="Self">
-          <header className="ns-group-head"><span className="ns-eyebrow">SELF</span></header>
-          <button type="button" className="ns-node ns-node--self" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}><span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span><span className="ns-stage">NOT SCANNED</span></span><span>SCAN</span></button>
+          <button type="button" className="ns-node ns-node--self ns-self-scan" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}><span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span><span className="ns-target-mark">NOT SCANNED</span><span className="ns-self-action">SCAN</span></button>
         </section>}
         {space.networks.map((network) => <section className="ns-group" key={network.id} aria-label={`Network ${network.name}`}>
           <header className="ns-group-head">
@@ -356,7 +365,7 @@ function TargetRow({ target, showLocation, onOpen }: { target: TargetSummary; sh
  * One target, one decision. The stage panel states where this target's line of
  * action currently is and offers the single action that continues it.
  */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onHack, onConnect, onDisconnect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onHack, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -370,6 +379,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   onConnect(): void
   onDisconnect(): void
   onAnalyze(service: TargetService): void
+  onAnalyzeAll(): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
   onSubmitPackage(): void
@@ -395,9 +405,21 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         <Primary label="SCAN" disabled={pending} onClick={onScan} />
       </>}
 
-      {target.stage === 'scanning' && <>
-        <strong className="ns-stage-headline">SCANNING</strong>
-        <Progress percent={target.percent} label="Scan progress" />
+      {target.stage === 'inspect' && <>
+        <strong className="ns-stage-headline">SERVICES FOUND</strong>
+        <span className="ns-stage-note">Inspect can reveal deeper evidence about this target.</span>
+        <Primary label="INSPECT" onClick={onInspect} />
+      </>}
+
+      {target.stage === 'analysis_ready' && <>
+        <strong className="ns-stage-headline">SERVICES FOUND</strong>
+        <span className="ns-stage-note">The observed attack surface is ready to investigate.</span>
+        <Primary label="ANALYZE" onClick={onAnalyzeAll} />
+      </>}
+
+      {target.stage === 'analyzing' && <>
+        <strong className="ns-stage-headline">ANALYZING</strong>
+        <Progress percent={target.percent} label="Analysis progress" />
       </>}
 
       {target.stage === 'no_route' && <>
@@ -409,7 +431,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       {target.stage === 'route' && <>
         <strong className="ns-stage-headline">{routes} WAY{routes === 1 ? '' : 'S'} IN FOUND</strong>
         {target.lastAttemptFailed && <span className="ns-stage-note">The last attempt failed.</span>}
-        <Primary label={target.lastAttemptFailed ? 'HACK AGAIN' : 'HACK'} onClick={() => onHack(target.routes[0])} />
+        <Primary label={target.lastAttemptFailed ? 'BYPASS AGAIN' : 'BYPASS'} onClick={() => onHack(target.routes[0])} />
       </>}
 
       {target.stage === 'hacking' && <>
@@ -432,7 +454,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
     <details className="ns-details">
-      <summary>TECHNICAL DETAILS</summary>
+      <summary>RECON INTELLIGENCE</summary>
       <TechnicalDetails
         target={target}
         release={release}
