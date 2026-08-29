@@ -54,7 +54,7 @@ It is a configuration change, not a lifecycle event. The Process ID,
 `executorDeviceId`, `programId`/`releaseId`, RAM ownership, `producedNodeUnits`,
 `payoutNodeUnits`, `developerFeeNodeUnits` and the fractional `workRemainder`
 all survive untouched; it consumes zero simulation time, performs no final
-payout, creates no second Process, and fabricates no STOP or RUN. Pending
+payout, creates no second Process, and fabricates no STOP or RUN. Unpaid
 production is deliberately *not* reset merely because configuration changed, so
 the next explicit or final settlement routes all then-unpaid production to the new address; earlier settlements remain immutable. Everything already routed stays exactly
 where it went; past economic consequences are immutable. Setting the address
