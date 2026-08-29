@@ -1,4 +1,4 @@
-VEYRA First Ordinary Phone V1
+# VEYRA First Ordinary Phone V1
 
 Status: Accepted
 Scope: Design authority for the first ordinary VEYRA personal-phone product structure, Personal Domains, Home behavior, navigation grammar, and the representative Communication, Money, and Settings surfaces.
@@ -7,13 +7,13 @@ This document defines selected future product and presentation behavior. It does
 
 Parent design authority:
 
-VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md
+[`VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md)
 
 Normative owners of implemented truth remain the relevant docs/current/ documents and accepted code/tests.
 
-⸻
+---
 
-1. Status, scope, and authority
+## 1. Status, scope, and authority
 
 This document is the design owner for the first ordinary VEYRA phone experience.
 
@@ -50,9 +50,9 @@ This contract owns the narrower first-phone decisions around:
 
 If this document conflicts with Architecture or represented current truth, Architecture and current truth remain authoritative.
 
-⸻
+---
 
-2. Product target
+## 2. Product target
 
 The first ordinary VEYRA phone exists to prove:
 
@@ -102,9 +102,9 @@ ACCESS
     ↓
 SYSTEM SUMMARIZES IMPORTANT INFORMATION
 
-⸻
+---
 
-3. Core product model
+## 3. Core product model
 
 VEYRA organizes the first phone around Personal Domains.
 
@@ -138,9 +138,9 @@ Instead, VEYRA presents stable human-purpose areas such as:
 
 Documents remains a valid broader VEYRA product direction but is not required by this first representative phone slice.
 
-⸻
+---
 
-4. Personal Domains are presentation, not simulation ownership
+## 4. Personal Domains are presentation, not simulation ownership
 
 A Personal Domain is:
 
@@ -201,9 +201,9 @@ merely to represent presentation structure.
 
 Concrete mechanics and canonical owners remain authoritative.
 
-⸻
+---
 
-5. Domain presence is derived
+## 5. Domain presence is derived
 
 A Domain appears only when the concrete Device has a represented basis for that Domain.
 
@@ -254,9 +254,9 @@ merely because VEYRA conceptually supports those categories.
 
 Absence and emptiness are different states.
 
-⸻
+---
 
-6. Home
+## 6. Home
 
 VEYRA Home is a personal index.
 
@@ -301,9 +301,9 @@ Settings is available but deliberately quiet.
 
 The Device should normally function without demanding that the user manage the Device itself.
 
-⸻
+---
 
-7. Domain projections on Home
+## 7. Domain projections on Home
 
 Home may contain small deterministic Domain projections.
 
@@ -360,9 +360,9 @@ CONVERSATION DETAIL
 
 This preserves one predictable grammar for the first phone.
 
-⸻
+---
 
-8. What Home does not show
+## 8. What Home does not show
 
 Home does not foreground:
 
@@ -403,9 +403,9 @@ Home also does not require:
 
 VEYRA should be identifiable through product behavior and hierarchy rather than persistent branding.
 
-⸻
+---
 
-9. Domain-root grammar
+## 9. Domain-root grammar
 
 Domains do not share one universal screen template.
 
@@ -459,9 +459,9 @@ represented controls
 
 The screens should therefore feel related without becoming identical containers populated with different data.
 
-⸻
+---
 
-10. Communication
+## 10. Communication
 
 Communication is the strongest first-phone proof that the Device belongs to a person.
 
@@ -572,9 +572,9 @@ Possible future locations include:
 
 Provider identity does not dominate normal conversation presentation.
 
-⸻
+---
 
-11. Foreign communication truth boundary
+## 11. Foreign communication truth boundary
 
 Current player mail truth must not be silently reused as foreign-NPC communication truth.
 
@@ -590,9 +590,9 @@ The exact future canonical owner and representation of foreign personal communic
 
 It must be selected through concrete architecture/product work before implementation depends on it.
 
-⸻
+---
 
-12. Money
+## 12. Money
 
 The selected working Domain label is:
 
@@ -726,9 +726,9 @@ Do not expose ordinary-user UI for:
 
 The normal availability of an Account through the interface is sufficient consumer-level evidence that the represented authority permits the interaction.
 
-⸻
+---
 
-13. Settings
+## 13. Settings
 
 Settings proves how VEYRA interprets the Device itself.
 
@@ -745,9 +745,9 @@ Apps & Software
 
 The exact labels remain subject to later product-language refinement.
 
-⸻
+---
 
-14. This Device
+## 14. This Device
 
 This Device may expose selected represented identity information such as:
 
@@ -759,9 +759,9 @@ The Device’s canonical stable identity remains hidden from ordinary presentati
 
 Firmware identity is therefore accessible without becoming persistent Home or system chrome.
 
-⸻
+---
 
-15. Connection
+## 15. Connection
 
 Connection presents represented Device/network state from the ordinary owner-facing Device perspective.
 
@@ -813,9 +813,9 @@ Likewise, VEYRA Home or Settings must not expose the hacker’s:
 
 as ordinary owner-facing VEYRA state.
 
-⸻
+---
 
-16. Apps & Software
+## 16. Apps & Software
 
 Personal Domains do not deny the existence of software.
 
@@ -853,9 +853,9 @@ HOME
 SETTINGS / APPS & SOFTWARE
     = explicit software inventory where useful
 
-⸻
+---
 
-17. Settings does not manufacture consumer telemetry
+## 17. Settings does not manufacture consumer telemetry
 
 The first Settings contract does not select:
 
@@ -877,9 +877,9 @@ These concepts may only appear later if the simulation actually represents them 
 
 Familiarity from real consumer devices is not sufficient justification.
 
-⸻
+---
 
-18. Error and technical-problem presentation
+## 18. Error and technical-problem presentation
 
 VEYRA should communicate problems from the human task perspective.
 
@@ -903,9 +903,9 @@ VEYRA may simplify represented truth.
 
 It may not invent explanatory truth.
 
-⸻
+---
 
-19. Back
+## 19. Back
 
 Back means:
 
@@ -944,9 +944,9 @@ A Domain root has no internal Back destination.
 
 Therefore no Back control is required there.
 
-⸻
+---
 
-20. Home action
+## 20. Home action
 
 VEYRA has one consistent OS-level Home action.
 
@@ -972,9 +972,9 @@ The exact visual form of the Home affordance remains unresolved.
 
 Its behavior does not.
 
-⸻
+---
 
-21. Home is not return-to-NODE
+## 21. Home is not return-to-NODE
 
 The surrounding Synthesis Shell may provide a separate way for the player to leave the foreign operating surface and return to their local NODE environment.
 
@@ -1004,9 +1004,9 @@ VEYRA owns only its internal presentation and navigation.
 
 The Shell owns the broader operating-context transition.
 
-⸻
+---
 
-22. V1 system navigation
+## 22. V1 system navigation
 
 The selected first-phone navigation grammar contains only two VEYRA-internal navigation operations:
 
@@ -1027,9 +1027,9 @@ V1 does not require:
 
 The design goal is immediate predictability.
 
-⸻
+---
 
-23. Domain versus application
+## 23. Domain versus application
 
 This distinction is normative.
 
@@ -1098,9 +1098,9 @@ Do not create a generalized Personal Domain framework merely because future aggr
 
 Concrete mechanics come first.
 
-⸻
+---
 
-24. Cross-domain consistency
+## 24. Cross-domain consistency
 
 The first phone uses a small number of strong consistency rules.
 
@@ -1180,9 +1180,9 @@ VEYRA may contain whitespace and genuinely empty areas.
 
 Do not manufacture content to make screens feel populated.
 
-⸻
+---
 
-25. Empty, missing, and unavailable states
+## 25. Empty, missing, and unavailable states
 
 VEYRA must distinguish different forms of absence.
 
@@ -1252,9 +1252,9 @@ If the operation can only determine failure when attempted, VEYRA may present th
 
 Do not introduce UI flags that become gameplay authority.
 
-⸻
+---
 
-26. First-entry structural walkthrough
+## 26. First-entry structural walkthrough
 
 The first VEYRA encounter should teach itself through normal interaction.
 
@@ -1382,9 +1382,9 @@ VEYRA consistently interprets represented truth through human meaning.
 
 Within the first minute, Communication and Money prove that very different canonical Domains can share one coherent VEYRA product grammar.
 
-⸻
+---
 
-27. First-phone structural tree
+## 27. First-phone structural tree
 
 This tree describes navigation only.
 
@@ -1429,9 +1429,9 @@ The deeper semantic model is:
                MEANING OVER
                  MECHANISM
 
-⸻
+---
 
-28. Representative V1 surface set
+## 28. Representative V1 surface set
 
 The smallest product set selected by this contract is:
 
@@ -1479,9 +1479,9 @@ Proves:
 
 No additional placeholder surfaces are required for V1.
 
-⸻
+---
 
-29. Explicit non-goals
+## 29. Explicit non-goals
 
 This contract does not select:
 
@@ -1520,9 +1520,9 @@ This contract does not select:
 * implementation types;
 * generic Personal Domain framework.
 
-⸻
+---
 
-30. Visual-design decisions intentionally unresolved
+## 30. Visual-design decisions intentionally unresolved
 
 The product structure is selected.
 
@@ -1556,9 +1556,9 @@ These decisions may change how the selected structure looks.
 
 They must not silently reopen the structural product decisions frozen here.
 
-⸻
+---
 
-31. Frozen structural decisions
+## 31. Frozen structural decisions
 
 The following are selected by this contract:
 
@@ -1591,9 +1591,9 @@ UNREPRESENTED TRUTH
 FIRMWARE
 = presentation and interaction layer, not owner of duplicated canonical truth
 
-⸻
+---
 
-32. Architecture boundaries
+## 32. Architecture boundaries
 
 This contract preserves the established Synthesis boundaries.
 
@@ -1626,9 +1626,70 @@ A VEYRA surface observes represented truth and requests represented operations t
 
 Presentation neither proves capability nor creates authority.
 
-⸻
+---
 
-33. Design review test
+## 33. Implementation readiness
+
+```text
+PRODUCT STRUCTURE
+= accepted
+
+VISUAL LANGUAGE / CONCRETE SCREEN COMPOSITION
+= intentionally unresolved; owned by the next visual exploration pass
+
+FULL FIRST-PHONE IMPLEMENTATION
+= not ready until the concrete prerequisites below are resolved
+```
+
+These prerequisites are boundaries for later concrete work, not decisions made
+by this contract:
+
+### A. Foreign communication truth
+
+Current `GameState.mail` is the player's mailbox. The first VEYRA phone must
+not reuse or retarget it as foreign-NPC truth. Before Communication
+implementation depends on foreign-phone communication, concrete work must
+select its canonical representation and ownership model. This contract does
+not choose that model.
+
+### B. Foreign Firmware operating-surface selection
+
+Current Remote Session architecture already resolves the target Device and
+Firmware, and `RemoteSessionHandoff` is Firmware-aware in presentation.
+`Shell.tsx`, however, mounts RACK-OS as the only entered remote operating
+surface. The first VEYRA implementation therefore requires concrete
+Firmware-driven foreign-surface selection at the Shell/presentation boundary.
+This contract neither designs nor implements that routing, and it does not
+imply a generic plugin or framework system.
+
+### C. Concrete first-phone representation
+
+Concrete work has not yet selected a Device instance, an installed VEYRA OS
+release, owner or personal content, a represented communication basis, or a
+represented financial relationship. A later implementation slice must select
+only the concrete state the first phone needs; this contract creates none of
+it.
+
+### D. Money boundary
+
+The existing Dollar core is already Device-scoped: Account authority resolves
+through a Financial Session and its client Device. VEYRA must reuse those
+canonical Dollar operations and must not create VEYRA-owned balance, Account,
+Provider, Session, Transaction, or transfer state. A later application boundary
+may require a foreign-Device adapter; this contract does not implement one.
+
+### E. Representative Domain basis
+
+The accepted representative V1 surface set is Home, Communication, Money, and
+Settings. For one concrete reference phone to realize all four, represented
+world state must provide a truthful basis for Communication, Money, and
+Settings. Presence must derive from those concrete facts, never from
+`showCommunication`, `showMoney`, `personalDomains[]`, or equivalent
+presentation flags.
+
+---
+
+## 34. Design review test
 
 Future VEYRA first-phone work should be rejected or reconsidered if it fails these questions:
 
@@ -1652,9 +1713,9 @@ Meaning over mechanism.
 
 If the answer to question 14 is no, the product structure has regressed.
 
-⸻
+---
 
-34. Next design step
+## 35. Next design step
 
 With this contract accepted, the next VEYRA design task is visual exploration.
 
