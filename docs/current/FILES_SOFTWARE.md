@@ -609,6 +609,14 @@ strongest `build-flipper-1.0-credential-access-rollback`. Integrating the two
 modules in either order converges on that same strongest build. Source module
 artifacts remain ordinary owned files after integration.
 
+Admission also binds the Process to the exact supported source Flipper release
+and build and to the matching managed executable Files presents. Completion
+atomically updates InstalledSoftware and that same executable to the explicit
+result build and represented size. If either admitted host representation is
+missing, replaced, or changed before completion, the Process resolves without
+transforming the replacement. Neither host representation changes while work
+is still running.
+
 The Flipper application derives the installed release, concrete build, size,
 integrated module set, compatible local artifacts, and running integration
 work from canonical Device and Process truth. It performs no reconnaissance,

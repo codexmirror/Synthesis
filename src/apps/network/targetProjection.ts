@@ -502,12 +502,12 @@ function selectPackageSubmission(information: PlayerInformation, deviceId: strin
   const running = attack.find(({ status }) => status === 'running')
   const lastAttack = [...attack].reverse().find((process) => process.status === 'completed' && process.result)?.result
 
-  const flipper = findInstalledFlipper(information.player.localDevice)
   const weakness = rackUpdate.weaknesses.find(({ id }) => id === 'UPD-001')
   // The tool stays a real requirement: without a Flipper build that actually
   // integrates the Rollback Module, the opportunity is never formed at all.
-  const route: PackageSubmissionRoute | undefined = !enabled && flipper && weakness && flipperSupportsTechnique(flipper, weakness.id)
-    ? { vulnerabilityId: weakness.id, vulnerabilityLabel: weakness.label, toolName: flipper.name, ...(moduleNameFor(weakness.id) ? { moduleName: moduleNameFor(weakness.id)! } : {}) }
+  const techniqueTool = weakness ? findLocalTechniqueTool(information.player.localDevice, weakness.id) : undefined
+  const route: PackageSubmissionRoute | undefined = !enabled && techniqueTool && weakness
+    ? { vulnerabilityId: weakness.id, vulnerabilityLabel: weakness.label, toolName: techniqueTool.toolName, moduleName: techniqueTool.moduleName }
     : undefined
 
   const submission = information.rackUpdate.submission.active

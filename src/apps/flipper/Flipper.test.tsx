@@ -17,8 +17,10 @@ const ROLLBACK_ARTIFACT: SoftwareModuleFile = {
 const value = (label: string) => screen.getByText(label).parentElement?.querySelector('dd')?.textContent
 
 function withInstalledHost(state = createInitialGameState()): GameState {
+  const installation: FlipperInstallation = { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'build-flipper-1.0-credential-access', integratedModules: ['credential-access'], sizeBytes: 5_600_000 }
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
-    installedSoftware: [...state.player.localDevice.installedSoftware, { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'build-flipper-1.0-credential-access', integratedModules: ['credential-access'], sizeBytes: 5_600_000 } as FlipperInstallation],
+    installedSoftware: [...state.player.localDevice.installedSoftware, installation],
+    filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { kind: 'executable', id: 'file-flipper-host', path: '/home/user/apps/flipper', programId: 'flipper', releaseId: installation.releaseId, buildId: installation.buildId, name: installation.name, version: installation.version, sizeBytes: installation.sizeBytes }] },
   } } }
 }
 

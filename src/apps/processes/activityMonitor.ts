@@ -232,6 +232,7 @@ function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[
     if (process.result?.status === 'integrated') return { tone: 'positive', headline: 'MODULE INTEGRATED', details: [process.result.buildId] }
     if (process.result?.status === 'already_integrated') return { tone: 'neutral', headline: 'ALREADY INTEGRATED', details: [] }
     if (process.result?.status === 'host_unavailable') return { tone: 'negative', headline: 'HOST UNAVAILABLE', details: [] }
+    if (process.result?.status === 'host_changed') return { tone: 'negative', headline: 'HOST CHANGED', details: [] }
   }
   if (process.kind === 'software_removal') {
     if (process.result?.status === 'baseline_restored') return { tone: 'positive', headline: 'BASELINE RESTORED', details: [] }

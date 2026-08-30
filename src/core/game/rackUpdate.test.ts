@@ -61,6 +61,13 @@ function ready(): GameState {
   return withRollbackModuleIntegrated(withLocalGateSsh132(withUpd001Knowledge(observed())))
 }
 
+function withStandaloneRollback(state: GameState): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
+    installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== FLIPPER_PRODUCT_ID),
+    filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { kind: 'software_module', id: 'file-rollback-module', path: '/home/user/modules/rollback.mod', ...ROLLBACK_MODULE_1_0 }] },
+  } } }
+}
+
 function alterTarget(state: GameState, alter: (host: NetworkHost) => NetworkHost): GameState {
   return { ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-002' ? alter(host) : host) } } }
 }
@@ -82,6 +89,20 @@ function grantSubmissionAccess(state: GameState) {
 }
 
 describe('RackUpdate ATTACK: finite exploit work granting only narrow submission capability', () => {
+  it('admits the exact standalone Rollback Module without Flipper and snapshots truthful provenance', () => {
+    const state = withStandaloneRollback(withLocalGateSsh132(withUpd001Knowledge(observed())))
+    expect(canFormRackUpdateExploitAttempt(state, UPD_001_OBSERVATION)).toBe(true)
+    const started = startRackUpdateExploitAttemptFromObservation(state, UPD_001_OBSERVATION)
+    expect(started.status).toBe('started')
+    if (started.status === 'started') expect(started.state.process.processes.find(({ id }) => id === started.processId)).toMatchObject({ kind: 'rack_update_exploit', toolId: 'rollback-module', moduleId: 'rollback' })
+  })
+
+  it('rejects a standalone Rollback Module with an unsupported concrete build', () => {
+    const state = withStandaloneRollback(withUpd001Knowledge(observed()))
+    const unsupported = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.map((file) => file.id === 'file-rollback-module' && file.kind === 'software_module' ? { ...file, buildId: 'unsupported-build' } : file) } } } }
+    expect(canFormRackUpdateExploitAttempt(unsupported, UPD_001_OBSERVATION)).toBe(false)
+  })
+
   it('forms an attack opportunity only with earned Knowledge and the supporting installed tool', () => {
     const state = ready()
     expect(canFormRackUpdateExploitAttempt(state, UPD_001_OBSERVATION)).toBe(true)

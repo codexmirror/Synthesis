@@ -1,6 +1,6 @@
 import { startProcess } from './processes'
 import { FLIPPER_1_0, FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
-import type { FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProcess, GameState, LocalDeviceState, SoftwareModuleFile } from './types'
+import type { ExecutableFile, FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProcess, GameState, LocalDeviceState, SoftwareModuleFile } from './types'
 
 /**
  * Flipper is the player's one extensible offensive/access tool, and the only
@@ -96,8 +96,10 @@ export function findLocalTechniqueTool(device: Pick<LocalDeviceState, 'installed
   const moduleId = FLIPPER_MODULE_IDS.find((id) => FLIPPER_MODULE_TECHNIQUE[id] === vulnerabilityId)
   if (!moduleId) return undefined
   if (flipper?.integratedModules.includes(moduleId)) return { toolName: flipper.name, moduleName: FLIPPER_MODULE_NAME[moduleId] }
+  const authoredModule = moduleId === 'credential-access' ? CREDENTIAL_ACCESS_MODULE_1_0 : ROLLBACK_MODULE_1_0
   const artifact = findLocalFlipperModuleArtifacts(device).find((file) => file.moduleId === moduleId
-    && file.releaseId === CREDENTIAL_ACCESS_MODULE_1_0.releaseId && file.buildId === CREDENTIAL_ACCESS_MODULE_1_0.buildId)
+    && file.releaseId === authoredModule.releaseId && file.buildId === authoredModule.buildId
+    && file.version === authoredModule.version && file.sizeBytes === authoredModule.sizeBytes)
   return artifact ? { toolName: 'Standalone Module', moduleName: artifact.name } : undefined
 }
 
@@ -114,7 +116,7 @@ export function findRunningFlipperModuleIntegration(state: Pick<GameState, 'play
 
 export type StartFlipperModuleIntegrationResult =
   | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly moduleId: FlipperModuleId; readonly moduleName: string }
-  | { readonly status: 'module_not_found' | 'not_module_artifact' | 'incompatible_host' | 'host_not_installed' | 'unsupported_module_build' | 'already_integrated' | 'already_integrating'; readonly state: GameState }
+  | { readonly status: 'module_not_found' | 'not_module_artifact' | 'incompatible_host' | 'host_not_installed' | 'unsupported_host_build' | 'managed_host_artifact_unavailable' | 'unsupported_module_build' | 'already_integrated' | 'already_integrating'; readonly state: GameState }
   | { readonly status: 'insufficient_memory'; readonly state: GameState; readonly requiredMiB: number; readonly availableMiB: number }
 
 /**
@@ -135,6 +137,9 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
 
   const flipper = findInstalledFlipper(device)
   if (!flipper) return { status: 'host_not_installed', state }
+  if (!isSupportedFlipperBuild(flipper)) return { status: 'unsupported_host_build', state }
+  const managedHost = findManagedFlipperExecutable(device, flipper)
+  if (!managedHost) return { status: 'managed_host_artifact_unavailable', state }
 
   // V1 recognizes exactly the currently represented concrete build of each
   // artifact-drivable module. A different build carrying the same `moduleId`
@@ -143,7 +148,8 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
   // build identity, the same way ordinary package installation recognizes an
   // artifact's path rather than inferring compatibility from its kind alone.
   const authoredModule = file.moduleId === 'credential-access' ? CREDENTIAL_ACCESS_MODULE_1_0 : ROLLBACK_MODULE_1_0
-  if (file.releaseId !== authoredModule.releaseId || file.buildId !== authoredModule.buildId) {
+  if (file.releaseId !== authoredModule.releaseId || file.buildId !== authoredModule.buildId
+    || file.version !== authoredModule.version || file.sizeBytes !== authoredModule.sizeBytes) {
     return { status: 'unsupported_module_build', state }
   }
 
@@ -165,6 +171,10 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
         ...process,
         kind: 'flipper_module_integration' as const,
         hostProductId: FLIPPER_PRODUCT_ID,
+        hostReleaseId: flipper.releaseId,
+        hostBuildId: flipper.buildId,
+        hostSizeBytes: flipper.sizeBytes,
+        hostFileId: managedHost.id,
         moduleId: file.moduleId,
         moduleReleaseId: file.releaseId,
         moduleBuildId: file.buildId,
@@ -190,7 +200,8 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
  * other completion resolvers use, so repeated advancement after completion
  * never re-applies a consequence.
  *
- * The transformation is concrete and applied to the host installation alone:
+ * The transformation is concrete and applied atomically to the host installation
+ * and its admitted managed executable:
  * the release stays Flipper 1.0, the integrated module set gains exactly this
  * module, the represented size grows by exactly the module's own represented
  * size, and the build identity becomes the one explicit build V1 represents
@@ -210,6 +221,13 @@ export function resolveCompletedFlipperModuleIntegrations(state: GameState): Gam
     // Process whose executor is not that Device has no host to transform.
     const flipper = process.executorDeviceId === localDevice.id ? findInstalledFlipper(localDevice) : undefined
     if (!flipper) return { ...process, result: { status: 'host_unavailable' as const } }
+    const managedHost = localDevice.filesystem.files.find((file): file is ExecutableFile => file.id === process.hostFileId && file.kind === 'executable')
+    if (!managedHost) return { ...process, result: { status: 'host_unavailable' as const } }
+    if (!isSupportedFlipperBuild(flipper) || flipper.releaseId !== process.hostReleaseId || flipper.buildId !== process.hostBuildId || flipper.sizeBytes !== process.hostSizeBytes
+      || managedHost.programId !== FLIPPER_PRODUCT_ID || managedHost.releaseId !== process.hostReleaseId
+      || managedHost.buildId !== process.hostBuildId || managedHost.sizeBytes !== process.hostSizeBytes) {
+      return { ...process, result: { status: 'host_changed' as const } }
+    }
     if (flipper.integratedModules.includes(process.moduleId)) return { ...process, result: { status: 'already_integrated' as const } }
 
     const integratedModules = FLIPPER_MODULE_IDS.filter((moduleId) => moduleId === process.moduleId || flipper.integratedModules.includes(moduleId))
@@ -232,6 +250,9 @@ export function resolveCompletedFlipperModuleIntegrations(state: GameState): Gam
     localDevice = {
       ...localDevice,
       installedSoftware: localDevice.installedSoftware.map((software) => software.id === flipper.id ? integrated : software),
+      filesystem: { ...localDevice.filesystem, files: localDevice.filesystem.files.map((file) => file.id === managedHost.id
+        ? { ...managedHost, buildId: integrated.buildId, sizeBytes: integrated.sizeBytes }
+        : file) },
     }
     return { ...process, result: { status: 'integrated' as const, buildId: integrated.buildId } }
   })
@@ -242,4 +263,21 @@ export function resolveCompletedFlipperModuleIntegrations(state: GameState): Gam
     process: { ...state.process, processes },
     player: localDevice === state.player.localDevice ? state.player : { ...state.player, localDevice },
   }
+}
+
+function findManagedFlipperExecutable(device: Pick<LocalDeviceState, 'filesystem'>, flipper: FlipperInstallation): ExecutableFile | undefined {
+  return device.filesystem.files.find((file): file is ExecutableFile => file.kind === 'executable'
+    && file.path === FLIPPER_INSTALLED_EXECUTABLE_PATH && file.programId === FLIPPER_PRODUCT_ID
+    && file.releaseId === flipper.releaseId && file.buildId === flipper.buildId && file.sizeBytes === flipper.sizeBytes)
+}
+
+function isSupportedFlipperBuild(flipper: FlipperInstallation): boolean {
+  const modules = flipper.integratedModules
+  if (flipper.releaseId !== FLIPPER_1_0.releaseId) return false
+  if (modules.length === 0) return flipper.buildId === FLIPPER_1_0.buildId && flipper.sizeBytes === FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES
+  if (modules.length === 1 && modules[0] === 'credential-access') return flipper.buildId === FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID && flipper.sizeBytes === FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES + CREDENTIAL_ACCESS_MODULE_1_0.sizeBytes
+  if (modules.length === 1 && modules[0] === 'rollback') return flipper.buildId === FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID && flipper.sizeBytes === FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES + ROLLBACK_MODULE_1_0.sizeBytes
+  return modules.length === 2 && modules[0] === 'credential-access' && modules[1] === 'rollback'
+    && flipper.buildId === FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID
+    && flipper.sizeBytes === FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES + CREDENTIAL_ACCESS_MODULE_1_0.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes
 }

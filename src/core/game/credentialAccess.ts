@@ -1,7 +1,7 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
-import { CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_MODULE_TECHNIQUE, FLIPPER_PRODUCT_ID, findInstalledFlipper, flipperSupportsTechnique } from './flipper'
+import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalTechniqueTool, flipperSupportsTechnique } from './flipper'
 import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
@@ -29,11 +29,7 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const installation = findInstalledFlipper(state.player.localDevice)
-  const standaloneModule = observed.vulnerabilityId === FLIPPER_MODULE_TECHNIQUE['credential-access'] && state.player.localDevice.filesystem.files.some((file) => file.kind === 'software_module'
-    && file.moduleId === CREDENTIAL_ACCESS_MODULE_1_0.moduleId && file.releaseId === CREDENTIAL_ACCESS_MODULE_1_0.releaseId
-    && file.buildId === CREDENTIAL_ACCESS_MODULE_1_0.buildId)
-  const tool = standaloneModule || Boolean(installation && flipperSupportsTechnique(installation, observed.vulnerabilityId))
+  const tool = findLocalTechniqueTool(state.player.localDevice, observed.vulnerabilityId)
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   return Boolean(service && known && tool && !accessed)
 }

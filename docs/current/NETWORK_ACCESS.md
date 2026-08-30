@@ -95,9 +95,9 @@ Enhanced Inspect evidence includes its package-submission interface and earned
 INTELLIGENCE, while its actionable ATTACK, running work, and submission-ready
 continuation participate in the primary decision. Before the narrow submission capability exists,
 it states an ATTACK opportunity exactly like a credential way in: it names the
-weakness, the supporting installed tool and module, and offers ATTACK only
-where the installed Flipper build actually integrates the Rollback Module;
-without that module it states that no installed tool currently supports the
+weakness, the supporting tool and module, and offers ATTACK only
+where either the exact standalone Rollback Module is owned or the installed
+Flipper build integrates it; without either source it states that no tool currently supports the
 weakness. ATTACK starts a real
 finite `rack_update_exploit` Process (see Service Analysis / Credential Access
 above for the shared Process model) and shows its own progress while running.
@@ -370,7 +370,7 @@ It does not establish access immediately.
 
 Completion resolves against current World Truth and validates the represented target, service, endpoint relationship, service availability, current weakness, and represented credential-access context. Success creates persistent USER `DeviceAccess`; failure creates no access and does not rewrite historical Discovery or Knowledge.
 
-RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release. Knowledge alone is informative rather than submission authority: exploiting it requires an installed tool that actually supports `UPD-001` — a Flipper build integrating the Rollback Module — while Credential Access accepts either its standalone module artifact or a Flipper build integrating it for `AUTH-017`, and each module's role stays equally narrow. The distributable canonical Flipper build integrates no modules; a fresh Device supports no `UPD-001` until the module is acquired and integrated. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and integrating it into Flipper is finite represented work owned by `docs/current/FILES_SOFTWARE.md`; the resulting installed build satisfies this requirement through the same `flipperSupportsTechnique` check with no RackUpdate-specific integration.
+RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release. Knowledge alone is informative rather than submission authority: exploiting it requires the exact standalone Rollback Module or a Flipper build integrating that module. Credential Access follows the same rule for its own module and `AUTH-017`; each module's role stays equally narrow. The distributable canonical Flipper build integrates no modules, so a fresh Device supports no `UPD-001` until the Rollback Module is acquired, but integrating it into Flipper is optional. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and Flipper integration is finite represented work owned by `docs/current/FILES_SOFTWARE.md`.
 
 `AUTH-017` and `UPD-001` remain weakness identifiers owned by this document and by the service systems. A module is a technique Flipper can execute, never Knowledge: possessing or integrating one discovers nothing, changes no remembered evidence, and creates no `discoveredVulnerabilities` entry. Reconnaissance stays entirely with NodeScan.
 
