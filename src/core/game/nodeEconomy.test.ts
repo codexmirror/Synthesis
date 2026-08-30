@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { creditNodeAddress, creditNodeWalletMiningPayout, findNodeAccountByAddress, NODE_WALLET_ACTIVITY_CAPACITY, type NodeRecipients } from './nodeEconomy'
+import { creditNodeAddress, creditNodeWalletMiningPayout, debitNodeWalletMarketPurchase, findNodeAccountByAddress, NODE_WALLET_ACTIVITY_CAPACITY, type NodeRecipients } from './nodeEconomy'
 
 function recipients(): NodeRecipients {
   const state = createInitialGameState()
@@ -36,6 +36,20 @@ describe('local NODE Wallet activity', () => {
     const wallet = creditNodeWalletMiningPayout(recipients().nodeWallet, 0)
     expect(wallet.activity.records).toHaveLength(0)
     expect(wallet.balanceNodeUnits).toBe(0)
+  })
+
+  it('shares ordering, retention, and monotonic IDs across mining and Market activity', () => {
+    let wallet = creditNodeWalletMiningPayout(recipients().nodeWallet, 15_172)
+    wallet = debitNodeWalletMarketPurchase(wallet, { purchaseId: 'purchase-1', offerId: 'offer-1', releaseId: 'release-1', releaseName: 'Toolkit', releaseVersion: '1.0', amountNodeUnits: 10_000 })
+    expect(wallet.activity.records.map(({ id, kind }) => ({ id, kind }))).toEqual([
+      { id: 'node-activity-0001', kind: 'mining_payout' },
+      { id: 'node-activity-0002', kind: 'market_purchase' },
+    ])
+    for (let index = 0; index < NODE_WALLET_ACTIVITY_CAPACITY; index += 1) wallet = creditNodeWalletMiningPayout(wallet, 1)
+    expect(wallet.activity.records).toHaveLength(NODE_WALLET_ACTIVITY_CAPACITY)
+    expect(wallet.activity.records[0]).toMatchObject({ id: 'node-activity-0003', kind: 'mining_payout' })
+    expect(wallet.activity.records.at(-1)).toMatchObject({ id: 'node-activity-0022', kind: 'mining_payout' })
+    expect(wallet.activity.nextId).toBe(23)
   })
 })
 

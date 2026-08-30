@@ -71,11 +71,12 @@ changing an attribute afterwards must never rewrite what already happened. The
 record still names the stable entities involved — the snapshot is presentation
 truth about the past, not a second identity.
 
-A Wallet's own activity history is what that Wallet actually received. It is
-not a ledger of a payer's behavior and must not reveal a payer's other
-destinations. Where currency was routed is truth owned by whatever performed
-the routing, and reaches the player only through that thing's own represented
-consequences.
+A Wallet's own activity history is represented balance-changing economic
+activity of that Wallet. It is not a general ledger or a view of another
+entity's behavior: a received payout must not reveal a payer's other
+destinations, and a purchase record must not become entitlement authority.
+Where currency was routed is truth owned by whatever performed the routing,
+and reaches the player only through that thing's own represented consequences.
 
 Separately represented economic domains stay separate in canonical truth. One
 currency's accounts, addresses, credentials, keys or authority never authorize

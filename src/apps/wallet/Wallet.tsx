@@ -48,13 +48,16 @@ export function Wallet() {
           ? <div className="wallet-node-activity">
               <p className="eyebrow wallet-node-activity-label">NODE ACTIVITY</p>
               {activity.map((record) => <div className="wallet-node-row" key={record.id}>
-                <small>MINING PAYOUT</small>
-                <strong>+{record.amountNodeUnits.toLocaleString('en-US')} units</strong>
+                <span className="wallet-node-row-detail">
+                  <small>{record.kind === 'mining_payout' ? 'MINING PAYOUT' : 'MARKET PURCHASE'}</small>
+                  {record.kind === 'market_purchase' && <span>{record.releaseName} {record.releaseVersion}</span>}
+                </span>
+                <strong>{record.kind === 'mining_payout' ? '+' : '-'}{record.amountNodeUnits.toLocaleString('en-US')} units</strong>
               </div>)}
             </div>
           : <div className="wallet-node-activity wallet-node-activity--empty">
               <strong>NO NODE ACTIVITY</strong>
-              <span>This Wallet has not received NODE.</span>
+              <span>This Wallet has no balance-changing activity.</span>
             </div>}
       </div>
     </section>}

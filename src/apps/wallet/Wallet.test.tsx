@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { GameProvider } from '../../app/GameContext'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { createInitialGameState } from '../../core/game/initialState'
+import { purchaseMarketOffer } from '../../core/game/market'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, payoutLocalNodeMiner, startNodeMiner } from '../../core/game/nodeMiner'
 import type { ExecutableFile, GameState } from '../../core/game/types'
 import { Wallet } from './Wallet'
@@ -130,6 +131,21 @@ describe('Wallet NODE section', () => {
   it('reports no NODE activity when this Wallet has received nothing', () => {
     render(<GameProvider><Wallet /></GameProvider>)
     expect(screen.getByText('NO NODE ACTIVITY')).toBeInTheDocument()
+    expect(screen.getByText('This Wallet has no balance-changing activity.')).toBeInTheDocument()
+    expect(screen.queryByText(/has not received NODE/i)).not.toBeInTheDocument()
+  })
+
+  it('renders mining receipts and a Rollback Exploit Toolkit purchase newest-first with signed amounts', () => {
+    const mined = settledMiningState(10_000)
+    const funded = { ...mined, nodeWallet: { ...mined.nodeWallet, balanceNodeUnits: mined.nodeWallet.balanceNodeUnits + 10_000 } }
+    const purchased = purchaseMarketOffer(funded, 'market-offer-rollback-exploit-toolkit-1.0')
+    if (purchased.status !== 'purchased') throw new Error(purchased.status)
+    render(<GameProvider initialState={purchased.state}><Wallet /></GameProvider>)
+    expect(screen.getByText('MARKET PURCHASE')).toBeInTheDocument()
+    expect(screen.getByText('Rollback Exploit Toolkit 1.0')).toBeInTheDocument()
+    expect(screen.getByText('-10,000 units')).toBeInTheDocument()
+    expect(screen.getByText('+670 units')).toBeInTheDocument()
+    expect(screen.getAllByText(/MARKET PURCHASE|MINING PAYOUT/).map((element) => element.textContent)).toEqual(['MARKET PURCHASE', 'MINING PAYOUT'])
   })
 
   it('never reveals the hidden developer destination or claims anything about what a payer kept', () => {

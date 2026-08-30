@@ -132,9 +132,12 @@ economic mutation, applied atomically:
   (`node-account-opx-v0`, see `docs/current/NODE_ECONOMY.md`) is credited
   exactly that amount;
 - exactly one `MarketPurchase` entitlement is appended, identified by stable
-  offer identity rather than filename, path, display name or version.
+  offer identity rather than filename, path, display name or version;
+- exactly one local NODE Wallet `market_purchase` activity record is appended,
+  carrying the actual debit and stable purchase/offer/release identities plus
+  the release name/version snapshot needed for truthful historical display.
 
-Every rejection leaves all three untouched and returns the state unchanged:
+Every rejection leaves all four untouched and returns the state unchanged:
 an unknown offering (`unknown_offer`), an entitlement already held
 (`already_purchased`, which never charges again), insufficient NODE
 (`insufficient_funds`), or no unique represented recipient holding the
@@ -143,7 +146,8 @@ that is not a positive safe integer throws rather than settling fractional
 NODE.
 
 Purchase creates no filesystem artifact, no InstalledSoftware, no Process and
-no FileTransfer. It is entitlement only.
+no FileTransfer. The `MarketPurchase` remains the entitlement owner; Wallet
+activity is economic history and grants no ownership or download authority.
 
 Entitlement and physical possession are separate truths in both directions.
 The initially seeded NODE Miner 1.0 package on node-01 gives the player a copy

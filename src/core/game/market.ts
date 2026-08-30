@@ -1,6 +1,7 @@
 import { GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0, ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
 import type { FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState, SoftwarePackageFile } from './types'
+import { debitNodeWalletMarketPurchase } from './nodeEconomy'
 
 /**
  * The NODE address the represented Market operator settles purchases into.
@@ -146,8 +147,8 @@ export type PurchaseMarketOfferResult =
  * The whole settlement is one atomic canonical mutation: the local Wallet is
  * debited exactly the offering's represented price, the represented Market
  * operator's own NODE account is credited exactly that amount, and exactly
- * one purchase entitlement is established. Any rejection leaves every one of
- * those untouched.
+ * one purchase entitlement is established, and one Wallet activity record is
+ * appended. Any rejection leaves every one of those untouched.
  *
  * It deliberately does not create a filesystem artifact, install anything,
  * start a Process, or start a transfer: DOWNLOAD stays a separate later
@@ -177,7 +178,14 @@ export function purchaseMarketOffer(state: GameState, offerId: string): Purchase
     purchase,
     state: {
       ...state,
-      nodeWallet: { ...state.nodeWallet, balanceNodeUnits: state.nodeWallet.balanceNodeUnits - offer.priceNodeUnits },
+      nodeWallet: debitNodeWalletMarketPurchase(state.nodeWallet, {
+        purchaseId: purchase.id,
+        offerId: offer.id,
+        releaseId: offer.distribution.releaseId,
+        releaseName: offer.distribution.name,
+        releaseVersion: offer.distribution.version,
+        amountNodeUnits: offer.priceNodeUnits,
+      }),
       nodeEconomy: {
         ...state.nodeEconomy,
         accounts: state.nodeEconomy.accounts.map((account) => account.address === market.operator.settlementAddress
