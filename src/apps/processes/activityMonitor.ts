@@ -1,7 +1,7 @@
 import { deriveActiveFileTransferRateBytesPerSecond, deriveFileTransferDirection } from '../../core/game/fileTransfer'
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
 import { NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
-import type { DeviceAccess, DiscoveryState, FileTransfer, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess, RecentActivityEntry } from '../../core/game/types'
+import type { DeviceAccess, DeviceAccessFileTransfer, DiscoveryState, FileTransfer, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess, RecentActivityEntry } from '../../core/game/types'
 import { formatByteProgress, formatTransferRate } from '../byteFormat'
 
 /**
@@ -239,10 +239,10 @@ interface TransferPresentation {
 }
 
 /**
- * Present the single active `FileTransfer`. Source identity, the source
- * artifact and effective rate are resolved through the transfer's retained
- * DeviceAccess authority. RemoteSession contributes only its retained address
- * when it still matches; World identity is never used as a presentation label.
+ * Present the single active `FileTransfer`, whichever origin admitted it. The
+ * Activity Monitor observes the one canonical transfer runtime and keeps no
+ * progress of its own, so a Market download is the same real Download here as
+ * a Device-route one — only its route and stated source differ.
  */
 function deriveTransferPresentation(state: GameState): TransferPresentation | undefined {
   const transfer = state.fileTransfer.active
@@ -250,15 +250,13 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
   const device = state.player.localDevice
   const direction = deriveFileTransferDirection(device.id, transfer)
   if (!direction) return undefined
-  const access = state.deviceAccess.established.find(({ id }) => id === transfer.accessId)
-  const remoteDeviceId = direction === 'download' ? transfer.sourceDeviceId : transfer.destinationDeviceId
-  if (!access || access.sourceDeviceId !== device.id || access.targetDeviceId !== remoteDeviceId) return undefined
-  const remote = state.world.network.hosts.find(({ id }) => id === remoteDeviceId)
-  const sourceFile = (direction === 'upload' ? device.filesystem : remote?.filesystem)?.files.find(({ id }) => id === transfer.sourceFileId)
   const rateBytesPerSecond = deriveActiveFileTransferRateBytesPerSecond(state, transfer)
-  const connectedAddress = state.remoteSession.active?.accessId === transfer.accessId ? state.remoteSession.active.connectedAddress : undefined
   // Floor rather than round: running work must never read as 100% complete.
   const progressPercent = transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0
+  const endpoints = transfer.origin === 'market_distribution'
+    ? { route: `${state.market.operator.name} → ${device.displayName}`, source: state.market.operator.name }
+    : deriveDeviceTransferEndpoints(state, transfer, direction)
+  if (!endpoints) return undefined
   return {
     rateBytesPerSecond, direction,
     activity: {
@@ -267,7 +265,7 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
       kindLabel: direction.toUpperCase(),
       titleLabel: 'ARTIFACT',
       title: basename(transfer.destinationPath),
-      route: connectedAddress ? direction === 'upload' ? `${device.displayName} → ${connectedAddress}` : `${connectedAddress} → ${device.displayName}` : undefined,
+      route: endpoints.route,
       status: 'running',
       progressPercent,
       facts: [
@@ -276,10 +274,30 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
         ...(rateBytesPerSecond > 0 ? [{ label: 'RATE', value: formatTransferRate(rateBytesPerSecond) }] : []),
       ],
       details: [
-        ...(sourceFile ? [{ label: 'SOURCE', value: sourceFile.path }] : []),
+        ...(endpoints.source ? [{ label: 'SOURCE', value: endpoints.source }] : []),
         { label: 'DESTINATION', value: transfer.destinationPath },
       ],
     },
+  }
+}
+
+/**
+ * Source identity, the source artifact and the presented route of a
+ * Device-route transfer are resolved through the transfer's retained
+ * DeviceAccess authority. RemoteSession contributes only its retained address
+ * when it still matches; World identity is never used as a presentation label.
+ */
+function deriveDeviceTransferEndpoints(state: GameState, transfer: DeviceAccessFileTransfer, direction: 'download' | 'upload'): { route?: string; source?: string } | undefined {
+  const device = state.player.localDevice
+  const access = state.deviceAccess.established.find(({ id }) => id === transfer.accessId)
+  const remoteDeviceId = direction === 'download' ? transfer.sourceDeviceId : transfer.destinationDeviceId
+  if (!access || access.sourceDeviceId !== device.id || access.targetDeviceId !== remoteDeviceId) return undefined
+  const remote = state.world.network.hosts.find(({ id }) => id === remoteDeviceId)
+  const sourceFile = (direction === 'upload' ? device.filesystem : remote?.filesystem)?.files.find(({ id }) => id === transfer.sourceFileId)
+  const connectedAddress = state.remoteSession.active?.accessId === transfer.accessId ? state.remoteSession.active.connectedAddress : undefined
+  return {
+    route: connectedAddress ? direction === 'upload' ? `${device.displayName} → ${connectedAddress}` : `${connectedAddress} → ${device.displayName}` : undefined,
+    source: sourceFile?.path,
   }
 }
 

@@ -28,6 +28,7 @@ player-facing applications in order:
 - NodeMail
 - Processes
 - Files
+- Market
 - Wallet
 - Notes
 - System
@@ -98,8 +99,10 @@ application. The shared masthead states an application's current subject
 directly under the Shell application title, so it is carried by the
 applications whose subject varies or whose operating context needs stating:
 Files shows the current path, System and Terminal show the local Device, the
-Activity Monitor names itself and its local-device scope, and NodeMail names
-the mailbox account it is presenting. Those local-device applications say so,
+Activity Monitor names itself and its local-device scope, NodeMail names
+the mailbox account it is presenting, and Market names the represented Market
+it is a client of, which is likewise not owned by this Device or by NODE-OS
+(see `docs/current/MARKET.md`). Those local-device applications say so,
 which is how the suite distinguishes the local operating context from RACK-OS;
 NodeMail states a mailbox identity instead, because the mailbox is not owned by
 that Device. Wallet and Notes have no varying subject and keep their own

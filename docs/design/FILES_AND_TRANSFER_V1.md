@@ -40,6 +40,16 @@ RemoteSession
 → DeviceAccess
 → target Device
 
+That is the authority for a transfer between two represented Devices, and the
+only authority this contract covers. One canonical `FileTransfer` may also be
+admitted from a second represented origin — the software Market's own package
+distribution, authorized by a purchase entitlement rather than by any Device
+relationship — which shares this runtime, its single-active constraint, its
+destination and no-overwrite rules, and its cancellation, while resolving no
+DeviceAccess and no Session. Its semantics are owned by
+`docs/current/MARKET.md`. A new origin is a concrete mechanic each time, never
+a transport, source or transfer framework.
+
 The current Session must remain resolvable when the operation executes. Its
 stable access and target identities authorize and select the source; an address
 does not identify or retarget the Device.

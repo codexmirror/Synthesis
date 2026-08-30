@@ -12,6 +12,7 @@ import shellCss from '../shell/shell.css?raw'
 import rackosCss from '../apps/rackos/rackos.css?raw'
 import veyraCss from '../apps/veyra/veyra.css?raw'
 import filesSource from '../apps/files/Files.tsx?raw'
+import marketSource from '../apps/market/Market.tsx?raw'
 import systemSource from '../apps/system/System.tsx?raw'
 import walletSource from '../apps/wallet/Wallet.tsx?raw'
 import dollarClientSource from '../apps/wallet/DollarClient.tsx?raw'
@@ -38,7 +39,7 @@ import veyraSettingsSource from '../apps/veyra/VeyraSettings.tsx?raw'
 
 const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss, veyraCss]
-const applicationSources = [filesSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
+const applicationSources = [filesSource, marketSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
 function referencedCustomProperties(css: string): string[] {
   return [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1])
@@ -153,7 +154,10 @@ describe('NODE-OS presentation language', () => {
     // context needs stating.
     // NodeMail states the mailbox account it is presenting, which is a
     // different operating identity from the local Device the Shell names.
-    const carries = [['Files', filesSource], ['System', systemSource], ['Terminal', terminalSource], ['Activity Monitor', processesSource], ['NodeMail', mailSource]] as const
+    // Market states the Market it is presenting, which is a different operating
+    // identity from the local Device the Shell names: NODE-OS supplies the client,
+    // not the catalog.
+    const carries = [['Files', filesSource], ['Market', marketSource], ['System', systemSource], ['Terminal', terminalSource], ['Activity Monitor', processesSource], ['NodeMail', mailSource]] as const
     for (const [name, source] of carries) {
       // Anchored on the class boundary: `node-masthead-subject` alone is a
       // child element, not evidence that the masthead itself is present.

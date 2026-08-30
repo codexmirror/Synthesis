@@ -32,6 +32,7 @@ function withActiveTransfer(direction: 'download' | 'upload', base: GameState = 
     : base.player.localDevice.filesystem.files[1].id
   const transfer: FileTransfer = {
     id: 'transfer-0001',
+    origin: 'device_access',
     accessId: 'access-0001',
     sourceDeviceId: direction === 'download' ? 'host-lan-001' : localDeviceId,
     sourceFileId,
@@ -1913,12 +1914,12 @@ describe('NODE-OS shell and applications', () => {
     )
   })
 
-  it('orders and exposes exactly the eight current application controls', () => {
+  it('orders and exposes exactly the nine current application controls', () => {
     render(<App />)
     const launchers = screen.getAllByRole('button', { name: /^open /i })
     expect(launchers.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Open Terminal', 'Open NodeScan', 'Open NodeMail', 'Open Processes',
-      'Open Files', 'Open Wallet', 'Open Notes', 'Open System',
+      'Open Files', 'Open Market', 'Open Wallet', 'Open Notes', 'Open System',
     ])
     expect(screen.queryByRole('button', { name: /open tools/i })).not.toBeInTheDocument()
     expect(screen.queryByText('/ OPEN')).not.toBeInTheDocument()
@@ -1965,7 +1966,7 @@ describe('NODE-OS shell and applications', () => {
     const base = createInitialGameState()
     const completedProcess = { id: 'process-1', kind: 'generic' as const, label: 'Finished work', executorDeviceId: base.player.localDevice.id, status: 'completed' as const, workRequired: 10, workCompleted: 10, ramRequiredMiB: 1 }
     const completedTransfer: FileTransfer = {
-      id: 'transfer-0001', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
+      id: 'transfer-0001', origin: 'device_access', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
       destinationDeviceId: base.player.localDevice.id, destinationPath: '/home/user/downloads/complete.pkg',
       bytesTotal: 100, bytesTransferred: 100,
     }

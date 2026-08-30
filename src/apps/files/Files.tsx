@@ -11,7 +11,7 @@ import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '.
 import { describeUploadFailure } from '../uploadFailure'
 import { describeInstallFailure } from '../installFailure'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
-import type { ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
+import type { DeviceAccessFileTransfer, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
 
@@ -29,11 +29,12 @@ export function Files() {
   const listing = listDirectory(filesystem, path)
   const selected = selectedFile ? getFilesystemFile(filesystem, selectedFile) : undefined
   const remote = resolveActiveRemoteTarget(state)
-  const activeUploadForSelectedFile = selected?.status === 'ok' && state.fileTransfer.active
-    && deriveFileTransferDirection(localDevice.id, state.fileTransfer.active) === 'upload'
-    && state.fileTransfer.active.sourceDeviceId === localDevice.id
-    && state.fileTransfer.active.sourceFileId === selected.file.id
-    ? state.fileTransfer.active
+  const activeDeviceTransfer = state.fileTransfer.active?.origin === 'device_access' ? state.fileTransfer.active : undefined
+  const activeUploadForSelectedFile = selected?.status === 'ok' && activeDeviceTransfer
+    && deriveFileTransferDirection(localDevice.id, activeDeviceTransfer) === 'upload'
+    && activeDeviceTransfer.sourceDeviceId === localDevice.id
+    && activeDeviceTransfer.sourceFileId === selected.file.id
+    ? activeDeviceTransfer
     : undefined
   const connectedAddress = activeUploadForSelectedFile
     ? state.remoteSession.active?.accessId === activeUploadForSelectedFile.accessId ? state.remoteSession.active.connectedAddress : undefined
@@ -152,7 +153,7 @@ function FileDetails({ file, installedSoftware, installingProductIds, removingPr
   runningProcess: NodeMinerProcess | undefined
   upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult
   connectedAddress: string | undefined
-  activeUpload: FileTransfer | undefined
+  activeUpload: DeviceAccessFileTransfer | undefined
 }) {
   return <div className="file-details">
     <header className="node-masthead">
@@ -173,7 +174,7 @@ function FileDetails({ file, installedSoftware, installingProductIds, removingPr
   </div>
 }
 
-function RemoteTransfer({ file, connectedAddress, upload, activeUpload }: { file: FilesystemFile; connectedAddress: string | undefined; upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult; activeUpload: FileTransfer | undefined }) {
+function RemoteTransfer({ file, connectedAddress, upload, activeUpload }: { file: FilesystemFile; connectedAddress: string | undefined; upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult; activeUpload: DeviceAccessFileTransfer | undefined }) {
   const [destination, setDestination] = useState(`/home/user/${basename(file.path)}`)
   const [feedback, setFeedback] = useState<string>()
   function start() {

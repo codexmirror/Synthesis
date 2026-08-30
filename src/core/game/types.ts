@@ -448,6 +448,91 @@ export interface NodeEconomyState {
   readonly accounts: readonly NodeAccount[]
 }
 
+/**
+ * The concrete represented party that operates the software Market the local
+ * Device can currently reach, lists its offerings, and receives the NODE a
+ * purchase actually costs. It is deliberately not NODE, not NODE-OS, and not
+ * the publisher of anything it distributes: NODE-OS supplies only the client
+ * that presents this Market. `settlementAddress` is a mutable-shaped
+ * addressing attribute pointing at a represented `NodeAccount`, never the
+ * operator's identity (ARCHITECTURE.md A01, A18).
+ */
+export interface MarketOperator {
+  readonly id: string
+  readonly name: string
+  readonly settlementAddress: string
+}
+
+/**
+ * The concrete package artifact one Market offering distributes, held as the
+ * represented facts a completed download writes to the destination
+ * filesystem. `filename` is the basename the V1 download destination is
+ * derived from — a distribution attribute, never artifact identity.
+ */
+export interface MarketPackageDistribution {
+  readonly filename: string
+  readonly releaseId: string
+  readonly productId: string
+  readonly name: string
+  readonly version: string
+  readonly channel: string
+  /** Provenance stated by the represented release; present only where one is actually represented. */
+  readonly publisher?: string
+  readonly sizeBytes: number
+}
+
+/**
+ * One represented Market offering: stable offer identity, the canonical
+ * integer atomic NODE price the operator charges for it, and the package
+ * artifact it distributes. Offer identity is what a purchase entitlement
+ * refers to — never a filename, path, display name, or version string.
+ */
+export interface MarketOffer {
+  readonly id: string
+  /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
+  readonly priceNodeUnits: number
+  readonly distribution: MarketPackageDistribution
+}
+
+/**
+ * One canonical purchase entitlement: the right to download the offering it
+ * names, established exactly once by a real economic settlement. It is
+ * deliberately not possession of a package — a downloaded copy may be lost
+ * without losing this, and possessing a copy never creates one.
+ */
+export interface MarketPurchase {
+  readonly id: string
+  readonly offerId: string
+  /** Canonical integer atomic NODE units actually paid, snapshotted at purchase. */
+  readonly priceNodeUnits: number
+}
+
+export interface MarketPurchaseState {
+  /** Monotonic entitlement identity; never rewinds. */
+  readonly nextId: number
+  readonly entitlements: readonly MarketPurchase[]
+}
+
+/**
+ * The one represented broad/open software Market currently reachable from the
+ * local Device. Deliberately one concrete Market rather than a market, source,
+ * storefront or catalog framework: there is no source selection, no seller
+ * accounts, and no trust, signing or certification state.
+ */
+export interface MarketState {
+  readonly operator: MarketOperator
+  /**
+   * The Market distribution endpoint's own represented transfer capability.
+   * It is the source-side capacity a Market download's rate is derived from.
+   * The endpoint is not a represented Device and belongs to no represented
+   * LocalNetwork, so no Network capacity or Network-owned evidence applies
+   * to it.
+   */
+  readonly distributionCapacity: NetworkTransferCapacity
+  readonly offers: readonly MarketOffer[]
+  readonly purchases: MarketPurchaseState
+}
+
 export interface NetworkHost {
   /** Stable entity identity; the simulated IP remains a separate attribute. */
   readonly id: string
@@ -735,20 +820,46 @@ export interface RemoteSession {
 export interface RemoteSessionState { readonly nextId: number; readonly active: RemoteSession | null }
 
 /**
- * Canonical network file-transfer runtime. Distinct from GameProcess: it is
- * not compute/RAM-driven work and must never be represented as one.
+ * What every canonical FileTransfer records regardless of where its bytes
+ * come from: the destination it was admitted against and its elapsed
+ * progress. Distinct from GameProcess: a transfer is not compute/RAM-driven
+ * work and must never be represented as one.
  */
-export interface FileTransfer {
+interface FileTransferCommon {
   readonly id: string
-  /** The DeviceAccess that admitted this transfer; it runs as its own network runtime independent of any RemoteSession once admitted. */
-  readonly accessId: string
-  readonly sourceDeviceId: string
-  readonly sourceFileId: string
   readonly destinationDeviceId: string
   readonly destinationPath: string
   readonly bytesTotal: number
   readonly bytesTransferred: number
 }
+
+/**
+ * A transfer between two represented Devices. Its authority is the
+ * `DeviceAccess` relationship that admitted it, revalidated on every
+ * advancement; it runs as its own network runtime independent of any
+ * RemoteSession once admitted.
+ */
+export interface DeviceAccessFileTransfer extends FileTransferCommon {
+  readonly origin: 'device_access'
+  readonly accessId: string
+  readonly sourceDeviceId: string
+  readonly sourceFileId: string
+}
+
+/**
+ * A transfer from the represented Market's own distribution endpoint to the
+ * local Device. Its authority is the player's purchase entitlement for
+ * `offerId`, and its source is that offer's represented package
+ * distribution — not a Device filesystem, not a DeviceAccess, and not a
+ * RemoteSession. Nothing about it implies the player reached a Device.
+ */
+export interface MarketDistributionFileTransfer extends FileTransferCommon {
+  readonly origin: 'market_distribution'
+  readonly offerId: string
+}
+
+/** Canonical network file-transfer runtime; exactly one may be active. */
+export type FileTransfer = DeviceAccessFileTransfer | MarketDistributionFileTransfer
 
 export interface FileTransferState { readonly nextId: number; readonly active: FileTransfer | null }
 
@@ -814,6 +925,8 @@ export interface GameState {
   readonly dollarFinance: DollarFinanceState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
+  /** The represented software Market and the player's purchase entitlements in it. */
+  readonly market: MarketState
   readonly world: WorldState
   readonly process: ProcessState
   readonly knowledge: KnowledgeState

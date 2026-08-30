@@ -18,6 +18,12 @@ export function archiveProcess(state: GameState, process: GameProcess, terminati
 
 export function archiveFileTransfer(state: GameState, transfer: FileTransfer): GameState {
   const local = state.player.localDevice
+  /* A Market distribution transfer has no source Device and no source
+     artifact: its route is stated as the represented Market operator it
+     actually came from, and it carries no source path because none exists. */
+  if (transfer.origin === 'market_distribution') {
+    return append(state, { kind: 'file_transfer', id: transfer.id, transfer, route: `${state.market.operator.name} → ${local.displayName}` })
+  }
   const sourceIsLocal = transfer.sourceDeviceId === local.id
   const destinationIsLocal = transfer.destinationDeviceId === local.id
   if (sourceIsLocal === destinationIsLocal) return append(state, { kind: 'file_transfer', id: transfer.id, transfer })

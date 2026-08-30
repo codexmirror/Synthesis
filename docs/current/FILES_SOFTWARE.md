@@ -64,7 +64,22 @@ network-transfer runtime rather than an immediate copy. With a current,
 resolvable Remote Session, `startRemoteFileDownload` admits and starts at most
 one canonical `FileTransfer` (`GameState.fileTransfer`); any second transfer
 attempted while one is active fails deterministically with
-`transfer_in_progress`. A RemoteSession is required only to admit a transfer:
+`transfer_in_progress`.
+
+A `FileTransfer` now records which of exactly two represented origins admitted
+it. `origin: 'device_access'` is everything described in this document: a
+transfer between two represented Devices, authorized by a `DeviceAccess`
+relationship and bound to a stable `sourceDeviceId` + `sourceFileId`.
+`origin: 'market_distribution'` is a download from the represented software
+Market's own distribution endpoint, authorized by a purchase entitlement and
+bound to a stable `offerId`; it has no source Device, no source filesystem
+artifact, no `accessId`, and no LocalNetwork participation, so it appends no
+Network-owned transfer evidence. That origin is owned by
+`docs/current/MARKET.md`; nothing about it changes the Device-route behavior
+below, and both origins share one runtime: the same single-active-transfer
+constraint, the same advancement boundary, the same destination convention and
+no-overwrite rules, the same cancellation, and the same Activity Monitor and
+Recent Activity presentation. A RemoteSession is required only to admit a transfer:
 admission resolves the current Session's canonical DeviceAccess and stores
 that relationship's stable `accessId`, replacing the earlier
 `sessionId` authority model. Starting a transfer records the exact
@@ -466,6 +481,14 @@ running.
 `srv-01` no longer distributes a NODE Miner executable; only its NodeScan
 Experimental package remains.
 
+Represented software packages also exist outside any Device filesystem, as the
+distributions the represented software Market offers. GateSSH 1.3.3 and
+Rollback Exploit Toolkit 1.0 are distributable packages for the first time
+there; the Market is currently the only represented acquisition path for the
+Rollback Exploit Toolkit. A completed Market download creates an ordinary local
+package artifact, and every rule in this document applies to it unchanged. See
+`docs/current/MARKET.md`.
+
 The continuous Miner runtime is owned by
 `docs/current/PROCESSES_ACTIVITY.md`; what it produces, routes, and records
 economically is owned by `docs/current/NODE_ECONOMY.md`.
@@ -683,8 +706,14 @@ state.
   command-providing, or capability-providing.
 - `FileTransfer` is not a `GameProcess`. It consumes no CPU or RAM, creates no
   Process on completion, and must never be presented as one.
-- A transfer's authority is its `accessId`, not the Session that admitted it.
-  Disconnecting never cancels a running transfer.
+- A Device-route transfer's authority is its `accessId`, not the Session that
+  admitted it. Disconnecting never cancels a running transfer. A Market
+  distribution transfer's authority is the purchase entitlement instead, and
+  it must never be given a fabricated DeviceAccess, Session or remote host to
+  reuse Device-route code.
+- A package acquired from the Market is an ordinary package. Installation,
+  removal, execution and recognition treat it exactly like any other artifact,
+  and no installation path may consult where an artifact came from.
 - Nothing is written at the destination until the transfer completes. There is
   no partial file, no allocated destination file ID, and no navigable entry.
 - Transfers survive mutable attribute changes (IP, display name, source path)

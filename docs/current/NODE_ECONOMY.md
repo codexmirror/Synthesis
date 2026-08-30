@@ -168,13 +168,33 @@ presents a payer's gross production, the unofficial Miner's developer fee,
 or that address. Dollar presentation, authority, transfers and Transaction history are owned by `DOLLAR_FINANCE.md`; NODE has no transfer operation and gains none from it.
 
 `GameState.nodeEconomy` holds the represented NODE recipients that exist
-besides that Wallet — currently exactly one, the account
+besides that Wallet — currently exactly two. The first is the account
 (`node-account-nm-dev-v0`) that the unofficial NODE Miner 1.0 build pays
 itself into, so its diverted 33% reaches real economic state rather than
-disappearing or existing only as log text. Each account has stable identity
-separate from its mutable address attribute. It is deliberately only a small
-collection of concrete accounts: no ledger, blockchain, transaction network,
-address registry, or economy framework is implemented.
+disappearing or existing only as log text. The second is
+`node-account-opx-v0`, the represented software Market operator's own
+settlement account, so NODE the player spends on software reaches a real
+recipient with stable identity rather than vanishing. Each account has stable
+identity separate from its mutable address attribute. It is deliberately only a
+small collection of concrete accounts: no ledger, blockchain, transaction
+network, address registry, or economy framework is implemented.
+
+
+## Spending NODE
+
+Buying software from the represented Market is the first and only way NODE
+currently leaves the local Wallet. It is a concrete purchase settlement owned
+by that mechanic, not a general NODE transfer operation: there is no NODE
+transfer, send, or payment API, and none is implied by this. One atomic
+mutation debits the Wallet by the offering's own represented integer price and
+credits the Market operator's own represented account, or nothing happens at
+all. The operator's account is an ordinary represented recipient — it is not
+NODE's, not the local Wallet's, and not any software publisher's.
+
+A purchase appends no Wallet activity record. Wallet activity remains only
+what the Wallet actually received, exactly as described above; the canonical
+purchase entitlement is the record of what the spend bought. What that
+entitlement is and what it admits belongs to `docs/current/MARKET.md`.
 
 Wallet state is separate from player and Device identity.
 
@@ -203,3 +223,7 @@ Wallet state is separate from player and Device identity.
   overwritten.
 - `node-miner` availability is derived from installed software *and* a present
   supported executable. It is never a stored global capability flag.
+- A Market purchase is a concrete settlement between two represented
+  recipients, not a generic NODE transfer. Do not grow it into one.
+- A Wallet balance that went down is not Wallet activity. Activity records
+  only NODE the Wallet received.

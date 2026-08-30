@@ -405,7 +405,7 @@ describe('Files filesystem and software state', () => {
       ...base,
       deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
       fileTransfer: { nextId: 2, active: {
-        id: 'transfer-0001', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
+        id: 'transfer-0001', origin: 'device_access', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
         destinationDeviceId: base.player.localDevice.id, destinationPath: '/home/user/downloads/nodescan-exp-1.1.pkg',
         bytesTotal: 18_400_000, bytesTransferred: 13_800_000,
       } },

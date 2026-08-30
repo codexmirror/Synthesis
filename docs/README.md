@@ -147,6 +147,32 @@ executables, software management.
 - DOCUMENTATION IMPACT OWNER → [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
+### Software Market
+
+The represented software Market, its operator/seller identity, offerings and
+prices, purchase entitlement, Market package distribution, and the NODE-OS
+Market application.
+
+- CURRENT TRUTH → [`current/MARKET.md`](current/MARKET.md)
+- ARCHITECTURE → A18 in
+  [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md);
+  A17 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md);
+  A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md)
+- DESIGN → [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md) when
+  an offered release's represented facts change;
+  [`design/FILES_AND_TRANSFER_V1.md`](design/FILES_AND_TRANSFER_V1.md) when the
+  transfer route changes
+- RELATED CURRENT TRUTH → [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md)
+  (what a purchase costs and which recipient is credited),
+  [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md) (the FileTransfer
+  runtime and what happens to the package afterwards)
+- CODE → `src/core/game/market.ts`, `src/core/game/fileTransfer.ts`,
+  `src/apps/market/`
+- TESTS → `src/core/game/market.test.ts`,
+  `src/core/game/fileTransfer.test.ts`, `src/apps/market/Market.test.tsx`
+- DOCUMENTATION IMPACT OWNER → [`current/MARKET.md`](current/MARKET.md)
+- NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
+
 ### Processes and activity
 
 GameProcess runtime, executor scheduling, cancellation, Activity Monitor.
