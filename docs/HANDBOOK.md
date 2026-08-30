@@ -350,13 +350,13 @@ next dependent slice
 over one agent session that discovers and repairs the regression surface of
 several independently reviewable systems at once.
 
-Execution
+### Execution
 
 Before implementation:
 
-1. inspect current main;
-2. read AGENTS.md;
-3. classify the task through docs/README.md;
+1. inspect current `main`;
+2. read `AGENTS.md`;
+3. classify the task through `docs/README.md`;
 4. resolve the smallest sufficient Read Set;
 5. read the normative current owner;
 6. read only the relevant architecture and design authority;
@@ -370,8 +370,8 @@ If repository inspection reveals that the requested task is materially broader
 than its work order assumed, surface that conflict instead of silently turning
 the task into a larger redesign.
 
-Its structure belongs to docs/work-orders/TEMPLATE.md; its lifecycle belongs
-to docs/work-orders/README.md.
+Its structure belongs to `docs/work-orders/TEMPLATE.md`; its lifecycle belongs
+to `docs/work-orders/README.md`.
 
 
 ## 9. Implementation handoffs

@@ -26,7 +26,7 @@ true together.
 Do not keep work monolithic merely because every change belongs to the same
 feature name.
 
-—
+---
 
 ## TITLE
 
