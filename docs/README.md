@@ -351,11 +351,11 @@ Read it only when:
 - another accepted owner explicitly points to a Future section.
 
 
-## Archived work orders
+## Historical work orders
 
-Everything under [`work-orders/archived/`](work-orders/archived/) is historical.
+Completed or superseded work orders are historical context only and are not
+retained in the active `work-orders/` directory by default.
 
-Archived work orders are never current truth, never a default Read Set, and
-never override current code or current-truth documents. Read one only to
-understand the history of a decision, and verify anything it claims against
-current `main`.
+Historical work-order material is never current truth, never a default Read
+Set, and never overrides current code or current-truth documents. Repository
+history and Pull Requests retain the history of completed implementation work.

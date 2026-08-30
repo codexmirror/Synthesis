@@ -19,25 +19,24 @@ PLANNED      written, not selected — forward-looking context only
    ↓
 SELECTED     the human operator explicitly selected it for execution
    ↓
-COMPLETED    implemented, reviewed, accepted, merged
-   ↓
-ARCHIVED     moved to archived/ — historical only
+COMPLETED    implemented, reviewed, accepted, merged — historical thereafter
 ```
 
 A work order states its own status in its header (`Status: Planned |
 Selected | Completed | Superseded`). Only a work order the human operator has
 explicitly selected is executable.
 
-Archived work orders live in [`archived/`](archived/). They are historical
-records of what was asked for at the time.
+Completed or superseded work orders are historical context rather than active
+execution authority. They are not retained in a committed `archived/`
+directory by default; repository history and Pull Requests preserve the
+execution history.
 
-Archived work orders:
+Historical work-order material:
 
-- are never current truth;
-- are never part of a default Read Set;
-- never override current code, current-truth documents, or architecture;
-- may be read for the history of a decision, and anything they claim must be
-  verified against current `main`.
+- is never current truth;
+- is never part of a default Read Set;
+- never overrides current code, current-truth documents, or architecture; and
+- must be verified against current `main` when consulted for decision history.
 
 
 ## Execution authority
