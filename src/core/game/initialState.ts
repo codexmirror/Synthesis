@@ -1,10 +1,11 @@
 import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID, VEYRA_OS_FIRMWARE_ID } from './firmwareIdentity'
 import { createInitialMailState } from './mail'
+import { MARKET_OPERATOR_SETTLEMENT_ADDRESS, createInitialMarketState } from './market'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 45
+export const GAME_STATE_VERSION = 46
 
 export function createInitialGameState(): GameState {
   return {
@@ -35,7 +36,7 @@ export function createInitialGameState(): GameState {
         installedSoftware: [
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
           { id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId, name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version },
-          // Deliberately not the Rollback Exploit Toolkit: V1 has no represented acquisition path for it yet, so it must not be silently preinstalled as Current Truth. Fixtures that need it install/seed it explicitly.
+          // Deliberately not the Rollback Exploit Toolkit: the Market is its represented acquisition path, so it must not be silently preinstalled as Current Truth. Fixtures that need it install/seed it explicitly.
         ],
         // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.
         savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },
@@ -63,12 +64,15 @@ export function createInitialGameState(): GameState {
       balanceNodeUnits: 0,
       activity: { nextId: 1, records: [] },
     },
-    // The one represented NODE recipient that currently exists besides the local Wallet: the account the unofficial NODE Miner 1.0 build pays itself into.
+    // The represented NODE recipients that exist besides the local Wallet: the account the unofficial NODE Miner 1.0 build pays itself into, and the account the represented Market operator settles software purchases into.
     nodeEconomy: {
       accounts: [
         { id: 'node-account-nm-dev-v0', address: NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, balanceNodeUnits: 0 },
+        { id: 'node-account-opx-v0', address: MARKET_OPERATOR_SETTLEMENT_ADDRESS, balanceNodeUnits: 0 },
       ],
     },
+    // The represented broad/open software Market the local Device can reach. NODE-OS supplies only the client that presents it.
+    market: createInitialMarketState(),
     process: { nextId: 1, processes: [] },
     knowledge: { discoveredVulnerabilities: [] },
     discovery: { networks: [], devices: [], networkDeviceRelations: [] },

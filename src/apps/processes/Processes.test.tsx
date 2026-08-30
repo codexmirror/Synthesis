@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
-import type { FileTransfer, GameState } from '../../core/game/types'
+import type { DeviceAccessFileTransfer, GameState } from '../../core/game/types'
 import { appEntries, appRegistry } from '../../shell/appRegistry'
 import { Processes } from './Processes'
 import processesCss from './processes.css?raw'
@@ -37,12 +37,12 @@ const completedAnalysis = (serviceId = 'service-ssh-001') => {
  * transfer. `withActiveSession` is false by default: presentation must not
  * require a RemoteSession, so most tests deliberately omit one.
  */
-const withDownload = (base: GameState = createInitialGameState(), transfer: Partial<FileTransfer> = {}, withActiveSession = false): GameState => ({
+const withDownload = (base: GameState = createInitialGameState(), transfer: Partial<DeviceAccessFileTransfer> = {}, withActiveSession = false): GameState => ({
   ...base,
   deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
   remoteSession: withActiveSession ? { nextId: 2, active: { id: 'session-0001', accessId: 'access-0001', connectedAddress: '198.51.100.47' } } : { nextId: 1, active: null },
   fileTransfer: { nextId: 2, active: {
-    id: 'transfer-0001', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
+    id: 'transfer-0001', origin: 'device_access', accessId: 'access-0001', sourceDeviceId: 'host-lan-001', sourceFileId: 'file-0002',
     destinationDeviceId: base.player.localDevice.id, destinationPath: '/home/user/downloads/nodescan-exp-1.1.pkg',
     bytesTotal: 18_400_000, bytesTransferred: 4_600_000, ...transfer,
   } },
@@ -52,7 +52,7 @@ const withUpload = (base: GameState = createInitialGameState(), withActiveSessio
   return { ...base,
     deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
     remoteSession: withActiveSession ? { nextId: 2, active: { id: 'session-0001', accessId: 'access-0001', connectedAddress: '203.0.113.88' } } : { nextId: 2, active: null },
-    fileTransfer: { nextId: 2, active: { id: 'transfer-upload', accessId: 'access-0001', sourceDeviceId: base.player.localDevice.id, sourceFileId: source.id, destinationDeviceId: 'host-lan-001', destinationPath: '/home/user/node-miner-1.0.pkg', bytesTotal: 3_400_000, bytesTransferred: 1_400_000 } },
+    fileTransfer: { nextId: 2, active: { id: 'transfer-upload', origin: 'device_access', accessId: 'access-0001', sourceDeviceId: base.player.localDevice.id, sourceFileId: source.id, destinationDeviceId: 'host-lan-001', destinationPath: '/home/user/node-miner-1.0.pkg', bytesTotal: 3_400_000, bytesTransferred: 1_400_000 } },
   }
 }
 const withLocalDownloadCapacity = (bytesPerSecond: number): GameState => {
@@ -67,7 +67,7 @@ const cards = () => Array.from(monitor().querySelectorAll('.am-activity')) as HT
 const fact = (scope: HTMLElement, label: string) => within(scope).getByText(label).parentElement?.querySelector('dd')?.textContent
 
 describe('Processes application integration', () => {
-  it('is a canonical app while Network remains registered', () => { expect(appEntries).toHaveLength(8); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network') })
+  it('is a canonical app while Network remains registered', () => { expect(appEntries).toHaveLength(9); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network') })
 
   it('presents a truthful idle system summary and empty state', () => {
     render(<GameProvider><Processes /></GameProvider>)

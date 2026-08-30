@@ -155,7 +155,8 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
      runtime truth, read out of canonical Process state by executor identity —
      never an interface flag, and never node-01's Miner. */
   const targetNodeMiner = findRunningNodeMiner(state, targetDeviceId)
-  const activeTransfer = state.fileTransfer.active
+  /* Only a Device-route transfer can be this remote artifact's own transfer; a Market distribution transfer has no source Device or source artifact. */
+  const activeTransfer = state.fileTransfer.active?.origin === 'device_access' ? state.fileTransfer.active : undefined
   const transferMatchesSelected = result?.status === 'ok' && activeTransfer?.sourceDeviceId === targetDeviceId && activeTransfer?.sourceFileId === result.file.id
   const downloadState = result?.status !== 'ok' || !localResult
     ? undefined
@@ -360,7 +361,7 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installable
   return <div className="rack-artifact">
     <p className="rack-artifact-kind">SOFTWARE PACKAGE</p>
     <h2>{file.name}</h2>
-    <p className="rack-artifact-release">{file.version} {titleCase(file.channel)}</p>
+    <p className="rack-artifact-release">{file.version}{file.channel ? ` ${titleCase(file.channel)}` : ''}</p>
     {confirming
       ? <div className="rack-install-confirm">
           <p className="rack-artifact-kind">INSTALL ON THIS DEVICE</p>

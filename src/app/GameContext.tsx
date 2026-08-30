@@ -11,7 +11,8 @@ import { createFindTargets, type FindTargetsOperation } from './targetDiscoveryO
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
-import { cancelFileTransfer, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
+import { cancelFileTransfer, startMarketPackageDownload, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartMarketPackageDownloadResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
+import { purchaseMarketOffer, type PurchaseMarketOfferResult } from '../core/game/market'
 import { installLocalSoftwarePackage, installRemoteSoftwarePackage, type InstallLocalSoftwarePackageResult, type InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
 import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
 import { payoutLocalNodeMiner, payoutNodeMiner, retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type PayoutNodeMinerResult, type RetargetLocalNodeMinerPayoutResult, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
@@ -46,6 +47,8 @@ export interface GameActions {
   startRemoteFileDownload(sourcePath: string): StartRemoteFileDownloadResult
   startRemoteFileUpload(sourcePath: string, destinationPath: string): StartRemoteFileUploadResult
   cancelFileTransfer(transferId: string): CancelFileTransferResult
+  purchaseMarketOffer(offerId: string): PurchaseMarketOfferResult
+  startMarketPackageDownload(offerId: string): StartMarketPackageDownloadResult
   cancelLocalProcess(processId: string): CancelLocalProcessResult
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   installRemoteSoftwarePackage(path: string): InstallRemoteSoftwarePackageResult
@@ -194,6 +197,14 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, cancelFileTransfer(transferId) {
     const result = cancelFileTransfer(currentState.current, transferId)
     if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, purchaseMarketOffer(offerId) {
+    const result = purchaseMarketOffer(currentState.current, offerId)
+    if (result.status === 'purchased') { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, startMarketPackageDownload(offerId) {
+    const result = startMarketPackageDownload(currentState.current, offerId)
+    if (result.status === 'started') { currentState.current = result.state; setGameState(result.state) }
     return result
   }, cancelLocalProcess(processId) {
     const result = cancelLocalProcess(currentState.current, processId)

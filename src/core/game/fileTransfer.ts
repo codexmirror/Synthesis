@@ -1,8 +1,9 @@
 import { checkDestinationPlacement, copyFilesystemFileToPath, getFilesystemFile, getFilesystemFileSizeBytes } from './filesystem'
+import { findMarketOffer, isMarketOfferPurchased } from './market'
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { appendNetworkFileTransferEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
 import { resolveActiveRemoteTarget } from './remoteSession'
-import type { FileTransfer, FilesystemState, GameState, NetworkHost } from './types'
+import type { DeviceAccessFileTransfer, FileTransfer, FilesystemFile, FilesystemState, GameState, MarketDistributionFileTransfer, MarketOffer, NetworkHost, SoftwarePackageFile } from './types'
 import { archiveFileTransfer } from './recentActivity'
 
 export function deriveDownloadDestinationPath(sourcePath: string): string {
@@ -23,14 +24,17 @@ export type StartRemoteFileUploadResult =
   | { readonly status: 'started'; readonly state: GameState; readonly transferId: string; readonly sourcePath: string; readonly destinationPath: string }
   | { readonly status: Exclude<StartTransferFailure, 'source_offline'>; readonly state: GameState }
 
-function admitTransfer(state: GameState, transfer: Omit<FileTransfer, 'id' | 'bytesTransferred'>, sourcePath: string) {
+type AdmittedTransfer =
+  | Omit<DeviceAccessFileTransfer, 'id' | 'bytesTransferred'>
+  | Omit<MarketDistributionFileTransfer, 'id' | 'bytesTransferred'>
+
+/** Place one admitted transfer as the single active canonical FileTransfer. */
+function admitTransfer(state: GameState, transfer: AdmittedTransfer) {
   const transferId = `transfer-${String(state.fileTransfer.nextId).padStart(4, '0')}`
   const active: FileTransfer = { id: transferId, ...transfer, bytesTransferred: 0 }
   return {
-    status: 'started' as const,
     state: { ...state, fileTransfer: { nextId: state.fileTransfer.nextId + 1, active } },
     transferId,
-    sourcePath,
     destinationPath: transfer.destinationPath,
   }
 }
@@ -51,10 +55,12 @@ export function startRemoteFileDownload(state: GameState, sourcePath: string): S
   const destinationPath = deriveDownloadDestinationPath(source.file.path)
   const placement = checkDestinationPlacement(local.filesystem, destinationPath)
   if (placement !== 'ok') return { status: placement, state }
-  return admitTransfer(state, {
+  const admitted = admitTransfer(state, {
+    origin: 'device_access',
     accessId: remote.access.id, sourceDeviceId: remote.target.id, sourceFileId: source.file.id,
     destinationDeviceId: local.id, destinationPath, bytesTotal: getFilesystemFileSizeBytes(source.file),
-  }, source.file.path)
+  })
+  return { status: 'started', ...admitted, sourcePath: source.file.path }
 }
 
 /** Admit a local-to-remote transfer; no destination artifact is created yet. */
@@ -74,30 +80,146 @@ export function startRemoteFileUpload(state: GameState, sourcePath: string, dest
   if (state.fileTransfer.active) return { status: 'transfer_in_progress', state }
   const placement = checkDestinationPlacement(remote.target.filesystem, destinationPath)
   if (placement !== 'ok') return { status: placement, state }
-  return admitTransfer(state, {
+  const admitted = admitTransfer(state, {
+    origin: 'device_access',
     accessId: remote.access.id, sourceDeviceId: local.id, sourceFileId: source.file.id,
     destinationDeviceId: remote.target.id, destinationPath, bytesTotal: getFilesystemFileSizeBytes(source.file),
-  }, source.file.path)
+  })
+  return { status: 'started', ...admitted, sourcePath: source.file.path }
 }
 
 export type FileTransferDirection = 'download' | 'upload'
 
+/**
+ * Which way an active transfer moves relative to the local Device. A Market
+ * distribution transfer is always a download: its source is the represented
+ * Market distribution endpoint, which is not a Device at all.
+ */
 export function deriveFileTransferDirection(localDeviceId: string, transfer: FileTransfer): FileTransferDirection | undefined {
+  if (transfer.origin === 'market_distribution') return transfer.destinationDeviceId === localDeviceId ? 'download' : undefined
   const sourceIsLocal = transfer.sourceDeviceId === localDeviceId
   const destinationIsLocal = transfer.destinationDeviceId === localDeviceId
   if (sourceIsLocal === destinationIsLocal) return undefined
   return sourceIsLocal ? 'upload' : 'download'
 }
 
-interface TransferEndpoints {
-  readonly direction: FileTransferDirection
-  readonly remoteHost: NetworkHost
-  readonly sourceFilesystem: FilesystemState
-  readonly destinationFilesystem: FilesystemState
-  readonly rateBytesPerSecond: number
+/** The V1 local destination a Market offering's package is downloaded to. */
+export function deriveMarketDownloadDestinationPath(offer: MarketOffer): string {
+  return deriveDownloadDestinationPath(offer.distribution.filename)
 }
 
-function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): TransferEndpoints | undefined {
+/**
+ * The represented byte size of a Market offering's distribution, validated
+ * exactly as a represented artifact size is. A distribution is offer and
+ * source truth, not a file: it has no filesystem identity, path or size
+ * derivation of its own.
+ */
+function marketDistributionSizeBytes(offer: MarketOffer): number {
+  const { sizeBytes } = offer.distribution
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
+    throw new RangeError('A represented Market distribution size must be a positive safe integer')
+  }
+  return sizeBytes
+}
+
+/**
+ * Build the one ordinary `software_package` a completed Market download
+ * writes, **at the completion moment only**.
+ *
+ * There is deliberately no `SoftwarePackageFile` for a Market offering before
+ * this point: a software package is a file on a Device-owned filesystem, and
+ * until the transfer completes there is no artifact, no allocated file ID and
+ * no path anywhere. The `id` and `path` below exist only because the shared
+ * copy operation allocates the real ones from the destination filesystem and
+ * replaces both immediately; neither is ever observable.
+ */
+function createCompletedMarketPackage(offer: MarketOffer): SoftwarePackageFile {
+  const { filename, ...release } = offer.distribution
+  return { kind: 'software_package', id: 'pending-market-download', path: `/${filename}`, ...release }
+}
+
+export type StartMarketPackageDownloadResult =
+  | { readonly status: 'started'; readonly state: GameState; readonly transferId: string; readonly destinationPath: string }
+  | { readonly status: 'unknown_offer' | 'not_purchased' | 'local_offline' | 'capacity_unavailable' | 'transfer_in_progress' | 'invalid_path' | 'destination_exists' | 'destination_conflict'; readonly state: GameState }
+
+/**
+ * Admit a Market distribution download of one purchased offering.
+ *
+ * Its authority is the canonical purchase entitlement alone: no DeviceAccess
+ * is resolved, no RemoteSession is required or fabricated, and no represented
+ * Device is claimed to have been reached. Everything else is the existing
+ * canonical FileTransfer admission — one active transfer at a time, the same
+ * `/home/user/downloads/<basename>` destination convention, the same
+ * no-overwrite placement check, no destination artifact, no allocated
+ * destination file ID, and no Process.
+ */
+export function startMarketPackageDownload(state: GameState, offerId: string): StartMarketPackageDownloadResult {
+  const offer = findMarketOffer(state.market, offerId)
+  if (!offer) return { status: 'unknown_offer', state }
+  if (!isMarketOfferPurchased(state.market, offerId)) return { status: 'not_purchased', state }
+  const local = state.player.localDevice
+  if (local.runtime.networkStatus !== 'ONLINE') return { status: 'local_offline', state }
+  if (!isValidNetworkTransferCapacity(state.market.distributionCapacity) || !isValidNetworkTransferCapacity(local.network.transferCapacity)) return { status: 'capacity_unavailable', state }
+  if (state.fileTransfer.active) return { status: 'transfer_in_progress', state }
+  const destinationPath = deriveMarketDownloadDestinationPath(offer)
+  const placement = checkDestinationPlacement(local.filesystem, destinationPath)
+  if (placement !== 'ok') return { status: placement, state }
+  const admitted = admitTransfer(state, {
+    origin: 'market_distribution', offerId: offer.id,
+    destinationDeviceId: local.id, destinationPath,
+    bytesTotal: marketDistributionSizeBytes(offer),
+  })
+  return { status: 'started', ...admitted }
+}
+
+/**
+ * Everything a running transfer needs resolved fresh from canonical state on
+ * every advancement step: the exact source artifact, the destination
+ * filesystem, and the current effective rate. Losing any of it aborts the
+ * transfer rather than inventing a substitute.
+ */
+type ResolvedTransfer =
+  | {
+    readonly origin: 'device_access'
+    readonly direction: FileTransferDirection
+    readonly remoteHost: NetworkHost
+    readonly sourceFile: FilesystemFile
+    readonly destinationFilesystem: FilesystemState
+    readonly rateBytesPerSecond: number
+  }
+  | {
+    readonly origin: 'market_distribution'
+    /** The represented offering the bytes are coming from; no source file exists yet. */
+    readonly offer: MarketOffer
+    readonly destinationFilesystem: FilesystemState
+    readonly rateBytesPerSecond: number
+  }
+
+/**
+ * Resolve a Market distribution transfer against current canonical truth: the
+ * offering must still be represented, the purchase entitlement must still
+ * exist, the local Device must still be online, and both the Market
+ * distribution endpoint's and the local Device's represented capacities must
+ * still be valid. The endpoint belongs to no represented LocalNetwork, so its
+ * rate is decided by those two endpoint capacities alone, exactly as a
+ * same-Network Device transfer is.
+ */
+function resolveMarketTransfer(state: GameState, transfer: MarketDistributionFileTransfer): ResolvedTransfer | undefined {
+  const local = state.player.localDevice
+  if (transfer.destinationDeviceId !== local.id || local.runtime.networkStatus !== 'ONLINE') return undefined
+  const offer = findMarketOffer(state.market, transfer.offerId)
+  if (!offer || !isMarketOfferPurchased(state.market, transfer.offerId)) return undefined
+  const distributionCapacity = state.market.distributionCapacity
+  if (!isValidNetworkTransferCapacity(distributionCapacity) || !isValidNetworkTransferCapacity(local.network.transferCapacity)) return undefined
+  return {
+    origin: 'market_distribution',
+    offer,
+    destinationFilesystem: local.filesystem,
+    rateBytesPerSecond: deriveEffectiveTransferRateBytesPerSecond(distributionCapacity, local.network.transferCapacity),
+  }
+}
+
+function resolveDeviceAccessTransfer(state: GameState, transfer: DeviceAccessFileTransfer): ResolvedTransfer | undefined {
   const local = state.player.localDevice
   const direction = deriveFileTransferDirection(local.id, transfer)
   if (!direction || local.runtime.networkStatus !== 'ONLINE') return undefined
@@ -112,7 +234,8 @@ function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): Tra
   const sourceDeviceCapacity = direction === 'download' ? remoteHost.transferCapacity : local.network.transferCapacity
   const destinationDeviceCapacity = direction === 'download' ? local.network.transferCapacity : remoteHost.transferCapacity
   if (!isValidNetworkTransferCapacity(sourceDeviceCapacity) || !isValidNetworkTransferCapacity(destinationDeviceCapacity)) return undefined
-  if (!sourceFilesystem.files.some(({ id }) => id === transfer.sourceFileId)) return undefined
+  const sourceFile = sourceFilesystem.files.find(({ id }) => id === transfer.sourceFileId)
+  if (!sourceFile) return undefined
 
   const sourceDeviceId = direction === 'download' ? remoteHost.id : local.id
   const destinationDeviceId = direction === 'download' ? local.id : remoteHost.id
@@ -141,7 +264,11 @@ function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): Tra
     rateBytesPerSecond = deriveEffectiveTransferRateBytesPerSecond(sourceDeviceCapacity, destinationDeviceCapacity)
   }
 
-  return { direction, remoteHost, sourceFilesystem, destinationFilesystem, rateBytesPerSecond }
+  return { origin: 'device_access', direction, remoteHost, sourceFile, destinationFilesystem, rateBytesPerSecond }
+}
+
+function resolveTransferEndpoints(state: GameState, transfer: FileTransfer): ResolvedTransfer | undefined {
+  return transfer.origin === 'market_distribution' ? resolveMarketTransfer(state, transfer) : resolveDeviceAccessTransfer(state, transfer)
 }
 
 /** Current effective throughput for the active FileTransfer, derived fresh rather than stored. Zero when it cannot presently advance. */
@@ -152,7 +279,7 @@ export function deriveActiveFileTransferRateBytesPerSecond(state: GameState, tra
 /** Retained as the narrow Download-facing resolver used by existing presentation. */
 export function resolveFileTransferSource(state: GameState, transfer: FileTransfer): NetworkHost | undefined {
   const endpoints = resolveTransferEndpoints(state, transfer)
-  return endpoints?.direction === 'download' ? endpoints.remoteHost : undefined
+  return endpoints?.origin === 'device_access' && endpoints.direction === 'download' ? endpoints.remoteHost : undefined
 }
 
 /**
@@ -172,8 +299,13 @@ function resolveDeviceNetworkAddress(state: GameState, deviceId: string): string
  * LocalNetwork(s), using the transfer's own stable source/destination
  * identity rather than any transient endpoint resolution. An unresolvable
  * address never fabricates provenance and simply appends no evidence.
+ *
+ * A Market distribution transfer appends none at all: its source is not a
+ * represented Device on a represented Network, and Network-owned World Truth
+ * must not claim a Device-to-Device transfer that never happened.
  */
 function appendFileTransferNetworkEvidence(state: GameState, transfer: FileTransfer, result: 'COMPLETED' | 'CANCELLED' | 'INTERRUPTED', bytesTransferred: number): GameState {
+  if (transfer.origin === 'market_distribution') return state
   const sourceAddress = resolveDeviceNetworkAddress(state, transfer.sourceDeviceId)
   const destinationAddress = resolveDeviceNetworkAddress(state, transfer.destinationDeviceId)
   if (!sourceAddress || !destinationAddress) return state
@@ -196,16 +328,20 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
   if (bytesTransferred < transfer.bytesTotal) return { ...state, fileTransfer: { ...state.fileTransfer, active: { ...transfer, bytesTransferred } } }
 
   const finalTransfer = { ...transfer, bytesTransferred }
-  const sourceFile = endpoints.sourceFilesystem.files.find(({ id }) => id === transfer.sourceFileId)!
-  const copied = copyFilesystemFileToPath(sourceFile, endpoints.destinationFilesystem, transfer.destinationPath)
+  /* The destination artifact is created here and only here: for a Device route
+     it is a copy of the still-present source file, and for a Market
+     distribution it is the ordinary package this completion brings into
+     existence on the destination filesystem for the first time. */
+  const completedArtifact = endpoints.origin === 'market_distribution' ? createCompletedMarketPackage(endpoints.offer) : endpoints.sourceFile
+  const copied = copyFilesystemFileToPath(completedArtifact, endpoints.destinationFilesystem, transfer.destinationPath)
   if (copied.status !== 'copied') {
     const interrupted = appendFileTransferNetworkEvidence(state, finalTransfer, 'INTERRUPTED', bytesTransferred)
     return archiveFileTransfer({ ...interrupted, fileTransfer: { ...interrupted.fileTransfer, active: null } }, finalTransfer)
   }
 
-  const completedBase = endpoints.direction === 'download'
-    ? { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: copied.filesystem } }, fileTransfer: { ...state.fileTransfer, active: null } }
-    : { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === endpoints.remoteHost.id ? { ...host, filesystem: copied.filesystem } : host) } }, fileTransfer: { ...state.fileTransfer, active: null } }
+  const completedBase = endpoints.origin === 'device_access' && endpoints.direction === 'upload'
+    ? { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === endpoints.remoteHost.id ? { ...host, filesystem: copied.filesystem } : host) } }, fileTransfer: { ...state.fileTransfer, active: null } }
+    : { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: copied.filesystem } }, fileTransfer: { ...state.fileTransfer, active: null } }
   const completed = appendFileTransferNetworkEvidence(completedBase, finalTransfer, 'COMPLETED', bytesTransferred)
   return archiveFileTransfer(completed, finalTransfer)
 }

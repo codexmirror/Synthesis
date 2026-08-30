@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
-import { advanceFileTransfer, cancelFileTransfer, deriveDownloadDestinationPath, deriveFileTransferDirection, resolveFileTransferSource, startRemoteFileDownload, startRemoteFileUpload } from './fileTransfer'
+import { advanceFileTransfer, cancelFileTransfer, deriveDownloadDestinationPath, deriveFileTransferDirection, resolveFileTransferSource, startMarketPackageDownload, startRemoteFileDownload, startRemoteFileUpload } from './fileTransfer'
+import { findMarketOffer, purchaseMarketOffer, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
 import { advanceGameState } from './gameAdvancement'
 import { deriveEffectiveTransferRateBytesPerSecond } from './networkTransferCapacity'
 import { getFilesystemFile } from './filesystem'
 import { startProcess } from './processes'
-import type { GameState } from './types'
+import type { DeviceAccessFileTransfer, GameState } from './types'
 
 const ACCESS_ID = 'access-download'
 
@@ -84,7 +85,7 @@ describe('starting a remote Download', () => {
     const result = startRemoteFileDownload(state, NODESCAN_PATH)
     if (result.status !== 'started') throw new Error('expected started')
     expect(Object.keys(result.state.fileTransfer.active!).sort()).toEqual(
-      ['accessId', 'bytesTotal', 'bytesTransferred', 'destinationDeviceId', 'destinationPath', 'id', 'sourceDeviceId', 'sourceFileId'].sort(),
+      ['origin', 'accessId', 'bytesTotal', 'bytesTransferred', 'destinationDeviceId', 'destinationPath', 'id', 'sourceDeviceId', 'sourceFileId'].sort(),
     )
   })
 
@@ -672,8 +673,9 @@ describe('bidirectional Upload core', () => {
     if (condition === 'access removed') invalid = { ...invalid, deviceAccess: { ...invalid.deviceAccess, established: [] } }
     if (condition === 'access mismatch') invalid = { ...invalid, deviceAccess: { ...invalid.deviceAccess, established: invalid.deviceAccess.established.map((access) => ({ ...access, targetDeviceId: 'host-lan-002' })) } }
     if (condition === 'source removed') invalid = { ...invalid, player: { ...invalid.player, localDevice: { ...invalid.player.localDevice, filesystem: { ...invalid.player.localDevice.filesystem, files: invalid.player.localDevice.filesystem.files.filter(({ id }) => id !== 'file-0002') } } } }
-    if (condition === 'invalid local-local endpoints') invalid = { ...invalid, fileTransfer: { ...invalid.fileTransfer, active: { ...invalid.fileTransfer.active!, destinationDeviceId: invalid.player.localDevice.id } } }
-    if (condition === 'invalid remote-remote endpoints') invalid = { ...invalid, fileTransfer: { ...invalid.fileTransfer, active: { ...invalid.fileTransfer.active!, sourceDeviceId: 'host-lan-002' } } }
+    const admitted = invalid.fileTransfer.active as DeviceAccessFileTransfer
+    if (condition === 'invalid local-local endpoints') invalid = { ...invalid, fileTransfer: { ...invalid.fileTransfer, active: { ...admitted, destinationDeviceId: invalid.player.localDevice.id } } }
+    if (condition === 'invalid remote-remote endpoints') invalid = { ...invalid, fileTransfer: { ...invalid.fileTransfer, active: { ...admitted, sourceDeviceId: 'host-lan-002' } } }
     const remoteBefore = invalid.world.network.hosts[0].filesystem!
     const advanced = advanceFileTransfer(invalid, 60_000)
     expect(advanced.fileTransfer.active).toBeNull()
@@ -928,5 +930,213 @@ describe('cross-Network vs same-Network transfer capacity', () => {
       if (crossNetwork.status !== 'started') throw new Error('expected started')
       expect(advanceFileTransfer(crossNetwork.state, 1_000).fileTransfer.active?.bytesTransferred).toBe(ENDPOINT_ONLY_RATE)
     })
+  })
+})
+
+
+describe('Market distribution Download', () => {
+  const OFFER_ID = 'market-offer-nodescan-1.1-experimental'
+  const MARKET_DESTINATION = '/home/user/downloads/nodescan-exp-1.1.pkg'
+  // min(Market distribution upload 4 MiB/s, node-01 download 2 MiB/s), derived rather than assumed.
+  const MARKET_RATE = 2_097_152
+  const MARKET_BYTES = 18_400_000
+
+  function purchased(base: GameState = createInitialGameState(), offerId: string = OFFER_ID): GameState {
+    const funded = { ...base, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 5 * MARKET_V1_OFFER_PRICE_NODE_UNITS } }
+    const result = purchaseMarketOffer(funded, offerId)
+    if (result.status !== 'purchased') throw new Error('expected purchased')
+    return result.state
+  }
+
+  it('refuses to start without a purchase entitlement, and starts once one exists', () => {
+    const unpurchased = createInitialGameState()
+    const refused = startMarketPackageDownload(unpurchased, OFFER_ID)
+    expect(refused).toEqual({ status: 'not_purchased', state: unpurchased })
+    expect(refused.state.fileTransfer.active).toBeNull()
+
+    const result = startMarketPackageDownload(purchased(), OFFER_ID)
+    expect(result.status).toBe('started')
+  })
+
+  it('rejects an unknown offering', () => {
+    const state = purchased()
+    expect(startMarketPackageDownload(state, 'market-offer-nonexistent').status).toBe('unknown_offer')
+  })
+
+  it('admits one canonical FileTransfer with entitlement authority and no Device route', () => {
+    const state = purchased()
+    const result = startMarketPackageDownload(state, OFFER_ID)
+    if (result.status !== 'started') throw new Error('expected started')
+    const active = result.state.fileTransfer.active!
+    expect(active).toEqual({
+      id: result.transferId, origin: 'market_distribution', offerId: OFFER_ID,
+      destinationDeviceId: state.player.localDevice.id, destinationPath: MARKET_DESTINATION,
+      bytesTotal: MARKET_BYTES, bytesTransferred: 0,
+    })
+    expect(active).not.toHaveProperty('accessId')
+    expect(active).not.toHaveProperty('sourceDeviceId')
+    expect(active).not.toHaveProperty('sessionId')
+    // No DeviceAccess or RemoteSession is created or required by a legitimate Market download.
+    expect(result.state.deviceAccess).toBe(state.deviceAccess)
+    expect(result.state.remoteSession).toBe(state.remoteSession)
+    expect(deriveFileTransferDirection(state.player.localDevice.id, active)).toBe('download')
+    expect(resolveFileTransferSource(result.state, active)).toBeUndefined()
+  })
+
+  it('creates no destination artifact, no allocated file ID and no Process at admission', () => {
+    const state = purchased()
+    const before = state.player.localDevice.filesystem
+    const result = startMarketPackageDownload(state, OFFER_ID)
+    if (result.status !== 'started') throw new Error('expected started')
+    expect(result.state.player.localDevice.filesystem).toBe(before)
+    expect(getFilesystemFile(result.state.player.localDevice.filesystem, MARKET_DESTINATION).status).toBe('not_found')
+    expect(result.state.process).toBe(state.process)
+  })
+
+  it('is real elapsed runtime at the represented distribution rate rather than an immediate copy', () => {
+    const state = purchased()
+    const started = startMarketPackageDownload(state, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    expect(deriveEffectiveTransferRateBytesPerSecond(state.market.distributionCapacity, state.player.localDevice.network.transferCapacity)).toBe(MARKET_RATE)
+
+    const midway = advanceGameState(started.state, 4_000)
+    expect(midway.fileTransfer.active!.bytesTransferred).toBe(4 * MARKET_RATE)
+    expect(getFilesystemFile(midway.player.localDevice.filesystem, MARKET_DESTINATION).status).toBe('not_found')
+
+    const completed = advanceGameState(midway, (MARKET_BYTES / MARKET_RATE) * 1000)
+    expect(completed.fileTransfer.active).toBeNull()
+    const written = getFilesystemFile(completed.player.localDevice.filesystem, MARKET_DESTINATION)
+    if (written.status !== 'ok' || written.file.kind !== 'software_package') throw new Error('expected a package artifact')
+    const { filename, ...release } = findMarketOffer(state.market, OFFER_ID)!.distribution
+    expect(written.file).toMatchObject(release)
+    expect(written.file.id).toBe('file-0003')
+    expect(completed.player.localDevice.filesystem.files.filter(({ path }) => path === MARKET_DESTINATION)).toHaveLength(1)
+  })
+
+  it('slows with the represented distribution capacity rather than a fixed Market rate', () => {
+    const base = purchased()
+    const slow: GameState = { ...base, market: { ...base.market, distributionCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 } } }
+    const started = startMarketPackageDownload(slow, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    expect(advanceGameState(started.state, 1_000).fileTransfer.active!.bytesTransferred).toBe(1_048_576)
+  })
+
+  it('creates no software installation of its own', () => {
+    const state = purchased()
+    const started = startMarketPackageDownload(state, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    const completed = advanceGameState(started.state, 60_000)
+    expect(completed.player.localDevice.installedSoftware).toEqual(state.player.localDevice.installedSoftware)
+    expect(completed.process.processes).toEqual([])
+  })
+
+  it('participates in the single active FileTransfer constraint in both directions', () => {
+    const connected = connectedState()
+    const state = purchased(connected)
+    const remote = startRemoteFileDownload(state, NODESCAN_PATH)
+    if (remote.status !== 'started') throw new Error('expected started')
+    expect(startMarketPackageDownload(remote.state, OFFER_ID).status).toBe('transfer_in_progress')
+
+    const market = startMarketPackageDownload(state, OFFER_ID)
+    if (market.status !== 'started') throw new Error('expected started')
+    expect(startRemoteFileDownload(market.state, '/srv/readme.txt').status).toBe('transfer_in_progress')
+  })
+
+  it('cancels through the existing transfer cancellation semantics, keeping the entitlement', () => {
+    const state = purchased()
+    const started = startMarketPackageDownload(state, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    const running = advanceGameState(started.state, 3_000)
+    const cancelled = cancelFileTransfer(running, started.transferId)
+    expect(cancelled.status).toBe('cancelled')
+    expect(cancelled.state.fileTransfer.active).toBeNull()
+    expect(getFilesystemFile(cancelled.state.player.localDevice.filesystem, MARKET_DESTINATION).status).toBe('not_found')
+    expect(cancelled.state.player.localDevice.filesystem.nextFileId).toBe(state.player.localDevice.filesystem.nextFileId)
+    expect(cancelled.state.market.purchases.entitlements).toEqual(state.market.purchases.entitlements)
+
+    // The entitlement still admits the same download again.
+    expect(startMarketPackageDownload(cancelled.state, OFFER_ID).status).toBe('started')
+  })
+
+  it('interrupts safely without a partial artifact when the local Device goes offline', () => {
+    const state = purchased()
+    const started = startMarketPackageDownload(state, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    const running = advanceGameState(started.state, 3_000)
+    const offline: GameState = { ...running, player: { ...running.player, localDevice: { ...running.player.localDevice, runtime: { ...running.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    const advanced = advanceFileTransfer(offline, 60_000)
+    expect(advanced.fileTransfer.active).toBeNull()
+    expect(getFilesystemFile(advanced.player.localDevice.filesystem, MARKET_DESTINATION).status).toBe('not_found')
+    expect(advanced.market.purchases.entitlements).toHaveLength(1)
+  })
+
+  it('appends no Network-owned evidence, because a Market distribution is not a represented Device', () => {
+    const state = purchased()
+    const started = startMarketPackageDownload(state, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    const completed = advanceGameState(started.state, 60_000)
+    expect(completed.world.network.localNetworks.map(({ activityHistory }) => activityHistory))
+      .toEqual(state.world.network.localNetworks.map(({ activityHistory }) => activityHistory))
+  })
+
+  it('archives the finished transfer as the real Download it was, routed from the represented operator', () => {
+    const state = purchased()
+    const started = startMarketPackageDownload(state, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    const completed = advanceGameState(started.state, 60_000)
+    const entry = completed.recentActivity.entries.find(({ kind }) => kind === 'file_transfer')
+    expect(entry).toMatchObject({ kind: 'file_transfer', id: started.transferId, route: 'Open Package Exchange → node-01' })
+    if (entry?.kind !== 'file_transfer') throw new Error('expected a transfer entry')
+    expect(entry.transfer.bytesTransferred).toBe(MARKET_BYTES)
+    expect(entry.sourcePath).toBeUndefined()
+  })
+
+  it('never overwrites an artifact already occupying the V1 destination', () => {
+    const base = createInitialGameState()
+    const occupied: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: {
+      nextFileId: 4,
+      files: [...base.player.localDevice.filesystem.files, { kind: 'text', id: 'file-0003', path: MARKET_DESTINATION, content: 'not a package' }],
+    } } } }
+    const state = purchased(occupied)
+    const result = startMarketPackageDownload(state, OFFER_ID)
+    expect(result.status).toBe('destination_exists')
+    expect(result.state.player.localDevice.filesystem.files).toHaveLength(3)
+  })
+
+  it('re-downloads after a local copy is lost, from the surviving entitlement alone', () => {
+    const state = purchased(createInitialGameState(), 'market-offer-node-miner-1.0')
+    // The seeded package still occupies the V1 destination.
+    expect(startMarketPackageDownload(state, 'market-offer-node-miner-1.0').status).toBe('destination_exists')
+
+    const lost: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: {
+      ...state.player.localDevice.filesystem,
+      files: state.player.localDevice.filesystem.files.filter(({ path }) => path !== '/home/user/downloads/node-miner-1.0.pkg'),
+    } } } }
+    const restarted = startMarketPackageDownload(lost, 'market-offer-node-miner-1.0')
+    if (restarted.status !== 'started') throw new Error('expected started')
+    const completed = advanceGameState(restarted.state, 60_000)
+    expect(getFilesystemFile(completed.player.localDevice.filesystem, '/home/user/downloads/node-miner-1.0.pkg').status).toBe('ok')
+  })
+
+  it('refuses to advance once the entitlement it was admitted against no longer exists', () => {
+    const state = purchased()
+    const started = startMarketPackageDownload(state, OFFER_ID)
+    if (started.status !== 'started') throw new Error('expected started')
+    const revoked: GameState = { ...started.state, market: { ...started.state.market, purchases: { ...started.state.market.purchases, entitlements: [] } } }
+    const advanced = advanceFileTransfer(revoked, 60_000)
+    expect(advanced.fileTransfer.active).toBeNull()
+    expect(getFilesystemFile(advanced.player.localDevice.filesystem, MARKET_DESTINATION).status).toBe('not_found')
+  })
+
+  it('rejects admission while the local Device is offline', () => {
+    const base = purchased()
+    const offline: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, runtime: { ...base.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    expect(startMarketPackageDownload(offline, OFFER_ID).status).toBe('local_offline')
+  })
+
+  it('rejects admission when a represented capacity is unusable', () => {
+    const base = purchased()
+    const broken: GameState = { ...base, market: { ...base.market, distributionCapacity: { uploadBytesPerSecond: 0, downloadBytesPerSecond: 0 } } }
+    expect(startMarketPackageDownload(broken, OFFER_ID).status).toBe('capacity_unavailable')
   })
 })

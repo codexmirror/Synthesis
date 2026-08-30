@@ -129,9 +129,10 @@ observation. The two runtime
 domains remain separate canonical state; a pure presentation adapter aggregates
 them for display only and never represents a transfer as a `GameProcess`. That
 adapter resolves a FileTransfer's direction-aware source, destination,
-artifact, and current rate through the same `accessId`-based FileTransfer
-authority that runtime advancement uses
-rather than through any RemoteSession, so the active transfer keeps
+artifact, and current rate through the same authority that runtime advancement
+uses — the transfer's own `accessId` for a Device-route transfer, and the
+represented Market operator for a Market distribution download — rather than
+through any RemoteSession, so the active transfer keeps
 presenting correctly with no RemoteSession present, including immediately
 after disconnect. Activity is filtered as ALL, OPERATIONS (Service Analysis,
 Credential Access, Software Installation, Software Removal, and NODE Miner),
@@ -167,7 +168,10 @@ units/s rate, deliberately without a percentage progress bar. A
 FileTransfer is labelled DOWNLOAD or UPLOAD and shows its artifact,
 direction-aware source-to-destination relationship, transferred and total
 bytes, progress, and current effective rate, and never claims Process
-CPU or RAM. It presents no payout split or developer address, because that is
+CPU or RAM. A Market distribution download is the same real DOWNLOAD runtime
+with the same controls, stating the represented Market operator as its source
+and route (see `docs/current/MARKET.md`); the Activity Monitor keeps no
+Market-owned progress of its own. It presents no payout split or developer address, because that is
 not runtime the Activity Monitor observes.
 
 Recent Activity preserves bounded snapshots of the 20 most recently ended local

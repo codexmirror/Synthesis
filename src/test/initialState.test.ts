@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from '../core/game/nodeMiner'
+import { MARKET_OPERATOR_SETTLEMENT_ADDRESS } from '../core/game/market'
 import { VEYRA_OS_FIRMWARE_ID } from '../core/game/firmwareIdentity'
 import { resolveDollarAccountForDevice } from '../core/game/dollarFinance'
 import { AUTH_017, vulnerabilitiesForService } from '../core/game/serviceImplementations'
@@ -36,17 +37,20 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 45', () => {
+  it('separates identities and seeds canonical local-device state in schema version 46', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(45)
+    expect(GAME_STATE_VERSION).toBe(46)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(45)
+    expect(state.version).toBe(46)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
-    // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
-    expect(state.nodeEconomy).toEqual({ accounts: [{ id: 'node-account-nm-dev-v0', address: NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, balanceNodeUnits: 0 }] })
+    // The represented NODE recipients besides the local Wallet: the unofficial Miner release's own developer account and the Market operator's own settlement account, both starting empty.
+    expect(state.nodeEconomy).toEqual({ accounts: [
+      { id: 'node-account-nm-dev-v0', address: NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS, balanceNodeUnits: 0 },
+      { id: 'node-account-opx-v0', address: MARKET_OPERATOR_SETTLEMENT_ADDRESS, balanceNodeUnits: 0 },
+    ] })
     expect(state.nodeEconomy.accounts[0].address).not.toBe(state.nodeWallet.address)
     // The mailbox is owned by the player's represented mail identity, not by the local Device or NODE-OS.
     expect(state.mail.account).toEqual({ id: 'mail-account-player-v0', address: 'user@node.mail' })
@@ -77,7 +81,7 @@ describe('createInitialGameState', () => {
     ])
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'gate-ssh' }))
-    // V1 has no represented acquisition path for the Rollback Exploit Toolkit yet: it must not be silently preinstalled as Current Truth.
+    // The Rollback Exploit Toolkit is not preinstalled: the Market is its represented acquisition path, not default Current Truth.
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'rollback-exploit-toolkit' }))
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })

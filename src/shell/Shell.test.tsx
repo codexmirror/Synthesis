@@ -6,7 +6,7 @@ import { connectRemoteFromObservation } from '../core/game/remoteSession'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import { RACK_OS_FIRMWARE_ID } from '../core/game/firmwareIdentity'
-import type { FirmwareState, GameState } from '../core/game/types'
+import type { DeviceAccessFileTransfer, FirmwareState, GameState } from '../core/game/types'
 import { Shell } from './Shell'
 import type { EditingViewportState } from './useEditingViewport'
 import shellCss from './shell.css?raw'
@@ -131,7 +131,7 @@ describe('Remote Session handoff', () => {
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
-    expect(GAME_STATE_VERSION).toBe(45)
+    expect(GAME_STATE_VERSION).toBe(46)
   })
 
   it('switches between an entered remote context and usable NODE-OS without changing canonical session authority', async () => {
@@ -174,7 +174,7 @@ describe('Remote Session handoff', () => {
     render(<GameProvider initialState={slowDownload}><Shell /><Capture /></GameProvider>)
     await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
     act(() => { actions.startRemoteFileDownload('/srv/readme.txt') })
-    const activeTransfer = (JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).fileTransfer.active
+    const activeTransfer = (JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).fileTransfer.active as DeviceAccessFileTransfer | null
     expect(activeTransfer).not.toBeNull()
     expect(activeTransfer).not.toHaveProperty('sessionId')
 

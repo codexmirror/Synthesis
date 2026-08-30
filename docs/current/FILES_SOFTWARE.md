@@ -64,7 +64,22 @@ network-transfer runtime rather than an immediate copy. With a current,
 resolvable Remote Session, `startRemoteFileDownload` admits and starts at most
 one canonical `FileTransfer` (`GameState.fileTransfer`); any second transfer
 attempted while one is active fails deterministically with
-`transfer_in_progress`. A RemoteSession is required only to admit a transfer:
+`transfer_in_progress`.
+
+A `FileTransfer` now records which of exactly two represented origins admitted
+it. `origin: 'device_access'` is everything described in this document: a
+transfer between two represented Devices, authorized by a `DeviceAccess`
+relationship and bound to a stable `sourceDeviceId` + `sourceFileId`.
+`origin: 'market_distribution'` is a download from the represented software
+Market's own distribution endpoint, authorized by a purchase entitlement and
+bound to a stable `offerId`; it has no source Device, no source filesystem
+artifact, no `accessId`, and no LocalNetwork participation, so it appends no
+Network-owned transfer evidence. That origin is owned by
+`docs/current/MARKET.md`; nothing about it changes the Device-route behavior
+below, and both origins share one runtime: the same single-active-transfer
+constraint, the same advancement boundary, the same destination convention and
+no-overwrite rules, the same cancellation, and the same Activity Monitor and
+Recent Activity presentation. A RemoteSession is required only to admit a transfer:
 admission resolves the current Session's canonical DeviceAccess and stores
 that relationship's stable `accessId`, replacing the earlier
 `sessionId` authority model. Starting a transfer records the exact
@@ -218,8 +233,13 @@ at its current path can be installed through local Files (`INSTALL`) or NODE-OS
 Terminal (`install <local-absolute-file-path>`), both of which use the same
 application operation over current canonical state. Ordinary installation has
 no closed product whitelist: the package artifact's stable `productId`, opaque
-`releaseId`, name, version, channel, and stated publisher are the authoritative
-ordinary installation facts.
+`releaseId`, name, version, and stated channel and publisher where the package
+actually represents either, are the authoritative ordinary installation facts.
+Channel and publisher are both release presentation metadata rather than
+required fields; a release that represents neither (for example the Rollback
+Exploit Toolkit) keeps that absence through the package, the installation
+Process, and the resulting InstalledSoftware, rather than settling for an
+invented or inherited value.
 
 Normal NODE-OS package installation does, however, require the artifact's
 current concrete path to end in exactly `.pkg`, case-sensitively
@@ -466,6 +486,18 @@ running.
 `srv-01` no longer distributes a NODE Miner executable; only its NodeScan
 Experimental package remains.
 
+A software package remains, exactly as this document and
+`docs/design/SOFTWARE_AUTHORING.md` define it, a file on a Device-owned
+filesystem. The represented software Market adds no exception: what it offers
+before a download is a *distribution* — represented offer and source truth
+about a release and its byte size — not an artifact. No `software_package`,
+file ID or path exists for a Market offering until its transfer completes, at
+which point completion creates one ordinary local package artifact to which
+every rule in this document then applies unchanged. GateSSH 1.3.3 and the
+Rollback Exploit Toolkit 1.0 are distributable that way for the first time,
+each keeping exactly the channel and publisher its own authored release
+actually represents — which for both is none. See `docs/current/MARKET.md`.
+
 The continuous Miner runtime is owned by
 `docs/current/PROCESSES_ACTIVITY.md`; what it produces, routes, and records
 economically is owned by `docs/current/NODE_ECONOMY.md`.
@@ -683,8 +715,14 @@ state.
   command-providing, or capability-providing.
 - `FileTransfer` is not a `GameProcess`. It consumes no CPU or RAM, creates no
   Process on completion, and must never be presented as one.
-- A transfer's authority is its `accessId`, not the Session that admitted it.
-  Disconnecting never cancels a running transfer.
+- A Device-route transfer's authority is its `accessId`, not the Session that
+  admitted it. Disconnecting never cancels a running transfer. A Market
+  distribution transfer's authority is the purchase entitlement instead, and
+  it must never be given a fabricated DeviceAccess, Session or remote host to
+  reuse Device-route code.
+- A package acquired from the Market is an ordinary package. Installation,
+  removal, execution and recognition treat it exactly like any other artifact,
+  and no installation path may consult where an artifact came from.
 - Nothing is written at the destination until the transfer completes. There is
   no partial file, no allocated destination file ID, and no navigable entry.
 - Transfers survive mutable attribute changes (IP, display name, source path)
