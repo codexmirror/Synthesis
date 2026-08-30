@@ -5,11 +5,11 @@ import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, remov
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { CREDENTIAL_ACCESS_TOOL_ID, canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import type { CredentialAccessProcess, GameState } from './types'
 
-const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: CREDENTIAL_ACCESS_TOOL_ID } as const
+const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017' } as const
 
 function prepared(): GameState {
   let state = createInitialGameState()

@@ -260,7 +260,7 @@ describe('Terminal credential access', () => {
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
     expect(startCredentialAccessAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
       endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001',
-      vulnerabilityId: 'AUTH-017', toolId: 'flipper',
+      vulnerabilityId: 'AUTH-017',
     })
     expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
   })
@@ -281,7 +281,7 @@ describe('Terminal credential access', () => {
     await user.type(screen.getByLabelText('Command input'), 'attack 203.0.113.42:8443{enter}')
     expect(startRackUpdateExploitAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
       endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002',
-      vulnerabilityId: 'UPD-001', toolId: 'flipper',
+      vulnerabilityId: 'UPD-001',
     })
     expect(startCredentialAccessAttemptFromObservation).not.toHaveBeenCalled()
   })

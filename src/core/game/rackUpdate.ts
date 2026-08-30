@@ -15,8 +15,6 @@ import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMember
 import { refreshSubmittedServiceImplementation } from './discovery'
 import type { GameState, InstalledSoftware, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
-/** The installed host product that supplies this offensive capability; the integrated Rollback Module is what actually supports `UPD-001`. */
-export const RACK_UPDATE_EXPLOIT_TOOL_ID = FLIPPER_PRODUCT_ID
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
 const RACK_UPDATE_EXPLOIT_MODULE_ID = 'rollback' as const
 export const RACK_UPDATE_EXPLOIT_WORK_REQUIRED = 1400
@@ -34,7 +32,6 @@ export interface RackUpdateExploitObservation {
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly vulnerabilityId: string
-  readonly toolId: typeof RACK_UPDATE_EXPLOIT_TOOL_ID
 }
 
 function hasSubmissionAccess(state: Pick<GameState, 'player' | 'rackUpdate'>, targetDeviceId: string, serviceId: string): boolean {
@@ -44,7 +41,7 @@ function hasSubmissionAccess(state: Pick<GameState, 'player' | 'rackUpdate'>, ta
 
 /**
  * A legitimate ATTACK opportunity: earned Knowledge of the observed weakness,
- * plus an installed Flipper build whose integrated modules actually support
+ * plus the exact standalone module or installed Flipper build that supports
  * it, on a Service the player still has not already exploited. This never
  * consults current World Truth.
  */

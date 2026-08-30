@@ -50,10 +50,10 @@ and the opaque release ID stay behind a RELEASE INFORMATION disclosure that is
 closed by default and can be reopened and closed again: information is
 available without being permanently expanded.
 A path that does not resolve is stated explicitly rather than rendered as
-nothing. A software-module row and detail state what the artifact is, the host
-product it belongs to, the technique its module supplies, and whether the
-installed host build already integrates it — and deliberately offer no INSTALL,
-because a module is not installable software. Integration is admitted from
+nothing. A software-module row and detail state what the artifact is, the
+technique it can supply standalone, its optional Flipper host, and the separate
+current integration state — and deliberately offer no INSTALL, because a
+module is not installable software. Optional integration is admitted from
 Flipper, the application that owns that operation. Text byte size is derived from
 its UTF-8 content. Package, module and executable byte sizes are explicit
 represented artifact data because their actual payloads are not modeled. Storage capacity,
@@ -639,7 +639,7 @@ concurrent removal of the same product and insufficient RAM are both resolved
 at this same admission instant, the same way Software Installation resolves
 its own admission failures.
 
-Not all preinstalled software is the same. NodeScan 1.0 Standard
+Not all installed software has the same represented removal semantics. NodeScan 1.0 Standard
 (`nodescan-1.0-standard`) canonical build is the protected baseline bundled with the
 current NODE-OS 1.0 environment: REMOVE never starts a Process against it,
 and local Files represents it truthfully as protected/system baseline rather
@@ -657,12 +657,11 @@ when the artifact at the deterministic installed path
 (`/usr/local/bin/node-miner`) still represents the exact release and build removal was
 admitted against, deletes that executable — an unrelated or already-replaced
 artifact occupying that path is left untouched, and the downloaded package
-artifact is never touched either way. Flipper is conceptually ordinary
-preinstalled software, not protected NODE-OS baseline software, but V1 has no
-represented acquisition/reinstallation path for it — and removing it would also
-strip integrated modules the player could not obtain again: REMOVE rejects it
-as unsupported for removal in this V1 rather than silently treating it as a
-system app.
+artifact is never touched either way. Flipper is ordinary Market-acquired
+software, not protected NODE-OS baseline software. Its removal/reset semantics
+are not represented in V1, so REMOVE rejects an installed Flipper as
+unsupported rather than silently treating it as a system app; this limitation
+does not alter its represented Market acquisition path.
 
 An already-running `NodeMinerProcess` is a distinct, independent runtime from
 NODE Miner's InstalledSoftware and executable, and REMOVE never touches it:
@@ -729,7 +728,7 @@ operations and release-specific rules remain gameplay authority, and release
 copy never discloses hidden target or runtime truth. System starts the existing
 finite removal operation, presenting removal of NodeScan 1.1 Experimental as
 restoration of the protected NodeScan 1.0 Standard NODE-OS baseline. Flipper
-remains ordinary preinstalled software whose removal is unsupported in V1,
+remains ordinary Market-acquired software whose removal/reset semantics are unsupported in V1,
 while NODE Miner remains ordinary removable software. Flipper is also the one
 installed product whose expanded row states more than a release: its concrete
 build, that build's represented size, and the modules it integrates, all read

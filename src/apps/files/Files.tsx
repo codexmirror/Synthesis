@@ -348,26 +348,26 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
 }
 
 /**
- * A module artifact is not installable software: it is an input its host
- * product integrates. Files therefore states what it is and where it belongs,
- * and deliberately offers no INSTALL — integration is admitted from Flipper,
- * which is the surface that owns that operation.
+ * A module artifact is a directly usable technique source and an optional
+ * input Flipper can integrate. It is never installable software, so Files
+ * deliberately offers no INSTALL; Flipper owns only the optional integration.
  */
 function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; installedSoftware: readonly InstalledSoftware[] }) {
   const host = installedSoftware.find((software): software is FlipperInstallation => software.id === file.hostProductId)
   const integrated = host?.integratedModules.includes(file.moduleId)
   return <section className="file-kind-details">
     <header className="node-masthead"><h2 className="node-masthead-subject">{file.name}</h2><span className="node-masthead-meta">{file.version} · MODULE</span></header>
-    <div className="node-section"><span>STATUS</span><span>{!host ? 'HOST NOT INSTALLED' : integrated ? 'INTEGRATED' : 'NOT INTEGRATED'}</span></div>
+    <div className="node-section"><span>INTEGRATION</span><span>{!host ? 'HOST NOT INSTALLED' : integrated ? 'INTEGRATED' : 'NOT INTEGRATED'}</span></div>
     <dl className="node-facts">
-      <div><dt>HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
+      <div><dt>STANDALONE USE</dt><dd>AVAILABLE</dd></div>
+      <div><dt>OPTIONAL HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
       <div><dt>TECHNIQUE</dt><dd>{FLIPPER_MODULE_TECHNIQUE[file.moduleId]}</dd></div>
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
       <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
     </dl>
-    <p className="node-note">{integrated
-      ? 'This module is already integrated into the installed host build. The artifact remains an ordinary file.'
-      : 'Integration is performed from the host application.'}</p>
+    <p className="node-note">This module can supply {FLIPPER_MODULE_TECHNIQUE[file.moduleId]} standalone. {integrated
+      ? 'It is also integrated into the installed Flipper build; the artifact remains an ordinary file.'
+      : 'Flipper is an optional integration host, and integration is performed from that application.'}</p>
   </section>
 }
 

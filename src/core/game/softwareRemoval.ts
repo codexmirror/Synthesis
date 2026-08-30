@@ -23,18 +23,16 @@ export type RemoveInstalledSoftwareResult =
  * releaseId, since it is not always the player's choice which concrete
  * release removal restores (see NodeScan below).
  *
- * Not all preinstalled software is the same:
+ * Not all installed software has the same represented removal semantics:
  * - NodeScan 1.0 Standard is the protected NODE-OS 1.0 baseline and is never
  *   removable.
  * - NodeScan 1.1 Experimental is a removable override of that baseline;
  *   completion restores the concrete NodeScan 1.0 Standard baseline (see
  *   `resolveCompletedSoftwareRemovals`).
  * - NODE Miner is ordinary removable software.
- * - Flipper is ordinary preinstalled software, not a protected baseline, but
- *   V1 has no represented acquisition/reinstallation path for it, so it is
- *   rejected as unsupported for removal rather than silently treated as a
- *   system app. Removing it would also strip integrated modules the player
- *   could not obtain again.
+ * - Flipper is ordinary Market-acquired software, not a protected baseline,
+ *   but its removal/reset semantics are not represented in V1, so removal is
+ *   rejected as unsupported rather than silently treating it as a system app.
  *
  * Admission validates current world truth exactly once, at this instant, and
  * snapshots only the release facts completion will need; it applies none of

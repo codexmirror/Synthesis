@@ -73,9 +73,10 @@ Credential Access Module supports `AUTH-017` directly; a later installed
 Flipper build supports it after integrating that same module. Without either
 concrete source no way in is formed, the Knowledge that produced it is
 untouched, and the started attempt still carries its `toolId`, `moduleId` and
-`vulnerabilityId`. Because exactly one represented offensive product currently
-exists, NodeScan selects it rather than presenting a choice with one option,
-and names the concrete module beside it. A way in never predicts success; stale Player Information can
+`vulnerabilityId`. The canonical resolver selects the actual local source —
+preferring an integrated Flipper build when it supports the technique and
+otherwise using the exact standalone module — and NodeScan names that source
+and module without moving capability selection into presentation. A way in never predicts success; stale Player Information can
 still produce a legitimately failed attempt, which is reported coarsely while
 the same route stays available.
 

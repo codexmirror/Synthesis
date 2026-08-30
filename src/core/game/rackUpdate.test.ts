@@ -5,7 +5,6 @@ import { rememberInspect } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { rememberScan } from './discovery'
 import {
-  RACK_UPDATE_EXPLOIT_TOOL_ID,
   cancelRackUpdatePackageSubmission,
   canFormRackUpdateExploitAttempt,
   startRackUpdateExploitAttemptFromObservation,
@@ -14,14 +13,14 @@ import {
 import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { CREDENTIAL_ACCESS_TOOL_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0 } from './flipper'
 import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation } from './types'
 import type { GameState, NetworkHost, NetworkService } from './types'
 
 const RACK_UPDATE_ENDPOINT = { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443' }
-const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001', toolId: RACK_UPDATE_EXPLOIT_TOOL_ID } as const
+const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001' } as const
 
 function observed(): GameState {
   let state = createInitialGameState()
@@ -367,7 +366,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(updateAnalysis.status).toBe('started'); state = advanceGameState(updateAnalysis.state, 20_000)
     expect(state.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'UPD-001', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002' }))
 
-    const attacked = startRackUpdateExploitAttemptFromObservation(state, { endpoint: '203.0.113.42:8443', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002', vulnerabilityId: 'UPD-001', toolId: RACK_UPDATE_EXPLOIT_TOOL_ID })
+    const attacked = startRackUpdateExploitAttemptFromObservation(state, { endpoint: '203.0.113.42:8443', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002', vulnerabilityId: 'UPD-001' })
     expect(attacked.status).toBe('started'); state = advanceGameState(attacked.state, 20_000)
     expect(state.rackUpdate.access.established).toHaveLength(1)
 
@@ -383,7 +382,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     const sshAnalysis = startServiceAnalysisFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id })
     expect(sshAnalysis.status).toBe('started'); state = advanceGameState(sshAnalysis.state, 20_000)
     expect(state.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: srv02().id, serviceId: ssh().id }))
-    const access = startCredentialAccessAttemptFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id, vulnerabilityId: 'AUTH-017', toolId: CREDENTIAL_ACCESS_TOOL_ID })
+    const access = startCredentialAccessAttemptFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id, vulnerabilityId: 'AUTH-017' })
     expect(access.status).toBe('started'); state = advanceGameState(access.state, 30_000)
     expect(state.deviceAccess.established).toContainEqual(expect.objectContaining({ targetDeviceId: srv02().id, viaServiceId: ssh().id, privilege: 'USER' }))
   })

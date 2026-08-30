@@ -380,11 +380,9 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    // Exactly one represented offensive tool exists, so where the installed
-    // Flipper build integrates a module supporting a weakness the player has
-    // actually learned about, there is no meaningful choice to force on them.
-    // The tool stays a real requirement: without the installed build actually
-    // containing that module, or without the Knowledge, no route is formed.
+    // Canonical local capability resolution chooses an integrated Flipper when
+    // available or the exact standalone module otherwise. Presentation does
+    // not choose a tool, and Knowledge remains independently required.
     const supported = weaknesses.find(({ id }) => findLocalTechniqueTool(information.player.localDevice, id))
     const techniqueTool = supported ? findLocalTechniqueTool(information.player.localDevice, supported.id) : undefined
     if (techniqueTool && supported && !viaAccess) {

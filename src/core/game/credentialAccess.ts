@@ -6,12 +6,6 @@ import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
 
-/**
- * The installed host product that supplies this offensive capability. Whether
- * it actually supports the observed technique is decided by the modules the
- * installed Flipper build integrates, never by the product ID alone.
- */
-export const CREDENTIAL_ACCESS_TOOL_ID = FLIPPER_PRODUCT_ID
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
 const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
@@ -22,7 +16,6 @@ export interface CredentialAccessObservation {
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly vulnerabilityId: string
-  readonly toolId: typeof CREDENTIAL_ACCESS_TOOL_ID
 }
 
 export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'deviceAccess'>, observed: CredentialAccessObservation): boolean {
