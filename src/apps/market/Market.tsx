@@ -143,7 +143,7 @@ function OfferDetails({ offer, operatorName, feedback, buy, download }: {
   </div>
 }
 
-function describeRelease(offer: MarketOfferView) { return `${offer.version} · ${offer.channel.toUpperCase()}` }
+function describeRelease(offer: MarketOfferView) { return offer.channel ? `${offer.version} · ${offer.channel.toUpperCase()}` : offer.version }
 
 /** Canonical integer atomic NODE units as the price the operator actually charges. */
 function describePrice(priceNodeUnits: number) { return `${formatNodeUnitsAsNode(priceNodeUnits)} NODE` }

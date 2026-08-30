@@ -233,8 +233,13 @@ at its current path can be installed through local Files (`INSTALL`) or NODE-OS
 Terminal (`install <local-absolute-file-path>`), both of which use the same
 application operation over current canonical state. Ordinary installation has
 no closed product whitelist: the package artifact's stable `productId`, opaque
-`releaseId`, name, version, channel, and stated publisher are the authoritative
-ordinary installation facts.
+`releaseId`, name, version, and stated channel and publisher where the package
+actually represents either, are the authoritative ordinary installation facts.
+Channel and publisher are both release presentation metadata rather than
+required fields; a release that represents neither (for example the Rollback
+Exploit Toolkit) keeps that absence through the package, the installation
+Process, and the resulting InstalledSoftware, rather than settling for an
+invented or inherited value.
 
 Normal NODE-OS package installation does, however, require the artifact's
 current concrete path to end in exactly `.pkg`, case-sensitively
@@ -488,8 +493,10 @@ before a download is a *distribution* — represented offer and source truth
 about a release and its byte size — not an artifact. No `software_package`,
 file ID or path exists for a Market offering until its transfer completes, at
 which point completion creates one ordinary local package artifact to which
-every rule in this document then applies unchanged. GateSSH 1.3.3 is
-distributable that way for the first time. See `docs/current/MARKET.md`.
+every rule in this document then applies unchanged. GateSSH 1.3.3 and the
+Rollback Exploit Toolkit 1.0 are distributable that way for the first time,
+each keeping exactly the channel and publisher its own authored release
+actually represents — which for both is none. See `docs/current/MARKET.md`.
 
 The continuous Miner runtime is owned by
 `docs/current/PROCESSES_ACTIVITY.md`; what it produces, routes, and records

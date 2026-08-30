@@ -36,7 +36,7 @@ export function createInitialGameState(): GameState {
         installedSoftware: [
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
           { id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId, name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version },
-          // Deliberately not the Rollback Exploit Toolkit: V1 has no represented acquisition path for it yet, so it must not be silently preinstalled as Current Truth. Fixtures that need it install/seed it explicitly.
+          // Deliberately not the Rollback Exploit Toolkit: the Market is its represented acquisition path, so it must not be silently preinstalled as Current Truth. Fixtures that need it install/seed it explicitly.
         ],
         // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.
         savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },

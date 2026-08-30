@@ -15,6 +15,7 @@ import { Files } from '../files/Files'
 
 const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
+const ROLLBACK_OFFER = 'market-offer-rollback-exploit-toolkit-1.0'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -62,16 +63,20 @@ async function open(name: RegExp) {
 describe('Market catalog presentation', () => {
   it('lists every represented offering once with its own release, size and price', () => {
     renderMarket(createInitialGameState())
-    expect(screen.getByText('4 OFFERINGS')).toBeInTheDocument()
+    expect(screen.getByText('5 OFFERINGS')).toBeInTheDocument()
     const rows = screen.getAllByRole('button').filter((button) => button.className === 'node-row')
     expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual([
-      'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH',
+      'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Exploit Toolkit',
     ])
     expect(rows.map((row) => row.querySelector('small')?.textContent)).toEqual([
       '1.1 · EXPERIMENTAL · 18.4 MB · 0.01 NODE',
       '1.0 · UNOFFICIAL · 3.4 MB · 0.01 NODE',
       '1.3.2 · STABLE · 6.4 MB · 0.01 NODE',
-      '1.3.3 · STABLE · 6.6 MB · 0.01 NODE',
+      // GateSSH 1.3.3 states no channel: no accepted current truth represents one for this
+      // exact release, so the row omits the segment rather than inheriting 1.3.2's.
+      '1.3.3 · 6.6 MB · 0.01 NODE',
+      // Rollback Exploit Toolkit's authored release states no channel either.
+      '1.0 · 2.1 MB · 0.01 NODE',
     ])
   })
 
@@ -119,6 +124,16 @@ describe('Market catalog presentation', () => {
     renderMarket(altered)
     await open(/NODE Miner/)
     expect(screen.getByText('other-publisher')).toBeInTheDocument()
+  })
+
+  it('presents the Rollback Exploit Toolkit with no invented channel or publisher', async () => {
+    renderMarket(createInitialGameState())
+    await open(/Rollback Exploit Toolkit/)
+    // No channel is stated, so the release line is version-only rather than a fabricated segment.
+    expect(document.querySelector('.node-masthead-meta')).toHaveTextContent('1.0')
+    expect(document.querySelector('.node-masthead-meta')).not.toHaveTextContent('·')
+    expect(screen.getByText('NOT STATED')).toBeInTheDocument()
+    expect(screen.getByText('Open Package Exchange')).toBeInTheDocument()
   })
 })
 

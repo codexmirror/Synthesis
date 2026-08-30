@@ -167,7 +167,8 @@ export interface SoftwareInstallationProcess extends ProcessBase {
   readonly releaseId: string
   readonly name: string
   readonly version: string
-  readonly channel: string
+  /** Snapshotted from the source package at admission; present only when that package stated a channel. */
+  readonly channel?: string
   /** Provenance stated by the source package at admission; present only when that package claimed one. */
   readonly publisher?: string
   readonly result?: SoftwareInstallationResult
@@ -244,7 +245,8 @@ export interface SoftwarePackageFile {
   readonly productId: string
   readonly name: string
   readonly version: string
-  readonly channel: string
+  /** Release presentation metadata; present only where the represented release actually states a channel. */
+  readonly channel?: string
   /** Provenance stated by the package itself; present only where the represented package claims one. */
   readonly publisher?: string
   readonly sizeBytes: number
@@ -480,7 +482,8 @@ export interface MarketPackageDistribution {
   readonly productId: string
   readonly name: string
   readonly version: string
-  readonly channel: string
+  /** Release presentation metadata; present only where the represented release actually states a channel. */
+  readonly channel?: string
   /** Provenance stated by the represented release; present only where one is actually represented. */
   readonly publisher?: string
   readonly sizeBytes: number

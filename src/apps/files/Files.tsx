@@ -327,7 +327,7 @@ function describeInstalledSoftware(software: InstalledSoftware): string {
 }
 
 function describePackageRelease(file: SoftwarePackageFile): string {
-  return `${file.version} · ${file.channel.toUpperCase()}`
+  return file.channel ? `${file.version} · ${file.channel.toUpperCase()}` : file.version
 }
 
 function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'started' }>): string {

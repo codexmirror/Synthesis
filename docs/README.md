@@ -165,7 +165,10 @@ Market application.
 - RELATED CURRENT TRUTH → [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md)
   (what a purchase costs and which recipient is credited),
   [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md) (the FileTransfer
-  runtime and what happens to the package afterwards)
+  runtime and what happens to the package afterwards),
+  [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md) (the existing
+  `UPD-001`/RackUpdate tool requirement a Market-installed Rollback Exploit
+  Toolkit satisfies, with no Market-specific integration)
 - CODE → `src/core/game/market.ts`, `src/core/game/fileTransfer.ts`,
   `src/apps/market/`
 - TESTS → `src/core/game/market.test.ts`,

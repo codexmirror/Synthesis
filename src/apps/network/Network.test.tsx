@@ -463,7 +463,7 @@ describe('NodeScan technical details', () => {
 /* ------------------------------------------------ RackUpdate as depth only */
 
 describe('RackUpdate exploit and package submission', () => {
-  // V1 has no represented acquisition path for the Rollback Exploit Toolkit; it is deliberately not preinstalled, so this fixture installs it explicitly.
+  // The Rollback Exploit Toolkit is not preinstalled by default (the Market is its represented acquisition path), so this fixture installs it explicitly.
   function srv02(): GameState {
     const observed = withNodeScan11(createInitialGameState())
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }

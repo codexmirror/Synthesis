@@ -38,7 +38,7 @@ function withLocalGateSsh132(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { ...remotePackage, id: 'file-local-gatessh', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } } }
 }
 
-/** V1 has no represented acquisition path for the Rollback Exploit Toolkit; fixtures that need it install it explicitly rather than relying on default Current Truth. */
+/** The Rollback Exploit Toolkit is not preinstalled by default (the Market is its represented acquisition path); fixtures that need it already installed set it up explicitly rather than relying on default Current Truth. */
 function withRollbackExploitToolkit(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId, releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version } ] } } }
 }

@@ -25,7 +25,8 @@ interface StartedInstallation {
   readonly productId: string
   readonly name: string
   readonly version: string
-  readonly channel: string
+  /** Present only when the source package stated a channel. */
+  readonly channel?: string
 }
 
 export type InstallLocalSoftwarePackageResult =
@@ -132,7 +133,7 @@ function admitSoftwareInstallation(process: ProcessState, target: SoftwareInstal
         releaseId: packageFile.releaseId,
         name: packageFile.name,
         version: packageFile.version,
-        channel: packageFile.channel,
+        ...(packageFile.channel ? { channel: packageFile.channel } : {}),
         ...(packageFile.publisher ? { publisher: packageFile.publisher } : {}),
       }
     : candidate)
@@ -140,7 +141,8 @@ function admitSoftwareInstallation(process: ProcessState, target: SoftwareInstal
   return {
     status: 'started',
     processId: started.processId,
-    productId: packageFile.productId, name: packageFile.name, version: packageFile.version, channel: packageFile.channel,
+    productId: packageFile.productId, name: packageFile.name, version: packageFile.version,
+    ...(packageFile.channel ? { channel: packageFile.channel } : {}),
     process: { ...started.state, processes },
   }
 }
@@ -273,7 +275,8 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
  */
 function applyInstallationCompletion(device: InstallationOwnedState, process: SoftwareInstallationProcess): InstallationOwnedState & { readonly result: SoftwareInstallationResult } {
   const installation: InstalledSoftware = {
-    id: process.productId, releaseId: process.releaseId, name: process.name, version: process.version, channel: process.channel,
+    id: process.productId, releaseId: process.releaseId, name: process.name, version: process.version,
+    ...(process.channel ? { channel: process.channel } : {}),
     ...(process.publisher ? { publisher: process.publisher } : {}),
   }
 

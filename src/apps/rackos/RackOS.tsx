@@ -361,7 +361,7 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installable
   return <div className="rack-artifact">
     <p className="rack-artifact-kind">SOFTWARE PACKAGE</p>
     <h2>{file.name}</h2>
-    <p className="rack-artifact-release">{file.version} {titleCase(file.channel)}</p>
+    <p className="rack-artifact-release">{file.version}{file.channel ? ` ${titleCase(file.channel)}` : ''}</p>
     {confirming
       ? <div className="rack-install-confirm">
           <p className="rack-artifact-kind">INSTALL ON THIS DEVICE</p>

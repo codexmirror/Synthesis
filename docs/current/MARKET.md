@@ -70,33 +70,45 @@ MARKET OFFER / DISTRIBUTION TRUTH
   -> one ordinary software_package artifact on the local Device filesystem
 ```
 
-The V1 catalog lists four offerings, each represented once at exactly
+The V1 catalog lists five offerings, each represented once at exactly
 `0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
 every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
-GateSSH 1.3.2 Stable and GateSSH 1.3.3 Stable. That price is a current tuning
-of what this operator charges, not a rule of the economy; every operation reads
-the offering's own `priceNodeUnits` rather than a constant.
+GateSSH 1.3.2 Stable, GateSSH 1.3.3 and Rollback Exploit Toolkit 1.0. That
+price is a current tuning of what this operator charges, not a rule of the
+economy; every operation reads the offering's own `priceNodeUnits` rather than
+a constant.
 
-Provenance is stated exactly as each release represents it and is deliberately
-mixed: NODE Miner states the `nm-dev` publisher and GateSSH 1.3.2 states
-`rack-systems`, because those are the publishers their own represented package
-artifacts claim. NodeScan 1.1 and GateSSH 1.3.3 state none, which the
-application presents as `NOT STATED`. GateSSH 1.3.3 in particular does **not**
-inherit 1.3.2's publisher: one release's stated provenance is not the product's,
-and no publisher registry exists to supply one.
+`channel` is release presentation metadata and is genuinely optional on a
+distribution, on the `software_package` a completed download creates, and on
+every step of the ordinary installation path between them (the installation
+Process, and the resulting InstalledSoftware). A release that represents no
+channel keeps that absence as a missing field the whole way through
+Market distribution → completed package → Files → INSTALL → InstalledSoftware,
+never an empty string or an inherited value.
 
-GateSSH 1.3.3 was already a represented release with no distributable package
-artifact anywhere in the world; this Market is the first concrete distribution
-of it, and its distribution facts are authored in `market.ts` alongside the
-other offerings. NodeScan 1.1's, NODE Miner 1.0's and GateSSH 1.3.2's
-distributions deliberately repeat the represented artifacts that already exist
-on srv-01 and node-01 rather than deriving one from the other — each concrete
-artifact stays self-contained — and a focused test pins them to each other so
-the two authoring sites cannot silently diverge.
+Provenance and channel are stated exactly as each release represents them and
+are deliberately mixed. NODE Miner states the `nm-dev` publisher and GateSSH
+1.3.2 states `stable`/`rack-systems`, because those are what their own
+represented package artifacts claim. NodeScan 1.1 states no publisher.
+GateSSH 1.3.3 and the Rollback Exploit Toolkit state neither a channel nor a
+publisher: no accepted current truth represents either for GateSSH 1.3.3 (not
+even the Service implementation it patches — only the *distinct* 1.3.2 package
+artifact states `stable`/`rack-systems`), and the Rollback Exploit Toolkit's
+own authored release states neither. None of the three is inferred from a
+sibling release or invented to fill a field; the application presents each
+absence as `NOT STATED` (publisher) or by omitting the channel segment
+entirely.
 
-The Rollback Exploit Toolkit 1.0 is deliberately absent. It remains an authored
-release and a concrete gameplay tool with no represented acquisition path; this
-Market states nothing about its distribution or channel.
+GateSSH 1.3.3 and the Rollback Exploit Toolkit 1.0 were already represented
+releases with no distributable package artifact anywhere in the world; this
+Market is the first concrete distribution of either, and their distribution
+facts are authored in `market.ts` alongside the other offerings. It is
+currently the only represented acquisition path for the Rollback Exploit
+Toolkit. NodeScan 1.1's, NODE Miner 1.0's and GateSSH 1.3.2's distributions
+deliberately repeat the represented artifacts that already exist on srv-01 and
+node-01 rather than deriving one from the other — each concrete artifact stays
+self-contained — and a focused test pins them to each other so the two
+authoring sites cannot silently diverge.
 
 Market offerings deliberately carry no ABOUT/CAPABILITY/CHANGE copy of their
 own: the application projects the same authored release documentation every
@@ -104,7 +116,9 @@ other software surface reads, and simply omits it for a release that has none.
 No documentation is authored for the GateSSH releases, because the represented
 difference between 1.3.2 and 1.3.3 is a target weakness that Service Analysis
 and Knowledge own (see `docs/current/NETWORK_ACCESS.md`); a store listing must
-not hand the player observation results.
+not hand the player observation results. The Rollback Exploit Toolkit does
+carry its existing authored ABOUT/CAPABILITY/CHANGE copy, exactly as it already
+does everywhere else that release is presented.
 
 
 ## Purchase
@@ -181,8 +195,9 @@ happened.
 Completion is ordinary: exactly one `software_package` artifact is created on
 the local Device at the moment the transferred bytes reach the total — the
 first moment such an artifact exists at all — carrying the offering's
-represented release identity, name, version, channel, publisher and size
-unchanged, and taking its file ID and path from the destination filesystem
+represented release identity, name, version and size unchanged, plus channel
+and publisher exactly where the offering actually represents them and omitted
+otherwise, and taking its file ID and path from the destination filesystem
 like any other created artifact. Downloading installs nothing. From that point the existing
 Files / INSTALL lifecycle takes over with no Market-specific installation
 logic. Cancellation uses the existing `cancelFileTransfer` semantics, creates
@@ -209,10 +224,12 @@ diverge.
 
 The catalog states the operator it is presenting and the client Device, the
 canonical NODE balance, and one row per offering: product name, then
-`version · CHANNEL · size · price`, then the derived acquisition state, then
-the arrow that opens the offering. One quiet note states that NODE-OS provides
-the client while the operator lists, sells and is paid, and that each release
-states its own publisher where one is represented.
+`version · CHANNEL · size · price` — with the `· CHANNEL` segment omitted
+entirely for a release that represents none, rather than shown empty or
+inherited — then the derived acquisition state, then the arrow that opens the
+offering. One quiet note states that NODE-OS provides the client while the
+operator lists, sells and is paid, and that each release states its own
+publisher where one is represented.
 
 An offering states its acquisition state — `AVAILABLE`, `PURCHASED`,
 `DOWNLOADING` or `ON DEVICE` — then publisher, seller, package filename, size,
@@ -266,3 +283,9 @@ Market -> BUY -> DOWNLOAD -> package in Files -> Files INSTALL -> InstalledSoftw
 - The price is the offering's own represented `priceNodeUnits`. Do not
   hardcode commerce to the current V1 value, and never express canonical NODE
   as a fractional number.
+- Channel is optional release presentation metadata, not a required field a
+  package or offering must always carry. A release with no represented channel
+  (GateSSH 1.3.3, the Rollback Exploit Toolkit) must keep that absence through
+  distribution, completed package, installation and InstalledSoftware — never
+  an invented value, an empty string, or a value inherited from a sibling
+  release of the same product.

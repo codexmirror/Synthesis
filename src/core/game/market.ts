@@ -1,5 +1,5 @@
 import { GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
-import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0, ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
 import type { FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState, SoftwarePackageFile } from './types'
 
 /**
@@ -80,15 +80,30 @@ export function createInitialMarketState(): MarketState {
       },
       {
         // The already-represented GateSSH 1.3.3 release, distributable as a concrete package for
-        // the first time. It states no publisher: only srv-01's own 1.3.2 package artifact
-        // represents `rack-systems`, and one release's stated provenance is not the product's.
+        // the first time. It states no channel and no publisher: no accepted current truth (not
+        // even the Service implementation it patches) represents either for this exact release,
+        // only srv-01's own distinct 1.3.2 package artifact does — and one release's stated
+        // provenance is not the product's, so 1.3.3 does not inherit it.
         id: 'market-offer-gate-ssh-1.3.3',
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'gatessh-1.3.3.pkg',
           releaseId: GATE_SSH_1_3_3_RELEASE_ID, productId: GATE_SSH_PRODUCT_ID,
-          name: 'GateSSH', version: '1.3.3', channel: 'stable',
+          name: 'GateSSH', version: '1.3.3',
           sizeBytes: 6_600_000,
+        },
+      },
+      {
+        // The already-authored Rollback Exploit Toolkit release, distributable for the first
+        // time: Market V1 is currently the only represented acquisition path for it. Its
+        // authored release states no channel and no publisher, so none is invented here either.
+        id: 'market-offer-rollback-exploit-toolkit-1.0',
+        priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
+        distribution: {
+          filename: 'rollback-exploit-toolkit-1.0.pkg',
+          releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
+          name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
+          sizeBytes: 2_100_000,
         },
       },
     ],

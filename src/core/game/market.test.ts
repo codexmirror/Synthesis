@@ -3,11 +3,16 @@ import { createInitialGameState } from './initialState'
 import { findLocalMarketPackageCopy, findMarketOffer, isMarketOfferPurchased, purchaseMarketOffer, MARKET_OPERATOR_SETTLEMENT_ADDRESS, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
 import { NODE_UNITS_PER_NODE } from './nodeMiner'
 import { advanceGameState } from './gameAdvancement'
+import { startMarketPackageDownload } from './fileTransfer'
+import { installLocalSoftwarePackage } from './softwareInstallation'
+import { findInstalledRollbackExploitToolkit, rollbackExploitToolkitSupports } from './software'
+import { ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
 import type { GameState, SoftwarePackageFile } from './types'
 
 const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
 const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
+const ROLLBACK_OFFER = 'market-offer-rollback-exploit-toolkit-1.0'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -23,7 +28,7 @@ describe('Market catalog', () => {
   it('represents each required release exactly once, under stable offer identity', () => {
     const { offers } = createInitialGameState().market
     expect(offers.map(({ id }) => id)).toEqual([
-      NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER,
+      NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
     ])
     expect(new Set(offers.map(({ id }) => id)).size).toBe(offers.length)
     expect(new Set(offers.map(({ distribution }) => distribution.releaseId)).size).toBe(offers.length)
@@ -38,12 +43,26 @@ describe('Market catalog', () => {
     }
   })
 
-  it('lists no offering the selected V1 catalog does not represent', () => {
+  it('is exactly the five intended V1 offerings, no more and no fewer', () => {
     const { offers } = createInitialGameState().market
-    // The Rollback Exploit Toolkit remains an authored release and a gameplay tool,
-    // with no represented Market distribution and no invented channel.
-    expect(offers.map(({ distribution }) => distribution.productId)).not.toContain('rollback-exploit-toolkit')
-    expect(offers).toHaveLength(4)
+    expect(offers).toHaveLength(5)
+    expect(offers.map(({ distribution }) => distribution.productId)).toEqual([
+      'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'rollback-exploit-toolkit',
+    ])
+  })
+
+  it('distributes the Rollback Exploit Toolkit under its own already-authored release identity, with no invented channel or publisher', () => {
+    const state = createInitialGameState()
+    const distribution = findMarketOffer(state.market, ROLLBACK_OFFER)!.distribution
+    expect(distribution).toMatchObject({
+      productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
+      releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId,
+      name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name,
+      version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
+    })
+    // Absence preserved as a genuinely missing key, never an empty-string or invented value.
+    expect('channel' in distribution).toBe(false)
+    expect('publisher' in distribution).toBe(false)
   })
 
   it('states each release provenance truthfully rather than flattening the catalog into one publisher', () => {
@@ -58,6 +77,11 @@ describe('Market catalog', () => {
     // in particular does not inherit the provenance srv-01's own 1.3.2 package states.
     expect(distribution(NODESCAN_OFFER).publisher).toBeUndefined()
     expect(distribution(GATE_SSH_1_3_3_OFFER).publisher).toBeUndefined()
+    // GateSSH 1.3.3 also carries no invented channel: no accepted current truth represents
+    // one for this exact release, only for the distinct 1.3.2 package.
+    expect(distribution(GATE_SSH_1_3_3_OFFER).channel).toBeUndefined()
+    expect(distribution(ROLLBACK_OFFER).channel).toBeUndefined()
+    expect(distribution(ROLLBACK_OFFER).publisher).toBeUndefined()
     // No offering is attributed to NODE, and the Market operator is nobody's publisher.
     expect(state.market.offers.map(({ distribution: item }) => item.publisher))
       .not.toContain(state.market.operator.name)
@@ -219,5 +243,41 @@ describe('possession and entitlement', () => {
       files: state.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_package'),
     } } } }
     expect(findLocalMarketPackageCopy(removed.player.localDevice.filesystem, findMarketOffer(state.market, NODE_MINER_OFFER)!)).toBeUndefined()
+  })
+})
+
+describe('Rollback Exploit Toolkit acquisition path', () => {
+  it('BUY -> DOWNLOAD -> completion -> Files INSTALL yields the exact InstalledSoftware the existing UPD-001 gating already recognizes, with no Market-specific installation logic', () => {
+    const purchase = purchaseMarketOffer(funded(2 * PRICE), ROLLBACK_OFFER)
+    if (purchase.status !== 'purchased') throw new Error('expected purchased')
+
+    const download = startMarketPackageDownload(purchase.state, ROLLBACK_OFFER)
+    if (download.status !== 'started') throw new Error('expected started')
+    const downloaded = advanceGameState(download.state, 60_000)
+    expect(downloaded.fileTransfer.active).toBeNull()
+
+    // Completion creates one ordinary local package, and only one, under this product's own identity.
+    const packages = downloaded.player.localDevice.filesystem.files.filter((file): file is SoftwarePackageFile =>
+      file.kind === 'software_package' && file.productId === ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId)
+    expect(packages).toHaveLength(1)
+    const packageFile = packages[0]
+    expect(packageFile).toMatchObject({ releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version })
+    // Absence survives the whole transfer: no channel or publisher was fabricated along the way.
+    expect('channel' in packageFile).toBe(false)
+    expect('publisher' in packageFile).toBe(false)
+
+    // The existing, unmodified Files/INSTALL admission — nothing Market-specific.
+    const install = installLocalSoftwarePackage(downloaded, packageFile.path)
+    if (install.status !== 'started') throw new Error('expected started')
+    const installedState = advanceGameState(install.state, 60_000)
+
+    const installation = findInstalledRollbackExploitToolkit(installedState.player.localDevice)
+    expect(installation).toBeDefined()
+    expect(installation!.releaseId).toBe(ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId)
+    expect(installation!.channel).toBeUndefined()
+    expect(installation!.publisher).toBeUndefined()
+    // The already-implemented UPD-001 capability check now recognizes this installed tool
+    // through the ordinary lifecycle alone, with no RackUpdate-specific code touched by this PR.
+    expect(rollbackExploitToolkitSupports(installation!, 'UPD-001')).toBe(true)
   })
 })

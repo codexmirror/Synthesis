@@ -23,7 +23,8 @@ export interface MarketOfferView {
   readonly offerId: string
   readonly name: string
   readonly version: string
-  readonly channel: string
+  /** Present only where the represented release actually states a channel. */
+  readonly channel?: string
   /** Present only where the represented release actually states provenance. */
   readonly publisher?: string
   readonly releaseId: string
@@ -69,7 +70,7 @@ function deriveOfferView(state: GameState, offer: MarketOffer): MarketOfferView 
     offerId: offer.id,
     name: offer.distribution.name,
     version: offer.distribution.version,
-    channel: offer.distribution.channel,
+    ...(offer.distribution.channel ? { channel: offer.distribution.channel } : {}),
     ...(offer.distribution.publisher ? { publisher: offer.distribution.publisher } : {}),
     releaseId: offer.distribution.releaseId,
     packageFilename: offer.distribution.filename,

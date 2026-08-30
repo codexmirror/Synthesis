@@ -81,7 +81,7 @@ describe('createInitialGameState', () => {
     ])
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'gate-ssh' }))
-    // V1 has no represented acquisition path for the Rollback Exploit Toolkit yet: it must not be silently preinstalled as Current Truth.
+    // The Rollback Exploit Toolkit is not preinstalled: the Market is its represented acquisition path, not default Current Truth.
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'rollback-exploit-toolkit' }))
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
