@@ -10,7 +10,7 @@ import { Terminal } from '../apps/terminal/Terminal'
 import { Wallet } from '../apps/wallet/Wallet'
 import { Processes } from '../apps/processes/Processes'
 
-export interface AppDefinition { label: string; component: ComponentType }
+export interface AppDefinition { label: string; component: ComponentType<{ openApp?: (app: 'flipper') => void }>; home?: boolean }
 
 export const appRegistry = {
   terminal: { label: 'Terminal', component: Terminal },
@@ -18,7 +18,7 @@ export const appRegistry = {
   mail: { label: 'NodeMail', component: Mail },
   processes: { label: 'Processes', component: Processes },
   files: { label: 'Files', component: Files },
-  flipper: { label: 'Flipper', component: Flipper },
+  flipper: { label: 'Flipper', component: Flipper, home: false },
   market: { label: 'Market', component: Market },
   wallet: { label: 'Wallet', component: Wallet },
   notes: { label: 'Notes', component: Notes },
@@ -26,4 +26,4 @@ export const appRegistry = {
 } satisfies Record<string, AppDefinition>
 
 export type AppId = keyof typeof appRegistry
-export const appEntries = Object.entries(appRegistry) as [AppId, AppDefinition][]
+export const appEntries = (Object.entries(appRegistry) as [AppId, AppDefinition][]).filter(([, app]) => app.home !== false)

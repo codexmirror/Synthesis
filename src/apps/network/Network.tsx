@@ -1,8 +1,6 @@
 import './network.css'
 import { useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
-import { CREDENTIAL_ACCESS_TOOL_ID } from '../../core/game/credentialAccess'
-import { RACK_UPDATE_EXPLOIT_TOOL_ID } from '../../core/game/rackUpdate'
 import { isValidIpv4 } from '../../core/game/networkTarget'
 import {
   resolveNodeScanRelease,
@@ -170,7 +168,7 @@ export function Network() {
   function hack(route: TargetRoute, targetDeviceId: string) {
     const result = actions.startCredentialAccessAttemptFromObservation({
       endpoint: route.endpoint, targetDeviceId, serviceId: route.serviceId,
-      vulnerabilityId: route.vulnerabilityId, toolId: CREDENTIAL_ACCESS_TOOL_ID,
+      vulnerabilityId: route.vulnerabilityId,
     })
     if (result.status === 'started') setNotice(null)
     else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
@@ -209,7 +207,7 @@ export function Network() {
     if (!packageSubmission?.route) return
     const result = actions.startRackUpdateExploitAttemptFromObservation({
       endpoint: packageSubmission.endpoint, targetDeviceId: target.id, serviceId: packageSubmission.serviceId,
-      vulnerabilityId: packageSubmission.route.vulnerabilityId, toolId: RACK_UPDATE_EXPLOIT_TOOL_ID,
+      vulnerabilityId: packageSubmission.route.vulnerabilityId,
     })
     if (result.status === 'started') setNotice(null)
     else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)

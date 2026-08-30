@@ -1,5 +1,5 @@
 import { findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
-import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper, flipperSupportsTechnique } from '../../core/game/flipper'
+import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper, findLocalTechniqueTool, flipperSupportsTechnique } from '../../core/game/flipper'
 import type {
   CredentialAccessProcess,
   GameState,
@@ -380,20 +380,19 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    // Exactly one represented offensive tool exists, so where the installed
-    // Flipper build integrates a module supporting a weakness the player has
-    // actually learned about, there is no meaningful choice to force on them.
-    // The tool stays a real requirement: without the installed build actually
-    // containing that module, or without the Knowledge, no route is formed.
-    const supported = flipper && weaknesses.find(({ id }) => flipperSupportsTechnique(flipper, id))
-    if (flipper && supported && !viaAccess) {
+    // Canonical local capability resolution chooses an integrated Flipper when
+    // available or the exact standalone module otherwise. Presentation does
+    // not choose a tool, and Knowledge remains independently required.
+    const supported = weaknesses.find(({ id }) => findLocalTechniqueTool(information.player.localDevice, id))
+    const techniqueTool = supported ? findLocalTechniqueTool(information.player.localDevice, supported.id) : undefined
+    if (techniqueTool && supported && !viaAccess) {
       routes.push({
         serviceId: service.id,
         serviceName: service.name,
         endpoint: service.endpoint,
         vulnerabilityId: supported.id,
         vulnerabilityLabel: supported.label,
-        toolName: flipper.name,
+        toolName: techniqueTool.toolName,
         ...(moduleNameFor(supported.id) ? { moduleName: moduleNameFor(supported.id)! } : {}),
         ...(observed ? { implementation: observed.implementation } : {}),
       })
@@ -501,12 +500,12 @@ function selectPackageSubmission(information: PlayerInformation, deviceId: strin
   const running = attack.find(({ status }) => status === 'running')
   const lastAttack = [...attack].reverse().find((process) => process.status === 'completed' && process.result)?.result
 
-  const flipper = findInstalledFlipper(information.player.localDevice)
   const weakness = rackUpdate.weaknesses.find(({ id }) => id === 'UPD-001')
   // The tool stays a real requirement: without a Flipper build that actually
   // integrates the Rollback Module, the opportunity is never formed at all.
-  const route: PackageSubmissionRoute | undefined = !enabled && flipper && weakness && flipperSupportsTechnique(flipper, weakness.id)
-    ? { vulnerabilityId: weakness.id, vulnerabilityLabel: weakness.label, toolName: flipper.name, ...(moduleNameFor(weakness.id) ? { moduleName: moduleNameFor(weakness.id)! } : {}) }
+  const techniqueTool = weakness ? findLocalTechniqueTool(information.player.localDevice, weakness.id) : undefined
+  const route: PackageSubmissionRoute | undefined = !enabled && techniqueTool && weakness
+    ? { vulnerabilityId: weakness.id, vulnerabilityLabel: weakness.label, toolName: techniqueTool.toolName, moduleName: techniqueTool.moduleName }
     : undefined
 
   const submission = information.rackUpdate.submission.active

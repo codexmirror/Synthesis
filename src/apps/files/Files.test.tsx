@@ -8,6 +8,7 @@ import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 import { Processes } from '../processes/Processes'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
+import { CREDENTIAL_ACCESS_MODULE_1_0, ROLLBACK_MODULE_1_0 } from '../../core/game/flipper'
 
 afterEach(() => vi.useRealTimers())
 
@@ -39,6 +40,29 @@ function uploadState() {
 }
 
 describe('Files', () => {
+  it.each([
+    ['Credential Access Module', 'AUTH-017', CREDENTIAL_ACCESS_MODULE_1_0],
+    ['Rollback Module', 'UPD-001', ROLLBACK_MODULE_1_0],
+  ])('presents %s as standalone-usable while keeping optional host integration separate', async (name, technique, module) => {
+    const base = createInitialGameState()
+    const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice,
+      installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'),
+      filesystem: { nextFileId: 2, files: [{ kind: 'software_module', id: 'file-module', path: '/home/user/modules/offensive.mod', ...module }] },
+    } } }
+    render(<GameProvider initialState={state}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /modules.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /offensive\.mod.*SOFTWARE MODULE/ }))
+
+    expect(screen.getByRole('heading', { name })).toBeInTheDocument()
+    expect(screen.queryByText('STATUS')).not.toBeInTheDocument()
+    expect(screen.getByText('INTEGRATION').parentElement).toHaveTextContent('HOST NOT INSTALLED')
+    expect(screen.getByText('STANDALONE USE').parentElement).toHaveTextContent('AVAILABLE')
+    expect(screen.getByText('OPTIONAL HOST').parentElement).toHaveTextContent('flipper')
+    expect(screen.getByText(new RegExp(`can supply ${technique} standalone`))).toBeInTheDocument()
+    expect(screen.getByText(/Flipper is an optional integration host/)).toBeInTheDocument()
+  })
+
   it('marks every entry that opens a further surface, not only directories', async () => {
     /*
      * A file entry opens its own surface with a back control exactly as a

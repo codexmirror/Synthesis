@@ -33,7 +33,10 @@ function withNodeScan11(state: GameState): GameState {
 }
 
 function withoutSoftware(state: GameState, productId: string): GameState {
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== productId) } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
+    installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== productId),
+    filesystem: productId === 'flipper' ? { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module' || file.moduleId !== 'credential-access') } : state.player.localDevice.filesystem,
+  } } }
 }
 
 /** Discovery after looking around: home-net and its members are remembered. */
@@ -215,7 +218,7 @@ describe('NodeScan first hack', () => {
     await user.click(screen.getByRole('button', { name: 'BYPASS' }))
     // The tool and the technique are still real: the started attempt carries both.
     expect(currentState().process.processes).toEqual([expect.objectContaining({
-      kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access', status: 'running',
+      kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'credential-access-module', moduleId: 'credential-access', status: 'running',
     })])
   })
 })
@@ -229,7 +232,7 @@ describe('NodeScan information boundary', () => {
 
     expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route']])
     const target = selectTarget(information, SRV_01)!
-    expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Flipper', moduleName: 'Credential Access Module' })])
+    expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Standalone Module', moduleName: 'Credential Access Module' })])
   })
 
   it('offers no way in from hidden World Truth alone', async () => {
@@ -431,7 +434,7 @@ describe('NodeScan technical details', () => {
 
     const details = screen.getByText('WAYS IN').closest('.ns-detail-panel')!
     expect(details).toHaveTextContent('Credential attack')
-    expect(details).toHaveTextContent('Flipper · Credential Access Module')
+    expect(details).toHaveTextContent('Standalone Module · Credential Access Module')
     expect(details).toHaveTextContent('GateSSH 1.3.2')
     expect(details).toHaveTextContent('Weak authentication configuration · AUTH-017')
   })
@@ -514,9 +517,7 @@ describe('RackUpdate exploit and package submission', () => {
         ...observed.player,
         localDevice: {
           ...observed.player.localDevice,
-          installedSoftware: observed.player.localDevice.installedSoftware.map((software) => software.id === 'flipper'
-            ? { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, integratedModules: ['credential-access', 'rollback'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes }
-            : software),
+          installedSoftware: [...observed.player.localDevice.installedSoftware, { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, integratedModules: ['credential-access', 'rollback'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + 1_600_000 + ROLLBACK_MODULE_1_0.sizeBytes } as import('../../core/game/types').FlipperInstallation],
           filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] },
         },
       },

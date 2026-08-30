@@ -18,7 +18,7 @@ const INITIAL_PATH = '/home/user'
 
 type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNRECOGNIZED' | 'NOT COMPATIBLE'
 
-export function Files() {
+export function Files({ openApp }: { openApp?: (app: 'flipper') => void } = {}) {
   const state = useGameState()
   const localDevice = state.player.localDevice
   const filesystem = localDevice.filesystem
@@ -64,7 +64,7 @@ export function Files() {
             <span aria-hidden="true">←</span> {path}
           </button>
           {selected?.status === 'ok'
-            ? <FileDetails file={selected.file} device={localDevice} process={state.process} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} />
+            ? <FileDetails file={selected.file} device={localDevice} process={state.process} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} openFlipper={openApp ? () => openApp('flipper') : undefined} />
             : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
         </>}
     </section>
@@ -143,7 +143,7 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload }: {
+function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload, openFlipper }: {
   file: FilesystemFile
   device: LocalDeviceState
   process: GameState['process']
@@ -157,6 +157,7 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
   upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult
   connectedAddress: string | undefined
   activeUpload: DeviceAccessFileTransfer | undefined
+  openFlipper?: () => void
 }) {
   return <div className="file-details">
     <header className="node-masthead">
@@ -173,7 +174,7 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
     </section>
       : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
         : file.kind === 'software_module' ? <ModuleDetails file={file} installedSoftware={installedSoftware} />
-          : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
+          : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} openFlipper={openFlipper} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
   </div>
 }
@@ -280,12 +281,14 @@ function InstallReview({ file, device, install, close }: {
   </div>
 }
 
-function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess }: {
+function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess, openFlipper }: {
   file: ExecutableFile
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
   runningProcess: NodeMinerProcess | undefined
+  openFlipper?: () => void
 }) {
+  const flipper = file.programId === 'flipper' && file.releaseId === 'flipper-1.0'
   const supported = file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID
   const [payoutAddress, setPayoutAddress] = useState(nodeWalletAddress)
   const [feedback, setFeedback] = useState<string>()
@@ -302,6 +305,7 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProce
       <div><dt>VERSION</dt><dd>{file.version}</dd></div>
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
     </dl>
+    {flipper && openFlipper && <div className="file-kind-actions"><button className="node-action" type="button" onClick={openFlipper}>OPEN</button></div>}
     {supported && (runningProcess
       ? <div className="file-kind-actions">
           <p className="node-note"><strong>RUNNING</strong><br />PROCESS {runningProcess.id}</p>
@@ -344,26 +348,26 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
 }
 
 /**
- * A module artifact is not installable software: it is an input its host
- * product integrates. Files therefore states what it is and where it belongs,
- * and deliberately offers no INSTALL — integration is admitted from Flipper,
- * which is the surface that owns that operation.
+ * A module artifact is a directly usable technique source and an optional
+ * input Flipper can integrate. It is never installable software, so Files
+ * deliberately offers no INSTALL; Flipper owns only the optional integration.
  */
 function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; installedSoftware: readonly InstalledSoftware[] }) {
   const host = installedSoftware.find((software): software is FlipperInstallation => software.id === file.hostProductId)
   const integrated = host?.integratedModules.includes(file.moduleId)
   return <section className="file-kind-details">
     <header className="node-masthead"><h2 className="node-masthead-subject">{file.name}</h2><span className="node-masthead-meta">{file.version} · MODULE</span></header>
-    <div className="node-section"><span>STATUS</span><span>{!host ? 'HOST NOT INSTALLED' : integrated ? 'INTEGRATED' : 'NOT INTEGRATED'}</span></div>
+    <div className="node-section"><span>INTEGRATION</span><span>{!host ? 'HOST NOT INSTALLED' : integrated ? 'INTEGRATED' : 'NOT INTEGRATED'}</span></div>
     <dl className="node-facts">
-      <div><dt>HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
+      <div><dt>STANDALONE USE</dt><dd>AVAILABLE</dd></div>
+      <div><dt>OPTIONAL HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
       <div><dt>TECHNIQUE</dt><dd>{FLIPPER_MODULE_TECHNIQUE[file.moduleId]}</dd></div>
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
       <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
     </dl>
-    <p className="node-note">{integrated
-      ? 'This module is already integrated into the installed host build. The artifact remains an ordinary file.'
-      : 'Integration is performed from the host application.'}</p>
+    <p className="node-note">This module can supply {FLIPPER_MODULE_TECHNIQUE[file.moduleId]} standalone. {integrated
+      ? 'It is also integrated into the installed Flipper build; the artifact remains an ordinary file.'
+      : 'Flipper is an optional integration host, and integration is performed from that application.'}</p>
   </section>
 }
 

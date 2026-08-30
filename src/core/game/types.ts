@@ -71,9 +71,9 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly serviceId: string
   readonly startedEndpoint: string
   readonly vulnerabilityId: string
-  /** The installed host product that supplied the offensive capability. */
-  readonly toolId: 'flipper'
-  /** The concrete integrated module that actually supports the technique. */
+  /** The concrete execution source snapshotted when the attempt started. */
+  readonly toolId: 'flipper' | 'credential-access-module'
+  /** The concrete module that actually supports the technique. */
   readonly moduleId: 'credential-access'
   readonly result?: CredentialAccessResult
 }
@@ -96,7 +96,8 @@ export interface RackUpdateExploitProcess extends ProcessBase {
   readonly serviceId: string
   readonly startedEndpoint: string
   readonly vulnerabilityId: string
-  readonly toolId: 'flipper'
+  /** The concrete execution source snapshotted when the attempt started. */
+  readonly toolId: 'flipper' | 'rollback-module'
   readonly moduleId: 'rollback'
   readonly result?: RackUpdateExploitResult
 }
@@ -226,7 +227,7 @@ export interface SoftwareRemovalProcess extends ProcessBase {
 export type FlipperModuleIntegrationResult =
   | { readonly status: 'integrated'; readonly buildId: string }
   | { readonly status: 'already_integrated' }
-  | { readonly status: 'host_unavailable' }
+  | { readonly status: 'host_unavailable' | 'host_changed' }
 
 /**
  * Finite represented work integrating one concrete module artifact into the
@@ -242,6 +243,11 @@ export interface FlipperModuleIntegrationProcess extends ProcessBase {
   readonly kind: 'flipper_module_integration'
   /** The installed host product being transformed; a module is never installed on its own. */
   readonly hostProductId: 'flipper'
+  /** Exact concrete installed host and managed executable admitted for transformation. */
+  readonly hostReleaseId: string
+  readonly hostBuildId: string
+  readonly hostSizeBytes: number
+  readonly hostFileId: string
   readonly moduleId: FlipperModuleId
   /** Concrete module artifact facts snapshotted at admission. */
   readonly moduleReleaseId: string

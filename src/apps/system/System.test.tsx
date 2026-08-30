@@ -5,12 +5,17 @@ import { GameProvider } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
 import { advanceGameState } from '../../core/game/gameAdvancement'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION } from '../../core/game/flipper'
 import type { GameState } from '../../core/game/types'
 import { System } from './System'
 
 function withDevice(overrides: Partial<GameState['player']['localDevice']>): GameState {
   const base = createInitialGameState()
   return { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, ...overrides } } }
+}
+function withFlipper(): GameState {
+  const base = createInitialGameState()
+  return { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [...base.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION] } } }
 }
 
 const value = (label: string) => screen.getByText(label).parentElement?.querySelector('dd')?.textContent
@@ -86,7 +91,7 @@ describe('System', () => {
 
     expect(container.querySelectorAll('.node-row-arrow')).toHaveLength(0)
     expect(screen.queryByRole('button', { name: /Remove|Restore/ })).not.toBeInTheDocument()
-    const rows = ['NodeScan 1.0 · STANDARD', 'Flipper 1.0 · STANDARD · NODE', 'NODE Miner 1.0 · UNOFFICIAL · nm-dev']
+    const rows = ['NodeScan 1.0 · STANDARD', 'NODE Miner 1.0 · UNOFFICIAL · nm-dev']
     for (const name of rows) {
       const row = screen.getByRole('button', { name })
       expect(row).toHaveAttribute('aria-expanded', 'false')
@@ -143,11 +148,11 @@ describe('System', () => {
     expect(screen.queryByRole('button', { name: 'UNINSTALL' })).not.toBeInTheDocument()
 
     await user.click(miner)
-    await user.click(screen.getByRole('button', { name: /^Flipper/ }))
+    await user.click(screen.getByRole('button', { name: /^NodeScan/ }))
     expect(container.querySelectorAll('.software-expanded')).toHaveLength(1)
     expect(miner).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('NODE MINING')).not.toBeInTheDocument()
-    expect(screen.getByText('MODULE INTEGRATION')).toBeInTheDocument()
+    expect(screen.getByText('NETWORK SCAN')).toBeInTheDocument()
   })
 
   it('keeps detailed release facts behind an explicit disclosure', async () => {
@@ -169,7 +174,7 @@ describe('System', () => {
   })
 
   it('expands the protected NodeScan baseline with truthful system context and no destructive action', async () => {
-    render(<GameProvider><System /></GameProvider>)
+    render(<GameProvider initialState={withFlipper()}><System /></GameProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: /^NodeScan 1\./ }))
 
     expect(screen.getByText('Standard NODE-OS network reconnaissance software.')).toBeInTheDocument()
@@ -204,15 +209,15 @@ describe('System', () => {
   })
 
   it('expands Flipper as ordinary software, stating its concrete build from installed truth and no baseline claim or unsupported removal action', async () => {
-    render(<GameProvider><System /></GameProvider>)
+    render(<GameProvider initialState={withFlipper()}><System /></GameProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: /Flipper/ }))
     expect(screen.getByText('MODULE INTEGRATION')).toBeInTheDocument()
     expect(value('STATE')).toBe('INSTALLED')
     // The concrete build, its represented size, and its integrated modules come from the
     // installation itself; nothing here is derived from the opaque build ID's shape.
-    expect(value('BUILD')).toBe('build-flipper-1.0-credential-access')
-    expect(value('SIZE')).toBe('5.6 MB')
-    expect(value('MODULES')).toBe('Credential Access Module')
+    expect(value('BUILD')).toBe('build-flipper-1.0-base')
+    expect(value('SIZE')).toBe('4 MB')
+    expect(value('MODULES')).toBe('NONE')
     expect(screen.queryByText('SYSTEM BASELINE')).not.toBeInTheDocument()
     expect(screen.queryByText(/PROVIDED BY/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /UNINSTALL|REMOVE|RESTORE/ })).not.toBeInTheDocument()

@@ -10,6 +10,7 @@ import { findInstalledNodeScan, nodeScanSupportsInspect } from './software'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { removeInstalledSoftware, resolveCompletedSoftwareRemovals, SOFTWARE_REMOVAL_RAM_REQUIRED_MIB } from './softwareRemoval'
 import { NODE_MINER_1_0 } from './softwareReleaseContent'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION } from './flipper'
 import type { GameState, SoftwareRemovalProcess } from './types'
 
 /** Drives a started removal to completion using the canonical advancement boundary. Local Device: 100 compute, 18% baseline -> 82 available. */
@@ -66,8 +67,18 @@ describe('removeInstalledSoftware: admission', () => {
     expect(removeInstalledSoftware(state, 'nodescan')).toMatchObject({ status: 'started', buildId: 'build-nodescan-synthetic-alternate' })
   })
 
-  it('rejects Flipper removal as unsupported in V1 without treating it as a protected baseline', () => {
+  it('reports Flipper absent in the fresh state rather than treating it as a protected baseline', () => {
     const state = createInitialGameState()
+    const result = removeInstalledSoftware(state, 'flipper')
+    expect(result).toEqual({ status: 'not_installed', state })
+    expect(result.status).not.toBe('protected_baseline')
+  })
+
+  it('rejects an actually installed Flipper as unsupported without treating it as protected', () => {
+    const initial = createInitialGameState()
+    const state: GameState = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice,
+      installedSoftware: [...initial.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION],
+    } } }
     const result = removeInstalledSoftware(state, 'flipper')
     expect(result).toEqual({ status: 'unsupported_in_v1', state })
     expect(result.status).not.toBe('protected_baseline')

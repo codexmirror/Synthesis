@@ -34,7 +34,7 @@ export const commands: Record<string, TerminalCommand> = {
       // One offensive product now supplies `attack`. Which techniques it can
       // actually execute is the installed build's integrated module state,
       // resolved by the canonical operation rather than by this listing.
-      ...(flipper?.integratedModules.length ? [{ heading: `${flipper.name.toUpperCase()} ${flipper.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
+      { heading: flipper?.integratedModules.length ? `${flipper.name.toUpperCase()} ${flipper.version}` : 'CREDENTIAL ACCESS MODULE', commands: [['attack', commands.attack] as [string, TerminalCommand]] },
       ...(nodeMiner.available && nodeMinerSoftware ? [{ heading: `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, commands: [['node-miner', commands['node-miner']] as [string, TerminalCommand]] }] : []),
     ]
   }),

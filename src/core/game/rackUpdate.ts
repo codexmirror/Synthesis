@@ -1,6 +1,6 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
-import { FLIPPER_PRODUCT_ID, findInstalledFlipper, flipperSupportsTechnique } from './flipper'
+import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalTechniqueTool, flipperSupportsTechnique } from './flipper'
 import {
   GATE_SSH_1_3_2_RELEASE_ID,
   GATE_SSH_1_3_3_RELEASE_ID,
@@ -15,8 +15,6 @@ import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMember
 import { refreshSubmittedServiceImplementation } from './discovery'
 import type { GameState, InstalledSoftware, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
-/** The installed host product that supplies this offensive capability; the integrated Rollback Module is what actually supports `UPD-001`. */
-export const RACK_UPDATE_EXPLOIT_TOOL_ID = FLIPPER_PRODUCT_ID
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
 const RACK_UPDATE_EXPLOIT_MODULE_ID = 'rollback' as const
 export const RACK_UPDATE_EXPLOIT_WORK_REQUIRED = 1400
@@ -34,7 +32,6 @@ export interface RackUpdateExploitObservation {
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly vulnerabilityId: string
-  readonly toolId: typeof RACK_UPDATE_EXPLOIT_TOOL_ID
 }
 
 function hasSubmissionAccess(state: Pick<GameState, 'player' | 'rackUpdate'>, targetDeviceId: string, serviceId: string): boolean {
@@ -44,7 +41,7 @@ function hasSubmissionAccess(state: Pick<GameState, 'player' | 'rackUpdate'>, ta
 
 /**
  * A legitimate ATTACK opportunity: earned Knowledge of the observed weakness,
- * plus an installed Flipper build whose integrated modules actually support
+ * plus the exact standalone module or installed Flipper build that supports
  * it, on a Service the player still has not already exploited. This never
  * consults current World Truth.
  */
@@ -52,8 +49,7 @@ export function canFormRackUpdateExploitAttempt(state: Pick<GameState, 'player' 
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const installation = findInstalledFlipper(state.player.localDevice)
-  const tool = Boolean(installation && flipperSupportsTechnique(installation, observed.vulnerabilityId))
+  const tool = findLocalTechniqueTool(state.player.localDevice, observed.vulnerabilityId)
   return Boolean(service && known && tool && !hasSubmissionAccess(state, observed.targetDeviceId, observed.serviceId))
 }
 
@@ -66,7 +62,7 @@ export type StartRackUpdateExploitResult =
 export function startRackUpdateExploitAttemptFromObservation(state: GameState, observed: RackUpdateExploitObservation): StartRackUpdateExploitResult {
   if (hasSubmissionAccess(state, observed.targetDeviceId, observed.serviceId)) return { status: 'submission_enabled', state }
   if (!canFormRackUpdateExploitAttempt(state, observed)) return { status: 'not_available', state }
-  if (state.process.processes.some((process) => process.kind === 'rack_update_exploit' && process.status === 'running' && process.targetDeviceId === observed.targetDeviceId && process.serviceId === observed.serviceId && process.toolId === observed.toolId)) {
+  if (state.process.processes.some((process) => process.kind === 'rack_update_exploit' && process.status === 'running' && process.targetDeviceId === observed.targetDeviceId && process.serviceId === observed.serviceId)) {
     return { status: 'already_running', state }
   }
   const endpoint = resolveServiceEndpoint(state, observed.endpoint)
@@ -76,9 +72,11 @@ export function startRackUpdateExploitAttemptFromObservation(state: GameState, o
     workRequired: RACK_UPDATE_EXPLOIT_WORK_REQUIRED, ramRequiredMiB: RACK_UPDATE_EXPLOIT_RAM_REQUIRED_MIB,
   })
   if (started.status === 'insufficient_memory') return { ...started, state }
+  const installation = findInstalledFlipper(state.player.localDevice)
+  const executionToolId = installation && flipperSupportsTechnique(installation, observed.vulnerabilityId) ? FLIPPER_PRODUCT_ID : 'rollback-module' as const
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'rack_update_exploit' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
-    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: observed.toolId, moduleId: RACK_UPDATE_EXPLOIT_MODULE_ID,
+    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: executionToolId, moduleId: RACK_UPDATE_EXPLOIT_MODULE_ID,
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }

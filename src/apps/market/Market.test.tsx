@@ -63,12 +63,13 @@ async function open(name: RegExp) {
 describe('Market catalog presentation', () => {
   it('lists every represented offering once with its own release, size and price', () => {
     renderMarket(createInitialGameState())
-    expect(screen.getByText('5 OFFERINGS')).toBeInTheDocument()
+    expect(screen.getByText('6 OFFERINGS')).toBeInTheDocument()
     const rows = screen.getAllByRole('button').filter((button) => button.className === 'node-row')
     expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual([
-      'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
+      'Flipper', 'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
     ])
     expect(rows.map((row) => row.querySelector('small')?.textContent)).toEqual([
+      '1.0 · STANDARD · 4 MB · 0.01 NODE',
       '1.1 · EXPERIMENTAL · 18.4 MB · 0.01 NODE',
       '1.0 · UNOFFICIAL · 3.4 MB · 0.01 NODE',
       '1.3.2 · STABLE · 6.4 MB · 0.01 NODE',
@@ -170,13 +171,13 @@ describe('Market purchase', () => {
     expect(probe()).toMatchObject({
       balanceNodeUnits: 2 * PRICE,
       entitlements: [NODESCAN_OFFER],
-      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg'],
+      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg', '/home/user/modules/credential-access-1.0.mod'],
       transfer: null,
       processes: [],
     })
     expect(probe().accounts).toContain('node-account-opx-v0:10000')
     expect(probe().accounts).toContain('node-account-nm-dev-v0:0')
-    expect(probe().software).toEqual(['nodescan-1.0-standard', 'flipper-1.0'])
+    expect(probe().software).toEqual(['nodescan-1.0-standard'])
     // The lifecycle moves on, and DOWNLOAD is what becomes available — not INSTALL.
     expect(stateRow()).toHaveTextContent('PURCHASED')
     expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeInTheDocument()

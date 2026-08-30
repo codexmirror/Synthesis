@@ -5,7 +5,6 @@ import { rememberInspect } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { rememberScan } from './discovery'
 import {
-  RACK_UPDATE_EXPLOIT_TOOL_ID,
   cancelRackUpdatePackageSubmission,
   canFormRackUpdateExploitAttempt,
   startRackUpdateExploitAttemptFromObservation,
@@ -14,14 +13,14 @@ import {
 import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { CREDENTIAL_ACCESS_TOOL_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0 } from './flipper'
 import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation } from './types'
 import type { GameState, NetworkHost, NetworkService } from './types'
 
 const RACK_UPDATE_ENDPOINT = { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443' }
-const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001', toolId: RACK_UPDATE_EXPLOIT_TOOL_ID } as const
+const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001' } as const
 
 function observed(): GameState {
   let state = createInitialGameState()
@@ -54,11 +53,18 @@ function withRollbackModuleIntegrated(state: GameState): GameState {
     integratedModules: ['credential-access', 'rollback'],
     sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes,
   }
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID ? integrated : software) } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware.filter((software) => software.id !== FLIPPER_PRODUCT_ID), integrated] } } }
 }
 
 function ready(): GameState {
   return withRollbackModuleIntegrated(withLocalGateSsh132(withUpd001Knowledge(observed())))
+}
+
+function withStandaloneRollback(state: GameState): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
+    installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== FLIPPER_PRODUCT_ID),
+    filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { kind: 'software_module', id: 'file-rollback-module', path: '/home/user/modules/rollback.mod', ...ROLLBACK_MODULE_1_0 }] },
+  } } }
 }
 
 function alterTarget(state: GameState, alter: (host: NetworkHost) => NetworkHost): GameState {
@@ -72,7 +78,7 @@ const alterSsh = (state: GameState, alter: (service: NetworkService) => NetworkS
 
 /** The default Flipper build: Credential Access integrated, Rollback not. */
 function withoutTool(state: GameState): GameState {
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID ? FLIPPER_1_0_CANONICAL_INSTALLATION : software) } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter((software) => software.id !== FLIPPER_PRODUCT_ID) } } }
 }
 
 function grantSubmissionAccess(state: GameState) {
@@ -82,6 +88,20 @@ function grantSubmissionAccess(state: GameState) {
 }
 
 describe('RackUpdate ATTACK: finite exploit work granting only narrow submission capability', () => {
+  it('admits the exact standalone Rollback Module without Flipper and snapshots truthful provenance', () => {
+    const state = withStandaloneRollback(withLocalGateSsh132(withUpd001Knowledge(observed())))
+    expect(canFormRackUpdateExploitAttempt(state, UPD_001_OBSERVATION)).toBe(true)
+    const started = startRackUpdateExploitAttemptFromObservation(state, UPD_001_OBSERVATION)
+    expect(started.status).toBe('started')
+    if (started.status === 'started') expect(started.state.process.processes.find(({ id }) => id === started.processId)).toMatchObject({ kind: 'rack_update_exploit', toolId: 'rollback-module', moduleId: 'rollback' })
+  })
+
+  it('rejects a standalone Rollback Module with an unsupported concrete build', () => {
+    const state = withStandaloneRollback(withUpd001Knowledge(observed()))
+    const unsupported = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.map((file) => file.id === 'file-rollback-module' && file.kind === 'software_module' ? { ...file, buildId: 'unsupported-build' } : file) } } } }
+    expect(canFormRackUpdateExploitAttempt(unsupported, UPD_001_OBSERVATION)).toBe(false)
+  })
+
   it('forms an attack opportunity only with earned Knowledge and the supporting installed tool', () => {
     const state = ready()
     expect(canFormRackUpdateExploitAttempt(state, UPD_001_OBSERVATION)).toBe(true)
@@ -346,7 +366,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(updateAnalysis.status).toBe('started'); state = advanceGameState(updateAnalysis.state, 20_000)
     expect(state.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'UPD-001', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002' }))
 
-    const attacked = startRackUpdateExploitAttemptFromObservation(state, { endpoint: '203.0.113.42:8443', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002', vulnerabilityId: 'UPD-001', toolId: RACK_UPDATE_EXPLOIT_TOOL_ID })
+    const attacked = startRackUpdateExploitAttemptFromObservation(state, { endpoint: '203.0.113.42:8443', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002', vulnerabilityId: 'UPD-001' })
     expect(attacked.status).toBe('started'); state = advanceGameState(attacked.state, 20_000)
     expect(state.rackUpdate.access.established).toHaveLength(1)
 
@@ -362,7 +382,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     const sshAnalysis = startServiceAnalysisFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id })
     expect(sshAnalysis.status).toBe('started'); state = advanceGameState(sshAnalysis.state, 20_000)
     expect(state.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: srv02().id, serviceId: ssh().id }))
-    const access = startCredentialAccessAttemptFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id, vulnerabilityId: 'AUTH-017', toolId: CREDENTIAL_ACCESS_TOOL_ID })
+    const access = startCredentialAccessAttemptFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id, vulnerabilityId: 'AUTH-017' })
     expect(access.status).toBe('started'); state = advanceGameState(access.state, 30_000)
     expect(state.deviceAccess.established).toContainEqual(expect.objectContaining({ targetDeviceId: srv02().id, viaServiceId: ssh().id, privilege: 'USER' }))
   })

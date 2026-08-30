@@ -12,6 +12,7 @@ const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
 const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
 const ROLLBACK_OFFER = 'market-offer-flipper-rollback-module-1.0'
+const FLIPPER_OFFER = 'market-offer-flipper-1.0'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -27,7 +28,7 @@ describe('Market catalog', () => {
   it('represents each required release exactly once, under stable offer identity', () => {
     const { offers } = createInitialGameState().market
     expect(offers.map(({ id }) => id)).toEqual([
-      NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
+      FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
     ])
     expect(new Set(offers.map(({ id }) => id)).size).toBe(offers.length)
     expect(new Set(offers.map(({ distribution }) => distribution.releaseId)).size).toBe(offers.length)
@@ -42,13 +43,13 @@ describe('Market catalog', () => {
     }
   })
 
-  it('is exactly the five intended V1 offerings, no more and no fewer', () => {
+  it('is exactly the six intended V1 offerings, no more and no fewer', () => {
     const { offers } = createInitialGameState().market
-    expect(offers).toHaveLength(5)
-    // Four package offerings and one module offering: a module is distributed as a
+    expect(offers).toHaveLength(6)
+    // Five package offerings and one module offering: a module is distributed as a
     // module artifact, never as an installable package with a product identity.
     expect(offers.map(({ distribution }) => distribution.artifact === 'software_package' ? distribution.productId : `module:${distribution.moduleId}`)).toEqual([
-      'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
+      'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
     ])
   })
 
@@ -280,31 +281,40 @@ describe('Rollback Module acquisition path', () => {
     expect(downloaded.fileTransfer.active).toBeNull()
 
     // Completion creates one ordinary local module artifact, and only one.
-    const modules = downloaded.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_module')
+    const modules = downloaded.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_module' && file.moduleId === 'rollback')
     expect(modules).toEqual([{
-      kind: 'software_module', id: 'file-0003', path: '/home/user/downloads/flipper-rollback-module-1.0.mod',
+      kind: 'software_module', id: 'file-0004', path: '/home/user/downloads/flipper-rollback-module-1.0.mod',
       hostProductId: FLIPPER_PRODUCT_ID, moduleId: ROLLBACK_MODULE_1_0.moduleId,
       releaseId: ROLLBACK_MODULE_1_0.releaseId, buildId: ROLLBACK_MODULE_1_0.buildId,
       name: ROLLBACK_MODULE_1_0.name, version: ROLLBACK_MODULE_1_0.version, sizeBytes: ROLLBACK_MODULE_1_0.sizeBytes,
     }])
 
-    // Acquiring a module installs nothing: installed software is untouched, and the
-    // Flipper build the Device already had is exactly the build it still has.
+    // Acquiring a module installs nothing: installed software is untouched.
     expect(downloaded.player.localDevice.installedSoftware).toEqual(before)
     expect(downloaded.player.localDevice.installedSoftware.some(({ id }) => id === ROLLBACK_MODULE_1_0.releaseId)).toBe(false)
-    const flipper = findInstalledFlipper(downloaded.player.localDevice)!
-    expect(flipper.integratedModules).toEqual(['credential-access'])
-    expect(flipperSupportsTechnique(flipper, 'UPD-001')).toBe(false)
+    expect(findInstalledFlipper(downloaded.player.localDevice)).toBeUndefined()
 
     // The ordinary package installation path does not admit it: it is not a package.
     expect(installLocalSoftwarePackage(downloaded, modules[0].path)).toMatchObject({ status: 'not_software_package' })
 
-    // The Flipper integration mechanic is the one path that consumes it, and it is
-    // finite work rather than an admission-time grant.
+    // Integration is unavailable until the later Flipper acquisition installs a host.
     const integration = startFlipperModuleIntegration(downloaded, modules[0].id)
-    if (integration.status !== 'started') throw new Error(integration.status)
-    expect(findInstalledFlipper(integration.state.player.localDevice)!.buildId).toBe(flipper.buildId)
-    const integrated = advanceGameState(integration.state, 60_000)
-    expect(flipperSupportsTechnique(findInstalledFlipper(integrated.player.localDevice)!, 'UPD-001')).toBe(true)
+    expect(integration.status).toBe('host_not_installed')
+  })
+})
+
+describe('Flipper acquisition path', () => {
+  it('buys, downloads, and ordinarily installs a module-free host with a concrete executable', () => {
+    const purchase = purchaseMarketOffer(funded(PRICE), FLIPPER_OFFER)
+    if (purchase.status !== 'purchased') throw new Error(purchase.status)
+    const download = startMarketPackageDownload(purchase.state, FLIPPER_OFFER)
+    if (download.status !== 'started') throw new Error(download.status)
+    const downloaded = advanceGameState(download.state, 60_000)
+    const packageFile = downloaded.player.localDevice.filesystem.files.find((file) => file.kind === 'software_package' && file.productId === 'flipper')!
+    const installation = installLocalSoftwarePackage(downloaded, packageFile.path)
+    if (installation.status !== 'started') throw new Error(installation.status)
+    const installed = advanceGameState(installation.state, 60_000)
+    expect(findInstalledFlipper(installed.player.localDevice)).toMatchObject({ buildId: 'build-flipper-1.0-base', integratedModules: [] })
+    expect(installed.player.localDevice.filesystem.files).toContainEqual(expect.objectContaining({ kind: 'executable', path: '/home/user/apps/flipper', programId: 'flipper', releaseId: 'flipper-1.0' }))
   })
 })
