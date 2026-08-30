@@ -3,7 +3,7 @@ import type { GameState, NetworkHost } from '../../core/game/types'
 import type { VeyraIconName } from './VeyraIcon'
 
 /** The applications and system surfaces this VEYRA release can actually present. */
-export type VeyraAppId = 'wallet' | 'settings'
+export type VeyraAppId = 'communication' | 'wallet' | 'settings'
 
 export interface VeyraHomeEntry {
   readonly id: VeyraAppId
@@ -14,20 +14,21 @@ export interface VeyraHomeEntry {
 /**
  * What is actually on this phone's Home.
  *
- * Home presence is derived here on every render from represented facts; it is
- * never stored. There is no `homeApps[]`, no launcher inventory, no per-app
- * presentation flag and no app registry — an entry exists exactly while the
- * truth behind it exists:
+ * Home presence is derived here on every render from concrete Firmware
+ * presentation and represented facts; it is never stored. There is no
+ * `homeApps[]`, no launcher inventory, no per-app
+ * presentation flag and no app registry. This concrete VEYRA release bundles
+ * Communication as a presentation-only Firmware client, while the remaining
+ * entries follow their represented bases:
  *
  * ```text
- * Settings -> this Device's represented VEYRA OS Firmware (a Firmware-owned system surface)
- * Wallet   -> this Device -> its Civic Dollar Financial Session -> Account
+ * Communication -> this represented VEYRA OS Firmware (a presentation-only client)
+ * Wallet        -> this Device -> its Civic Dollar Financial Session -> Account
+ * Settings      -> this Device's represented VEYRA OS Firmware (a Firmware-owned system surface)
  * ```
  *
- * Nothing else appears. Communication in particular is absent rather than
- * disabled or empty, because no foreign communication truth is represented for
- * any Device: an entry with no basis is not a slot to fill later, it simply is
- * not on the phone.
+ * Communication's presence represents only the built-in client surface. It
+ * asserts no communication data, capability, account, or installed Software.
  *
  * An entry is a way to open a surface. It is not authority: opening Wallet
  * still resolves the Account through the Session, and every action still goes
@@ -35,6 +36,12 @@ export interface VeyraHomeEntry {
  */
 export function deriveVeyraHomeEntries(state: GameState, device: NetworkHost): readonly VeyraHomeEntry[] {
   const entries: VeyraHomeEntry[] = []
+
+  // Communication is a deliberately presentation-only client bundled into
+  // this VEYRA Firmware. Its presence does not imply communication world truth.
+  if (device.firmware) {
+    entries.push({ id: 'communication', label: 'Communication', icon: 'communication' })
+  }
 
   // Wallet is the phone's client for a real Civic Dollar Account. Without a
   // Financial Session on this Device there is no Account to present, so there

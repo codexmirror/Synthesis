@@ -67,24 +67,12 @@ describe('VEYRA Home', () => {
     const home = screen.getByRole('region', { name: 'Home' })
 
     const apps = within(home).getAllByRole('button')
-    expect(apps.map((app) => app.textContent)).toEqual(['Wallet', 'Settings'])
+    expect(apps.map((app) => app.textContent)).toEqual(['Communication', 'Wallet', 'Settings'])
     // Icons are decoration beside a real label, never the control itself.
     for (const app of apps) {
       expect(app.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
       expect(app.querySelector('.veyra-app__label')?.textContent).toBeTruthy()
     }
-  })
-
-  it('shows no application without a represented basis, and fakes none', async () => {
-    await enterPhone()
-    const home = screen.getByRole('region', { name: 'Home' })
-
-    // No foreign communication truth is represented, so there is no
-    // Communication application — not a disabled one, not an empty one.
-    for (const absent of ['Communication', 'Messages', 'Mail', 'Photos', 'Notes', 'Camera', 'Browser', 'Coming soon']) {
-      expect(within(home).queryByText(absent)).not.toBeInTheDocument()
-    }
-    expect(within(home).queryByRole('button', { name: /communication|message/i })).not.toBeInTheDocument()
   })
 
   it('derives Wallet presence from this Device having a Financial Session, not from the launcher', async () => {
@@ -98,7 +86,35 @@ describe('VEYRA Home', () => {
 
     // The player is still signed in on their own Device; that is not this phone's basis.
     expect(withoutPhoneSession.dollarFinance.sessions.active).toHaveLength(1)
-    expect(within(home).getAllByRole('button').map((app) => app.textContent)).toEqual(['Settings'])
+    expect(within(home).getAllByRole('button').map((app) => app.textContent)).toEqual(['Communication', 'Settings'])
+  })
+})
+
+describe('VEYRA Communication', () => {
+  it('opens an intentional unavailable client without claiming an empty history or fabricating content', async () => {
+    const user = await enterPhone()
+    const before = canonical()
+    await user.click(screen.getByRole('button', { name: 'Communication' }))
+
+    const communication = screen.getByRole('region', { name: 'Communication' })
+    expect(communication).toHaveTextContent('Communication is unavailable.')
+    expect(communication.textContent).not.toMatch(/no messages|no conversations|inbox|contact|sender|unread|online|delivered|timestamp/i)
+    expect(within(communication).queryAllByRole('button')).toHaveLength(0)
+    expect(canonical()).toEqual(before)
+  })
+
+  it('uses Back and Home without changing canonical state or the Remote Session', async () => {
+    const user = await enterPhone()
+    const before = canonical()
+    await user.click(screen.getByRole('button', { name: 'Communication' }))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(screen.getByRole('region', { name: 'Home' })).toBeInTheDocument()
+    expect(canonical()).toEqual(before)
+
+    await user.click(screen.getByRole('button', { name: 'Communication' }))
+    await user.click(screen.getByRole('button', { name: 'Home' }))
+    expect(screen.getByRole('region', { name: 'Home' })).toBeInTheDocument()
+    expect(canonical()).toEqual(before)
   })
 })
 
@@ -322,7 +338,7 @@ describe('VEYRA Settings', () => {
 
   it('exposes no machine, access or hacker context anywhere in the owner-facing phone', async () => {
     const user = await enterPhone()
-    for (const app of ['Wallet', 'Settings']) {
+    for (const app of ['Communication', 'Wallet', 'Settings']) {
       await user.click(screen.getByRole('button', { name: app }))
       const owner = ownerFacing().textContent ?? ''
       expect(owner).not.toContain('session-0001')

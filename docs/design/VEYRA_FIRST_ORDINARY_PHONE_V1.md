@@ -11,10 +11,11 @@ NPC, or authorize implementation beyond represented truth and the architecture
 boundaries owned elsewhere.
 
 A first slice of it — Firmware-driven surface selection, one represented phone,
-the Home launcher, Wallet and Settings — has since been implemented. What is
+the Home launcher, a presentation-only Communication placeholder, Wallet and Settings — has since been implemented. What is
 actually built is owned by [`../current/VEYRA_OS.md`](../current/VEYRA_OS.md);
 the non-goals in §11 remain the boundaries of *this contract*, not claims about
-the repository. Communication is still not implemented.
+the repository. A real Communication mechanic and its represented data are
+still not implemented.
 
 Parent design authority:
 [`VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`](VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md).
@@ -148,7 +149,10 @@ owned by the relevant systems:
 Wallet presentation
     -> Civic Dollar Provider / Account / Financial Session / Transaction truth
 
-Communication presentation
+Communication placeholder presentation
+    -> concrete VEYRA Firmware product surface only
+
+Future Communication content or mechanics
     -> concrete future foreign-communication truth
 
 Settings presentation
@@ -245,10 +249,14 @@ history, then represented actions. It must not invent timestamps, presence, read
 state, Provider metadata, or internal message IDs. A reply action or composer
 exists only when represented mechanics actually support replying.
 
-The first VEYRA phone requires concrete foreign-communication truth before this
-surface may appear. Current player mail must not be retargeted or relabelled as
-somebody else's communication. The canonical ownership model for foreign
-communication remains a later concrete decision.
+The first VEYRA phone currently includes the Communication client as a
+presentation-only, Firmware-bundled placeholder. That temporary product surface
+may state only that the client is unavailable; it must not present an empty
+inbox or imply anything about the person's actual communication history. This
+exception creates no communication capability, content, account, installed
+Software, or canonical state. Current player mail must not be retargeted or
+relabelled as somebody else's communication. The canonical ownership model for
+foreign communication remains a later concrete decision.
 
 ### 8.2 Wallet and financial meaning
 
@@ -363,7 +371,8 @@ needs, including as applicable:
 * a Device instance and installed VEYRA Firmware release;
 * a truthful basis for each visible Home entry;
 * the Firmware-versus-Software ownership of each entry;
-* foreign communication ownership and content, if Communication is included;
+* foreign communication ownership and content, if Communication presents more
+  than the selected presentation-only unavailable placeholder;
 * a concrete Civic Dollar relationship, if Wallet is included;
 * Firmware-driven foreign-surface selection at the Shell/presentation boundary.
 
@@ -446,7 +455,8 @@ questions:
    distinct?
 6. Does Wallet preserve Civic Dollar Provider, Account, Session, Transaction,
    and transfer authority?
-7. Does Communication rely on truthful foreign-communication state?
+7. Does Communication either remain the content-free unavailable placeholder,
+   or rely on truthful foreign-communication state for everything it presents?
 8. Does Settings expose only represented Device/Firmware/Software truth?
 9. Has any plausible consumer content or state been fabricated?
 10. Are Back, Home, and return-to-NODE still distinct operations?
