@@ -269,6 +269,32 @@ describe('RackUpdate package submission: represented upload work, not an instant
   })
 
   it.each([
+    ['managed GateSSH Service', (state: GameState) => alterTarget(state, (host) => ({ ...host, services: host.services!.filter(({ id }) => id !== 'service-ssh-002') }))],
+    ['GateSSH InstalledSoftware', (state: GameState) => alterTarget(state, (host) => ({ ...host, installedSoftware: host.installedSoftware!.filter(({ id }) => id !== 'gate-ssh') }))],
+  ])('interrupts when required %s disappears, applies neither remaining half, and never records COMPLETED', (_name, removeRequiredState) => {
+    let state = submit(grantSubmissionAccess(ready()))
+    state = advanceGameState(state, 1000)
+    const interrupted = advanceGameState(removeRequiredState(state), 20_000)
+
+    expect(interrupted.rackUpdate.submission.active).toBeNull()
+    const target = interrupted.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    expect(target.services?.find(({ id }) => id === 'service-ssh-002')?.implementation.releaseId).not.toBe('gate-ssh-1.3.2')
+    expect(target.installedSoftware?.find(({ id }) => id === 'gate-ssh')?.releaseId).not.toBe('gate-ssh-1.3.2')
+    const evidence = interrupted.world.network.localNetworks.flatMap(({ activityHistory }) => activityHistory.records)
+    expect(evidence).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'package_submission', result: 'INTERRUPTED' })]))
+    expect(evidence).not.toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'package_submission', result: 'COMPLETED' })]))
+  })
+
+  it.each([
+    ['managed GateSSH Service', (state: GameState) => alterTarget(state, (host) => ({ ...host, services: host.services!.filter(({ id }) => id !== 'service-ssh-002') }))],
+    ['GateSSH InstalledSoftware', (state: GameState) => alterTarget(state, (host) => ({ ...host, installedSoftware: host.installedSoftware!.filter(({ id }) => id !== 'gate-ssh') }))],
+  ])('refuses admission when required %s is already absent', (_name, removeRequiredState) => {
+    const granted = grantSubmissionAccess(ready())
+    const state = removeRequiredState(granted)
+    expect(startRackUpdatePackageSubmission(state, { ...RACK_UPDATE_ENDPOINT, localFileId: 'file-local-gatessh' })).toEqual({ status: 'service_unavailable', state })
+  })
+
+  it.each([
     ['wrong observed endpoint', (state: GameState) => state, { endpoint: '203.0.113.42:9443' }, 'observation_required'],
     ['stale endpoint after the current port changes', (state: GameState) => alterUpdate(state, (service) => ({ ...service, port: 9443 })), {}, 'service_unavailable'],
     ['offline target', (state: GameState) => alterTarget(state, (host) => ({ ...host, online: false })), {}, 'service_unavailable'],
