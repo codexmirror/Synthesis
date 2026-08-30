@@ -65,11 +65,11 @@ describe('command dispatcher', () => {
     }
   })
   it('derives provider help from installed software and omits absent providers', () => {
-    const nodeScanOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'opaque-preview', name: 'NodeScan', version: '2.4', channel: 'preview' }] } }
+    const nodeScanOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'opaque-preview', buildId: 'build-fixture-v0', name: 'NodeScan', version: '2.4', channel: 'preview' }] } }
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).toContain('NODESCAN 2.4 PREVIEW')
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).not.toContain('BASIC CREDENTIAL TOOLKIT')
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).not.toContain('inspect —')
-    const experimental = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } }
+    const experimental = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } }
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), experimental))).toContain('inspect —')
     const builtInsOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [] } }
     const help = JSON.stringify(dispatchCommand(parseCommand('help'), builtInsOnly))
@@ -290,7 +290,7 @@ describe('node-miner command', () => {
     const available = {
       ...context,
       nodeMiner: { available: true },
-      localDevice: { ...context.localDevice, installedSoftware: [...context.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }] },
+      localDevice: { ...context.localDevice, installedSoftware: [...context.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }] },
     }
     const helpOutput = JSON.stringify(dispatchCommand(parseCommand('help'), available))
     expect(helpOutput).toContain('NODE MINER 1.0')

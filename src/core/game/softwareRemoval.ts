@@ -1,6 +1,7 @@
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, NODE_MINER_PROGRAM_ID } from './nodeMiner'
 import { startProcess } from './processes'
 import { NODESCAN_1_0_STANDARD_INSTALLATION, NODESCAN_1_0_STANDARD_RELEASE_ID } from './software'
+import { NODESCAN_1_0_STANDARD_BUILD_ID } from './softwareReleaseContent'
 import type { ExecutableFile, GameState, InstalledSoftware, NodeMinerInstallation, NodeScanInstallation } from './types'
 
 export const SOFTWARE_REMOVAL_WORK_REQUIRED = 400
@@ -10,7 +11,7 @@ export const SOFTWARE_REMOVAL_RAM_REQUIRED_MIB = 128
 export type RemovableProductId = 'nodescan' | 'node-miner'
 
 export type RemoveInstalledSoftwareResult =
-  | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly productId: RemovableProductId; readonly releaseId: string; readonly name: string; readonly version: string; readonly channel?: string }
+  | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly productId: RemovableProductId; readonly releaseId: string; readonly buildId: string; readonly name: string; readonly version: string; readonly channel?: string }
   | { readonly status: 'not_installed' | 'protected_baseline' | 'unsupported_in_v1' | 'already_removing'; readonly state: GameState }
   | { readonly status: 'insufficient_memory'; readonly state: GameState; readonly requiredMiB: number; readonly availableMiB: number }
 
@@ -44,7 +45,7 @@ export function removeInstalledSoftware(state: GameState, productId: InstalledSo
   if (!installed) return { status: 'not_installed', state }
 
   if (!isRemovableInstallation(installed)) return { status: 'unsupported_in_v1', state }
-  if (installed.id === 'nodescan' && installed.releaseId === NODESCAN_1_0_STANDARD_RELEASE_ID) return { status: 'protected_baseline', state }
+  if (installed.id === 'nodescan' && installed.buildId === NODESCAN_1_0_STANDARD_BUILD_ID) return { status: 'protected_baseline', state }
 
   const alreadyRemoving = state.process.processes.some((process) => process.kind === 'software_removal' && process.status === 'running' && process.executorDeviceId === device.id && process.productId === installed.id)
   if (alreadyRemoving) return { status: 'already_removing', state }
@@ -63,6 +64,7 @@ export function removeInstalledSoftware(state: GameState, productId: InstalledSo
         kind: 'software_removal' as const,
         productId: productIdSnapshot,
         releaseId: installed.releaseId,
+        buildId: installed.buildId,
         name: installed.name,
         version: installed.version,
         channel: installed.channel,
@@ -72,7 +74,7 @@ export function removeInstalledSoftware(state: GameState, productId: InstalledSo
   return {
     status: 'started',
     processId: started.processId,
-    productId: productIdSnapshot, releaseId: installed.releaseId, name: installed.name, version: installed.version, channel: installed.channel,
+    productId: productIdSnapshot, releaseId: installed.releaseId, buildId: installed.buildId, name: installed.name, version: installed.version, channel: installed.channel,
     state: { ...state, process: { ...started.state, processes } },
   }
 }
@@ -116,7 +118,7 @@ export function resolveCompletedSoftwareRemovals(state: GameState): GameState {
     changed = true
 
     const current = installedSoftware.find((software) => software.id === process.productId)
-    if (!current || current.releaseId !== process.releaseId) return { ...process, result: { status: 'not_installed' as const } }
+    if (!current || current.releaseId !== process.releaseId || current.buildId !== process.buildId) return { ...process, result: { status: 'not_installed' as const } }
 
     if (process.productId === 'nodescan') {
       installedSoftware = installedSoftware.map((software) => software.id === 'nodescan' ? NODESCAN_1_0_STANDARD_INSTALLATION : software)
@@ -125,7 +127,7 @@ export function resolveCompletedSoftwareRemovals(state: GameState): GameState {
 
     installedSoftware = installedSoftware.filter((software) => software.id !== 'node-miner')
     const executable = filesystem.files.find((file): file is ExecutableFile => file.kind === 'executable' && file.path === NODE_MINER_INSTALLED_EXECUTABLE_PATH)
-    if (executable && executable.programId === NODE_MINER_PROGRAM_ID && executable.releaseId === process.releaseId) {
+    if (executable && executable.programId === NODE_MINER_PROGRAM_ID && executable.releaseId === process.releaseId && executable.buildId === process.buildId) {
       filesystem = { ...filesystem, files: filesystem.files.filter((file) => file.id !== executable.id) }
     }
     return { ...process, result: { status: 'removed' as const } }

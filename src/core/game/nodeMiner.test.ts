@@ -24,7 +24,7 @@ const LOCAL_MINER_PATH = '/home/user/downloads/node-miner-1.0.bin'
  */
 function readyState(): GameState {
   const base = createInitialGameState()
-  const minerFile: ExecutableFile = { kind: 'executable', id: 'file-0003', path: LOCAL_MINER_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+  const minerFile: ExecutableFile = { kind: 'executable', id: 'file-0003', path: LOCAL_MINER_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
   return {
     ...base,
     player: {
@@ -67,7 +67,7 @@ describe('NODE Miner execution admission', () => {
 
   it('rejects an executable that is not the supported NODE Miner program', () => {
     const state = readyState()
-    const other = { kind: 'executable' as const, id: 'file-0004', path: '/home/user/downloads/other.bin', programId: 'other-program', releaseId: 'other-1.0', name: 'Other Tool', version: '1.0', sizeBytes: 100 }
+    const other = { kind: 'executable' as const, id: 'file-0004', path: '/home/user/downloads/other.bin', programId: 'other-program', releaseId: 'other-1.0', buildId: 'build-fixture-v0', name: 'Other Tool', version: '1.0', sizeBytes: 100 }
     const withOther: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 5, files: [...state.player.localDevice.filesystem.files, other] } } } }
     const result = startNodeMiner(withOther, other.path, 'addr')
     expect(result.status).toBe('unsupported_program')
@@ -76,7 +76,7 @@ describe('NODE Miner execution admission', () => {
 
   it('rejects an unknown release that shares the NODE Miner program identity', () => {
     const state = readyState()
-    const future = { kind: 'executable' as const, id: 'file-0004', path: '/home/user/downloads/node-miner-2.0.bin', programId: 'node-miner' as const, releaseId: 'node-miner-2.0', name: 'NODE Miner', version: '2.0', sizeBytes: 100 }
+    const future = { kind: 'executable' as const, id: 'file-0004', path: '/home/user/downloads/node-miner-2.0.bin', programId: 'node-miner' as const, releaseId: 'node-miner-2.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '2.0', sizeBytes: 100 }
     const withFuture: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 5, files: [...state.player.localDevice.filesystem.files, future] } } } }
     const result = startNodeMiner(withFuture, future.path, 'addr')
     expect(result.status).toBe('unsupported_program')
@@ -100,7 +100,7 @@ describe('NODE Miner execution admission', () => {
       executorDeviceId: state.player.localDevice.id,
       programId: 'node-miner',
       releaseId: 'node-miner-1.0',
-      payoutAddress: 'player-chosen-address',
+      buildId: 'build-fixture-v0', payoutAddress: 'player-chosen-address',
       producedNodeUnits: 0,
       payoutNodeUnits: 0,
       developerFeeNodeUnits: 0,
@@ -290,7 +290,7 @@ describe('NODE Miner STOP', () => {
     const foreignMiner: NodeMinerProcess = {
       kind: 'node_miner', id: 'process-0001', label: 'NODE MINER', executorDeviceId: 'device-srv-01',
       status: 'running', ramRequiredMiB: NODE_MINER_RAM_REQUIRED_MIB, programId: 'node-miner',
-      releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, payoutSegment: 1, producedNodeUnits: 7, payoutNodeUnits: 6, developerFeeNodeUnits: 0, segmentPayoutNodeUnits: 6, segmentDeveloperFeeNodeUnits: 0, workRemainder: 25,
+      releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', payoutAddress: state.nodeWallet.address, payoutSegment: 1, producedNodeUnits: 7, payoutNodeUnits: 6, developerFeeNodeUnits: 0, segmentPayoutNodeUnits: 6, segmentDeveloperFeeNodeUnits: 0, workRemainder: 25,
     }
     const withForeign: GameState = { ...state, process: { nextId: 2, processes: [foreignMiner] } }
 
@@ -384,7 +384,7 @@ const REMOTE_DEVICE_ID = 'host-lan-001'
 const REMOTE_MINER_PATH = '/usr/local/bin/node-miner'
 
 function remoteMinerExecutable(path: string = REMOTE_MINER_PATH): ExecutableFile {
-  return { kind: 'executable', id: 'file-0009', path, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+  return { kind: 'executable', id: 'file-0009', path, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
 }
 
 /**
@@ -475,7 +475,7 @@ describe('remote NODE Miner RUN admission', () => {
       ...host,
       filesystem: { nextFileId: 12, files: [
         ...host.filesystem!.files,
-        { kind: 'executable', id: 'file-0011', path: '/usr/local/bin/other', programId: 'other-program', releaseId: 'other-1.0', name: 'Other', version: '1.0', sizeBytes: 10 },
+        { kind: 'executable', id: 'file-0011', path: '/usr/local/bin/other', programId: 'other-program', releaseId: 'other-1.0', buildId: 'build-fixture-v0', name: 'Other', version: '1.0', sizeBytes: 10 },
       ] },
     }))
 

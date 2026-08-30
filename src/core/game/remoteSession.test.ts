@@ -31,7 +31,7 @@ describe('remote session lifecycle', () => {
 
   it('does not rerun the original exploit after access is established', () => {
     const state = accessed(); const host = state.world.network.hosts[0]
-    const withoutVulnerability = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [] } }, knowledge: { discoveredVulnerabilities: [] }, world: { network: { ...state.world.network, hosts: [{ ...host, services: host.services?.map((service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } })) }, ...state.world.network.hosts.slice(1)] } } }
+    const withoutVulnerability = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [] } }, knowledge: { discoveredVulnerabilities: [] }, world: { network: { ...state.world.network, hosts: [{ ...host, services: host.services?.map((service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })) }, ...state.world.network.hosts.slice(1)] } } }
     expect(connectRemoteFromObservation(withoutVulnerability, observation).status).toBe('connected')
   })
 

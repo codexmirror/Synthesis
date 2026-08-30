@@ -1,4 +1,4 @@
-import { GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
+import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0, ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
 import type { FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState, SoftwarePackageFile } from './types'
 import { debitNodeWalletMarketPurchase } from './nodeEconomy'
@@ -53,7 +53,7 @@ export function createInitialMarketState(): MarketState {
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'nodescan-exp-1.1.pkg',
-          releaseId: NODESCAN_1_1_EXPERIMENTAL.releaseId, productId: NODESCAN_1_1_EXPERIMENTAL.productId,
+          releaseId: NODESCAN_1_1_EXPERIMENTAL.releaseId, buildId: NODESCAN_1_1_EXPERIMENTAL.buildId, productId: NODESCAN_1_1_EXPERIMENTAL.productId,
           name: NODESCAN_1_1_EXPERIMENTAL.name, version: NODESCAN_1_1_EXPERIMENTAL.version, channel: NODESCAN_1_1_EXPERIMENTAL.channel,
           sizeBytes: 18_400_000,
         },
@@ -63,7 +63,7 @@ export function createInitialMarketState(): MarketState {
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'node-miner-1.0.pkg',
-          releaseId: NODE_MINER_1_0.releaseId, productId: NODE_MINER_1_0.productId,
+          releaseId: NODE_MINER_1_0.releaseId, buildId: NODE_MINER_1_0.buildId, productId: NODE_MINER_1_0.productId,
           name: NODE_MINER_1_0.name, version: NODE_MINER_1_0.version, channel: NODE_MINER_1_0.channel,
           publisher: NODE_MINER_1_0.publisher,
           sizeBytes: 3_400_000,
@@ -74,7 +74,7 @@ export function createInitialMarketState(): MarketState {
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'gatessh-1.3.2.pkg',
-          releaseId: GATE_SSH_1_3_2_RELEASE_ID, productId: GATE_SSH_PRODUCT_ID,
+          releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: GATE_SSH_1_3_2_BUILD_ID, productId: GATE_SSH_PRODUCT_ID,
           name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems',
           sizeBytes: 6_400_000,
         },
@@ -89,7 +89,7 @@ export function createInitialMarketState(): MarketState {
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'gatessh-1.3.3.pkg',
-          releaseId: GATE_SSH_1_3_3_RELEASE_ID, productId: GATE_SSH_PRODUCT_ID,
+          releaseId: GATE_SSH_1_3_3_RELEASE_ID, buildId: GATE_SSH_1_3_3_BUILD_ID, productId: GATE_SSH_PRODUCT_ID,
           name: 'GateSSH', version: '1.3.3',
           sizeBytes: 6_600_000,
         },
@@ -102,7 +102,7 @@ export function createInitialMarketState(): MarketState {
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'rollback-exploit-toolkit-1.0.pkg',
-          releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
+          releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, buildId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.buildId, productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
           name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
           sizeBytes: 2_100_000,
         },
@@ -134,7 +134,8 @@ export function findLocalMarketPackageCopy(filesystem: FilesystemState, offer: M
   return filesystem.files.find((file): file is SoftwarePackageFile =>
     file.kind === 'software_package'
     && file.productId === offer.distribution.productId
-    && file.releaseId === offer.distribution.releaseId)
+    && file.releaseId === offer.distribution.releaseId
+    && file.buildId === offer.distribution.buildId)
 }
 
 export type PurchaseMarketOfferResult =

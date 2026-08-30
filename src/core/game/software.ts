@@ -7,6 +7,7 @@ export { NODESCAN_1_0_STANDARD_RELEASE_ID } from './softwareReleaseContent'
 export const NODESCAN_1_0_STANDARD_INSTALLATION: NodeScanInstallation = {
   id: NODESCAN_1_0_STANDARD.productId,
   releaseId: NODESCAN_1_0_STANDARD.releaseId,
+  buildId: NODESCAN_1_0_STANDARD.buildId,
   name: NODESCAN_1_0_STANDARD.name,
   version: NODESCAN_1_0_STANDARD.version,
   channel: NODESCAN_1_0_STANDARD.channel,

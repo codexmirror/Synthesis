@@ -330,7 +330,7 @@ describe('NodeScan information boundary', () => {
     discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), observed.player.localDevice.id)
     const changedWorld = {
       ...observed, discovery,
-      world: { network: { ...observed.world.network, hosts: observed.world.network.hosts.map((host) => host.id !== 'host-lan-002' ? host : { ...host, services: host.services!.map((service) => service.id !== 'service-ssh-002' ? service : { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' } }) }) } },
+      world: { network: { ...observed.world.network, hosts: observed.world.network.hosts.map((host) => host.id !== 'host-lan-002' ? host : { ...host, services: host.services!.map((service) => service.id !== 'service-ssh-002' ? service : { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.3.2' } }) }) } },
     }
 
     const user = userEvent.setup()
@@ -512,7 +512,7 @@ describe('RackUpdate exploit and package submission', () => {
         ...observed.player,
         localDevice: {
           ...observed.player.localDevice,
-          installedSoftware: [...observed.player.localDevice.installedSoftware, { id: 'rollback-exploit-toolkit', releaseId: 'rollback-exploit-toolkit-1.0', name: 'Rollback Exploit Toolkit', version: '1.0' }],
+          installedSoftware: [...observed.player.localDevice.installedSoftware, { id: 'rollback-exploit-toolkit', releaseId: 'rollback-exploit-toolkit-1.0', buildId: 'build-fixture-v0', name: 'Rollback Exploit Toolkit', version: '1.0' }],
           filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] },
         },
       },

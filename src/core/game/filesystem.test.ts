@@ -5,8 +5,8 @@ import type { ExecutableFile, SoftwarePackageFile, TextFile } from './types'
 
 const filesystem = createInitialGameState().player.localDevice.filesystem
 const text: TextFile = { kind: 'text', id: 'file-source', path: '/remote/file.pkg', content: 'same content' }
-const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path: '/remote/file.txt', releaseId: 'release-1', productId: 'tool', name: 'Tool', version: '1.2', channel: 'test', sizeBytes: 1_000 }
-const executable: ExecutableFile = { kind: 'executable', id: 'file-executable', path: '/remote/tool', programId: 'tool', releaseId: 'tool-1', name: 'Tool', version: '1.0', sizeBytes: 4_096 }
+const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path: '/remote/file.txt', releaseId: 'release-1', buildId: 'build-fixture-v0', productId: 'tool', name: 'Tool', version: '1.2', channel: 'test', sizeBytes: 1_000 }
+const executable: ExecutableFile = { kind: 'executable', id: 'file-executable', path: '/remote/tool', programId: 'tool', releaseId: 'tool-1', buildId: 'build-fixture-v0', name: 'Tool', version: '1.0', sizeBytes: 4_096 }
 
 describe('filesystem reads and identity', () => {
   it('derives only direct directory children from canonical paths', () => {
@@ -87,8 +87,10 @@ describe('filesystem artifact sameness', () => {
     expect(sameFilesystemArtifactIgnoringPath(packageFile, { ...packageFile, id: 'copy', path: '/copy' })).toBe(true)
     expect(sameFilesystemArtifactIgnoringPath(packageFile, { ...packageFile, sizeBytes: 2_000 })).toBe(false)
     expect(sameFilesystemArtifactIgnoringPath(packageFile, { ...packageFile, releaseId: 'release-2' })).toBe(false)
+    expect(sameFilesystemArtifactIgnoringPath(packageFile, { ...packageFile, buildId: 'build-synthetic-alternate' })).toBe(false)
     expect(sameFilesystemArtifactIgnoringPath(executable, { ...executable, id: 'copy', path: '/copy' })).toBe(true)
     expect(sameFilesystemArtifactIgnoringPath(executable, { ...executable, programId: 'other' })).toBe(false)
+    expect(sameFilesystemArtifactIgnoringPath(executable, { ...executable, buildId: 'build-synthetic-alternate' })).toBe(false)
     expect(sameFilesystemArtifactIgnoringPath(executable, { ...executable, sizeBytes: 5_000 })).toBe(false)
   })
 })

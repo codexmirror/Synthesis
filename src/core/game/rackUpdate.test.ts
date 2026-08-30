@@ -11,7 +11,7 @@ import {
   startRackUpdateExploitAttemptFromObservation,
   startRackUpdatePackageSubmission,
 } from './rackUpdate'
-import { vulnerabilitiesForService } from './serviceImplementations'
+import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
 import { BASIC_CREDENTIAL_TOOLKIT_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
@@ -40,7 +40,7 @@ function withLocalGateSsh132(state: GameState): GameState {
 
 /** The Rollback Exploit Toolkit is not preinstalled by default (the Market is its represented acquisition path); fixtures that need it already installed set it up explicitly rather than relying on default Current Truth. */
 function withRollbackExploitToolkit(state: GameState): GameState {
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId, releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version } ] } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId, releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, buildId: 'build-fixture-v0', name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version } ] } } }
 }
 
 function ready(): GameState {
@@ -164,11 +164,23 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(second).toEqual({ status: 'submission_in_progress', state: first.state })
   })
 
+  it('admits a same-release GateSSH package when its concrete build differs from the running build', () => {
+    const state = grantSubmissionAccess(ready())
+    const changed = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: {
+      ...state.player.localDevice.filesystem,
+      files: state.player.localDevice.filesystem.files.map((file) => file.id === 'file-local-gatessh' && file.kind === 'software_package'
+        ? { ...file, releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-synthetic-alternate', version: '1.3.3' }
+        : file),
+    } } } }
+    expect(startRackUpdatePackageSubmission(changed, { ...RACK_UPDATE_ENDPOINT, localFileId: 'file-local-gatessh' })).toMatchObject({ status: 'started' })
+  })
+
   it('supports the general direction of applying a compatible newer release, not only an older one', () => {
     // The mechanism is not hardcoded to exactly 1.3.2 replacing exactly 1.3.3: any recognized
     // GateSSH release differing from the currently managed one is a valid submission.
     const state = grantSubmissionAccess(withRollbackExploitToolkit(withUpd001Knowledge(observed())))
     const remotePackage = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!.filesystem!.files.find(({ id }) => id === 'file-0003')!
+    if (remotePackage.kind !== 'software_package') throw new Error('expected GateSSH package fixture')
     const newerPackage = { ...remotePackage, id: 'file-local-newer', path: '/home/user/downloads/gatessh-1.4.0.pkg', releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }
     const withNewerPackage = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, newerPackage] } } } }
     const started = startRackUpdatePackageSubmission(withNewerPackage, { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443', localFileId: 'file-local-newer' })
@@ -176,7 +188,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     if (started.status !== 'started') throw new Error(started.status)
     const done = advanceGameState(started.state, 20_000)
     const managed = done.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
-    expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' })
+    expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: newerPackage.buildId, name: 'GateSSH', version: '1.4.0' })
   })
 
   function submit(state: GameState) {
@@ -198,7 +210,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     state = advanceGameState(state, 20_000)
     expect(state.rackUpdate.submission.active).toBeNull()
     const managed = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
-    expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' })
+    expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2' })
     expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')).toMatchObject({ releaseId: 'gate-ssh-1.3.2', version: '1.3.2' })
     expect(vulnerabilitiesForService(managed).map(({ id }) => id)).toEqual(['AUTH-017'])
     // No access, session, or filesystem consequence anywhere.
@@ -300,7 +312,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     ['offline target', (state: GameState) => alterTarget(state, (host) => ({ ...host, online: false })), {}, 'service_unavailable'],
     ['closed RackUpdate', (state: GameState) => alterUpdate(state, (service) => ({ ...service, open: false })), {}, 'service_unavailable'],
     ['changed RackUpdate', (state: GameState) => alterUpdate(state, (service) => ({ ...service, implementation: { ...service.implementation, releaseId: 'rack-update-1.1' } })), {}, 'service_unavailable'],
-    ['already-applied release', (state: GameState) => alterSsh(state, (service) => ({ ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.3.2', version: '1.3.2' } })), {}, 'package_incompatible'],
+    ['already-applied build', (state: GameState) => alterSsh(state, (service) => ({ ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, version: '1.3.2' } })), {}, 'package_incompatible'],
   ])('rejects %s when current truth no longer matches, without mutating state', (_name, arrange, input, status) => {
     const granted = grantSubmissionAccess(ready())
     const state = arrange(granted)

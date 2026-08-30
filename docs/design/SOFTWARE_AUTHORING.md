@@ -12,7 +12,7 @@ This contract defines vocabulary, boundaries, and authoring rules. It does not
 authorize a SoftwareRegistry, a software framework, or a UI refactor.
 
 
-## The six distinct concepts
+## The seven distinct concepts
 
 Software in Synthesis is not one object. Six concerns stay separate, and each
 exists at a different moment.
@@ -21,6 +21,8 @@ exists at a different moment.
 SOFTWARE PRODUCT
       ↓ has releases
 SOFTWARE RELEASE
+      ↓ has concrete builds
+SOFTWARE BUILD
       ↓ distributed as
 SOFTWARE PACKAGE          artifact on a Device filesystem
       ↓ installation Process completes
@@ -34,7 +36,7 @@ GAME PROCESS              runtime work
 Preserve, always:
 
 ```text
-PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
+RELEASE ≠ BUILD ≠ PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
 ```
 
 ### Software product
@@ -73,9 +75,9 @@ PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
 - Within canonical authored content, the same `releaseId` identifies one
   coherent authored release definition. Contradictory authored facts under one
   ID are an authoring bug, not something runtime reconciliation should repair.
-- A future distinction between canonical content and a Package's claims,
-  provenance or altered build would require separate represented concepts. It
-  must not be modeled by rewriting concrete Package state from authored content.
+- Canonical release content and a Package's concrete build remain separate
+  represented concepts. Runtime must not rewrite a Package build from authored
+  release content.
 
 ```text
 AUTHORED RELEASE CONTENT
@@ -87,12 +89,23 @@ CONCRETE STATE + EXPLICIT RELEASE MECHANICS
 GAMEPLAY BEHAVIOR
 ```
 
+### Software build
+
+- Stable opaque build identity (`buildId`), distinct from product, release,
+  filesystem-copy, executable, Process, and Market entitlement identity.
+- A release may have more than one concrete build. Current authored releases
+  presently carry one canonical represented build; a future altered build may
+  retain the same `releaseId` while receiving a distinct `buildId`.
+- Copying a Package creates a new file identity, not a new build. Runtime
+  installation snapshots the Package's exact build and must never consult
+  authored release content to normalize it back to the canonical build.
+
 ### Software package
 
 - The artifact *before* installation: a file on a Device-owned filesystem.
-- Carries the release identity it represents, plus its represented size.
+- Carries the release and concrete build identities it represents, plus its represented size.
 - Its path is its current location, never its identity. Copying it anywhere
-  preserves kind, product, release, name, version, publisher and size.
+  preserves kind, product, release, build, name, version, publisher and size.
 - Whether an operation is willing to admit it from a given path is recognition
   owned by that operation — never a property of the artifact, and never a
   reason to rewrite or reclassify it.
@@ -112,7 +125,7 @@ GAMEPLAY BEHAVIOR
 
 - A normally recognized concrete software package follows one reusable default
   path from package artifact to finite installation Process to InstalledSoftware.
-- Admission snapshots the package's actual product/release identity and ordinary
+- Admission snapshots the package's actual product/release/build identity and ordinary
   metadata; completion creates or updates the InstalledSoftware entry for that
   exact product. Adding an ordinary product does not require adding its ID to a
   global support whitelist.
@@ -130,8 +143,8 @@ GAMEPLAY BEHAVIOR
 ### Executable
 
 - The concrete runnable artifact, where a product represents one.
-- Carries its own program and release identity, so a stale or replaced artifact
-  can be recognized as not the release something was admitted against.
+- Carries its own program, release, and build identity, so a stale or replaced artifact
+  can be recognized as not the concrete build something was admitted against.
 - Installed-software metadata alone never conjures a missing executable into
   existence.
 

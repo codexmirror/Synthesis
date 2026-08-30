@@ -40,7 +40,7 @@ describe('System', () => {
 
   it('presents the Device-owned installed software inventory', () => {
     render(<GameProvider initialState={withDevice({ installedSoftware: [
-      { id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+      { id: 'nodescan', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' },
     ] })}><System /></GameProvider>)
 
     expect(screen.getByText('NodeScan')).toBeInTheDocument()
@@ -66,7 +66,7 @@ describe('System', () => {
 
   it('renders ordinary installed software without inventing a removal action', async () => {
     render(<GameProvider initialState={withDevice({ installedSoftware: [
-      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
     ] })}><System /></GameProvider>)
     const row = screen.getByRole('button', { name: 'Packet Viewer 1.0 · STANDARD · test-publisher' })
     await userEvent.setup().click(row)
@@ -184,7 +184,7 @@ describe('System', () => {
   it('restores NodeScan through canonical removal while keeping its expanded row open', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const base = createInitialGameState()
-    const experimental: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software) } } }
+    const experimental: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', buildId: 'build-nodescan-1.1-experimental-v0', version: '1.1', channel: 'experimental' } : software) } } }
     render(<GameProvider initialState={experimental}><System /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     expect(screen.queryByRole('button', { name: 'RESTORE 1.0 STANDARD' })).not.toBeInTheDocument()
@@ -234,7 +234,7 @@ describe('System', () => {
   })
 
   it('shows factual metadata and no invented documentation for an unknown NodeScan release', async () => {
-    const state = withDevice({ installedSoftware: [{ id: 'nodescan', releaseId: 'nodescan-future', name: 'NodeScan', version: '2.4', channel: 'preview' }] })
+    const state = withDevice({ installedSoftware: [{ id: 'nodescan', releaseId: 'nodescan-future', buildId: 'build-fixture-v0', name: 'NodeScan', version: '2.4', channel: 'preview' }] })
     render(<GameProvider initialState={state}><System /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^NodeScan 2\.4/ }))

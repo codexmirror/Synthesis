@@ -158,7 +158,7 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
   const managed = resolveManagedGateSshService(target)
   const installedGateSsh = target.installedSoftware?.find(({ id }) => id === GATE_SSH_PRODUCT_ID)
   if (!managed || !installedGateSsh) return { status: 'service_unavailable', state }
-  if (managed.implementation.releaseId === localFile.releaseId) return { status: 'package_incompatible', state }
+  if (managed.implementation.buildId === localFile.buildId) return { status: 'package_incompatible', state }
 
   if (state.rackUpdate.submission.active) return { status: 'submission_in_progress', state }
   if (local.runtime.networkStatus !== 'ONLINE') return { status: 'local_offline', state }
@@ -179,7 +179,7 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
 
 interface SubmissionEndpoints {
   readonly target: NetworkHost
-  readonly localFile: { readonly releaseId: string; readonly name: string; readonly version: string }
+  readonly localFile: { readonly releaseId: string; readonly buildId: string; readonly name: string; readonly version: string }
   readonly rateBytesPerSecond: number
 }
 
@@ -260,9 +260,9 @@ function applyRackUpdateSubmission(state: GameState, submission: RackUpdatePacka
   const managed = target ? resolveManagedGateSshService(target) : undefined
   if (!target || !target.installedSoftware || !localFile || localFile.kind !== 'software_package' || !managed) return undefined
 
-  const implementation = { productId: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, name: 'GateSSH', version: localFile.version }
+  const implementation = { productId: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, buildId: localFile.buildId, name: 'GateSSH', version: localFile.version }
   const services = target.services!.map((service) => service.id === managed.id ? { ...service, implementation } : service)
-  const installation: InstalledSoftware = { id: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, name: localFile.name, version: localFile.version, ...(localFile.channel ? { channel: localFile.channel } : {}), ...(localFile.publisher ? { publisher: localFile.publisher } : {}) }
+  const installation: InstalledSoftware = { id: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, buildId: localFile.buildId, name: localFile.name, version: localFile.version, ...(localFile.channel ? { channel: localFile.channel } : {}), ...(localFile.publisher ? { publisher: localFile.publisher } : {}) }
   const installedSoftware = target.installedSoftware.some(({ id }) => id === GATE_SSH_PRODUCT_ID)
     ? target.installedSoftware.map((software) => software.id === GATE_SSH_PRODUCT_ID ? installation : software)
     : [...target.installedSoftware, installation]

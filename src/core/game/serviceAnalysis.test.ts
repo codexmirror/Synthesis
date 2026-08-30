@@ -53,7 +53,7 @@ describe('Service Analysis', () => {
   it('rejects an observed endpoint when another service reuses it', () => {
     const base = createInitialGameState(); const host = base.world.network.hosts[0]
     const services = host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) ?? []
-    const changed = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: [...services, { id: 'replacement', name: 'OTHER', port: 22, protocol: 'TCP' as const, open: true, implementation: { productId: 'other', releaseId: 'other-1.0', name: 'Other', version: '1.0' } }] }, ...base.world.network.hosts.slice(1)] } } }
+    const changed = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services: [...services, { id: 'replacement', name: 'OTHER', port: 22, protocol: 'TCP' as const, open: true, implementation: { productId: 'other', releaseId: 'other-1.0', buildId: 'build-fixture-v0', name: 'Other', version: '1.0' } }] }, ...base.world.network.hosts.slice(1)] } } }
     const result = startServiceAnalysisFromObservation(changed, { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001' })
     expect(result.status).toBe('endpoint_not_found')
     expect(result.state).toBe(changed)
@@ -93,7 +93,7 @@ describe('Service Analysis', () => {
   })
   it('reads current vulnerability truth only at completion and retains historical knowledge', () => {
     const running = started(); const host = running.world.network.hosts[0]; const service = host.services![0]
-    const changed = { ...running, world: { network: { ...running.world.network, hosts: [{ ...host, services: [{ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } }, ...host.services!.slice(1)] }, ...running.world.network.hosts.slice(1)] } } }
+    const changed = { ...running, world: { network: { ...running.world.network, hosts: [{ ...host, services: [{ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } }, ...host.services!.slice(1)] }, ...running.world.network.hosts.slice(1)] } } }
     const done = advanceGameState(changed, 20_000); expect(analysis(done.process.processes[0]).result).toEqual({ status: 'no_weakness_detected' }); expect(done.knowledge.discoveredVulnerabilities).toEqual([])
     const discovered = advanceGameState(started(), 20_000)
     const removed = { ...discovered, world: changed.world }; expect(removed.knowledge).toEqual(discovered.knowledge)

@@ -5,8 +5,8 @@ import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit, fi
 describe('installed software', () => {
   it('finds each concrete installation by stable product identity', () => {
     const device = createInitialGameState().player.localDevice
-    expect(findInstalledNodeScan(device)).toEqual({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' })
-    expect(findInstalledBasicCredentialToolkit(device)).toEqual({ id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' })
+    expect(findInstalledNodeScan(device)).toEqual(expect.objectContaining({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' }))
+    expect(findInstalledBasicCredentialToolkit(device)).toEqual(expect.objectContaining({ id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' }))
     const toolkit = findInstalledBasicCredentialToolkit(device)!
     expect(basicCredentialToolkitSupports(toolkit, 'AUTH-017')).toBe(true)
     expect(basicCredentialToolkitSupports(toolkit, 'UNRELATED-001')).toBe(false)
@@ -18,7 +18,7 @@ describe('installed software', () => {
   })
 
   it('grants Inspect only to the nodescan-1.1-experimental release', () => {
-    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' })).toBe(false)
-    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' })).toBe(true)
+    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.0', channel: 'standard' })).toBe(false)
+    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' })).toBe(true)
   })
 })

@@ -233,7 +233,7 @@ at its current path can be installed through local Files (`INSTALL`) or NODE-OS
 Terminal (`install <local-absolute-file-path>`), both of which use the same
 application operation over current canonical state. Ordinary installation has
 no closed product whitelist: the package artifact's stable `productId`, opaque
-`releaseId`, name, version, and stated channel and publisher where the package
+`releaseId`, stable concrete `buildId`, name, version, and stated channel and publisher where the package
 actually represents either, are the authoritative ordinary installation facts.
 Channel and publisher are both release presentation metadata rather than
 required fields; a release that represents neither (for example the Rollback
@@ -246,7 +246,7 @@ current concrete path to end in exactly `.pkg`, case-sensitively
 (`isRecognizedSoftwarePackagePath`). This is recognition, not identity: a
 `software_package` transferred to `node-miner-1.0.pk`, `node-miner-1.0.pkd`,
 `node-miner-1.0.123` or `node-miner-1.0.PKG` keeps its kind, `productId`,
-`releaseId`, name, version, publisher and size unchanged, and FileTransfer
+`releaseId`, `buildId`, name, version, publisher and size unchanged, and FileTransfer
 still preserves both intrinsic source semantics and the exact destination path
 the player chose. Only normal installation from that path is unavailable:
 `installLocalSoftwarePackage` rejects it at admission with
@@ -275,12 +275,12 @@ target Device's own Process scheduler rather than applying its consequences
 immediately. One shared admission path serves both the local Device and a
 represented remote Device: it validates the represented package once, at
 admission, against that target Device alone, snapshots only the release facts
-completion needs (`productId`, `releaseId`, `name`, `version`, `channel`, and
+completion needs (`productId`, `releaseId`, `buildId`, `name`, `version`, `channel`, and
 `publisher` when stated), and requires a small explicit V1 work and RAM
 requirement — the same shared CPU/RAM contention Service Analysis, Credential
 Access, and NODE Miner already use, with no package-size formula. Rejecting a
 second concurrent installation of the same product *on that same executor* and
-the same `releaseId` already installed *on that same Device* are both resolved
+the same `buildId` already installed *on that same Device* are both resolved
 at this same admission instant. Device-owned installed software and the package
 artifact are both untouched until the Process completes.
 `installLocalSoftwarePackage` resolves everything from
@@ -297,7 +297,7 @@ identity is the only authority at completion: the package path, the address
 that was connected, the Session, and the current interface are all irrelevant
 by then. A Process whose executor Device no longer represents an installable
 filesystem and inventory resolves as a truthful `target_unavailable` failure
-rather than remaining unresolvable. A different release of a matching product replaces
+rather than remaining unresolvable. A different concrete build of a matching product replaces
 that product in place, while an absent product is appended and unrelated
 installed software is preserved; there is no version comparison or separate
 Update operation. The package remains unchanged throughout. Ordinary
@@ -432,7 +432,7 @@ publisher — as installed software on that Device and create exactly one
 concrete NODE Miner `ExecutableFile` at the deterministic path
 `/usr/local/bin/node-miner`, leaving the package artifact in place and
 starting no Process of its own (RUN remains a distinct, later admission
-step). Reinstalling the same already-installed release is a no-op that
+step). Reinstalling the same already-installed concrete build is a no-op that
 creates no duplicate executable, and an unrelated artifact already occupying
 the installation path blocks installation rather than being overwritten —
 this is re-validated both at admission and, safely and idempotently, at
@@ -568,7 +568,7 @@ V1 work and RAM requirement, no package-size formula. `removeInstalledSoftware`
 targets whatever is currently installed for a product rather than accepting a
 `releaseId`: it is not always the player's choice which concrete release
 removal restores. It validates current world truth once, at admission,
-snapshots only the release facts completion needs, and applies none of
+snapshots the exact release and concrete build facts completion needs, and applies none of
 removal's consequences immediately — Device-owned InstalledSoftware and the
 filesystem stay untouched until the Process completes. Rejecting a second
 concurrent removal of the same product and insufficient RAM are both resolved
@@ -576,7 +576,7 @@ at this same admission instant, the same way Software Installation resolves
 its own admission failures.
 
 Not all preinstalled software is the same. NodeScan 1.0 Standard
-(`nodescan-1.0-standard`) is the protected baseline release bundled with the
+(`nodescan-1.0-standard`) canonical build is the protected baseline bundled with the
 current NODE-OS 1.0 environment: REMOVE never starts a Process against it,
 and local Files represents it truthfully as protected/system baseline rather
 than offering a normal destructive uninstall action. NodeScan 1.1 Experimental
@@ -590,7 +590,7 @@ stored Enhanced Inspect snapshots remain exactly as observed, while a *new*
 Inspect cannot be performed after restoration. NODE Miner is ordinary
 removable software: completion removes its InstalledSoftware entry and, only
 when the artifact at the deterministic installed path
-(`/usr/local/bin/node-miner`) still represents the exact release removal was
+(`/usr/local/bin/node-miner`) still represents the exact release and build removal was
 admitted against, deletes that executable — an unrelated or already-replaced
 artifact occupying that path is left untouched, and the downloaded package
 artifact is never touched either way. The Basic Credential Toolkit is
@@ -606,7 +606,7 @@ and routing NODE exactly as before, and only explicit STOP still ends it.
 Resolution happens once, at the same canonical `advanceGameState` boundary
 Software Installation resolves at, guarded the same way so repeated
 advancement after completion never re-applies a consequence. The currently
-installed release is re-checked against what admission snapshotted, so a
+installed release and build are re-checked against what admission snapshotted, so a
 Process resolves as a truthful `not_installed` failure rather than mutating
 unrelated installed software if that release changed before completion.
 
@@ -627,7 +627,7 @@ archiving it to Recent Activity with a concrete `BASELINE RESTORED`,
 
 Immutable authored software-release content lives in the pure game domain but
 outside mutable `GameState`. It is the single authoring owner for the current
-represented releases' stable release and product identities, ordinary display
+represented releases' stable release, canonical build, and product identities, ordinary display
 metadata (name, version, channel and publisher), and static player-facing ABOUT,
 CAPABILITY and CHANGE documentation. Initial Package and InstalledSoftware
 state may explicitly copy the destination-appropriate fields from that content.
@@ -679,12 +679,12 @@ state.
 ## Gotchas
 
 - Artifact identity is not filename or path recognition. A package keeps its
-  kind, `productId`, `releaseId`, name, version, publisher and size no matter
+  kind, `productId`, `releaseId`, `buildId`, name, version, publisher and size no matter
   where it is copied to; only what an operation is willing to *admit* depends
   on the path. An operation that declines an artifact must never rewrite,
   downgrade, or reclassify it.
-- Package ≠ InstalledSoftware ≠ Executable ≠ Process. Four distinct things,
-  created at four distinct moments.
+- Release ≠ Build ≠ Package ≠ InstalledSoftware ≠ Executable ≠ Process.
+  Concrete build identity survives the latter lifecycle without becoming file-copy identity.
 - Installation is Device-targeted, not permanently local. `executorDeviceId` is
   the Device being installed onto, and completion applies its consequence
   there. Never infer the target from a package path, an address, a Session, or

@@ -54,8 +54,10 @@ source/channel selection, or a grey/black market.
 
 Each `MarketOffer` carries stable offer identity, `priceNodeUnits` in canonical
 integer atomic NODE units, and the `MarketPackageDistribution` it distributes.
+That distribution identifies one exact concrete software build with `buildId`;
+offer identity remains purchase-entitlement identity and is not build identity.
 
-A distribution is represented offer and source truth: the release facts and
+A distribution is represented offer and source truth: the release/build facts and
 byte size the operator states it will send, plus the `filename` the V1
 destination path is derived from. It is deliberately **not** a software
 package. A software package is a file on a Device-owned filesystem
@@ -109,6 +111,11 @@ deliberately repeat the represented artifacts that already exist on srv-01 and
 node-01 rather than deriving one from the other — each concrete artifact stays
 self-contained — and a focused test pins them to each other so the two
 authoring sites cannot silently diverge.
+
+Filesystem possession of an offering is exact to its distributed `productId`,
+`releaseId`, and `buildId`. A package from another build of the same release is
+not possession of the offered build; copying the offered package preserves that
+build identity while allocating a new filesystem copy identity.
 
 Market offerings deliberately carry no ABOUT/CAPABILITY/CHANGE copy of their
 own: the application projects the same authored release documentation every

@@ -9,6 +9,7 @@ import { cancelLocalProcess, deriveResourceUsage } from './processes'
 import { findInstalledNodeScan, nodeScanSupportsInspect } from './software'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { removeInstalledSoftware, resolveCompletedSoftwareRemovals, SOFTWARE_REMOVAL_RAM_REQUIRED_MIB } from './softwareRemoval'
+import { NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState, SoftwareRemovalProcess } from './types'
 
 /** Drives a started removal to completion using the canonical advancement boundary. Local Device: 100 compute, 18% baseline -> 82 available. */
@@ -22,7 +23,7 @@ function removal(process: GameState['process']['processes'][number]): SoftwareRe
 /** Installs NodeScan 1.1 Experimental as the active release, replacing the NodeScan 1.0 baseline, then clears the resulting Process history. */
 function withNodeScan11(): GameState {
   const state = createInitialGameState()
-  const packageFile = { kind: 'software_package' as const, id: 'file-fixture-nodescan-11', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 }
+  const packageFile = { kind: 'software_package' as const, id: 'file-fixture-nodescan-11', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 }
   const withPackage = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, packageFile] } } } }
   const install = installLocalSoftwarePackage(withPackage, packageFile.path)
   if (install.status !== 'started') throw new Error(install.status)
@@ -57,6 +58,14 @@ describe('removeInstalledSoftware: admission', () => {
     expect(state.process.processes).toEqual([])
   })
 
+  it('does not protect a hypothetical alternate build merely because it shares the baseline release', () => {
+    const initial = createInitialGameState()
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, installedSoftware: initial.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan'
+      ? { ...software, buildId: 'build-nodescan-synthetic-alternate' }
+      : software) } } }
+    expect(removeInstalledSoftware(state, 'nodescan')).toMatchObject({ status: 'started', buildId: 'build-nodescan-synthetic-alternate' })
+  })
+
   it('rejects Basic Credential Toolkit removal as unsupported in V1 without treating it as a protected baseline', () => {
     const state = createInitialGameState()
     const result = removeInstalledSoftware(state, 'basic-credential-toolkit')
@@ -70,7 +79,7 @@ describe('removeInstalledSoftware: admission', () => {
       ...initial,
       player: { ...initial.player, localDevice: { ...initial.player.localDevice, installedSoftware: [
         ...initial.player.localDevice.installedSoftware,
-        { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard' },
+        { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard' },
       ] } },
     }
     expect(removeInstalledSoftware(state, 'packet-viewer')).toEqual({ status: 'unsupported_in_v1', state })
@@ -79,7 +88,7 @@ describe('removeInstalledSoftware: admission', () => {
   it('starts one running software-removal Process for NodeScan 1.1 Experimental, reserving RAM and requiring shared Device CPU, without touching InstalledSoftware', () => {
     const state = withNodeScan11()
     const result = removeInstalledSoftware(state, 'nodescan')
-    expect(result).toMatchObject({ status: 'started', processId: 'process-0001', productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' })
+    expect(result).toMatchObject({ status: 'started', processId: 'process-0001', productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' })
     if (result.status !== 'started') throw new Error(result.status)
     expect(result.state).not.toBe(state)
     expect(result.state.player.localDevice.installedSoftware).toEqual(state.player.localDevice.installedSoftware)
@@ -96,7 +105,7 @@ describe('removeInstalledSoftware: admission', () => {
     if (started.status !== 'started') throw new Error(started.status)
     const done = advanceGameState(started.state, 20_000)
     const result = removeInstalledSoftware(done, 'node-miner')
-    expect(result).toMatchObject({ status: 'started', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial' })
+    expect(result).toMatchObject({ status: 'started', productId: 'node-miner', releaseId: 'node-miner-1.0', buildId: NODE_MINER_1_0.buildId, name: 'NODE Miner', version: '1.0', channel: 'unofficial' })
   })
 
   it('rejects a second concurrent removal of the same product while the first is still running', () => {
@@ -150,7 +159,7 @@ describe('software removal completion: NodeScan', () => {
 
     const process = removal(done.process.processes.find(({ id }) => id === started.processId)!)
     expect(process).toMatchObject({ status: 'completed', result: { status: 'baseline_restored' } })
-    expect(findInstalledNodeScan(done.player.localDevice)).toEqual({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' })
+    expect(findInstalledNodeScan(done.player.localDevice)).toEqual(expect.objectContaining({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' }))
 
     // Idempotent: repeated resolution/advancement never restores twice or mutates further.
     const twice = resolveCompletedSoftwareRemovals(done)
@@ -187,11 +196,11 @@ describe('software removal completion: NodeScan', () => {
     expect(nodeScanSupportsInspect(nodeScanAfter)).toBe(false)
   })
 
-  it('resolves as a truthful not_installed failure, rather than reverting a newer release, when the installed release changed before completion', () => {
+  it('cannot remove a same-release replacement build that admission did not snapshot', () => {
     const state = withNodeScan11()
     const started = removeInstalledSoftware(state, 'nodescan')
     if (started.status !== 'started') throw new Error(started.status)
-    const racedRelease = { id: 'nodescan' as const, releaseId: 'nodescan-2.0-future', name: 'NodeScan', version: '2.0', channel: 'standard' }
+    const racedRelease = { id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', buildId: 'build-nodescan-synthetic-alternate', name: 'NodeScan', version: '1.1', channel: 'experimental' }
     const racedState: GameState = {
       ...started.state,
       player: { ...started.state.player, localDevice: { ...started.state.player.localDevice, installedSoftware: started.state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? racedRelease : software) } },
