@@ -31,10 +31,15 @@ function withModuleArtifact(state = withInstalledHost()): GameState {
 }
 
 function Snapshot() {
-  const flipper = findInstalledFlipper(useGameState().player.localDevice)
-  return <output data-testid="flipper-state">{JSON.stringify(flipper)}</output>
+  const device = useGameState().player.localDevice
+  const flipper = findInstalledFlipper(device)
+  return <>
+    <output data-testid="flipper-state">{JSON.stringify(flipper)}</output>
+    <output data-testid="rollback-artifact-present">{String(device.filesystem.files.some((file) => file.id === ROLLBACK_ARTIFACT.id))}</output>
+  </>
 }
 const installed = () => JSON.parse(screen.getByTestId('flipper-state').textContent ?? 'null') as FlipperInstallation
+const rollbackArtifactPresent = () => screen.getByTestId('rollback-artifact-present').textContent === 'true'
 
 afterEach(() => { vi.useRealTimers() })
 
@@ -52,7 +57,9 @@ describe('Flipper application', () => {
     const modules = screen.getAllByText(/Module$/).map((strong) => strong.closest('.node-row') as HTMLElement)
     expect(modules).toHaveLength(1)
     expect(within(modules[0]).getByText('INTEGRATED')).toBeInTheDocument()
-    expect(within(modules[0]).getByText(/AUTH-017/)).toBeInTheDocument()
+    expect(within(modules[0]).getByText('AUTH-017')).toBeInTheDocument()
+    // An already-integrated row describes the integrated capability itself, not its surviving source artifact's path/size.
+    expect(within(modules[0]).queryByText(/credential-access-1\.0\.mod/)).not.toBeInTheDocument()
     expect(screen.queryByText('Rollback Module')).not.toBeInTheDocument()
     expect(screen.queryByText('UPD-001')).not.toBeInTheDocument()
     expect(screen.queryByText(/\/\s*2/)).not.toBeInTheDocument()
@@ -104,7 +111,7 @@ describe('Flipper application', () => {
     expect(screen.queryByText('Rollback Module')).not.toBeInTheDocument()
   })
 
-  it('integrates a possessed module through the canonical operation, showing running progress on that same row, mutating the build only at completion, and keeping the source artifact', async () => {
+  it('integrates a possessed module through the canonical operation, showing running progress on that same row, mutating the build only at completion, and decoupling the integrated row from the surviving source artifact', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<GameProvider initialState={withModuleArtifact()}><Flipper /><Snapshot /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -126,13 +133,16 @@ describe('Flipper application', () => {
     })
     expect(value('BUILD')).toBe(FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID)
     expect(value('SIZE')).toBe('7.7 MB')
-    // Rollback appears exactly once, as INTEGRATED, and the source artifact is still shown possessed.
+    // Rollback appears exactly once, as INTEGRATED. The row now describes the
+    // integrated capability itself and no longer appends the source artifact's
+    // path/size, even though that artifact still exists, unconsumed, in Files.
     const modules = screen.getAllByText(/Module$/)
     expect(modules.filter((el) => el.textContent === 'Rollback Module')).toHaveLength(1)
     const rollback = screen.getByText('Rollback Module').closest('.node-row') as HTMLElement
     expect(within(rollback).getByText('INTEGRATED')).toBeInTheDocument()
-    expect(within(rollback).getByText(new RegExp(ROLLBACK_ARTIFACT.path))).toBeInTheDocument()
+    expect(within(rollback).queryByText(new RegExp(ROLLBACK_ARTIFACT.path))).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INTEGRATE' })).not.toBeInTheDocument()
+    expect(rollbackArtifactPresent()).toBe(true)
   })
 
   it('reports a canonical admission failure as-is rather than as fabricated integration state', async () => {
