@@ -339,40 +339,75 @@ without reason.
 
 ## 10. Validation
 
-Normal code changes use the repository's required validation commands:
+Validation is incremental and proportional to the actual dependency and
+regression surface of the change.
 
-```bash
-npm test
+During implementation, prefer:
+
+1. focused tests covering the changed behavior;
+2. closely related regression tests around the affected domain; and
+3. broader validation only when the change can reasonably affect a broader
+    surface.
+
+Run the full test suite when repository-wide regression risk justifies it, such
+as changes to shared/core infrastructure, canonical GameState, schema or
+persistence behavior, widely used domain primitives, cross-domain runtime
+semantics, test infrastructure, or broad migrations/refactors.
+
+Run TypeScript/build validation when the changed implementation can affect
+compilation, bundling, application wiring, or production output.
+
+The production build already includes TypeScript project validation:
+
 npm run build
-```
 
-Documentation changes additionally run:
+Do not also run a separate tsc -b merely for redundancy. A separate
+TypeScript command is useful only when it serves a specific diagnostic or
+focused validation purpose.
 
-```bash
+When documentation changes, run:
+
 npm run docs:check
-```
+
+Documentation-only changes do not require unrelated runtime tests or a
+production build unless executable repository tooling or another relevant
+dependency surface also changed.
+
+Once appropriate validation has passed, do not rerun the same expensive suite,
+build, or check merely “to be safe” unless subsequent changes could materially
+invalidate that result. Final diff review alone does not invalidate prior
+validation.
 
 A required failing test, build, or check blocks acceptance.
 
 Do not:
 
-- weaken a meaningful test merely to make it pass
-- remove architecture-contract coverage because new code conflicts with it
-- replace behavioral tests with weaker literal assertions
-- hide regressions behind changed snapshots or expectations
+* weaken a meaningful test merely to make it pass;
+* remove architecture-contract coverage because new code conflicts with it;
+* replace behavioral tests with weaker literal assertions; or
+* hide regressions behind changed snapshots or expectations.
 
 Prefer tests that prove source-of-truth behavior.
 
 For example, if a UI value must derive from canonical state, an altered-state
 test is stronger than a test that only asserts the default literal value.
 
-A pull request targeting `main` automatically runs `npm run docs:check`,
-`npm test`, and `npm run build` via GitHub Actions before human merge. This
-automated check
-does not deploy GitHub Pages and does not replace diff review, behavior
-review, or human acceptance.
+A pull request targeting main independently runs:
 
-`docs:check` is mechanical only. It verifies structure — link resolution,
+npm run docs:check
+npm test
+npm run build
+
+through GitHub Actions before human merge.
+
+This repository-wide CI validation is the final automated safety net. It does
+not mean every implementation agent must duplicate the complete CI workload
+locally when focused and related regression validation adequately cover the
+change.
+
+CI does not replace diff review, behavior review, or human acceptance.
+
+docs:check is mechanical only. It verifies structure — link resolution,
 ownership registration, unique architecture IDs, required status headers — and
 deliberately makes no judgment about whether documentation impact was resolved
 correctly. That remains an agent and reviewer responsibility.
@@ -425,7 +460,11 @@ select implementation agent
 ↓
 implement
 ↓
-focused validation
+incremental focused validation
+↓
+closely related regression validation
+↓
+broaden validation only where the dependency / regression surface requires it
 ↓
 inspect final changed-file set and semantic delta
 ↓
@@ -433,13 +472,15 @@ classify all affected truth domains
 ↓
 final documentation reconciliation in the same branch
 ↓
-final validation and agent final-diff self-review
+validate only anything materially invalidated by subsequent changes
+↓
+agent final-diff self-review
 ↓
 Draft PR
 ↓
 actual diff review
 ↓
-CI
+CI performs repository-wide validation
 ↓
 human merge
 ↓

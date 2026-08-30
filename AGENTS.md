@@ -190,18 +190,57 @@ library merely to avoid implementing a small local utility.
 
 ## Validation
 
-For normal code changes run:
+Validation must be incremental and proportional to the actual dependency and
+regression surface of the change.
 
-```bash
-npm test
+For normal implementation work, begin with the focused tests that cover the
+changed behavior and closely related regression tests around the affected
+domain.
+
+Broaden validation only when the implementation surface justifies it.
+
+Run the full test suite when there is a concrete reason to expect
+repository-wide regression risk, including changes to:
+
+* shared or core infrastructure used broadly across the repository;
+* canonical GameState, schema, or persistence behavior;
+* widely used domain primitives or utilities;
+* cross-domain ownership or runtime semantics;
+* test infrastructure or configuration;
+* broad migrations or refactors; or
+* another surface whose dependency graph makes focused regression coverage
+    insufficient.
+
+Run TypeScript/build validation when the changed code can affect compilation,
+bundling, application wiring, or production output.
+
+The repository production build already runs TypeScript project validation:
+
 npm run build
-```
 
-For documentation changes also run:
+Do not run a separate tsc -b in addition to npm run build merely for
+redundancy. A separate TypeScript command is appropriate only when it serves a
+specific diagnostic or focused validation purpose.
 
-```bash
+When documentation changes, run:
+
 npm run docs:check
-```
+
+Documentation-only changes do not require unrelated runtime tests or a
+production build unless the documentation change also modifies executable
+repository tooling or another dependency surface that requires them.
+
+Test-only changes require the affected tests. Broaden validation only when the
+test change itself modifies shared test infrastructure or exposes a broader
+regression surface.
+
+Validation follows the changes made since the last successful validation.
+Once an appropriate test suite, build, or check has passed, do not rerun the
+same expensive validation merely “to be safe” unless subsequent changes could
+materially invalidate that result.
+
+A final diff self-review does not by itself require rerunning already-passing
+validation.
 
 A required failing test, build, or check blocks acceptance.
 
@@ -210,8 +249,12 @@ because the implementation conflicts with them, replace behavioral assertions
 with weaker literal ones, or hide regressions behind updated snapshots.
 
 Prefer tests that prove the source of truth: when a UI value must derive from
-`GameState`, use altered test state so the test would fail if the value were
+GameState, use altered test state so the test would fail if the value were
 hardcoded.
+
+Pull-request CI remains the repository-wide safety net. Agents should not
+duplicate full CI validation locally without a regression-surface reason merely
+because CI will later run it again.
 
 
 ## Documentation impact
@@ -264,13 +307,17 @@ final acceptance are never delegated by default.
 
 Finish implementation tasks with a concise report containing:
 
-- files changed
-- important implementation or architecture decisions
-- tests added or changed and their exact results
-- exact production build result
-- documentation impact, resolved per the section above
-- deviations from the requested scope, if any
-- unresolved conflicts or concrete concerns requiring human review
+* files changed;
+* important implementation or architecture decisions;
+* tests added or changed and the exact validation performed;
+* build or TypeScript validation result when such validation was applicable and
+    performed;
+* documentation impact, resolved per the section above;
+* deviations from the requested scope, if any; and
+* unresolved conflicts or concrete concerns requiring human review.
+
+Do not perform additional validation solely to populate the completion report.
+Report what the actual dependency and regression surface required.
 
 For meaningful mobile UI work, state explicitly whether physical iPhone/Safari
 validation has been performed.

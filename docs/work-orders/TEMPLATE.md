@@ -63,13 +63,35 @@ check them against the diff and the running app.
 
 ## VALIDATION
 
-```bash
-npm test
-npm run build
-```
+Specify validation proportional to the actual dependency and regression surface
+of this task.
 
-Plus `npm run docs:check` when documentation changed, and any focused suite or
-interactive check this task requires.
+Normally include:
+
+* the focused tests covering the changed behavior;
+* closely related regression tests for affected domains;
+* TypeScript / production build validation when compilation, bundling,
+    application wiring, or production output can be affected; and
+* npm run docs:check when documentation changes.
+
+Require the full test suite only when this work has a concrete repository-wide
+regression surface, such as shared/core infrastructure, canonical GameState,
+schema or persistence behavior, widely used domain primitives, cross-domain
+runtime semantics, test infrastructure, or a broad migration/refactor.
+
+Do not require duplicate validation merely “to be safe”.
+
+npm run build already includes TypeScript project validation. Do not require a
+separate tsc -b in addition to the production build unless it serves a
+specific diagnostic purpose.
+
+Validation is incremental: if an appropriate suite, build, or check has already
+passed, rerun it only when subsequent changes could materially invalidate that
+result.
+
+The work order should name the focused or related suites when they are known.
+Do not default every task to reproducing the repository’s complete pull-request
+CI workload locally.
 
 ## DOCUMENTATION IMPACT
 
