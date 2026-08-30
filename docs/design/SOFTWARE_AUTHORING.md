@@ -106,6 +106,20 @@ GAMEPLAY BEHAVIOR
   Different behavior requires an explicitly represented build-specific fact or
   concrete transformation mechanic; runtime must never infer changed behavior
   merely because two artifacts have different `buildId` values.
+- A concrete mechanic may transform an installed product into a **different
+  build of the same release**. Flipper module integration is the implemented
+  precedent (`docs/current/FILES_SOFTWARE.md`): integrating a module keeps
+  `productId` and `releaseId`, gives the installation a distinct `buildId`, and
+  grows that build's represented size. What changed behavior comes from is the
+  explicitly represented state the mechanic wrote — Flipper's own
+  `integratedModules` — never from the build identity being different. Author
+  such a build identity so that the same represented state always names the
+  same build, so a repeated transformation cannot fabricate a further one, and
+  keep the capability check reading the represented state rather than parsing
+  or comparing the ID.
+- A transformation mechanic's input artifact is an admission input, not fuel.
+  It is snapshotted at admission and neither consumed nor deleted at
+  completion; it remains an ordinary filesystem possession the player owns.
 
 ### Software package
 

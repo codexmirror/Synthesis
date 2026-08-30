@@ -5,7 +5,7 @@ import { rememberInspect } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { rememberScan } from './discovery'
 import {
-  ROLLBACK_EXPLOIT_TOOLKIT_ID,
+  RACK_UPDATE_EXPLOIT_TOOL_ID,
   cancelRackUpdatePackageSubmission,
   canFormRackUpdateExploitAttempt,
   startRackUpdateExploitAttemptFromObservation,
@@ -14,12 +14,13 @@ import {
 import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { BASIC_CREDENTIAL_TOOLKIT_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
-import { ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
+import { CREDENTIAL_ACCESS_TOOL_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, deriveFlipperBuildId } from './flipper'
+import type { FlipperInstallation } from './types'
 import type { GameState, NetworkHost, NetworkService } from './types'
 
 const RACK_UPDATE_ENDPOINT = { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443' }
-const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001', toolId: ROLLBACK_EXPLOIT_TOOLKIT_ID } as const
+const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001', toolId: RACK_UPDATE_EXPLOIT_TOOL_ID } as const
 
 function observed(): GameState {
   let state = createInitialGameState()
@@ -38,13 +39,25 @@ function withLocalGateSsh132(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { ...remotePackage, id: 'file-local-gatessh', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } } }
 }
 
-/** The Rollback Exploit Toolkit is not preinstalled by default (the Market is its represented acquisition path); fixtures that need it already installed set it up explicitly rather than relying on default Current Truth. */
-function withRollbackExploitToolkit(state: GameState): GameState {
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId, releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, buildId: 'build-fixture-v0', name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version } ] } } }
+/**
+ * The Rollback Module is not integrated by default (the Market is its
+ * represented acquisition path, and integration is real represented work), so
+ * fixtures that need `UPD-001` support state the concrete Flipper build that
+ * has it rather than relying on default Current Truth. The integration
+ * mechanic itself is proven in `flipper.test.ts`.
+ */
+function withRollbackModuleIntegrated(state: GameState): GameState {
+  const integrated: FlipperInstallation = {
+    ...FLIPPER_1_0_CANONICAL_INSTALLATION,
+    buildId: deriveFlipperBuildId(['credential-access', 'rollback']),
+    integratedModules: ['credential-access', 'rollback'],
+    sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes,
+  }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID ? integrated : software) } } }
 }
 
 function ready(): GameState {
-  return withRollbackExploitToolkit(withLocalGateSsh132(withUpd001Knowledge(observed())))
+  return withRollbackModuleIntegrated(withLocalGateSsh132(withUpd001Knowledge(observed())))
 }
 
 function alterTarget(state: GameState, alter: (host: NetworkHost) => NetworkHost): GameState {
@@ -56,8 +69,9 @@ function alterService(state: GameState, id: string, alter: (service: NetworkServ
 const alterUpdate = (state: GameState, alter: (service: NetworkService) => NetworkService) => alterService(state, 'service-rack-update-002', alter)
 const alterSsh = (state: GameState, alter: (service: NetworkService) => NetworkService) => alterService(state, 'service-ssh-002', alter)
 
+/** The default Flipper build: Credential Access integrated, Rollback not. */
 function withoutTool(state: GameState): GameState {
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== 'rollback-exploit-toolkit') } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID ? FLIPPER_1_0_CANONICAL_INSTALLATION : software) } } }
 }
 
 function grantSubmissionAccess(state: GameState) {
@@ -178,7 +192,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
   it('supports the general direction of applying a compatible newer release, not only an older one', () => {
     // The mechanism is not hardcoded to exactly 1.3.2 replacing exactly 1.3.3: any recognized
     // GateSSH release differing from the currently managed one is a valid submission.
-    const state = grantSubmissionAccess(withRollbackExploitToolkit(withUpd001Knowledge(observed())))
+    const state = grantSubmissionAccess(withRollbackModuleIntegrated(withUpd001Knowledge(observed())))
     const remotePackage = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!.filesystem!.files.find(({ id }) => id === 'file-0003')!
     if (remotePackage.kind !== 'software_package') throw new Error('expected GateSSH package fixture')
     const newerPackage = { ...remotePackage, id: 'file-local-newer', path: '/home/user/downloads/gatessh-1.4.0.pkg', releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }
@@ -331,7 +345,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(updateAnalysis.status).toBe('started'); state = advanceGameState(updateAnalysis.state, 20_000)
     expect(state.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'UPD-001', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002' }))
 
-    const attacked = startRackUpdateExploitAttemptFromObservation(state, { endpoint: '203.0.113.42:8443', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002', vulnerabilityId: 'UPD-001', toolId: ROLLBACK_EXPLOIT_TOOLKIT_ID })
+    const attacked = startRackUpdateExploitAttemptFromObservation(state, { endpoint: '203.0.113.42:8443', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002', vulnerabilityId: 'UPD-001', toolId: RACK_UPDATE_EXPLOIT_TOOL_ID })
     expect(attacked.status).toBe('started'); state = advanceGameState(attacked.state, 20_000)
     expect(state.rackUpdate.access.established).toHaveLength(1)
 
@@ -347,7 +361,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     const sshAnalysis = startServiceAnalysisFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id })
     expect(sshAnalysis.status).toBe('started'); state = advanceGameState(sshAnalysis.state, 20_000)
     expect(state.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: srv02().id, serviceId: ssh().id }))
-    const access = startCredentialAccessAttemptFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id, vulnerabilityId: 'AUTH-017', toolId: BASIC_CREDENTIAL_TOOLKIT_ID })
+    const access = startCredentialAccessAttemptFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id, vulnerabilityId: 'AUTH-017', toolId: CREDENTIAL_ACCESS_TOOL_ID })
     expect(access.status).toBe('started'); state = advanceGameState(access.state, 30_000)
     expect(state.deviceAccess.established).toContainEqual(expect.objectContaining({ targetDeviceId: srv02().id, viaServiceId: ssh().id, privilege: 'USER' }))
   })

@@ -1,5 +1,5 @@
-import type { BasicCredentialToolkitInstallation, InstalledSoftware, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation, RollbackExploitToolkitInstallation } from './types'
-import { BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID, NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID, ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID } from './softwareReleaseContent'
+import type { InstalledSoftware, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation } from './types'
+import { NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID } from './softwareReleaseContent'
 
 export { NODESCAN_1_0_STANDARD_RELEASE_ID } from './softwareReleaseContent'
 
@@ -22,24 +22,6 @@ export function nodeScanSupportsInspect(installation: NodeScanInstallation): boo
   return installation.releaseId === NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID
 }
 
-export function findInstalledBasicCredentialToolkit(device: LocalDeviceState): BasicCredentialToolkitInstallation | undefined {
-  return device.installedSoftware.find((software): software is BasicCredentialToolkitInstallation => software.id === 'basic-credential-toolkit')
-}
-
-/** Concrete technique support supplied by Basic Credential Toolkit 1.0. */
-export function basicCredentialToolkitSupports(installation: BasicCredentialToolkitInstallation, vulnerabilityId: string): boolean {
-  return installation.releaseId === BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID && vulnerabilityId === 'AUTH-017'
-}
-
 export function findInstalledNodeMiner(device: { readonly installedSoftware?: readonly InstalledSoftware[] }): NodeMinerInstallation | undefined {
   return device.installedSoftware?.find((software): software is NodeMinerInstallation => software.id === 'node-miner')
-}
-
-export function findInstalledRollbackExploitToolkit(device: LocalDeviceState): RollbackExploitToolkitInstallation | undefined {
-  return device.installedSoftware.find((software): software is RollbackExploitToolkitInstallation => software.id === 'rollback-exploit-toolkit')
-}
-
-/** Concrete technique support supplied by Rollback Exploit Toolkit 1.0. */
-export function rollbackExploitToolkitSupports(installation: RollbackExploitToolkitInstallation, vulnerabilityId: string): boolean {
-  return installation.releaseId === ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID && vulnerabilityId === 'UPD-001'
 }

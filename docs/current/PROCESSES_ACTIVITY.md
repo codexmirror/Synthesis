@@ -28,6 +28,11 @@ Current production Process consumers are:
   Device/LocalNetwork transfer-capacity model `docs/current/DEVICE_SYSTEM.md`
   and `docs/current/FILES_SOFTWARE.md` describe for `FileTransfer`.
 - Software Installation and Software Removal
+- Flipper Module Integration (`flipper_module_integration`) — finite local work
+  integrating one possessed module artifact into the installed Flipper.
+  Completion transforms that installation into a different build of the same
+  release exactly once; what the transformation is, and why the artifact
+  survives it, is owned by `docs/current/FILES_SOFTWARE.md`.
 - NODE Miner, the one continuous Process kind: it never reaches `completed`
   from elapsed work
 
@@ -36,8 +41,8 @@ Processes have stable identity and remain in one global canonical
 owns their CPU throughput, RAM admission/reservation, resource usage, and
 advancement. The local Device and the two concrete servers therefore have
 independent resource pools; unresolved and shallow executors do not advance.
-Current Service Analysis and Credential Access operations still execute on the
-player's local Device.
+Current Service Analysis, Credential Access and Flipper Module Integration
+operations still execute on the player's local Device.
 
 Software Installation and NODE Miner execution both also execute on a
 represented remote Device. When the player installs a package that exists on

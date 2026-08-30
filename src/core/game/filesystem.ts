@@ -103,6 +103,15 @@ export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: Filesys
       && a.publisher === b.publisher
       && a.sizeBytes === b.sizeBytes
   }
+  if (a.kind === 'software_module' && b.kind === 'software_module') {
+    return a.hostProductId === b.hostProductId
+      && a.moduleId === b.moduleId
+      && a.releaseId === b.releaseId
+      && a.buildId === b.buildId
+      && a.name === b.name
+      && a.version === b.version
+      && a.sizeBytes === b.sizeBytes
+  }
   if (a.kind === 'executable' && b.kind === 'executable') {
     return a.programId === b.programId
       && a.releaseId === b.releaseId

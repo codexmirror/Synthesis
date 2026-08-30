@@ -1,18 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { findLocalMarketPackageCopy, findMarketOffer, isMarketOfferPurchased, purchaseMarketOffer, MARKET_OPERATOR_SETTLEMENT_ADDRESS, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
+import { findLocalMarketArtifactCopy, findMarketOffer, isMarketOfferPurchased, purchaseMarketOffer, MARKET_OPERATOR_SETTLEMENT_ADDRESS, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
 import { NODE_UNITS_PER_NODE } from './nodeMiner'
 import { advanceGameState } from './gameAdvancement'
 import { startMarketPackageDownload } from './fileTransfer'
 import { installLocalSoftwarePackage } from './softwareInstallation'
-import { findInstalledRollbackExploitToolkit, rollbackExploitToolkitSupports } from './software'
-import { ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
+import { FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, findInstalledFlipper, flipperSupportsTechnique, startFlipperModuleIntegration } from './flipper'
 import type { GameState, SoftwarePackageFile } from './types'
 
 const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
 const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
-const ROLLBACK_OFFER = 'market-offer-rollback-exploit-toolkit-1.0'
+const ROLLBACK_OFFER = 'market-offer-flipper-rollback-module-1.0'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -46,20 +45,29 @@ describe('Market catalog', () => {
   it('is exactly the five intended V1 offerings, no more and no fewer', () => {
     const { offers } = createInitialGameState().market
     expect(offers).toHaveLength(5)
-    expect(offers.map(({ distribution }) => distribution.productId)).toEqual([
-      'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'rollback-exploit-toolkit',
+    // Four package offerings and one module offering: a module is distributed as a
+    // module artifact, never as an installable package with a product identity.
+    expect(offers.map(({ distribution }) => distribution.artifact === 'software_package' ? distribution.productId : `module:${distribution.moduleId}`)).toEqual([
+      'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
     ])
   })
 
-  it('distributes the Rollback Exploit Toolkit under its own already-authored release identity, with no invented channel or publisher', () => {
+  it('distributes the Rollback Module as a module artifact under its own module identity, with no invented channel or publisher', () => {
     const state = createInitialGameState()
     const distribution = findMarketOffer(state.market, ROLLBACK_OFFER)!.distribution
-    expect(distribution).toMatchObject({
-      productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
-      releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId,
-      buildId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.buildId, name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name,
-      version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
+    expect(distribution).toEqual({
+      artifact: 'software_module',
+      filename: 'flipper-rollback-module-1.0.mod',
+      hostProductId: FLIPPER_PRODUCT_ID,
+      moduleId: ROLLBACK_MODULE_1_0.moduleId,
+      releaseId: ROLLBACK_MODULE_1_0.releaseId,
+      buildId: ROLLBACK_MODULE_1_0.buildId,
+      name: ROLLBACK_MODULE_1_0.name,
+      version: ROLLBACK_MODULE_1_0.version,
+      sizeBytes: ROLLBACK_MODULE_1_0.sizeBytes,
     })
+    // A module offering carries no product identity at all: it is not installable software.
+    expect('productId' in distribution).toBe(false)
     // Absence preserved as a genuinely missing key, never an empty-string or invented value.
     expect('channel' in distribution).toBe(false)
     expect('publisher' in distribution).toBe(false)
@@ -67,7 +75,12 @@ describe('Market catalog', () => {
 
   it('states each release provenance truthfully rather than flattening the catalog into one publisher', () => {
     const state = createInitialGameState()
-    const distribution = (offerId: string) => findMarketOffer(state.market, offerId)!.distribution
+    /** Package offerings are the ones that can state a channel or publisher at all. */
+    const distribution = (offerId: string) => {
+      const found = findMarketOffer(state.market, offerId)!.distribution
+      if (found.artifact !== 'software_package') throw new Error(`${offerId} is not a package offering`)
+      return found
+    }
     // Third-party unofficial software, published by the build's own developer identity.
     expect(distribution(NODE_MINER_OFFER)).toMatchObject({ channel: 'unofficial', publisher: 'nm-dev' })
     // Software originating from another product ecosystem, published by that ecosystem —
@@ -80,10 +93,8 @@ describe('Market catalog', () => {
     // GateSSH 1.3.3 also carries no invented channel: no accepted current truth represents
     // one for this exact release, only for the distinct 1.3.2 package.
     expect(distribution(GATE_SSH_1_3_3_OFFER).channel).toBeUndefined()
-    expect(distribution(ROLLBACK_OFFER).channel).toBeUndefined()
-    expect(distribution(ROLLBACK_OFFER).publisher).toBeUndefined()
-    // No offering is attributed to NODE, and the Market operator is nobody's publisher.
-    expect(state.market.offers.map(({ distribution: item }) => item.publisher))
+    // No offering is attributed to the Market operator: it is nobody's publisher.
+    expect(state.market.offers.map(({ distribution: item }) => item.artifact === 'software_package' ? item.publisher : undefined))
       .not.toContain(state.market.operator.name)
   })
 
@@ -96,7 +107,8 @@ describe('Market catalog', () => {
     const nodeScan = packageAt(srv01, '/opt/packages/nodescan-exp-1.1.pkg')
     const gateSsh = packageAt(srv01, '/opt/packages/gatessh-1.3.2.pkg')
     const distributed = (offerId: string) => {
-      const { filename, ...release } = findMarketOffer(state.market, offerId)!.distribution
+      // `artifact` is the offering's own statement of which kind it distributes; the written file states it as `kind`.
+      const { artifact, filename, ...release } = findMarketOffer(state.market, offerId)!.distribution
       return { filename, release }
     }
     for (const [offerId, artifact] of [
@@ -211,11 +223,11 @@ describe('purchasing a Market offering', () => {
     expect(advanced.fileTransfer.active).toBeNull()
   })
 
-  it('records the Rollback Exploit Toolkit release snapshot in Wallet activity', () => {
+  it('records the Rollback Module release snapshot in Wallet activity', () => {
     const state = funded(PRICE)
     const result = purchaseMarketOffer(state, ROLLBACK_OFFER)
     if (result.status !== 'purchased') throw new Error('expected purchased')
-    expect(result.state.nodeWallet.activity.records[0]).toMatchObject({ kind: 'market_purchase', offerId: ROLLBACK_OFFER, releaseId: 'rollback-exploit-toolkit-1.0', releaseName: 'Rollback Exploit Toolkit', releaseVersion: '1.0', amountNodeUnits: 10_000 })
+    expect(result.state.nodeWallet.activity.records[0]).toMatchObject({ kind: 'market_purchase', offerId: ROLLBACK_OFFER, releaseId: ROLLBACK_MODULE_1_0.releaseId, releaseName: ROLLBACK_MODULE_1_0.name, releaseVersion: '1.0', amountNodeUnits: 10_000 })
   })
 })
 
@@ -223,7 +235,7 @@ describe('possession and entitlement', () => {
   it('never fabricates entitlement from a package the Device already physically holds', () => {
     const state = createInitialGameState()
     const offer = findMarketOffer(state.market, NODE_MINER_OFFER)!
-    expect(findLocalMarketPackageCopy(state.player.localDevice.filesystem, offer)?.path).toBe('/home/user/downloads/node-miner-1.0.pkg')
+    expect(findLocalMarketArtifactCopy(state.player.localDevice.filesystem, offer)?.path).toBe('/home/user/downloads/node-miner-1.0.pkg')
     expect(isMarketOfferPurchased(state.market, NODE_MINER_OFFER)).toBe(false)
     expect(state.market.purchases.entitlements).toEqual([])
   })
@@ -231,63 +243,68 @@ describe('possession and entitlement', () => {
   it('derives possession from exact concrete build truth, not from a stored flag or release alone', () => {
     const state = createInitialGameState()
     const nodeScanOffer = findMarketOffer(state.market, NODESCAN_OFFER)!
-    expect(findLocalMarketPackageCopy(state.player.localDevice.filesystem, nodeScanOffer)).toBeUndefined()
+    expect(findLocalMarketArtifactCopy(state.player.localDevice.filesystem, nodeScanOffer)).toBeUndefined()
 
     const copiedElsewhere: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: {
       nextFileId: 4,
       files: [...state.player.localDevice.filesystem.files, {
-        kind: 'software_package', id: 'file-0003', path: '/home/user/keep/nodescan-exp-1.1.pkg',
-        ...(({ filename, ...release }) => release)(nodeScanOffer.distribution),
+        ...(({ artifact, filename, ...release }) => release)(nodeScanOffer.distribution),
+        kind: 'software_package' as const, id: 'file-0003', path: '/home/user/keep/nodescan-exp-1.1.pkg', productId: 'nodescan',
       }],
     } } } }
-    expect(findLocalMarketPackageCopy(copiedElsewhere.player.localDevice.filesystem, nodeScanOffer)?.path).toBe('/home/user/keep/nodescan-exp-1.1.pkg')
+    expect(findLocalMarketArtifactCopy(copiedElsewhere.player.localDevice.filesystem, nodeScanOffer)?.path).toBe('/home/user/keep/nodescan-exp-1.1.pkg')
 
     const alternateBuild = { ...copiedElsewhere, player: { ...copiedElsewhere.player, localDevice: { ...copiedElsewhere.player.localDevice, filesystem: {
       ...copiedElsewhere.player.localDevice.filesystem,
       files: copiedElsewhere.player.localDevice.filesystem.files.map((file) => file.id === 'file-0003' && file.kind === 'software_package' ? { ...file, buildId: 'build-nodescan-synthetic-alternate' } : file),
     } } } }
-    expect(findLocalMarketPackageCopy(alternateBuild.player.localDevice.filesystem, nodeScanOffer)).toBeUndefined()
+    expect(findLocalMarketArtifactCopy(alternateBuild.player.localDevice.filesystem, nodeScanOffer)).toBeUndefined()
 
     const removed: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: {
       ...state.player.localDevice.filesystem,
       files: state.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_package'),
     } } } }
-    expect(findLocalMarketPackageCopy(removed.player.localDevice.filesystem, findMarketOffer(state.market, NODE_MINER_OFFER)!)).toBeUndefined()
+    expect(findLocalMarketArtifactCopy(removed.player.localDevice.filesystem, findMarketOffer(state.market, NODE_MINER_OFFER)!)).toBeUndefined()
   })
 })
 
-describe('Rollback Exploit Toolkit acquisition path', () => {
-  it('BUY -> DOWNLOAD -> completion -> Files INSTALL yields the exact InstalledSoftware the existing UPD-001 gating already recognizes, with no Market-specific installation logic', () => {
+describe('Rollback Module acquisition path', () => {
+  it('BUY -> DOWNLOAD -> completion yields one ordinary module artifact and no InstalledSoftware at all', () => {
     const purchase = purchaseMarketOffer(funded(2 * PRICE), ROLLBACK_OFFER)
     if (purchase.status !== 'purchased') throw new Error('expected purchased')
+    const before = purchase.state.player.localDevice.installedSoftware
 
     const download = startMarketPackageDownload(purchase.state, ROLLBACK_OFFER)
     if (download.status !== 'started') throw new Error('expected started')
     const downloaded = advanceGameState(download.state, 60_000)
     expect(downloaded.fileTransfer.active).toBeNull()
 
-    // Completion creates one ordinary local package, and only one, under this product's own identity.
-    const packages = downloaded.player.localDevice.filesystem.files.filter((file): file is SoftwarePackageFile =>
-      file.kind === 'software_package' && file.productId === ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId)
-    expect(packages).toHaveLength(1)
-    const packageFile = packages[0]
-    expect(packageFile).toMatchObject({ releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version })
-    // Absence survives the whole transfer: no channel or publisher was fabricated along the way.
-    expect('channel' in packageFile).toBe(false)
-    expect('publisher' in packageFile).toBe(false)
+    // Completion creates one ordinary local module artifact, and only one.
+    const modules = downloaded.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_module')
+    expect(modules).toEqual([{
+      kind: 'software_module', id: 'file-0003', path: '/home/user/downloads/flipper-rollback-module-1.0.mod',
+      hostProductId: FLIPPER_PRODUCT_ID, moduleId: ROLLBACK_MODULE_1_0.moduleId,
+      releaseId: ROLLBACK_MODULE_1_0.releaseId, buildId: ROLLBACK_MODULE_1_0.buildId,
+      name: ROLLBACK_MODULE_1_0.name, version: ROLLBACK_MODULE_1_0.version, sizeBytes: ROLLBACK_MODULE_1_0.sizeBytes,
+    }])
 
-    // The existing, unmodified Files/INSTALL admission — nothing Market-specific.
-    const install = installLocalSoftwarePackage(downloaded, packageFile.path)
-    if (install.status !== 'started') throw new Error('expected started')
-    const installedState = advanceGameState(install.state, 60_000)
+    // Acquiring a module installs nothing: installed software is untouched, and the
+    // Flipper build the Device already had is exactly the build it still has.
+    expect(downloaded.player.localDevice.installedSoftware).toEqual(before)
+    expect(downloaded.player.localDevice.installedSoftware.some(({ id }) => id === ROLLBACK_MODULE_1_0.releaseId)).toBe(false)
+    const flipper = findInstalledFlipper(downloaded.player.localDevice)!
+    expect(flipper.integratedModules).toEqual(['credential-access'])
+    expect(flipperSupportsTechnique(flipper, 'UPD-001')).toBe(false)
 
-    const installation = findInstalledRollbackExploitToolkit(installedState.player.localDevice)
-    expect(installation).toBeDefined()
-    expect(installation!.releaseId).toBe(ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId)
-    expect(installation!.channel).toBeUndefined()
-    expect(installation!.publisher).toBeUndefined()
-    // The already-implemented UPD-001 capability check now recognizes this installed tool
-    // through the ordinary lifecycle alone, with no RackUpdate-specific code touched by this PR.
-    expect(rollbackExploitToolkitSupports(installation!, 'UPD-001')).toBe(true)
+    // The ordinary package installation path does not admit it: it is not a package.
+    expect(installLocalSoftwarePackage(downloaded, modules[0].path)).toMatchObject({ status: 'not_software_package' })
+
+    // The Flipper integration mechanic is the one path that consumes it, and it is
+    // finite work rather than an admission-time grant.
+    const integration = startFlipperModuleIntegration(downloaded, modules[0].id)
+    if (integration.status !== 'started') throw new Error(integration.status)
+    expect(findInstalledFlipper(integration.state.player.localDevice)!.buildId).toBe(flipper.buildId)
+    const integrated = advanceGameState(integration.state, 60_000)
+    expect(flipperSupportsTechnique(findInstalledFlipper(integrated.player.localDevice)!, 'UPD-001')).toBe(true)
   })
 })

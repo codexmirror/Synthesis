@@ -1,6 +1,6 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
-import { findInstalledRollbackExploitToolkit, rollbackExploitToolkitSupports } from './software'
+import { FLIPPER_PRODUCT_ID, findInstalledFlipper, flipperSupportsTechnique } from './flipper'
 import {
   GATE_SSH_1_3_2_RELEASE_ID,
   GATE_SSH_1_3_3_RELEASE_ID,
@@ -15,7 +15,10 @@ import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMember
 import { refreshSubmittedServiceImplementation } from './discovery'
 import type { GameState, InstalledSoftware, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
-export const ROLLBACK_EXPLOIT_TOOLKIT_ID = 'rollback-exploit-toolkit' as const
+/** The installed host product that supplies this offensive capability; the integrated Rollback Module is what actually supports `UPD-001`. */
+export const RACK_UPDATE_EXPLOIT_TOOL_ID = FLIPPER_PRODUCT_ID
+/** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
+const RACK_UPDATE_EXPLOIT_MODULE_ID = 'rollback' as const
 export const RACK_UPDATE_EXPLOIT_WORK_REQUIRED = 1400
 export const RACK_UPDATE_EXPLOIT_RAM_REQUIRED_MIB = 768
 
@@ -31,7 +34,7 @@ export interface RackUpdateExploitObservation {
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly vulnerabilityId: string
-  readonly toolId: typeof ROLLBACK_EXPLOIT_TOOLKIT_ID
+  readonly toolId: typeof RACK_UPDATE_EXPLOIT_TOOL_ID
 }
 
 function hasSubmissionAccess(state: Pick<GameState, 'player' | 'rackUpdate'>, targetDeviceId: string, serviceId: string): boolean {
@@ -41,15 +44,16 @@ function hasSubmissionAccess(state: Pick<GameState, 'player' | 'rackUpdate'>, ta
 
 /**
  * A legitimate ATTACK opportunity: earned Knowledge of the observed weakness,
- * plus an installed tool that actually supports it, on a Service the player
- * still has not already exploited. This never consults current World Truth.
+ * plus an installed Flipper build whose integrated modules actually support
+ * it, on a Service the player still has not already exploited. This never
+ * consults current World Truth.
  */
 export function canFormRackUpdateExploitAttempt(state: Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'rackUpdate'>, observed: RackUpdateExploitObservation): boolean {
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const installation = findInstalledRollbackExploitToolkit(state.player.localDevice)
-  const tool = Boolean(installation && rollbackExploitToolkitSupports(installation, observed.vulnerabilityId))
+  const installation = findInstalledFlipper(state.player.localDevice)
+  const tool = Boolean(installation && flipperSupportsTechnique(installation, observed.vulnerabilityId))
   return Boolean(service && known && tool && !hasSubmissionAccess(state, observed.targetDeviceId, observed.serviceId))
 }
 
@@ -74,7 +78,7 @@ export function startRackUpdateExploitAttemptFromObservation(state: GameState, o
   if (started.status === 'insufficient_memory') return { ...started, state }
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'rack_update_exploit' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
-    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: observed.toolId,
+    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: observed.toolId, moduleId: RACK_UPDATE_EXPLOIT_MODULE_ID,
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }

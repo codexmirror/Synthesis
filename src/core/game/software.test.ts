@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit, findInstalledNodeMiner, findInstalledNodeScan, nodeScanSupportsInspect } from './software'
+import { findInstalledNodeMiner, findInstalledNodeScan, nodeScanSupportsInspect } from './software'
+import { findInstalledFlipper, flipperSupportsTechnique } from './flipper'
 
 describe('installed software', () => {
   it('finds each concrete installation by stable product identity', () => {
     const device = createInitialGameState().player.localDevice
     expect(findInstalledNodeScan(device)).toEqual(expect.objectContaining({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' }))
-    expect(findInstalledBasicCredentialToolkit(device)).toEqual(expect.objectContaining({ id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' }))
-    const toolkit = findInstalledBasicCredentialToolkit(device)!
-    expect(basicCredentialToolkitSupports(toolkit, 'AUTH-017')).toBe(true)
-    expect(basicCredentialToolkitSupports(toolkit, 'UNRELATED-001')).toBe(false)
+    expect(findInstalledFlipper(device)).toEqual(expect.objectContaining({ id: 'flipper', releaseId: 'flipper-1.0', name: 'Flipper', version: '1.0', integratedModules: ['credential-access'] }))
+    const flipper = findInstalledFlipper(device)!
+    expect(flipperSupportsTechnique(flipper, 'AUTH-017')).toBe(true)
+    // The canonical build does not integrate the Rollback Module, so it supports neither UPD-001 nor anything unrepresented.
+    expect(flipperSupportsTechnique(flipper, 'UPD-001')).toBe(false)
+    expect(flipperSupportsTechnique(flipper, 'UNRELATED-001')).toBe(false)
   })
 
   it('does not find NODE Miner installed on a fresh Device, since it starts only as a local package', () => {

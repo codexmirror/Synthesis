@@ -55,13 +55,26 @@ export interface ServiceAnalysisProcess extends ProcessBase {
   readonly result?: ServiceAnalysisResult
 }
 
+/**
+ * The concrete offensive modules Flipper currently represents.
+ *
+ * A module is a technique Flipper can integrate and then execute. It is
+ * deliberately not a Vulnerability, not Knowledge, and not a software product
+ * of its own: `AUTH-017` and `UPD-001` remain weakness identifiers owned by
+ * the access and service systems, and possessing a module discovers nothing.
+ */
+export type FlipperModuleId = 'credential-access' | 'rollback'
+
 export interface CredentialAccessProcess extends ProcessBase {
   readonly kind: 'credential_access'
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly startedEndpoint: string
   readonly vulnerabilityId: string
-  readonly toolId: 'basic-credential-toolkit'
+  /** The installed host product that supplied the offensive capability. */
+  readonly toolId: 'flipper'
+  /** The concrete integrated module that actually supports the technique. */
+  readonly moduleId: 'credential-access'
   readonly result?: CredentialAccessResult
 }
 
@@ -83,7 +96,8 @@ export interface RackUpdateExploitProcess extends ProcessBase {
   readonly serviceId: string
   readonly startedEndpoint: string
   readonly vulnerabilityId: string
-  readonly toolId: 'rollback-exploit-toolkit'
+  readonly toolId: 'flipper'
+  readonly moduleId: 'rollback'
   readonly result?: RackUpdateExploitResult
 }
 
@@ -209,7 +223,38 @@ export interface SoftwareRemovalProcess extends ProcessBase {
   readonly result?: SoftwareRemovalResult
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess
+export type FlipperModuleIntegrationResult =
+  | { readonly status: 'integrated'; readonly buildId: string }
+  | { readonly status: 'already_integrated' }
+  | { readonly status: 'host_unavailable' }
+
+/**
+ * Finite represented work integrating one concrete module artifact into the
+ * installed Flipper on the executor Device.
+ *
+ * Everything completion needs is snapshotted here at admission, so the source
+ * artifact is an admission input rather than a continuing dependency: it is
+ * never consumed, and moving, copying or deleting it afterwards changes
+ * neither this work nor its result. Completion mutates Flipper exactly once
+ * (see `flipper.ts`).
+ */
+export interface FlipperModuleIntegrationProcess extends ProcessBase {
+  readonly kind: 'flipper_module_integration'
+  /** The installed host product being transformed; a module is never installed on its own. */
+  readonly hostProductId: 'flipper'
+  readonly moduleId: FlipperModuleId
+  /** Concrete module artifact facts snapshotted at admission. */
+  readonly moduleReleaseId: string
+  readonly moduleBuildId: string
+  readonly moduleName: string
+  readonly moduleVersion: string
+  readonly moduleSizeBytes: number
+  /** Filesystem-copy provenance of the artifact admission actually read; never module or build identity. */
+  readonly sourceFileId: string
+  readonly result?: FlipperModuleIntegrationResult
+}
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess | FlipperModuleIntegrationProcess
 
 export interface ProcessState {
   readonly nextId: number
@@ -273,7 +318,33 @@ export interface ExecutableFile {
   readonly sizeBytes: number
 }
 
-export type FilesystemFile = TextFile | SoftwarePackageFile | ExecutableFile
+/**
+ * A concrete Flipper module artifact on a Device-owned filesystem.
+ *
+ * It is deliberately **not** a `SoftwarePackageFile`. A module is integrated
+ * into an already-installed host product rather than installed as software of
+ * its own, so no installation path admits it and it never becomes
+ * `InstalledSoftware`. Like every other artifact it keeps its module, release
+ * and build identity wherever it is copied to; `path` is its current location
+ * and `id` its concrete copy identity, neither of which is module identity.
+ */
+export interface SoftwareModuleFile {
+  readonly kind: 'software_module'
+  readonly id: string
+  readonly path: string
+  /** The installed host product this module can be integrated into. */
+  readonly hostProductId: 'flipper'
+  /** Stable module identity within that host product. */
+  readonly moduleId: FlipperModuleId
+  readonly releaseId: string
+  /** Stable identity of the concrete module build this artifact represents. */
+  readonly buildId: string
+  readonly name: string
+  readonly version: string
+  readonly sizeBytes: number
+}
+
+export type FilesystemFile = TextFile | SoftwarePackageFile | SoftwareModuleFile | ExecutableFile
 
 export interface FilesystemState {
   /** Next filesystem-local concrete copy identity. Cross-device references also require the Device ID. */
@@ -295,13 +366,20 @@ export interface NodeScanInstallation extends InstalledSoftware {
   readonly id: 'nodescan'
 }
 
-export interface BasicCredentialToolkitInstallation extends InstalledSoftware {
-  readonly id: 'basic-credential-toolkit'
-}
-
-/** The concrete represented offensive tool supporting `UPD-001`; its role stays narrow, exactly like Basic Credential Toolkit's `AUTH-017` role. */
-export interface RollbackExploitToolkitInstallation extends InstalledSoftware {
-  readonly id: 'rollback-exploit-toolkit'
+/**
+ * The player's one extensible offensive/access tool, installed like any other
+ * software product.
+ *
+ * `integratedModules` is what this concrete build actually contains, and it —
+ * never `buildId` — is the only authority over what Flipper can execute. A
+ * distinct `buildId` records that a different concrete build exists; it never
+ * implies capability by itself. `sizeBytes` is this build's own represented
+ * size, which a completed integration grows exactly once.
+ */
+export interface FlipperInstallation extends InstalledSoftware {
+  readonly id: 'flipper'
+  readonly integratedModules: readonly FlipperModuleId[]
+  readonly sizeBytes: number
 }
 
 export interface NodeMinerInstallation extends InstalledSoftware {
@@ -500,6 +578,7 @@ export interface MarketOperator {
  * distribution attribute, never artifact identity.
  */
 export interface MarketPackageDistribution {
+  readonly artifact: 'software_package'
   readonly filename: string
   readonly releaseId: string
   /** Stable identity of the one concrete build this offering distributes. */
@@ -515,6 +594,31 @@ export interface MarketPackageDistribution {
 }
 
 /**
+ * What a module offering sends: represented source truth about one concrete
+ * Flipper module build and the byte size the operator states for it.
+ *
+ * It is the module counterpart of `MarketPackageDistribution` and is equally
+ * not a file: no artifact, file ID or path exists until the transfer
+ * completes. A module offering distributes a module artifact, never an
+ * installable package, so buying one can never produce InstalledSoftware.
+ */
+export interface MarketModuleDistribution {
+  readonly artifact: 'software_module'
+  readonly filename: string
+  readonly hostProductId: 'flipper'
+  readonly moduleId: FlipperModuleId
+  readonly releaseId: string
+  /** Stable identity of the one concrete module build this offering distributes. */
+  readonly buildId: string
+  readonly name: string
+  readonly version: string
+  readonly sizeBytes: number
+}
+
+/** What one Market offering would send, whichever represented artifact kind it distributes. */
+export type MarketDistribution = MarketPackageDistribution | MarketModuleDistribution
+
+/**
  * One represented Market offering: stable offer identity, the canonical
  * integer atomic NODE price the operator charges for it, and the distribution
  * it would send. Offer identity is what a purchase entitlement refers to —
@@ -524,7 +628,7 @@ export interface MarketOffer {
   readonly id: string
   /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
   readonly priceNodeUnits: number
-  readonly distribution: MarketPackageDistribution
+  readonly distribution: MarketDistribution
 }
 
 /**

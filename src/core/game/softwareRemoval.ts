@@ -30,10 +30,11 @@ export type RemoveInstalledSoftwareResult =
  *   completion restores the concrete NodeScan 1.0 Standard baseline (see
  *   `resolveCompletedSoftwareRemovals`).
  * - NODE Miner is ordinary removable software.
- * - Basic Credential Toolkit is ordinary preinstalled software, not a
- *   protected baseline, but V1 has no represented acquisition/reinstallation
- *   path for it, so it is rejected as unsupported for removal rather than
- *   silently treated as a system app.
+ * - Flipper is ordinary preinstalled software, not a protected baseline, but
+ *   V1 has no represented acquisition/reinstallation path for it, so it is
+ *   rejected as unsupported for removal rather than silently treated as a
+ *   system app. Removing it would also strip integrated modules the player
+ *   could not obtain again.
  *
  * Admission validates current world truth exactly once, at this instant, and
  * snapshots only the release facts completion will need; it applies none of

@@ -1,6 +1,7 @@
 import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
-import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0, ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
-import type { FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState, SoftwarePackageFile } from './types'
+import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { ROLLBACK_MODULE_1_0 } from './flipper'
+import type { FilesystemFile, FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState } from './types'
 import { debitNodeWalletMarketPurchase } from './nodeEconomy'
 
 /**
@@ -52,6 +53,7 @@ export function createInitialMarketState(): MarketState {
         id: 'market-offer-nodescan-1.1-experimental',
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
+          artifact: 'software_package',
           filename: 'nodescan-exp-1.1.pkg',
           releaseId: NODESCAN_1_1_EXPERIMENTAL.releaseId, buildId: NODESCAN_1_1_EXPERIMENTAL.buildId, productId: NODESCAN_1_1_EXPERIMENTAL.productId,
           name: NODESCAN_1_1_EXPERIMENTAL.name, version: NODESCAN_1_1_EXPERIMENTAL.version, channel: NODESCAN_1_1_EXPERIMENTAL.channel,
@@ -62,6 +64,7 @@ export function createInitialMarketState(): MarketState {
         id: 'market-offer-node-miner-1.0',
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
+          artifact: 'software_package',
           filename: 'node-miner-1.0.pkg',
           releaseId: NODE_MINER_1_0.releaseId, buildId: NODE_MINER_1_0.buildId, productId: NODE_MINER_1_0.productId,
           name: NODE_MINER_1_0.name, version: NODE_MINER_1_0.version, channel: NODE_MINER_1_0.channel,
@@ -73,6 +76,7 @@ export function createInitialMarketState(): MarketState {
         id: 'market-offer-gate-ssh-1.3.2',
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
+          artifact: 'software_package',
           filename: 'gatessh-1.3.2.pkg',
           releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: GATE_SSH_1_3_2_BUILD_ID, productId: GATE_SSH_PRODUCT_ID,
           name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems',
@@ -88,6 +92,7 @@ export function createInitialMarketState(): MarketState {
         id: 'market-offer-gate-ssh-1.3.3',
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
+          artifact: 'software_package',
           filename: 'gatessh-1.3.3.pkg',
           releaseId: GATE_SSH_1_3_3_RELEASE_ID, buildId: GATE_SSH_1_3_3_BUILD_ID, productId: GATE_SSH_PRODUCT_ID,
           name: 'GateSSH', version: '1.3.3',
@@ -95,16 +100,20 @@ export function createInitialMarketState(): MarketState {
         },
       },
       {
-        // The already-authored Rollback Exploit Toolkit release, distributable for the first
-        // time: Market V1 is currently the only represented acquisition path for it. Its
-        // authored release states no channel and no publisher, so none is invented here either.
-        id: 'market-offer-rollback-exploit-toolkit-1.0',
+        // The concrete Rollback Module artifact, offered by the same represented Market
+        // operator that previously distributed the standalone rollback toolkit. It is a
+        // module input for Flipper, not an installable application: buying and downloading
+        // it produces one ordinary filesystem artifact and no InstalledSoftware at all.
+        // Its authored module release states no channel and no publisher, so none is invented here.
+        id: 'market-offer-flipper-rollback-module-1.0',
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
-          filename: 'rollback-exploit-toolkit-1.0.pkg',
-          releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, buildId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.buildId, productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
-          name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
-          sizeBytes: 2_100_000,
+          artifact: 'software_module',
+          filename: 'flipper-rollback-module-1.0.mod',
+          hostProductId: ROLLBACK_MODULE_1_0.hostProductId, moduleId: ROLLBACK_MODULE_1_0.moduleId,
+          releaseId: ROLLBACK_MODULE_1_0.releaseId, buildId: ROLLBACK_MODULE_1_0.buildId,
+          name: ROLLBACK_MODULE_1_0.name, version: ROLLBACK_MODULE_1_0.version,
+          sizeBytes: ROLLBACK_MODULE_1_0.sizeBytes,
         },
       },
     ],
@@ -122,20 +131,22 @@ export function isMarketOfferPurchased(market: MarketState, offerId: string): bo
 }
 
 /**
- * The concrete local package copy of an offering's release, if one is
- * currently present anywhere on the given filesystem.
+ * The concrete local copy of an offering's artifact, if one is currently
+ * present anywhere on the given filesystem.
  *
- * Possession is derived from filesystem truth by release identity, never
- * stored as a Market flag and never inferred from a path: a copy that is
- * deleted stops being possessed, and a copy the player already had was never
- * bought.
+ * Possession is derived from filesystem truth by artifact kind plus release
+ * and build identity, never stored as a Market flag and never inferred from a
+ * path: a copy that is deleted stops being possessed, and a copy the player
+ * already had was never bought.
  */
-export function findLocalMarketPackageCopy(filesystem: FilesystemState, offer: MarketOffer): SoftwarePackageFile | undefined {
-  return filesystem.files.find((file): file is SoftwarePackageFile =>
-    file.kind === 'software_package'
-    && file.productId === offer.distribution.productId
-    && file.releaseId === offer.distribution.releaseId
-    && file.buildId === offer.distribution.buildId)
+export function findLocalMarketArtifactCopy(filesystem: FilesystemState, offer: MarketOffer): FilesystemFile | undefined {
+  const { distribution } = offer
+  return filesystem.files.find((file) => {
+    if (file.kind !== distribution.artifact) return false
+    if (file.kind === 'software_package' && distribution.artifact === 'software_package') return file.productId === distribution.productId && file.releaseId === distribution.releaseId && file.buildId === distribution.buildId
+    if (file.kind === 'software_module' && distribution.artifact === 'software_module') return file.moduleId === distribution.moduleId && file.releaseId === distribution.releaseId && file.buildId === distribution.buildId
+    return false
+  })
 }
 
 export type PurchaseMarketOfferResult =

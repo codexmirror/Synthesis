@@ -8,7 +8,11 @@ describe('software release information', () => {
     expect(standard.capabilities.map(({ label }) => label)).toEqual(['NETWORK SCAN', 'SERVICE ANALYSIS'])
     expect(JSON.stringify(standard)).not.toMatch(/inspect/i)
     expect(getSoftwareReleaseInformation('nodescan-1.1-experimental')?.changes).toContain('Firmware fingerprinting')
-    expect(getSoftwareReleaseInformation('basic-credential-toolkit-1.0')?.capabilities.map(({ label }) => label)).toContain('AUTH-017 SUPPORT')
+    // Flipper's documentation describes the product, not the concrete build's module state:
+    // which techniques it can execute is canonical installed-build truth, never release copy.
+    const flipper = getSoftwareReleaseInformation('flipper-1.0')!
+    expect(flipper.capabilities.map(({ label }) => label)).toContain('MODULE INTEGRATION')
+    expect(JSON.stringify(flipper)).not.toMatch(/AUTH-017|UPD-001/)
     expect(JSON.stringify(getSoftwareReleaseInformation('node-miner-1.0'))).not.toMatch(/33%|developer|share/i)
   })
   it('returns no invented documentation for unknown releases', () => {

@@ -29,14 +29,18 @@ export interface SoftwareReleaseContent {
 
 export const NODESCAN_1_0_STANDARD_RELEASE_ID = 'nodescan-1.0-standard' as const
 export const NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID = 'nodescan-1.1-experimental' as const
-export const BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID = 'basic-credential-toolkit-1.0' as const
-export const ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID = 'rollback-exploit-toolkit-1.0' as const
+export const FLIPPER_1_0_RELEASE_ID = 'flipper-1.0' as const
 export const NODE_MINER_1_0_RELEASE_ID = 'node-miner-1.0' as const
 
 export const NODESCAN_1_0_STANDARD_BUILD_ID = 'build-nodescan-1.0-standard-v0' as const
 export const NODESCAN_1_1_EXPERIMENTAL_BUILD_ID = 'build-nodescan-1.1-experimental-v0' as const
-export const BASIC_CREDENTIAL_TOOLKIT_1_0_BUILD_ID = 'build-basic-credential-toolkit-1.0-v0' as const
-export const ROLLBACK_EXPLOIT_TOOLKIT_1_0_BUILD_ID = 'build-rollback-exploit-toolkit-1.0-v0' as const
+/**
+ * The canonical Flipper 1.0 build: the one this release is authored as, which
+ * integrates the Credential Access Module alone. Integrating a further module
+ * produces a *different* build of this same release, derived by
+ * `deriveFlipperBuildId` in `flipper.ts` rather than authored here.
+ */
+export const FLIPPER_1_0_CANONICAL_BUILD_ID = 'build-flipper-1.0-credential-access' as const
 export const NODE_MINER_1_0_BUILD_ID = 'build-node-miner-1.0-v0' as const
 
 export const NODESCAN_1_0_STANDARD = {
@@ -66,35 +70,16 @@ export const NODESCAN_1_1_EXPERIMENTAL = {
   },
 } as const satisfies SoftwareReleaseContent
 
-export const BASIC_CREDENTIAL_TOOLKIT_1_0 = {
-  productId: 'basic-credential-toolkit', releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID, buildId: BASIC_CREDENTIAL_TOOLKIT_1_0_BUILD_ID,
-  name: 'Basic Credential Toolkit', version: '1.0',
+export const FLIPPER_1_0 = {
+  productId: 'flipper', releaseId: FLIPPER_1_0_RELEASE_ID, buildId: FLIPPER_1_0_CANONICAL_BUILD_ID,
+  name: 'Flipper', version: '1.0', channel: 'standard', publisher: 'NODE',
   documentation: {
-    about: 'Credential-focused offensive toolkit for represented authentication techniques.',
+    about: 'Extensible NODE offensive and access tool. What it can execute is exactly the set of modules the installed build integrates.',
     capabilities: [
-      { label: 'CREDENTIAL ACCESS', description: 'Attempt supported known authentication weaknesses.' },
-      { label: 'AUTH-017 SUPPORT', description: 'Supports the represented AUTH-017 technique.' },
+      { label: 'MODULE INTEGRATION', description: 'Integrate a locally possessed module artifact, producing a new build of this release.' },
+      { label: 'INTEGRATED TECHNIQUES', description: 'Execute the represented techniques the integrated modules supply, against weaknesses already known.' },
     ],
-    changes: ['Initial release.'],
-  },
-} as const satisfies SoftwareReleaseContent
-
-/**
- * The concrete represented offensive tool that supports the `UPD-001`
- * technique (rollback protection not enforced). Its role stays exactly as
- * narrow as Basic Credential Toolkit's `AUTH-017` role: a service-submission
- * rollback attack surface, not a generic exploit framework.
- */
-export const ROLLBACK_EXPLOIT_TOOLKIT_1_0 = {
-  productId: 'rollback-exploit-toolkit', releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID, buildId: ROLLBACK_EXPLOIT_TOOLKIT_1_0_BUILD_ID,
-  name: 'Rollback Exploit Toolkit', version: '1.0',
-  documentation: {
-    about: 'Offensive toolkit for represented rollback-protection weaknesses in package-submission interfaces.',
-    capabilities: [
-      { label: 'ROLLBACK EXPLOIT', description: 'Attempt supported known rollback-protection weaknesses.' },
-      { label: 'UPD-001 SUPPORT', description: 'Supports the represented UPD-001 technique.' },
-    ],
-    changes: ['Initial release.'],
+    changes: ['Initial NODE release.', 'Credential Access Module integrated in the canonical build.'],
   },
 } as const satisfies SoftwareReleaseContent
 
@@ -115,7 +100,6 @@ export const NODE_MINER_1_0 = {
 export const AUTHORED_SOFTWARE_RELEASES: readonly SoftwareReleaseContent[] = [
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
-  BASIC_CREDENTIAL_TOOLKIT_1_0,
-  ROLLBACK_EXPLOIT_TOOLKIT_1_0,
+  FLIPPER_1_0,
   NODE_MINER_1_0,
 ]

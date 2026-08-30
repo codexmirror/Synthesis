@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BASIC_CREDENTIAL_TOOLKIT_ID, canFormCredentialAccessAttempt, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { CREDENTIAL_ACCESS_TOOL_ID, canFormCredentialAccessAttempt, startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { rememberScan } from './discovery'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
@@ -11,7 +11,7 @@ import type { GameState } from './types'
 
 const PHONE = 'host-phone-001'
 const PHONE_ADDRESS = '198.51.100.61'
-const observation = { endpoint: `${PHONE_ADDRESS}:22`, targetDeviceId: PHONE, serviceId: 'service-ssh-003', vulnerabilityId: 'AUTH-017', toolId: BASIC_CREDENTIAL_TOOLKIT_ID }
+const observation = { endpoint: `${PHONE_ADDRESS}:22`, targetDeviceId: PHONE, serviceId: 'service-ssh-003', vulnerabilityId: 'AUTH-017', toolId: CREDENTIAL_ACCESS_TOOL_ID } as const
 
 /**
  * The represented VEYRA phone is reachable through the game's existing
@@ -70,7 +70,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     if (analysis.status !== 'started') throw new Error(analysis.status)
     const analyzed = advanceGameState(analysis.state, 20_000)
 
-    const withoutTool: GameState = { ...analyzed, player: { ...analyzed.player, localDevice: { ...analyzed.player.localDevice, installedSoftware: analyzed.player.localDevice.installedSoftware.filter(({ id }) => id !== BASIC_CREDENTIAL_TOOLKIT_ID) } } }
+    const withoutTool: GameState = { ...analyzed, player: { ...analyzed.player, localDevice: { ...analyzed.player.localDevice, installedSoftware: analyzed.player.localDevice.installedSoftware.filter(({ id }) => id !== CREDENTIAL_ACCESS_TOOL_ID) } } }
     expect(canFormCredentialAccessAttempt(withoutTool, observation)).toBe(false)
     // Removing the tool removes the offer without touching the Knowledge.
     expect(withoutTool.knowledge).toEqual(analyzed.knowledge)

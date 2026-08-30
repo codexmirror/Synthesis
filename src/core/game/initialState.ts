@@ -2,11 +2,12 @@ import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID, VEYRA_OS_FIRMWARE_ID } from '
 import { createInitialMailState } from './mail'
 import { MARKET_OPERATOR_SETTLEMENT_ADDRESS, createInitialMarketState } from './market'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
-import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 48
+export const GAME_STATE_VERSION = 49
 
 export function createInitialGameState(): GameState {
   return {
@@ -36,8 +37,9 @@ export function createInitialGameState(): GameState {
         },
         installedSoftware: [
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
-          { id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId, buildId: BASIC_CREDENTIAL_TOOLKIT_1_0.buildId, name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version },
-          // Deliberately not the Rollback Exploit Toolkit: the Market is its represented acquisition path, so it must not be silently preinstalled as Current Truth. Fixtures that need it install/seed it explicitly.
+          // The player's one offensive/access product. Its canonical build integrates the Credential Access Module, which is what supplies the existing first AUTH-017 opportunity.
+          FLIPPER_1_0_CANONICAL_INSTALLATION,
+          // Deliberately not the Rollback Module: the Market is its represented acquisition path, and integrating it is real represented work. Fixtures that need it seed or integrate it explicitly.
         ],
         // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.
         savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },

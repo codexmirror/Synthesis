@@ -6,6 +6,7 @@ import { advanceRackUpdatePackageSubmission, resolveCompletedRackUpdateExploit }
 import { resolveNodeMinerProduction } from './nodeMiner'
 import { resolveCompletedSoftwareInstallations } from './softwareInstallation'
 import { resolveCompletedSoftwareRemovals } from './softwareRemoval'
+import { resolveCompletedFlipperModuleIntegrations } from './flipper'
 import type { GameProcess, GameState } from './types'
 import { archiveProcess } from './recentActivity'
 
@@ -56,6 +57,7 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
     })
     nextState = resolveCompletedSoftwareInstallations(nextState)
     nextState = resolveCompletedSoftwareRemovals(nextState)
+    nextState = resolveCompletedFlipperModuleIntegrations(nextState)
     const previouslyRunning = new Set(state.process.processes.filter((process) => process.status === 'running').map(({ id }) => id))
     const localDeviceId = nextState.player.localDevice.id
     for (const process of nextState.process.processes) {

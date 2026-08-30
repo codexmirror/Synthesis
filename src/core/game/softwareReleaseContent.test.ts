@@ -2,20 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import {
   AUTHORED_SOFTWARE_RELEASES,
-  BASIC_CREDENTIAL_TOOLKIT_1_0,
+  FLIPPER_1_0,
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
   NODE_MINER_1_0,
-  ROLLBACK_EXPLOIT_TOOLKIT_1_0,
 } from './softwareReleaseContent'
+import { FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES } from './flipper'
 
 describe('authored software release content', () => {
-  it('owns the five current releases under their exact stable release IDs', () => {
+  it('owns the four current releases under their exact stable release IDs', () => {
     expect(AUTHORED_SOFTWARE_RELEASES.map(({ releaseId }) => releaseId)).toEqual([
       'nodescan-1.0-standard',
       'nodescan-1.1-experimental',
-      'basic-credential-toolkit-1.0',
-      'rollback-exploit-toolkit-1.0',
+      'flipper-1.0',
       'node-miner-1.0',
     ])
   })
@@ -33,12 +32,13 @@ describe('authored software release content', () => {
       buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version,
       channel: NODESCAN_1_0_STANDARD.channel,
     })
-    expect(installed.find(({ id }) => id === BASIC_CREDENTIAL_TOOLKIT_1_0.productId)).toEqual({
-      id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId,
-      buildId: BASIC_CREDENTIAL_TOOLKIT_1_0.buildId, name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version,
+    // Flipper carries the authored ordinary metadata plus the concrete build state its installation owns.
+    expect(installed.find(({ id }) => id === FLIPPER_1_0.productId)).toEqual({
+      id: FLIPPER_1_0.productId, releaseId: FLIPPER_1_0.releaseId,
+      buildId: FLIPPER_1_0.buildId, name: FLIPPER_1_0.name, version: FLIPPER_1_0.version,
+      channel: FLIPPER_1_0.channel, publisher: FLIPPER_1_0.publisher,
+      integratedModules: ['credential-access'], sizeBytes: FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES,
     })
-    // The Rollback Exploit Toolkit is authored release content, but the Market is its represented acquisition path, so it is deliberately not preinstalled.
-    expect(installed.find(({ id }) => id === ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId)).toBeUndefined()
   })
 
   it('authors package metadata without replacing concrete artifact truth', () => {

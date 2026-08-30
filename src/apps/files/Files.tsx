@@ -3,6 +3,7 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
 import { findRunningLocalNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
+import { FLIPPER_MODULE_TECHNIQUE } from '../../core/game/flipper'
 import { deriveSoftwarePackageEligibility, type InstallLocalSoftwarePackageResult } from '../../core/game/softwareInstallation'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
@@ -11,7 +12,7 @@ import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '.
 import { describeUploadFailure } from '../uploadFailure'
 import { describeInstallFailure } from '../installFailure'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
-import type { DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
+import type { DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile, SoftwareModuleFile, FlipperInstallation } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
 
@@ -171,7 +172,8 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
       <pre className="file-content">{file.content}</pre>
     </section>
       : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
-        : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
+        : file.kind === 'software_module' ? <ModuleDetails file={file} installedSoftware={installedSoftware} />
+          : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
   </div>
 }
@@ -342,6 +344,30 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
 }
 
 /**
+ * A module artifact is not installable software: it is an input its host
+ * product integrates. Files therefore states what it is and where it belongs,
+ * and deliberately offers no INSTALL — integration is admitted from Flipper,
+ * which is the surface that owns that operation.
+ */
+function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; installedSoftware: readonly InstalledSoftware[] }) {
+  const host = installedSoftware.find((software): software is FlipperInstallation => software.id === file.hostProductId)
+  const integrated = host?.integratedModules.includes(file.moduleId)
+  return <section className="file-kind-details">
+    <header className="node-masthead"><h2 className="node-masthead-subject">{file.name}</h2><span className="node-masthead-meta">{file.version} · MODULE</span></header>
+    <div className="node-section"><span>STATUS</span><span>{!host ? 'HOST NOT INSTALLED' : integrated ? 'INTEGRATED' : 'NOT INTEGRATED'}</span></div>
+    <dl className="node-facts">
+      <div><dt>HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
+      <div><dt>TECHNIQUE</dt><dd>{FLIPPER_MODULE_TECHNIQUE[file.moduleId]}</dd></div>
+      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+      <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
+    </dl>
+    <p className="node-note">{integrated
+      ? 'This module is already integrated into the installed host build. The artifact remains an ordinary file.'
+      : 'Integration is performed from the host application.'}</p>
+  </section>
+}
+
+/**
  * Package state derived from canonical truth alone: normal NODE-OS package
  * recognition of the artifact's current path, Device-owned installed
  * software, and running local Process state. An
@@ -362,5 +388,5 @@ function derivePackageState(file: SoftwarePackageFile, device: LocalDeviceState,
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
-function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : 'EXECUTABLE' }
+function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : 'EXECUTABLE' }
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

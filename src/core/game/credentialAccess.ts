@@ -1,12 +1,19 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
-import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit } from './software'
+import { FLIPPER_PRODUCT_ID, findInstalledFlipper, flipperSupportsTechnique } from './flipper'
 import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
 
-export const BASIC_CREDENTIAL_TOOLKIT_ID = 'basic-credential-toolkit' as const
+/**
+ * The installed host product that supplies this offensive capability. Whether
+ * it actually supports the observed technique is decided by the modules the
+ * installed Flipper build integrates, never by the product ID alone.
+ */
+export const CREDENTIAL_ACCESS_TOOL_ID = FLIPPER_PRODUCT_ID
+/** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
+const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
 export const CREDENTIAL_ACCESS_RAM_REQUIRED_MIB = 896
 
@@ -15,15 +22,15 @@ export interface CredentialAccessObservation {
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly vulnerabilityId: string
-  readonly toolId: typeof BASIC_CREDENTIAL_TOOLKIT_ID
+  readonly toolId: typeof CREDENTIAL_ACCESS_TOOL_ID
 }
 
 export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'deviceAccess'>, observed: CredentialAccessObservation): boolean {
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const installation = findInstalledBasicCredentialToolkit(state.player.localDevice)
-  const tool = Boolean(installation && basicCredentialToolkitSupports(installation, observed.vulnerabilityId))
+  const installation = findInstalledFlipper(state.player.localDevice)
+  const tool = Boolean(installation && flipperSupportsTechnique(installation, observed.vulnerabilityId))
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   return Boolean(service && known && tool && !accessed)
 }
@@ -47,7 +54,7 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   if (started.status === 'insufficient_memory') return { ...started, state }
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
-    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: observed.toolId,
+    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: observed.toolId, moduleId: CREDENTIAL_ACCESS_MODULE_ID,
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }

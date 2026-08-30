@@ -45,7 +45,7 @@ describe('System', () => {
 
     expect(screen.getByText('NodeScan')).toBeInTheDocument()
     expect(screen.getByText('1.1 · EXPERIMENTAL')).toBeInTheDocument()
-    expect(screen.queryByText(/basic-credential-toolkit/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/flipper/)).not.toBeInTheDocument()
   })
 
   it('presents the installed NODE Miner release as unofficial third-party software', () => {
@@ -86,7 +86,7 @@ describe('System', () => {
 
     expect(container.querySelectorAll('.node-row-arrow')).toHaveLength(0)
     expect(screen.queryByRole('button', { name: /Remove|Restore/ })).not.toBeInTheDocument()
-    const rows = ['NodeScan 1.0 · STANDARD', 'Basic Credential Toolkit 1.0', 'NODE Miner 1.0 · UNOFFICIAL · nm-dev']
+    const rows = ['NodeScan 1.0 · STANDARD', 'Flipper 1.0 · STANDARD · NODE', 'NODE Miner 1.0 · UNOFFICIAL · nm-dev']
     for (const name of rows) {
       const row = screen.getByRole('button', { name })
       expect(row).toHaveAttribute('aria-expanded', 'false')
@@ -143,11 +143,11 @@ describe('System', () => {
     expect(screen.queryByRole('button', { name: 'UNINSTALL' })).not.toBeInTheDocument()
 
     await user.click(miner)
-    await user.click(screen.getByRole('button', { name: /^Basic Credential Toolkit/ }))
+    await user.click(screen.getByRole('button', { name: /^Flipper/ }))
     expect(container.querySelectorAll('.software-expanded')).toHaveLength(1)
     expect(miner).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('NODE MINING')).not.toBeInTheDocument()
-    expect(screen.getByText('CREDENTIAL ACCESS')).toBeInTheDocument()
+    expect(screen.getByText('MODULE INTEGRATION')).toBeInTheDocument()
   })
 
   it('keeps detailed release facts behind an explicit disclosure', async () => {
@@ -203,13 +203,16 @@ describe('System', () => {
     expect(value('PROVIDED BY')).toBe('NODE-OS 1.0')
   })
 
-  it('expands the credential toolkit as ordinary software without baseline claims or an unsupported removal action', async () => {
+  it('expands Flipper as ordinary software, stating its concrete build from installed truth and no baseline claim or unsupported removal action', async () => {
     render(<GameProvider><System /></GameProvider>)
-    await userEvent.setup().click(screen.getByRole('button', { name: /Basic Credential Toolkit/ }))
-    expect(screen.getByText('Credential-focused offensive toolkit for represented authentication techniques.')).toBeInTheDocument()
-    expect(screen.getByText('CREDENTIAL ACCESS')).toBeInTheDocument()
-    expect(screen.getByText('AUTH-017 SUPPORT')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: /Flipper/ }))
+    expect(screen.getByText('MODULE INTEGRATION')).toBeInTheDocument()
     expect(value('STATE')).toBe('INSTALLED')
+    // The concrete build, its represented size, and its integrated modules come from the
+    // installation itself; nothing here is derived from the opaque build ID's shape.
+    expect(value('BUILD')).toBe('build-flipper-1.0-credential-access')
+    expect(value('SIZE')).toBe('5.6 MB')
+    expect(value('MODULES')).toBe('Credential Access Module')
     expect(screen.queryByText('SYSTEM BASELINE')).not.toBeInTheDocument()
     expect(screen.queryByText(/PROVIDED BY/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /UNINSTALL|REMOVE|RESTORE/ })).not.toBeInTheDocument()

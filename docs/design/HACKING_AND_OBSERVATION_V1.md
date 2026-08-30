@@ -340,7 +340,7 @@ The current implementation should remain concrete.
 
 For example:
 
-Basic Credential Toolkit installed
+Flipper installed, with the Credential Access Module integrated
 +
 required remembered information
 +
@@ -674,7 +674,7 @@ remembered SSH Service
 +
 positive Weak Authentication Knowledge
 +
-Basic Credential Toolkit installed
+Flipper installed, with the Credential Access Module integrated
 +
 current represented conditions
 ↓
