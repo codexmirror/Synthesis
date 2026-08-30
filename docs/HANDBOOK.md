@@ -117,18 +117,36 @@ A work order asking current code to change is not itself a contradiction.
 
 ## 3. Context discipline
 
+Repository context is a budget.
+
 The default is the **smallest sufficient Read Set**, resolved through
-`docs/README.md`. An implementation agent reads the normative current owner for
-its domain plus only the architecture and design contracts the task depends on.
+`docs/README.md`.
 
-Read Sets are not a fixed size. Read what the task needs; do not read the whole
-documentation tree by default, and do not read `docs/FUTURE.md` as
-implementation context.
+An implementation agent should begin with:
 
-**Broad-audit exception.** A repository or knowledge audit — restructuring
-documentation, auditing ownership, reconciling drift — legitimately requires
-broad inspection of the accepted knowledge landscape. Such a task should say so
-explicitly, and the resulting report should state what was inspected.
+1. the normative current owner for the affected domain;
+2. only the architecture modules the task actually depends on;
+3. only the accepted design contracts the task actually depends on; and
+4. the relevant implementation and focused tests.
+
+Expand that Read Set only when repository evidence exposes a real dependency,
+ambiguity, or conflict.
+
+Do not front-load unrelated documentation, `docs/FUTURE.md`, historical work
+orders, broad repository inventories, or nearby domains merely for additional
+context.
+
+Work orders should reference repository owners rather than reproduce their
+contents. Repeating architecture, workflow, or general agent rules in both the
+work order and repository instructions consumes context without adding
+authority.
+
+The goal is not the smallest possible context. It is the smallest context that
+lets the agent execute the selected task correctly.
+
+**Broad-audit exception.** Repository or knowledge audits may legitimately
+require broad inspection. Such tasks should say so explicitly and report what
+was inspected.
 
 
 ## 4. Human operator
@@ -284,23 +302,76 @@ Work orders are planned implementation deltas. They are not current
 implementation truth. A work order becomes executable only when the human
 operator explicitly selects it.
 
+### Scope gate
+
+Before execution, confirm that the work order is one coherent, reviewable block
+of work.
+
+A good implementation task should normally have:
+
+- one primary outcome;
+- one main reviewer question;
+- one coherent dependency radius; and
+- no independently useful sub-slice that should be reviewed and accepted first.
+
+Split the task before execution when it combines independently reviewable work
+whose correctness does not need to be decided together.
+
+Typical warning signs include:
+
+- several new mechanics in one task;
+- canonical-model work plus acquisition/distribution plus a new application
+  plus unrelated interface cleanup;
+- several domains each receiving substantial independent behavior;
+- broad cleanup bundled with the requested feature;
+- an expected change spanning roughly dozens of files or well beyond a few
+  hundred changed lines; or
+- a task whose acceptance criteria naturally divide into sequential milestones.
+
+These are warning signals, not hard limits. A genuinely coupled vertical slice
+may be larger when splitting it would create an incoherent intermediate state.
+When that is true, preserve the coherent slice rather than optimizing for an
+arbitrary file or line count.
+
+Do not keep a task monolithic merely because every change belongs to the same
+feature name.
+
+Prefer:
+
+```text
+accepted prerequisite
+↓
+small coherent implementation slice
+↓
+review / CI / acceptance
+↓
+next dependent slice
+```
+over one agent session that discovers and repairs the regression surface of
+several independently reviewable systems at once.
+
+Execution
+
 Before implementation:
 
-1. inspect current `main`
-2. read `AGENTS.md`
-3. classify the task domain in `docs/README.md`
-4. resolve the smallest sufficient Read Set
-5. read the normative current owner for that domain
-6. read only the relevant architecture invariants and design contracts
-7. read the selected work order
-8. inspect the relevant implementation and focused tests
+1. inspect current main;
+2. read AGENTS.md;
+3. classify the task through docs/README.md;
+4. resolve the smallest sufficient Read Set;
+5. read the normative current owner;
+6. read only the relevant architecture and design authority;
+7. read the selected work order; and
+8. inspect the relevant implementation and focused tests.
 
-A selected work order must be re-checked against the current repository before
+A selected work order must be re-checked against current repository truth before
 execution.
 
-Its structure and required sections belong to
-`docs/work-orders/TEMPLATE.md`; its lifecycle belongs to
-`docs/work-orders/README.md`.
+If repository inspection reveals that the requested task is materially broader
+than its work order assumed, surface that conflict instead of silently turning
+the task into a larger redesign.
+
+Its structure belongs to docs/work-orders/TEMPLATE.md; its lifecycle belongs
+to docs/work-orders/README.md.
 
 
 ## 9. Implementation handoffs
@@ -339,60 +410,60 @@ without reason.
 
 ## 10. Validation
 
-Validation is incremental and proportional to the actual dependency and
-regression surface of the change.
+Validation is incremental and proportional to the dependency and regression
+surface.
 
-During implementation, prefer:
+### Agent-local validation
 
-1. focused tests covering the changed behavior;
-2. closely related regression tests around the affected domain; and
-3. broader validation only when the change can reasonably affect a broader
-    surface.
+During implementation, use focused validation as the primary feedback loop:
 
-Run the full test suite when repository-wide regression risk justifies it, such
-as changes to shared/core infrastructure, canonical GameState, schema or
-persistence behavior, widely used domain primitives, cross-domain runtime
-semantics, test infrastructure, or broad migrations/refactors.
+1. tests covering the changed behavior;
+2. closely related regression tests around affected dependencies;
+3. targeted correction of any failures; and
+4. build or documentation validation when applicable.
 
-Run TypeScript/build validation when the changed implementation can affect
-compilation, bundling, application wiring, or production output.
+Do not use the complete repository test suite as an iterative debugging tool.
 
-The production build already includes TypeScript project validation:
+When a validation run fails, correct the defect and rerun the failing or
+materially affected suites. Do not automatically rerun every broader suite that
+previously passed.
+
+Run the production build when compilation, application wiring, bundling, or
+production output can be affected:
 
 npm run build
 
-Do not also run a separate tsc -b merely for redundancy. A separate
-TypeScript command is useful only when it serves a specific diagnostic or
-focused validation purpose.
+The production build already includes TypeScript project validation. Do not run
+a separate `tsc -b` merely for redundancy.
+
+Prefer running the build after the implementation is structurally stable rather
+than after every intermediate edit.
 
 When documentation changes, run:
 
 npm run docs:check
 
-Documentation-only changes do not require unrelated runtime tests or a
-production build unless executable repository tooling or another relevant
-dependency surface also changed.
+Documentation-only work does not require unrelated runtime tests or a production
+build.
 
-Once appropriate validation has passed, do not rerun the same expensive suite,
-build, or check merely “to be safe” unless subsequent changes could materially
-invalidate that result. Final diff review alone does not invalidate prior
-validation.
+### Repository-wide validation
 
-A required failing test, build, or check blocks acceptance.
+Pull-request CI owns repository-wide full-suite validation by default.
 
-Do not:
+A local full-suite run is exceptional rather than a normal completion
+requirement. It may be useful after focused validation is green when a change has
+unusually broad repository-wide risk, but it should not become an iterative
+fix-and-rerun loop.
 
-* weaken a meaningful test merely to make it pass;
-* remove architecture-contract coverage because new code conflicts with it;
-* replace behavioral tests with weaker literal assertions; or
-* hide regressions behind changed snapshots or expectations.
+If a local full-suite run exposes failures:
 
-Prefer tests that prove source-of-truth behavior.
+1. identify the affected dependency;
+2. fix it;
+3. validate the affected focused/regression suites; and
+4. rely on PR CI for the final repository-wide confirmation unless subsequent
+   changes create a specific reason for another broad local run.
 
-For example, if a UI value must derive from canonical state, an altered-state
-test is stronger than a test that only asserts the default literal value.
-
-A pull request targeting main independently runs:
+A pull request targeting `main` independently runs:
 
 npm run docs:check
 npm test
@@ -400,17 +471,27 @@ npm run build
 
 through GitHub Actions before human merge.
 
-This repository-wide CI validation is the final automated safety net. It does
-not mean every implementation agent must duplicate the complete CI workload
-locally when focused and related regression validation adequately cover the
-change.
+This is the repository-wide automated safety net.
 
-CI does not replace diff review, behavior review, or human acceptance.
+CI does not replace semantic diff review, behavior review, or human acceptance.
 
-docs:check is mechanical only. It verifies structure — link resolution,
-ownership registration, unique architecture IDs, required status headers — and
-deliberately makes no judgment about whether documentation impact was resolved
-correctly. That remains an agent and reviewer responsibility.
+### Validation integrity
+
+Once an appropriate suite, build, or check has passed, do not rerun it merely
+„to be safe“ unless subsequent changes could materially invalidate the result.
+
+Do not:
+
+- weaken meaningful tests merely to make them pass;
+- remove architecture-contract coverage because new code conflicts with it;
+- replace behavioral assertions with weaker literal assertions; or
+- hide regressions behind changed snapshots or expectations.
+
+Prefer tests that prove source-of-truth behavior.
+
+`docs:check` is structural only. Documentation correctness and ownership remain
+review responsibilities.
+
 
 
 ## 11. Mobile validation
@@ -448,45 +529,47 @@ from `main`:
 ```text
 IDEA / PROBLEM
 ↓
-human + planning/review layer reason from CURRENT MAIN
+reason from CURRENT MAIN
+↓
+define desired outcome
+↓
+SCOPE GATE: one coherent reviewable block?
+├── NO → split into dependent slices
+└── YES
 ↓
 classify domain
 ↓
 resolve smallest sufficient Read Set
 ↓
-define smallest coherent slice
-↓
 select implementation agent
 ↓
 implement
 ↓
-incremental focused validation
+focused validation
 ↓
 closely related regression validation
 ↓
-broaden validation only where the dependency / regression surface requires it
+build / docs validation when applicable
 ↓
-inspect final changed-file set and semantic delta
+inspect final diff and semantic delta
 ↓
-classify all affected truth domains
+reconcile documentation impact
 ↓
-final documentation reconciliation in the same branch
-↓
-validate only anything materially invalidated by subsequent changes
+rerun only validation materially invalidated by later changes
 ↓
 agent final-diff self-review
 ↓
 Draft PR
 ↓
-actual diff review
-↓
 CI performs repository-wide validation
 ↓
-human merge
+actual diff review
+↓
+human acceptance / merge
 ↓
 main deploy
 ↓
-physical iPhone/Safari live test when relevant
+physical iPhone/Safari validation when relevant
 ↓
 PASS
 or

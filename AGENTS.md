@@ -1,323 +1,190 @@
-# Synthesis Agent Guide
+Synthesis Agent Guide
 
-This file is the repository-wide contract for implementation agents. It is the
-bootloader, the global constitution, and the execution contract.
+This file is the repository-wide bootloader and execution contract for
+implementation agents.
 
-It is agent-neutral: Codex, Claude Code, or any other implementation agent
-follows the same rules. Harness-specific files (`CLAUDE.md`, `.claude/...`) may
-route or load this knowledge; they never own it.
+It routes agents to repository truth instead of restating that truth.
+docs/README.md is the documentation portal. docs/HANDBOOK.md owns the
+development workflow. docs/ARCHITECTURE.md routes to durable architecture
+invariants.
 
-It does not restate the documentation it routes to.
+Start here
 
+Before editing:
 
-## Before editing
-
-1. Inspect current `main`. Accepted code is canonical repository truth — not an
-   older prompt, branch, screenshot, or prior conversation.
+1. Inspect current main.
 2. Read this file.
-3. Classify the task domain.
-4. Open [`docs/README.md`](docs/README.md), the documentation portal.
-5. Resolve the **smallest sufficient Read Set** from the matching route.
-6. Read the normative current owner for that domain (`docs/current/...`).
-7. Read only the Architecture invariants and Design contracts the task depends
-   on.
-8. Inspect the relevant implementation and its focused tests.
-9. Implement the smallest requested delta.
+3. Classify the task through docs/README.md.
+4. Resolve the smallest sufficient Read Set.
+5. Read the normative docs/current/... owner for the affected domain.
+6. Read only the architecture modules and accepted design contracts the task
+    actually depends on.
+7. Read the selected work order when the task is backed by one.
+8. Inspect the relevant implementation and focused tests.
 
-Normal implementation agents **must not** read the entire documentation tree by
-default.
+Do not read the entire documentation tree by default.
 
-Repository or knowledge audits are an explicit exception and may require broad
-inspection; say so when you take it.
+Do not read docs/FUTURE.md, unrelated domains, or historical work orders as
+implementation context unless the task specifically requires them.
 
+Repository and knowledge audits are explicit exceptions.
 
-## Source-of-truth authority
+Authority
 
-```text
-CURRENT IMPLEMENTED BASELINE
-= current accepted code/tests + normative docs/current domain owner
-
+CURRENT BASELINE
+= accepted current code/tests + owning docs/current domain document
 DURABLE CONSTRAINTS
-= AGENTS.md + docs/ARCHITECTURE.md + owning architecture module
-
+= this file + docs/ARCHITECTURE.md + applicable architecture module
 REQUESTED DELTA
-= explicitly selected Work Order
-
+= explicitly selected work order or direct implementation task
 ACTIVE DESIGN AUTHORITY
-= relevant Accepted design contract when the task depends on it
-
-SUMMARY / INDEX
-= docs/V0.md
-
+= applicable Accepted design contract
 FUTURE DIRECTION
 = docs/FUTURE.md
-```
 
-Every accepted fact has one normative owner. Summaries, indexes and routing
-descriptions are allowed; competing normative definitions are not.
+Future direction is not current implementation authority.
 
-A selected work order under `docs/work-orders/...` defines the requested delta.
-It is not current truth and does not override this file or the architecture
-invariants. Archived work orders are historical only.
+A requested change differing from current code is not itself a conflict.
 
-These are distinct authority axes, not a linear hierarchy in which current code
-silently overrides a durable Architecture invariant. An apparent violation of
-such an invariant is a conflict or bug requiring inspection.
+If current code, owning documentation, architecture, and the requested task
+materially contradict one another, inspect the repository and surface the
+conflict rather than silently inventing a workaround.
 
-Do not implement something merely because `docs/FUTURE.md` describes it.
+Architecture
 
+Preserve the applicable invariants routed through docs/ARCHITECTURE.md.
 
-## Repository conflicts
+In particular, do not casually collapse established boundaries around stable
+identity, canonical state ownership, World Truth versus Player Information,
+Device / Firmware / Software / Access / Session, shared gameplay operations,
+Processes, Device-owned filesystem truth, or canonical economy state.
 
-If current code, owning documentation, and the task appear to contradict one
-another:
+Read the owning architecture module when the task touches one of those
+boundaries. Do not rely on this summary as a substitute for it.
 
-1. verify against current `main` where the conflict concerns implemented
-   behavior;
-2. treat a source as stale only where accepted evidence clearly shows it is;
-3. otherwise **surface the conflict** — in your completion report and, where
-   the conflict is durable, in the owning document — rather than silently
-   choosing an interpretation.
+Pure simulation logic in src/core/game/ remains independent of React, DOM
+APIs, browser storage, Shell navigation, CSS, and viewport behavior.
 
-A work order asking current code to change is not a contradiction.
+Player-facing technical information must derive from represented state. Do not
+invent fake telemetry, logs, security state, activity, uptime, filesystem
+content, or similar gameplay truth for atmosphere.
 
+Implementation discipline
 
-## Global architecture rules
+Implement the smallest coherent delta that satisfies the task.
 
-These are the durable rules every implementation must respect. Each is stated
-in full by the module named in `docs/ARCHITECTURE.md`; read only the ones the
-task needs.
+Do not expand scope because adjacent work looks useful.
 
-- **Stable identity (A01).** Stable internal IDs are entity identity. IP
-  addresses, ports, network names, display names, hostnames, labels and wallet
-  addresses are mutable attributes and must never become identity.
-- **Entity-owned state (A02).** Simulation truth belongs to the entity or
-  relationship it describes. Interfaces observe or modify it; they never keep a
-  competing copy because a local one is convenient.
-- **World Truth vs Player Information (A03, A04).** World Truth, Discovery,
-  Knowledge, capabilities, relationships and reachability stay distinct. A UI
-  must not leak hidden current truth or silently correct a stale player belief.
-- **Shared gameplay operations (A05).** Implement a gameplay operation once
-  behind a domain/application boundary. Terminal and graphical interfaces call
-  the same operation, and a GUI never performs gameplay by building a Terminal
-  command string. Terminal is an interface, not the game domain, and receives
-  narrow context rather than unrestricted `GameState`.
-- **Command is not capability (A06).** An interface verb does not prove the
-  player currently has the software, information, access, position or resources
-  to succeed.
-- **Device / Firmware / Software / Session (A07).** These stay separate.
-  Firmware never owns hardware, runtime, networking, filesystem or installed
-  software, and installed software is not Firmware.
-- **Access is a relationship (A08).** `DeviceAccess` is not a hacked flag, an
-  active connection, a Session, or automatic remote execution or filesystem
-  access.
-- **Observation roles (A09).** Scan, Inspect and Analyze have distinct
-  epistemic roles and must not become a mandatory universal pipeline. Browsing
-  remembered information is never a new observation.
-- **Processes are work (A10).** A Process is elapsed work and resource
-  consumption, not an event bus, job framework, or causality layer. The
-  mechanic that creates it owns what completion means.
-- **Mutate causes, derive consequences (A11, A12).** Change the concrete state
-  an action actually affects and let other systems react to that state.
-- **Filesystem truth belongs to the Device (A17).** Files, Terminal and every
-  other surface read the same Device-owned filesystem. Artifact identity is not
-  path recognition.
-- **Wallets and currency (A18).** Economic truth is canonical represented
-  state, never an interface-local counter, and Wallet identity is not its
-  address.
+Prefer existing owners and abstractions before introducing new ones.
 
+Avoid speculative generic frameworks, registries, engines, event buses,
+dependency-injection systems, universal entity models, or other abstractions
+without a concrete current need.
 
-Repository boundaries (`src/core/game/`, `src/app/`, `src/apps/`, `src/shell/`,
-`src/styles/`) and the canonical ownership reference are owned by
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Pure simulation logic in
-`src/core/game/` must stay independent of React, DOM APIs, browser storage,
-Shell navigation, CSS, and viewport behavior.
-
-
-## Implementation discipline
-
-Build the smallest concrete implementation the current task requires.
-
-Do not silently expand scope because a nearby feature looks useful.
-
-Avoid speculative frameworks unless multiple implemented systems demonstrate a
-real shared need: generic engines, event buses, ECS, dependency injection,
-plugin systems, generic registries/factories, universal entity models, and
-generic capability, action/effect, causality, persistence, Session or Firmware
-frameworks. A small amount of concrete duplication is preferable to a premature
-universal abstraction.
-
-When canonical `GameState` shape changes, update the schema version according
-to current repository convention and update focused tests. Do not introduce
-migrations or persistence compatibility unless the task explicitly requires
-them.
-
-Player-facing technical information must come from real represented state.
-Never manufacture fake telemetry, logs, activity, security state, uptime,
-traffic, process state, filesystem content or alerts for atmosphere. Silence is
-a valid UI state.
-
-NODE-OS is the Firmware environment of the player's personal Device, not the
-universal Synthesis interface. Do not generalize NODE-OS presentation into a
-universal Firmware framework without a concrete second implementation requiring
-it.
-
-
-## Mobile and editing presentation
-
-Mobile Safari/iPhone is a first-class target. Preserve the established
-Shell-owned Editing presentation.
-
-Do not reintroduce: Terminal-owned VisualViewport coordination,
-`window.scrollTo` or `scrollIntoView` keyboard fixes, fake keyboard heights,
-polling-based viewport management, arbitrary global scroll manipulation,
-disabled browser zoom, body transform hacks, or prompt relocation into Terminal
-output scrolling.
-
-Scrollable application regions explicitly own their scrolling; the Shell is not
-an arbitrary whole-page scroll surface.
-
-Meaningful mobile interaction changes require physical iPhone/Safari review
-after automated validation. Agent interactive validation does not replace it.
-
-
-## Dependencies
+When canonical GameState shape changes, follow the repository’s current
+schema-version convention and update the affected focused tests.
 
 Do not add an external dependency when the current stack can reasonably solve
-the task. Any new dependency needs a concrete current requirement. Do not add a
-library merely to avoid implementing a small local utility.
+the task.
 
+For meaningful mobile interaction work, read the applicable interface /
+presentation architecture and preserve the established Shell-owned mobile
+editing model unless the task explicitly changes it.
 
-## Validation
+Validation
 
-Validation must be incremental and proportional to the actual dependency and
-regression surface of the change.
+Validation is incremental and proportional.
 
-For normal implementation work, begin with the focused tests that cover the
-changed behavior and closely related regression tests around the affected
-domain.
+During implementation:
 
-Broaden validation only when the implementation surface justifies it.
+1. run the focused tests covering the changed behavior;
+2. run closely related regression tests where the dependency surface requires
+    them;
+3. fix failures with the smallest relevant test set; and
+4. broaden validation only when a concrete dependency surface justifies it.
 
-Run the full test suite when there is a concrete reason to expect
-repository-wide regression risk, including changes to:
+Pull-request CI owns repository-wide full-suite validation by default.
 
-* shared or core infrastructure used broadly across the repository;
-* canonical GameState, schema, or persistence behavior;
-* widely used domain primitives or utilities;
-* cross-domain ownership or runtime semantics;
-* test infrastructure or configuration;
-* broad migrations or refactors; or
-* another surface whose dependency graph makes focused regression coverage
-    insufficient.
+Do not use npm test as an iterative debugging or routine local-validation
+command.
 
-Run TypeScript/build validation when the changed code can affect compilation,
-bundling, application wiring, or production output.
+A local full-suite run is exceptional. Run it only after focused and related
+validation is green and only when concrete repository-wide regression risk
+makes it materially useful. Do not repeatedly rerun the full suite after
+individual fixes; validate those fixes with the affected suites and let PR CI
+perform the final repository-wide run.
 
-The repository production build already runs TypeScript project validation:
+Run:
 
 npm run build
 
-Do not run a separate tsc -b in addition to npm run build merely for
-redundancy. A separate TypeScript command is appropriate only when it serves a
-specific diagnostic or focused validation purpose.
+when the change can affect TypeScript compilation, application wiring,
+bundling, or production output. Normally run it once after the implementation
+is structurally stable.
+
+npm run build already performs TypeScript project validation. Do not add a
+separate tsc -b merely for redundancy.
 
 When documentation changes, run:
 
 npm run docs:check
 
 Documentation-only changes do not require unrelated runtime tests or a
-production build unless the documentation change also modifies executable
-repository tooling or another dependency surface that requires them.
+production build.
 
-Test-only changes require the affected tests. Broaden validation only when the
-test change itself modifies shared test infrastructure or exposes a broader
-regression surface.
+Once a relevant suite, build, or check has passed, rerun it only when subsequent
+changes could materially invalidate that result.
 
-Validation follows the changes made since the last successful validation.
-Once an appropriate test suite, build, or check has passed, do not rerun the
-same expensive validation merely “to be safe” unless subsequent changes could
-materially invalidate that result.
+Do not weaken meaningful tests, remove architecture-contract coverage to obtain
+green output, or hide regressions behind weaker expectations or snapshots.
 
-A final diff self-review does not by itself require rerunning already-passing
-validation.
+A failing required focused test, build, or documentation check blocks delivery.
+A failing repository-wide CI check blocks acceptance.
 
-A required failing test, build, or check blocks acceptance.
+Documentation impact
 
-Do not weaken tests to obtain green output, delete architecture-contract tests
-because the implementation conflicts with them, replace behavioral assertions
-with weaker literal ones, or hide regressions behind updated snapshots.
+Before delivery, inspect the actual final diff and reconcile documentation from
+the semantic change that was implemented.
 
-Prefer tests that prove the source of truth: when a UI value must derive from
-GameState, use altered test state so the test would fail if the value were
-hardcoded.
+Distinguish:
 
-Pull-request CI remains the repository-wide safety net. Agents should not
-duplicate full CI validation locally without a regression-surface reason merely
-because CI will later run it again.
+* Owner impact — normative truth changed.
+* Reference impact — a summary, route, index, or cross-reference became
+    stale or misleading.
 
+Update only the documents whose owned truth or references actually changed.
 
-## Documentation impact
+Report Owner impact and Reference impact separately. Do not create documentation
+churn merely because code files changed.
 
-Documentation impact planned before implementation is **expected and
-provisional**. **No draft is complete until final documentation impact is
-reconciled from the actual completed diff.**
-
-Before Draft delivery, inspect the final changed-file set and semantic delta,
-classify every affected truth domain (not only the task's primary domain), and
-distinguish:
-
-- **Owner impact:** normative truth changed, so its owner must change.
-- **Reference impact:** a non-normative summary, index, routing description, or
-  cross-reference became stale or misleading. Correct it or remove the
-  unnecessary duplicate without making it a competing owner.
-
-For every task, report final **Owner impact** and **Reference impact** as
-separate fields, then state the final impact on each truth class:
-
-- Current truth → `docs/current/<domain>.md` (and `docs/V0.md` only when the
-  product-level snapshot itself became wrong)
-- Architecture → the owning module under `docs/architecture/`
-- Design → the owning contract under `docs/design/`
-- Workflow → `docs/HANDBOOK.md` or `AGENTS.md`
-- Future → `docs/FUTURE.md`
-
-Each field is either the concrete document updated in the same branch, or
-`None` with a concrete reason.
-
-Update only the document that owns the changed truth. Do not create churn
-because a code file changed, and do not copy one fact into several documents.
-
-
-## Git and delivery
+Git and delivery
 
 The human operator owns final acceptance and merge authority.
 
-Unless the selected task explicitly delegates it, do not: commit, push, merge,
-create or close pull requests, rewrite branch history, or reset repository
-state.
+When delivery is explicitly delegated, the normal implementation-agent
+delivery is:
 
-Where a task explicitly delegates delivery, the delegated actions are normally:
-create or use the task branch, commit the implementation, push, and open or
-update a **Draft** PR. Merge, force-push, destructive history rewrite, and
-final acceptance are never delegated by default.
+* create or use the task branch;
+* commit the implementation;
+* push the branch; and
+* create or update a Draft Pull Request.
 
+Merge, force-push, destructive history rewrite, and final acceptance are not
+delegated by default.
 
-## Completion report
+Completion report
 
-Finish implementation tasks with a concise report containing:
+Finish with a concise report containing:
 
 * files changed;
 * important implementation or architecture decisions;
-* tests added or changed and the exact validation performed;
-* build or TypeScript validation result when such validation was applicable and
-    performed;
-* documentation impact, resolved per the section above;
-* deviations from the requested scope, if any; and
-* unresolved conflicts or concrete concerns requiring human review.
+* exact validation performed and results;
+* documentation Owner impact and Reference impact;
+* deviations from requested scope, if any; and
+* unresolved conflicts or concrete concerns.
 
-Do not perform additional validation solely to populate the completion report.
-Report what the actual dependency and regression surface required.
+Do not perform additional work or validation solely to make the completion
+report larger.
 
-For meaningful mobile UI work, state explicitly whether physical iPhone/Safari
-validation has been performed.
+For meaningful mobile UI work, state whether physical iPhone/Safari validation
+has been performed.

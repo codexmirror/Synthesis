@@ -1,16 +1,32 @@
 # WORK ORDER TEMPLATE
 
 Status: Accepted
-Scope: The required structure of a Synthesis work order.
+Scope: Structure and scope discipline for Synthesis implementation work orders.
 
-Copy the structure below into a new work order. Delete sections that genuinely
-do not apply; do not leave empty headings.
+A work order describes one requested delta. It does not restate repository
+architecture, workflow, or general agent rules already owned elsewhere.
 
-A work order names the delta. It does not restate the repository constitution:
-`AGENTS.md` and `docs/ARCHITECTURE.md` already bind every implementation agent.
-Repeat a rule only where violating it would destroy this specific slice.
+Keep it short and high-information-density.
 
----
+Before writing the work order, apply the scope gate in `docs/HANDBOOK.md`:
+
+- one primary outcome;
+- one main reviewer question;
+- one coherent dependency radius; and
+- no independently reviewable prerequisite or follow-up bundled into the same
+  implementation session.
+
+If the task fails that gate, split it before writing the work order.
+
+Large file counts, several independently substantial domains, or well beyond a
+few hundred expected changed lines are warning signs rather than automatic
+failure. Preserve a larger slice only when its parts genuinely need to become
+true together.
+
+Do not keep work monolithic merely because every change belongs to the same
+feature name.
+
+—
 
 ## TITLE
 
@@ -20,119 +36,95 @@ Status: Planned | Selected | Completed | Superseded
 
 ## TASK
 
-One paragraph: the concrete change requested. State what this is *not* if the
-title could be read as a larger redesign.
+One short paragraph describing the concrete outcome.
+
+State what this task is not when the title could imply a broader redesign.
 
 ## WHY
 
-The observed problem or product reason. Evidence where it exists.
+Only the product, architectural, or regression reason needed to understand why
+this delta exists.
 
-## INSPECT FIRST / READ SET
+## INSPECT FIRST
 
-The smallest sufficient Read Set for this task, resolved from
-`docs/README.md`:
+Reference the smallest sufficient Read Set through `docs/README.md`.
 
-- CURRENT TRUTH → `docs/current/<domain>.md`
-- ARCHITECTURE → only the invariant IDs / modules this task depends on
-- DESIGN → only the accepted contracts this task depends on
-- CODE → the primary implementation paths
-- TESTS → the focused suites that will change
+Name specific repository owners, code paths, or focused tests only when doing so
+materially improves execution.
 
-Do not list the whole documentation tree. Do not paste architecture prose here.
+Do not paste repository documentation into the work order.
 
-## SOURCE OF TRUTH
-
-Which document or code is authoritative where this task touches contested
-ground, and what wins if they disagree.
+Repository truth overrides assumptions in this work order. Surface a material
+conflict instead of silently inventing a workaround.
 
 ## REQUIRED BEHAVIOR
 
-The concrete behavior the implementation must produce, in terms of represented
-state and player-visible result.
+State the observable behavior and semantic requirements that must become true.
+
+Prefer outcomes and invariants over prescribed implementation structure.
 
 ## CONSTRAINTS
 
-Task-specific guardrails, including any high-risk rule whose violation would
-destroy this slice (for example: "a transfer must not become a GameProcess").
-Explicit non-goals belong here.
+Include only task-specific guardrails whose violation would materially damage
+this slice.
+
+Keep explicit non-goals short. Do not repeat the repository constitution.
 
 ## ACCEPTANCE
 
-Observable conditions that make this slice done. Written so a reviewer can
-check them against the diff and the running app.
+List the concrete conditions a reviewer must be able to verify from the result.
+
+Acceptance should answer one main question: did this work order’s requested
+delta become true without violating its boundaries?
 
 ## VALIDATION
 
-Specify validation proportional to the actual dependency and regression surface
-of this task.
+Name the focused tests and closely related regressions when known.
 
-Normally include:
+Use focused validation during implementation.
 
-* the focused tests covering the changed behavior;
-* closely related regression tests for affected domains;
-* TypeScript / production build validation when compilation, bundling,
-    application wiring, or production output can be affected; and
-* npm run docs:check when documentation changes.
+Run `npm run build` when compilation, application wiring, bundling, or production
+output can be affected.
 
-Require the full test suite only when this work has a concrete repository-wide
-regression surface, such as shared/core infrastructure, canonical GameState,
-schema or persistence behavior, widely used domain primitives, cross-domain
-runtime semantics, test infrastructure, or a broad migration/refactor.
+Run `npm run docs:check` when documentation changes.
 
-Do not require duplicate validation merely “to be safe”.
+Do not require `npm test` as routine agent-local validation. Repository-wide
+full-suite validation is owned by PR CI by default.
 
-npm run build already includes TypeScript project validation. Do not require a
-separate tsc -b in addition to the production build unless it serves a
-specific diagnostic purpose.
+If a local full-suite run is exceptionally justified, perform it only after
+focused validation is green and do not turn failures into repeated full-suite
+reruns.
 
-Validation is incremental: if an appropriate suite, build, or check has already
-passed, rerun it only when subsequent changes could materially invalidate that
-result.
-
-The work order should name the focused or related suites when they are known.
-Do not default every task to reproducing the repository’s complete pull-request
-CI workload locally.
+Do not duplicate `tsc -b` when `npm run build` already supplies the required
+TypeScript validation.
 
 ## DOCUMENTATION IMPACT
 
-Record **expected, provisional** impact before implementation. Resolve every
-line as an anticipated owner/reference or `None` with a concrete reason:
+Record expected impact compactly:
 
-- Current truth:
-- Architecture:
-- Design:
-- Workflow:
-- Future:
+- Owner impact: `<document(s)>` or `None`
+- Reference impact: `<document(s)>` or `None`
 
-Before delivery, reconcile **final** impact from the actual completed diff:
-classify all affected truth domains, update changed normative owners and stale
-or misleading references in this branch, and report **Owner impact** and
-**Reference impact** as separate fields followed by each line above (including
-`None` reasons). Do not turn a summary or index into a competing owner.
-
-## PARALLEL WORK CONSTRAINTS
-
-- Expected domain and files this task touches
-- Tasks it must not run in parallel with
-- Dependency assumptions (what accepted `main` this is written against)
+This is provisional. Final documentation impact must be reconciled from the
+actual completed diff before delivery.
 
 ## DELIVERY
 
-State exactly what is delegated for this task. For a selected implementation
-work order the normal delegation is:
+Unless this task explicitly says otherwise:
 
-- create or use the task branch the environment requires
-- commit the task implementation
-- push the branch
-- create or update a **Draft** pull request whose body includes a compact
-  `DOCUMENTATION IMPACT — FINAL RECONCILIATION` section derived from the actual
-  final diff, with separate Owner impact and Reference impact fields and each
-  Architecture / Design / Workflow / Future impact or `None` with a reason
+- implement the selected delta;
+- verify it proportionally;
+- inspect the final diff;
+- reconcile documentation impact;
+- commit and push the task branch; and
+- create or update a Draft Pull Request.
 
-Never delegated by default:
+The Draft PR report should be concise: what changed, important decisions,
+validation performed, final Owner/Reference documentation impact, and any
+material concern or intentional deferral.
 
-- merge
-- force-push or destructive history rewrite
-- final acceptance
+Merge, force-push, destructive history rewrite, and final acceptance remain with
+the human operator.
 
-The human operator remains the final merge and acceptance authority.
+Add a `PARALLEL WORK CONSTRAINTS` section only when this task has a real
+dependency or conflict with concurrent work.
