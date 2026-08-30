@@ -4,6 +4,7 @@ import { Flipper } from '../apps/flipper/Flipper'
 import { Market } from '../apps/market/Market'
 import { Mail } from '../apps/mail/Mail'
 import { Network } from '../apps/network/Network'
+import { NetworkManagement } from '../apps/networkManagement/NetworkManagement'
 import { Notes } from '../apps/notes/Notes'
 import { System } from '../apps/system/System'
 import { Terminal } from '../apps/terminal/Terminal'
@@ -15,6 +16,7 @@ export interface AppDefinition { label: string; component: ComponentType<{ openA
 export const appRegistry = {
   terminal: { label: 'Terminal', component: Terminal },
   network: { label: 'NodeScan', component: Network },
+  networkManagement: { label: 'Network', component: NetworkManagement },
   mail: { label: 'NodeMail', component: Mail },
   processes: { label: 'Processes', component: Processes },
   files: { label: 'Files', component: Files },

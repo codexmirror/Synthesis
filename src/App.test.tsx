@@ -1914,11 +1914,11 @@ describe('NODE-OS shell and applications', () => {
     )
   })
 
-  it('orders and exposes exactly the nine Home launcher controls', () => {
+  it('orders and exposes exactly the ten Home launcher controls', () => {
     render(<App />)
     const launchers = screen.getAllByRole('button', { name: /^open /i })
     expect(launchers.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Open Terminal', 'Open NodeScan', 'Open NodeMail', 'Open Processes',
+      'Open Terminal', 'Open NodeScan', 'Open Network', 'Open NodeMail', 'Open Processes',
       'Open Files', 'Open Market', 'Open Wallet', 'Open Notes', 'Open System',
     ])
     expect(screen.queryByRole('button', { name: /open tools/i })).not.toBeInTheDocument()

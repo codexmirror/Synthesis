@@ -47,6 +47,8 @@ GameState
 ├── knowledge
 ├── discovery
 ├── deviceAccess
+├── networkManagement
+│   └── explicit Device → LocalNetwork management-authority relationships
 ├── remoteSession
 ├── fileTransfer
 ├── rackUpdate
@@ -302,6 +304,58 @@ through Scan, Inspect, Discovery, Known Space, or any current Network UI:
 it to the player is explicitly out of scope for this slice.
 
 
+## Network management authority
+
+`NetworkManagementAuthority` (`GameState.networkManagement`) is explicit
+canonical relationship truth: a Device holds legitimate management authority
+over one `LocalNetwork`. It is deliberately distinct from Network membership
+(`LocalNetwork.memberDeviceIds`) and from `DeviceAccess`: a Device belonging
+to a Network never gains authority over it merely by membership, and access
+to one Device grants no authority over any Network. It is equally not a
+generic role, permission, credential, or management-session framework — it
+is exactly this one narrow relationship, following the same pattern
+`DeviceAccess` and `RackUpdateSubmissionAccess` each already use for their
+own narrow authority (`docs/current/NETWORK_ACCESS.md`).
+
+The initial world seeds exactly one such relationship: the local Device
+(`node-01`) holds management authority over `home-net`. No equivalent
+relationship exists for `remote-segment-01`, and none is derived from
+NodeScan Discovery, DeviceAccess, or a RemoteSession. `resolveManagedNetworks`
+(`src/core/game/networkManagement.ts`) resolves the full set of Networks a
+Device currently holds authority over, from this relationship alone.
+
+## Network application
+
+Network is the local Device's read-only administration surface over the
+`LocalNetwork`(s) it currently holds explicit management authority over
+(`networkManagement`), distinct from NodeScan's remembered reconnaissance
+(`docs/current/NETWORK_ACCESS.md`). It presents canonical World Truth the
+authority relationship legitimately supplies, not remembered Player
+Information, and performs no observation, mutation, or Discovery of its own.
+
+A fresh game seeds exactly one authorized Network, so Network presents it
+directly on open — NETWORK naming the authorized Network, CONNECTIVITY
+stating its own represented external upload/download capacity (maximum
+capability, not current throughput or usage), MEMBERSHIP stating a coarse
+member count without enumerating member identity, address, Firmware, or
+Services, and ACTIVITY presenting the Network's own canonical
+`NetworkActivityHistoryState`, oldest first, with a truthful empty state
+before any record exists. `resolveManagedNetworks` already resolves the full
+authorized set rather than assuming one, so a later multi-Network surface
+would build on that resolver rather than on a changed one; V1 deliberately
+builds no navigation framework across several. A Device with no current
+management authority is presented with a truthful no-authority empty state
+rather than any Network's truth.
+
+Activity presentation projects only what each record itself observed —
+perspective, address snapshots, service name where the record kind carries
+one, bytes transferred where the record kind carries one, result, and record
+kind — and never resolves a record's internal `sourceDeviceId` /
+`targetDeviceId` / `destinationDeviceId` / `serviceId` against hidden World
+Truth to manufacture richer player-facing identity, mirroring how RACK-OS
+System already presents Device-owned Authentication History without exposing
+internal Device or Service IDs.
+
 ## System application
 
 System is the local Device's machine-level sheet. It presents represented
@@ -397,3 +451,13 @@ is observed through RACK-OS, never listed here.
   through a sibling function sharing `NetworkTransferRecord`'s exact shape and
   semantics — never recorded as `file_transfer`, because it is not a
   FileTransfer. It is neither a `FileTransfer` nor a `GameProcess`.
+- `NetworkManagementAuthority` ≠ Network membership ≠ `DeviceAccess`. A
+  Device must never be treated as holding management authority over a
+  Network merely because `memberDeviceIds` contains it, and access to one
+  Device never implies authority over any Network.
+- The Network application reads `networkManagement` and `LocalNetwork` World
+  Truth directly; it must never derive an authorized Network from NodeScan
+  Discovery, and opening it must never mutate Discovery.
+- Network activity presentation must never expose a record's internal
+  Device or Service IDs, matching the same boundary Authentication History
+  presentation already keeps in RACK-OS System.

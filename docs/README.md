@@ -240,10 +240,12 @@ runtime, network transfer capacity, System application.
 - DESIGN → none currently
 - CODE → `src/core/game/types.ts`, `src/core/game/initialState.ts`,
   `src/core/game/networkTransferCapacity.ts`, `src/core/game/networkActivityHistory.ts`,
-  `src/core/game/serviceImplementations.ts`, `src/apps/system/`
+  `src/core/game/networkManagement.ts`, `src/core/game/serviceImplementations.ts`,
+  `src/apps/system/`, `src/apps/networkManagement/`
 - TESTS → `src/test/initialState.test.ts`,
   `src/core/game/networkTransferCapacity.test.ts`, `src/core/game/networkActivityHistory.test.ts`,
-  `src/core/game/serviceImplementations.test.ts`, `src/apps/system/System.test.tsx`
+  `src/core/game/networkManagement.test.ts`, `src/core/game/serviceImplementations.test.ts`,
+  `src/apps/system/System.test.tsx`, `src/apps/networkManagement/NetworkManagement.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/DEVICE_SYSTEM.md`](current/DEVICE_SYSTEM.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 

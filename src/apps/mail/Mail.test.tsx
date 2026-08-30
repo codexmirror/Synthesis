@@ -39,7 +39,7 @@ const launcher = () => screen.getByRole('button', { name: 'Open NodeMail' })
 
 describe('NodeMail on Home', () => {
   it('is a launcher in the current application order', () => {
-    expect(appEntries.map(([id]) => id)).toEqual(['terminal', 'network', 'mail', 'processes', 'files', 'market', 'wallet', 'notes', 'system'])
+    expect(appEntries.map(([id]) => id)).toEqual(['terminal', 'network', 'networkManagement', 'mail', 'processes', 'files', 'market', 'wallet', 'notes', 'system'])
     render(<GameProvider><Home openApp={vi.fn()} /></GameProvider>)
     expect(screen.getByRole('button', { name: 'Open NodeMail' })).toBeInTheDocument()
   })

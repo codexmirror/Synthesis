@@ -19,6 +19,16 @@ reconnaissance software shipped with NODE-OS. Its current direct Terminal comman
 <ipv4|network-name>`, `inspect <ipv4|network-name>`, and `analyze
 <ipv4:port>`; no product namespace is required.
 
+NodeScan is deliberately distinct from the separate Network application,
+which presents legitimate administration over a Network the local Device
+explicitly holds management authority over rather than remembered
+reconnaissance (`docs/current/DEVICE_SYSTEM.md`). The internal `network` app
+identity and `src/apps/network/` continue to be NodeScan's own wiring — a
+historical naming detail, not a product relationship — while the Network
+product is wired separately under `networkManagement`. Network never derives
+authority from NodeScan Discovery, and NodeScan Discovery is never mutated by
+opening Network.
+
 Scan is available through both Terminal and the graphical NodeScan application.
 Both interfaces invoke the same shared Scan gameplay/application operation.
 
@@ -598,3 +608,7 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
 - RackUpdate package submission is finite network runtime, not a `GameProcess`
   and not a filesystem `FileTransfer`. It never partially applies its package:
   the release swap happens exactly once, only at real upload completion.
+- The internal `network` app identity (`src/apps/network/`) is NodeScan's own
+  wiring, not the Network administration product — a historical naming
+  detail. Do not conflate the two or derive Network management authority from
+  NodeScan Discovery.
