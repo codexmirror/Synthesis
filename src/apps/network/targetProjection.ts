@@ -65,6 +65,10 @@ export type TargetStage =
   | 'no_route'
   | 'route'
   | 'hacking'
+  | 'attack'
+  | 'attacking'
+  | 'submission_ready'
+  | 'submitting'
   | 'access'
   | 'connected'
 
@@ -189,9 +193,8 @@ export interface Target extends TargetSummary {
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
   readonly session?: { readonly privilege: 'USER'; readonly connectedAddress: string; readonly viaServiceName?: string }
   /**
-   * RackUpdate's package-submission lifecycle, named only where a remembered
-   * package-submission interface justifies it. Advanced depth: it is not the
-   * target's primary way-in decision.
+   * RackUpdate's package-submission lifecycle, named only where remembered
+   * Player Information justifies it. It remains distinct from Device access.
    */
   readonly packageSubmission?: PackageSubmission
 }
@@ -267,13 +270,18 @@ function stageOf(input: {
   services: readonly TargetService[]
   inspectAvailable: boolean
   inspected: boolean
+  packageSubmission?: PackageSubmission
 }): TargetStage {
   if (input.connected) return 'connected'
-  if (input.hasAccess) return 'access'
   if (input.hacking) return 'hacking'
   if (input.analyzing) return 'analyzing'
+  if (input.packageSubmission?.attacking) return 'attacking'
+  if (input.packageSubmission?.submitting) return 'submitting'
   if (!input.servicesObserved) return 'unscanned'
   if (input.inspectAvailable && !input.inspected) return 'inspect'
+  if (input.hasAccess) return 'access'
+  if (input.packageSubmission?.enabled) return 'submission_ready'
+  if (input.packageSubmission?.route) return 'attack'
   if (input.routes > 0) return 'route'
   if (input.services.some((service) => service.analysisRequired)) return 'analysis_ready'
   return 'no_route'
@@ -349,7 +357,17 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     const weaknesses = knowledgeFor(information, device.id, service.id)
     const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
     const running = analysis.find(({ status }) => status === 'running')
-    const outcome = [...analysis].reverse().find((process) => process.status === 'completed' && process.result)?.result?.status
+    const currentFingerprint = service.inspect?.implementation
+    const outcome = [...analysis].reverse().find((process) => {
+      if (process.status !== 'completed' || !process.result) return false
+      // Fingerprint-free analyses remain usable for the NodeScan 1.0 flow.
+      // Once a concrete fingerprint is remembered, only a matching completion
+      // association can describe that implementation as analyzed.
+      return !currentFingerprint || Boolean(process.analyzedImplementation && (
+        process.analyzedImplementation.name === currentFingerprint.name
+        && process.analyzedImplementation.version === currentFingerprint.version
+      ))
+    })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
     // Exactly one represented credential tool exists, so where it supports a
     // weakness the player has actually learned about, there is no meaningful
@@ -388,6 +406,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const lastAttempt = [...attempts]
     .reverse()
     .find((process) => process.targetDeviceId === device.id && process.status === 'completed' && process.result)?.result
+  const packageSubmission = selectPackageSubmission(information, device.id, exploits, services)?.packageSubmission
   const stage = stageOf({
     connected: Boolean(activeAccess && information.remoteSession.active),
     hasAccess: Boolean(passive),
@@ -398,6 +417,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     services,
     inspectAvailable: Boolean(nodeScan && nodeScanSupportsInspect(nodeScan)),
     inspected: Boolean(device.inspect?.enhanced),
+    packageSubmission,
   })
 
   return {
@@ -406,7 +426,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     scope: device.scope,
     networkNames: networkNamesOf(information, device.id),
     stage,
-    percent: stage === 'hacking' ? runningPercent(hacking) : stage === 'analyzing' ? runningPercent(analyzing) : 0,
+    percent: stage === 'hacking' ? runningPercent(hacking) : stage === 'analyzing' ? runningPercent(analyzing) : stage === 'attacking' ? packageSubmission?.attackPercent ?? 0 : stage === 'submitting' ? packageSubmission?.submitPercent ?? 0 : 0,
     routes,
     lastAttemptFailed: lastAttempt?.status === 'attempt_failed',
     ...(device.inspect
@@ -430,7 +450,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
         },
       }
       : {}),
-    ...(selectPackageSubmission(information, device.id, exploits, services) ?? {}),
+    ...(packageSubmission ? { packageSubmission } : {}),
   }
 }
 
@@ -442,7 +462,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
  * what Enhanced Inspect actually remembered, ATTACK availability is derived
  * only from the player's own Knowledge and installed tool, and progress comes
  * only from the player's own Process and submission runtime. It is
- * deliberately not part of the target's primary decision.
+ * participates in the target's primary decision without being mislabeled as
+ * credential access.
  *
  * RackUpdate's submission protocol itself is a general package-submission
  * mechanism, not an older-release-only one: candidates are any remembered

@@ -53,6 +53,10 @@ const STAGE_MARK: Record<TargetStage, string> = {
   no_route: 'NO WAY IN',
   route: 'WAY IN FOUND',
   hacking: 'HACKING',
+  attack: 'ATTACK PATH FOUND',
+  attacking: 'ATTACKING',
+  submission_ready: 'SUBMISSION READY',
+  submitting: 'SUBMITTING',
   access: 'ACCESS',
   connected: 'CONNECTED',
 }
@@ -460,6 +464,27 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         <Progress percent={target.percent} label="Hack progress" />
       </>}
 
+      {target.stage === 'attack' && <>
+        <strong className="ns-stage-headline">ATTACK PATH FOUND</strong>
+        <span className="ns-stage-note">RackUpdate can be exploited through the known weakness.</span>
+        <Primary label="ATTACK" onClick={onAttackPackageSubmission} />
+      </>}
+
+      {target.stage === 'attacking' && <>
+        <strong className="ns-stage-headline">ATTACKING RACKUPDATE</strong>
+        <Progress percent={target.percent} label="Attack progress" />
+      </>}
+
+      {target.stage === 'submission_ready' && <>
+        <strong className="ns-stage-headline">PACKAGE SUBMISSION READY</strong>
+        <span className="ns-stage-note">RackUpdate accepts a compatible GateSSH package through the established submission authority.</span>
+      </>}
+
+      {target.stage === 'submitting' && <>
+        <strong className="ns-stage-headline">SUBMITTING PACKAGE</strong>
+        <Progress percent={target.percent} label="Submission progress" />
+      </>}
+
       {target.stage === 'access' && <>
         <strong className="ns-stage-headline">ACCESS GRANTED</strong>
         <span className="ns-stage-note">You can connect to this target now.</span>
@@ -543,7 +568,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
     {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
-    {release.canInspect && <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>}
+    {release.canInspect && target.stage !== 'inspect' && <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>}
 
     {(target.access || target.session) && <>
       <div className="node-section"><span>ACCESS</span></div>
@@ -610,10 +635,10 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
             <div><dt>WEAKNESS</dt><dd>{target.packageSubmission.route.vulnerabilityLabel} · {target.packageSubmission.route.vulnerabilityId}</dd></div>
           </dl>
           {target.packageSubmission.lastAttackFailed && <p className="ns-quiet-note">The last attack failed.</p>}
-          <button type="button" className="node-action" onClick={onAttackPackageSubmission}>{target.packageSubmission.lastAttackFailed ? 'ATTACK AGAIN' : 'ATTACK'}</button>
+          {target.stage !== 'attack' && <button type="button" className="node-action" onClick={onAttackPackageSubmission}>{target.packageSubmission.lastAttackFailed ? 'ATTACK AGAIN' : 'ATTACK'}</button>}
         </>}
 
-        {target.packageSubmission.attacking && <Progress percent={target.packageSubmission.attackPercent ?? 0} label="Attack progress" />}
+        {target.packageSubmission.attacking && target.stage !== 'attacking' && <Progress percent={target.packageSubmission.attackPercent ?? 0} label="Attack progress" />}
 
         {!target.packageSubmission.enabled && !target.packageSubmission.route && !target.packageSubmission.attacking && <p className="ns-quiet-note">No installed tool currently supports this weakness.</p>}
 
@@ -629,7 +654,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
           {target.packageSubmission.candidates.length > 0 && <button type="button" className="node-action" onClick={onSubmitPackage}>SUBMIT PACKAGE</button>}
         </>}
 
-        {target.packageSubmission.submitting && <Progress percent={target.packageSubmission.submitPercent ?? 0} label="Submission progress" />}
+        {target.packageSubmission.submitting && target.stage !== 'submitting' && <Progress percent={target.packageSubmission.submitPercent ?? 0} label="Submission progress" />}
       </div>
     </>}
   </div>

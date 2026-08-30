@@ -73,11 +73,18 @@ export function startServiceAnalysisFromObservation(state: GameState, observed: 
 export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
   if (!current.online || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
+  const rememberedImplementation = state.discovery.devices.find(({ id }) => id === process.targetDeviceId)
+    ?.services.find(({ id }) => id === process.serviceId)?.inspect?.implementation
+  const analyzedImplementation = rememberedImplementation
+    && rememberedImplementation.name === current.service.implementation.name
+    && rememberedImplementation.version === current.service.implementation.version
+    ? rememberedImplementation
+    : undefined
   const vulnerabilities = vulnerabilitiesForService(current.service)
-  if (!vulnerabilities.length) return { process: { ...process, result: { status: 'no_weakness_detected' } }, discoveries: [] }
+  if (!vulnerabilities.length) return { process: { ...process, ...(analyzedImplementation ? { analyzedImplementation } : {}), result: { status: 'no_weakness_detected' } }, discoveries: [] }
   const found = vulnerabilities.map(({ id, label }) => ({ vulnerabilityId: id, observedLabel: label }))
   return {
-    process: { ...process, result: { status: 'weaknesses_detected', vulnerabilities: found } },
+    process: { ...process, ...(analyzedImplementation ? { analyzedImplementation } : {}), result: { status: 'weaknesses_detected', vulnerabilities: found } },
     discoveries: found.map(({ vulnerabilityId, observedLabel }) => ({ vulnerabilityId, observedLabel, targetDeviceId: process.targetDeviceId, serviceId: process.serviceId })),
   }
 }
