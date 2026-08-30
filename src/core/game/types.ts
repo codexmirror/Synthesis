@@ -955,6 +955,25 @@ export interface DeviceAccess {
 
 export interface DeviceAccessState { readonly nextId: number; readonly established: readonly DeviceAccess[] }
 
+/**
+ * Explicit canonical relationship: a Device holds legitimate management
+ * authority over a LocalNetwork. Deliberately distinct from Network
+ * membership (`LocalNetwork.memberDeviceIds`) and from `DeviceAccess`: a
+ * Device belonging to a Network never gains authority over it merely by
+ * membership, and access to one Device grants no authority over any
+ * Network. Also deliberately not a generic role, permission, credential, or
+ * management-session framework — it is exactly this one narrow
+ * relationship, following the same pattern `DeviceAccess` and
+ * `RackUpdateSubmissionAccess` each use for their own narrow authority.
+ */
+export interface NetworkManagementAuthority {
+  readonly id: string
+  readonly deviceId: string
+  readonly networkId: string
+}
+
+export interface NetworkManagementState { readonly nextId: number; readonly established: readonly NetworkManagementAuthority[] }
+
 export interface RemoteSession {
   readonly id: string
   readonly accessId: string
@@ -1077,6 +1096,8 @@ export interface GameState {
   readonly knowledge: KnowledgeState
   readonly discovery: DiscoveryState
   readonly deviceAccess: DeviceAccessState
+  /** Explicit Device→Network management-authority relationships; see `NetworkManagementAuthority`. */
+  readonly networkManagement: NetworkManagementState
   readonly remoteSession: RemoteSessionState
   readonly fileTransfer: FileTransferState
   readonly rackUpdate: RackUpdateState

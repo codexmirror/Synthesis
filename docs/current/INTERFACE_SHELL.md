@@ -25,6 +25,7 @@ player-facing applications in order:
 
 - Terminal
 - NodeScan
+- Network
 - NodeMail
 - Processes
 - Files
@@ -102,15 +103,17 @@ directly under the Shell application title, so it is carried by the
 applications whose subject varies or whose operating context needs stating:
 Files shows the current path, System and Terminal show the local Device, the
 Activity Monitor names itself and its local-device scope, NodeMail names
-the mailbox account it is presenting, and Market names the represented Market
-it is a client of, which is likewise not owned by this Device or by NODE-OS
-(see `docs/current/MARKET.md`). Those local-device applications say so,
-which is how the suite distinguishes the local operating context from RACK-OS;
-NodeMail states a mailbox identity instead, because the mailbox is not owned by
-that Device. Wallet and Notes have no varying subject and keep their own
-presentation, and NodeScan keeps its own breadcrumb and target heading, which
-already identify the target being browsed. A masthead is not added to an
-application merely for uniformity.
+the mailbox account it is presenting, Network names the authorized Network it
+is currently administering (see `docs/current/DEVICE_SYSTEM.md`), and Market
+names the represented Market it is a client of, which is likewise not owned
+by this Device or by NODE-OS (see `docs/current/MARKET.md`). Those
+local-device applications say so, which is how the suite distinguishes the
+local operating context from RACK-OS; NodeMail and Network each state a
+different owning identity instead, because a mailbox and a Network are each
+not owned by that Device. Wallet and Notes have no varying subject and keep
+their own presentation, and NodeScan keeps its own breadcrumb and target
+heading, which already identify the target being browsed. A masthead is not
+added to an application merely for uniformity.
 
 
 ## Terminal

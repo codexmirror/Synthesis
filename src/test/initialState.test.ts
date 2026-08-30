@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 51', () => {
+  it('separates identities and seeds canonical local-device state in schema version 52', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(51)
+    expect(GAME_STATE_VERSION).toBe(52)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(51)
+    expect(state.version).toBe(52)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The represented NODE recipients besides the local Wallet: the unofficial Miner release's own developer account and the Market operator's own settlement account, both starting empty.
@@ -104,6 +104,11 @@ describe('createInitialGameState', () => {
     }
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')
+    // The local Device's explicit management authority over home-net, and nowhere else.
+    expect(state.networkManagement).toEqual({ nextId: 2, established: [
+      { id: 'network-management-0001', deviceId: state.player.localDevice.id, networkId: 'network-local-001' },
+    ] })
+    expect(state.networkManagement.established.map((authority) => authority.networkId)).not.toContain('network-foreign-001')
   })
 
   it('preserves the existing LAN host as the canonical server and gives it two owned services and vulnerability truth', () => {
