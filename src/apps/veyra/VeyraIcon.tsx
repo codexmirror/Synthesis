@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 export type VeyraIconName =
+  | 'communication'
   | 'wallet'
   | 'settings'
   | 'send'
@@ -26,6 +27,7 @@ export type VeyraIconName =
  */
 export function VeyraIcon({ name }: { name: VeyraIconName }) {
   const glyphs = {
+    communication: <><path d="M5.2 5.5h9.1a3.2 3.2 0 0 1 3.2 3.2v2.6a3.2 3.2 0 0 1-3.2 3.2H10l-3.8 3v-3.2a3.2 3.2 0 0 1-2.2-3V8.7a3.2 3.2 0 0 1 1.2-3.2Z" /><path d="M17.4 9.1h.4a2.2 2.2 0 0 1 2.2 2.2v2.2a2.2 2.2 0 0 1-1.5 2.1v2.7l-3.1-2.4h-2.2" /></>,
     wallet: <><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H17a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z" /><path d="M4 9h13" /><circle cx="16" cy="13.5" r="1.1" /></>,
     settings: <><path d="M4 8h4.4M13.6 8H20M4 16h9.4M18.6 16H20" /><circle cx="11" cy="8" r="2.6" /><circle cx="16" cy="16" r="2.6" /></>,
     send: <><path d="M18 6 6 18" /><path d="M9.5 6H18v8.5" /></>,

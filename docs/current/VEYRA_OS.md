@@ -2,7 +2,7 @@
 
 Status: Accepted
 Scope: The implemented VEYRA OS operating surface — Firmware-driven selection
-of it, its Home launcher, its Wallet and Settings surfaces, its internal
+of it, its Home launcher, its Communication, Wallet and Settings surfaces, its internal
 navigation, and its presentation ownership — as currently implemented on
 `main`.
 
@@ -63,11 +63,13 @@ label, on the phone's own warm ground. Empty cells stay empty, so later
 truthful applications fill the next cells without the screen being redesigned.
 
 Which entries exist is derived on every render by `deriveVeyraHomeEntries` in
-`src/apps/veyra/veyraHome.ts` from represented facts:
+`src/apps/veyra/veyraHome.ts` from this concrete Firmware presentation and the
+represented bases it observes:
 
 ```text
-Wallet   <- this Device -> its Civic Dollar Financial Session -> Account
-Settings <- this Device's represented VEYRA OS Firmware
+Communication <- this VEYRA OS Firmware's presentation-only built-in client
+Wallet        <- this Device -> its Civic Dollar Financial Session -> Account
+Settings      <- this Device's represented VEYRA OS Firmware
 ```
 
 There is no `homeApps[]`, launcher inventory, app registry, `LauncherState`,
@@ -75,10 +77,17 @@ There is no `homeApps[]`, launcher inventory, app registry, `LauncherState`,
 `GameState` or in presentation. Removing the phone's Financial Session removes
 Wallet from Home; the player's own Financial Session is not a basis for it.
 
-Communication is **absent**, not disabled, empty or "coming soon", because no
-foreign communication truth is represented for any Device. No placeholder,
-greyed or advertised application appears for Communication, Messages, Mail,
-Photos, Notes, Camera or Browser.
+Communication is a built-in VEYRA OS placeholder client and appears first. Its
+presence is Firmware presentation/product truth only: it is not installed
+Software and establishes no communication capability or canonical state. The
+root states only that Communication is unavailable. It presents no people,
+messages, conversations, contacts, accounts, history, activity, notifications
+or other communication data, and it does not infer an empty inbox or history
+from the absence of represented foreign communication truth.
+
+Wallet remains conditional on the operated Device's Financial Session, while
+Settings remains a Firmware-owned system surface. Messages, Mail, Photos,
+Notes, Camera and Browser remain absent.
 
 A Home entry opens an application root and never jumps into deeper content. An
 icon grants nothing: opening Wallet still resolves the Account through the
@@ -198,9 +207,11 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
 
 - A Home icon is not authority. Presence is derived from represented truth on
   every render; there is no stored launcher state to disagree with the world.
-- Absence and emptiness are different. Wallet with no Transactions is a
-  truthful empty Activity; Communication with no represented truth is not on
-  the phone at all.
+- Client presence, represented data and emptiness are different. Communication
+  is a Firmware-bundled placeholder with no represented communication data; it
+  therefore states only that the client is unavailable and makes no claim about
+  the person's history. Wallet with no Transactions has a represented Account
+  basis and may show a truthful empty Activity.
 - A Remote Session is operating context, not financial authority. It decides
   which Device is acting and grants no Account: a phone with no Financial
   Session refuses a transfer even while the player operates it.

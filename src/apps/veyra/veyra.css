@@ -201,6 +201,20 @@ button.veyra-frame__disconnect { color: #d4a099; }
 .veyra-app:focus-visible .veyra-app__tile { outline: 2px solid var(--veyra-accent); outline-offset: 3px; }
 .veyra-app:active .veyra-app__tile { background: var(--veyra-surface-sunk); }
 
+/* ---- Communication placeholder ---- */
+
+.veyra-communication { min-height: 100%; grid-template-rows: auto minmax(180px, 1fr); }
+.veyra-communication__head { display: grid; gap: 3px; }
+.veyra-communication__status {
+  align-self: center;
+  padding: 28px 24px;
+  border-top: 1px solid var(--veyra-line-strong);
+  border-bottom: 1px solid var(--veyra-line-strong);
+  color: var(--veyra-ink-soft);
+  text-align: center;
+}
+.veyra-communication__status p { margin: 0; font-size: 1rem; line-height: 1.5; }
+
 /* ---- cards, rows and figures ---- */
 
 .veyra-card {

@@ -4,6 +4,7 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { deriveVeyraHomeEntries, type VeyraAppId, type VeyraHomeEntry } from './veyraHome'
 import { VeyraIcon } from './VeyraIcon'
+import { VeyraCommunication } from './VeyraCommunication'
 import { VeyraSettings, type VeyraSettingsDetail } from './VeyraSettings'
 import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
 
@@ -19,6 +20,7 @@ import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
  */
 type VeyraLocation =
   | { readonly app: 'home' }
+  | { readonly app: 'communication' }
   | { readonly app: 'wallet'; readonly detail?: VeyraWalletDetail }
   | { readonly app: 'settings'; readonly detail?: VeyraSettingsDetail }
 
@@ -28,8 +30,8 @@ type VeyraLocation =
  *
  * It is a Firmware presentation layer over that Device's represented truth. It
  * owns no canonical state, and it may interpret represented facts but never
- * manufacture them — which is why this phone has two applications rather than a
- * full-looking Home.
+ * manufacture them. Communication is deliberately present only as a built-in
+ * presentation surface and therefore exposes no communication data.
  *
  * `editingRecoveryReady` and `onEndEditing` are the Shell's editing lifecycle,
  * passed in. VEYRA reads no viewport and keeps no keyboard state of its own; it
@@ -64,7 +66,11 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
 
   function back() {
     if (location.app === 'home') return
-    go(location.detail ? { app: location.app } : { app: 'home' })
+    if (location.app === 'communication' || !location.detail) {
+      go({ app: 'home' })
+      return
+    }
+    go({ app: location.app })
   }
 
   return <section className="veyra" hidden={hidden} aria-label={`${target.firmware!.name} personal device environment`}>
@@ -86,6 +92,7 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
 
     <main className="veyra-viewport">
       {location.app === 'home' && <VeyraHome entries={entries} onOpen={(app) => go({ app })} />}
+      {location.app === 'communication' && <VeyraCommunication />}
       {location.app === 'wallet' && <VeyraWallet
         detail={location.detail}
         onDetail={(detail) => go(detail ? { app: 'wallet', detail } : { app: 'wallet' })}
@@ -117,11 +124,8 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
  * The Home launcher: app icons and labels on the phone's own ground, in the
  * conventional composition a person already knows how to read.
  *
- * The grid is fixed at four columns and sized for touch, so the two truthful
- * entries this phone has sit exactly where they would sit on a fuller phone and
- * later truthful applications simply fill the next cells. Empty cells are left
- * empty: no placeholder, no disabled icon and no "coming soon", because an
- * application without a represented basis is not on this phone at all.
+ * The grid is fixed at four columns and sized for touch, so the concrete entries
+ * sit exactly where they would sit on a fuller phone. Empty cells stay empty.
  */
 function VeyraHome({ entries, onOpen }: { entries: readonly VeyraHomeEntry[]; onOpen: (app: VeyraAppId) => void }) {
   return <section className="veyra-screen veyra-home" aria-label="Home">
