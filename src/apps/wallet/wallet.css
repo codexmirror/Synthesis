@@ -809,7 +809,9 @@
 }
 
 .wallet-node-row + .wallet-node-row { border-top: 1px solid var(--wallet-amber-hairline); }
+.wallet-node-row-detail { min-width: 0; display: grid; gap: 4px; }
 .wallet-node-row small { color: var(--text-muted); font-size: .53rem; letter-spacing: var(--label-tracking); }
+.wallet-node-row-detail > span { color: var(--wallet-amber-label); font-size: .66rem; line-height: 1.35; overflow-wrap: anywhere; }
 
 .wallet-node-row strong {
   flex: none;

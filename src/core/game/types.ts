@@ -394,17 +394,29 @@ export interface DollarFinanceState {
   readonly transactions: { readonly nextId: number; readonly records: readonly DollarTransaction[] }
 }
 
-/**
- * One record of NODE that actually reached the local Wallet. It is the
- * Wallet's own truth about what it received, not a transaction ledger, a
- * transfer network record, or a view of the payer's behavior: it never
- * describes where the rest of a payer's production went.
- */
-export interface NodeWalletActivityRecord {
+/** One represented balance-changing event in the local NODE Wallet. */
+export type NodeWalletActivityRecord = NodeWalletMiningPayoutActivityRecord | NodeWalletMarketPurchaseActivityRecord
+
+export interface NodeWalletMiningPayoutActivityRecord {
   /** Deterministic per-Wallet record identity and ordering. */
   readonly id: string
   readonly kind: 'mining_payout'
   /** Canonical integer atomic NODE units actually received by this Wallet. */
+  readonly amountNodeUnits: number
+}
+
+/** Historical economic evidence of a concrete Market settlement, not ownership authority. */
+export interface NodeWalletMarketPurchaseActivityRecord {
+  readonly id: string
+  readonly kind: 'market_purchase'
+  /** Stable represented identities at settlement. */
+  readonly purchaseId: string
+  readonly offerId: string
+  readonly releaseId: string
+  /** Small immutable display snapshot, so later catalog edits cannot rewrite history. */
+  readonly releaseName: string
+  readonly releaseVersion: string
+  /** Canonical integer atomic NODE units actually debited from this Wallet. */
   readonly amountNodeUnits: number
 }
 
@@ -425,7 +437,7 @@ export interface NodeWalletState {
   readonly address: string
   /** Canonical integer atomic NODE units; see `NODE_UNITS_PER_NODE` in nodeMiner.ts. */
   readonly balanceNodeUnits: number
-  /** Bounded history of NODE this Wallet actually received. */
+  /** Bounded history of represented balance-changing economic activity. */
   readonly activity: NodeWalletActivityState
 }
 

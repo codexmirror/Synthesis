@@ -143,6 +143,7 @@ describe('purchasing a Market offering', () => {
     expect(marketAccount(result.state).balanceNodeUnits).toBe(10_000)
     expect(result.purchase).toEqual({ id: 'market-purchase-0001', offerId: NODESCAN_OFFER, priceNodeUnits: 10_000 })
     expect(result.state.market.purchases).toEqual({ nextId: 2, entitlements: [result.purchase] })
+    expect(result.state.nodeWallet.activity.records).toEqual([{ id: 'node-activity-0001', kind: 'market_purchase', purchaseId: 'market-purchase-0001', offerId: NODESCAN_OFFER, releaseId: 'nodescan-1.1-experimental', releaseName: 'NodeScan', releaseVersion: '1.1', amountNodeUnits: PRICE }])
     // The unrelated represented recipient is untouched: nothing is routed to the Miner developer account.
     expect(result.state.nodeEconomy.accounts.find(({ id }) => id === 'node-account-nm-dev-v0')!.balanceNodeUnits).toBe(0)
   })
@@ -156,6 +157,7 @@ describe('purchasing a Market offering', () => {
     expect(second.state).toBe(first.state)
     expect(second.state.nodeWallet.balanceNodeUnits).toBe(4 * PRICE)
     expect(second.state.market.purchases.entitlements).toHaveLength(1)
+    expect(second.state.nodeWallet.activity.records).toHaveLength(1)
   })
 
   it('rejects the purchase when no represented recipient holds the operator address', () => {
@@ -165,6 +167,7 @@ describe('purchasing a Market offering', () => {
     expect(result.status).toBe('recipient_unavailable')
     expect(result.state).toBe(state)
     expect(result.state.nodeWallet.balanceNodeUnits).toBe(PRICE)
+    expect(result.state.nodeWallet.activity).toEqual(state.nodeWallet.activity)
   })
 
   it('charges the offering its own represented price rather than a hardcoded one', () => {
@@ -177,6 +180,7 @@ describe('purchasing a Market offering', () => {
     expect(result.state.nodeWallet.balanceNodeUnits).toBe(NODE_UNITS_PER_NODE)
     expect(marketAccount(result.state).balanceNodeUnits).toBe(2 * NODE_UNITS_PER_NODE)
     expect(result.purchase.priceNodeUnits).toBe(2 * NODE_UNITS_PER_NODE)
+    expect(result.state.nodeWallet.activity.records[0]?.amountNodeUnits).toBe(2 * NODE_UNITS_PER_NODE)
   })
 
   it('rejects a balance one unit below the represented price and admits it at exactly the price', () => {
@@ -207,11 +211,11 @@ describe('purchasing a Market offering', () => {
     expect(advanced.fileTransfer.active).toBeNull()
   })
 
-  it('records no Wallet activity for NODE the Wallet did not receive', () => {
+  it('records the Rollback Exploit Toolkit release snapshot in Wallet activity', () => {
     const state = funded(PRICE)
-    const result = purchaseMarketOffer(state, NODESCAN_OFFER)
+    const result = purchaseMarketOffer(state, ROLLBACK_OFFER)
     if (result.status !== 'purchased') throw new Error('expected purchased')
-    expect(result.state.nodeWallet.activity).toEqual(state.nodeWallet.activity)
+    expect(result.state.nodeWallet.activity.records[0]).toMatchObject({ kind: 'market_purchase', offerId: ROLLBACK_OFFER, releaseId: 'rollback-exploit-toolkit-1.0', releaseName: 'Rollback Exploit Toolkit', releaseVersion: '1.0', amountNodeUnits: 10_000 })
   })
 })
 

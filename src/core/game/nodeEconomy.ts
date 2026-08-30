@@ -1,4 +1,4 @@
-import type { NodeAccount, NodeEconomyState, NodeWalletActivityRecord, NodeWalletActivityState, NodeWalletState } from './types'
+import type { NodeAccount, NodeEconomyState, NodeWalletActivityRecord, NodeWalletActivityState, NodeWalletMarketPurchaseActivityRecord, NodeWalletState } from './types'
 
 /** Modest fixed V1 retention for local Wallet activity: oldest record is evicted first once exceeded. */
 export const NODE_WALLET_ACTIVITY_CAPACITY = 20
@@ -16,23 +16,31 @@ export interface NodeRecipients {
   readonly nodeEconomy: NodeEconomyState
 }
 
-/**
- * Appends one record of NODE the local Wallet actually received. Record
- * identity is a per-Wallet monotonic counter that never rewinds, even when
- * capacity eviction removes the oldest retained record.
- */
-function appendNodeWalletActivity(activity: NodeWalletActivityState, amountNodeUnits: number): NodeWalletActivityState {
-  const record: NodeWalletActivityRecord = { id: `node-activity-${String(activity.nextId).padStart(4, '0')}`, kind: 'mining_payout', amountNodeUnits }
-  return { nextId: activity.nextId + 1, records: [...activity.records, record].slice(-NODE_WALLET_ACTIVITY_CAPACITY) }
+/** Appends one balance-changing record with identity shared across all kinds. */
+function appendNodeWalletActivity(activity: NodeWalletActivityState, record: Omit<NodeWalletActivityRecord, 'id'>): NodeWalletActivityState {
+  const identifiedRecord = { ...record, id: `node-activity-${String(activity.nextId).padStart(4, '0')}` } as NodeWalletActivityRecord
+  return { nextId: activity.nextId + 1, records: [...activity.records, identifiedRecord].slice(-NODE_WALLET_ACTIVITY_CAPACITY) }
 }
 
-/** Credits the local Wallet and records what it received. Wallet activity only ever describes real received amounts. */
+/** Credits the local Wallet and records the mining payout it received. */
 export function creditNodeWalletMiningPayout(nodeWallet: NodeWalletState, amountNodeUnits: number): NodeWalletState {
   if (amountNodeUnits <= 0) return nodeWallet
   return {
     ...nodeWallet,
     balanceNodeUnits: nodeWallet.balanceNodeUnits + amountNodeUnits,
-    activity: appendNodeWalletActivity(nodeWallet.activity, amountNodeUnits),
+    activity: appendNodeWalletActivity(nodeWallet.activity, { kind: 'mining_payout', amountNodeUnits }),
+  }
+}
+
+/** Debits a settled Market price and appends its historical display/identity evidence. */
+export function debitNodeWalletMarketPurchase(
+  nodeWallet: NodeWalletState,
+  purchase: Omit<NodeWalletMarketPurchaseActivityRecord, 'id' | 'kind'>,
+): NodeWalletState {
+  return {
+    ...nodeWallet,
+    balanceNodeUnits: nodeWallet.balanceNodeUnits - purchase.amountNodeUnits,
+    activity: appendNodeWalletActivity(nodeWallet.activity, { kind: 'market_purchase', ...purchase }),
   }
 }
 

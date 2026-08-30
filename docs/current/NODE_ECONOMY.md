@@ -152,20 +152,26 @@ NODE (e.g. `4,281` units presents as `0.004281 NODE`) via integer
 division/decimal-string composition rather than floating-point canonical
 truth.
 
-The local NODE Wallet also owns a bounded activity history of NODE it
-actually received: each record carries a deterministic monotonic per-Wallet
-ID (`node-activity-0001`, following the Authentication History pattern), the
-received `amountNodeUnits`, and its `mining_payout` kind, with retention
+The local NODE Wallet also owns a bounded history of its represented
+balance-changing economic activity. Each record carries a deterministic
+monotonic per-Wallet ID (`node-activity-0001`, following the Authentication
+History pattern), an integer `amountNodeUnits`, and currently either the
+`mining_payout` or `market_purchase` kind, with one shared retention capacity
 bounded to the most recent 20 records. No timestamps or world clock are
-represented. The Wallet application presents both canonical balances, the
-NODE address, and that received activity (newest first, each row stating
-`MINING PAYOUT` and the received amount, e.g. `+900 units`), visually
+represented. Mining payout records describe amounts actually received.
+Market purchase records describe amounts actually debited and preserve the
+stable purchase, offer and release identities plus the release name/version
+snapshot needed for truthful historical display; they are economic history,
+not entitlement authority. The Wallet application presents both canonical
+balances, the NODE address, and that activity (newest first, with signed amounts), visually
 distinguished, and owns no production or payout logic of its own. NODE's
 balance, payout address and activity are presented on one module under one
 `NODE` heading rather than as two modules under two headings; its empty activity
-state is stated on that same module. Wallet truth is only what this Wallet received: it never
-presents a payer's gross production, the unofficial Miner's developer fee,
-or that address. Dollar presentation, authority, transfers and Transaction history are owned by `DOLLAR_FINANCE.md`; NODE has no transfer operation and gains none from it.
+state is stated on that same module. Wallet activity never presents a mining
+payer's gross production, the unofficial Miner's developer fee, or that
+address. Dollar presentation, authority, transfers and Transaction history are
+owned by `DOLLAR_FINANCE.md`; NODE has no transfer operation and gains none
+from it.
 
 `GameState.nodeEconomy` holds the represented NODE recipients that exist
 besides that Wallet — currently exactly two. The first is the account
@@ -196,10 +202,12 @@ renders as `0.01 NODE`. Like every other canonical NODE amount it is authored
 and settled as an integer; a fractional NODE value is never stored, mutated or
 compared. What that price is and why belongs to `docs/current/MARKET.md`.
 
-A purchase appends no Wallet activity record. Wallet activity remains only
-what the Wallet actually received, exactly as described above; the canonical
-purchase entitlement is the record of what the spend bought. What that
-entitlement is and what it admits belongs to `docs/current/MARKET.md`.
+A successful purchase appends exactly one `market_purchase` record at that
+same atomic settlement boundary. It carries the offering's actual represented
+price and an immutable release display snapshot. The canonical purchase
+entitlement remains the authority for what the spend bought and admits; Wallet
+activity is not ownership. What that entitlement is and what it admits belongs
+to `docs/current/MARKET.md`.
 
 Wallet state is separate from player and Device identity.
 
@@ -221,8 +229,9 @@ Wallet state is separate from player and Device identity.
 - Address matching is exact and unnormalized, exactly one recipient may match,
   and there is no fallback recipient. Unrouted NODE simply never arrives and is
   never retroactively credited.
-- A Wallet's activity history is only what that Wallet received. It must never
-  reveal a payer's gross production, fee, or other destinations.
+- A Wallet's mining activity must never reveal a payer's gross production,
+  fee, or other destinations. Market purchase activity records only the local
+  Wallet debit and the purchased release snapshot.
 - The payout log belongs to the Device, not the Process. Stopping or removing
   the Miner never deletes it, and an unrelated artifact at that path is never
   overwritten.
@@ -230,5 +239,5 @@ Wallet state is separate from player and Device identity.
   supported executable. It is never a stored global capability flag.
 - A Market purchase is a concrete settlement between two represented
   recipients, not a generic NODE transfer. Do not grow it into one.
-- A Wallet balance that went down is not Wallet activity. Activity records
-  only NODE the Wallet received.
+- Wallet activity is limited to the concrete balance-changing kinds currently
+  represented; it is not a generic transaction system or NODE ledger.
