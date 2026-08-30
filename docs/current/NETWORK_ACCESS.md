@@ -118,14 +118,17 @@ progress, and the narrow submission capability are all derived from the
 player's own Knowledge, installed software, Process, and `RackUpdateSubmissionAccess`
 state alone.
 
-Service Analysis Process history records the remembered implementation
-fingerprint available when its work began. Where both that snapshot and a
-current remembered fingerprint exist, a completed result is current only when
-they match; after a legitimate package application refreshes the remembered
-fingerprint, an older result remains historical and the newly remembered
+At completion, Service Analysis Process history associates the result with a
+remembered implementation fingerprint only when that evidence matches the
+current Service implementation the Process actually resolves. Where a current
+remembered fingerprint exists, a completed result is current only when its
+association matches; after a legitimate package application refreshes the
+remembered fingerprint, an older result remains historical and the newly remembered
 implementation requires fresh analysis. This comparison uses Discovery and
-Process history, never hidden World Truth. Analyses admitted without a
-remembered fingerprint remain supported for the NodeScan 1.0 flow.
+Process history; World Truth is consulted only by the gameplay completion that
+already owns result resolution, never by NodeScan. Completed analyses without
+an implementation association remain supported for the NodeScan 1.0 flow but
+do not suppress fresh analysis once a concrete fingerprint is remembered.
 
 Because there is no canonical "analyzed" state, a Service that has not
 produced Knowledge claims no analysis state at all. A completed no-weakness or

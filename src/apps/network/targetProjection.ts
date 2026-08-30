@@ -360,13 +360,13 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     const currentFingerprint = service.inspect?.implementation
     const outcome = [...analysis].reverse().find((process) => {
       if (process.status !== 'completed' || !process.result) return false
-      // Pre-fingerprint analyses remain usable for the NodeScan 1.0 flow. Once
-      // represented implementation evidence exists, only a matching snapshot
-      // can describe that remembered implementation as analyzed.
-      return !currentFingerprint || !process.analyzedImplementation || (
+      // Fingerprint-free analyses remain usable for the NodeScan 1.0 flow.
+      // Once a concrete fingerprint is remembered, only a matching completion
+      // association can describe that implementation as analyzed.
+      return !currentFingerprint || Boolean(process.analyzedImplementation && (
         process.analyzedImplementation.name === currentFingerprint.name
         && process.analyzedImplementation.version === currentFingerprint.version
-      )
+      ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
     // Exactly one represented credential tool exists, so where it supports a

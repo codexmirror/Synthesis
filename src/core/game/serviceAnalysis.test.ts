@@ -5,6 +5,8 @@ import { advanceGameState } from './gameAdvancement'
 import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage } from './processes'
 import type { GameProcess, ServiceAnalysisProcess } from './types'
 import { scanNetworkTarget } from './scan'
+import { inspectKnownTarget } from './inspect'
+import { rememberInspect, rememberScan } from './discovery'
 
 // @ts-expect-error Service Analysis cannot omit its stable target identity or historical display target.
 const invalidAnalysisProcess: ServiceAnalysisProcess = { kind: 'service_analysis' }
@@ -13,6 +15,19 @@ void invalidAnalysisProcess
 const start = (state = createInitialGameState(), serviceId = 'service-ssh-001') => startServiceAnalysis(state, 'host-lan-001', serviceId)
 const started = (serviceId = 'service-ssh-001') => { const result = start(createInitialGameState(), serviceId); if (result.status !== 'started') throw Error(result.status); return result.state }
 const analysis = (process: GameProcess): ServiceAnalysisProcess => { if (process.kind !== 'service_analysis') throw Error('expected service analysis'); return process }
+
+function withRememberedSshImplementation(version: string) {
+  const base = createInitialGameState()
+  const host = base.world.network.hosts[0]
+  const services = host.services!.map((service) => service.id === 'service-ssh-001'
+    ? { ...service, implementation: { ...service.implementation, releaseId: `gate-ssh-${version}`, version } }
+    : service)
+  const state = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services }, ...base.world.network.hosts.slice(1)] } } }
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
+  discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '198.51.100.47', 'enhanced'), state.player.localDevice.id)
+  return { ...state, discovery }
+}
 
 describe('Service Analysis', () => {
   it('cancels partial analysis without completion consequences and permits a fresh admission', () => {
@@ -82,6 +97,28 @@ describe('Service Analysis', () => {
     const done = advanceGameState(changed, 20_000); expect(analysis(done.process.processes[0]).result).toEqual({ status: 'no_weakness_detected' }); expect(done.knowledge.discoveredVulnerabilities).toEqual([])
     const discovered = advanceGameState(started(), 20_000)
     const removed = { ...discovered, world: changed.world }; expect(removed.knowledge).toEqual(discovered.knowledge)
+  })
+  it('associates results at completion only when remembered evidence matches the implementation actually resolved', () => {
+    const observed133 = withRememberedSshImplementation('1.3.3')
+    const admitted = start(observed133)
+    expect(admitted.status).toBe('started'); if (admitted.status !== 'started') return
+    expect(analysis(admitted.state.process.processes[0]).analyzedImplementation).toBeUndefined()
+
+    const host = admitted.state.world.network.hosts[0]
+    const services = host.services!.map((service) => service.id === 'service-ssh-001'
+      ? { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.3.2', version: '1.3.2' } }
+      : service)
+    const changedWhileRunning = { ...admitted.state, world: { network: { ...admitted.state.world.network, hosts: [{ ...host, services }, ...admitted.state.world.network.hosts.slice(1)] } } }
+    const completed = advanceGameState(changedWhileRunning, 20_000)
+
+    expect(analysis(completed.process.processes[0])).toMatchObject({ result: { status: 'weaknesses_detected' } })
+    expect(analysis(completed.process.processes[0]).analyzedImplementation).toBeUndefined()
+    expect(completed.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017' }))
+
+    const fresh132 = withRememberedSshImplementation('1.3.2')
+    const freshStarted = start(fresh132); expect(freshStarted.status).toBe('started'); if (freshStarted.status !== 'started') return
+    const freshCompleted = advanceGameState(freshStarted.state, 20_000)
+    expect(analysis(freshCompleted.process.processes[0]).analyzedImplementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
   })
   it('reports unavailable from current truth, while stable identity survives a port change', () => {
     const running = started(); const host = running.world.network.hosts[0]; const service = host.services![0]
