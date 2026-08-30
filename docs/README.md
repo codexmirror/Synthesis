@@ -162,6 +162,10 @@ Market application.
   an offered release's represented facts change;
   [`design/FILES_AND_TRANSFER_V1.md`](design/FILES_AND_TRANSFER_V1.md) when the
   transfer route changes
+- VISUAL EXPLORATION →
+  [`design/MARKET_VISUAL_EXPLORATION_V1.md`](design/MARKET_VISUAL_EXPLORATION_V1.md)
+  (Draft exploration only, not Accepted and not a product-structure authority:
+  three candidate Market compositions for human visual review, selecting none)
 - RELATED CURRENT TRUTH → [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md)
   (what a purchase costs and which recipient is credited),
   [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md) (the FileTransfer

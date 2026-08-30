@@ -1,0 +1,571 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>NODE-OS Market — Direction B · Release Dossier</title>
+<!--
+  NODE-OS MARKET — VISUAL EXPLORATION V1 — DIRECTION B "RELEASE DOSSIER"
+
+  THIS IS NOT PRODUCTION SYNTHESIS CODE. Static design reference only. It
+  imports nothing from src/, is not built, typechecked, tested or mounted.
+
+  Product shape: a release is a document you read before you decide. The
+  catalog is a deliberately thin index whose only job is to help you choose
+  what to read; the release surface is a dossier whose dominant subject is the
+  release's own stated words, with one acquisition band as the single decision
+  moment and provenance composed so that a missing publisher or channel reads
+  as a deliberate absence rather than as a hole.
+
+  Every release identity, version, channel, publisher, filename, size, price,
+  destination path and documentation string below is current repository truth
+  (docs/current/MARKET.md, src/core/game/market.ts,
+  src/core/game/softwareReleaseContent.ts). The NODE balance and the PURCHASED
+  state in B3 are lifecycle snapshots the current product can already
+  represent; they are not initial GameState.
+-->
+<link rel="stylesheet" href="harness.css">
+<link rel="stylesheet" href="nodeos.css">
+<style>
+/* ── Direction B: everything below is owned by this direction ─────────────── */
+
+.market-b { max-width: 900px; }
+.market-b--index { max-width: 620px; }
+
+/* ── Index ────────────────────────────────────────────────────────────────
+   The thinnest useful catalog: release identity, the channel the release
+   actually states, and where it currently stands. No price and no action —
+   this list exists to choose what to read, and the decision is made once, on
+   the release's own surface. */
+.b-index { padding: 0; }
+
+.b-entry {
+  width: 100%;
+  min-height: 66px;
+  padding: 13px 16px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.b-entry + .b-entry { border-top: 1px solid var(--mod-hairline); }
+
+/* One mark per row, aligned down a single leading edge. It repeats the state
+   word rather than replacing it: the row survives with no colour at all. */
+.b-mark { width: 7px; height: 7px; border: 1px solid var(--text-faint); }
+.b-mark--purchased { border-color: var(--accent-mark); background: var(--accent-mark); }
+.b-mark--downloading { border-color: var(--accent-fill); background: var(--accent-fill); }
+.b-mark--ondevice { border-color: var(--green); background: var(--green); box-shadow: 0 0 0 2px var(--mod-surface), 0 0 0 3px var(--green); }
+
+.b-entry-copy { min-width: 0; display: grid; gap: 5px; }
+.b-entry-name { color: var(--text-strong); font: 600 .86rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.b-entry-name b { margin-left: 8px; color: var(--text-secondary); font: 400 .74rem/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .04em; }
+.b-entry-channel { color: var(--text-muted); font-size: .53rem; letter-spacing: var(--label-tracking); }
+.b-entry-channel.b-absent { color: var(--text-faint); }
+.b-entry-state { color: var(--text-quiet); font-size: .53rem; letter-spacing: .12em; white-space: nowrap; }
+.b-entry-state--ondevice { color: var(--green); }
+.b-entry-state--purchased { color: var(--accent); }
+.b-entry-arrow { color: var(--accent-mark); font-size: .9rem; }
+
+.b-index-foot { margin-top: 16px; }
+
+/* ── Dossier ──────────────────────────────────────────────────────────────
+   Identity across the top, then two columns: the release's own words as the
+   dominant subject, and one narrow decision rail beside them. */
+.b-hero {
+  padding: 20px 20px 18px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px 22px;
+  flex-wrap: wrap;
+  background:
+    radial-gradient(125% 95% at 2% -14%, rgb(140 255 178 / 6%), transparent 60%),
+    linear-gradient(174deg, #0e1512, var(--surface-raised) 55%, var(--surface));
+  box-shadow: inset 0 1px 0 rgb(190 255 214 / 8%);
+}
+
+.b-hero-copy { min-width: 0; display: grid; gap: 9px; }
+.b-hero-name { margin: 0; color: var(--text-strong); font: 500 1.5rem/1.1 Inter, system-ui, sans-serif; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.b-hero-name b { margin-left: 11px; color: var(--text-secondary); font: 400 .84rem/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .04em; }
+.b-hero-channel { color: var(--text-muted); font-size: .55rem; letter-spacing: var(--label-tracking); }
+.b-hero-channel.b-absent { color: var(--text-faint); }
+
+.b-hero-state { flex: none; display: grid; gap: 6px; justify-items: end; text-align: right; }
+.b-hero-state span { color: var(--text-faint); font-size: .5rem; letter-spacing: var(--label-tracking); }
+.b-hero-state strong { color: var(--text-secondary); font: 400 .74rem 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .13em; }
+.b-hero-state--purchased strong { color: var(--accent-strong); }
+
+.b-dossier { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr) 296px; gap: 10px 26px; align-items: start; }
+.b-main { min-width: 0; }
+.b-rail { min-width: 0; display: grid; gap: 10px; }
+
+/* The one decision moment. Price, the balance it is spent from and the action
+   are one object; nothing else in the dossier carries an action. */
+.b-buy { padding: 15px 16px 16px; }
+.b-buy-terms { margin: 0 0 14px; }
+.b-buy-terms > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 0;
+}
+.b-buy-terms > div + div { border-top: 1px solid var(--mod-hairline); }
+.b-buy-terms dt { color: var(--text-muted); font-size: .52rem; letter-spacing: var(--label-tracking); }
+.b-buy-terms dd { margin: 0; color: var(--text-strong); font: 500 .92rem Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.b-buy-terms dd em { margin-left: 5px; color: var(--text-muted); font: 400 .5rem 'IBM Plex Mono', ui-monospace, monospace; font-style: normal; letter-spacing: var(--label-tracking); }
+.b-buy-terms .b-terms-quiet dd { color: var(--text-secondary); font-size: .8rem; }
+
+/* Filled is reserved for the consequential act: spending canonical NODE, and
+   starting the real transfer that spending entitled. */
+.b-primary {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid var(--accent-rule);
+  background: linear-gradient(180deg, #17442c, #123723 70%);
+  color: #d6ffe6;
+  font: inherit;
+  font-size: .64rem;
+  letter-spacing: .13em;
+}
+
+.b-buy .node-note { margin-top: 11px; }
+
+.b-rail .node-section { margin: 6px 0 8px; }
+.b-rail .node-facts > div { grid-template-columns: minmax(74px, 38%) minmax(0, 1fr); }
+.b-absent { color: var(--text-faint); }
+
+.b-main .node-section:first-child { margin-top: 4px; }
+.b-about { margin: 12px 0 0; max-width: 66ch; color: var(--text); font-size: .78rem; line-height: 1.65; }
+
+/* A release that publishes nothing keeps that silence composed rather than
+   leaving the dominant column empty. */
+.b-silent { margin-top: 12px; }
+
+.b-boundary { margin-top: 18px; padding: 13px 15px; }
+.b-boundary strong { display: block; margin-bottom: 7px; color: #8b9990; font-size: .55rem; letter-spacing: var(--label-tracking); }
+.b-boundary p { margin: 0; color: var(--text-quiet); font-size: .68rem; line-height: 1.55; }
+.b-boundary code { color: var(--text-secondary); font: inherit; font-size: .66rem; }
+
+/* ── Narrow composition ───────────────────────────────────────────────────
+   The dossier's reading column is already the phone layout. The one real
+   responsive decision is order: on a phone the decision rail comes first, so
+   price, provenance and the action are above the release's own prose instead
+   of below it. */
+@container shell (max-width: 780px) {
+  .b-dossier { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .b-rail { order: 1; }
+  .b-main { order: 2; margin-top: 4px; }
+}
+
+@container shell (max-width: 700px) {
+  .b-hero { padding: 16px 15px 15px; }
+  .b-hero-name { font-size: 1.3rem; }
+  .b-hero-state { justify-items: start; text-align: left; }
+  /* The state word drops under the identity rather than competing with it for
+     width, so a long release name never has to break mid-word. Every cell is
+     placed explicitly: leaving one to auto-placement is what created a fourth
+     implicit column and squeezed the name. */
+  .b-entry {
+    grid-template-columns: 10px minmax(0, 1fr) 18px;
+    grid-template-areas: "mark copy arrow" ".    state arrow";
+    padding: 13px 13px;
+  }
+
+  .b-mark { grid-area: mark; align-self: start; margin-top: 5px; }
+  .b-entry-copy { grid-area: copy; }
+  .b-entry-state { grid-area: state; padding-top: 7px; }
+  .b-entry-arrow { grid-area: arrow; align-self: center; }
+}
+</style>
+
+<header class="harness-head">
+  <h1>NODE-OS Market — Visual Exploration V1 · Direction B “Release Dossier”</h1>
+  <p><b>Product shape:</b> evaluation leads. The catalog is a thin index for choosing what to read; the release is a dossier whose dominant subject is what the release itself states, with one acquisition band as the single decision moment. Price and balance appear where the decision is made, not while browsing.</p>
+  <p>Frames reproduce the current Shell viewport (1120×780 desktop, 390×800 phone). The Shell is not a task target and gains nothing here.</p>
+  <p class="harness-flag">MOCK STATE SNAPSHOT — NOT INITIAL GAMESTATE. Every release fact is current repository truth; the NODE balance and the PURCHASED state are already-supported lifecycle states arranged for review.</p>
+</header>
+
+<div class="board">
+
+  <!-- ── B1 · MARKET ROOT / INDEX ──────────────────────────────────────── -->
+  <figure class="plate">
+    <figcaption><b>B1 · Market root — release index</b><i>Identity, the channel the release actually states, and where it stands. No price column and no action: the decision belongs to the release's own surface.</i></figcaption>
+    <div class="screen screen--desktop" id="b-catalog">
+      <div class="os-shell">
+        <header class="status-bar">
+          <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+          <div class="top-stats"><span>198.51.100.23</span><time>16:02:07</time><span class="connection"><i></i>ONLINE</span></div>
+        </header>
+        <div class="app-view">
+          <header class="app-header">
+            <button class="shell-back" type="button">← <span>HOME</span></button>
+            <div class="app-title"><h1>Market</h1></div>
+          </header>
+          <section class="app-content market-b market-b--index">
+
+            <header class="node-masthead">
+              <h2 class="node-masthead-subject">Software releases</h2>
+              <span class="node-masthead-meta">LISTED BY OPEN PACKAGE EXCHANGE · node-01</span>
+            </header>
+
+            <div class="node-section"><span>INDEX</span><span>5 RELEASES</span></div>
+
+            <div class="mod b-index">
+              <button class="b-entry" type="button">
+                <i class="b-mark"></i>
+                <span class="b-entry-copy"><span class="b-entry-name">NodeScan<b>1.1</b></span><span class="b-entry-channel">EXPERIMENTAL</span></span>
+                <span class="b-entry-state">AVAILABLE</span>
+                <span class="b-entry-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="b-entry" type="button">
+                <i class="b-mark b-mark--ondevice"></i>
+                <span class="b-entry-copy"><span class="b-entry-name">NODE Miner<b>1.0</b></span><span class="b-entry-channel">UNOFFICIAL</span></span>
+                <span class="b-entry-state b-entry-state--ondevice">ON DEVICE</span>
+                <span class="b-entry-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="b-entry" type="button">
+                <i class="b-mark"></i>
+                <span class="b-entry-copy"><span class="b-entry-name">GateSSH<b>1.3.2</b></span><span class="b-entry-channel">STABLE</span></span>
+                <span class="b-entry-state">AVAILABLE</span>
+                <span class="b-entry-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="b-entry" type="button">
+                <i class="b-mark"></i>
+                <span class="b-entry-copy"><span class="b-entry-name">GateSSH<b>1.3.3</b></span><span class="b-entry-channel b-absent">NO CHANNEL STATED</span></span>
+                <span class="b-entry-state">AVAILABLE</span>
+                <span class="b-entry-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="b-entry" type="button">
+                <i class="b-mark"></i>
+                <span class="b-entry-copy"><span class="b-entry-name">Rollback Exploit Toolkit<b>1.0</b></span><span class="b-entry-channel b-absent">NO CHANNEL STATED</span></span>
+                <span class="b-entry-state">AVAILABLE</span>
+                <span class="b-entry-arrow" aria-hidden="true">→</span>
+              </button>
+            </div>
+
+            <p class="node-note b-index-foot">NODE-OS provides this client. Open Package Exchange lists and sells these releases and receives what they cost. Provenance is whatever each release states for itself.</p>
+
+          </section>
+        </div>
+        <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ── B2 · DOSSIER — AVAILABLE / BUY ────────────────────────────────── -->
+  <figure class="plate">
+    <figcaption><b>B2 · Offering detail — AVAILABLE / BUY</b><i>Rollback Exploit Toolkit 1.0: full authored documentation and no stated publisher or channel. The hardest real case — rich words, absent provenance — is the one this shape has to survive.</i></figcaption>
+    <div class="screen screen--desktop" id="b-detail">
+      <div class="os-shell">
+        <header class="status-bar">
+          <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+          <div class="top-stats"><span>198.51.100.23</span><time>16:03:19</time><span class="connection"><i></i>ONLINE</span></div>
+        </header>
+        <div class="app-view">
+          <header class="app-header">
+            <button class="shell-back" type="button">← <span>HOME</span></button>
+            <div class="app-title"><h1>Market</h1></div>
+          </header>
+          <section class="app-content market-b">
+
+            <button class="node-back" type="button"><span aria-hidden="true">←</span> RELEASES</button>
+
+            <div class="mod b-hero">
+              <span class="b-hero-copy">
+                <p class="eyebrow">RELEASE</p>
+                <h2 class="b-hero-name">Rollback Exploit Toolkit<b>1.0</b></h2>
+                <span class="b-hero-channel b-absent">NO CHANNEL STATED</span>
+              </span>
+              <span class="b-hero-state"><span>ACQUISITION</span><strong>AVAILABLE</strong></span>
+            </div>
+
+            <div class="b-dossier">
+              <div class="b-main">
+                <div class="node-section"><span>WHAT THIS RELEASE STATES</span></div>
+                <p class="b-about">Offensive toolkit for represented rollback-protection weaknesses in package-submission interfaces.</p>
+
+                <div class="node-section"><span>CAPABILITIES</span></div>
+                <dl class="node-facts">
+                  <div><dt>ROLLBACK EXPLOIT</dt><dd>Attempt supported known rollback-protection weaknesses.</dd></div>
+                  <div><dt>UPD-001 SUPPORT</dt><dd>Supports the represented UPD-001 technique.</dd></div>
+                </dl>
+
+                <div class="node-section"><span>CHANGES</span></div>
+                <ul class="software-changes"><li>Initial release.</li></ul>
+
+                <div class="mod mod--inset b-boundary">
+                  <strong>WHERE THIS ENDS</strong>
+                  <p>Market ends at acquisition. Buying establishes an entitlement; downloading places <code>rollback-exploit-toolkit-1.0.pkg</code> in <code>/home/user/downloads/</code>. Installing it is Files’ own step, and running it is separate again.</p>
+                </div>
+              </div>
+
+              <div class="b-rail">
+                <div class="mod b-buy">
+                  <dl class="b-buy-terms">
+                    <div><dt>PRICE</dt><dd>0.01<em>NODE</em></dd></div>
+                    <div class="b-terms-quiet"><dt>YOUR BALANCE</dt><dd>0.0845<em>NODE</em></dd></div>
+                  </dl>
+                  <button class="b-primary" type="button">BUY · 0.01 NODE</button>
+                  <p class="node-note">Paid to Open Package Exchange. This establishes an entitlement to download; it transfers and installs nothing.</p>
+                </div>
+
+                <div>
+                  <div class="node-section"><span>PROVENANCE</span></div>
+                  <dl class="node-facts">
+                    <div><dt>PUBLISHER</dt><dd class="b-absent">NOT STATED</dd></div>
+                    <div><dt>CHANNEL</dt><dd class="b-absent">NOT STATED</dd></div>
+                    <div><dt>SELLER</dt><dd>Open Package Exchange</dd></div>
+                  </dl>
+                  <p class="node-note">This release states no publisher and no channel. NODE-OS supplies none, and nothing is inferred from another release.</p>
+                </div>
+
+                <div>
+                  <div class="node-section"><span>PACKAGE</span></div>
+                  <dl class="node-facts">
+                    <div><dt>FILE</dt><dd>rollback-exploit-toolkit-1.0.pkg</dd></div>
+                    <div><dt>SIZE</dt><dd>2.1 MB</dd></div>
+                    <div><dt>RELEASE</dt><dd>rollback-exploit-toolkit-1.0</dd></div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+          </section>
+        </div>
+        <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ── B3 · DOSSIER — PURCHASED / DOWNLOAD ───────────────────────────── -->
+  <figure class="plate">
+    <figcaption><b>B3 · Acquisition follow-up — PURCHASED → DOWNLOAD</b><i>The same dossier with the entitlement held. The band states what was paid, that no copy exists yet, and exactly where the package will land.</i></figcaption>
+    <div class="screen screen--desktop" id="b-acquisition">
+      <div class="os-shell">
+        <header class="status-bar">
+          <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+          <div class="top-stats"><span>198.51.100.23</span><time>16:05:44</time><span class="connection"><i></i>ONLINE</span></div>
+        </header>
+        <div class="app-view">
+          <header class="app-header">
+            <button class="shell-back" type="button">← <span>HOME</span></button>
+            <div class="app-title"><h1>Market</h1></div>
+          </header>
+          <section class="app-content market-b">
+
+            <button class="node-back" type="button"><span aria-hidden="true">←</span> RELEASES</button>
+
+            <div class="mod b-hero">
+              <span class="b-hero-copy">
+                <p class="eyebrow">RELEASE</p>
+                <h2 class="b-hero-name">NodeScan<b>1.1</b></h2>
+                <span class="b-hero-channel">EXPERIMENTAL</span>
+              </span>
+              <span class="b-hero-state b-hero-state--purchased"><span>ACQUISITION</span><strong>PURCHASED</strong></span>
+            </div>
+
+            <div class="b-dossier">
+              <div class="b-main">
+                <div class="node-section"><span>WHAT THIS RELEASE STATES</span></div>
+                <p class="b-about">Experimental NodeScan release with extended target inspection.</p>
+
+                <div class="node-section"><span>CAPABILITIES</span></div>
+                <dl class="node-facts">
+                  <div><dt>NETWORK SCAN</dt><dd>Discover represented networks, devices, relationships and exposed Services.</dd></div>
+                  <div><dt>TARGET INSPECT</dt><dd>Observe represented Device and already-known Service fingerprints.</dd></div>
+                  <div><dt>SERVICE ANALYSIS</dt><dd>Investigate known Service endpoints for represented weaknesses.</dd></div>
+                </dl>
+
+                <div class="node-section"><span>CHANGES</span></div>
+                <ul class="software-changes">
+                  <li>Target Inspect</li>
+                  <li>Firmware fingerprinting</li>
+                  <li>Compute classification</li>
+                  <li>Service implementation fingerprinting</li>
+                  <li>Authentication observation</li>
+                </ul>
+              </div>
+
+              <div class="b-rail">
+                <div class="mod b-buy">
+                  <dl class="b-buy-terms">
+                    <div><dt>PAID</dt><dd>0.01<em>NODE</em></dd></div>
+                    <div class="b-terms-quiet"><dt>LOCAL COPY</dt><dd>NONE</dd></div>
+                  </dl>
+                  <button class="b-primary" type="button">DOWNLOAD · 18.4 MB</button>
+                  <p class="node-note">Entitlement held. The transfer writes <code>/home/user/downloads/nodescan-exp-1.1.pkg</code> only when it completes.</p>
+                </div>
+
+                <div>
+                  <div class="node-section"><span>PROVENANCE</span></div>
+                  <dl class="node-facts">
+                    <div><dt>PUBLISHER</dt><dd class="b-absent">NOT STATED</dd></div>
+                    <div><dt>CHANNEL</dt><dd>experimental</dd></div>
+                    <div><dt>SELLER</dt><dd>Open Package Exchange</dd></div>
+                  </dl>
+                </div>
+
+                <div>
+                  <div class="node-section"><span>PACKAGE</span></div>
+                  <dl class="node-facts">
+                    <div><dt>FILE</dt><dd>nodescan-exp-1.1.pkg</dd></div>
+                    <div><dt>SIZE</dt><dd>18.4 MB</dd></div>
+                    <div><dt>RELEASE</dt><dd>nodescan-1.1-experimental</dd></div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+          </section>
+        </div>
+        <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ── B4 / B5 · MOBILE ──────────────────────────────────────────────── -->
+  <div class="strip">
+    <figure class="plate">
+      <figcaption><b>B4 · Phone — dossier · 390</b><i>The real responsive decision: the decision rail moves above the release’s prose, so price, provenance and the action sit above the fold and the reading follows.</i></figcaption>
+      <div class="screen screen--phone" id="b-mobile">
+        <div class="os-shell">
+          <header class="status-bar">
+            <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+            <div class="top-stats"><span>198.51.100.23</span><time>16:03:19</time><span class="connection"><i></i>ONLINE</span></div>
+          </header>
+          <div class="app-view">
+            <header class="app-header">
+              <button class="shell-back" type="button">←<span> HOME</span></button>
+              <div class="app-title"><h1>Market</h1></div>
+            </header>
+            <section class="app-content market-b">
+
+              <button class="node-back" type="button"><span aria-hidden="true">←</span> RELEASES</button>
+
+              <div class="mod b-hero">
+                <span class="b-hero-copy">
+                  <p class="eyebrow">RELEASE</p>
+                  <h2 class="b-hero-name">Rollback Exploit Toolkit<b>1.0</b></h2>
+                  <span class="b-hero-channel b-absent">NO CHANNEL STATED</span>
+                </span>
+                <span class="b-hero-state"><span>ACQUISITION</span><strong>AVAILABLE</strong></span>
+              </div>
+
+              <div class="b-dossier">
+                <div class="b-main">
+                  <div class="node-section"><span>WHAT THIS RELEASE STATES</span></div>
+                  <p class="b-about">Offensive toolkit for represented rollback-protection weaknesses in package-submission interfaces.</p>
+
+                  <div class="node-section"><span>CAPABILITIES</span></div>
+                  <dl class="node-facts">
+                    <div><dt>ROLLBACK EXPLOIT</dt><dd>Attempt supported known rollback-protection weaknesses.</dd></div>
+                    <div><dt>UPD-001 SUPPORT</dt><dd>Supports the represented UPD-001 technique.</dd></div>
+                  </dl>
+                </div>
+
+                <div class="b-rail">
+                  <div class="mod b-buy">
+                    <dl class="b-buy-terms">
+                      <div><dt>PRICE</dt><dd>0.01<em>NODE</em></dd></div>
+                      <div class="b-terms-quiet"><dt>YOUR BALANCE</dt><dd>0.0845<em>NODE</em></dd></div>
+                    </dl>
+                    <button class="b-primary" type="button">BUY · 0.01 NODE</button>
+                    <p class="node-note">Paid to Open Package Exchange. Establishes an entitlement to download; transfers and installs nothing.</p>
+                  </div>
+
+                  <div>
+                    <div class="node-section"><span>PROVENANCE</span></div>
+                    <dl class="node-facts">
+                      <div><dt>PUBLISHER</dt><dd class="b-absent">NOT STATED</dd></div>
+                      <div><dt>CHANNEL</dt><dd class="b-absent">NOT STATED</dd></div>
+                      <div><dt>SELLER</dt><dd>Open Package Exchange</dd></div>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+          </div>
+          <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+        </div>
+      </div>
+    </figure>
+
+    <figure class="plate">
+      <figcaption><b>B5 · Phone — release index · 390</b><i>The index stays thin on a phone, where a five-item list is a whole screen and each row only has to be choosable.</i></figcaption>
+      <div class="screen screen--phone" id="b-mobileindex">
+        <div class="os-shell">
+          <header class="status-bar">
+            <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+            <div class="top-stats"><span>198.51.100.23</span><time>16:02:07</time><span class="connection"><i></i>ONLINE</span></div>
+          </header>
+          <div class="app-view">
+            <header class="app-header">
+              <button class="shell-back" type="button">←<span> HOME</span></button>
+              <div class="app-title"><h1>Market</h1></div>
+            </header>
+            <section class="app-content market-b market-b--index">
+
+              <header class="node-masthead">
+                <h2 class="node-masthead-subject">Software releases</h2>
+                <span class="node-masthead-meta">OPEN PACKAGE EXCHANGE · node-01</span>
+              </header>
+
+              <div class="node-section"><span>INDEX</span><span>5 RELEASES</span></div>
+
+              <div class="mod b-index">
+                <button class="b-entry" type="button">
+                  <i class="b-mark"></i>
+                  <span class="b-entry-copy"><span class="b-entry-name">NodeScan<b>1.1</b></span><span class="b-entry-channel">EXPERIMENTAL</span></span>
+                  <span class="b-entry-state">AVAILABLE</span>
+                  <span class="b-entry-arrow" aria-hidden="true">→</span>
+                </button>
+                <button class="b-entry" type="button">
+                  <i class="b-mark b-mark--ondevice"></i>
+                  <span class="b-entry-copy"><span class="b-entry-name">NODE Miner<b>1.0</b></span><span class="b-entry-channel">UNOFFICIAL</span></span>
+                  <span class="b-entry-state b-entry-state--ondevice">ON DEVICE</span>
+                  <span class="b-entry-arrow" aria-hidden="true">→</span>
+                </button>
+                <button class="b-entry" type="button">
+                  <i class="b-mark"></i>
+                  <span class="b-entry-copy"><span class="b-entry-name">GateSSH<b>1.3.2</b></span><span class="b-entry-channel">STABLE</span></span>
+                  <span class="b-entry-state">AVAILABLE</span>
+                  <span class="b-entry-arrow" aria-hidden="true">→</span>
+                </button>
+                <button class="b-entry" type="button">
+                  <i class="b-mark"></i>
+                  <span class="b-entry-copy"><span class="b-entry-name">GateSSH<b>1.3.3</b></span><span class="b-entry-channel b-absent">NO CHANNEL STATED</span></span>
+                  <span class="b-entry-state">AVAILABLE</span>
+                  <span class="b-entry-arrow" aria-hidden="true">→</span>
+                </button>
+                <button class="b-entry" type="button">
+                  <i class="b-mark"></i>
+                  <span class="b-entry-copy"><span class="b-entry-name">Rollback Exploit Toolkit<b>1.0</b></span><span class="b-entry-channel b-absent">NO CHANNEL STATED</span></span>
+                  <span class="b-entry-state">AVAILABLE</span>
+                  <span class="b-entry-arrow" aria-hidden="true">→</span>
+                </button>
+              </div>
+
+              <p class="node-note b-index-foot">NODE-OS provides this client. Open Package Exchange lists and sells these releases and receives what they cost.</p>
+
+            </section>
+          </div>
+          <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+        </div>
+      </div>
+    </figure>
+  </div>
+
+</div>
+
+<script src="harness.js"></script>

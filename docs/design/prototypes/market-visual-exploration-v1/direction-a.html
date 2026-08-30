@@ -1,0 +1,610 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>NODE-OS Market — Direction A · Exchange Counter</title>
+<!--
+  NODE-OS MARKET — VISUAL EXPLORATION V1 — DIRECTION A "EXCHANGE COUNTER"
+
+  THIS IS NOT PRODUCTION SYNTHESIS CODE. Static design reference only. It
+  imports nothing from src/, is not built, typechecked, tested or mounted.
+
+  Product shape: the catalog IS the product. Every offering is a complete
+  decision unit — identity, price in one comparable column, acquisition state
+  and the actual primary action — and the release opens in place, so the user
+  never leaves the list to buy, to download, or to read provenance.
+
+  Every release identity, version, channel, publisher, filename, size, price,
+  destination path and documentation string below is current repository truth
+  (docs/current/MARKET.md, src/core/game/market.ts,
+  src/core/game/softwareReleaseContent.ts). The NODE balance and the mixed
+  acquisition states in screen A3 are lifecycle snapshots the current product
+  can already represent; they are not initial GameState.
+-->
+<link rel="stylesheet" href="harness.css">
+<link rel="stylesheet" href="nodeos.css">
+<style>
+/* ── Direction A: everything below is owned by this direction ─────────────── */
+
+.market-a { max-width: 860px; }
+
+/* Operator context. One quiet line, deliberately not a masthead subject and
+   not a brand: the releases are the subject of this application, and a later
+   different source has to be able to take this line's place without the
+   catalog below it changing shape. */
+.a-context {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 20px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.a-context-source { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.a-context-source b { color: var(--text-secondary); font-weight: 400; font-size: .72rem; overflow-wrap: anywhere; }
+.a-context-client { flex: none; color: var(--text-faint); font-size: var(--label-size); letter-spacing: var(--label-tracking); }
+
+/* Balance. Present because a price column is useless without it, sized as a
+   supporting instrument rather than as a Wallet hero: money is an input to the
+   decision here, not the subject of the screen. */
+.a-balance {
+  margin-top: 12px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 18px;
+  flex-wrap: wrap;
+}
+
+.a-balance-figure { display: flex; align-items: baseline; gap: 8px; }
+.a-balance-figure .qty { color: var(--green); font-size: 1.16rem; }
+.a-balance-figure em { color: var(--text-muted); font-size: .58rem; font-style: normal; letter-spacing: var(--label-tracking); }
+.a-balance-held { color: var(--text-quiet); font-size: .56rem; letter-spacing: .11em; }
+.a-balance-held b { color: var(--text-secondary); font-weight: 400; }
+
+/* ── The counter ──────────────────────────────────────────────────────────
+   One list on one surface, hairline-separated. Five offerings must read as a
+   price list, not as five repeated bordered objects. */
+.a-counter { padding: 0; }
+
+.a-head,
+.a-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px 96px 116px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 15px;
+}
+
+.a-head {
+  min-height: 30px;
+  color: var(--text-faint);
+  font-size: .5rem;
+  letter-spacing: var(--label-tracking);
+  border-bottom: 1px solid var(--mod-hairline);
+}
+
+.a-head span:nth-child(3),
+.a-head span:nth-child(4) { text-align: right; }
+
+.a-row { position: relative; min-height: 62px; padding-block: 11px; }
+.a-row + .a-row,
+.a-panel + .a-row { border-top: 1px solid var(--mod-hairline); }
+
+.a-identity { min-width: 0; display: grid; gap: 4px; }
+
+/* Name in the application face, release metadata in the technical face: the
+   split is by what a value is, not by where it sits. */
+.a-name { color: var(--text-strong); font: 600 .82rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.a-name b { margin-left: 7px; color: var(--text-secondary); font: 400 .7rem/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .04em; }
+.a-meta { color: var(--text-muted); font-size: .55rem; letter-spacing: .11em; overflow-wrap: anywhere; }
+
+.a-state { display: flex; align-items: center; gap: 7px; color: var(--text-quiet); font-size: .53rem; letter-spacing: .12em; }
+.a-state i { flex: none; width: 6px; height: 6px; border: 1px solid currentColor; }
+.a-state--purchased { color: var(--accent); }
+.a-state--purchased i { background: currentColor; }
+.a-state--downloading { color: var(--accent-strong); }
+.a-state--downloading i { background: currentColor; }
+.a-state--ondevice { color: var(--green); }
+.a-state--ondevice i { background: currentColor; box-shadow: 0 0 0 2px var(--mod-inset), 0 0 0 3px currentColor; }
+
+/* One trailing money column, tabular, so five prices compare at a glance. */
+.a-price { text-align: right; color: var(--text-strong); font: 500 .84rem Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.a-price em { display: block; margin-top: 2px; color: var(--text-faint); font: 400 .48rem/1 'IBM Plex Mono', ui-monospace, monospace; font-style: normal; letter-spacing: var(--label-tracking); }
+
+.a-act { justify-self: end; display: flex; align-items: center; gap: 8px; }
+
+.a-do {
+  min-width: 84px;
+  min-height: 40px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mod-edge);
+  background: linear-gradient(180deg, var(--mod-tile-lift), var(--mod-tile) 62%);
+  box-shadow: inset 0 1px 0 var(--mod-edge-lit);
+  color: var(--accent);
+  font: inherit;
+  font-size: .56rem;
+  letter-spacing: .12em;
+}
+
+.a-do--none { border-style: dashed; border-color: var(--line-quiet); background: none; box-shadow: none; color: var(--text-faint); }
+
+.a-open {
+  flex: none;
+  width: 26px;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-mark);
+  font: inherit;
+  font-size: .8rem;
+  text-align: center;
+}
+
+/* A running transfer belongs to the row it is running for: the rail rests on
+   the row's own lower edge rather than becoming a separate object. */
+.a-rail { grid-column: 1 / -1; display: block; margin: 4px -15px -11px; }
+.a-rail .node-progress { height: 2px; }
+.a-progress-line { display: block; margin: 7px 15px 7px; color: var(--text-muted); font-size: .55rem; letter-spacing: .09em; }
+.a-progress-line b { color: var(--accent-strong); font-weight: 400; }
+
+/* ── The release, opened in place ──────────────────────────────────────────
+   Not a second screen: the panel belongs to the row above it and keeps the
+   whole catalog on screen, which is the entire argument of this direction. */
+.a-panel {
+  padding: 4px 15px 17px;
+  border-top: 1px solid var(--mod-hairline);
+  background: var(--mod-inset);
+  box-shadow: var(--mod-recessed);
+}
+
+.a-panel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 6px 30px; }
+.a-panel .node-section { margin: 14px 0 6px; border-bottom-color: var(--mod-hairline); }
+.a-panel .node-facts { border-top-color: var(--mod-hairline); }
+.a-panel .node-facts > div { border-bottom-color: var(--mod-hairline); grid-template-columns: minmax(84px, 34%) minmax(0, 1fr); }
+.a-panel .node-facts dd { font-size: .66rem; }
+.a-panel .node-note { margin-top: 10px; }
+.a-absent { color: var(--text-faint); }
+.a-about { margin: 10px 0 0; color: var(--text-secondary); font-size: .68rem; line-height: 1.55; }
+.a-panel .node-disclosure { margin-top: 10px; border-top-color: var(--mod-hairline); }
+
+.a-foot { margin-top: 18px; }
+
+/* ── Narrow composition ───────────────────────────────────────────────────
+   Not the desktop table compressed. Below 700 the money column and the action
+   leave the identity's row and form a second decision line, so the name keeps
+   the full width and the action keeps a real touch target. */
+/* The package filename is the first thing to go when the row narrows: it is
+   context, not identity, and it is stated in full on the release's own panel. */
+@container shell (max-width: 540px) {
+  .a-file { display: none; }
+}
+
+@container shell (max-width: 700px) {
+  .a-head { display: none; }
+
+  .a-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px 12px;
+    padding: 12px 13px;
+  }
+
+  .a-identity { grid-column: 1; grid-row: 1; }
+  .a-price { grid-column: 2; grid-row: 1; display: flex; align-items: baseline; gap: 6px; }
+  .a-price em { margin: 0; }
+  .a-state { grid-column: 1; grid-row: 2; }
+  .a-act { grid-column: 2; grid-row: 2; }
+  .a-do { min-height: 44px; min-width: 78px; }
+  .a-rail { grid-column: 1 / -1; grid-row: 3; margin: 1px -13px -12px; }
+  .a-progress-line { margin-inline: 13px; }
+  .a-panel { padding: 2px 13px 15px; }
+  .a-panel-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .a-balance { padding: 12px 13px; }
+}
+</style>
+
+<header class="harness-head">
+  <h1>NODE-OS Market — Visual Exploration V1 · Direction A “Exchange Counter”</h1>
+  <p><b>Product shape:</b> the catalog is the product. Every offering row is a complete decision unit — release identity, one comparable price column, acquisition state and the primary action itself — and a release opens in place, so evaluation and acquisition never cost a navigation step.</p>
+  <p>Frames reproduce the current Shell viewport (1120×780 desktop, 390×800 phone). The Shell is not a task target and gains nothing here.</p>
+  <p class="harness-flag">MOCK STATE SNAPSHOT — NOT INITIAL GAMESTATE. Every release fact is current repository truth; the NODE balance and the mixed acquisition states are already-supported lifecycle states arranged for review.</p>
+</header>
+
+<div class="board">
+
+  <figure class="plate">
+    <figcaption><b>A1 · Market root — catalog</b><i>Represented catalog order and initial possession truth: the seeded NODE Miner copy is ON DEVICE and still offers BUY, because a local copy is not an entitlement.</i></figcaption>
+      <div class="screen screen--desktop" id="a-catalog">
+        <div class="os-shell">
+          <header class="status-bar">
+            <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+            <div class="top-stats"><span>198.51.100.23</span><time>15:53:14</time><span class="connection"><i></i>ONLINE</span></div>
+          </header>
+          <div class="app-view">
+            <header class="app-header">
+              <button class="shell-back" type="button">← <span>HOME</span></button>
+              <div class="app-title"><h1>Market</h1></div>
+            </header>
+            <section class="app-content market-a">
+        <div class="a-context">
+          <span class="a-context-source"><span class="eyebrow">LISTED BY</span><b>Open Package Exchange</b></span>
+          <span class="a-context-client">CLIENT · NODE-OS / node-01</span>
+        </div>
+
+        <div class="mod a-balance">
+          <span class="a-balance-figure"><span class="eyebrow">NODE</span><span class="qty">0.0845</span><em>AVAILABLE TO SPEND</em></span>
+          <span class="a-balance-held">ENTITLEMENTS HELD <b>0</b></span>
+        </div>
+
+        <div class="node-section"><span>CATALOG</span><span>5 OFFERINGS</span></div>
+
+        <div class="mod a-counter">
+          <div class="a-head"><span>RELEASE</span><span>STATE</span><span>PRICE</span><span>ACTION</span></div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">NodeScan<b>1.1</b></span><span class="a-meta">EXPERIMENTAL · 18.4 MB<span class="a-file"> · nodescan-exp-1.1.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open NodeScan 1.1">+</button></span>
+          </div>
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">NODE Miner<b>1.0</b></span><span class="a-meta">UNOFFICIAL · 3.4 MB<span class="a-file"> · node-miner-1.0.pkg</span></span></span>
+            <span class="a-state a-state--ondevice"><i></i>ON DEVICE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open NODE Miner 1.0">+</button></span>
+          </div>
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">GateSSH<b>1.3.2</b></span><span class="a-meta">STABLE · 6.4 MB<span class="a-file"> · gatessh-1.3.2.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.2">+</button></span>
+          </div>
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">GateSSH<b>1.3.3</b></span><span class="a-meta">6.6 MB<span class="a-file"> · gatessh-1.3.3.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.3">+</button></span>
+          </div>
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">Rollback Exploit Toolkit<b>1.0</b></span><span class="a-meta">2.1 MB<span class="a-file"> · rollback-exploit-toolkit-1.0.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open Rollback Exploit Toolkit 1.0">+</button></span>
+          </div>
+        </div>
+
+        <p class="node-note a-foot">NODE-OS provides this client. Open Package Exchange lists and sells these offerings and receives what they cost. Each release states its own publisher where one is represented.</p>
+            </section>
+          </div>
+          <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+        </div>
+      </div>
+  </figure>
+
+  <figure class="plate">
+    <figcaption><b>A2 · Offering detail — AVAILABLE / BUY, opened in place</b><i>The release opens under its own row. The catalog stays on screen, and the BUY that belongs to this release stays where it already was.</i></figcaption>
+      <div class="screen screen--desktop" id="a-detail">
+        <div class="os-shell">
+          <header class="status-bar">
+            <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+            <div class="top-stats"><span>198.51.100.23</span><time>15:54:02</time><span class="connection"><i></i>ONLINE</span></div>
+          </header>
+          <div class="app-view">
+            <header class="app-header">
+              <button class="shell-back" type="button">← <span>HOME</span></button>
+              <div class="app-title"><h1>Market</h1></div>
+            </header>
+            <section class="app-content market-a">
+        <div class="a-context">
+          <span class="a-context-source"><span class="eyebrow">LISTED BY</span><b>Open Package Exchange</b></span>
+          <span class="a-context-client">CLIENT · NODE-OS / node-01</span>
+        </div>
+
+        <div class="mod a-balance">
+          <span class="a-balance-figure"><span class="eyebrow">NODE</span><span class="qty">0.0845</span><em>AVAILABLE TO SPEND</em></span>
+          <span class="a-balance-held">ENTITLEMENTS HELD <b>0</b></span>
+        </div>
+
+        <div class="node-section"><span>CATALOG</span><span>5 OFFERINGS</span></div>
+
+        <div class="mod a-counter">
+          <div class="a-head"><span>RELEASE</span><span>STATE</span><span>PRICE</span><span>ACTION</span></div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">NodeScan<b>1.1</b></span><span class="a-meta">EXPERIMENTAL · 18.4 MB<span class="a-file"> · nodescan-exp-1.1.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open NodeScan 1.1">+</button></span>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">NODE Miner<b>1.0</b></span><span class="a-meta">UNOFFICIAL · 3.4 MB<span class="a-file"> · node-miner-1.0.pkg</span></span></span>
+            <span class="a-state a-state--ondevice"><i></i>ON DEVICE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open NODE Miner 1.0">+</button></span>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">GateSSH<b>1.3.2</b></span><span class="a-meta">STABLE · 6.4 MB<span class="a-file"> · gatessh-1.3.2.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Close GateSSH 1.3.2">−</button></span>
+          </div>
+
+          <div class="a-panel">
+            <div class="a-panel-grid">
+              <div>
+                <div class="node-section"><span>PROVENANCE</span></div>
+                <dl class="node-facts">
+                  <div><dt>PUBLISHER</dt><dd>rack-systems</dd></div>
+                  <div><dt>CHANNEL</dt><dd>stable</dd></div>
+                  <div><dt>SELLER</dt><dd>Open Package Exchange</dd></div>
+                </dl>
+                <div class="node-section"><span>PACKAGE</span></div>
+                <dl class="node-facts">
+                  <div><dt>FILE</dt><dd>gatessh-1.3.2.pkg</dd></div>
+                  <div><dt>SIZE</dt><dd>6.4 MB</dd></div>
+                  <div><dt>DESTINATION</dt><dd>/home/user/downloads/gatessh-1.3.2.pkg</dd></div>
+                  <div><dt>RELEASE</dt><dd>gate-ssh-1.3.2</dd></div>
+                </dl>
+              </div>
+              <div>
+                <div class="node-section"><span>RELEASE DOCUMENTATION</span></div>
+                <div class="node-empty">
+                  <strong>NONE PUBLISHED</strong>
+                  <span>This release publishes no description, capability list or change list. Nothing is inferred from another GateSSH release.</span>
+                </div>
+                <p class="node-note">Market ends at acquisition. A completed download places this package in Files; installing it is Files’ own step.</p>
+                <button class="node-disclosure" type="button"><span>ACQUISITION DETAIL</span><span class="node-disclosure-mark">+</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">GateSSH<b>1.3.3</b></span><span class="a-meta">6.6 MB<span class="a-file"> · gatessh-1.3.3.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.3">+</button></span>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">Rollback Exploit Toolkit<b>1.0</b></span><span class="a-meta">2.1 MB<span class="a-file"> · rollback-exploit-toolkit-1.0.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open Rollback Exploit Toolkit 1.0">+</button></span>
+          </div>
+        </div>
+            </section>
+          </div>
+          <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+        </div>
+      </div>
+  </figure>
+
+  <figure class="plate">
+    <figcaption><b>A3 · Acquisition follow-up — DOWNLOADING, ON DEVICE, PURCHASED and AVAILABLE together</b><i>The whole lifecycle in one view is what this shape buys. Mock snapshot: two entitlements held, one canonical transfer running.</i></figcaption>
+      <div class="screen screen--desktop" id="a-acquisition">
+        <div class="os-shell">
+          <header class="status-bar">
+            <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+            <div class="top-stats"><span>198.51.100.23</span><time>15:57:41</time><span class="connection"><i></i>ONLINE</span></div>
+          </header>
+          <div class="app-view">
+            <header class="app-header">
+              <button class="shell-back" type="button">← <span>HOME</span></button>
+              <div class="app-title"><h1>Market</h1></div>
+            </header>
+            <section class="app-content market-a">
+        <div class="a-context">
+          <span class="a-context-source"><span class="eyebrow">LISTED BY</span><b>Open Package Exchange</b></span>
+          <span class="a-context-client">CLIENT · NODE-OS / node-01</span>
+        </div>
+
+        <div class="mod a-balance">
+          <span class="a-balance-figure"><span class="eyebrow">NODE</span><span class="qty">0.0645</span><em>AVAILABLE TO SPEND</em></span>
+          <span class="a-balance-held">ENTITLEMENTS HELD <b>2</b></span>
+        </div>
+
+        <div class="node-section"><span>CATALOG</span><span>5 OFFERINGS</span></div>
+
+        <div class="mod a-counter">
+          <div class="a-head"><span>RELEASE</span><span>STATE</span><span>PRICE</span><span>ACTION</span></div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">NodeScan<b>1.1</b></span><span class="a-meta">EXPERIMENTAL · 18.4 MB<span class="a-file"> · nodescan-exp-1.1.pkg</span></span></span>
+            <span class="a-state a-state--downloading"><i></i>DOWNLOADING</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><span class="a-do a-do--none">—</span><button class="a-open" type="button" aria-label="Open NodeScan 1.1">+</button></span>
+            <span class="a-rail">
+              <span class="a-progress-line">Open Package Exchange → node-01 · <b>7.4 / 18.4 MB · 40%</b> · nothing is written to this Device until the transfer completes</span>
+              <span class="node-progress"><i style="width:40%"></i></span>
+            </span>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">NODE Miner<b>1.0</b></span><span class="a-meta">UNOFFICIAL · 3.4 MB<span class="a-file"> · node-miner-1.0.pkg</span></span></span>
+            <span class="a-state a-state--ondevice"><i></i>ON DEVICE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open NODE Miner 1.0">+</button></span>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">GateSSH<b>1.3.2</b></span><span class="a-meta">STABLE · 6.4 MB<span class="a-file"> · gatessh-1.3.2.pkg</span></span></span>
+            <span class="a-state a-state--purchased"><i></i>PURCHASED</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">DOWNLOAD</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.2">+</button></span>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">GateSSH<b>1.3.3</b></span><span class="a-meta">6.6 MB<span class="a-file"> · gatessh-1.3.3.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.3">+</button></span>
+          </div>
+
+          <div class="a-row">
+            <span class="a-identity"><span class="a-name">Rollback Exploit Toolkit<b>1.0</b></span><span class="a-meta">2.1 MB<span class="a-file"> · rollback-exploit-toolkit-1.0.pkg</span></span></span>
+            <span class="a-state"><i></i>AVAILABLE</span>
+            <span class="a-price">0.01<em>NODE</em></span>
+            <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open Rollback Exploit Toolkit 1.0">+</button></span>
+          </div>
+        </div>
+
+        <p class="node-note a-foot">Buying establishes an entitlement, not a file. Downloading places a package on this Device, not installed software.</p>
+            </section>
+          </div>
+          <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+        </div>
+      </div>
+  </figure>
+
+  <div class="strip">
+  <figure class="plate">
+    <figcaption><b>A4 · Phone — catalog · 390</b><i>Not the desktop table compressed: price leaves the metadata run and takes the identity line’s trailing edge, and the action drops to its own line with a full touch target.</i></figcaption>
+        <div class="screen screen--phone" id="a-mobile">
+          <div class="os-shell">
+            <header class="status-bar">
+              <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+              <div class="top-stats"><span>198.51.100.23</span><time>15:57:41</time><span class="connection"><i></i>ONLINE</span></div>
+            </header>
+            <div class="app-view">
+              <header class="app-header">
+                <button class="shell-back" type="button">← <span>HOME</span></button>
+                <div class="app-title"><h1>Market</h1></div>
+              </header>
+              <section class="app-content market-a">
+          <div class="a-context">
+            <span class="a-context-source"><span class="eyebrow">LISTED BY</span><b>Open Package Exchange</b></span>
+            <span class="a-context-client">CLIENT · node-01</span>
+          </div>
+
+          <div class="mod a-balance">
+            <span class="a-balance-figure"><span class="eyebrow">NODE</span><span class="qty">0.0645</span></span>
+            <span class="a-balance-held">ENTITLEMENTS <b>2</b></span>
+          </div>
+
+          <div class="node-section"><span>CATALOG</span><span>5 OFFERINGS</span></div>
+
+          <div class="mod a-counter">
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">NodeScan<b>1.1</b></span><span class="a-meta">EXPERIMENTAL · 18.4 MB</span></span>
+              <span class="a-state a-state--downloading"><i></i>DOWNLOADING</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><span class="a-do a-do--none">—</span><button class="a-open" type="button" aria-label="Open NodeScan 1.1">+</button></span>
+              <span class="a-rail">
+                <span class="a-progress-line"><b>7.4 / 18.4 MB · 40%</b> · nothing is written until it completes</span>
+                <span class="node-progress"><i style="width:40%"></i></span>
+              </span>
+            </div>
+
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">NODE Miner<b>1.0</b></span><span class="a-meta">UNOFFICIAL · 3.4 MB</span></span>
+              <span class="a-state a-state--ondevice"><i></i>ON DEVICE</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open NODE Miner 1.0">+</button></span>
+            </div>
+
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">GateSSH<b>1.3.2</b></span><span class="a-meta">STABLE · 6.4 MB</span></span>
+              <span class="a-state a-state--purchased"><i></i>PURCHASED</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><button class="a-do" type="button">DOWNLOAD</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.2">+</button></span>
+            </div>
+
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">GateSSH<b>1.3.3</b></span><span class="a-meta">6.6 MB</span></span>
+              <span class="a-state"><i></i>AVAILABLE</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.3">+</button></span>
+            </div>
+
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">Rollback Exploit Toolkit<b>1.0</b></span><span class="a-meta">2.1 MB</span></span>
+              <span class="a-state"><i></i>AVAILABLE</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open Rollback Exploit Toolkit 1.0">+</button></span>
+            </div>
+          </div>
+              </section>
+            </div>
+            <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+          </div>
+        </div>
+  </figure>
+
+  <figure class="plate">
+    <figcaption><b>A5 · Phone — release opened in place · 390</b><i>The panel stays inside the list, so the rows above and below it are still the user’s context on a phone.</i></figcaption>
+        <div class="screen screen--phone" id="a-mobiledetail">
+          <div class="os-shell">
+            <header class="status-bar">
+              <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+              <div class="top-stats"><span>198.51.100.23</span><time>15:58:12</time><span class="connection"><i></i>ONLINE</span></div>
+            </header>
+            <div class="app-view">
+              <header class="app-header">
+                <button class="shell-back" type="button">← <span>HOME</span></button>
+                <div class="app-title"><h1>Market</h1></div>
+              </header>
+              <section class="app-content market-a">
+          <div class="node-section"><span>CATALOG</span><span>5 OFFERINGS</span></div>
+
+          <div class="mod a-counter">
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">NodeScan<b>1.1</b></span><span class="a-meta">EXPERIMENTAL · 18.4 MB</span></span>
+              <span class="a-state"><i></i>AVAILABLE</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Close NodeScan 1.1">−</button></span>
+            </div>
+
+              <div class="a-panel">
+                <div class="a-panel-grid">
+                  <div>
+                    <div class="node-section"><span>PROVENANCE</span></div>
+                    <dl class="node-facts">
+                      <div><dt>PUBLISHER</dt><dd class="a-absent">NOT STATED</dd></div>
+                      <div><dt>CHANNEL</dt><dd>experimental</dd></div>
+                      <div><dt>SELLER</dt><dd>Open Package Exchange</dd></div>
+                    </dl>
+                    <div class="node-section"><span>RELEASE DOCUMENTATION</span></div>
+                    <p class="a-about">Experimental NodeScan release with extended target inspection.</p>
+                    <dl class="node-facts">
+                      <div><dt>NETWORK SCAN</dt><dd>Discover represented networks, devices, relationships and exposed Services.</dd></div>
+                      <div><dt>TARGET INSPECT</dt><dd>Observe represented Device and already-known Service fingerprints.</dd></div>
+                      <div><dt>SERVICE ANALYSIS</dt><dd>Investigate known Service endpoints for represented weaknesses.</dd></div>
+                    </dl>
+                    <button class="node-disclosure" type="button"><span>CHANGES &amp; PACKAGE</span><span class="node-disclosure-mark">+</span></button>
+                    <p class="node-note">Market ends at acquisition. Installing belongs to Files.</p>
+                  </div>
+                </div>
+              </div>
+
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">NODE Miner<b>1.0</b></span><span class="a-meta">UNOFFICIAL · 3.4 MB</span></span>
+              <span class="a-state a-state--ondevice"><i></i>ON DEVICE</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open NODE Miner 1.0">+</button></span>
+            </div>
+
+            <div class="a-row">
+              <span class="a-identity"><span class="a-name">GateSSH<b>1.3.2</b></span><span class="a-meta">STABLE · 6.4 MB</span></span>
+              <span class="a-state"><i></i>AVAILABLE</span>
+              <span class="a-price">0.01<em>NODE</em></span>
+              <span class="a-act"><button class="a-do" type="button">BUY</button><button class="a-open" type="button" aria-label="Open GateSSH 1.3.2">+</button></span>
+            </div>
+          </div>
+              </section>
+            </div>
+            <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+          </div>
+        </div>
+  </figure>
+  </div>
+
+</div>
+
+<script src="harness.js"></script>

@@ -1,0 +1,65 @@
+/*
+ * NODE-OS Market — visual exploration harness chrome.
+ *
+ * THIS IS NOT PRODUCTION SYNTHESIS CODE. It owns only the review board around
+ * the screens: the page background, the plate captions and the two viewport
+ * frames. Everything inside a frame is the prototype itself.
+ *
+ * Two frames are used, both approximating the real Shell viewport rather than
+ * an arbitrary browser page:
+ *   .screen--desktop  1120 x 780  the Shell's own maximum size
+ *   .screen--phone     390 x 800  the primary phone review width
+ */
+
+:root { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 28px 22px 60px;
+  background: #17191a;
+  color: #e6e4e0;
+  font: 400 14px/1.5 "Liberation Sans", Arial, system-ui, sans-serif;
+}
+
+.harness-head { max-width: 1240px; margin: 0 auto 26px; }
+.harness-head h1 { margin: 0 0 6px; font-size: 19px; font-weight: 700; letter-spacing: .01em; }
+.harness-head p { margin: 0 0 4px; max-width: 86ch; color: #9d9a95; font-size: 13px; }
+.harness-head a { color: #9ec8d8; }
+
+.harness-flag {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 7px 11px;
+  border: 1px solid #6a5c3a;
+  background: #2a2519;
+  color: #d8c68f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .09em;
+}
+
+.board { max-width: 1240px; margin: 0 auto; display: grid; gap: 40px; justify-items: start; }
+
+.plate { max-width: 100%; margin: 0; }
+
+.plate figcaption {
+  margin: 0 0 9px;
+  color: #8e8b86;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.plate figcaption b { color: #cfcbc4; font-weight: 700; }
+.plate figcaption i { display: block; margin-top: 5px; color: #7d7a75; font-size: 11px; font-style: normal; font-weight: 400; letter-spacing: .02em; text-transform: none; }
+
+.screen { overflow: hidden; position: relative; isolation: isolate; container: shell / inline-size; }
+.screen > .os-shell { width: 100%; height: 100%; }
+
+.screen--desktop { width: 1120px; height: 780px; }
+.screen--phone { width: 390px; height: 800px; }
+
+.strip { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 26px; }

@@ -1,0 +1,595 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>NODE-OS Market — Direction C · Acquisition Ledger</title>
+<!--
+  NODE-OS MARKET — VISUAL EXPLORATION V1 — DIRECTION C "ACQUISITION LEDGER"
+
+  THIS IS NOT PRODUCTION SYNTHESIS CODE. Static design reference only. It
+  imports nothing from src/, is not built, typechecked, tested or mounted.
+
+  Product shape: acquisition position leads. The root is grouped by the state
+  each offering is derived to be in, so "what can I do next" is answered before
+  anything is opened, and the offering surface is a focused acquisition panel
+  built around the four represented states and where each one's truth actually
+  lives. Evaluation is real but deliberately secondary, behind disclosure.
+
+  Every release identity, version, channel, publisher, filename, size, price,
+  destination path and documentation string below is current repository truth
+  (docs/current/MARKET.md, src/core/game/market.ts,
+  src/core/game/softwareReleaseContent.ts). The transfer rate is the value the
+  current derivation already produces for this route: min(Market distribution
+  upload 4 MiB/s, local Device download 2 MiB/s). The NODE balance and the
+  mixed acquisition states are lifecycle snapshots the current product can
+  already represent; they are not initial GameState.
+-->
+<link rel="stylesheet" href="harness.css">
+<link rel="stylesheet" href="nodeos.css">
+<style>
+/* ── Direction C: everything below is owned by this direction ─────────────── */
+
+.market-c { max-width: 780px; }
+
+/* ── Source context ───────────────────────────────────────────────────────
+   The operator gets a structural slot rather than a masthead, a logo or a
+   palette. It is deliberately one labelled row of a context block: a later
+   different distribution source would take this row and change nothing below
+   it. */
+.c-source { padding: 13px 15px 14px; }
+
+.c-source-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px 14px;
+  padding: 6px 0;
+}
+
+.c-source-row + .c-source-row { border-top: 1px solid var(--mod-hairline); }
+.c-source-row > span:first-child { color: var(--text-muted); font-size: .52rem; letter-spacing: var(--label-tracking); }
+.c-source-name { color: var(--text-strong); font-size: .82rem; overflow-wrap: anywhere; }
+.c-source-note { grid-column: 2; color: var(--text-quiet); font-size: .62rem; line-height: 1.5; }
+.c-source-client { color: var(--text-secondary); font-size: .7rem; }
+
+/* ── Position ledger ──────────────────────────────────────────────────────
+   Counts derived over the represented offerings, plus the canonical balance.
+   This is the screen's orientation line, not a dashboard. */
+.c-ledger {
+  margin-top: 8px;
+  padding: 12px 15px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px 30px;
+  flex-wrap: wrap;
+}
+
+.c-ledger-cell { display: flex; align-items: baseline; gap: 8px; }
+.c-ledger-cell span { color: var(--text-muted); font-size: .52rem; letter-spacing: var(--label-tracking); }
+.c-ledger-cell b { color: var(--text-strong); font: 500 .95rem Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.c-ledger-cell--node b { color: var(--green); font-size: 1.1rem; }
+.c-ledger-cell em { color: var(--text-faint); font-size: .5rem; font-style: normal; letter-spacing: var(--label-tracking); }
+
+/* ── State groups ─────────────────────────────────────────────────────────
+   The organizing idea. Each group is one short module under one heading, in
+   the order the user can act on them. */
+.c-group { margin-top: 20px; }
+.c-group .node-section { margin: 0 0 8px; }
+.c-group-list { padding: 0; }
+
+.c-row {
+  min-height: 62px;
+  padding: 12px 15px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.c-row + .c-row { border-top: 1px solid var(--mod-hairline); }
+.c-row-copy { min-width: 0; display: grid; gap: 5px; }
+.c-row-name { color: var(--text-strong); font: 600 .84rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.c-row-name b { margin-left: 8px; color: var(--text-secondary); font: 400 .72rem/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .04em; }
+.c-row-meta { color: var(--text-muted); font-size: .55rem; letter-spacing: .1em; overflow-wrap: anywhere; }
+.c-row-meta b { color: var(--text-secondary); font-weight: 400; }
+.c-row-meta.c-caution { color: var(--caution); }
+
+.c-act { justify-self: end; display: flex; align-items: center; gap: 10px; }
+.c-price { color: var(--text-strong); font: 500 .82rem Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.c-price em { margin-left: 4px; color: var(--text-faint); font: 400 .48rem 'IBM Plex Mono', ui-monospace, monospace; font-style: normal; letter-spacing: var(--label-tracking); }
+
+.c-do {
+  min-width: 92px;
+  min-height: 42px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mod-edge);
+  background: linear-gradient(180deg, var(--mod-tile-lift), var(--mod-tile) 62%);
+  box-shadow: inset 0 1px 0 var(--mod-edge-lit);
+  color: var(--accent);
+  font: inherit;
+  font-size: .56rem;
+  letter-spacing: .12em;
+}
+
+.c-open { flex: none; width: 24px; min-height: 42px; border: 0; background: transparent; color: var(--accent-mark); font: inherit; font-size: .9rem; }
+
+.c-transfer { grid-column: 1 / -1; margin-top: 3px; display: grid; gap: 7px; }
+.c-transfer .node-progress { height: 3px; }
+.c-transfer-line { color: var(--text-muted); font-size: .56rem; letter-spacing: .09em; }
+.c-transfer-line b { color: var(--accent-strong); font-weight: 400; }
+
+.c-group-note { margin-top: 7px; }
+.c-foot { margin-top: 20px; }
+
+/* ── Focused acquisition panel ────────────────────────────────────────────
+   Not a dossier: one release, the position it is actually in, the one action
+   available, and everything else behind disclosure. */
+.c-panel-head { padding: 16px 16px 15px; display: grid; gap: 8px; }
+.c-panel-name { margin: 0; color: var(--text-strong); font: 500 1.25rem/1.15 Inter, system-ui, sans-serif; letter-spacing: -.012em; overflow-wrap: anywhere; }
+.c-panel-name b { margin-left: 10px; color: var(--text-secondary); font: 400 .8rem/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .04em; }
+.c-panel-meta { color: var(--text-muted); font-size: .55rem; letter-spacing: var(--label-tracking); }
+.c-panel-meta .c-absent { color: var(--text-faint); }
+
+/*
+ * The spine. Not a diagram and not a progress bar: it is the four represented
+ * acquisition states, each stating where that state's truth actually lives,
+ * with the one the offering is currently derived to be in marked. It has to
+ * survive an offering that reached ON DEVICE without ever being PURCHASED,
+ * which is why a step is marked rather than filled in sequence.
+ */
+.c-spine { margin: 0; padding: 0 0 0 2px; list-style: none; }
+
+.c-step {
+  position: relative;
+  padding: 10px 0 10px 26px;
+  display: grid;
+  gap: 3px;
+}
+
+.c-step + .c-step { border-top: 1px solid var(--mod-hairline); }
+
+.c-step::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 15px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--line-strong);
+}
+
+.c-step b { color: var(--text-quiet); font: 400 .58rem 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .13em; }
+.c-step em { color: var(--text-faint); font-size: .62rem; font-style: normal; line-height: 1.5; overflow-wrap: anywhere; }
+
+.c-step--now::before { border-color: var(--accent-rule); background: var(--accent-fill); box-shadow: 0 0 0 3px rgb(140 255 178 / 10%); }
+.c-step--now b { color: var(--accent-strong); }
+.c-step--now em { color: var(--text-secondary); }
+.c-step--absent::before { border-style: dashed; border-color: var(--caution-line); }
+.c-step--absent em { color: var(--caution); }
+
+.c-panel-act { margin-top: 12px; display: grid; gap: 9px; }
+
+.c-primary {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid var(--line-accent);
+  background: linear-gradient(180deg, var(--mod-tile-lift), var(--mod-tile) 62%);
+  box-shadow: inset 0 1px 0 var(--mod-edge-lit);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: .62rem;
+  letter-spacing: .13em;
+}
+
+.c-panel-facts { margin-top: 16px; }
+.c-absent { color: var(--text-faint); }
+
+/* ── Narrow composition ───────────────────────────────────────────────────
+   State groups are the mobile argument: four short modules under four
+   headings scroll better than one long list, and each group's action column
+   drops under its own identity rather than squeezing beside it. */
+@container shell (max-width: 700px) {
+  .c-source-row { grid-template-columns: 64px minmax(0, 1fr); }
+  .c-ledger { gap: 9px 22px; padding: 11px 13px; }
+  .c-row { grid-template-columns: minmax(0, 1fr) auto; padding: 12px 13px; }
+  .c-act { grid-column: 1 / -1; justify-self: stretch; justify-content: space-between; }
+  .c-do { min-height: 44px; }
+  .c-open { position: absolute; }
+  .c-row { position: relative; }
+  .c-open { top: 10px; right: 8px; }
+  .c-panel-head { padding: 14px 13px 13px; }
+  .c-panel-name { font-size: 1.12rem; }
+}
+</style>
+
+<header class="harness-head">
+  <h1>NODE-OS Market — Visual Exploration V1 · Direction C “Acquisition Ledger”</h1>
+  <p><b>Product shape:</b> acquisition position leads. The root groups offerings by the state they are derived to be in, so the next possible action is visible before anything is opened; the offering surface is a focused panel built on the four represented states and where each state's truth actually lives.</p>
+  <p>Frames reproduce the current Shell viewport (1120×780 desktop, 390×800 phone). The Shell is not a task target and gains nothing here.</p>
+  <p class="harness-flag">MOCK STATE SNAPSHOT — NOT INITIAL GAMESTATE. Every release fact is current repository truth; the NODE balance and the mixed acquisition states are already-supported lifecycle states arranged for review.</p>
+</header>
+
+<div class="board">
+
+  <!-- ── C1 · MARKET ROOT / GROUPED BY ACQUISITION POSITION ────────────── -->
+  <figure class="plate">
+    <figcaption><b>C1 · Market root — grouped by acquisition position</b><i>Groups in the order they can be acted on. The seeded NODE Miner copy sits under ON THIS DEVICE and still states NOT PURCHASED with BUY available, which is exactly the truth this shape is built to carry.</i></figcaption>
+    <div class="screen screen--desktop" id="c-catalog">
+      <div class="os-shell">
+        <header class="status-bar">
+          <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+          <div class="top-stats"><span>198.51.100.23</span><time>16:11:38</time><span class="connection"><i></i>ONLINE</span></div>
+        </header>
+        <div class="app-view">
+          <header class="app-header">
+            <button class="shell-back" type="button">← <span>HOME</span></button>
+            <div class="app-title"><h1>Market</h1></div>
+          </header>
+          <section class="app-content market-c">
+
+            <div class="mod c-source">
+              <div class="c-source-row">
+                <span>SOURCE</span>
+                <span class="c-source-name">Open Package Exchange</span>
+                <span class="c-source-note">Broad open market. Not an official NODE distribution channel, and no release here is published, endorsed or supported by NODE.</span>
+              </div>
+              <div class="c-source-row">
+                <span>CLIENT</span>
+                <span class="c-source-client">NODE-OS / node-01</span>
+              </div>
+            </div>
+
+            <div class="mod c-ledger">
+              <span class="c-ledger-cell c-ledger-cell--node"><span>NODE</span><b>0.0645</b></span>
+              <span class="c-ledger-cell"><span>ENTITLEMENTS</span><b>2</b></span>
+              <span class="c-ledger-cell"><span>OFFERINGS</span><b>5</b><em>LISTED</em></span>
+            </div>
+
+            <div class="c-group">
+              <div class="node-section"><span>IN PROGRESS</span><span>1</span></div>
+              <div class="mod c-group-list">
+                <div class="c-row">
+                  <span class="c-row-copy">
+                    <span class="c-row-name">NodeScan<b>1.1</b></span>
+                    <span class="c-row-meta">EXPERIMENTAL · Open Package Exchange → node-01</span>
+                  </span>
+                  <span class="c-act"><button class="c-open" type="button" aria-label="Open NodeScan 1.1">→</button></span>
+                  <span class="c-transfer">
+                    <span class="node-progress"><i style="width:40%"></i></span>
+                    <span class="c-transfer-line"><b>7.4 / 18.4 MB · 40%</b> · 2 MiB/s · nothing is written to this Device until the transfer completes</span>
+                  </span>
+                </div>
+              </div>
+              <p class="node-note c-group-note">A Market download is one canonical file transfer. Its progress, network use and CANCEL live in the Activity Monitor with every other transfer.</p>
+            </div>
+
+            <div class="c-group">
+              <div class="node-section"><span>READY TO DOWNLOAD</span><span>1</span></div>
+              <div class="mod c-group-list">
+                <div class="c-row">
+                  <span class="c-row-copy">
+                    <span class="c-row-name">Rollback Exploit Toolkit<b>1.0</b></span>
+                    <span class="c-row-meta">ENTITLEMENT HELD · 2.1 MB · → <b>/home/user/downloads/</b></span>
+                  </span>
+                  <span class="c-act"><button class="c-do" type="button">DOWNLOAD</button><button class="c-open" type="button" aria-label="Open Rollback Exploit Toolkit 1.0">→</button></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="c-group">
+              <div class="node-section"><span>ON THIS DEVICE</span><span>1</span></div>
+              <div class="mod c-group-list">
+                <div class="c-row">
+                  <span class="c-row-copy">
+                    <span class="c-row-name">NODE Miner<b>1.0</b></span>
+                    <span class="c-row-meta"><b>/home/user/downloads/node-miner-1.0.pkg</b> · install from Files</span>
+                    <span class="c-row-meta c-caution">NOT PURCHASED · this copy is not an entitlement</span>
+                  </span>
+                  <span class="c-act"><span class="c-price">0.01<em>NODE</em></span><button class="c-do" type="button">BUY</button><button class="c-open" type="button" aria-label="Open NODE Miner 1.0">→</button></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="c-group">
+              <div class="node-section"><span>AVAILABLE</span><span>2</span></div>
+              <div class="mod c-group-list">
+                <div class="c-row">
+                  <span class="c-row-copy">
+                    <span class="c-row-name">GateSSH<b>1.3.2</b></span>
+                    <span class="c-row-meta">STABLE · rack-systems · 6.4 MB</span>
+                  </span>
+                  <span class="c-act"><span class="c-price">0.01<em>NODE</em></span><button class="c-do" type="button">BUY</button><button class="c-open" type="button" aria-label="Open GateSSH 1.3.2">→</button></span>
+                </div>
+                <div class="c-row">
+                  <span class="c-row-copy">
+                    <span class="c-row-name">GateSSH<b>1.3.3</b></span>
+                    <span class="c-row-meta">NO CHANNEL OR PUBLISHER STATED · 6.6 MB</span>
+                  </span>
+                  <span class="c-act"><span class="c-price">0.01<em>NODE</em></span><button class="c-do" type="button">BUY</button><button class="c-open" type="button" aria-label="Open GateSSH 1.3.3">→</button></span>
+                </div>
+              </div>
+            </div>
+
+            <p class="node-note c-foot">NODE-OS provides this client. Open Package Exchange lists and sells these offerings and receives what they cost. Each release states its own publisher where one is represented.</p>
+
+          </section>
+        </div>
+        <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ── C2 · ACQUISITION PANEL — AVAILABLE / BUY ──────────────────────── -->
+  <figure class="plate">
+    <figcaption><b>C2 · Offering detail — AVAILABLE / BUY</b><i>The spine states the four represented states and where each one’s truth lives. Evaluation is deliberately secondary here: GateSSH publishes no documentation, and the panel says so rather than padding the space.</i></figcaption>
+    <div class="screen screen--desktop" id="c-detail">
+      <div class="os-shell">
+        <header class="status-bar">
+          <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+          <div class="top-stats"><span>198.51.100.23</span><time>16:12:50</time><span class="connection"><i></i>ONLINE</span></div>
+        </header>
+        <div class="app-view">
+          <header class="app-header">
+            <button class="shell-back" type="button">← <span>HOME</span></button>
+            <div class="app-title"><h1>Market</h1></div>
+          </header>
+          <section class="app-content market-c">
+
+            <button class="node-back" type="button"><span aria-hidden="true">←</span> MARKET</button>
+
+            <div class="mod c-panel-head">
+              <p class="eyebrow">OFFERING</p>
+              <h2 class="c-panel-name">GateSSH<b>1.3.2</b></h2>
+              <span class="c-panel-meta">STABLE · rack-systems · 6.4 MB · SOLD BY OPEN PACKAGE EXCHANGE</span>
+            </div>
+
+            <div class="node-section"><span>ACQUISITION</span><span>AVAILABLE</span></div>
+
+            <ol class="c-spine">
+              <li class="c-step c-step--now"><b>AVAILABLE</b><em>Listed by Open Package Exchange at 0.01 NODE. Nothing is held and nothing is stored.</em></li>
+              <li class="c-step"><b>PURCHASED</b><em>An entitlement to download this offering. Established by paying the operator; never removed by losing a copy.</em></li>
+              <li class="c-step"><b>DOWNLOADING</b><em>One canonical file transfer from the operator’s distribution endpoint to node-01.</em></li>
+              <li class="c-step"><b>ON DEVICE</b><em>/home/user/downloads/gatessh-1.3.2.pkg — a package file, not installed software.</em></li>
+            </ol>
+
+            <div class="c-panel-act">
+              <button class="c-primary" type="button">BUY · 0.01 NODE</button>
+              <p class="node-note">Paid to Open Package Exchange from a balance of 0.0645 NODE. Market ends at ON DEVICE: installing the package is Files’ own step.</p>
+            </div>
+
+            <dl class="node-facts c-panel-facts">
+              <div><dt>PUBLISHER</dt><dd>rack-systems</dd></div>
+              <div><dt>SELLER</dt><dd>Open Package Exchange</dd></div>
+              <div><dt>PACKAGE</dt><dd>gatessh-1.3.2.pkg</dd></div>
+              <div><dt>RELEASE</dt><dd>gate-ssh-1.3.2</dd></div>
+            </dl>
+
+            <button class="node-disclosure" type="button"><span>RELEASE INFORMATION · NONE PUBLISHED</span><span class="node-disclosure-mark">+</span></button>
+
+          </section>
+        </div>
+        <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ── C3 · ACQUISITION PANEL — ON DEVICE, NEVER PURCHASED ───────────── -->
+  <figure class="plate">
+    <figcaption><b>C3 · Acquisition follow-up — ON DEVICE without an entitlement</b><i>The case that proves the spine is derived truth rather than a progress bar: this offering reached ON DEVICE without ever being PURCHASED, so PURCHASED is marked absent and BUY is still offered.</i></figcaption>
+    <div class="screen screen--desktop" id="c-acquisition">
+      <div class="os-shell">
+        <header class="status-bar">
+          <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+          <div class="top-stats"><span>198.51.100.23</span><time>16:14:02</time><span class="connection"><i></i>ONLINE</span></div>
+        </header>
+        <div class="app-view">
+          <header class="app-header">
+            <button class="shell-back" type="button">← <span>HOME</span></button>
+            <div class="app-title"><h1>Market</h1></div>
+          </header>
+          <section class="app-content market-c">
+
+            <button class="node-back" type="button"><span aria-hidden="true">←</span> MARKET</button>
+
+            <div class="mod c-panel-head">
+              <p class="eyebrow">OFFERING</p>
+              <h2 class="c-panel-name">NODE Miner<b>1.0</b></h2>
+              <span class="c-panel-meta">UNOFFICIAL · nm-dev · 3.4 MB · SOLD BY OPEN PACKAGE EXCHANGE</span>
+            </div>
+
+            <div class="node-section"><span>ACQUISITION</span><span>ON DEVICE</span></div>
+
+            <ol class="c-spine">
+              <li class="c-step"><b>AVAILABLE</b><em>Listed by Open Package Exchange at 0.01 NODE.</em></li>
+              <li class="c-step c-step--absent"><b>PURCHASED</b><em>NOT HELD — no entitlement for this offering exists. The copy below was already on this Device and never established one.</em></li>
+              <li class="c-step"><b>DOWNLOADING</b><em>No transfer for this offering is running.</em></li>
+              <li class="c-step c-step--now"><b>ON DEVICE</b><em>/home/user/downloads/node-miner-1.0.pkg — a package file. Files owns INSTALL.</em></li>
+            </ol>
+
+            <div class="c-panel-act">
+              <button class="c-primary" type="button">BUY · 0.01 NODE</button>
+              <p class="node-note">A copy is not an entitlement, and an entitlement is not a copy. Buying is still offered because possession never established one; downloading stays unavailable while the destination already holds this release.</p>
+            </div>
+
+            <dl class="node-facts c-panel-facts">
+              <div><dt>PUBLISHER</dt><dd>nm-dev</dd></div>
+              <div><dt>SELLER</dt><dd>Open Package Exchange</dd></div>
+              <div><dt>PACKAGE</dt><dd>node-miner-1.0.pkg</dd></div>
+              <div><dt>LOCAL COPY</dt><dd>/home/user/downloads/node-miner-1.0.pkg</dd></div>
+            </dl>
+
+            <button class="node-disclosure" type="button"><span>RELEASE INFORMATION</span><span class="node-disclosure-mark">+</span></button>
+
+          </section>
+        </div>
+        <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ── C4 / C5 · MOBILE ──────────────────────────────────────────────── -->
+  <div class="strip">
+    <figure class="plate">
+      <figcaption><b>C4 · Phone — grouped root · 390</b><i>Groups are the mobile argument: four short modules under four headings, each row’s action taking its own full-width line rather than squeezing beside the identity.</i></figcaption>
+      <div class="screen screen--phone" id="c-mobile">
+        <div class="os-shell">
+          <header class="status-bar">
+            <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+            <div class="top-stats"><span>198.51.100.23</span><time>16:11:38</time><span class="connection"><i></i>ONLINE</span></div>
+          </header>
+          <div class="app-view">
+            <header class="app-header">
+              <button class="shell-back" type="button">←<span> HOME</span></button>
+              <div class="app-title"><h1>Market</h1></div>
+            </header>
+            <section class="app-content market-c">
+
+              <div class="mod c-source">
+                <div class="c-source-row">
+                  <span>SOURCE</span>
+                  <span class="c-source-name">Open Package Exchange</span>
+                  <span class="c-source-note">Broad open market. Not an official NODE distribution channel.</span>
+                </div>
+                <div class="c-source-row">
+                  <span>CLIENT</span>
+                  <span class="c-source-client">NODE-OS / node-01</span>
+                </div>
+              </div>
+
+              <div class="mod c-ledger">
+                <span class="c-ledger-cell c-ledger-cell--node"><span>NODE</span><b>0.0645</b></span>
+                <span class="c-ledger-cell"><span>ENTITLEMENTS</span><b>2</b></span>
+                <span class="c-ledger-cell"><span>OFFERINGS</span><b>5</b></span>
+              </div>
+
+              <div class="c-group">
+                <div class="node-section"><span>IN PROGRESS</span><span>1</span></div>
+                <div class="mod c-group-list">
+                  <div class="c-row">
+                    <span class="c-row-copy">
+                      <span class="c-row-name">NodeScan<b>1.1</b></span>
+                      <span class="c-row-meta">EXPERIMENTAL · 18.4 MB</span>
+                    </span>
+                    <button class="c-open" type="button" aria-label="Open NodeScan 1.1">→</button>
+                    <span class="c-transfer">
+                      <span class="node-progress"><i style="width:40%"></i></span>
+                      <span class="c-transfer-line"><b>7.4 / 18.4 MB · 40%</b> · 2 MiB/s</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="c-group">
+                <div class="node-section"><span>READY TO DOWNLOAD</span><span>1</span></div>
+                <div class="mod c-group-list">
+                  <div class="c-row">
+                    <span class="c-row-copy">
+                      <span class="c-row-name">Rollback Exploit Toolkit<b>1.0</b></span>
+                      <span class="c-row-meta">ENTITLEMENT HELD · 2.1 MB</span>
+                    </span>
+                    <button class="c-open" type="button" aria-label="Open Rollback Exploit Toolkit 1.0">→</button>
+                    <span class="c-act"><button class="c-do" type="button">DOWNLOAD</button></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="c-group">
+                <div class="node-section"><span>ON THIS DEVICE</span><span>1</span></div>
+                <div class="mod c-group-list">
+                  <div class="c-row">
+                    <span class="c-row-copy">
+                      <span class="c-row-name">NODE Miner<b>1.0</b></span>
+                      <span class="c-row-meta"><b>/home/user/downloads/node-miner-1.0.pkg</b></span>
+                      <span class="c-row-meta c-caution">NOT PURCHASED</span>
+                    </span>
+                    <button class="c-open" type="button" aria-label="Open NODE Miner 1.0">→</button>
+                    <span class="c-act"><span class="c-price">0.01<em>NODE</em></span><button class="c-do" type="button">BUY</button></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="c-group">
+                <div class="node-section"><span>AVAILABLE</span><span>2</span></div>
+                <div class="mod c-group-list">
+                  <div class="c-row">
+                    <span class="c-row-copy">
+                      <span class="c-row-name">GateSSH<b>1.3.2</b></span>
+                      <span class="c-row-meta">STABLE · rack-systems · 6.4 MB</span>
+                    </span>
+                    <button class="c-open" type="button" aria-label="Open GateSSH 1.3.2">→</button>
+                    <span class="c-act"><span class="c-price">0.01<em>NODE</em></span><button class="c-do" type="button">BUY</button></span>
+                  </div>
+                  <div class="c-row">
+                    <span class="c-row-copy">
+                      <span class="c-row-name">GateSSH<b>1.3.3</b></span>
+                      <span class="c-row-meta">NO CHANNEL OR PUBLISHER STATED · 6.6 MB</span>
+                    </span>
+                    <button class="c-open" type="button" aria-label="Open GateSSH 1.3.3">→</button>
+                    <span class="c-act"><span class="c-price">0.01<em>NODE</em></span><button class="c-do" type="button">BUY</button></span>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+          </div>
+          <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+        </div>
+      </div>
+    </figure>
+
+    <figure class="plate">
+      <figcaption><b>C5 · Phone — acquisition panel, ON DEVICE · 390</b><i>The spine is a vertical list already, so the panel needs no second composition on a phone: position first, action next, facts last.</i></figcaption>
+      <div class="screen screen--phone" id="c-mobilepanel">
+        <div class="os-shell">
+          <header class="status-bar">
+            <strong class="brand">NODE-OS <span>/</span> node-01</strong>
+            <div class="top-stats"><span>198.51.100.23</span><time>16:14:02</time><span class="connection"><i></i>ONLINE</span></div>
+          </header>
+          <div class="app-view">
+            <header class="app-header">
+              <button class="shell-back" type="button">←<span> HOME</span></button>
+              <div class="app-title"><h1>Market</h1></div>
+            </header>
+            <section class="app-content market-c">
+
+              <button class="node-back" type="button"><span aria-hidden="true">←</span> MARKET</button>
+
+              <div class="mod c-panel-head">
+                <p class="eyebrow">OFFERING</p>
+                <h2 class="c-panel-name">NODE Miner<b>1.0</b></h2>
+                <span class="c-panel-meta">UNOFFICIAL · nm-dev · 3.4 MB</span>
+              </div>
+
+              <div class="node-section"><span>ACQUISITION</span><span>ON DEVICE</span></div>
+
+              <ol class="c-spine">
+                <li class="c-step"><b>AVAILABLE</b><em>Listed at 0.01 NODE.</em></li>
+                <li class="c-step c-step--absent"><b>PURCHASED</b><em>NOT HELD — the copy below never established an entitlement.</em></li>
+                <li class="c-step"><b>DOWNLOADING</b><em>No transfer running.</em></li>
+                <li class="c-step c-step--now"><b>ON DEVICE</b><em>/home/user/downloads/node-miner-1.0.pkg — a package file. Files owns INSTALL.</em></li>
+              </ol>
+
+              <div class="c-panel-act">
+                <button class="c-primary" type="button">BUY · 0.01 NODE</button>
+                <p class="node-note">A copy is not an entitlement. Buying is still offered; downloading stays unavailable while the destination already holds this release.</p>
+              </div>
+
+              <button class="node-disclosure" type="button"><span>RELEASE INFORMATION</span><span class="node-disclosure-mark">+</span></button>
+
+            </section>
+          </div>
+          <footer class="system-bar"><span>CPU <strong>0%</strong></span><span>RAM <strong>0%</strong></span><span class="online">NET <strong>ONLINE</strong></span></footer>
+        </div>
+      </div>
+    </figure>
+  </div>
+
+</div>
+
+<script src="harness.js"></script>
