@@ -14,6 +14,7 @@ export const installCommand: TerminalCommand = {
       case 'package_not_file': return { type: 'output', lines: ['NOT A FILE'] }
       case 'not_software_package': return { type: 'output', lines: ['NOT A SOFTWARE PACKAGE'] }
       case 'unrecognized_package_extension': return { type: 'output', lines: ['UNRECOGNIZED PACKAGE EXTENSION'] }
+      case 'incompatible_firmware': return { type: 'output', lines: ['FIRMWARE NOT COMPATIBLE'] }
       case 'install_path_occupied': return { type: 'output', lines: ['INSTALLATION PATH OCCUPIED'] }
       case 'insufficient_memory': return { type: 'output', lines: ['INSUFFICIENT MEMORY', `${result.requiredMiB} MiB required`, `${Math.floor(result.availableMiB)} MiB available`] }
     }

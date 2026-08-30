@@ -114,8 +114,8 @@ describe('createInitialGameState', () => {
       { kind: 'software_package', id: 'file-0003', path: '/opt/packages/gatessh-1.3.2.pkg', releaseId: 'gate-ssh-1.3.2', productId: 'gate-ssh', name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems', sizeBytes: 6_400_000 },
     ] } })
     expect(server?.filesystem?.files.some((file) => file.kind === 'executable')).toBe(false)
-    // The operable server owns the same semantic concern as node-01 and starts with nothing installed on it.
-    expect(server?.installedSoftware).toEqual([])
+    // The operable server owns coherent installed truth for its managed GateSSH release.
+    expect(server?.installedSoftware).toEqual([{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' }])
     expect(server?.installedSoftware).not.toBe(state.player.localDevice.installedSoftware)
     const concreteHostIds = ['host-lan-001', 'host-lan-002', 'host-phone-001']
     const shallowTrainingHosts = state.world.network.hosts.filter(({ id }) => !concreteHostIds.includes(id))
@@ -142,7 +142,7 @@ describe('createInitialGameState', () => {
       { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', name: 'RackUpdate', version: '1.0' } },
     ])
     expect(server?.id).not.toBe('host-lan-001')
-    expect(server?.installedSoftware).toEqual([])
+    expect(server?.installedSoftware).toEqual([{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3' }])
     expect(server?.installedSoftware).not.toBe(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.installedSoftware)
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })

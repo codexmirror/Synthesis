@@ -13,7 +13,7 @@ import {
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
 import { refreshSubmittedServiceImplementation } from './discovery'
-import type { GameState, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
+import type { GameState, InstalledSoftware, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
 export const ROLLBACK_EXPLOIT_TOOLKIT_ID = 'rollback-exploit-toolkit' as const
 export const RACK_UPDATE_EXPLOIT_WORK_REQUIRED = 1400
@@ -156,7 +156,9 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
     return { status: 'service_unavailable', state }
   }
   const managed = resolveManagedGateSshService(target)
-  if (!managed || managed.implementation.releaseId === localFile.releaseId) return { status: 'package_incompatible', state }
+  const installedGateSsh = target.installedSoftware?.find(({ id }) => id === GATE_SSH_PRODUCT_ID)
+  if (!managed || !installedGateSsh) return { status: 'service_unavailable', state }
+  if (managed.implementation.releaseId === localFile.releaseId) return { status: 'package_incompatible', state }
 
   if (state.rackUpdate.submission.active) return { status: 'submission_in_progress', state }
   if (local.runtime.networkStatus !== 'ONLINE') return { status: 'local_offline', state }
@@ -191,6 +193,9 @@ function resolveSubmissionEndpoints(state: GameState, submission: RackUpdatePack
   if (!target?.online || !target.transferCapacity) return undefined
   const update = target.services?.find(({ id }) => id === submission.serviceId)
   if (!update?.open || update.implementation.productId !== RACK_UPDATE_PRODUCT_ID || update.implementation.releaseId !== RACK_UPDATE_1_0_RELEASE_ID) return undefined
+  const managed = resolveManagedGateSshService(target)
+  const installedGateSsh = target.installedSoftware?.find(({ id }) => id === GATE_SSH_PRODUCT_ID)
+  if (!managed || !installedGateSsh) return undefined
   const localFile = local.filesystem.files.find(({ id }) => id === submission.sourceFileId)
   if (!localFile || localFile.kind !== 'software_package') return undefined
   if (!isValidNetworkTransferCapacity(local.network.transferCapacity) || !isValidNetworkTransferCapacity(target.transferCapacity)) return undefined
@@ -243,21 +248,25 @@ function appendSubmissionNetworkEvidence(state: GameState, submission: RackUpdat
 
 /**
  * Applies the submitted package's release to the target's canonical GateSSH
- * Service exactly once, at real upload completion — never speculatively, and
- * never partially. Also refreshes only the one already-remembered Enhanced
+ * Service and installed-software inventory exactly once, at real upload
+ * completion — never speculatively, and never partially. Also refreshes only the one already-remembered Enhanced
  * Inspect fingerprint this successful action legitimately establishes; it
  * never touches unrelated remembered evidence or hidden World Truth.
  */
-function applyRackUpdateSubmission(state: GameState, submission: RackUpdatePackageSubmission): GameState {
+function applyRackUpdateSubmission(state: GameState, submission: RackUpdatePackageSubmission): GameState | undefined {
   const targetIndex = state.world.network.hosts.findIndex(({ id }) => id === submission.targetDeviceId)
   const target = state.world.network.hosts[targetIndex]
   const localFile = state.player.localDevice.filesystem.files.find(({ id }) => id === submission.sourceFileId)
   const managed = target ? resolveManagedGateSshService(target) : undefined
-  if (!target || !localFile || localFile.kind !== 'software_package' || !managed) return state
+  if (!target || !target.installedSoftware || !localFile || localFile.kind !== 'software_package' || !managed) return undefined
 
   const implementation = { productId: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, name: 'GateSSH', version: localFile.version }
   const services = target.services!.map((service) => service.id === managed.id ? { ...service, implementation } : service)
-  const hosts = state.world.network.hosts.map((host, index) => index === targetIndex ? { ...host, services } : host)
+  const installation: InstalledSoftware = { id: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, name: localFile.name, version: localFile.version, ...(localFile.channel ? { channel: localFile.channel } : {}), ...(localFile.publisher ? { publisher: localFile.publisher } : {}) }
+  const installedSoftware = target.installedSoftware.some(({ id }) => id === GATE_SSH_PRODUCT_ID)
+    ? target.installedSoftware.map((software) => software.id === GATE_SSH_PRODUCT_ID ? installation : software)
+    : [...target.installedSoftware, installation]
+  const hosts = state.world.network.hosts.map((host, index) => index === targetIndex ? { ...host, services, installedSoftware } : host)
   const discovery = refreshSubmittedServiceImplementation(state.discovery, target.id, managed.id, { name: implementation.name, version: implementation.version })
   return { ...state, world: { ...state.world, network: { ...state.world.network, hosts } }, discovery }
 }
@@ -284,6 +293,10 @@ export function advanceRackUpdatePackageSubmission(state: GameState, elapsedMs: 
 
   const finalSubmission = { ...submission, bytesTransferred }
   const applied = applyRackUpdateSubmission(state, finalSubmission)
+  if (!applied) {
+    const interrupted = appendSubmissionNetworkEvidence(state, finalSubmission, 'INTERRUPTED', bytesTransferred)
+    return { ...interrupted, rackUpdate: { ...interrupted.rackUpdate, submission: { ...interrupted.rackUpdate.submission, active: null } } }
+  }
   const completed = appendSubmissionNetworkEvidence(applied, finalSubmission, 'COMPLETED', bytesTransferred)
   return { ...completed, rackUpdate: { ...completed.rackUpdate, submission: { ...completed.rackUpdate.submission, active: null } } }
 }

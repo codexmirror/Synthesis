@@ -1,7 +1,9 @@
 import { checkDestinationPlacement, getFilesystemFile } from './filesystem'
+import { NODE_OS_FIRMWARE_ID } from './firmwareIdentity'
 import { NODE_MINER_EXECUTABLE_SIZE_BYTES, NODE_MINER_INSTALLED_EXECUTABLE_PATH, NODE_MINER_PROGRAM_ID } from './nodeMiner'
 import { startProcess } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
+import { GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import type { ExecutableFile, FilesystemState, GameState, HardwareState, InstalledSoftware, NetworkHost, ProcessState, RuntimeState, SoftwareInstallationProcess, SoftwareInstallationResult } from './types'
 
 export const SOFTWARE_INSTALLATION_WORK_REQUIRED = 600
@@ -14,7 +16,7 @@ export const SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB = 256
  */
 type SoftwareInstallationAdmissionFailure =
   | 'already_installed' | 'already_installing' | 'invalid_path' | 'package_not_found'
-  | 'package_not_file' | 'not_software_package' | 'unrecognized_package_extension' | 'install_path_occupied'
+  | 'package_not_file' | 'not_software_package' | 'unrecognized_package_extension' | 'install_path_occupied' | 'incompatible_firmware'
 
 /** Failures that only exist for a remote target, resolved before the package is even considered. */
 type RemoteInstallationTargetFailure = 'session_unavailable' | 'target_offline' | 'target_not_installable'
@@ -75,6 +77,29 @@ interface SoftwareInstallationTarget {
   readonly installedSoftware: readonly InstalledSoftware[]
   readonly hardware: HardwareState
   readonly runtime: Pick<RuntimeState, 'baselineCpuLoad' | 'baselineRamUsage'>
+  readonly firmware: { readonly id: string }
+}
+
+export type SoftwarePackageEligibility =
+  | { readonly status: 'installable' }
+  | { readonly status: 'installed' | 'installing' | 'unrecognized' }
+  | { readonly status: 'incompatible'; readonly requiredFirmware: 'NODE-OS' }
+
+/**
+ * Narrow pure projection shared by admission and package surfaces. NodeScan is
+ * the one concrete product whose ordinary installation currently requires a
+ * particular Firmware; this is intentionally not a requirements framework.
+ */
+export function deriveSoftwarePackageEligibility(
+  file: { readonly path: string; readonly productId: string; readonly releaseId: string },
+  target: { readonly id: string; readonly firmware: { readonly id: string }; readonly installedSoftware: readonly InstalledSoftware[] },
+  process: ProcessState,
+): SoftwarePackageEligibility {
+  if (!isRecognizedSoftwarePackagePath(file.path)) return { status: 'unrecognized' }
+  if (target.installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId) return { status: 'installed' }
+  if (process.processes.some((candidate) => candidate.kind === 'software_installation' && candidate.status === 'running' && candidate.executorDeviceId === target.id && candidate.productId === file.productId)) return { status: 'installing' }
+  if (file.productId === 'nodescan' && target.firmware.id !== NODE_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'NODE-OS' }
+  return { status: 'installable' }
 }
 
 /** What completion actually mutates on the Device that owns the installation. */
@@ -106,13 +131,11 @@ function admitSoftwareInstallation(process: ProcessState, target: SoftwareInstal
   if (resolved.status === 'not_file') return { status: 'package_not_file' }
   if (resolved.file.kind !== 'software_package') return { status: 'not_software_package' }
   const packageFile = resolved.file
-  if (!isRecognizedSoftwarePackagePath(packageFile.path)) return { status: 'unrecognized_package_extension' }
-
-  const existing = target.installedSoftware.find(({ id }) => id === packageFile.productId)
-  if (existing?.releaseId === packageFile.releaseId) return { status: 'already_installed' }
-
-  const alreadyInstalling = process.processes.some((candidate) => candidate.kind === 'software_installation' && candidate.status === 'running' && candidate.executorDeviceId === target.id && candidate.productId === packageFile.productId)
-  if (alreadyInstalling) return { status: 'already_installing' }
+  const eligibility = deriveSoftwarePackageEligibility(packageFile, target, process)
+  if (eligibility.status === 'unrecognized') return { status: 'unrecognized_package_extension' }
+  if (eligibility.status === 'installed') return { status: 'already_installed' }
+  if (eligibility.status === 'installing') return { status: 'already_installing' }
+  if (eligibility.status === 'incompatible') return { status: 'incompatible_firmware' }
 
   if (packageFile.productId === NODE_MINER_PROGRAM_ID && checkDestinationPlacement(target.filesystem, NODE_MINER_INSTALLED_EXECUTABLE_PATH) !== 'ok') {
     return { status: 'install_path_occupied' }
@@ -203,7 +226,8 @@ export function installRemoteSoftwarePackage(state: GameState, packagePath: stri
  */
 function resolveRemoteInstallationTarget(host: NetworkHost): SoftwareInstallationTarget | undefined {
   if (!host.filesystem || !host.installedSoftware || !host.hardware || !host.runtime) return undefined
-  return { id: host.id, filesystem: host.filesystem, installedSoftware: host.installedSoftware, hardware: host.hardware, runtime: host.runtime }
+  if (!host.firmware) return undefined
+  return { id: host.id, filesystem: host.filesystem, installedSoftware: host.installedSoftware, hardware: host.hardware, runtime: host.runtime, firmware: host.firmware }
 }
 
 /**
@@ -247,8 +271,17 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
 
     const host = hosts.find(({ id }) => id === process.executorDeviceId)
     if (!host?.filesystem || !host.installedSoftware) return { ...process, result: { status: 'target_unavailable' as const } }
+    const managedGateSsh = process.productId === GATE_SSH_PRODUCT_ID
+      ? host.services?.find(({ implementation }) => implementation.productId === GATE_SSH_PRODUCT_ID)
+      : undefined
+    // GateSSH installation owns a paired consequence on represented servers.
+    // If that concrete Service disappeared, apply neither half.
+    if (process.productId === GATE_SSH_PRODUCT_ID && !managedGateSsh) return { ...process, result: { status: 'target_unavailable' as const } }
     const applied = applyInstallationCompletion({ filesystem: host.filesystem, installedSoftware: host.installedSoftware }, process)
-    hosts = hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem: applied.filesystem, installedSoftware: applied.installedSoftware } : candidate)
+    const services = managedGateSsh ? host.services!.map((service) => service.id === managedGateSsh.id
+      ? { ...service, implementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: process.releaseId, name: process.name, version: process.version } }
+      : service) : host.services
+    hosts = hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem: applied.filesystem, installedSoftware: applied.installedSoftware, services } : candidate)
     return { ...process, result: applied.result }
   })
 

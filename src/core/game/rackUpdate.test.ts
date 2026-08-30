@@ -193,11 +193,13 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(state.rackUpdate.submission.active).toMatchObject({ id: submissionId, bytesTransferred: 1_048_576 })
     const managedMidway = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
     expect(managedMidway.implementation.releaseId).toBe('gate-ssh-1.3.3')
+    expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.3')
 
     state = advanceGameState(state, 20_000)
     expect(state.rackUpdate.submission.active).toBeNull()
     const managed = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
     expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' })
+    expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')).toMatchObject({ releaseId: 'gate-ssh-1.3.2', version: '1.3.2' })
     expect(vulnerabilitiesForService(managed).map(({ id }) => id)).toEqual(['AUTH-017'])
     // No access, session, or filesystem consequence anywhere.
     expect(state.deviceAccess.established).toEqual([])
@@ -264,6 +266,32 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.3')
     const homeNet = interrupted.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
     expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ result: 'INTERRUPTED' })])
+  })
+
+  it.each([
+    ['managed GateSSH Service', (state: GameState) => alterTarget(state, (host) => ({ ...host, services: host.services!.filter(({ id }) => id !== 'service-ssh-002') }))],
+    ['GateSSH InstalledSoftware', (state: GameState) => alterTarget(state, (host) => ({ ...host, installedSoftware: host.installedSoftware!.filter(({ id }) => id !== 'gate-ssh') }))],
+  ])('interrupts when required %s disappears, applies neither remaining half, and never records COMPLETED', (_name, removeRequiredState) => {
+    let state = submit(grantSubmissionAccess(ready()))
+    state = advanceGameState(state, 1000)
+    const interrupted = advanceGameState(removeRequiredState(state), 20_000)
+
+    expect(interrupted.rackUpdate.submission.active).toBeNull()
+    const target = interrupted.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    expect(target.services?.find(({ id }) => id === 'service-ssh-002')?.implementation.releaseId).not.toBe('gate-ssh-1.3.2')
+    expect(target.installedSoftware?.find(({ id }) => id === 'gate-ssh')?.releaseId).not.toBe('gate-ssh-1.3.2')
+    const evidence = interrupted.world.network.localNetworks.flatMap(({ activityHistory }) => activityHistory.records)
+    expect(evidence).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'package_submission', result: 'INTERRUPTED' })]))
+    expect(evidence).not.toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'package_submission', result: 'COMPLETED' })]))
+  })
+
+  it.each([
+    ['managed GateSSH Service', (state: GameState) => alterTarget(state, (host) => ({ ...host, services: host.services!.filter(({ id }) => id !== 'service-ssh-002') }))],
+    ['GateSSH InstalledSoftware', (state: GameState) => alterTarget(state, (host) => ({ ...host, installedSoftware: host.installedSoftware!.filter(({ id }) => id !== 'gate-ssh') }))],
+  ])('refuses admission when required %s is already absent', (_name, removeRequiredState) => {
+    const granted = grantSubmissionAccess(ready())
+    const state = removeRequiredState(granted)
+    expect(startRackUpdatePackageSubmission(state, { ...RACK_UPDATE_ENDPOINT, localFileId: 'file-local-gatessh' })).toEqual({ status: 'service_unavailable', state })
   })
 
   it.each([

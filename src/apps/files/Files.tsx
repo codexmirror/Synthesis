@@ -3,7 +3,7 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
 import { findRunningLocalNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
-import { isRecognizedSoftwarePackagePath, type InstallLocalSoftwarePackageResult } from '../../core/game/softwareInstallation'
+import { deriveSoftwarePackageEligibility, type InstallLocalSoftwarePackageResult } from '../../core/game/softwareInstallation'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
 import { SoftwareReleaseCapabilities, SoftwareReleaseChanges, SoftwareReleaseDisclosure } from '../SoftwareReleaseDocumentation'
@@ -11,11 +11,11 @@ import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '.
 import { describeUploadFailure } from '../uploadFailure'
 import { describeInstallFailure } from '../installFailure'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
-import type { DeviceAccessFileTransfer, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
+import type { DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile } from '../../core/game/types'
 
 const INITIAL_PATH = '/home/user'
 
-type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNRECOGNIZED'
+type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNRECOGNIZED' | 'NOT COMPATIBLE'
 
 export function Files() {
   const state = useGameState()
@@ -63,7 +63,7 @@ export function Files() {
             <span aria-hidden="true">←</span> {path}
           </button>
           {selected?.status === 'ok'
-            ? <FileDetails file={selected.file} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} />
+            ? <FileDetails file={selected.file} device={localDevice} process={state.process} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} />
             : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
         </>}
     </section>
@@ -90,7 +90,7 @@ export function Files() {
           const entryPath = joinPath(path, entry.name)
           const result = entry.type === 'file' ? getFilesystemFile(filesystem, entryPath) : undefined
           const file = result?.status === 'ok' ? result.file : undefined
-          const packageState = file?.kind === 'software_package' ? derivePackageState(file, localDevice.installedSoftware, installingProductIds, removingProductIds) : undefined
+          const packageState = file?.kind === 'software_package' ? derivePackageState(file, localDevice, state.process, removingProductIds) : undefined
           return <button className="node-row" type="button" key={entry.name} onClick={() => entry.type === 'directory' ? setPath(entryPath) : openFile(entryPath)}>
             <span className="node-row-glyph" aria-hidden="true">{entry.type === 'directory' ? '▰' : '▱'}</span>
             <span className="node-row-copy">
@@ -142,8 +142,10 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload }: {
+function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload }: {
   file: FilesystemFile
+  device: LocalDeviceState
+  process: GameState['process']
   installedSoftware: readonly InstalledSoftware[]
   installingProductIds: ReadonlySet<string>
   removingProductIds: ReadonlySet<string>
@@ -168,7 +170,7 @@ function FileDetails({ file, installedSoftware, installingProductIds, removingPr
       <div className="node-section"><span>CONTENT</span></div>
       <pre className="file-content">{file.content}</pre>
     </section>
-      : file.kind === 'software_package' ? <PackageDetails file={file} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
+      : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
         : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
   </div>
@@ -201,19 +203,23 @@ function RemoteTransfer({ file, connectedAddress, upload, activeUpload }: { file
  * facts stay behind RELEASE INFORMATION rather than standing between the
  * player and INSTALL.
  */
-function PackageDetails({ file, installedSoftware, installingProductIds, removingProductIds, reviewInstall }: {
+function PackageDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall }: {
   file: SoftwarePackageFile
+  device: LocalDeviceState
+  process: GameState['process']
   installedSoftware: readonly InstalledSoftware[]
   installingProductIds: ReadonlySet<string>
   removingProductIds: ReadonlySet<string>
   reviewInstall: () => void
 }) {
   const current = installedSoftware.find(({ id }) => id === file.productId)
-  const packageState = derivePackageState(file, installedSoftware, installingProductIds, removingProductIds)
+  const eligibility = deriveSoftwarePackageEligibility(file, device, process)
+  const packageState = derivePackageState(file, device, process, removingProductIds)
   return <section className="file-kind-details">
     <header className="node-masthead"><h2 className="node-masthead-subject">{file.name}</h2><span className="node-masthead-meta">{describePackageRelease(file)}</span></header>
     <div className="node-section"><span>STATUS</span><span>{packageState}</span></div>
     <dl className="node-facts"><div><dt>CURRENT</dt><dd>{current ? describeInstalledSoftware(current) : 'NOT INSTALLED'}</dd></div></dl>
+    {eligibility.status === 'incompatible' && <dl className="node-facts"><div><dt>REQUIRES</dt><dd>{eligibility.requiredFirmware}</dd></div></dl>}
     {packageState === 'INSTALLABLE' ? <div className="file-kind-actions"><button className="node-action" type="button" onClick={reviewInstall}>INSTALL</button></div>
       : packageState === 'INSTALLING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>INSTALLING…</button></div>
       : packageState === 'REMOVING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>REMOVING…</button></div>
@@ -342,13 +348,15 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
  * unrecognized path never rewrites the artifact — it only means normal
  * installation is unavailable from it, exactly as the core operation decides.
  */
-function derivePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[], installingProductIds: ReadonlySet<string>, removingProductIds: ReadonlySet<string>): PackageState {
-  if (!isRecognizedSoftwarePackagePath(file.path)) return 'UNRECOGNIZED'
-  if (installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId) {
+function derivePackageState(file: SoftwarePackageFile, device: LocalDeviceState, process: GameState['process'], removingProductIds: ReadonlySet<string>): PackageState {
+  const eligibility = deriveSoftwarePackageEligibility(file, device, process)
+  if (eligibility.status === 'unrecognized') return 'UNRECOGNIZED'
+  if (eligibility.status === 'incompatible') return 'NOT COMPATIBLE'
+  if (eligibility.status === 'installed') {
     if (file.productId === 'nodescan' && file.releaseId === NODESCAN_1_0_STANDARD_RELEASE_ID) return 'PROTECTED'
     return removingProductIds.has(file.productId) ? 'REMOVING' : 'INSTALLED'
   }
-  return installingProductIds.has(file.productId) ? 'INSTALLING' : 'INSTALLABLE'
+  return eligibility.status === 'installing' ? 'INSTALLING' : 'INSTALLABLE'
 }
 
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }

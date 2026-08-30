@@ -363,7 +363,7 @@ describe('normal package recognition of the current path', () => {
  * own runtime, entirely independently of node-01's scheduler.
  */
 describe('installRemoteSoftwarePackage', () => {
-  const REMOTE_PACKAGE_PATH = '/opt/packages/nodescan-exp-1.1.pkg'
+  const REMOTE_PACKAGE_PATH = '/opt/packages/packet-viewer-1.0.pkg'
   const REMOTE_MINER_PATH = '/opt/packages/node-miner-1.0.pkg'
   const LOCAL_MINER_PATH = '/home/user/downloads/node-miner-1.0.pkg'
 
@@ -373,10 +373,18 @@ describe('installRemoteSoftwarePackage', () => {
     version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000,
   }
 
+  const remoteOrdinaryPackage: SoftwarePackageFile = {
+    kind: 'software_package', id: 'file-remote-ordinary-baseline', path: REMOTE_PACKAGE_PATH,
+    productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer',
+    version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 2_048,
+  }
+
   /** An authorized, currently operated RACK-OS context over srv-01, optionally altering that Device first. */
   function operating(alter?: (host: NetworkHost) => NetworkHost): GameState {
     const base = createInitialGameState()
-    const target = alter ? alter(base.world.network.hosts[0]) : base.world.network.hosts[0]
+    const authored = base.world.network.hosts[0]
+    const withOrdinary = { ...authored, filesystem: { ...authored.filesystem!, files: [...authored.filesystem!.files, remoteOrdinaryPackage] } }
+    const target = alter ? alter(withOrdinary) : withOrdinary
     const authorized: GameState = {
       ...base,
       deviceAccess: { nextId: 2, established: [{ id: 'access-remote-install', sourceDeviceId: base.player.localDevice.id, targetDeviceId: target.id, viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
@@ -415,9 +423,9 @@ describe('installRemoteSoftwarePackage', () => {
 
   it('resolves the package from the target filesystem, snapshots its exact concrete metadata, and admits work owned by that Device', () => {
     const state = operating()
-    const remotePackage = target(state).filesystem!.files.find((file): file is SoftwarePackageFile => file.kind === 'software_package')!
+    const remotePackage = target(state).filesystem!.files.find((file): file is SoftwarePackageFile => file.kind === 'software_package' && file.path === REMOTE_PACKAGE_PATH)!
     const result = installRemoteSoftwarePackage(state, REMOTE_PACKAGE_PATH)
-    expect(result).toMatchObject({ status: 'started', processId: 'process-0001', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental' })
+    expect(result).toMatchObject({ status: 'started', processId: 'process-0001', productId: 'packet-viewer', name: 'Packet Viewer', version: '1.0', channel: 'standard' })
     if (result.status !== 'started') throw new Error(result.status)
 
     const process = installation(result.state.process.processes[0])
@@ -432,7 +440,7 @@ describe('installRemoteSoftwarePackage', () => {
     expect(process).not.toHaveProperty('sessionId')
 
     // Admission starts work, not installation truth, and reserves the target's own RAM.
-    expect(target(result.state).installedSoftware).toEqual([])
+    expect(target(result.state).installedSoftware).toEqual([expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' })])
     expect(target(result.state).filesystem).toBe(target(state).filesystem)
     expect(result.state.player.localDevice).toBe(state.player.localDevice)
     expect(deriveResourceUsage({ id: 'host-lan-001', hardware: target(result.state).hardware!, runtime: target(result.state).runtime! }, result.state.process).processRamMiB).toBe(SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB)
@@ -457,12 +465,12 @@ describe('installRemoteSoftwarePackage', () => {
     // node-01 already runs NodeScan 1.0 Standard; that says nothing about srv-01.
     expect(state.player.localDevice.installedSoftware.find(({ id }) => id === 'nodescan')).toBeDefined()
 
-    const installedRemotely = operating((host) => ({ ...host, installedSoftware: [{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] }))
+    const installedRemotely = operating((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard' }] }))
     expect(installRemoteSoftwarePackage(installedRemotely, REMOTE_PACKAGE_PATH)).toEqual({ status: 'already_installed', state: installedRemotely })
 
     // A different release of the same product installed there is a replacement, not a block.
-    const otherRelease = operating((host) => ({ ...host, installedSoftware: [{ id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' }] }))
-    expect(installRemoteSoftwarePackage(otherRelease, REMOTE_PACKAGE_PATH)).toMatchObject({ status: 'started', productId: 'nodescan' })
+    const otherRelease = operating((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' }] }))
+    expect(installRemoteSoftwarePackage(otherRelease, REMOTE_PACKAGE_PATH)).toMatchObject({ status: 'started', productId: 'packet-viewer' })
 
     const started = installRemoteSoftwarePackage(state, REMOTE_PACKAGE_PATH)
     if (started.status !== 'started') throw new Error(started.status)
@@ -522,9 +530,10 @@ describe('installRemoteSoftwarePackage', () => {
     expect(installation(running.process.processes[0]).workCompleted).toBeCloseTo(140.8)
 
     const done = advanceGameState(running, 20_000)
-    expect(target(done).installedSoftware).toEqual([
-      { id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
-    ])
+    expect(target(done).installedSoftware).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
+      expect.objectContaining({ id: 'packet-viewer', releaseId: 'packet-viewer-1.0' }),
+    ]))
     // Ordinary completion is InstalledSoftware only: no executable appears merely because software exists.
     expect(target(done).filesystem!.files.some((file) => file.kind === 'executable')).toBe(false)
     expect(target(done).filesystem!.files).toContainEqual(target(state).filesystem!.files[1])
@@ -539,6 +548,7 @@ describe('installRemoteSoftwarePackage', () => {
     const done = advanceGameState(started.state, 20_000)
 
     expect(target(done).installedSoftware).toEqual([
+      expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
       { id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' },
     ])
     const remoteExecutables = target(done).filesystem!.files.filter((file): file is ExecutableFile => file.kind === 'executable')
@@ -565,6 +575,7 @@ describe('installRemoteSoftwarePackage', () => {
     if (started.status !== 'started') throw new Error(started.status)
     const done = advanceGameState(started.state, 20_000)
     expect(target(done).installedSoftware).toEqual([
+      expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
       { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
     ])
     expect(target(done).filesystem!.files.some((file) => file.kind === 'executable')).toBe(false)
@@ -572,13 +583,15 @@ describe('installRemoteSoftwarePackage', () => {
 
   it('replaces only the matching product on the target and leaves its unrelated software alone', () => {
     const state = operating((host) => ({ ...host, installedSoftware: [
-      { id: 'nodescan', releaseId: 'nodescan-1.0-standard', name: 'NodeScan', version: '1.0', channel: 'standard' },
+      ...host.installedSoftware!,
+      { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' },
       { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' },
     ] }))
     const started = installRemoteSoftwarePackage(state, REMOTE_PACKAGE_PATH)
     if (started.status !== 'started') throw new Error(started.status)
     expect(target(advanceGameState(started.state, 20_000)).installedSoftware).toEqual([
-      { id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+      expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
       { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' },
     ])
   })
@@ -591,15 +604,56 @@ describe('installRemoteSoftwarePackage', () => {
     expect(done.process.processes).toEqual([])
     expect(target(done).installedSoftware).toBeUndefined()
   })
+
+  it('rejects NodeScan on RACK-OS without mutation while local NODE-OS admits it', () => {
+    const remote = operating()
+    const nodeScanPath = '/opt/packages/nodescan-exp-1.1.pkg'
+    expect(installRemoteSoftwarePackage(remote, nodeScanPath)).toEqual({ status: 'incompatible_firmware', state: remote })
+    expect(remote.process.processes).toEqual([])
+    const localPackage = { ...packageFile, path: '/home/user/downloads/nodescan-1.1.pkg' }
+    expect(installLocalSoftwarePackage(withFiles([localPackage]), localPackage.path).status).toBe('started')
+  })
+
+  it('rejects seeded same-release GateSSH and atomically upgrades then downgrades its managed release', () => {
+    const gatePath = '/opt/packages/gatessh-1.3.2.pkg'
+    const initial = operating()
+    expect(installRemoteSoftwarePackage(initial, gatePath)).toEqual({ status: 'already_installed', state: initial })
+    const newer: SoftwarePackageFile = { kind: 'software_package', id: 'gate-new', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3', sizeBytes: 6_400_000 }
+    const upgrade = installRemoteSoftwarePackage(operating(withRemoteFiles([newer])), newer.path)
+    if (upgrade.status !== 'started') throw new Error(upgrade.status)
+    const upgraded = advanceGameState(upgrade.state, 20_000)
+    expect(target(upgraded).installedSoftware!.find(({ id }) => id === 'gate-ssh')?.releaseId).toBe('gate-ssh-1.3.3')
+    expect(target(upgraded).services!.find(({ implementation }) => implementation.productId === 'gate-ssh')?.implementation.releaseId).toBe('gate-ssh-1.3.3')
+    const downgrade = installRemoteSoftwarePackage(upgraded, gatePath)
+    if (downgrade.status !== 'started') throw new Error(downgrade.status)
+    const downgraded = advanceGameState(downgrade.state, 20_000)
+    expect(target(downgraded).installedSoftware!.find(({ id }) => id === 'gate-ssh')?.releaseId).toBe('gate-ssh-1.3.2')
+    expect(target(downgraded).services!.find(({ implementation }) => implementation.productId === 'gate-ssh')?.implementation.releaseId).toBe('gate-ssh-1.3.2')
+  })
+
+  it('applies neither GateSSH half if the managed Service disappears before completion', () => {
+    const newer: SoftwarePackageFile = { kind: 'software_package', id: 'gate-missing-service', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3', sizeBytes: 1 }
+    const original = operating(withRemoteFiles([newer]))
+    const started = installRemoteSoftwarePackage(original, newer.path)
+    if (started.status !== 'started') throw new Error(started.status)
+    const completedProcess = { ...installation(started.state.process.processes[0]), status: 'completed' as const, workCompleted: installation(started.state.process.processes[0]).workRequired }
+    const missing: GameState = { ...started.state, process: { ...started.state.process, processes: [completedProcess] }, world: { ...started.state.world, network: { ...started.state.world.network, hosts: started.state.world.network.hosts.map((host) => host.id === target(original).id ? { ...host, services: host.services!.filter(({ implementation }) => implementation.productId !== 'gate-ssh') } : host) } } }
+    const done = resolveCompletedSoftwareInstallations(missing)
+    expect(target(done).installedSoftware).toEqual(target(original).installedSoftware)
+    expect(installation(done.process.processes[0]).result).toEqual({ status: 'target_unavailable' })
+  })
+
 })
 
 describe('completed installation history stays the local Device\'s own observation', () => {
-  const REMOTE_PACKAGE_PATH = '/opt/packages/nodescan-exp-1.1.pkg'
+  const REMOTE_PACKAGE_PATH = '/opt/packages/history-viewer.pkg'
 
   function operating(): GameState {
     const base = createInitialGameState()
-    const host = base.world.network.hosts[0]
-    const authorized: GameState = { ...base, deviceAccess: { nextId: 2, established: [{ id: 'access-history', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-ssh-001', privilege: 'USER' }] } }
+    const authored = base.world.network.hosts[0]
+    const pkg: SoftwarePackageFile = { kind: 'software_package', id: 'history-viewer', path: REMOTE_PACKAGE_PATH, productId: 'history-viewer', releaseId: 'history-viewer-1.0', name: 'History Viewer', version: '1.0', sizeBytes: 10 }
+    const host = { ...authored, filesystem: { ...authored.filesystem!, files: [...authored.filesystem!.files, pkg] } }
+    const authorized: GameState = { ...base, world: { ...base.world, network: { ...base.world.network, hosts: [host, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-history', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-ssh-001', privilege: 'USER' }] } }
     return connectRemoteFromObservation(authorized, { targetDeviceId: host.id, address: host.ip }).state
   }
 
@@ -642,9 +696,7 @@ describe('completed installation history stays the local Device\'s own observati
     expect(done.recentActivity.entries.map(({ id }) => id)).toEqual([local.processId])
     expect(done.process.processes.map(({ id }) => id)).toEqual([local.processId])
     // The consequence still landed on the Device that did the work.
-    expect(done.world.network.hosts[0].installedSoftware).toEqual([
-      { id: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
-    ])
+    expect(done.world.network.hosts[0].installedSoftware).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'history-viewer', releaseId: 'history-viewer-1.0' })]))
     // Local history remains fully clearable: nothing inaccessible is left behind.
     expect(clearRecentActivity(done, done.player.localDevice.id).recentActivity.entries).toEqual([])
     expect(clearRecentActivity(done, done.player.localDevice.id).process.processes).toEqual([])

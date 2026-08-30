@@ -220,7 +220,7 @@ independently of the artifact's filesystem path; copies at different paths
 retain that same release identity.
 
 
-RackUpdate public package submission is not FileTransfer Upload. It takes one concrete local software-package artifact by stable file ID as request input under RackUpdate 1.0 protocol authority; it requires neither RemoteSession nor DeviceAccess, but does require the narrow `RackUpdateSubmissionAccess` relationship a successful RackUpdate exploit granted (see `docs/current/NETWORK_ACCESS.md`). It is represented finite upload work carrying package bytes to a Service interaction rather than an instant mutation: a distinct canonical runtime domain (`GameState.rackUpdate.submission`), advanced at the same canonical `advanceGameState` boundary as `FileTransfer` and governed by the same Device/LocalNetwork transfer-capacity model, but never itself a `FileTransfer` or a `GameProcess`. Success changes the managed Service implementation only, exactly once, at the moment the upload actually completes: it creates no remote filesystem artifact and consumes or changes no local file. Cancelling, interrupting, or losing the route applies none of the package. Authorized Upload retains its existing RemoteSession → DeviceAccess admission and arbitrary destination-path semantics.
+RackUpdate public package submission is not FileTransfer Upload. It takes one concrete local software-package artifact by stable file ID as request input under RackUpdate 1.0 protocol authority; it requires neither RemoteSession nor DeviceAccess, but does require the narrow `RackUpdateSubmissionAccess` relationship a successful RackUpdate exploit granted (see `docs/current/NETWORK_ACCESS.md`). It is represented finite upload work carrying package bytes to a Service interaction rather than an instant mutation: a distinct canonical runtime domain (`GameState.rackUpdate.submission`), advanced at the same canonical `advanceGameState` boundary as `FileTransfer` and governed by the same Device/LocalNetwork transfer-capacity model, but never itself a `FileTransfer` or a `GameProcess`. Success coherently replaces both the target's GateSSH InstalledSoftware release and its managed GateSSH Service implementation, exactly once, at the moment the upload actually completes: it creates no remote filesystem artifact and consumes or changes no local file. Cancelling, interrupting, or losing the route applies none of the package. Authorized Upload retains its existing RemoteSession → DeviceAccess admission and arbitrary destination-path semantics.
 
 
 ## Packages, recognition, and Software Installation
@@ -337,11 +337,7 @@ from the *target's* filesystem, normal `.pkg` recognition applies to the
 target artifact's own current path, already-installed and already-installing
 checks read that Device's own inventory and its own running Processes, RAM
 admission uses that Device's own hardware, and NODE Miner's installation-path
-occupancy is checked against the target filesystem. Local and remote
-inventories are fully independent: node-01 running NodeScan 1.0 Standard while
-`srv-01` runs NodeScan 1.1 Experimental is normal, a local installation of the
-same product running concurrently never blocks the remote one, and neither
-Device's inventory or filesystem is touched by the other's installation.
+occupancy is checked against the target filesystem. Local and remote inventories are fully independent, but installation compatibility is concrete Device truth. NodeScan currently requires the stable NODE-OS Firmware identity: NodeScan 1.1 Experimental remains normally installable on node-01 and is rejected as `incompatible_firmware` on RACK-OS, with Files presenting NOT COMPATIBLE / REQUIRES NODE-OS from the same installation-domain eligibility rule. This one product rule is not a general requirements model. NODE Miner 1.0 remains normally installable on RACK-OS, as do unrelated ordinary packages; neither Device's inventory or filesystem is touched by the other's installation.
 
 The resulting Process's `executorDeviceId` is the target Device, so the target
 supplies the CPU throughput and the reserved RAM through the existing
@@ -357,9 +353,7 @@ and completion applies its consequence normally. Reconnecting later through
 the still-valid DeviceAccess derives whatever is true by then — still
 INSTALLING, or INSTALLED.
 
-Completion is ordinary: the target Device's `installedSoftware` gains or
-replaces that exact product release, and product-specific consequences occur
-on that same Device. Remote NODE Miner installation therefore creates its one
+Completion ordinarily makes the target Device's `installedSoftware` gain or replace that exact product release, and product-specific consequences occur on that same Device. The authored RACK-OS servers concretely carry GateSSH InstalledSoftware matching their managed Service (srv-01 at 1.3.2 and srv-02 at 1.3.3). Installing another GateSSH release through Files atomically replaces both that installed release and the existing Service whose implementation has stable `gate-ssh` product identity; it creates no Service and changes no unrelated Service. If that managed Service is absent at completion, neither half is applied. Older and newer represented releases use the same lifecycle with no version ordering. Remote NODE Miner installation therefore creates its one
 managed executable at `/usr/local/bin/node-miner` **in the target
 filesystem**, leaving the local Device's filesystem and inventory untouched.
 Installation is still not execution: completion creates the artifact, and RUN
