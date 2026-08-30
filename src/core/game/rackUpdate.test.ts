@@ -193,11 +193,13 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(state.rackUpdate.submission.active).toMatchObject({ id: submissionId, bytesTransferred: 1_048_576 })
     const managedMidway = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
     expect(managedMidway.implementation.releaseId).toBe('gate-ssh-1.3.3')
+    expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.3')
 
     state = advanceGameState(state, 20_000)
     expect(state.rackUpdate.submission.active).toBeNull()
     const managed = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
     expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', name: 'GateSSH', version: '1.3.2' })
+    expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')).toMatchObject({ releaseId: 'gate-ssh-1.3.2', version: '1.3.2' })
     expect(vulnerabilitiesForService(managed).map(({ id }) => id)).toEqual(['AUTH-017'])
     // No access, session, or filesystem consequence anywhere.
     expect(state.deviceAccess.established).toEqual([])

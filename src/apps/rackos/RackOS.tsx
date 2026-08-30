@@ -4,10 +4,10 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory, sameFilesystemArtifactIgnoringPath } from '../../core/game/filesystem'
 import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
-import { isRecognizedSoftwarePackagePath, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
+import { deriveSoftwarePackageEligibility, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
 import { deriveNodeMinerRuntimeStatus, findNodeMinerExecutable, findRunningNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartRemoteNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
-import type { AuthenticationHistoryRecord, ExecutableFile, FilesystemFile, FilesystemState, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
+import type { AuthenticationHistoryRecord, GameState, ExecutableFile, FilesystemFile, FilesystemState, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
@@ -191,7 +191,7 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
       {result.file.kind === 'text'
         ? <pre className="rack-file-content">{result.file.content}</pre>
         : result.file.kind === 'software_package'
-          ? <RemotePackage key={selected} file={result.file} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
+          ? <RemotePackage key={selected} file={result.file} target={context.target} process={state.process} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
           : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
           player is operating it stays secondary to that Device's own software and
@@ -316,7 +316,7 @@ function describeRemoteRunFailure(result: Exclude<StartRemoteNodeMinerResult, { 
   return result.status.toUpperCase().replaceAll('_', ' ')
 }
 
-type RemotePackageState = 'INSTALLABLE' | 'INSTALLING' | 'INSTALLED' | 'UNRECOGNIZED' | 'NOT INSTALLABLE'
+type RemotePackageState = 'INSTALLABLE' | 'INSTALLING' | 'INSTALLED' | 'UNRECOGNIZED' | 'NOT INSTALLABLE' | 'NOT COMPATIBLE'
 
 /**
  * The software-package surface of the Device the player is currently
@@ -332,8 +332,10 @@ type RemotePackageState = 'INSTALLABLE' | 'INSTALLING' | 'INSTALLED' | 'UNRECOGN
  * admission rule is duplicated here, and no installed/installing lifecycle
  * flag is kept: every state below is derived from canonical truth.
  */
-function RemotePackage({ file, targetDisplayName, installedSoftware, installable, installingProductIds, install }: {
+function RemotePackage({ file, target, process, targetDisplayName, installedSoftware, installable, installingProductIds, install }: {
   file: SoftwarePackageFile
+  target: ActiveRemoteTarget['target']
+  process: GameState['process']
   targetDisplayName: string
   installedSoftware: readonly InstalledSoftware[] | undefined
   installable: boolean
@@ -346,7 +348,8 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installable
   /* Absent, not empty: a Device representing no inventory has no installed
      release to state, so the row is omitted rather than claiming NOT INSTALLED. */
   const currentLabel = installedSoftware === undefined ? undefined : current ? describeInstalledRelease(current) : 'NOT INSTALLED'
-  const packageState = deriveRemotePackageState(file, installedSoftware, installable, installingProductIds)
+  const eligibility = target.firmware && target.installedSoftware ? deriveSoftwarePackageEligibility(file, { id: target.id, firmware: target.firmware, installedSoftware: target.installedSoftware }, process) : undefined
+  const packageState = deriveRemotePackageState(eligibility, installable)
 
   function confirm() {
     const result = install(file.path)
@@ -379,11 +382,13 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installable
           <dl className="rack-facts rack-facts--dense">
             <div><dt>STATUS</dt><dd>{packageState}</dd></div>
             {currentLabel && <div><dt>CURRENT</dt><dd>{currentLabel}</dd></div>}
+            {eligibility?.status === 'incompatible' && <div><dt>REQUIRES</dt><dd>{eligibility.requiredFirmware}</dd></div>}
           </dl>
           {packageState === 'INSTALLABLE' && <button className="rack-primary" type="button" onClick={() => { setFeedback(undefined); setConfirming(true) }}>INSTALL</button>}
           {packageState === 'INSTALLING' && <button className="rack-primary" type="button" disabled>INSTALLING…</button>}
           {packageState === 'INSTALLED' && <button className="rack-primary" type="button" disabled>INSTALLED ✓</button>}
           {packageState === 'UNRECOGNIZED' && <p className="rack-install-note">UNRECOGNIZED PACKAGE EXTENSION</p>}
+          {packageState === 'NOT COMPATIBLE' && <p className="rack-install-note">FIRMWARE NOT COMPATIBLE</p>}
           {/* Same words the canonical admission failure uses, so the surface and the operation agree. */}
           {packageState === 'NOT INSTALLABLE' && <p className="rack-install-note">TARGET CANNOT INSTALL SOFTWARE</p>}
         </>}
@@ -416,11 +421,13 @@ function RemotePackage({ file, targetDisplayName, installedSoftware, installable
  * rewrites the artifact: an unrecognized path only means normal installation
  * is unavailable from it, exactly as the canonical operation decides.
  */
-function deriveRemotePackageState(file: SoftwarePackageFile, installedSoftware: readonly InstalledSoftware[] | undefined, installable: boolean, installingProductIds: ReadonlySet<string>): RemotePackageState {
-  if (!installable || !installedSoftware) return 'NOT INSTALLABLE'
-  if (!isRecognizedSoftwarePackagePath(file.path)) return 'UNRECOGNIZED'
-  if (installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId) return 'INSTALLED'
-  return installingProductIds.has(file.productId) ? 'INSTALLING' : 'INSTALLABLE'
+function deriveRemotePackageState(eligibility: ReturnType<typeof deriveSoftwarePackageEligibility> | undefined, installable: boolean): RemotePackageState {
+  if (!installable || !eligibility) return 'NOT INSTALLABLE'
+  if (eligibility.status === 'unrecognized') return 'UNRECOGNIZED'
+  if (eligibility.status === 'installed') return 'INSTALLED'
+  if (eligibility.status === 'installing') return 'INSTALLING'
+  if (eligibility.status === 'incompatible') return 'NOT COMPATIBLE'
+  return 'INSTALLABLE'
 }
 
 function describeInstalledRelease(software: InstalledSoftware): string {

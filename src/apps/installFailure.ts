@@ -21,7 +21,7 @@ const INSTALL_FAILURE_LABELS: Record<SoftwareInstallationFailure['status'], stri
   unrecognized_package_extension: 'UNRECOGNIZED PACKAGE EXTENSION',
   install_path_occupied: 'INSTALLATION PATH OCCUPIED', insufficient_memory: 'INSUFFICIENT MEMORY',
   session_unavailable: 'SESSION UNAVAILABLE', target_offline: 'TARGET UNAVAILABLE',
-  target_not_installable: 'TARGET CANNOT INSTALL SOFTWARE',
+  target_not_installable: 'TARGET CANNOT INSTALL SOFTWARE', incompatible_firmware: 'FIRMWARE NOT COMPATIBLE',
 }
 
 export function describeInstallFailure(result: SoftwareInstallationFailure): string {

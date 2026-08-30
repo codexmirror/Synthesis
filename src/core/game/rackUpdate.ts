@@ -13,7 +13,7 @@ import {
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
 import { refreshSubmittedServiceImplementation } from './discovery'
-import type { GameState, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
+import type { GameState, InstalledSoftware, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
 export const ROLLBACK_EXPLOIT_TOOLKIT_ID = 'rollback-exploit-toolkit' as const
 export const RACK_UPDATE_EXPLOIT_WORK_REQUIRED = 1400
@@ -243,8 +243,8 @@ function appendSubmissionNetworkEvidence(state: GameState, submission: RackUpdat
 
 /**
  * Applies the submitted package's release to the target's canonical GateSSH
- * Service exactly once, at real upload completion — never speculatively, and
- * never partially. Also refreshes only the one already-remembered Enhanced
+ * Service and installed-software inventory exactly once, at real upload
+ * completion — never speculatively, and never partially. Also refreshes only the one already-remembered Enhanced
  * Inspect fingerprint this successful action legitimately establishes; it
  * never touches unrelated remembered evidence or hidden World Truth.
  */
@@ -253,11 +253,15 @@ function applyRackUpdateSubmission(state: GameState, submission: RackUpdatePacka
   const target = state.world.network.hosts[targetIndex]
   const localFile = state.player.localDevice.filesystem.files.find(({ id }) => id === submission.sourceFileId)
   const managed = target ? resolveManagedGateSshService(target) : undefined
-  if (!target || !localFile || localFile.kind !== 'software_package' || !managed) return state
+  if (!target || !target.installedSoftware || !localFile || localFile.kind !== 'software_package' || !managed) return state
 
   const implementation = { productId: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, name: 'GateSSH', version: localFile.version }
   const services = target.services!.map((service) => service.id === managed.id ? { ...service, implementation } : service)
-  const hosts = state.world.network.hosts.map((host, index) => index === targetIndex ? { ...host, services } : host)
+  const installation: InstalledSoftware = { id: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, name: localFile.name, version: localFile.version, ...(localFile.channel ? { channel: localFile.channel } : {}), ...(localFile.publisher ? { publisher: localFile.publisher } : {}) }
+  const installedSoftware = target.installedSoftware.some(({ id }) => id === GATE_SSH_PRODUCT_ID)
+    ? target.installedSoftware.map((software) => software.id === GATE_SSH_PRODUCT_ID ? installation : software)
+    : [...target.installedSoftware, installation]
+  const hosts = state.world.network.hosts.map((host, index) => index === targetIndex ? { ...host, services, installedSoftware } : host)
   const discovery = refreshSubmittedServiceImplementation(state.discovery, target.id, managed.id, { name: implementation.name, version: implementation.version })
   return { ...state, world: { ...state.world, network: { ...state.world.network, hosts } }, discovery }
 }
