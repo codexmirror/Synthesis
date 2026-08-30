@@ -410,7 +410,16 @@ describe('RACK-OS', () => {
 
   it('reports canonical Upload admission failures without touching the remote filesystem', async () => {
     const user = userEvent.setup()
-    const initial = connectedStateWithRemoteHome()
+    /* The represented local upload capacity is deliberately one byte per second,
+       exactly as the single-transfer test below does it. `welcome.txt` is 33
+       bytes, so at node-01's normal capacity the admitted transfer legitimately
+       *completes* inside the first advancement tick that lands between the
+       click and the assertion — which reads as a missing transfer rather than
+       as the finished one it is. Slowing the represented route keeps the
+       admitted transfer observably running instead of weakening the
+       assertion. */
+    const base = connectedStateWithRemoteHome()
+    const initial: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, network: { ...base.player.localDevice.network, transferCapacity: { ...base.player.localDevice.network.transferCapacity, uploadBytesPerSecond: 1 } } } } }
     const remoteBefore = initial.world.network.hosts[0].filesystem
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
@@ -434,7 +443,9 @@ describe('RACK-OS', () => {
     await user.type(screen.getByLabelText('Remote destination path'), '/srv/copied-welcome.txt')
     await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
     current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    expect(current.fileTransfer.active).toMatchObject({ destinationPath: '/srv/copied-welcome.txt' })
+    expect(current.fileTransfer.active).toMatchObject({ destinationPath: '/srv/copied-welcome.txt', sourceFileId: 'file-0001' })
+    // Still an admission only: the destination artifact appears at completion, not now.
+    expect(current.world.network.hosts[0].filesystem).toEqual(remoteBefore)
   })
 
   it('presents the canonical single-transfer rejection rather than queueing an Upload', async () => {

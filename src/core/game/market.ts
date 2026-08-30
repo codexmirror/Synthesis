@@ -1,6 +1,5 @@
-import { NODE_UNITS_PER_NODE } from './nodeMiner'
 import { GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
-import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0, ROLLBACK_EXPLOIT_TOOLKIT_1_0 } from './softwareReleaseContent'
+import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState, SoftwarePackageFile } from './types'
 
 /**
@@ -13,6 +12,19 @@ export const MARKET_OPERATOR_SETTLEMENT_ADDRESS = 'node-addr-4c71e8b0a3'
 
 /** Stable identity of the one represented Market operator currently reachable. */
 export const MARKET_OPERATOR_ID = 'market-operator-opx-v0'
+
+/**
+ * What the represented Market operator currently charges for each V1
+ * offering: 10,000 canonical atomic NODE units, which existing presentation
+ * formats as `0.01 NODE` (see `NODE_UNITS_PER_NODE` in nodeMiner.ts).
+ *
+ * It is a concrete current tuning of what this operator asks, authored as an
+ * integer like every other canonical NODE amount — never a fractional NODE
+ * value, a presentation override, or a price policy. Each offering still
+ * carries its own `priceNodeUnits`, and every operation reads that offering's
+ * own price rather than this constant.
+ */
+export const MARKET_V1_OFFER_PRICE_NODE_UNITS = 10_000
 
 /**
  * The concrete broad/open software Market represented by V1.
@@ -37,7 +49,7 @@ export function createInitialMarketState(): MarketState {
     offers: [
       {
         id: 'market-offer-nodescan-1.1-experimental',
-        priceNodeUnits: NODE_UNITS_PER_NODE,
+        priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'nodescan-exp-1.1.pkg',
           releaseId: NODESCAN_1_1_EXPERIMENTAL.releaseId, productId: NODESCAN_1_1_EXPERIMENTAL.productId,
@@ -47,7 +59,7 @@ export function createInitialMarketState(): MarketState {
       },
       {
         id: 'market-offer-node-miner-1.0',
-        priceNodeUnits: NODE_UNITS_PER_NODE,
+        priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'node-miner-1.0.pkg',
           releaseId: NODE_MINER_1_0.releaseId, productId: NODE_MINER_1_0.productId,
@@ -58,7 +70,7 @@ export function createInitialMarketState(): MarketState {
       },
       {
         id: 'market-offer-gate-ssh-1.3.2',
-        priceNodeUnits: NODE_UNITS_PER_NODE,
+        priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'gatessh-1.3.2.pkg',
           releaseId: GATE_SSH_1_3_2_RELEASE_ID, productId: GATE_SSH_PRODUCT_ID,
@@ -67,27 +79,16 @@ export function createInitialMarketState(): MarketState {
         },
       },
       {
-        // The already-represented GateSSH 1.3.3 release, now distributable as a concrete package.
+        // The already-represented GateSSH 1.3.3 release, distributable as a concrete package for
+        // the first time. It states no publisher: only srv-01's own 1.3.2 package artifact
+        // represents `rack-systems`, and one release's stated provenance is not the product's.
         id: 'market-offer-gate-ssh-1.3.3',
-        priceNodeUnits: NODE_UNITS_PER_NODE,
+        priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
         distribution: {
           filename: 'gatessh-1.3.3.pkg',
           releaseId: GATE_SSH_1_3_3_RELEASE_ID, productId: GATE_SSH_PRODUCT_ID,
-          name: 'GateSSH', version: '1.3.3', channel: 'stable', publisher: 'rack-systems',
+          name: 'GateSSH', version: '1.3.3', channel: 'stable',
           sizeBytes: 6_600_000,
-        },
-      },
-      {
-        // The already-authored Rollback Exploit Toolkit release, now distributable as a concrete
-        // package. It states no publisher because none is represented for it; the Market presents
-        // that absence rather than inventing provenance to fill the field.
-        id: 'market-offer-rollback-exploit-toolkit-1.0',
-        priceNodeUnits: NODE_UNITS_PER_NODE,
-        distribution: {
-          filename: 'rollback-exploit-toolkit-1.0.pkg',
-          releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId, productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
-          name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name, version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version, channel: 'unofficial',
-          sizeBytes: 2_100_000,
         },
       },
     ],

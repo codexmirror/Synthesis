@@ -481,13 +481,15 @@ running.
 `srv-01` no longer distributes a NODE Miner executable; only its NodeScan
 Experimental package remains.
 
-Represented software packages also exist outside any Device filesystem, as the
-distributions the represented software Market offers. GateSSH 1.3.3 and
-Rollback Exploit Toolkit 1.0 are distributable packages for the first time
-there; the Market is currently the only represented acquisition path for the
-Rollback Exploit Toolkit. A completed Market download creates an ordinary local
-package artifact, and every rule in this document applies to it unchanged. See
-`docs/current/MARKET.md`.
+A software package remains, exactly as this document and
+`docs/design/SOFTWARE_AUTHORING.md` define it, a file on a Device-owned
+filesystem. The represented software Market adds no exception: what it offers
+before a download is a *distribution* — represented offer and source truth
+about a release and its byte size — not an artifact. No `software_package`,
+file ID or path exists for a Market offering until its transfer completes, at
+which point completion creates one ordinary local package artifact to which
+every rule in this document then applies unchanged. GateSSH 1.3.3 is
+distributable that way for the first time. See `docs/current/MARKET.md`.
 
 The continuous Miner runtime is owned by
 `docs/current/PROCESSES_ACTIVITY.md`; what it produces, routes, and records

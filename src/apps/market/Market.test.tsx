@@ -6,6 +6,7 @@ import { createInitialGameState } from '../../core/game/initialState'
 import { purchaseMarketOffer } from '../../core/game/market'
 import { startMarketPackageDownload } from '../../core/game/fileTransfer'
 import { advanceGameState } from '../../core/game/gameAdvancement'
+import { MARKET_V1_OFFER_PRICE_NODE_UNITS } from '../../core/game/market'
 import { NODE_UNITS_PER_NODE } from '../../core/game/nodeMiner'
 import type { GameState } from '../../core/game/types'
 import { Market } from './Market'
@@ -14,6 +15,8 @@ import { Files } from '../files/Files'
 
 const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
+/** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
+const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
 /** Reads canonical state directly so a test can prove what the interface actually changed. */
 function StateProbe() {
@@ -59,17 +62,16 @@ async function open(name: RegExp) {
 describe('Market catalog presentation', () => {
   it('lists every represented offering once with its own release, size and price', () => {
     renderMarket(createInitialGameState())
-    expect(screen.getByText('5 OFFERINGS')).toBeInTheDocument()
+    expect(screen.getByText('4 OFFERINGS')).toBeInTheDocument()
     const rows = screen.getAllByRole('button').filter((button) => button.className === 'node-row')
     expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual([
-      'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Exploit Toolkit',
+      'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH',
     ])
     expect(rows.map((row) => row.querySelector('small')?.textContent)).toEqual([
-      '1.1 · EXPERIMENTAL · 18.4 MB · 1 NODE',
-      '1.0 · UNOFFICIAL · 3.4 MB · 1 NODE',
-      '1.3.2 · STABLE · 6.4 MB · 1 NODE',
-      '1.3.3 · STABLE · 6.6 MB · 1 NODE',
-      '1.0 · UNOFFICIAL · 2.1 MB · 1 NODE',
+      '1.1 · EXPERIMENTAL · 18.4 MB · 0.01 NODE',
+      '1.0 · UNOFFICIAL · 3.4 MB · 0.01 NODE',
+      '1.3.2 · STABLE · 6.4 MB · 0.01 NODE',
+      '1.3.3 · STABLE · 6.6 MB · 0.01 NODE',
     ])
   })
 
@@ -122,28 +124,28 @@ describe('Market catalog presentation', () => {
 
 describe('Market purchase', () => {
   it('rejects BUY with insufficient NODE, changing no balance and no entitlement', async () => {
-    renderMarket(funded(NODE_UNITS_PER_NODE - 1))
+    renderMarket(funded(PRICE - 1))
     await open(/NodeScan/)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /BUY/ }))
     expect(screen.getByText('INSUFFICIENT NODE')).toBeInTheDocument()
-    expect(probe()).toMatchObject({ balanceNodeUnits: NODE_UNITS_PER_NODE - 1, entitlements: [] })
+    expect(probe()).toMatchObject({ balanceNodeUnits: PRICE - 1, entitlements: [] })
     expect(probe().accounts).toContain('node-account-opx-v0:0')
   })
 
   it('debits the Wallet, credits the represented seller, and establishes exactly one entitlement', async () => {
-    renderMarket(funded(3 * NODE_UNITS_PER_NODE))
+    renderMarket(funded(3 * PRICE))
     await open(/NodeScan/)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'BUY · 1 NODE' }))
+    await user.click(screen.getByRole('button', { name: 'BUY · 0.01 NODE' }))
     expect(probe()).toMatchObject({
-      balanceNodeUnits: 2 * NODE_UNITS_PER_NODE,
+      balanceNodeUnits: 2 * PRICE,
       entitlements: [NODESCAN_OFFER],
       files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg'],
       transfer: null,
       processes: [],
     })
-    expect(probe().accounts).toContain('node-account-opx-v0:1000000')
+    expect(probe().accounts).toContain('node-account-opx-v0:10000')
     expect(probe().accounts).toContain('node-account-nm-dev-v0:0')
     expect(probe().software).toEqual(['nodescan-1.0-standard', 'basic-credential-toolkit-1.0'])
     // The lifecycle moves on, and DOWNLOAD is what becomes available — not INSTALL.
@@ -153,24 +155,24 @@ describe('Market purchase', () => {
   })
 
   it('offers no DOWNLOAD before the offering is purchased', async () => {
-    renderMarket(funded(3 * NODE_UNITS_PER_NODE))
+    renderMarket(funded(3 * PRICE))
     await open(/NodeScan/)
     expect(screen.getByText('NOT PURCHASED')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'DOWNLOAD' })).not.toBeInTheDocument()
   })
 
   it('never charges again for an entitlement already held', async () => {
-    const state = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const state = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     renderMarket(state)
     await open(/NodeScan/)
     expect(screen.queryByRole('button', { name: /BUY/ })).not.toBeInTheDocument()
-    expect(probe()).toMatchObject({ balanceNodeUnits: 2 * NODE_UNITS_PER_NODE, entitlements: [NODESCAN_OFFER] })
+    expect(probe()).toMatchObject({ balanceNodeUnits: 2 * PRICE, entitlements: [NODESCAN_OFFER] })
   })
 })
 
 describe('Market download', () => {
   it('starts real elapsed transfer runtime instead of writing the package immediately', async () => {
-    renderMarket(purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE)))
+    renderMarket(purchased(NODESCAN_OFFER, funded(3 * PRICE)))
     await open(/NodeScan/)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
@@ -184,7 +186,7 @@ describe('Market download', () => {
   })
 
   it('derives its progress from the canonical transfer rather than a Market copy', async () => {
-    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     const started = startMarketPackageDownload(purchasedState, NODESCAN_OFFER)
     if (started.status !== 'started') throw new Error('expected started')
     const running: GameState = { ...started.state, fileTransfer: { ...started.state.fileTransfer, active: { ...started.state.fileTransfer.active!, bytesTransferred: 9_200_000 } } }
@@ -196,7 +198,7 @@ describe('Market download', () => {
   })
 
   it('shows the completed package as ON DEVICE with its real local path, and points at Files for installation', async () => {
-    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     const started = startMarketPackageDownload(purchasedState, NODESCAN_OFFER)
     if (started.status !== 'started') throw new Error('expected started')
     const completed = advanceGameState(started.state, 60_000)
@@ -210,7 +212,7 @@ describe('Market download', () => {
   })
 
   it('appears in Files as a pending incoming artifact that is not yet a filesystem entry', async () => {
-    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     const started = startMarketPackageDownload(purchasedState, NODESCAN_OFFER)
     if (started.status !== 'started') throw new Error('expected started')
     render(<GameProvider initialState={advanceGameState(started.state, 2_000)}><Files /></GameProvider>)
@@ -223,7 +225,7 @@ describe('Market download', () => {
   })
 
   it('reports a canonical admission failure as-is instead of faking progress', async () => {
-    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     const offline: GameState = { ...purchasedState, player: { ...purchasedState.player, localDevice: { ...purchasedState.player.localDevice, runtime: { ...purchasedState.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
     renderMarket(offline)
     await open(/NodeScan/)
@@ -236,16 +238,16 @@ describe('Market download', () => {
 
 describe('possession, entitlement and the Files boundary', () => {
   it('never presents a package the Device merely holds as purchased', async () => {
-    renderMarket(funded(3 * NODE_UNITS_PER_NODE))
+    renderMarket(funded(3 * PRICE))
     await open(/NODE Miner/)
     expect(stateRow()).toHaveTextContent('ON DEVICE')
     expect(screen.getByText('NOT PURCHASED')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'BUY · 1 NODE' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'BUY · 0.01 NODE' })).toBeInTheDocument()
     expect(probe().entitlements).toEqual([])
   })
 
   it('re-offers DOWNLOAD from the surviving entitlement once the local copy is gone', async () => {
-    const base = purchased(NODE_MINER_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const base = purchased(NODE_MINER_OFFER, funded(3 * PRICE))
     const lost: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: {
       ...base.player.localDevice.filesystem,
       files: base.player.localDevice.filesystem.files.filter(({ path }) => path !== '/home/user/downloads/node-miner-1.0.pkg'),
@@ -258,7 +260,7 @@ describe('possession, entitlement and the Files boundary', () => {
   })
 
   it('hands the completed package to Files as an ordinary installable package', async () => {
-    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     const started = startMarketPackageDownload(purchasedState, NODESCAN_OFFER)
     if (started.status !== 'started') throw new Error('expected started')
     const completed = advanceGameState(started.state, 60_000)
@@ -273,7 +275,7 @@ describe('possession, entitlement and the Files boundary', () => {
 
 describe('Activity Monitor recognition', () => {
   it('observes the Market download as the one canonical Download runtime', () => {
-    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     const started = startMarketPackageDownload(purchasedState, NODESCAN_OFFER)
     if (started.status !== 'started') throw new Error('expected started')
     const running = advanceGameState(started.state, 2_000)
@@ -285,7 +287,7 @@ describe('Activity Monitor recognition', () => {
   })
 
   it('cancels the Market download through the canonical transfer control without losing the entitlement', async () => {
-    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * NODE_UNITS_PER_NODE))
+    const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
     const started = startMarketPackageDownload(purchasedState, NODESCAN_OFFER)
     if (started.status !== 'started') throw new Error('expected started')
     render(<GameProvider initialState={advanceGameState(started.state, 2_000)}><Processes /><StateProbe /></GameProvider>)

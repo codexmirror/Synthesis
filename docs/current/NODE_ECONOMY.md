@@ -191,6 +191,11 @@ credits the Market operator's own represented account, or nothing happens at
 all. The operator's account is an ordinary represented recipient — it is not
 NODE's, not the local Wallet's, and not any software publisher's.
 
+Every current offering is priced at `10,000` atomic units, which presentation
+renders as `0.01 NODE`. Like every other canonical NODE amount it is authored
+and settled as an integer; a fractional NODE value is never stored, mutated or
+compared. What that price is and why belongs to `docs/current/MARKET.md`.
+
 A purchase appends no Wallet activity record. Wallet activity remains only
 what the Wallet actually received, exactly as described above; the canonical
 purchase entitlement is the record of what the spend bought. What that

@@ -464,10 +464,15 @@ export interface MarketOperator {
 }
 
 /**
- * The concrete package artifact one Market offering distributes, held as the
- * represented facts a completed download writes to the destination
- * filesystem. `filename` is the basename the V1 download destination is
- * derived from — a distribution attribute, never artifact identity.
+ * What one Market offering will send: represented source truth about a
+ * release and the byte size the operator states for it.
+ *
+ * It is deliberately **not** a `SoftwarePackageFile`. A software package is a
+ * file on a Device-owned filesystem, so no package artifact, file ID or path
+ * exists for an offering until its transfer actually completes; these are the
+ * facts that completion then writes into the one created artifact.
+ * `filename` is the basename the V1 download destination is derived from — a
+ * distribution attribute, never artifact identity.
  */
 export interface MarketPackageDistribution {
   readonly filename: string
@@ -483,9 +488,9 @@ export interface MarketPackageDistribution {
 
 /**
  * One represented Market offering: stable offer identity, the canonical
- * integer atomic NODE price the operator charges for it, and the package
- * artifact it distributes. Offer identity is what a purchase entitlement
- * refers to — never a filename, path, display name, or version string.
+ * integer atomic NODE price the operator charges for it, and the distribution
+ * it would send. Offer identity is what a purchase entitlement refers to —
+ * never a filename, path, display name, or version string.
  */
 export interface MarketOffer {
   readonly id: string

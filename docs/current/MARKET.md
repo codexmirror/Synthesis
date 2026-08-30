@@ -53,29 +53,50 @@ source/channel selection, or a grey/black market.
 - `purchases` — the canonical purchase entitlements the player holds.
 
 Each `MarketOffer` carries stable offer identity, `priceNodeUnits` in canonical
-integer atomic NODE units, and the `MarketPackageDistribution` it distributes:
-the concrete package facts a completed download writes (`releaseId`,
-`productId`, name, version, channel, publisher where one is represented, and
-`sizeBytes`) plus the `filename` the V1 destination is derived from.
+integer atomic NODE units, and the `MarketPackageDistribution` it distributes.
 
-The V1 catalog lists five offerings, each represented once at exactly
-`1 NODE` (`1,000,000` atomic units): NodeScan 1.1 Experimental, NODE Miner 1.0
-Unofficial, GateSSH 1.3.2 Stable, GateSSH 1.3.3 Stable, and Rollback Exploit
-Toolkit 1.0 Unofficial. Provenance is stated exactly as the release represents
-it and is deliberately mixed: NODE Miner states the `nm-dev` publisher, both
-GateSSH releases state `rack-systems`, and NodeScan and the Rollback Exploit
-Toolkit state no publisher at all, which the application presents as
-`NOT STATED` rather than filling in.
+A distribution is represented offer and source truth: the release facts and
+byte size the operator states it will send, plus the `filename` the V1
+destination path is derived from. It is deliberately **not** a software
+package. A software package is a file on a Device-owned filesystem
+(`docs/design/SOFTWARE_AUTHORING.md`), and no `software_package` artifact,
+file ID or path exists for an offering until its download actually completes:
 
-GateSSH 1.3.3 and Rollback Exploit Toolkit 1.0 were already represented
-releases with no distributable package artifact anywhere in the world; this
-Market is the first concrete distribution of them. Their package facts are
-authored in `market.ts` alongside the other offerings. NodeScan 1.1's,
-NODE Miner 1.0's and GateSSH 1.3.2's distributions deliberately repeat the
-represented artifacts that already exist on srv-01 and node-01 rather than
-deriving one from the other — each concrete artifact stays self-contained —
-and a focused test pins them to each other so the two authoring sites cannot
-silently diverge.
+```text
+MARKET OFFER / DISTRIBUTION TRUTH
+  -> purchase entitlement
+  -> authorized elapsed FileTransfer
+  -> completion
+  -> one ordinary software_package artifact on the local Device filesystem
+```
+
+The V1 catalog lists four offerings, each represented once at exactly
+`0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
+every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
+GateSSH 1.3.2 Stable and GateSSH 1.3.3 Stable. That price is a current tuning
+of what this operator charges, not a rule of the economy; every operation reads
+the offering's own `priceNodeUnits` rather than a constant.
+
+Provenance is stated exactly as each release represents it and is deliberately
+mixed: NODE Miner states the `nm-dev` publisher and GateSSH 1.3.2 states
+`rack-systems`, because those are the publishers their own represented package
+artifacts claim. NodeScan 1.1 and GateSSH 1.3.3 state none, which the
+application presents as `NOT STATED`. GateSSH 1.3.3 in particular does **not**
+inherit 1.3.2's publisher: one release's stated provenance is not the product's,
+and no publisher registry exists to supply one.
+
+GateSSH 1.3.3 was already a represented release with no distributable package
+artifact anywhere in the world; this Market is the first concrete distribution
+of it, and its distribution facts are authored in `market.ts` alongside the
+other offerings. NodeScan 1.1's, NODE Miner 1.0's and GateSSH 1.3.2's
+distributions deliberately repeat the represented artifacts that already exist
+on srv-01 and node-01 rather than deriving one from the other — each concrete
+artifact stays self-contained — and a focused test pins them to each other so
+the two authoring sites cannot silently diverge.
+
+The Rollback Exploit Toolkit 1.0 is deliberately absent. It remains an authored
+release and a concrete gameplay tool with no represented acquisition path; this
+Market states nothing about its distribution or channel.
 
 Market offerings deliberately carry no ABOUT/CAPABILITY/CHANGE copy of their
 own: the application projects the same authored release documentation every
@@ -158,9 +179,11 @@ canonical World Truth must not claim a Device-to-Device transfer that never
 happened.
 
 Completion is ordinary: exactly one `software_package` artifact is created on
-the local Device at the moment the transferred bytes reach the total, carrying
-the offering's represented release identity, name, version, channel, publisher
-and size unchanged. Downloading installs nothing. From that point the existing
+the local Device at the moment the transferred bytes reach the total — the
+first moment such an artifact exists at all — carrying the offering's
+represented release identity, name, version, channel, publisher and size
+unchanged, and taking its file ID and path from the destination filesystem
+like any other created artifact. Downloading installs nothing. From that point the existing
 Files / INSTALL lifecycle takes over with no Market-specific installation
 logic. Cancellation uses the existing `cancelFileTransfer` semantics, creates
 no partial artifact, allocates no file ID, and leaves the entitlement intact.
@@ -237,3 +260,9 @@ Market -> BUY -> DOWNLOAD -> package in Files -> Files INSTALL -> InstalledSoftw
 - The catalog is a projection of represented offerings, not a filesystem
   listing: it lists releases, never local copies, and never text files or
   executables.
+- A distribution is not a package. Nothing represents a `software_package`
+  outside a Device-owned filesystem, and no code may construct one for an
+  offering before its transfer completes.
+- The price is the offering's own represented `priceNodeUnits`. Do not
+  hardcode commerce to the current V1 value, and never express canonical NODE
+  as a fractional number.

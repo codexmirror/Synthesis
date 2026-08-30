@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { findLocalMarketPackageCopy, findMarketOffer, isMarketOfferPurchased, purchaseMarketOffer, MARKET_OPERATOR_SETTLEMENT_ADDRESS } from './market'
+import { findLocalMarketPackageCopy, findMarketOffer, isMarketOfferPurchased, purchaseMarketOffer, MARKET_OPERATOR_SETTLEMENT_ADDRESS, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
 import { NODE_UNITS_PER_NODE } from './nodeMiner'
 import { advanceGameState } from './gameAdvancement'
 import type { GameState, SoftwarePackageFile } from './types'
@@ -8,7 +8,8 @@ import type { GameState, SoftwarePackageFile } from './types'
 const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
 const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
-const ROLLBACK_OFFER = 'market-offer-rollback-exploit-toolkit-1.0'
+/** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
+const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
 function funded(units: number, base: GameState = createInitialGameState()): GameState {
   return { ...base, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: units } }
@@ -22,18 +23,27 @@ describe('Market catalog', () => {
   it('represents each required release exactly once, under stable offer identity', () => {
     const { offers } = createInitialGameState().market
     expect(offers.map(({ id }) => id)).toEqual([
-      NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
+      NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER,
     ])
     expect(new Set(offers.map(({ id }) => id)).size).toBe(offers.length)
     expect(new Set(offers.map(({ distribution }) => distribution.releaseId)).size).toBe(offers.length)
   })
 
-  it('prices every offering at exactly 1 NODE in canonical integer atomic units', () => {
+  it('prices every offering at exactly 0.01 NODE in canonical integer atomic units', () => {
     for (const offer of createInitialGameState().market.offers) {
-      expect(offer.priceNodeUnits).toBe(NODE_UNITS_PER_NODE)
-      expect(offer.priceNodeUnits).toBe(1_000_000)
+      expect(offer.priceNodeUnits).toBe(10_000)
+      // 0.01 NODE expressed canonically, never as a fractional NODE value.
+      expect(offer.priceNodeUnits).toBe(NODE_UNITS_PER_NODE / 100)
       expect(Number.isSafeInteger(offer.priceNodeUnits)).toBe(true)
     }
+  })
+
+  it('lists no offering the selected V1 catalog does not represent', () => {
+    const { offers } = createInitialGameState().market
+    // The Rollback Exploit Toolkit remains an authored release and a gameplay tool,
+    // with no represented Market distribution and no invented channel.
+    expect(offers.map(({ distribution }) => distribution.productId)).not.toContain('rollback-exploit-toolkit')
+    expect(offers).toHaveLength(4)
   })
 
   it('states each release provenance truthfully rather than flattening the catalog into one publisher', () => {
@@ -41,11 +51,13 @@ describe('Market catalog', () => {
     const distribution = (offerId: string) => findMarketOffer(state.market, offerId)!.distribution
     // Third-party unofficial software, published by the build's own developer identity.
     expect(distribution(NODE_MINER_OFFER)).toMatchObject({ channel: 'unofficial', publisher: 'nm-dev' })
-    // Software originating from another product ecosystem, published by that ecosystem.
-    expect(distribution(GATE_SSH_1_3_3_OFFER)).toMatchObject({ channel: 'stable', publisher: 'rack-systems' })
-    // No publisher is represented for these releases, so none is claimed.
+    // Software originating from another product ecosystem, published by that ecosystem —
+    // stated only where a represented package artifact actually claims it.
+    expect(distribution('market-offer-gate-ssh-1.3.2')).toMatchObject({ channel: 'stable', publisher: 'rack-systems' })
+    // No publisher is represented for these releases, so none is claimed — GateSSH 1.3.3
+    // in particular does not inherit the provenance srv-01's own 1.3.2 package states.
     expect(distribution(NODESCAN_OFFER).publisher).toBeUndefined()
-    expect(distribution(ROLLBACK_OFFER).publisher).toBeUndefined()
+    expect(distribution(GATE_SSH_1_3_3_OFFER).publisher).toBeUndefined()
     // No offering is attributed to NODE, and the Market operator is nobody's publisher.
     expect(state.market.offers.map(({ distribution: item }) => item.publisher))
       .not.toContain(state.market.operator.name)
@@ -83,55 +95,57 @@ describe('Market catalog', () => {
 
 describe('purchasing a Market offering', () => {
   it('rejects an unknown offering without mutation', () => {
-    const state = funded(NODE_UNITS_PER_NODE)
+    const state = funded(PRICE)
     const result = purchaseMarketOffer(state, 'market-offer-nonexistent')
     expect(result).toEqual({ status: 'unknown_offer', state })
     expect(result.state).toBe(state)
   })
 
   it('rejects insufficient NODE without changing balance or entitlement', () => {
-    const state = funded(NODE_UNITS_PER_NODE - 1)
+    const state = funded(PRICE - 1)
     const result = purchaseMarketOffer(state, NODESCAN_OFFER)
     expect(result.status).toBe('insufficient_funds')
     expect(result.state).toBe(state)
-    expect(result.state.nodeWallet.balanceNodeUnits).toBe(NODE_UNITS_PER_NODE - 1)
+    expect(result.state.nodeWallet.balanceNodeUnits).toBe(PRICE - 1)
     expect(marketAccount(result.state).balanceNodeUnits).toBe(0)
     expect(isMarketOfferPurchased(result.state.market, NODESCAN_OFFER)).toBe(false)
   })
 
   it('debits the Wallet, credits the represented Market operator, and establishes one entitlement', () => {
-    const state = funded(2 * NODE_UNITS_PER_NODE + 4_281)
+    const state = funded(2 * PRICE + 4_281)
     const result = purchaseMarketOffer(state, NODESCAN_OFFER)
     if (result.status !== 'purchased') throw new Error('expected purchased')
-    expect(result.state.nodeWallet.balanceNodeUnits).toBe(NODE_UNITS_PER_NODE + 4_281)
-    expect(marketAccount(result.state).balanceNodeUnits).toBe(NODE_UNITS_PER_NODE)
-    expect(result.purchase).toEqual({ id: 'market-purchase-0001', offerId: NODESCAN_OFFER, priceNodeUnits: NODE_UNITS_PER_NODE })
+    expect(result.state.nodeWallet.balanceNodeUnits).toBe(PRICE + 4_281)
+    expect(marketAccount(result.state).balanceNodeUnits).toBe(10_000)
+    expect(result.purchase).toEqual({ id: 'market-purchase-0001', offerId: NODESCAN_OFFER, priceNodeUnits: 10_000 })
     expect(result.state.market.purchases).toEqual({ nextId: 2, entitlements: [result.purchase] })
     // The unrelated represented recipient is untouched: nothing is routed to the Miner developer account.
     expect(result.state.nodeEconomy.accounts.find(({ id }) => id === 'node-account-nm-dev-v0')!.balanceNodeUnits).toBe(0)
   })
 
   it('never charges twice for an entitlement already held', () => {
-    const state = funded(5 * NODE_UNITS_PER_NODE)
+    const state = funded(5 * PRICE)
     const first = purchaseMarketOffer(state, NODESCAN_OFFER)
     if (first.status !== 'purchased') throw new Error('expected purchased')
     const second = purchaseMarketOffer(first.state, NODESCAN_OFFER)
     expect(second.status).toBe('already_purchased')
     expect(second.state).toBe(first.state)
-    expect(second.state.nodeWallet.balanceNodeUnits).toBe(4 * NODE_UNITS_PER_NODE)
+    expect(second.state.nodeWallet.balanceNodeUnits).toBe(4 * PRICE)
     expect(second.state.market.purchases.entitlements).toHaveLength(1)
   })
 
   it('rejects the purchase when no represented recipient holds the operator address', () => {
-    const base = funded(NODE_UNITS_PER_NODE)
+    const base = funded(PRICE)
     const state: GameState = { ...base, nodeEconomy: { accounts: base.nodeEconomy.accounts.filter(({ id }) => id !== 'node-account-opx-v0') } }
     const result = purchaseMarketOffer(state, NODESCAN_OFFER)
     expect(result.status).toBe('recipient_unavailable')
     expect(result.state).toBe(state)
-    expect(result.state.nodeWallet.balanceNodeUnits).toBe(NODE_UNITS_PER_NODE)
+    expect(result.state.nodeWallet.balanceNodeUnits).toBe(PRICE)
   })
 
   it('charges the offering its own represented price rather than a hardcoded one', () => {
+    // Deliberately not the current V1 price: commerce must follow the represented
+    // offering, so this would fail if any operation assumed 10,000 units.
     const base = funded(3 * NODE_UNITS_PER_NODE)
     const state: GameState = { ...base, market: { ...base.market, offers: base.market.offers.map((offer) => offer.id === NODESCAN_OFFER ? { ...offer, priceNodeUnits: 2 * NODE_UNITS_PER_NODE } : offer) } }
     const result = purchaseMarketOffer(state, NODESCAN_OFFER)
@@ -141,6 +155,14 @@ describe('purchasing a Market offering', () => {
     expect(result.purchase.priceNodeUnits).toBe(2 * NODE_UNITS_PER_NODE)
   })
 
+  it('rejects a balance one unit below the represented price and admits it at exactly the price', () => {
+    expect(purchaseMarketOffer(funded(9_999), NODESCAN_OFFER).status).toBe('insufficient_funds')
+    const exact = purchaseMarketOffer(funded(10_000), NODESCAN_OFFER)
+    if (exact.status !== 'purchased') throw new Error('expected purchased')
+    expect(exact.state.nodeWallet.balanceNodeUnits).toBe(0)
+    expect(marketAccount(exact.state).balanceNodeUnits).toBe(10_000)
+  })
+
   it('refuses to settle a non-integer represented price rather than creating fractional NODE', () => {
     const base = funded(3 * NODE_UNITS_PER_NODE)
     const state: GameState = { ...base, market: { ...base.market, offers: base.market.offers.map((offer) => offer.id === NODESCAN_OFFER ? { ...offer, priceNodeUnits: 1.5 } : offer) } }
@@ -148,7 +170,7 @@ describe('purchasing a Market offering', () => {
   })
 
   it('creates no package, no installed software, no Process and no transfer', () => {
-    const state = funded(NODE_UNITS_PER_NODE)
+    const state = funded(PRICE)
     const result = purchaseMarketOffer(state, NODESCAN_OFFER)
     if (result.status !== 'purchased') throw new Error('expected purchased')
     expect(result.state.player.localDevice.filesystem).toBe(state.player.localDevice.filesystem)
@@ -162,7 +184,7 @@ describe('purchasing a Market offering', () => {
   })
 
   it('records no Wallet activity for NODE the Wallet did not receive', () => {
-    const state = funded(NODE_UNITS_PER_NODE)
+    const state = funded(PRICE)
     const result = purchaseMarketOffer(state, NODESCAN_OFFER)
     if (result.status !== 'purchased') throw new Error('expected purchased')
     expect(result.state.nodeWallet.activity).toEqual(state.nodeWallet.activity)

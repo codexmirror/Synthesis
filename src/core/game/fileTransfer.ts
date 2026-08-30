@@ -109,15 +109,33 @@ export function deriveMarketDownloadDestinationPath(offer: MarketOffer): string 
 }
 
 /**
- * The concrete package artifact one Market offering distributes, as the
- * represented file a completed download writes. Its `id` and `path` are
- * placeholders that the destination filesystem replaces on copy — a
- * distribution has no filesystem identity or location of its own, because the
- * Market endpoint is not a represented Device filesystem.
+ * The represented byte size of a Market offering's distribution, validated
+ * exactly as a represented artifact size is. A distribution is offer and
+ * source truth, not a file: it has no filesystem identity, path or size
+ * derivation of its own.
  */
-function deriveMarketDistributionArtifact(offer: MarketOffer): SoftwarePackageFile {
+function marketDistributionSizeBytes(offer: MarketOffer): number {
+  const { sizeBytes } = offer.distribution
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
+    throw new RangeError('A represented Market distribution size must be a positive safe integer')
+  }
+  return sizeBytes
+}
+
+/**
+ * Build the one ordinary `software_package` a completed Market download
+ * writes, **at the completion moment only**.
+ *
+ * There is deliberately no `SoftwarePackageFile` for a Market offering before
+ * this point: a software package is a file on a Device-owned filesystem, and
+ * until the transfer completes there is no artifact, no allocated file ID and
+ * no path anywhere. The `id` and `path` below exist only because the shared
+ * copy operation allocates the real ones from the destination filesystem and
+ * replaces both immediately; neither is ever observable.
+ */
+function createCompletedMarketPackage(offer: MarketOffer): SoftwarePackageFile {
   const { filename, ...release } = offer.distribution
-  return { kind: 'software_package', id: offer.id, path: `/${filename}`, ...release }
+  return { kind: 'software_package', id: 'pending-market-download', path: `/${filename}`, ...release }
 }
 
 export type StartMarketPackageDownloadResult =
@@ -149,7 +167,7 @@ export function startMarketPackageDownload(state: GameState, offerId: string): S
   const admitted = admitTransfer(state, {
     origin: 'market_distribution', offerId: offer.id,
     destinationDeviceId: local.id, destinationPath,
-    bytesTotal: getFilesystemFileSizeBytes(deriveMarketDistributionArtifact(offer)),
+    bytesTotal: marketDistributionSizeBytes(offer),
   })
   return { status: 'started', ...admitted }
 }
@@ -171,7 +189,8 @@ type ResolvedTransfer =
   }
   | {
     readonly origin: 'market_distribution'
-    readonly sourceFile: SoftwarePackageFile
+    /** The represented offering the bytes are coming from; no source file exists yet. */
+    readonly offer: MarketOffer
     readonly destinationFilesystem: FilesystemState
     readonly rateBytesPerSecond: number
   }
@@ -194,7 +213,7 @@ function resolveMarketTransfer(state: GameState, transfer: MarketDistributionFil
   if (!isValidNetworkTransferCapacity(distributionCapacity) || !isValidNetworkTransferCapacity(local.network.transferCapacity)) return undefined
   return {
     origin: 'market_distribution',
-    sourceFile: deriveMarketDistributionArtifact(offer),
+    offer,
     destinationFilesystem: local.filesystem,
     rateBytesPerSecond: deriveEffectiveTransferRateBytesPerSecond(distributionCapacity, local.network.transferCapacity),
   }
@@ -309,7 +328,12 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
   if (bytesTransferred < transfer.bytesTotal) return { ...state, fileTransfer: { ...state.fileTransfer, active: { ...transfer, bytesTransferred } } }
 
   const finalTransfer = { ...transfer, bytesTransferred }
-  const copied = copyFilesystemFileToPath(endpoints.sourceFile, endpoints.destinationFilesystem, transfer.destinationPath)
+  /* The destination artifact is created here and only here: for a Device route
+     it is a copy of the still-present source file, and for a Market
+     distribution it is the ordinary package this completion brings into
+     existence on the destination filesystem for the first time. */
+  const completedArtifact = endpoints.origin === 'market_distribution' ? createCompletedMarketPackage(endpoints.offer) : endpoints.sourceFile
+  const copied = copyFilesystemFileToPath(completedArtifact, endpoints.destinationFilesystem, transfer.destinationPath)
   if (copied.status !== 'copied') {
     const interrupted = appendFileTransferNetworkEvidence(state, finalTransfer, 'INTERRUPTED', bytesTransferred)
     return archiveFileTransfer({ ...interrupted, fileTransfer: { ...interrupted.fileTransfer, active: null } }, finalTransfer)

@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { advanceFileTransfer, cancelFileTransfer, deriveDownloadDestinationPath, deriveFileTransferDirection, resolveFileTransferSource, startMarketPackageDownload, startRemoteFileDownload, startRemoteFileUpload } from './fileTransfer'
-import { findMarketOffer, purchaseMarketOffer } from './market'
-import { NODE_UNITS_PER_NODE } from './nodeMiner'
+import { findMarketOffer, purchaseMarketOffer, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
 import { advanceGameState } from './gameAdvancement'
 import { deriveEffectiveTransferRateBytesPerSecond } from './networkTransferCapacity'
 import { getFilesystemFile } from './filesystem'
@@ -943,7 +942,7 @@ describe('Market distribution Download', () => {
   const MARKET_BYTES = 18_400_000
 
   function purchased(base: GameState = createInitialGameState(), offerId: string = OFFER_ID): GameState {
-    const funded = { ...base, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 5 * NODE_UNITS_PER_NODE } }
+    const funded = { ...base, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 5 * MARKET_V1_OFFER_PRICE_NODE_UNITS } }
     const result = purchaseMarketOffer(funded, offerId)
     if (result.status !== 'purchased') throw new Error('expected purchased')
     return result.state
