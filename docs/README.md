@@ -245,7 +245,7 @@ runtime, network transfer capacity, System application.
 - TESTS → `src/test/initialState.test.ts`,
   `src/core/game/networkTransferCapacity.test.ts`, `src/core/game/networkActivityHistory.test.ts`,
   `src/core/game/networkManagement.test.ts`, `src/core/game/serviceImplementations.test.ts`,
-  `src/apps/system/System.test.tsx`, `src/apps/networkManagement/NetworkManagement.test.tsx`
+  `src/apps/system/System.test.tsx`, `src/apps/networkManagement/networkProjection.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/DEVICE_SYSTEM.md`](current/DEVICE_SYSTEM.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 

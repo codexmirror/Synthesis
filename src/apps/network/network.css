@@ -1,17 +1,21 @@
 /*
  * NodeScan.
  *
- * Two screens, three actions. KNOWN SPACE draws the remembered relationship
- * shape around the player — a Network, SELF's place in it, and the targets
- * that belong to it — as a shallow one-level scaffold; a target card is one
- * target's whole line of action. The card is built around a single visually
- * obvious primary action, so the next meaningful step is readable at a glance
- * on a phone, and the technical world underneath is one optional disclosure
- * away.
+ * KNOWN SPACE is one restrained relationship tree — Network → Device →
+ * remembered Service. Hierarchy is carried by indentation, type weight and
+ * thin connectors; borders are spent only where an object genuinely needs an
+ * edge, and nothing nests a bordered box inside a bordered box.
  *
- * The scaffold is pure normal-flow CSS. Each member is an `.ns-limb` drawing
- * its own rail and elbow relative to itself, so the rail always terminates at
- * the last elbow with no coordinates measured and no topology layer.
+ * The connectors are pure normal-flow CSS. Each child is an `.ns-limb` that
+ * draws its own vertical rail and elbow relative to itself, so the rail spans
+ * exactly the limbs above the last one and terminates at the last elbow —
+ * collapsed, expanded, or empty. No coordinates are measured, and no absolute
+ * topology layer exists.
+ *
+ * A target card is one target's whole line of action, built around a single
+ * visually obvious primary action so the next meaningful step is readable at
+ * a glance on a phone; the technical world underneath is one optional
+ * disclosure away.
  *
  * Mobile-first. Every surface is a single column so primary identity always
  * owns the line and secondary technical detail wraps beneath it. The gutter
@@ -132,26 +136,198 @@
 
 .ns-space {
   display: grid;
-  gap: 26px;
+  gap: 20px;
   margin-bottom: 26px;
-  /* Vertical centre of a member row: where its elbow meets it. */
-  --elbow: 29px;
+  /* Vertical centre of a node's marker: where its elbow meets it. */
+  --elbow: 24px;
   --rail: 1px solid var(--line-strong);
 }
 
-.ns-group { min-width: 0; display: grid; gap: 2px; }
+/*
+ * Every Network is an independent root. They are separated by one hairline
+ * rather than boxed, so several read as siblings of the same space instead of
+ * a stack of panels.
+ */
+.ns-group { min-width: 0; display: block; padding-bottom: 6px; border-bottom: 1px solid var(--line-quiet); }
+.ns-group:last-child { border-bottom: 0; }
 
-.ns-group-head { display: grid; gap: 3px; padding-bottom: 4px; }
-.ns-group-head strong { color: var(--text-strong); font: 600 .96rem Inter, system-ui, sans-serif; letter-spacing: .01em; overflow-wrap: anywhere; }
+/* A node is one object in the tree: marker or twisty, then its identity. */
+.ns-node {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.ns-node-main {
+  min-width: 0;
+  min-height: 48px;
+  flex: 1;
+  padding: 9px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ns-node-main--static,
+.ns-node--static { cursor: default; }
+.ns-node--static { padding: 9px 0; gap: 10px; align-items: center; }
+
+.ns-node-main:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
+
+/*
+ * The twisty is the expand affordance and doubles as the node's own marker,
+ * so an expandable object never needs a separate control column. A leaf takes
+ * the quiet glyph in the same column, and both share one box so every elbow
+ * meets its node at the same height.
+ */
+.ns-twist,
+.ns-glyph {
+  flex: none;
+  width: 14px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ns-twist { color: var(--accent-mark); font-size: .58rem; transition: transform 140ms ease; }
+.ns-node-main[aria-expanded="true"] .ns-twist { transform: rotate(90deg); }
+
+.ns-glyph::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--text-faint);
+  border-radius: 50%;
+}
+
+.ns-glyph--self::before { border-color: var(--accent-mark); background: var(--accent-rule); }
+
+/*
+ * Network is the strongest identity in the tree; Device and Service step
+ * down. Each level also fixes its own row height, so every elbow meets its
+ * node on the same line at that level.
+ */
+.ns-node--network .ns-node-main { min-height: 54px; }
+.ns-node--network .ns-target-copy > strong { color: var(--text-strong); font-size: .96rem; letter-spacing: .01em; }
+.ns-node--network .ns-eyebrow { color: var(--accent-mark); }
+.ns-node--device .ns-node-main { min-height: 48px; }
+.ns-node--service { min-height: 40px; }
+.ns-node--service .ns-target-copy > strong { font-size: .78rem; }
+
+/* ELSEWHERE: remembered Devices with no remembered Network relationship. */
+.ns-group-head { display: grid; gap: 3px; padding: 4px 0 2px; }
 .ns-group-head .ns-eyebrow { color: var(--accent-mark); }
 
-.ns-group-note { margin: 6px 0 0; padding-left: 20px; color: var(--text-quiet); font-size: .62rem; }
+/* SELF is context, not a control: it states the player's own position only. */
+.ns-node--self .ns-target-copy > strong { color: var(--text-secondary); font-size: .72rem; letter-spacing: .12em; }
+.ns-node--self .ns-target-note { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.ns-branch { display: block; }
+.ns-self-scan {
+  min-height: 52px;
+  padding: 9px 0;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.ns-self-action { flex: none; color: var(--accent); font-size: .62rem; font-weight: 600; letter-spacing: .12em; }
+.ns-self-scan:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
 
-.ns-limb { position: relative; padding-left: 20px; }
+.ns-target-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.ns-target-copy > strong { color: var(--text-strong); font: 600 .86rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.ns-target-note { color: var(--text-quiet); font-size: .6rem; line-height: 1.4; overflow-wrap: anywhere; }
 
-/* The rail: full height on every member but the last, which stops at its elbow. */
+/*
+ * The constant route off a node: a target card, or a managed Network's own
+ * administration. It stays a quiet control rather than a block competing with
+ * the node's identity, and it carries the target's current mark so the list
+ * still says what each target is waiting on.
+ */
+.ns-node-route {
+  flex: none;
+  min-height: 44px;
+  padding: 0 2px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-mark);
+  font-size: .58rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.ns-node-route:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
+
+.ns-node-mark { flex: none; align-self: center; padding-left: 10px; color: var(--text-faint); font-size: .52rem; letter-spacing: .12em; }
+
+.ns-target-mark { color: var(--text-muted); font-size: .52rem; letter-spacing: .12em; text-align: right; }
+
+/* The three states worth noticing from the list: work running, a decision
+ * waiting, and a relationship already held. */
+.ns-target-mark--analyzing,
+.ns-target-mark--hacking,
+.ns-target-mark--attacking,
+.ns-target-mark--submitting { color: var(--caution); }
+.ns-target-mark--analysis_ready,
+.ns-target-mark--route,
+.ns-target-mark--attack,
+.ns-target-mark--submission_ready { color: var(--accent); }
+.ns-target-mark--access,
+.ns-target-mark--connected { color: var(--green); }
+
+@media (hover: hover) {
+  .ns-node-main:hover .ns-target-copy > strong { color: var(--green); }
+  .ns-node-route:hover { color: var(--accent-strong); }
+}
+
+/* Branch bodies and connectors ---------------------------------------- */
+
+/*
+ * A branch hangs under the node that owns it, indented to sit under that
+ * node's marker column. That indentation is what makes ownership visible
+ * without drawing a container around it.
+ */
+.ns-branch { margin: 0 0 4px; padding-left: 7px; }
+.ns-limbs { display: block; }
+.ns-limbs--service { margin: 0 0 4px; padding-left: 7px; }
+
+.ns-limb { --indent: 20px; position: relative; padding-left: var(--indent); }
+.ns-limb--service { --indent: 16px; }
+
+/*
+ * The trunk: where a node actually carries children, its own marker column
+ * continues into the branch below it, so the rail is unbroken from that node
+ * to its last child. A node with nothing under it draws none and terminates
+ * cleanly.
+ */
+.ns-group.is-populated.is-expanded > .ns-node--network,
+.ns-node--device.is-expanded { position: relative; }
+
+.ns-group.is-populated.is-expanded > .ns-node--network::after,
+.ns-node--device.is-expanded::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  bottom: 0;
+  left: 7px;
+  border-left: var(--rail);
+}
+
+/* Rail: full height of the limb, so it passes an expanded child cleanly. */
 .ns-limb::before {
   content: "";
   position: absolute;
@@ -161,68 +337,23 @@
   border-left: var(--rail);
 }
 
-.ns-limb:last-child::before { bottom: auto; height: var(--elbow); }
-
+/* Elbow: runs up to this limb's marker column and stops there. */
 .ns-limb::after {
   content: "";
   position: absolute;
   top: var(--elbow);
   left: 0;
-  width: 11px;
+  width: calc(var(--indent) - 3px);
   border-top: var(--rail);
 }
 
-.ns-loose { display: grid; }
+/* The rail terminates at the final child; nothing continues below it. */
+.ns-limb:last-child::before { bottom: auto; height: var(--elbow); }
 
-.ns-node {
-  min-height: 58px;
-  padding: 10px 2px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid var(--line-quiet);
-  background: transparent;
-  text-align: left;
-}
+/* Branch prose: state that belongs to the branch, not to a page. */
+.ns-branch-note { margin: 2px 0 6px 20px; color: var(--text-quiet); font-size: .62rem; }
 
-.ns-limb:last-child > .ns-node { border-bottom: 0; }
-.ns-loose > .ns-node:last-child { border-bottom: 0; }
-
-.ns-target { cursor: pointer; }
-.ns-target:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
-
-/* SELF is context, not a control: it states the player's own position only. */
-.ns-node--self .ns-target-copy > strong { color: var(--text-secondary); font-size: .72rem; letter-spacing: .12em; }
-.ns-node--self .ns-target-note { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.ns-self-scan { min-height: 58px; cursor: pointer; }
-.ns-self-action { flex: none; color: var(--accent); font-size: .62rem; font-weight: 600; letter-spacing: .12em; }
-.ns-self-scan:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
-
-.ns-target-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
-.ns-target-copy > strong { color: var(--text-strong); font: 600 .9rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
-.ns-target-note { color: var(--text-quiet); font-size: .6rem; overflow-wrap: anywhere; }
-
-.ns-target-mark {
-  flex: none;
-  color: var(--text-muted);
-  font-size: .52rem;
-  letter-spacing: .12em;
-  text-align: right;
-}
-
-/* The three states worth noticing from the list: work running, a decision
- * waiting, and a relationship already held. */
-.ns-target-mark--analyzing,
-.ns-target-mark--hacking { color: var(--caution); }
-.ns-target-mark--inspect,
-.ns-target-mark--analysis_ready,
-.ns-target-mark--route { color: var(--accent); }
-.ns-target-mark--access,
-.ns-target-mark--connected { color: var(--green); }
-
-.ns-arrow { flex: none; color: var(--accent-mark); font-size: .9rem; }
+.ns-loose { display: block; }
 
 /* Stage: the one thing this target is currently waiting on ------------- */
 
@@ -289,8 +420,13 @@
   cursor: pointer;
 }
 
-.ns-details > summary::after { content: "+"; margin-left: auto; color: var(--accent-mark); }
+.ns-details > summary::after { content: "+"; margin-left: auto; padding-left: 12px; color: var(--accent-mark); }
 .ns-details[open] > summary::after { content: "−"; }
+
+/* Says there is something new inside without pulling it out of the disclosure. */
+.ns-details-hint { margin-left: 10px; color: var(--accent); font-size: var(--label-size); letter-spacing: var(--label-tracking); }
+
+.ns-inspect { margin: 8px 0 4px; display: grid; gap: 8px; justify-items: start; }
 
 .ns-detail-panel { min-width: 0; padding-bottom: 8px; }
 

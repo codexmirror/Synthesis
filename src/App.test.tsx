@@ -1914,13 +1914,15 @@ describe('NODE-OS shell and applications', () => {
     )
   })
 
-  it('orders and exposes exactly the ten Home launcher controls', () => {
+  it('orders and exposes exactly the nine Home launcher controls, with NodeScan the one network surface', () => {
     render(<App />)
     const launchers = screen.getAllByRole('button', { name: /^open /i })
     expect(launchers.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Open Terminal', 'Open NodeScan', 'Open Network', 'Open NodeMail', 'Open Processes',
+      'Open Terminal', 'Open NodeScan', 'Open NodeMail', 'Open Processes',
       'Open Files', 'Open Market', 'Open Wallet', 'Open Notes', 'Open System',
     ])
+    // Network administration is reached inside NodeScan, not from a second launcher.
+    expect(screen.queryByRole('button', { name: 'Open Network' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /open tools/i })).not.toBeInTheDocument()
     expect(screen.queryByText('/ OPEN')).not.toBeInTheDocument()
   })

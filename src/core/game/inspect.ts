@@ -22,6 +22,12 @@ export type InspectResult =
     readonly scope: 'lan' | 'remote'
     readonly networkStatus: 'ONLINE'
     readonly deviceKind: 'device' | 'server'
+    /**
+     * The target's own represented display identity, observed by this Inspect
+     * where the Device actually has one. Scan and PING never observe it, so a
+     * target stays an address until Inspect legitimately reaches it.
+     */
+    readonly displayName?: string
     readonly enhanced?: EnhancedInspectEvidence
     readonly networks?: readonly InspectedNetworkRelationship[]
     readonly serviceFingerprints?: readonly { readonly serviceId: string; readonly inspect: ServiceInspectSnapshot }[]
@@ -106,6 +112,7 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
   return {
     status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE',
     deviceKind: resolved.entity.role === 'server' ? 'server' : 'device',
+    ...(resolved.entity.displayName ? { displayName: resolved.entity.displayName } : {}),
     ...(enhanced ? { enhanced } : {}),
   }
 }
@@ -135,6 +142,7 @@ export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery:
   return {
     status: 'device', targetId: current.entity.id, address: input, scope: current.scope, networkStatus: 'ONLINE',
     deviceKind: current.entity.role === 'server' ? 'server' : 'device',
+    ...(current.entity.displayName ? { displayName: current.entity.displayName } : {}),
     ...(enhanced ? { enhanced } : {}),
     ...(serviceFingerprints ? { serviceFingerprints } : {}),
     ...(networks ? { networks } : {}),

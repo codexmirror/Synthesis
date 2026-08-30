@@ -2,10 +2,13 @@ import './network.css'
 import { useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { isValidIpv4 } from '../../core/game/networkTarget'
+import { formatBytes, formatTransferRate } from '../byteFormat'
+import { selectManagedNetworks, type ManagedNetworkActivityRecordView, type ManagedNetworkView } from '../networkManagement/networkProjection'
 import {
   resolveNodeScanRelease,
   selectKnownSpace,
   selectTarget,
+  type KnownNetwork,
   type KnownSpace,
   type NodeScanRelease,
   type PlayerInformation,
@@ -17,35 +20,43 @@ import {
 } from './targetProjection'
 
 /**
- * NodeScan has two screens and three player actions.
+ * NodeScan is the one player-facing home for network space: the Networks the
+ * player legitimately administers and the ones reconnaissance remembers, in
+ * one restrained technical map.
  *
- * KNOWN SPACE shows the remembered shape of the world around the player:
- * Networks they have observed, SELF's own place in them, and the targets that
- * belong to each. That relationship scaffold is presentation only — a Network
- * is not openable, nothing expands, and tapping a target opens its card
- * directly. It exists so the player can see where they are, not so they have
- * to navigate through it.
+ * KNOWN SPACE is a compact expandable relationship tree — Network → Device →
+ * remembered Service — carried by indentation, type weight and thin
+ * connectors rather than nested cards. Expanding is presentation state only:
+ * browsing the tree never observes anything.
  *
- * A target card is one target's whole line of action: SCAN, optional INSPECT,
- * ANALYZE, BYPASS, then CONNECT. The card states
- * one thing at a time, because at any moment there is one thing the player is
- * waiting on or deciding.
+ * Two routes hang off it, and they are deliberately different kinds of thing:
  *
- * The technical world underneath is unchanged and stays reachable: Services,
- * observed implementations, weakness identities, the tool a route uses and
- * RackUpdate's rollback avenue all live under RECON INTELLIGENCE. Opening that
- * disclosure browses remembered information; it never observes.
+ * - A managed Network opens its administration detail, drawn from the local
+ *   Device's explicit `NetworkManagementAuthority`. That authority states the
+ *   Network's own canonical facts and never its members' identities.
+ * - A target opens its card: one target's whole line of action — SCAN,
+ *   ANALYZE, BYPASS, then CONNECT — stating one thing at a time, because at
+ *   any moment there is one thing the player is waiting on or deciding.
  *
- * Every rendered fact comes from the view models in `targetProjection.ts`,
- * which read player information only.
+ * INSPECT is not a stage in that line. It is optional depth under TECHNICAL
+ * INTELLIGENCE, where it also pays off visibly: a target the player has only
+ * Scanned is an UNKNOWN DEVICE at an address until a legitimate Inspect
+ * observes and remembers the represented Device name.
+ *
+ * Every reconnaissance fact comes from the view models in
+ * `targetProjection.ts`, which read player information only; the managed
+ * Network's own facts come from the separate management projection, which
+ * reads authority.
  */
-type Focus = { readonly kind: 'targets' } | { readonly kind: 'target'; readonly deviceId: string }
+type Focus =
+  | { readonly kind: 'targets' }
+  | { readonly kind: 'target'; readonly deviceId: string }
+  | { readonly kind: 'network'; readonly networkId: string }
 
 type CopyState = { value: string; status: 'copied' | 'failed' } | null
 
 const STAGE_MARK: Record<TargetStage, string> = {
   unscanned: 'NOT SCANNED',
-  inspect: 'INSPECT AVAILABLE',
   analysis_ready: 'SERVICES FOUND',
   analyzing: 'ANALYZING',
   no_route: 'NO WAY IN',
@@ -59,13 +70,25 @@ const STAGE_MARK: Record<TargetStage, string> = {
   connected: 'CONNECTED',
 }
 
+const ACTIVITY_KIND_LABEL: Record<ManagedNetworkActivityRecordView['kind'], string> = {
+  connection_attempt: 'CONNECTION ATTEMPT',
+  file_transfer: 'FILE TRANSFER',
+  package_submission: 'PACKAGE SUBMISSION',
+}
+
+const POSITIVE_RESULT = new Set<ManagedNetworkActivityRecordView['result']>(['SUCCESS', 'COMPLETED'])
+
 function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): string {
   return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'unknown' ? 'Membership not observed' : target.scope === 'lan' ? 'Local network' : 'Remote'
 }
 
+/**
+ * What the player may legitimately call this target. Its address is always
+ * theirs; its kind and its represented display name are theirs only once a
+ * legitimate Inspect observed them.
+ */
 function kindOf(target: Target): string {
-  if (target.observed) return target.observed.deviceKind.toUpperCase()
-  return target.servicesObserved ? 'TARGET' : 'UNKNOWN TARGET'
+  return target.observed ? target.observed.deviceKind.toUpperCase() : 'UNKNOWN DEVICE'
 }
 
 export function Network() {
@@ -73,6 +96,15 @@ export function Network() {
   const actions = useGameActions()
   const release = resolveNodeScanRelease(gameState.player.localDevice)
   const [focus, setFocus] = useState<Focus>({ kind: 'targets' })
+  /*
+   * Tree shape is local presentation state and nothing else: it starts and
+   * ends in this component, and no expansion ever reaches a gameplay
+   * operation. Network roots read open, because a root the player already
+   * knows about has nothing to hide; Device children stay closed until asked
+   * for, so Known Space stays a map rather than a list of everything.
+   */
+  const [closedNetworkIds, setClosedNetworkIds] = useState<readonly string[]>([])
+  const [openDeviceIds, setOpenDeviceIds] = useState<readonly string[]>([])
   const [copyState, setCopyState] = useState<CopyState>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [selectedPackageId, setSelectedPackageId] = useState('')
@@ -106,6 +138,12 @@ export function Network() {
   function open(next: Focus) {
     invalidateRequests()
     setFocus(next)
+  }
+  function toggleNetwork(networkId: string) {
+    setClosedNetworkIds((closed) => closed.includes(networkId) ? closed.filter((id) => id !== networkId) : [...closed, networkId])
+  }
+  function toggleDevice(deviceId: string) {
+    setOpenDeviceIds((open) => open.includes(deviceId) ? open.filter((id) => id !== deviceId) : [...open, deviceId])
   }
 
   async function findTargets() {
@@ -245,8 +283,20 @@ export function Network() {
     </div>
   </section>
 
-  // Narrowed at the boundary: every screen is built from player information only.
+  /*
+   * Narrowed at the boundary: every reconnaissance view is built from player
+   * information only. Managed-Network truth is composed separately and
+   * explicitly, from the authority relationship that legitimately supplies it.
+   */
   const information: PlayerInformation = gameState
+  const managedNetworks = selectManagedNetworks(gameState)
+
+  if (focus.kind === 'network') {
+    const network = managedNetworks.find(({ id }) => id === focus.networkId)
+    if (network) return <section className="app-content scan-app" aria-label="NodeScan">
+      <ManagedNetworkDetail network={network} onBack={() => open({ kind: 'targets' })} />
+    </section>
+  }
 
   if (focus.kind === 'target') {
     const target = selectTarget(information, focus.deviceId)
@@ -276,34 +326,45 @@ export function Network() {
 
   return <section className="app-content scan-app" aria-label="NodeScan">
     <KnownSpaceView
-      space={selectKnownSpace(information)}
+      space={selectKnownSpace(information, managedNetworks)}
       release={release}
       pending={pending === 'targets'}
       directPending={pending === 'direct-address'}
       directAddress={directAddress}
       notice={notice}
+      closedNetworkIds={closedNetworkIds}
+      openDeviceIds={openDeviceIds}
+      onToggleNetwork={toggleNetwork}
+      onToggleDevice={toggleDevice}
       onFind={findTargets}
       onScanSelf={scanSelf}
       onDirectAddressChange={setDirectAddress}
       onDirectScan={pingDirectAddress}
       onOpen={(deviceId) => open({ kind: 'target', deviceId })}
+      onOpenNetwork={(networkId) => open({ kind: 'network', networkId })}
     />
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen }: {
+function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, openDeviceIds, onToggleNetwork, onToggleDevice, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
   directPending: boolean
   directAddress: string
   notice: string | null
+  closedNetworkIds: readonly string[]
+  openDeviceIds: readonly string[]
+  onToggleNetwork(networkId: string): void
+  onToggleDevice(deviceId: string): void
   onFind(): void
   onScanSelf(): void
   onDirectAddressChange(value: string): void
   onDirectScan(): void
   onOpen(deviceId: string): void
+  onOpenNetwork(networkId: string): void
 }) {
+  const selfPlaced = space.networks.some(({ includesSelf }) => includesSelf)
   return <div className="ns-view">
     <header className="ns-masthead">
       <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
@@ -329,37 +390,41 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
     </form>
 
     <div className="ns-space">
-        {!space.networks.some(({ includesSelf }) => includesSelf) && <section className="ns-group" aria-label="Self">
-          <button type="button" className="ns-node ns-node--self ns-self-scan" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}><span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span><span className="ns-target-mark">NOT SCANNED</span><span className="ns-self-action">SCAN</span></button>
-        </section>}
-        {space.networks.map((network) => <section className="ns-group" key={network.id} aria-label={`Network ${network.name}`}>
-          <header className="ns-group-head">
-            <span className="ns-eyebrow">NETWORK</span>
-            <strong>{network.name}</strong>
-          </header>
-          {(network.includesSelf || network.targets.length > 0) && <div className="ns-branch">
-            {/* SELF is the player's own position in the topology, never a target. */}
-            {network.includesSelf && <div className="ns-limb">
-              <div className="ns-node ns-node--self">
-                <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span>
-              </div>
-            </div>}
-            {network.targets.map((target) => <div className="ns-limb" key={target.id}>
-              <TargetRow target={target} onOpen={onOpen} />
-            </div>)}
-          </div>}
-          {!network.membersObserved
-            ? <p className="ns-group-note">Members not observed</p>
-            : network.targets.length === 0 && <p className="ns-group-note">{network.includesSelf ? 'No other devices responded' : 'No devices responded'}</p>}
-        </section>)}
+      {!selfPlaced && <section className="ns-group" aria-label="Self">
+        <button type="button" className="ns-node ns-node--self ns-self-scan" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}>
+          <span className="ns-glyph ns-glyph--self" aria-hidden="true" />
+          <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span>
+          <span className="ns-target-mark">NOT SCANNED</span>
+          <span className="ns-self-action">SCAN</span>
+        </button>
+      </section>}
 
-        {space.elsewhere.length > 0 && <section className="ns-group" aria-label="Elsewhere">
-          <header className="ns-group-head"><span className="ns-eyebrow">ELSEWHERE</span></header>
-          <div className="ns-loose">{space.elsewhere.map((target) => <TargetRow key={target.id} target={target} onOpen={onOpen} showLocation />)}</div>
-        </section>}
-      </div>
+      {space.networks.map((network) => <NetworkBranch
+        key={network.id}
+        network={network}
+        selfAddress={space.self.address}
+        expanded={!closedNetworkIds.includes(network.id)}
+        openDeviceIds={openDeviceIds}
+        onToggle={() => onToggleNetwork(network.id)}
+        onToggleDevice={onToggleDevice}
+        onOpen={onOpen}
+        onOpenNetwork={onOpenNetwork}
+      />)}
 
-    {space.networks.length > 0 && <div className="ns-primary-slot">
+      {space.elsewhere.length > 0 && <section className="ns-group" aria-label="Elsewhere">
+        <header className="ns-group-head"><span className="ns-eyebrow">ELSEWHERE</span></header>
+        <div className="ns-loose">{space.elsewhere.map((target) => <DeviceRow
+          key={target.id}
+          target={target}
+          expanded={openDeviceIds.includes(target.id)}
+          showLocation
+          onToggle={() => onToggleDevice(target.id)}
+          onOpen={onOpen}
+        />)}</div>
+      </section>}
+    </div>
+
+    {space.remembersNetwork && <div className="ns-primary-slot">
       <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>SCAN AGAIN</button>
       <p className="ns-primary-note">Look for devices on known Networks.</p>
     </div>}
@@ -367,20 +432,185 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   </div>
 }
 
-function TargetRow({ target, showLocation, onOpen }: { target: TargetSummary; showLocation?: boolean; onOpen(deviceId: string): void }) {
-  return <button
-    type="button"
-    className="ns-node ns-target"
-    aria-label={`Open target ${target.address}`}
-    onClick={() => onOpen(target.id)}
-  >
-    <span className="ns-target-copy">
-      <strong>{target.address}</strong>
-      {showLocation && <span className="ns-target-note">{locationOf(target)}</span>}
+/**
+ * One Network root and everything the player legitimately knows under it.
+ *
+ * The root itself is the strongest identity in the tree. Where the local
+ * Device actually manages this Network, the root also carries the route to
+ * its administration; a Network merely observed carries no such control,
+ * because observing a Network is not authority over it.
+ */
+function NetworkBranch({ network, selfAddress, expanded, openDeviceIds, onToggle, onToggleDevice, onOpen, onOpenNetwork }: {
+  network: KnownNetwork
+  selfAddress: string
+  expanded: boolean
+  openDeviceIds: readonly string[]
+  onToggle(): void
+  onToggleDevice(deviceId: string): void
+  onOpen(deviceId: string): void
+  onOpenNetwork(networkId: string): void
+}) {
+  const populated = network.includesSelf || network.targets.length > 0
+  return <section className={`ns-group${expanded ? ' is-expanded' : ''}${populated ? ' is-populated' : ''}`} aria-label={`Network ${network.name}`}>
+    <div className="ns-node ns-node--network">
+      <button
+        type="button"
+        className="ns-node-main"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} network ${network.name}`}
+        onClick={onToggle}
+      >
+        <span className="ns-twist" aria-hidden="true">▸</span>
+        <span className="ns-target-copy">
+          <span className="ns-eyebrow">NETWORK</span>
+          <strong>{network.name}</strong>
+        </span>
+      </button>
+      {network.managed
+        ? <button type="button" className="ns-node-route" aria-label={`Manage network ${network.name}`} onClick={() => onOpenNetwork(network.id)}>MANAGED<span aria-hidden="true">›</span></button>
+        : <span className="ns-node-mark">OBSERVED</span>}
+    </div>
+
+    {expanded && <div className="ns-branch">
+      {populated && <div className="ns-limbs">
+        {/* SELF is the player's own position in the topology, never a target. */}
+        {network.includesSelf && <div className="ns-limb">
+          <div className="ns-node ns-node--self ns-node--static">
+            <span className="ns-glyph ns-glyph--self" aria-hidden="true" />
+            <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{selfAddress}</span></span>
+          </div>
+        </div>}
+        {network.targets.map((target) => <div className="ns-limb" key={target.id}>
+          <DeviceRow
+            target={target}
+            expanded={openDeviceIds.includes(target.id)}
+            onToggle={() => onToggleDevice(target.id)}
+            onOpen={onOpen}
+          />
+        </div>)}
+      </div>}
+      {!network.membersObserved
+        ? <p className="ns-branch-note">Members not observed</p>
+        : network.targets.length === 0 && <p className="ns-branch-note">{network.includesSelf ? 'No other devices responded' : 'No devices responded'}</p>}
+    </div>}
+  </section>
+}
+
+/**
+ * One remembered Device. Its identity line is exactly what the player has
+ * legitimately learned: an address until an Inspect observed the represented
+ * name, and the name over the address afterwards.
+ *
+ * Expanding it lists the Services already remembered from a Scan. That is a
+ * read of memory, not a new observation, so a Device with nothing remembered
+ * offers no branch at all rather than an empty one.
+ */
+function DeviceRow({ target, expanded, showLocation, onToggle, onOpen }: {
+  target: TargetSummary
+  expanded: boolean
+  showLocation?: boolean
+  onToggle(): void
+  onOpen(deviceId: string): void
+}) {
+  const expandable = target.services.length > 0
+  const note = [target.displayName ? target.address : undefined, showLocation ? locationOf(target) : undefined].filter(Boolean).join(' · ')
+  const identity = <span className="ns-target-copy">
+    <strong>{target.displayName ?? target.address}</strong>
+    {!target.displayName && <span className="ns-target-note">UNKNOWN DEVICE</span>}
+    {note && <span className="ns-target-note">{note}</span>}
+  </span>
+  return <>
+    <div className={`ns-node ns-node--device${expandable && expanded ? ' is-expanded' : ''}`}>
+      {expandable
+        ? <button
+          type="button"
+          className="ns-node-main"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} device ${target.address}`}
+          onClick={onToggle}
+        >
+          <span className="ns-twist" aria-hidden="true">▸</span>
+          {identity}
+        </button>
+        : <div className="ns-node-main ns-node-main--static">
+          <span className="ns-glyph" aria-hidden="true" />
+          {identity}
+        </div>}
+      <button type="button" className="ns-node-route" aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
+        <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
+        <span aria-hidden="true">›</span>
+      </button>
+    </div>
+    {expandable && expanded && <div className="ns-limbs ns-limbs--service" aria-label={`Remembered services for ${target.address}`}>
+      {target.services.map((service) => <div className="ns-limb ns-limb--service" key={service.id}>
+        <div className="ns-node ns-node--service ns-node--static">
+          <span className="ns-glyph" aria-hidden="true" />
+          <span className="ns-target-copy">
+            <strong>{service.name}</strong>
+            <span className="ns-target-note">{service.port} / {service.protocol}</span>
+          </span>
+        </div>
+      </div>)}
+    </div>}
+  </>
+}
+
+/**
+ * The administration detail for a Network the local Device actually manages.
+ *
+ * Everything here is canonical truth the management authority legitimately
+ * supplies about the Network itself — its represented name, its own external
+ * capacity, how many Devices it carries, and its own activity evidence. It
+ * deliberately stops there: authority over a Network is not observation of
+ * what is on it, so no member identity, address, Firmware or Service appears,
+ * and nothing here is written back into Discovery.
+ */
+function ManagedNetworkDetail({ network, onBack }: { network: ManagedNetworkView; onBack(): void }) {
+  return <div className="ns-view">
+    <nav className="scan-crumbs" aria-label="NodeScan navigation">
+      <button type="button" onClick={onBack}>← Known Space</button>
+      <span aria-hidden="true">/</span>
+      <strong>{network.name}</strong>
+    </nav>
+
+    <header className="ns-subject">
+      <span className="ns-eyebrow">MANAGED NETWORK</span>
+      <h2>{network.name}</h2>
+      <p className="ns-subject-note">This Device holds management authority over this Network.</p>
+    </header>
+
+    <div className="node-section"><span>CONNECTIVITY</span></div>
+    <dl className="node-facts">
+      <div><dt>UPLOAD</dt><dd>{formatTransferRate(network.connectivity.uploadBytesPerSecond)}</dd></div>
+      <div><dt>DOWNLOAD</dt><dd>{formatTransferRate(network.connectivity.downloadBytesPerSecond)}</dd></div>
+    </dl>
+
+    <div className="node-section"><span>MEMBERSHIP</span></div>
+    <dl className="node-facts">
+      <div><dt>MEMBERS</dt><dd>{network.memberCount}</dd></div>
+    </dl>
+    <p className="ns-quiet-note">Management authority counts members. It does not identify them: Devices appear in Known Space only where reconnaissance observed them.</p>
+
+    <div className="node-section"><span>ACTIVITY</span><span>{network.activity.length}</span></div>
+    {network.activity.length === 0
+      ? <div className="node-empty"><strong>NO ACTIVITY</strong><span>No activity has been observed on this Network yet.</span></div>
+      : <div className="node-list">{network.activity.map((record) => <ActivityRow key={record.id} record={record} />)}</div>}
+  </div>
+}
+
+function ActivityRow({ record }: { record: ManagedNetworkActivityRecordView }) {
+  const detail = [
+    `${record.sourceAddress} → ${record.destinationAddress}`,
+    record.serviceName,
+    record.bytesTransferred !== undefined ? formatBytes(record.bytesTransferred) : undefined,
+  ].filter(Boolean).join(' · ')
+  return <div className="node-row">
+    <span className="node-row-copy">
+      <strong>{ACTIVITY_KIND_LABEL[record.kind]}</strong>
+      <small>{detail}</small>
     </span>
-    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
-    <span className="ns-arrow" aria-hidden="true">›</span>
-  </button>
+    <span className={POSITIVE_RESULT.has(record.result) ? 'node-chip' : 'node-chip node-chip--quiet'}>{record.result}</span>
+  </div>
 }
 
 /**
@@ -417,8 +647,8 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
 
     <header className="ns-subject">
       <span className="ns-eyebrow">{kindOf(target)}</span>
-      <h2>{target.address}</h2>
-      <p className="ns-subject-note">{locationOf(target)}</p>
+      <h2>{target.displayName ?? target.address}</h2>
+      <p className="ns-subject-note">{[target.displayName ? target.address : undefined, locationOf(target)].filter(Boolean).join(' · ')}</p>
     </header>
 
     <section className="ns-stage" aria-label="Target status">
@@ -426,12 +656,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         <strong className="ns-stage-headline">NOT SCANNED</strong>
         <span className="ns-stage-note">Nothing is known about this target yet.</span>
         <Primary label="SCAN" disabled={pending} onClick={onScan} />
-      </>}
-
-      {target.stage === 'inspect' && <>
-        <strong className="ns-stage-headline">SERVICES FOUND</strong>
-        <span className="ns-stage-note">Inspect can reveal deeper evidence about this target.</span>
-        <Primary label="INSPECT" onClick={onInspect} />
       </>}
 
       {target.stage === 'analysis_ready' && <>
@@ -498,7 +722,14 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
     <details className="ns-details">
-      <summary>RECON INTELLIGENCE</summary>
+      <summary>
+        <span>TECHNICAL INTELLIGENCE</span>
+        {/*
+          * Inspect is optional depth, so its availability is announced where
+          * it lives rather than pushed into the target's line of action.
+          */}
+        {release.canInspect && !target.observed && <span className="ns-details-hint">INSPECT AVAILABLE</span>}
+      </summary>
       <TechnicalDetails
         target={target}
         release={release}
@@ -559,6 +790,8 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
     <div className="node-section"><span>OBSERVED</span></div>
     {target.observed
       ? <dl className="node-facts">
+        {/* Present only where an Inspect actually observed the represented name. */}
+        {target.displayName && <div><dt>NAME</dt><dd>{target.displayName}</dd></div>}
         <div><dt>TYPE</dt><dd>{target.observed.deviceKind.toUpperCase()}</dd></div>
         <div><dt>STATUS</dt><dd>{target.observed.networkStatus}</dd></div>
         {target.observed.firmware && <div><dt>FIRMWARE</dt><dd>{target.observed.firmware}</dd></div>}
@@ -566,7 +799,17 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
     {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
-    {release.canInspect && target.stage !== 'inspect' && <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>}
+    {/*
+      * Inspect explains itself where it is offered: Scan found the attack
+      * surface, Inspect looks deeper at what the target actually is. Saying so
+      * beside the control is what makes it understandable on first use.
+      */}
+    {release.canInspect && <div className="ns-inspect">
+      <p className="ns-quiet-note">{target.observed
+        ? 'Inspect again to refresh this target’s identity and service fingerprints.'
+        : 'Inspect looks deeper than Scan: it resolves this target’s device identity, firmware and service fingerprints.'}</p>
+      <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>
+    </div>}
 
     {(target.access || target.session) && <>
       <div className="node-section"><span>ACCESS</span></div>

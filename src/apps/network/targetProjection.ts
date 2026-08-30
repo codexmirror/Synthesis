@@ -11,14 +11,22 @@ import type {
 
 /**
  * NodeScan presents one target at a time as a single decision, not as a
- * dashboard of the subsystems that decision touches. Everything the interface
- * renders is derived here, from this deliberately narrow slice of canonical
- * state: remembered Discovery, earned Knowledge, the player's own Processes,
- * the player's own installed software and the player's current relationships.
- * `world` is intentionally absent from the slice, so hidden Device names,
- * unobserved Service implementations, unobserved authentication conditions,
- * vulnerability presence and attack feasibility cannot reach the interface
- * even by accident.
+ * dashboard of the subsystems that decision touches. Every reconnaissance
+ * fact the interface renders is derived here, from this deliberately narrow
+ * slice of canonical state: remembered Discovery, earned Knowledge, the
+ * player's own Processes, the player's own installed software and the
+ * player's current relationships. `world` is intentionally absent from the
+ * slice, so hidden Device names, unobserved Service implementations,
+ * unobserved authentication conditions, vulnerability presence and attack
+ * feasibility cannot reach the interface even by accident. A remembered
+ * Device's display name is here only because a legitimate Inspect stored it
+ * in Discovery, never because presentation resolved it.
+ *
+ * The one thing NodeScan renders that is *not* derived from this slice is a
+ * managed Network's own canonical facts, which come from the separate
+ * management-authority projection and are composed beside this one by the
+ * application. That composition is deliberate and explicit: authority is not
+ * allowed to fill in observation, so nothing here consults it.
  */
 export type PlayerInformation = Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'process' | 'deviceAccess' | 'remoteSession' | 'rackUpdate'>
 
@@ -60,7 +68,6 @@ export interface KnownWeakness {
  */
 export type TargetStage =
   | 'unscanned'
-  | 'inspect'
   | 'analysis_ready'
   | 'analyzing'
   | 'no_route'
@@ -154,17 +161,35 @@ export interface PackageSubmission {
 }
 
 /**
- * One remembered Network as relationship context for the targets inside it.
- * It is presentation grouping over `networkDeviceRelations`, not a level of
- * navigation: the Network itself is not openable and carries no action.
+ * One Network root of Known Space: the player's own managed Networks and the
+ * Networks reconnaissance remembers, in one tree.
+ *
+ * `managed` says only that the local Device holds explicit
+ * `NetworkManagementAuthority` over it, which is what makes its
+ * administration route legitimate. It never enlarges what the tree may show:
+ * the Device children below always come from remembered Discovery alone, so
+ * a managed Network the player has never Scanned states that its members are
+ * unobserved instead of listing them.
  */
 export interface KnownNetwork {
   readonly id: string
   readonly name: string
   readonly membersObserved: boolean
+  /** Whether the local Device currently holds explicit management authority over this Network. */
+  readonly managed: boolean
   /** Whether the player legitimately remembers SELF as a member of this Network. */
   readonly includesSelf: boolean
   readonly targets: readonly TargetSummary[]
+}
+
+/**
+ * The identity a managed Network's own authority legitimately supplies.
+ * Passed in by the caller rather than resolved here, so the reconnaissance
+ * projection below keeps reading player information only.
+ */
+export interface ManagedNetworkIdentity {
+  readonly id: string
+  readonly name: string
 }
 
 export interface KnownSpace {
@@ -172,6 +197,21 @@ export interface KnownSpace {
   readonly networks: readonly KnownNetwork[]
   /** Remembered Devices with no remembered relationship to a known Network. */
   readonly elsewhere: readonly TargetSummary[]
+  /**
+   * Whether reconnaissance actually remembers a Network. A managed Network
+   * root is authority, not memory, so it never by itself makes the
+   * observation shortcut over remembered Networks meaningful.
+   */
+  readonly remembersNetwork: boolean
+}
+
+/** A remembered Service as a lightweight child row of its Device in the tree. */
+export interface TargetServiceSummary {
+  readonly id: string
+  readonly name: string
+  readonly port: number
+  readonly protocol: 'TCP' | 'UDP'
+  readonly endpoint: string
 }
 
 export interface TargetSummary {
@@ -180,6 +220,14 @@ export interface TargetSummary {
   readonly scope: 'unknown' | 'lan' | 'remote'
   readonly networkNames: readonly string[]
   readonly stage: TargetStage
+  /**
+   * The Device's represented display identity, present only once a legitimate
+   * Inspect observed and remembered it. Until then a remote Device is an
+   * address, never its hidden canonical name.
+   */
+  readonly displayName?: string
+  readonly servicesObserved: boolean
+  readonly services: readonly TargetServiceSummary[]
 }
 
 export interface Target extends TargetSummary {
@@ -193,7 +241,6 @@ export interface Target extends TargetSummary {
     readonly firmware?: string
     readonly computeClass?: string
   }
-  readonly servicesObserved: boolean
   readonly services: readonly TargetService[]
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
   readonly session?: { readonly privilege: 'USER'; readonly connectedAddress: string; readonly viaServiceName?: string }
@@ -262,6 +309,10 @@ function describeImplementation(observed?: { implementation: { name: string; ver
  * become the headline; the Activity Monitor remains its canonical home, and
  * per-Service investigation progress stays visible under technical depth.
  *
+ * Inspect is deliberately not a stage. It is optional technical depth the
+ * player chooses, not a step the ordinary SCAN → HACK → CONNECT line has to
+ * pass through, so it never displaces the decision in front of them.
+ *
  * Nothing here consults hidden World Truth, and `no_route` is a statement
  * about the player's own information, not about the target.
  */
@@ -273,8 +324,6 @@ function stageOf(input: {
   routes: number
   servicesObserved: boolean
   services: readonly TargetService[]
-  inspectAvailable: boolean
-  inspected: boolean
   packageSubmission?: PackageSubmission
 }): TargetStage {
   if (input.connected) return 'connected'
@@ -283,7 +332,6 @@ function stageOf(input: {
   if (input.packageSubmission?.attacking) return 'attacking'
   if (input.packageSubmission?.submitting) return 'submitting'
   if (!input.servicesObserved) return 'unscanned'
-  if (input.inspectAvailable && !input.inspected) return 'inspect'
   if (input.hasAccess) return 'access'
   if (input.packageSubmission?.enabled) return 'submission_ready'
   if (input.packageSubmission?.route) return 'attack'
@@ -293,53 +341,62 @@ function stageOf(input: {
 }
 
 /**
- * Every target the player legitimately remembers, in discovery order. Known
- * Networks are the target's stated location rather than a level of navigation
- * the player has to descend through.
+ * Known Space: one restrained relationship tree — Network → Device →
+ * remembered Service — over two legitimately different sources composed side
+ * by side.
+ *
+ * The Network roots are the Networks the local Device manages (supplied by
+ * the caller from `NetworkManagementAuthority`) plus the Networks
+ * reconnaissance remembers. Everything below a root comes from remembered
+ * Discovery alone: SELF appears only where the player has legitimately
+ * observed its own membership, a Device appears under every Network it is
+ * remembered in, and one remembered in none of them stays visibly separate
+ * rather than being filed under a Network it was never observed on.
+ *
+ * Authority is never allowed to fill in reconnaissance. A managed Network the
+ * player has not Scanned states that its members are unobserved; it does not
+ * enumerate them from World Truth.
  */
-/**
- * Known Space: the remembered relationship shape around the player, derived
- * entirely from remembered Discovery. SELF appears only where the player has
- * legitimately observed its own membership of a Network; a Device appears
- * under every Network it is remembered in, and one it is remembered in none of
- * stays visibly separate rather than being filed under a Network it was never
- * observed on.
- */
-export function selectKnownSpace(information: PlayerInformation): KnownSpace {
+export function selectKnownSpace(information: PlayerInformation, managed: readonly ManagedNetworkIdentity[] = []): KnownSpace {
   const { discovery } = information
   const localDeviceId = information.player.localDevice.id
   const targets = new Map(selectTargets(information).map((target) => [target.id, target]))
-  const knownNetworkIds = new Set(discovery.networks.map(({ id }) => id))
+  const managedIds = new Set(managed.map(({ id }) => id))
+  const remembered = new Map(discovery.networks.map((network) => [network.id, network]))
+  const knownNetworkIds = new Set([...remembered.keys(), ...managedIds])
   const related = new Set(discovery.networkDeviceRelations
     .filter(({ networkId }) => knownNetworkIds.has(networkId))
     .map(({ deviceId }) => deviceId))
   const membersOf = (networkId: string) => discovery.networkDeviceRelations.filter((relation) => relation.networkId === networkId)
+  const root = (id: string, name: string, isManaged: boolean): KnownNetwork => ({
+    id,
+    name,
+    membersObserved: remembered.get(id)?.membersObserved ?? false,
+    managed: isManaged,
+    includesSelf: membersOf(id).some(({ deviceId }) => deviceId === localDeviceId),
+    targets: membersOf(id).flatMap(({ deviceId }) => {
+      const target = deviceId === localDeviceId ? undefined : targets.get(deviceId)
+      return target ? [target] : []
+    }),
+  })
   return {
     self: { address: information.player.localDevice.network.ip },
-    networks: discovery.networks.map((network) => ({
-      id: network.id,
-      name: network.name,
-      membersObserved: network.membersObserved,
-      includesSelf: membersOf(network.id).some(({ deviceId }) => deviceId === localDeviceId),
-      targets: membersOf(network.id).flatMap(({ deviceId }) => {
-        const target = deviceId === localDeviceId ? undefined : targets.get(deviceId)
-        return target ? [target] : []
-      }),
-    })),
+    networks: [
+      // A managed Network's name is supplied by the authority that administers
+      // it, which is why it can be stated before reconnaissance remembers it.
+      ...managed.map(({ id, name }) => root(id, name, true)),
+      ...discovery.networks.filter(({ id }) => !managedIds.has(id)).map(({ id, name }) => root(id, name, false)),
+    ],
     elsewhere: [...targets.values()].filter(({ id }) => !related.has(id)),
+    remembersNetwork: discovery.networks.length > 0,
   }
 }
 
+/** Every target the player legitimately remembers, in discovery order. */
 export function selectTargets(information: PlayerInformation): readonly TargetSummary[] {
-  return information.discovery.devices.map((device) => {
+  return information.discovery.devices.flatMap((device) => {
     const target = selectTarget(information, device.id)
-    return {
-      id: device.id,
-      address: device.address,
-      scope: device.scope,
-      networkNames: networkNamesOf(information, device.id),
-      stage: target?.stage ?? 'unscanned',
-    }
+    return target ? [target] : []
   })
 }
 
@@ -360,7 +417,6 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const activeAccess = established.find(({ id }) => id === information.remoteSession.active?.accessId)
   const serviceName = (serviceId: string) => device.services.find(({ id }) => id === serviceId)?.name
   const flipper = findInstalledFlipper(information.player.localDevice)
-  const nodeScan = findInstalledNodeScan(information.player.localDevice)
 
   const routes: TargetRoute[] = []
   const services = device.services.map((service): TargetService => {
@@ -427,8 +483,6 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     routes: routes.length,
     servicesObserved: device.servicesObserved,
     services,
-    inspectAvailable: Boolean(nodeScan && nodeScanSupportsInspect(nodeScan)),
-    inspected: Boolean(device.inspect?.enhanced),
     packageSubmission,
   })
 
@@ -438,6 +492,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     scope: device.scope,
     networkNames: networkNamesOf(information, device.id),
     stage,
+    // Only an Inspect that actually observed it; never resolved from World Truth.
+    ...(device.inspect?.displayName ? { displayName: device.inspect.displayName } : {}),
     percent: stage === 'hacking' ? runningPercent(hacking) : stage === 'analyzing' ? runningPercent(analyzing) : stage === 'attacking' ? packageSubmission?.attackPercent ?? 0 : stage === 'submitting' ? packageSubmission?.submitPercent ?? 0 : 0,
     routes,
     lastAttemptFailed: lastAttempt?.status === 'attempt_failed',

@@ -19,61 +19,103 @@ reconnaissance software shipped with NODE-OS. Its current direct Terminal comman
 <ipv4|network-name>`, `inspect <ipv4|network-name>`, and `analyze
 <ipv4:port>`; no product namespace is required.
 
-NodeScan is deliberately distinct from the separate Network application,
-which presents legitimate administration over a Network the local Device
-explicitly holds management authority over rather than remembered
-reconnaissance (`docs/current/DEVICE_SYSTEM.md`). The internal `network` app
-identity and `src/apps/network/` continue to be NodeScan's own wiring — a
-historical naming detail, not a product relationship — while the Network
-product is wired separately under `networkManagement`. Network never derives
-authority from NodeScan Discovery, and NodeScan Discovery is never mutated by
-opening Network.
+NodeScan is the single player-facing home for network space. There is no
+separate Network application: the Networks the local Device legitimately
+administers and the Networks reconnaissance remembers are presented in one
+map, and a managed Network's administration detail is reached from its own
+root inside NodeScan.
+
+That product unification does not merge the semantic owners. Reconnaissance
+Discovery and `NetworkManagementAuthority` remain distinct
+(`docs/current/DEVICE_SYSTEM.md`): the managed-Network projection
+(`src/apps/networkManagement/networkProjection.ts`) reads authority, NodeScan's
+target projection reads player information, and NodeScan composes the two side
+by side rather than deriving one from the other. Discovery of a Network never
+implies authority to administer it, authority never enumerates member Device
+identity, and browsing either never mutates Discovery. The internal `network`
+app identity and `src/apps/network/` remain NodeScan's own wiring — a
+historical naming detail, not a product relationship.
 
 Scan is available through both Terminal and the graphical NodeScan application.
 Both interfaces invoke the same shared Scan gameplay/application operation.
 
 Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, pasting, or locally validating it is presentation state only. A positive PING remembers only stable Device identity and the observed address; it observes no name, Firmware, Services, vulnerabilities, Network membership, or topology. Invalid input is rejected before observation, no response creates no Discovery, and PING creates no Process. A foreign Device learned this way appears under ELSEWHERE as NOT SCANNED.
 
-NodeScan is presented as two screens with one guided next action at a time. KNOWN SPACE
-presents the remembered relationship shape around the player; a target card is
-one target's whole line of action. The guided actions preserve the separate canonical operations: SCAN observes Services, NodeScan 1.1 may next offer INSPECT, ANALYZE may start independent analyses for the observed Services, BYPASS uses a supported remembered route, and CONNECT operates established Access. Both screens are built from a view model derived from
-remembered Discovery, Knowledge, the player's own Processes, the player's own
-installed software, DeviceAccess and RemoteSession. World truth is deliberately
-outside the slice that view model is built from.
+NodeScan is presented as KNOWN SPACE plus two routes off it, with one guided
+next action at a time. KNOWN SPACE presents the shape of the player's network
+space; a target card is one target's whole line of action; a managed Network's
+administration detail is the other route. The guided actions preserve the
+separate canonical operations: SCAN observes Services, ANALYZE may start
+independent analyses for the observed Services, BYPASS uses a supported
+remembered route, and CONNECT operates established Access. Manual INSPECT is
+deliberately not one of those stages; it is optional depth (see below). Known
+Space and the target card are built from a view model derived from remembered
+Discovery, Knowledge, the player's own Processes, the player's own installed
+software, DeviceAccess and RemoteSession. World truth is deliberately outside
+the slice that view model is built from; the managed-Network route is the one
+deliberate, separately owned exception, and it supplies only the Network's own
+canonical facts.
 
-Known Space groups remembered targets under the remembered Networks they
-belong to, drawn as a one-level relationship scaffold. SELF and its current address appear intrinsically on fresh Known Space without a
-synthetic Discovery record or a claimed Network relationship. Before its
+Known Space is one compact expandable relationship tree — Network → Device →
+remembered Service — carried by indentation, type weight and thin connectors
+rather than nested cards. Its Network roots are the Networks the local Device
+manages plus the Networks reconnaissance remembers; everything below a root
+comes from remembered Discovery alone. A managed Network therefore appears as
+a root on a fresh game, before anything has been observed on it, and honestly
+states that its members are unobserved.
+
+SELF and its current address appear intrinsically on fresh Known Space without
+a synthetic Discovery record or a claimed Network relationship. Before its
 Network relationship is known, SELF offers Scan and reports NOT SCANNED. Once
 its membership is legitimately observed, SELF appears as the topology anchor
-inside that Network. A Device appears under every Network it is
-remembered in, and a remembered Device with no remembered relationship to any
-known Network stays visibly separate under ELSEWHERE with its own scope
-stated. Unobserved membership is stated explicitly rather than reported as an
-observed empty result, and an observed Network with no responding members says
-so.
+inside that Network. A Device appears under every Network it is remembered in,
+and a remembered Device with no remembered relationship to any known Network
+stays visibly separate under ELSEWHERE with its own scope stated. Unobserved
+membership is stated explicitly rather than reported as an observed empty
+result, and an observed Network with no responding members says so.
 
-That scaffold is presentation only and is not a navigation hierarchy. A
-Network is not openable, carries no action of its own, and nothing expands:
-tapping a target opens its card directly, and there is no Network level,
-Device level or Service level between. Presenting topology performs no
-observation.
+Expansion is local presentation state only. A Network root reads open and a
+Device reads closed; a Device offers a Service branch only where a Scan
+actually remembered Services, so an unscanned Device states that instead of
+opening an empty branch. Service children are remembered identity, port and
+protocol only — every Service action stays on the target card. Opening,
+expanding, collapsing or browsing Known Space performs no observation and
+mutates no Discovery.
+
+Two routes hang off the tree, and they are deliberately different kinds of
+thing. A target row opens its card directly — there is no Device page or
+Service page between. A Network root offers an administration route only where
+the local Device actually holds `NetworkManagementAuthority` over it
+(`docs/current/DEVICE_SYSTEM.md`); a Network merely observed is marked
+OBSERVED and offers none, because observing a Network is not authority over
+it. That administration detail states the Network's represented name,
+connectivity, coarse member count and its own Network Activity, and never
+member Device identity, address, Firmware or Services. `SCAN AGAIN` is offered
+only once reconnaissance actually remembers a Network: a managed root is
+authority, not memory.
+
+A target's identity on the card and in the tree is exactly what the player has
+legitimately learned. A remembered Device is presented as an UNKNOWN DEVICE at
+its observed address until an Inspect actually observed the represented display
+name; from then on the remembered name leads and the address supports it.
+Scan and PING never observe a name, and no presentation code resolves one from
+World Truth.
 
 The target card states one stage at a time and normally offers one primary
 action for it. Its derived progression distinguishes NOT SCANNED, SERVICES
-FOUND / INSPECT available, SERVICES FOUND / ANALYZE available, ANALYZING,
+FOUND / ANALYZE available, ANALYZING,
 NO WAY IN FOUND, `n` WAY(S) IN FOUND, BYPASS work in progress, RackUpdate's
 distinct ATTACK and package-submission stages, ACCESS GRANTED, and CONNECTED.
+Manual Inspect is deliberately absent from that progression: it is optional
+depth under TECHNICAL INTELLIGENCE, not a step the ordinary SCAN → HACK →
+CONNECT line passes through, so installing NodeScan 1.1 Experimental never
+displaces a route the player has learned or a relationship they already hold.
 NO WAY IN FOUND is shown only after every currently observed Service has either
 weakness Knowledge or a current completed `no_weakness_detected` result and no
 other legitimate continuation exists; `service_unavailable` is inconclusive
 and remains retryable. An absence of Knowledge immediately after Scan is not a
-negative conclusion. A live Remote Session remains the highest-priority truth.
-Represented running work remains visible, and pending NodeScan 1.1 Inspect depth
-outranks passive established DeviceAccess and a merely known route when there
-is no active Session, including when the release was installed after Access or
-the route was learned. Inspect completion does not alter DeviceAccess and
-returns the primary decision to CONNECT where that relationship already exists.
+negative conclusion. A live Remote Session remains the highest-priority truth,
+and represented running work remains visible.
 
 
 A way in is derived from the player's own Knowledge of a weakness on a
@@ -90,8 +132,10 @@ and module without moving capability selection into presentation. A way in never
 still produce a legitimately failed attempt, which is reported coarsely while
 the same route stays available.
 
-RECON INTELLIGENCE is one disclosure on the target card carrying the copyable
-address, remembered Inspect evidence and its capability note, the provenance
+TECHNICAL INTELLIGENCE is one disclosure on the target card carrying the
+copyable address, remembered Inspect evidence (including the observed display
+NAME where one was observed) and its capability note, the manual INSPECT
+action, the provenance
 of established Access, the explanation of each way in (method, tool, service,
 remembered software fingerprint, weakness label and identity), the remembered
 Services with their endpoints, fingerprints, weaknesses and per-Service
@@ -99,6 +143,13 @@ Analyze action, and RackUpdate's package-submission lifecycle. Opening it
 browses remembered information: it performs no observation and starts no
 gameplay. Unobserved depth is stated explicitly there and never rendered as an
 observed empty result.
+
+Manual INSPECT is offered inside that disclosure wherever the installed
+NodeScan release supplies Inspect, with concise contextual copy stating what
+Inspect adds over Scan rather than a tutorial. Its availability is announced on
+the collapsed disclosure itself (INSPECT AVAILABLE) while the target has no
+remembered Inspect evidence, so optional depth stays discoverable without
+occupying the target's primary decision.
 
 RackUpdate's package-submission lifecycle is projected when remembered
 Enhanced Inspect evidence includes its package-submission interface and earned
@@ -150,11 +201,14 @@ service-unavailable analysis result is stated beside its repeatable Analyze
 action as disposable Process history and is never promoted into permanent
 memory.
 
-Known Networks are relationship context rather than a level of navigation:
-there is no Network page, no Network or Device expansion, no Service children
-on Known Space, and no separate Service page. Network Inspect remains
-available through Terminal `inspect <network-name>`, and remembered Network
-Inspect evidence is unaffected.
+Known Space's Network and Device expansion is progressive disclosure over
+remembered relationships, not a navigation hierarchy: there is still no Device
+page and no Service page, and a Service row on the tree carries no action of
+its own. The one openable Network route is a managed Network's own
+administration detail, which is management authority rather than
+reconnaissance. Network Inspect remains available through Terminal
+`inspect <network-name>`, and remembered Network Inspect evidence is
+unaffected.
 
 
 The four reconnaissance roles are distinct observations, not mandatory progression stages or stored flags:
@@ -239,6 +293,7 @@ Current Device Inspect may report:
 - online state
 - SELF hardware where owned by the local Device
 - represented server identity where present
+- the target's represented Device display name, where the Device has one
 
 Current Device Inspect does not enumerate services. Enhanced Device Inspect also observes the target Device’s represented LocalNetwork relationships, remembering only the inspected Device relationship and not enumerating other members.
 
@@ -246,8 +301,23 @@ Current LocalNetwork Inspect reports the represented network's own information,
 including whether canonical membership connects SELF, without enumerating
 members.
 
-Inspect is exposed directly as `inspect <ipv4|network-name>` and as an explicit action on remembered Device targets in NodeScan. Both interfaces use the
-same synchronous application operation.
+Inspect is exposed directly as `inspect <ipv4|network-name>` and as an explicit
+action under TECHNICAL INTELLIGENCE on remembered Device targets in NodeScan.
+Both interfaces use the same synchronous application operation.
+
+Device display identity is observation, not automatic World Truth exposure.
+World Truth owns `NetworkHost.displayName`; a non-SELF Inspect that actually
+reached the target observes it and merges it into that Device's remembered
+Discovery `inspect` snapshot (`DiscoveredDeviceSnapshot.inspect.displayName`),
+alongside `networkStatus` and `deviceKind`, under the same re-observation and
+stale-selector rules. It follows the ordinary Discovery boundary: a later
+legitimate Inspect refreshes it, an Inspect that observed no name never deletes
+one already remembered, no name is invented for a Device that has none, and a
+rename in World Truth the player never observed changes nothing. Scan and PING
+observe no name at all, which is why a Scanned-but-uninspected target is
+presented as an UNKNOWN DEVICE at its address. This is a
+capability of Inspect itself rather than of Enhanced depth, though only a
+release that supplies Inspect can reach it at all.
 
 Inspect and Scan are separate architectural/domain operations. Player-facing
 Inspect is limited to SELF and targets justified by intrinsic or remembered
@@ -299,7 +369,8 @@ Current Discovery includes remembered:
 - Devices
 - network-to-Device relationships
 - service observations
-- shallow Inspect evidence for known Devices and LocalNetworks
+- shallow Inspect evidence for known Devices and LocalNetworks, including an
+  observed Device display name where Inspect observed one
 
 SELF is intrinsic player context and is not duplicated as a remembered
 Discovery Device entry.
@@ -426,7 +497,7 @@ The current graphical NodeScan surface presents established access and active
 Remote Session state as one target stage: ACCESS GRANTED offers CONNECT, and an
 active Session presents CONNECTED and DISCONNECT in the same place without
 deleting the underlying `DeviceAccess`. The Service the relationship was
-established through is stated under RECON INTELLIGENCE as provenance; it offers
+established through is stated under TECHNICAL INTELLIGENCE as provenance; it offers
 no navigation of its own and never connects automatically. Persistent Service
 findings take priority over redundant successful analysis history, while useful
 no-finding results remain visible as secondary information.
@@ -609,6 +680,16 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   and not a filesystem `FileTransfer`. It never partially applies its package:
   the release swap happens exactly once, only at real upload completion.
 - The internal `network` app identity (`src/apps/network/`) is NodeScan's own
-  wiring, not the Network administration product — a historical naming
+  wiring, not the managed-Network administration domain — a historical naming
   detail. Do not conflate the two or derive Network management authority from
-  NodeScan Discovery.
+  NodeScan Discovery. NodeScan presenting both is a product composition; the
+  two projections stay separately owned.
+- A Device display name is remembered Player Information observed by Inspect,
+  never a value presentation may resolve from World Truth. A target with no
+  such evidence is an UNKNOWN DEVICE at its observed address.
+- Known Space expansion is presentation state. Expanding a Network or Device,
+  or opening the managed-Network administration route, observes nothing and
+  writes nothing to Discovery.
+- Manual Inspect is optional technical depth, not a target stage. A NodeScan
+  release that supplies Inspect must never insert a step into the target's
+  primary decision.

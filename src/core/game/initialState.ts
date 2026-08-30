@@ -7,7 +7,7 @@ import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 52
+export const GAME_STATE_VERSION = 53
 
 export function createInitialGameState(): GameState {
   return {

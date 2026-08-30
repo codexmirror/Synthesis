@@ -20,6 +20,7 @@ export const inspectCommand: TerminalCommand = {
 
     const heading = result.scope !== 'self' && result.deviceKind === 'server' ? 'SERVER' : 'DEVICE'
     const lines: TerminalLine[] = [heading, [text('Address: '), target(result.address, result.scope === 'self' ? 'local' : 'external')], `Scope:   ${result.scope.toUpperCase()}`, `Status:  ${result.networkStatus}`]
+    if (result.scope !== 'self' && result.displayName) lines.splice(1, 0, `Name:    ${result.displayName}`)
     if (result.scope === 'self') {
       lines.push(`CPU:     ${result.hardware.cpu}`, `RAM:     ${result.hardware.ram}`)
     } else if (result.enhanced) {

@@ -175,7 +175,7 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
       enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'HIGH' },
     })
     expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toEqual({
-      networkStatus: 'ONLINE', deviceKind: 'server',
+      networkStatus: 'ONLINE', deviceKind: 'server', displayName: 'srv-01',
       enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'HIGH' },
     })
   })
