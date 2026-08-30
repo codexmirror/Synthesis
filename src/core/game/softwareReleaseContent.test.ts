@@ -6,14 +6,16 @@ import {
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
   NODE_MINER_1_0,
+  ROLLBACK_EXPLOIT_TOOLKIT_1_0,
 } from './softwareReleaseContent'
 
 describe('authored software release content', () => {
-  it('owns the four current releases under their exact stable release IDs', () => {
+  it('owns the five current releases under their exact stable release IDs', () => {
     expect(AUTHORED_SOFTWARE_RELEASES.map(({ releaseId }) => releaseId)).toEqual([
       'nodescan-1.0-standard',
       'nodescan-1.1-experimental',
       'basic-credential-toolkit-1.0',
+      'rollback-exploit-toolkit-1.0',
       'node-miner-1.0',
     ])
   })
@@ -29,6 +31,8 @@ describe('authored software release content', () => {
       id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId,
       name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version,
     })
+    // The Rollback Exploit Toolkit is authored release content, but V1 has no represented acquisition path for it yet, so it is deliberately not preinstalled.
+    expect(installed.find(({ id }) => id === ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId)).toBeUndefined()
   })
 
   it('authors package metadata without replacing concrete artifact truth', () => {

@@ -36,7 +36,9 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     startServiceAnalysisFromObservation: () => unavailable,
     startObservedServiceAnalyses: () => ({ started: 0 }),
     startCredentialAccessAttemptFromObservation: () => ({ status: 'not_available', state }),
-    submitRackUpdatePackageFromObservation: () => ({ status: 'observation_required', state }),
+    startRackUpdateExploitAttemptFromObservation: () => ({ status: 'not_available', state }),
+    startRackUpdatePackageSubmission: () => ({ status: 'observation_required', state }),
+    cancelRackUpdatePackageSubmission: () => ({ status: 'not_found', state }),
     connectRemoteFromObservation: () => ({ status: 'access_required', state }),
     disconnectRemoteSession: () => ({ status: 'not_connected', state }),
     startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
@@ -251,7 +253,7 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
-      startCredentialAccessAttemptFromObservation, submitRackUpdatePackageFromObservation: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+      startCredentialAccessAttemptFromObservation, startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
@@ -261,6 +263,27 @@ describe('Terminal credential access', () => {
       vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit',
     })
     expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
+  })
+
+  it('dispatches a UPD-001 endpoint to the RackUpdate exploit rather than Credential Access', async () => {
+    const base = createInitialGameState()
+    const discovery = rememberScan(base.discovery, scanNetworkTarget({ localDevice: base.player.localDevice, network: base.world.network }, '203.0.113.42'), base.player.localDevice.id)
+    const state = { ...base, discovery, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', observedLabel: 'Rollback protection not enforced' }] } }
+    const startCredentialAccessAttemptFromObservation = vi.fn()
+    const startRackUpdateExploitAttemptFromObservation = vi.fn(() => ({ status: 'started' as const, processId: 'process-test', state }))
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
+      pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
+      startCredentialAccessAttemptFromObservation, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+    })
+    render(<Terminal />)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Command input'), 'attack 203.0.113.42:8443{enter}')
+    expect(startRackUpdateExploitAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
+      endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002',
+      vulnerabilityId: 'UPD-001', toolId: 'rollback-exploit-toolkit',
+    })
+    expect(startCredentialAccessAttemptFromObservation).not.toHaveBeenCalled()
   })
 
   it('starts from stale Knowledge and later fails against patched current World truth', async () => {

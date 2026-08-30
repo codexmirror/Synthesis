@@ -36,13 +36,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 41', () => {
+  it('separates identities and seeds canonical local-device state in schema version 45', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(43)
+    expect(GAME_STATE_VERSION).toBe(45)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(43)
+    expect(state.version).toBe(45)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The one represented NODE recipient besides the local Wallet: the unofficial Miner release's own developer account, starting empty.
@@ -77,6 +77,8 @@ describe('createInitialGameState', () => {
     ])
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'gate-ssh' }))
+    // V1 has no represented acquisition path for the Rollback Exploit Toolkit yet: it must not be silently preinstalled as Current Truth.
+    expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'rollback-exploit-toolkit' }))
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })

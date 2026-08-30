@@ -345,5 +345,5 @@
 
 .ns-quiet-note { margin: 0; color: var(--text-quiet); font-size: .64rem; line-height: 1.5; }
 
-.ns-rollback { display: grid; gap: 10px; justify-items: start; }
-.ns-rollback .node-field { max-width: 100%; }
+.ns-package-submission { display: grid; gap: 10px; justify-items: start; }
+.ns-package-submission .node-field { max-width: 100%; }

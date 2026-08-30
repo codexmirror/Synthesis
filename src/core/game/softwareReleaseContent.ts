@@ -28,6 +28,7 @@ export interface SoftwareReleaseContent {
 export const NODESCAN_1_0_STANDARD_RELEASE_ID = 'nodescan-1.0-standard' as const
 export const NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID = 'nodescan-1.1-experimental' as const
 export const BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID = 'basic-credential-toolkit-1.0' as const
+export const ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID = 'rollback-exploit-toolkit-1.0' as const
 export const NODE_MINER_1_0_RELEASE_ID = 'node-miner-1.0' as const
 
 export const NODESCAN_1_0_STANDARD = {
@@ -70,6 +71,25 @@ export const BASIC_CREDENTIAL_TOOLKIT_1_0 = {
   },
 } as const satisfies SoftwareReleaseContent
 
+/**
+ * The concrete represented offensive tool that supports the `UPD-001`
+ * technique (rollback protection not enforced). Its role stays exactly as
+ * narrow as Basic Credential Toolkit's `AUTH-017` role: a service-submission
+ * rollback attack surface, not a generic exploit framework.
+ */
+export const ROLLBACK_EXPLOIT_TOOLKIT_1_0 = {
+  productId: 'rollback-exploit-toolkit', releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID,
+  name: 'Rollback Exploit Toolkit', version: '1.0',
+  documentation: {
+    about: 'Offensive toolkit for represented rollback-protection weaknesses in package-submission interfaces.',
+    capabilities: [
+      { label: 'ROLLBACK EXPLOIT', description: 'Attempt supported known rollback-protection weaknesses.' },
+      { label: 'UPD-001 SUPPORT', description: 'Supports the represented UPD-001 technique.' },
+    ],
+    changes: ['Initial release.'],
+  },
+} as const satisfies SoftwareReleaseContent
+
 export const NODE_MINER_1_0 = {
   productId: 'node-miner', releaseId: NODE_MINER_1_0_RELEASE_ID,
   name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev',
@@ -88,5 +108,6 @@ export const AUTHORED_SOFTWARE_RELEASES: readonly SoftwareReleaseContent[] = [
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
   BASIC_CREDENTIAL_TOOLKIT_1_0,
+  ROLLBACK_EXPLOIT_TOOLKIT_1_0,
   NODE_MINER_1_0,
 ]

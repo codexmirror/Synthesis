@@ -16,6 +16,7 @@ export const attackCommand: TerminalCommand = {
     const result = operations.attackEndpoint(endpoint)
     if (result.status === 'already_running') return { type: 'output', lines: ['ATTEMPT ALREADY RUNNING'] }
     if (result.status === 'access_established') return { type: 'output', lines: ['ACCESS ALREADY ESTABLISHED'] }
+    if (result.status === 'submission_enabled') return { type: 'output', lines: ['SUBMISSION ALREADY ENABLED'] }
     if (result.status === 'insufficient_memory') return { type: 'output', lines: ['INSUFFICIENT MEMORY', `${result.requiredMiB} MiB required`, `${Math.floor(result.availableMiB)} MiB available`] }
     if (result.status === 'endpoint_not_found') return { type: 'output', lines: ['ENDPOINT NOT AVAILABLE'] }
     if (result.status === 'not_available') return { type: 'output', lines: ['NO KNOWN ATTACK METHOD'] }

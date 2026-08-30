@@ -2,6 +2,7 @@ import { advanceProcesses } from './processes'
 import { resolveCompletedServiceAnalysis } from './serviceAnalysis'
 import { resolveCompletedCredentialAccess } from './credentialAccess'
 import { advanceFileTransfer } from './fileTransfer'
+import { advanceRackUpdatePackageSubmission, resolveCompletedRackUpdateExploit } from './rackUpdate'
 import { resolveNodeMinerProduction } from './nodeMiner'
 import { resolveCompletedSoftwareInstallations } from './softwareInstallation'
 import { resolveCompletedSoftwareRemovals } from './softwareRemoval'
@@ -24,11 +25,17 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
     let discoveries = nextState.knowledge.discoveredVulnerabilities
     let deviceAccess = nextState.deviceAccess
     let world = nextState.world
+    let rackUpdateAccess = nextState.rackUpdate.access
     const processes = processState.processes.map((process) => {
       if (process.kind === 'credential_access' && process.status === 'completed' && !process.result) {
         const resolved = resolveCompletedCredentialAccess({ ...nextState, deviceAccess, world }, process)
         deviceAccess = resolved.deviceAccess
         world = resolved.world
+        return resolved.process
+      }
+      if (process.kind === 'rack_update_exploit' && process.status === 'completed' && !process.result) {
+        const resolved = resolveCompletedRackUpdateExploit({ ...nextState, world, rackUpdate: { ...nextState.rackUpdate, access: rackUpdateAccess } }, process)
+        rackUpdateAccess = resolved.rackUpdateAccess
         return resolved.process
       }
       if (process.kind !== 'service_analysis' || process.status !== 'completed' || process.result) return process
@@ -45,6 +52,7 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
       knowledge: discoveries === nextState.knowledge.discoveredVulnerabilities ? nextState.knowledge : { discoveredVulnerabilities: discoveries },
       deviceAccess,
       world,
+      rackUpdate: { ...nextState.rackUpdate, access: rackUpdateAccess },
     })
     nextState = resolveCompletedSoftwareInstallations(nextState)
     nextState = resolveCompletedSoftwareRemovals(nextState)
@@ -56,7 +64,8 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
     nextState = releaseRemoteSoftwareInstallationCompletions(nextState)
   }
 
-  return advanceFileTransfer(nextState, elapsedMs)
+  nextState = advanceFileTransfer(nextState, elapsedMs)
+  return advanceRackUpdatePackageSubmission(nextState, elapsedMs)
 }
 
 /**

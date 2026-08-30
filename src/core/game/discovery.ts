@@ -96,3 +96,26 @@ export function rememberInspect(discovery: DiscoveryState, result: InspectResult
   }
   return { ...discovery, networks, devices, networkDeviceRelations: relations }
 }
+
+/**
+ * A successful RackUpdate package submission is itself legitimate observation
+ * of what the player just applied: they chose the package and watched the
+ * upload complete, so refreshing the remembered implementation fingerprint of
+ * exactly that Service is not the same as a UI silently correcting a stale
+ * belief from hidden World Truth. It updates only an already-remembered
+ * Enhanced Inspect snapshot's `implementation` field for that one Service —
+ * it never fabricates a snapshot for a Service the player never Inspected,
+ * and it never touches any other remembered evidence (authentication,
+ * interface, firmware, compute class, or any other Service).
+ */
+export function refreshSubmittedServiceImplementation(discovery: DiscoveryState, deviceId: string, serviceId: string, implementation: { readonly name: string; readonly version: string }): DiscoveryState {
+  const deviceIndex = discovery.devices.findIndex(({ id }) => id === deviceId)
+  if (deviceIndex < 0) return discovery
+  const device = discovery.devices[deviceIndex]
+  const serviceIndex = device.services.findIndex(({ id }) => id === serviceId)
+  const service = device.services[serviceIndex]
+  if (!service?.inspect) return discovery
+  const services = device.services.map((candidate, index) => index === serviceIndex ? { ...candidate, inspect: { ...candidate.inspect!, implementation } } : candidate)
+  const devices = discovery.devices.map((candidate, index) => index === deviceIndex ? { ...candidate, services } : candidate)
+  return { ...discovery, devices }
+}

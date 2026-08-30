@@ -215,6 +215,10 @@ function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[
     }
     if (process.result?.status === 'attempt_failed') return { tone: 'negative', headline: 'ATTEMPT FAILED', details: [process.result.message] }
   }
+  if (process.kind === 'rack_update_exploit') {
+    if (process.result?.status === 'submission_enabled') return { tone: 'positive', headline: 'SUBMISSION ENABLED', details: [] }
+    if (process.result?.status === 'attempt_failed') return { tone: 'negative', headline: 'ATTEMPT FAILED', details: [process.result.message] }
+  }
   if (process.kind === 'software_installation') {
     if (process.result?.status === 'installed') return { tone: 'positive', headline: 'INSTALLED', details: [] }
     if (process.result?.status === 'install_path_occupied') return { tone: 'negative', headline: 'INSTALLATION PATH OCCUPIED', details: [] }

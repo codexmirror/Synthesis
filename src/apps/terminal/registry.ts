@@ -26,11 +26,13 @@ export const commands: Record<string, TerminalCommand> = {
   help: createHelpCommand(({ localDevice, nodeMiner }) => {
     const nodeScan = localDevice.installedSoftware.find((software): software is NodeScanInstallation => software.id === 'nodescan')
     const toolkit = localDevice.installedSoftware.find(({ id }) => id === 'basic-credential-toolkit')
+    const rollbackToolkit = localDevice.installedSoftware.find(({ id }) => id === 'rollback-exploit-toolkit')
     const nodeMinerSoftware = localDevice.installedSoftware.find(({ id }) => id === 'node-miner')
     return [
       { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'install', 'connect', 'disconnect']) },
       ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version}${nodeScan.channel ? ` ${nodeScan.channel.toUpperCase()}` : ''}`, commands: commandEntries(nodeScanSupportsInspect(nodeScan) ? ['ping', 'scan', 'inspect', 'analyze'] : ['ping', 'scan', 'analyze']) }] : []),
-      ...(toolkit ? [{ heading: `${toolkit.name.toUpperCase()} ${toolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
+      ...(toolkit ? [{ heading: `${toolkit.name.toUpperCase()} ${toolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }]
+        : rollbackToolkit ? [{ heading: `${rollbackToolkit.name.toUpperCase()} ${rollbackToolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
       ...(nodeMiner.available && nodeMinerSoftware ? [{ heading: `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, commands: [['node-miner', commands['node-miner']] as [string, TerminalCommand]] }] : []),
     ]
   }),

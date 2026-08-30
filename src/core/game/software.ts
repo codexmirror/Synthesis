@@ -1,5 +1,5 @@
-import type { BasicCredentialToolkitInstallation, InstalledSoftware, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation } from './types'
-import { BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID, NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID } from './softwareReleaseContent'
+import type { BasicCredentialToolkitInstallation, InstalledSoftware, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation, RollbackExploitToolkitInstallation } from './types'
+import { BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID, NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID, ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID } from './softwareReleaseContent'
 
 export { NODESCAN_1_0_STANDARD_RELEASE_ID } from './softwareReleaseContent'
 
@@ -32,4 +32,13 @@ export function basicCredentialToolkitSupports(installation: BasicCredentialTool
 
 export function findInstalledNodeMiner(device: { readonly installedSoftware?: readonly InstalledSoftware[] }): NodeMinerInstallation | undefined {
   return device.installedSoftware?.find((software): software is NodeMinerInstallation => software.id === 'node-miner')
+}
+
+export function findInstalledRollbackExploitToolkit(device: LocalDeviceState): RollbackExploitToolkitInstallation | undefined {
+  return device.installedSoftware.find((software): software is RollbackExploitToolkitInstallation => software.id === 'rollback-exploit-toolkit')
+}
+
+/** Concrete technique support supplied by Rollback Exploit Toolkit 1.0. */
+export function rollbackExploitToolkitSupports(installation: RollbackExploitToolkitInstallation, vulnerabilityId: string): boolean {
+  return installation.releaseId === ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID && vulnerabilityId === 'UPD-001'
 }

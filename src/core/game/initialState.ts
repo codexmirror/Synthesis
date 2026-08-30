@@ -4,7 +4,7 @@ import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { BASIC_CREDENTIAL_TOOLKIT_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 43
+export const GAME_STATE_VERSION = 45
 
 export function createInitialGameState(): GameState {
   return {
@@ -35,6 +35,7 @@ export function createInitialGameState(): GameState {
         installedSoftware: [
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
           { id: BASIC_CREDENTIAL_TOOLKIT_1_0.productId, releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0.releaseId, name: BASIC_CREDENTIAL_TOOLKIT_1_0.name, version: BASIC_CREDENTIAL_TOOLKIT_1_0.version },
+          // Deliberately not the Rollback Exploit Toolkit: V1 has no represented acquisition path for it yet, so it must not be silently preinstalled as Current Truth. Fixtures that need it install/seed it explicitly.
         ],
         // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.
         savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },
@@ -74,6 +75,7 @@ export function createInitialGameState(): GameState {
     deviceAccess: { nextId: 1, established: [] },
     remoteSession: { nextId: 1, active: null },
     fileTransfer: { nextId: 1, active: null },
+    rackUpdate: { access: { nextId: 1, established: [] }, submission: { nextId: 1, active: null } },
     // The player's represented in-world mailbox, owned by their mail identity rather than by node-01 or NODE-OS.
     mail: createInitialMailState(),
     recentActivity: { entries: [] },
