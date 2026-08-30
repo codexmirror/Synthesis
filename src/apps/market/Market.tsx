@@ -112,7 +112,7 @@ function OfferDetails({ offer, operatorName, feedback, buy, download }: {
     <dl className="node-facts">
       <div><dt>PUBLISHER</dt><dd>{offer.publisher ?? 'NOT STATED'}</dd></div>
       <div><dt>SELLER</dt><dd>{operatorName}</dd></div>
-      <div><dt>PACKAGE</dt><dd>{offer.packageFilename}</dd></div>
+      <div><dt>{offer.artifact === 'software_module' ? 'MODULE' : 'PACKAGE'}</dt><dd>{offer.filename}</dd></div>
       <div><dt>SIZE</dt><dd>{formatBytes(offer.sizeBytes)}</dd></div>
       <div><dt>PRICE</dt><dd>{describePrice(offer.priceNodeUnits)}</dd></div>
       <div><dt>PURCHASE</dt><dd>{offer.purchased ? 'PURCHASED' : 'NOT PURCHASED'}</dd></div>
@@ -132,7 +132,9 @@ function OfferDetails({ offer, operatorName, feedback, buy, download }: {
       {offer.action === 'BUY' && <button className="node-action" type="button" onClick={buy}>BUY · {describePrice(offer.priceNodeUnits)}</button>}
       {offer.action === 'DOWNLOAD' && <button className="node-action" type="button" onClick={download}>DOWNLOAD</button>}
       {offer.action === 'NONE' && offer.destinationOccupied && offer.purchased && <p className="node-note node-note--caution">DESTINATION OCCUPIED · {offer.destinationPath}</p>}
-      {offer.localCopyPath && <p className="node-note">The Market ends at acquisition. Install this package from Files.</p>}
+      {offer.localCopyPath && <p className="node-note">{offer.artifact === 'software_module'
+        ? 'The Market ends at acquisition. Open Flipper to integrate this module.'
+        : 'The Market ends at acquisition. Install this package from Files.'}</p>}
       {feedback && <p className="node-note node-note--caution">{feedback}</p>}
     </div>
 

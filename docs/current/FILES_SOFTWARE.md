@@ -597,7 +597,9 @@ its build owns: `integratedModules` — the modules this build actually contains
 — and `sizeBytes`, that build's represented size. `integratedModules` is the
 **only** authority over what Flipper can execute; `buildId` never is. A build
 identity records which build this is, and a `buildId` that differs from the
-canonical one proves nothing about behavior on its own.
+canonical one proves nothing about behavior on its own. V1 represents exactly
+two concrete Flipper 1.0 builds, each an explicit authored identity: the
+canonical build below, and the one integration produces.
 
 The initial local Device carries Flipper at its canonical build
 (`build-flipper-1.0-credential-access`), which integrates the Credential Access
@@ -623,12 +625,16 @@ Flipper: possessed module artifact
 ```
 
 Admission validates current truth once — the artifact must be a possessed
-compatible module, Flipper must be installed, that module must not already be
-integrated, and no integration of the same module may already be running — and
-snapshots only what completion needs (module identity, module release and build,
-name, version, represented size, plus the source file ID as provenance). It
-grants nothing: until the Process completes, Flipper keeps its build, its size
-and its integrated modules, and the technique remains unsupported. It shares the
+compatible module, Flipper must be installed, the artifact must be the exact
+release and build V1 currently recognizes for that module (a different
+concrete artifact carrying the same module identity, for example a
+hypothetical future Rollback Module release, is rejected rather than treated
+as equivalent), that module must not already be integrated, and no
+integration of the same module may already be running — and snapshots only
+what completion needs (module identity, module release and build, name,
+version, represented size, plus the source file ID as provenance). It grants
+nothing: until the Process completes, Flipper keeps its build, its size and
+its integrated modules, and the technique remains unsupported. It shares the
 same local CPU/RAM scheduler and contention every other local Process uses.
 
 Completion applies the transformation exactly once, guarded by the same
@@ -638,16 +644,17 @@ Completion applies the transformation exactly once, guarded by the same
 - `integratedModules` gains exactly that module, in canonical module order, and
   every module already integrated is retained;
 - `sizeBytes` grows by exactly the module's own represented size;
-- `buildId` becomes the identity derived from that new module set
-  (`deriveFlipperBuildId`), so the same integrated module set always names the
-  same build;
+- `buildId` becomes the one other explicit Flipper 1.0 build V1 authors for
+  this outcome (`FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID`) — an authored
+  identity for this one concrete transition, not a value composed at runtime
+  from the integrated module set;
 - the technique that module supplies becomes available to the existing
   admission checks, through `flipperSupportsTechnique` and nothing else.
 
-The source artifact is an admission input, not fuel. It is never consumed,
-moved or deleted: after integration it remains an ordinary owned file the
-player may keep, copy, upload or delete, and deleting it takes nothing away
-from the build that already contains the module.
+This integration keeps its source module artifact: completion never consumes,
+moves or deletes it, so after integration it remains an ordinary owned file
+the player may keep, copy, upload or delete, and deleting it takes nothing
+away from the build that already contains the module.
 
 Repetition cannot compound. Admission rejects a module the installed build
 already integrates — including a second concrete copy of the same module
@@ -798,8 +805,11 @@ state.
 - Release ≠ Build ≠ Package ≠ InstalledSoftware ≠ Executable ≠ Process.
   Concrete build identity survives the latter lifecycle without becoming file-copy identity.
 - A module is not software. A `software_module` artifact never becomes
-  InstalledSoftware, never installs, and never runs; it is integrated into an
-  already-installed host product, and that host is the installed product.
+  InstalledSoftware and never installs; it is integrated into an
+  already-installed host product, and that host is the installed product. This
+  V1 module artifact has no direct execution path of its own — that is a
+  currently absent capability, not a durable claim that a module could never
+  run.
 - A module is not a Vulnerability and not Knowledge. Possessing or integrating
   one discovers nothing and creates no remembered evidence.
 - Flipper's capability is `integratedModules`, never `buildId`. A different

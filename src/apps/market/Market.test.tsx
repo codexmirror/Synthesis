@@ -135,6 +135,20 @@ describe('Market catalog presentation', () => {
     expect(screen.getByText('NOT STATED')).toBeInTheDocument()
     expect(screen.getByText('Open Package Exchange')).toBeInTheDocument()
   })
+
+  it('presents a module offering as MODULE and points at Flipper, never PACKAGE or Files, once it is on Device', async () => {
+    const purchasedState = purchased(ROLLBACK_OFFER, funded(3 * PRICE))
+    const started = startMarketPackageDownload(purchasedState, ROLLBACK_OFFER)
+    if (started.status !== 'started') throw new Error('expected started')
+    const completed = advanceGameState(started.state, 60_000)
+    renderMarket(completed)
+    await open(/Rollback Module/)
+    expect(stateRow()).toHaveTextContent('ON DEVICE')
+    expect(screen.getByText('MODULE')).toBeInTheDocument()
+    expect(screen.queryByText('PACKAGE')).not.toBeInTheDocument()
+    expect(screen.getByText('The Market ends at acquisition. Open Flipper to integrate this module.')).toBeInTheDocument()
+    expect(screen.queryByText(/Install this package from Files/)).not.toBeInTheDocument()
+  })
 })
 
 describe('Market purchase', () => {
@@ -220,6 +234,7 @@ describe('Market download', () => {
     renderMarket(completed)
     await open(/NodeScan/)
     expect(stateRow()).toHaveTextContent('ON DEVICE')
+    expect(screen.getByText('PACKAGE')).toBeInTheDocument()
     expect(screen.getByText('/home/user/downloads/nodescan-exp-1.1.pkg')).toBeInTheDocument()
     expect(screen.getByText('The Market ends at acquisition. Install this package from Files.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'DOWNLOAD' })).not.toBeInTheDocument()

@@ -6,16 +6,6 @@
 
 .flipper-app { color: var(--text); }
 
-.flipper-mark {
-  margin: 14px 0 0;
-  color: var(--accent-mark);
-  font-size: .62rem;
-  line-height: 1.15;
-  letter-spacing: .06em;
-  white-space: pre;
-  overflow-x: auto;
-}
-
 /* The build identity is long and opaque; it wraps rather than pushing the fact row wide. */
 .flipper-build { overflow-wrap: anywhere; }
 

@@ -13,7 +13,8 @@ import { pingNetworkTarget } from '../../core/game/ping'
 import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
 import { Network } from './Network'
 import { selectKnownSpace, selectTarget, selectTargets } from './targetProjection'
-import { FLIPPER_1_0_CANONICAL_INSTALLATION, ROLLBACK_MODULE_1_0, deriveFlipperBuildId } from '../../core/game/flipper'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION, ROLLBACK_MODULE_1_0 } from '../../core/game/flipper'
+import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from '../../core/game/softwareReleaseContent'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -514,7 +515,7 @@ describe('RackUpdate exploit and package submission', () => {
         localDevice: {
           ...observed.player.localDevice,
           installedSoftware: observed.player.localDevice.installedSoftware.map((software) => software.id === 'flipper'
-            ? { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: deriveFlipperBuildId(['credential-access', 'rollback']), integratedModules: ['credential-access', 'rollback'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes }
+            ? { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, integratedModules: ['credential-access', 'rollback'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes }
             : software),
           filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] },
         },

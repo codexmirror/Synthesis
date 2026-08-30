@@ -8,14 +8,13 @@ import {
   FLIPPER_MODULE_INTEGRATION_WORK_REQUIRED,
   FLIPPER_PRODUCT_ID,
   ROLLBACK_MODULE_1_0,
-  deriveFlipperBuildId,
   findInstalledFlipper,
   findLocalFlipperModuleArtifacts,
   flipperSupportsTechnique,
   resolveCompletedFlipperModuleIntegrations,
   startFlipperModuleIntegration,
 } from './flipper'
-import { FLIPPER_1_0_CANONICAL_BUILD_ID, FLIPPER_1_0_RELEASE_ID } from './softwareReleaseContent'
+import { FLIPPER_1_0_CANONICAL_BUILD_ID, FLIPPER_1_0_RELEASE_ID, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation, FlipperModuleIntegrationProcess, GameState, SoftwareModuleFile } from './types'
 
 const ROLLBACK_ARTIFACT: SoftwareModuleFile = {
@@ -62,10 +61,8 @@ describe('Flipper as the installed offensive product', () => {
     expect(flipperSupportsTechnique(emptied, 'AUTH-017')).toBe(false)
   })
 
-  it('names one stable build per integrated module set, independently of the order they were named in', () => {
-    expect(deriveFlipperBuildId(['credential-access'])).toBe(FLIPPER_1_0_CANONICAL_BUILD_ID)
-    expect(deriveFlipperBuildId(['rollback', 'credential-access'])).toBe(deriveFlipperBuildId(['credential-access', 'rollback']))
-    expect(deriveFlipperBuildId(['credential-access', 'rollback'])).not.toBe(FLIPPER_1_0_CANONICAL_BUILD_ID)
+  it('represents exactly two concrete Flipper 1.0 builds, each an explicit authored identity', () => {
+    expect(FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID).not.toBe(FLIPPER_1_0_CANONICAL_BUILD_ID)
   })
 })
 
@@ -103,6 +100,21 @@ describe('Flipper module integration admission', () => {
     const withoutFlipper: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== FLIPPER_PRODUCT_ID) } } }
     expect(startFlipperModuleIntegration(withoutFlipper, ROLLBACK_ARTIFACT.id)).toEqual({ status: 'host_not_installed', state: withoutFlipper })
   })
+
+  it('never treats a different build carrying the same moduleId as the represented Rollback Module build, changing nothing', () => {
+    // Same module identity, a hypothetical different concrete build — never silently equivalent.
+    const foreignBuild: SoftwareModuleFile = { ...ROLLBACK_ARTIFACT, id: 'file-module-foreign', buildId: 'build-flipper-rollback-module-9.9-v0' }
+    const state = withModuleArtifact(createInitialGameState(), foreignBuild)
+    expect(startFlipperModuleIntegration(state, foreignBuild.id)).toEqual({ status: 'unsupported_module_build', state })
+
+    // Same build identity, a hypothetical different release — also never equivalent.
+    const foreignRelease: SoftwareModuleFile = { ...ROLLBACK_ARTIFACT, id: 'file-module-foreign-release', releaseId: 'flipper-rollback-module-9.9' }
+    const withForeignRelease = withModuleArtifact(createInitialGameState(), foreignRelease)
+    expect(startFlipperModuleIntegration(withForeignRelease, foreignRelease.id)).toEqual({ status: 'unsupported_module_build', state: withForeignRelease })
+
+    // The exact currently represented build is unaffected by either rejection.
+    expect(startFlipperModuleIntegration(withModuleArtifact(), ROLLBACK_ARTIFACT.id).status).toBe('started')
+  })
 })
 
 describe('Flipper module integration completion', () => {
@@ -117,7 +129,7 @@ describe('Flipper module integration completion', () => {
     expect(host.releaseId).toBe(FLIPPER_1_0_RELEASE_ID)
     expect(host.version).toBe(before.version)
     expect(host.buildId).not.toBe(before.buildId)
-    expect(host.buildId).toBe(deriveFlipperBuildId(['credential-access', 'rollback']))
+    expect(host.buildId).toBe(FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID)
     expect(host.integratedModules).toEqual(['credential-access', 'rollback'])
     expect(host.sizeBytes).toBe(FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES + ROLLBACK_MODULE_1_0.sizeBytes)
 

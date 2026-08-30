@@ -15,7 +15,8 @@ import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImp
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
 import { CREDENTIAL_ACCESS_TOOL_ID, startCredentialAccessAttemptFromObservation } from './credentialAccess'
-import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, deriveFlipperBuildId } from './flipper'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0 } from './flipper'
+import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation } from './types'
 import type { GameState, NetworkHost, NetworkService } from './types'
 
@@ -49,7 +50,7 @@ function withLocalGateSsh132(state: GameState): GameState {
 function withRollbackModuleIntegrated(state: GameState): GameState {
   const integrated: FlipperInstallation = {
     ...FLIPPER_1_0_CANONICAL_INSTALLATION,
-    buildId: deriveFlipperBuildId(['credential-access', 'rollback']),
+    buildId: FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID,
     integratedModules: ['credential-access', 'rollback'],
     sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes,
   }

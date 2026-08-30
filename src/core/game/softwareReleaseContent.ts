@@ -36,11 +36,17 @@ export const NODESCAN_1_0_STANDARD_BUILD_ID = 'build-nodescan-1.0-standard-v0' a
 export const NODESCAN_1_1_EXPERIMENTAL_BUILD_ID = 'build-nodescan-1.1-experimental-v0' as const
 /**
  * The canonical Flipper 1.0 build: the one this release is authored as, which
- * integrates the Credential Access Module alone. Integrating a further module
- * produces a *different* build of this same release, derived by
- * `deriveFlipperBuildId` in `flipper.ts` rather than authored here.
+ * integrates the Credential Access Module alone.
  */
 export const FLIPPER_1_0_CANONICAL_BUILD_ID = 'build-flipper-1.0-credential-access' as const
+/**
+ * The one other concrete Flipper 1.0 build V1 represents: the canonical build
+ * with the Rollback Module integrated. `flipper.ts` produces it only when
+ * completing integration of the currently represented Rollback Module 1.0
+ * build; it is an explicit authored identity, not a value derived from module
+ * IDs at runtime.
+ */
+export const FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID = 'build-flipper-1.0-credential-access-rollback' as const
 export const NODE_MINER_1_0_BUILD_ID = 'build-node-miner-1.0-v0' as const
 
 export const NODESCAN_1_0_STANDARD = {

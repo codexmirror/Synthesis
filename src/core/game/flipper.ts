@@ -1,5 +1,5 @@
 import { startProcess } from './processes'
-import { FLIPPER_1_0, FLIPPER_1_0_RELEASE_ID } from './softwareReleaseContent'
+import { FLIPPER_1_0, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProcess, GameState, LocalDeviceState, SoftwareModuleFile } from './types'
 
 /**
@@ -14,7 +14,7 @@ import type { FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProc
  */
 export const FLIPPER_PRODUCT_ID = 'flipper' as const
 
-/** Canonical module order; it is the stable order integrated modules and derived build identity are stated in. */
+/** Canonical module order; it is the stable order `integratedModules` is stated in. */
 export const FLIPPER_MODULE_IDS: readonly FlipperModuleId[] = ['credential-access', 'rollback']
 
 /**
@@ -58,21 +58,6 @@ export const FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES = 5_600_000
 export const FLIPPER_MODULE_INTEGRATION_WORK_REQUIRED = 900
 export const FLIPPER_MODULE_INTEGRATION_RAM_REQUIRED_MIB = 512
 
-/**
- * Stable identity of the concrete Flipper build that integrates exactly this
- * set of modules.
- *
- * It is derived rather than authored so that the same integrated module set
- * always names the same build: re-integrating a module Flipper already
- * contains cannot fabricate a further build. It records *which* build this is;
- * it is never read as capability. `flipperSupportsTechnique` reads
- * `integratedModules` alone.
- */
-export function deriveFlipperBuildId(modules: readonly FlipperModuleId[]): string {
-  const ordered = FLIPPER_MODULE_IDS.filter((moduleId) => modules.includes(moduleId))
-  return `build-${FLIPPER_1_0_RELEASE_ID}-${ordered.join('+')}`
-}
-
 /** The concrete initial Flipper installation: release 1.0, canonical build, Credential Access integrated. */
 export const FLIPPER_1_0_CANONICAL_INSTALLATION: FlipperInstallation = {
   id: FLIPPER_PRODUCT_ID,
@@ -115,7 +100,7 @@ export function findRunningFlipperModuleIntegration(state: Pick<GameState, 'play
 
 export type StartFlipperModuleIntegrationResult =
   | { readonly status: 'started'; readonly state: GameState; readonly processId: string; readonly moduleId: FlipperModuleId; readonly moduleName: string }
-  | { readonly status: 'module_not_found' | 'not_module_artifact' | 'incompatible_host' | 'host_not_installed' | 'already_integrated' | 'already_integrating'; readonly state: GameState }
+  | { readonly status: 'module_not_found' | 'not_module_artifact' | 'incompatible_host' | 'host_not_installed' | 'unsupported_module_build' | 'already_integrated' | 'already_integrating'; readonly state: GameState }
   | { readonly status: 'insufficient_memory'; readonly state: GameState; readonly requiredMiB: number; readonly availableMiB: number }
 
 /**
@@ -136,6 +121,17 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
 
   const flipper = findInstalledFlipper(device)
   if (!flipper) return { status: 'host_not_installed', state }
+
+  // V1 recognizes exactly the currently represented concrete build of each
+  // artifact-drivable module. A different build carrying the same `moduleId`
+  // (a future or hypothetical Rollback Module release, for instance) is not
+  // silently treated as equivalent — recognition is by exact release and
+  // build identity, the same way ordinary package installation recognizes an
+  // artifact's path rather than inferring compatibility from its kind alone.
+  if (file.moduleId === 'rollback' && (file.releaseId !== ROLLBACK_MODULE_1_0.releaseId || file.buildId !== ROLLBACK_MODULE_1_0.buildId)) {
+    return { status: 'unsupported_module_build', state }
+  }
+
   if (flipper.integratedModules.includes(file.moduleId)) return { status: 'already_integrated', state }
   if (state.process.processes.some((process) => process.kind === 'flipper_module_integration' && process.status === 'running'
     && process.executorDeviceId === device.id && process.moduleId === file.moduleId)) {
@@ -182,8 +178,10 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
  * The transformation is concrete and applied to the host installation alone:
  * the release stays Flipper 1.0, the integrated module set gains exactly this
  * module, the represented size grows by exactly the module's own represented
- * size, and the build identity becomes the one that names that new module set.
- * The source artifact is untouched — it was an admission input, not fuel.
+ * size, and the build identity becomes the one explicit build V1 represents
+ * for that resulting module set (see `FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID`)
+ * — never a value composed at runtime from the module set. The source
+ * artifact is untouched — it was an admission input, not fuel.
  */
 export function resolveCompletedFlipperModuleIntegrations(state: GameState): GameState {
   let localDevice = state.player.localDevice
@@ -200,9 +198,15 @@ export function resolveCompletedFlipperModuleIntegrations(state: GameState): Gam
     if (flipper.integratedModules.includes(process.moduleId)) return { ...process, result: { status: 'already_integrated' as const } }
 
     const integratedModules = FLIPPER_MODULE_IDS.filter((moduleId) => moduleId === process.moduleId || flipper.integratedModules.includes(moduleId))
+    // V1 represents exactly two concrete Flipper builds. Admission already
+    // recognized this artifact as the one currently represented Rollback
+    // Module build, so completing its integration always produces the one
+    // explicit build authored for that outcome; a hypothetical future module
+    // would need its own authored transition rather than a generic rule.
+    const buildId = process.moduleId === 'rollback' ? FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID : flipper.buildId
     const integrated: FlipperInstallation = {
       ...flipper,
-      buildId: deriveFlipperBuildId(integratedModules),
+      buildId,
       integratedModules,
       sizeBytes: flipper.sizeBytes + process.moduleSizeBytes,
     }

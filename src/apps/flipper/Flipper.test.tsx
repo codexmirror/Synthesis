@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { advanceGameState } from '../../core/game/gameAdvancement'
-import { FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, deriveFlipperBuildId, findInstalledFlipper } from '../../core/game/flipper'
+import { FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, findInstalledFlipper } from '../../core/game/flipper'
+import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from '../../core/game/softwareReleaseContent'
 import type { FlipperInstallation, GameState, SoftwareModuleFile } from '../../core/game/types'
 import { Flipper } from './Flipper'
 
@@ -77,11 +78,11 @@ describe('Flipper application', () => {
 
     expect(installed()).toMatchObject({
       releaseId: 'flipper-1.0',
-      buildId: deriveFlipperBuildId(['credential-access', 'rollback']),
+      buildId: FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID,
       integratedModules: ['credential-access', 'rollback'],
       sizeBytes: 5_600_000 + ROLLBACK_MODULE_1_0.sizeBytes,
     })
-    expect(value('BUILD')).toBe(deriveFlipperBuildId(['credential-access', 'rollback']))
+    expect(value('BUILD')).toBe(FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID)
     expect(value('SIZE')).toBe('7.7 MB')
     // The artifact is still possessed, and offers no second integration.
     expect(screen.getByText(new RegExp(ROLLBACK_ARTIFACT.path))).toBeInTheDocument()

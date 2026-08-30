@@ -51,7 +51,6 @@ export function Flipper() {
       <span className="node-masthead-subject">{flipper.name}</span>
       <span className="node-masthead-meta">{flipper.publisher ? `${flipper.publisher} · ` : ''}{device.displayName}</span>
     </header>
-    <Mark />
     <div className="node-section"><span>IDENTITY</span><span>{flipper.integratedModules.length} {flipper.integratedModules.length === 1 ? 'MODULE' : 'MODULES'}</span></div>
     <dl className="node-facts">
       <div><dt>RELEASE</dt><dd>{flipper.version}{flipper.channel ? ` · ${flipper.channel.toUpperCase()}` : ''}</dd></div>
@@ -72,21 +71,6 @@ export function Flipper() {
       <div><dt>RELEASE ID</dt><dd>{flipper.releaseId}</dd></div>
     </dl>} />
   </section>
-}
-
-/**
- * Flipper's own compact character mark. It is decorative and states nothing:
- * every fact on this surface comes from canonical state beside it.
- */
-function Mark() {
-  return <pre className="flipper-mark" aria-hidden="true">{[
-    '┌──────────────┐',
-    '│ ┌──────────┐ │',
-    '│ │ ▚▞ ·· ▞▚ │ │',
-    '│ └──────────┘ │',
-    '│  ○      ═══  │',
-    '└──────────────┘',
-  ].join('\n')}</pre>
 }
 
 /** Every module Flipper represents, and whether this concrete build integrates it. */

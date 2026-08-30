@@ -30,7 +30,7 @@ export interface MarketOfferView {
   readonly releaseId: string
   /** Which concrete artifact kind this offering distributes; a module is never an installable package. */
   readonly artifact: MarketDistribution['artifact']
-  readonly packageFilename: string
+  readonly filename: string
   readonly sizeBytes: number
   readonly priceNodeUnits: number
   readonly state: MarketAcquisitionState
@@ -76,7 +76,7 @@ function deriveOfferView(state: GameState, offer: MarketOffer): MarketOfferView 
     ...(offer.distribution.artifact === 'software_package' && offer.distribution.publisher ? { publisher: offer.distribution.publisher } : {}),
     releaseId: offer.distribution.releaseId,
     artifact: offer.distribution.artifact,
-    packageFilename: offer.distribution.filename,
+    filename: offer.distribution.filename,
     sizeBytes: offer.distribution.sizeBytes,
     priceNodeUnits: offer.priceNodeUnits,
     state: acquisition,
