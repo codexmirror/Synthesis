@@ -38,7 +38,7 @@ export function runNodeMinerTerminal(args: readonly string[], operations: NodeMi
   if (subcommand === 'run') {
     if (rest.length !== 2 || rest[0] !== '--payout' || !rest[1]?.trim()) return ['Usage: node-miner run --payout <address>']
     const result = operations.run(rest[1])
-    if (result.status === 'started') return ['NODE MINER STARTED', `PROCESS  ${result.processId}`, `PAYOUT   ${result.payoutAddress}`]
+    if (result.status === 'started') return ['NODE MINER STARTED', `PAYOUT   ${result.payoutAddress}`]
     if (result.status === 'already_running') return ['ALREADY RUNNING']
     if (result.status === 'insufficient_memory') return ['INSUFFICIENT MEMORY', `${result.requiredMiB} MiB required`, `${Math.floor(result.availableMiB)} MiB available`]
     return [failureText(result.status)]
@@ -46,23 +46,23 @@ export function runNodeMinerTerminal(args: readonly string[], operations: NodeMi
   if (subcommand === 'status' && rest.length === 0) {
     const status = operations.status()
     if (status.status === 'idle') return ['STATUS  IDLE']
-    return ['STATUS   RUNNING', `PROCESS  ${status.processId}`, `CPU      ${Math.round(status.cpuPercent)}%`, `RAM      ${status.ramMiB} MiB`, `ADDRESS  ${status.payoutAddress}`, `PRODUCED ${status.producedUnits.toLocaleString('en-US')} units`, `UNPAID   ${status.unpaidUnits.toLocaleString('en-US')} units`, `RATE     ${Math.round(status.ratePerSecondUnits).toLocaleString('en-US')} units/s`]
+    return ['STATUS   RUNNING', `CPU      ${Math.round(status.cpuPercent)}%`, `RAM      ${status.ramMiB} MiB`, `ADDRESS  ${status.payoutAddress}`, `PRODUCED ${status.producedUnits.toLocaleString('en-US')} units`, `UNPAID   ${status.unpaidUnits.toLocaleString('en-US')} units`, `RATE     ${Math.round(status.ratePerSecondUnits).toLocaleString('en-US')} units/s`]
   }
   if (subcommand === 'stop' && rest.length === 0) {
     const result = operations.stop()
-    return result.status === 'stopped' ? [...(result.settledGrossUnits > 0 ? [`FINAL PAYOUT ${result.settledGrossUnits.toLocaleString('en-US')} gross units`, `ROUTED   ${result.payoutUnits.toLocaleString('en-US')} units`] : []), 'STOPPED', `PROCESS  ${result.processId}`] : [failureText(result.status)]
+    return result.status === 'stopped' ? [...(result.settledGrossUnits > 0 ? [`FINAL PAYOUT ${result.settledGrossUnits.toLocaleString('en-US')} gross units`, `ROUTED   ${result.payoutUnits.toLocaleString('en-US')} units`] : []), 'STOPPED'] : [failureText(result.status)]
   }
   if (subcommand === 'payout') {
     if (rest.length !== 0) return ['Usage: node-miner payout']
     const result = operations.payout()
-    if (result.status === 'paid') return ['PAYOUT COMPLETE', `PROCESS  ${result.processId}`, `GROSS    ${result.settledGrossUnits.toLocaleString('en-US')} units`, `ROUTED   ${result.payoutUnits.toLocaleString('en-US')} units`]
-    if (result.status === 'nothing_unpaid') return ['NOTHING UNPAID', `PROCESS  ${result.processId}`]
+    if (result.status === 'paid') return ['PAYOUT COMPLETE', `GROSS    ${result.settledGrossUnits.toLocaleString('en-US')} units`, `ROUTED   ${result.payoutUnits.toLocaleString('en-US')} units`]
+    if (result.status === 'nothing_unpaid') return ['NOTHING UNPAID']
     return [failureText(result.status)]
   }
   if (subcommand === 'config' && rest[0] === 'payout') {
     if (rest.length !== 2 || !rest[1]?.trim()) return ['Usage: node-miner config payout <address>']
     const result = operations.configurePayout(rest[1])
-    return result.status === 'retargeted' ? ['PAYOUT CONFIGURED', `PROCESS  ${result.processId}`, `PAYOUT   ${result.payoutAddress}`] : [failureText(result.status)]
+    return result.status === 'retargeted' ? ['PAYOUT CONFIGURED', `PAYOUT   ${result.payoutAddress}`] : [failureText(result.status)]
   }
   return NODE_MINER_TERMINAL_HELP
 }

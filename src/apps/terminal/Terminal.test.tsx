@@ -402,8 +402,10 @@ describe('Terminal NODE Miner CLI', () => {
 
     await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
     expect(screen.getByText('NODE MINER STARTED')).toBeInTheDocument()
-    expect(screen.getByText('PROCESS process-0001')).toBeInTheDocument()
     expect(screen.getByText(`PAYOUT ${state.nodeWallet.address}`)).toBeInTheDocument()
+    // The shared node-miner CLI never exposes the internal global GameProcess ID as a Device-local process number.
+    expect(screen.queryByText(/PROCESS/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/process-0001/)).not.toBeInTheDocument()
 
     // The very same Process is immediately visible through Processes.
     const minerCard = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
@@ -421,12 +423,11 @@ describe('Terminal NODE Miner CLI', () => {
     await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
     await user.type(input, 'node-miner config payout node-addr-local-retarget{enter}')
     expect(screen.getByText('PAYOUT CONFIGURED')).toBeInTheDocument()
-    expect(screen.getAllByText('PROCESS process-0001')).toHaveLength(2)
 
     await user.type(input, 'node-miner status{enter}')
     expect(screen.getByText('STATUS RUNNING')).toBeInTheDocument()
-    expect(screen.getAllByText('PROCESS process-0001')).toHaveLength(3)
     expect(screen.getByText('ADDRESS node-addr-local-retarget')).toBeInTheDocument()
+    expect(screen.queryByText(/PROCESS/)).not.toBeInTheDocument()
   }, 15_000)
 
   it('STATUS reflects RUNNING with real resource facts, and STOP invokes canonical STOP visible in Processes and later STATUS', async () => {
@@ -437,7 +438,7 @@ describe('Terminal NODE Miner CLI', () => {
     await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
     await user.type(input, 'node-miner status{enter}')
     expect(screen.getByText('STATUS RUNNING')).toBeInTheDocument()
-    expect(screen.getAllByText('PROCESS process-0001').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/PROCESS/)).not.toBeInTheDocument()
 
     await user.type(input, 'node-miner stop{enter}')
     expect(screen.getByText('STOPPED')).toBeInTheDocument()

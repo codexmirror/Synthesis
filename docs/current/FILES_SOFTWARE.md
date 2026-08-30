@@ -348,7 +348,7 @@ from the *target's* filesystem, normal `.pkg` recognition applies to the
 target artifact's own current path, already-installed and already-installing
 checks read that Device's own inventory and its own running Processes, RAM
 admission uses that Device's own hardware, and NODE Miner's installation-path
-occupancy is checked against the target filesystem. Local and remote inventories are fully independent, but installation compatibility is concrete Device truth. NodeScan currently requires the stable NODE-OS Firmware identity: NodeScan 1.1 Experimental remains normally installable on node-01 and is rejected as `incompatible_firmware` on RACK-OS, with Files presenting NOT COMPATIBLE / REQUIRES NODE-OS from the same installation-domain eligibility rule. This one product rule is not a general requirements model. NODE Miner 1.0 remains normally installable on RACK-OS, as do unrelated ordinary packages; neither Device's inventory or filesystem is touched by the other's installation.
+occupancy is checked against the target filesystem. Local and remote inventories are fully independent, but installation compatibility is concrete Device truth. NodeScan and Flipper both currently require the stable NODE-OS Firmware identity: NodeScan 1.1 Experimental and a Flipper 1.0 package both remain normally installable on node-01 and are rejected as `incompatible_firmware` on RACK-OS, with Files presenting NOT COMPATIBLE / REQUIRES NODE-OS from the same installation-domain eligibility rule. This is a small named list of concrete products, not a general requirements framework. Firmware incompatibility rejects installation before any `software_installation` Process is admitted; it never touches the package artifact itself, which remains a real transferable artifact on the target's own filesystem. NODE Miner 1.0 remains normally installable on RACK-OS, as do unrelated ordinary packages; neither Device's inventory or filesystem is touched by the other's installation.
 
 The resulting Process's `executorDeviceId` is the target Device, so the target
 supplies the CPU throughput and the reserved RAM through the existing
@@ -607,7 +607,10 @@ size by that artifact's size, and selects an explicit authored build identity:
 `build-flipper-1.0-credential-access`, `build-flipper-1.0-rollback`, or the
 strongest `build-flipper-1.0-credential-access-rollback`. Integrating the two
 modules in either order converges on that same strongest build. Source module
-artifacts remain ordinary owned files after integration.
+artifacts remain ordinary owned files after integration: integration neither
+deletes, moves, consumes, nor mutates them, and continued possession of a
+source artifact is never required for, or consulted by, the capability
+`integratedModules` already grants.
 
 Admission also binds the Process to the exact supported source Flipper release
 and build and to the matching managed executable Files presents. Completion
@@ -616,6 +619,21 @@ result build and represented size. If either admitted host representation is
 missing, replaced, or changed before completion, the Process resolves without
 transforming the replacement. Neither host representation changes while work
 is still running.
+
+MODULES is Flipper's one module surface; no separate INTEGRATION section
+exists. `deriveFlipperModuleDisclosure` (`src/core/game/flipper.ts`) is the one
+authority for what it may state: a module already in `integratedModules`, or
+one this Device currently possesses an exact compatible artifact for —
+recognized by the same exact release/build/version/size match
+`startFlipperModuleIntegration` admits on
+(`isSupportedFlipperModuleArtifact`), never a looser match on `moduleId`
+alone. A module the player has neither integrated nor found a compatible
+artifact for is never listed, named, or counted: MODULES never states the
+authored module catalog or its total size. Each visible module renders as
+exactly one row, showing INTEGRATED, an INTEGRATE action for a possessed
+compatible artifact, or that module's own running integration progress — so a
+module already integrated whose source artifact still exists is never shown
+twice, and an unowned or foreign-build artifact never appears as a candidate.
 
 The Flipper application derives the installed release, concrete build, size,
 integrated module set, compatible local artifacts, and running integration

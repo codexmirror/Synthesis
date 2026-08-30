@@ -131,7 +131,7 @@ without registering it.
 
 RUN resolves the executable from the bound Device and delegates to the existing
 local or Session-authorized remote operation. STATUS uses one NODE Miner-specific
-derived runtime view for Process ID, actual CPU allocation, RAM, payout address,
+derived runtime view for actual CPU allocation, RAM, payout address,
 gross and unpaid production, and current production rate. STOP preserves its
 context-specific consequence: local STOP enters local Recent Activity, while
 remote STOP creates no node-01 history. PAYOUT changes only the bound Device's
@@ -140,6 +140,16 @@ the shared internal mutation preserves Process identity, counters, accrued and f
 and truthful payout routing segments. Local and remote Miners therefore remain
 fully independent even while both run simultaneously. NodeScan remote execution
 or source-Device-aware observation is not part of this integration.
+
+The shared `node-miner` CLI presentation never states the internal global
+`GameProcess.id` (`runNodeMinerTerminal`, `src/apps/nodeMinerTerminal.ts`): its
+RUN, STATUS, PAYOUT, `config payout`, and STOP result text carries no `PROCESS`
+line or bare process identity, for both the local NODE-OS adapter and the
+Session-authorized RACK-OS adapter. This is presentation-only — no Device-local
+PID system exists. The canonical global `GameProcess.id` system, `executorDeviceId`
+ownership, and every internal operation/result type's `processId` field are
+unchanged; Recent Activity, the payout-log artifact, scheduler logic, and every
+other Process-identity-owned surface outside this one shared CLI are unaffected.
 
 ## Wallet
 

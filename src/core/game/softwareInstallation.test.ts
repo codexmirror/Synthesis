@@ -7,7 +7,7 @@ import { installLocalSoftwarePackage, installRemoteSoftwarePackage, isRecognized
 import { advanceFileTransfer, startRemoteFileDownload } from './fileTransfer'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { clearRecentActivity } from './recentActivity'
-import { NODESCAN_1_0_STANDARD, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { FLIPPER_1_0, NODESCAN_1_0_STANDARD, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { ExecutableFile, GameState, NetworkHost, SoftwareInstallationProcess, SoftwarePackageFile } from './types'
 
 const path = '/home/user/downloads/nodescan-build.pkg'
@@ -616,6 +616,23 @@ describe('installRemoteSoftwarePackage', () => {
     expect(installRemoteSoftwarePackage(remote, nodeScanPath)).toEqual({ status: 'incompatible_firmware', state: remote })
     expect(remote.process.processes).toEqual([])
     const localPackage = { ...packageFile, path: '/home/user/downloads/nodescan-1.1.pkg' }
+    expect(installLocalSoftwarePackage(withFiles([localPackage]), localPackage.path).status).toBe('started')
+  })
+
+  it('rejects a Flipper package on RACK-OS as requiring NODE-OS before any Process starts, while local NODE-OS admits it', () => {
+    const flipperPackage: SoftwarePackageFile = {
+      kind: 'software_package', id: 'file-flipper-package', path: '/opt/packages/flipper-1.0.pkg',
+      productId: FLIPPER_1_0.productId, releaseId: FLIPPER_1_0.releaseId, buildId: FLIPPER_1_0.buildId,
+      name: FLIPPER_1_0.name, version: FLIPPER_1_0.version, channel: FLIPPER_1_0.channel, publisher: FLIPPER_1_0.publisher, sizeBytes: 4_000_000,
+    }
+    const remote = operating(withRemoteFiles([flipperPackage]))
+    expect(installRemoteSoftwarePackage(remote, flipperPackage.path)).toEqual({ status: 'incompatible_firmware', state: remote })
+    expect(remote.process.processes).toEqual([])
+    // Firmware incompatibility restricts installation only: the package remains a real transferable artifact on the target's own filesystem.
+    expect(target(remote).filesystem!.files).toContainEqual(flipperPackage)
+    expect(target(remote).installedSoftware!.some(({ id }) => id === FLIPPER_1_0.productId)).toBe(false)
+
+    const localPackage = { ...flipperPackage, id: 'file-flipper-local', path: '/home/user/downloads/flipper-1.0.pkg' }
     expect(installLocalSoftwarePackage(withFiles([localPackage]), localPackage.path).status).toBe('started')
   })
 

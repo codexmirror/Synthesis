@@ -86,10 +86,14 @@ export type SoftwarePackageEligibility =
   | { readonly status: 'installed' | 'installing' | 'unrecognized' }
   | { readonly status: 'incompatible'; readonly requiredFirmware: 'NODE-OS' }
 
+/** Products whose ordinary installation currently requires NODE-OS specifically. Not a requirements framework — a narrow named list of the concrete products that carry this one rule. */
+const NODE_OS_ONLY_PRODUCT_IDS: readonly string[] = ['nodescan', FLIPPER_PRODUCT_ID]
+
 /**
- * Narrow pure projection shared by admission and package surfaces. NodeScan is
- * the one concrete product whose ordinary installation currently requires a
- * particular Firmware; this is intentionally not a requirements framework.
+ * Narrow pure projection shared by admission and package surfaces. NodeScan
+ * and Flipper are the concrete products whose ordinary installation
+ * currently requires a particular Firmware; this is intentionally not a
+ * requirements framework.
  */
 export function deriveSoftwarePackageEligibility(
   file: { readonly path: string; readonly productId: string; readonly releaseId: string; readonly buildId: string },
@@ -99,7 +103,7 @@ export function deriveSoftwarePackageEligibility(
   if (!isRecognizedSoftwarePackagePath(file.path)) return { status: 'unrecognized' }
   if (target.installedSoftware.find(({ id }) => id === file.productId)?.buildId === file.buildId) return { status: 'installed' }
   if (process.processes.some((candidate) => candidate.kind === 'software_installation' && candidate.status === 'running' && candidate.executorDeviceId === target.id && candidate.productId === file.productId)) return { status: 'installing' }
-  if (file.productId === 'nodescan' && target.firmware.id !== NODE_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'NODE-OS' }
+  if (NODE_OS_ONLY_PRODUCT_IDS.includes(file.productId) && target.firmware.id !== NODE_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'NODE-OS' }
   return { status: 'installable' }
 }
 
