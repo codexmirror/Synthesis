@@ -16,6 +16,7 @@ const ROLLBACK_ARTIFACT: SoftwareModuleFile = {
 
 const value = (label: string) => screen.getByText(label).parentElement?.querySelector('dd')?.textContent
 
+/** Only Credential Access integrated; the seeded initial-state Credential Access artifact stays, and no Rollback artifact exists. */
 function withInstalledHost(state = createInitialGameState()): GameState {
   const installation: FlipperInstallation = { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'build-flipper-1.0-credential-access', integratedModules: ['credential-access'], sizeBytes: 5_600_000 }
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
@@ -38,21 +39,28 @@ const installed = () => JSON.parse(screen.getByTestId('flipper-state').textConte
 afterEach(() => { vi.useRealTimers() })
 
 describe('Flipper application', () => {
-  it('states the installed product, its concrete build, size and integrated modules from canonical state', () => {
+  it('states the installed product and its concrete build and size from canonical state', () => {
     render(<GameProvider initialState={withInstalledHost()}><Flipper /></GameProvider>)
     expect(screen.getByText('Flipper')).toBeInTheDocument()
     expect(value('RELEASE')).toBe('1.0 · STANDARD')
     expect(value('BUILD')).toBe('build-flipper-1.0-credential-access')
     expect(value('SIZE')).toBe('5.6 MB')
+  })
 
+  it('shows only Credential Access as INTEGRATED and discloses no other module or the authored catalog size', () => {
+    render(<GameProvider initialState={withInstalledHost()}><Flipper /></GameProvider>)
     const modules = screen.getAllByText(/Module$/).map((strong) => strong.closest('.node-row') as HTMLElement)
-    expect(modules.map((row) => within(row).getByText(/INTEGRATED/).textContent)).toEqual(['INTEGRATED', 'NOT INTEGRATED'])
-    expect(within(modules[0]).getByText('AUTH-017')).toBeInTheDocument()
-    expect(within(modules[1]).getByText('UPD-001')).toBeInTheDocument()
+    expect(modules).toHaveLength(1)
+    expect(within(modules[0]).getByText('INTEGRATED')).toBeInTheDocument()
+    expect(within(modules[0]).getByText(/AUTH-017/)).toBeInTheDocument()
+    expect(screen.queryByText('Rollback Module')).not.toBeInTheDocument()
+    expect(screen.queryByText('UPD-001')).not.toBeInTheDocument()
+    expect(screen.queryByText(/\/\s*2/)).not.toBeInTheDocument()
+    expect(screen.queryByText('NOT INTEGRATED')).not.toBeInTheDocument()
   })
 
   it('reads build, size and module state from the installation rather than hardcoding them', () => {
-    const base = withInstalledHost()
+    const base = withModuleArtifact()
     const altered: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID
       ? { ...software, buildId: 'build-flipper-synthetic-alternate', integratedModules: ['rollback'], sizeBytes: 9_100_000 } as FlipperInstallation
       : software) } } }
@@ -61,28 +69,52 @@ describe('Flipper application', () => {
     expect(value('SIZE')).toBe('9.1 MB')
     const rollback = screen.getByText('Rollback Module').closest('.node-row') as HTMLElement
     expect(within(rollback).getByText('INTEGRATED')).toBeInTheDocument()
-    expect(within(screen.getByText('Credential Access Module').closest('.node-row') as HTMLElement).getByText('NOT INTEGRATED')).toBeInTheDocument()
+    // Credential Access is no longer integrated on this build, but its seeded artifact is still possessed, so it stays a valid candidate rather than disappearing.
+    const credential = screen.getByText('Credential Access Module').closest('.node-row') as HTMLElement
+    expect(within(credential).getByRole('button', { name: 'INTEGRATE' })).toBeInTheDocument()
   })
 
-  it('offers no integration path when the Device possesses no module artifact', () => {
-    const base = withInstalledHost()
-    const noArtifacts = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: base.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module') } } } }
+  it('discloses the newly possessed Rollback artifact for integration, with no separate INTEGRATION section', () => {
+    render(<GameProvider initialState={withModuleArtifact()}><Flipper /></GameProvider>)
+    expect(screen.queryByText('INTEGRATION')).not.toBeInTheDocument()
+    const rollback = screen.getByText('Rollback Module').closest('.node-row') as HTMLElement
+    expect(within(rollback).getByRole('button', { name: 'INTEGRATE' })).toBeInTheDocument()
+    expect(within(rollback).getByText(new RegExp(ROLLBACK_ARTIFACT.path))).toBeInTheDocument()
+  })
+
+  it('states a truthful empty MODULES state without revealing what modules exist elsewhere', () => {
+    const base = createInitialGameState()
+    const noModulesInstalled: FlipperInstallation = { ...FLIPPER_1_0_CANONICAL_INSTALLATION, integratedModules: [] }
+    const noArtifacts: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice,
+      installedSoftware: [...base.player.localDevice.installedSoftware, noModulesInstalled],
+      filesystem: { ...base.player.localDevice.filesystem, files: base.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module') },
+    } } }
     render(<GameProvider initialState={noArtifacts}><Flipper /></GameProvider>)
-    expect(screen.getByText('NO MODULE ARTIFACTS')).toBeInTheDocument()
+    expect(screen.getByText('NO MODULES')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INTEGRATE' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Credential Access Module')).not.toBeInTheDocument()
+    expect(screen.queryByText('Rollback Module')).not.toBeInTheDocument()
   })
 
-  it('integrates a possessed module through the canonical operation, mutating the build only at completion', async () => {
+  it('does not offer an unsupported/foreign module build as an integration candidate', () => {
+    const base = withInstalledHost()
+    const foreign = { ...ROLLBACK_ARTIFACT, buildId: 'unsupported-rollback-build' }
+    const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, foreign] } } } }
+    render(<GameProvider initialState={state}><Flipper /></GameProvider>)
+    expect(screen.queryByText('Rollback Module')).not.toBeInTheDocument()
+  })
+
+  it('integrates a possessed module through the canonical operation, showing running progress on that same row, mutating the build only at completion, and keeping the source artifact', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<GameProvider initialState={withModuleArtifact()}><Flipper /><Snapshot /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-    expect(screen.getByText(new RegExp(ROLLBACK_ARTIFACT.path))).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'INTEGRATE' }))
 
     // Admission alone changes nothing about the installed build.
     expect(installed()).toMatchObject({ buildId: 'build-flipper-1.0-credential-access', integratedModules: ['credential-access'], sizeBytes: 5_600_000 })
-    expect(screen.getByRole('button', { name: 'INTEGRATING…' })).toBeInTheDocument()
+    const rollbackRow = screen.getByText('Rollback Module').closest('.node-row') as HTMLElement
+    expect(within(rollbackRow).getByText(/INTEGRATING ·/)).toBeInTheDocument()
 
     await act(async () => { vi.advanceTimersByTime(30_000) })
 
@@ -94,8 +126,12 @@ describe('Flipper application', () => {
     })
     expect(value('BUILD')).toBe(FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID)
     expect(value('SIZE')).toBe('7.7 MB')
-    // The artifact is still possessed, and offers no second integration.
-    expect(screen.getByText(new RegExp(ROLLBACK_ARTIFACT.path))).toBeInTheDocument()
+    // Rollback appears exactly once, as INTEGRATED, and the source artifact is still shown possessed.
+    const modules = screen.getAllByText(/Module$/)
+    expect(modules.filter((el) => el.textContent === 'Rollback Module')).toHaveLength(1)
+    const rollback = screen.getByText('Rollback Module').closest('.node-row') as HTMLElement
+    expect(within(rollback).getByText('INTEGRATED')).toBeInTheDocument()
+    expect(within(rollback).getByText(new RegExp(ROLLBACK_ARTIFACT.path))).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INTEGRATE' })).not.toBeInTheDocument()
   })
 

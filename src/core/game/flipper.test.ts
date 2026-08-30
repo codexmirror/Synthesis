@@ -3,7 +3,8 @@ import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
 import {
   CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES, FLIPPER_1_0_CANONICAL_INSTALLATION,
-  FLIPPER_INSTALLED_EXECUTABLE_PATH, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalTechniqueTool,
+  FLIPPER_INSTALLED_EXECUTABLE_PATH, ROLLBACK_MODULE_1_0, deriveFlipperModuleDisclosure, findCompatibleLocalFlipperModuleArtifacts,
+  findInstalledFlipper, findLocalTechniqueTool, findRunningFlipperModuleIntegration,
   flipperSupportsTechnique, startFlipperModuleIntegration,
 } from './flipper'
 import {
@@ -141,5 +142,57 @@ describe('concrete Flipper host integration', () => {
     const base = withModules()
     const mismatch = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: base.player.localDevice.filesystem.files.map((file) => file.id === 'file-flipper-host' && file.kind === 'executable' ? { ...file, buildId: 'other-build' } : file) } } } }
     expect(startFlipperModuleIntegration(mismatch, credentialFile.id).status).toBe('managed_host_artifact_unavailable')
+  })
+})
+
+describe('Flipper MODULES disclosure', () => {
+  it('lists an integrated module without a possessed artifact, and never a module the player has neither integrated nor possesses', () => {
+    const state = withHost(createInitialGameState(), { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'build-flipper-1.0-credential-access', integratedModules: ['credential-access'], sizeBytes: 5_600_000 })
+    const device = state.player.localDevice
+    const flipper = findInstalledFlipper(device)!
+    const rows = deriveFlipperModuleDisclosure(flipper, device, findRunningFlipperModuleIntegration(state))
+    expect(rows).toEqual([{ moduleId: 'credential-access', name: 'Credential Access Module', technique: 'AUTH-017', status: 'integrated', artifact: expect.objectContaining({ moduleId: 'credential-access' }) }])
+  })
+
+  it('lists a possessed exact-compatible artifact as available for integration', () => {
+    const state = withModules(withHost(createInitialGameState(), { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'build-flipper-1.0-credential-access', integratedModules: ['credential-access'], sizeBytes: 5_600_000 }))
+    const device = state.player.localDevice
+    const flipper = findInstalledFlipper(device)!
+    const rows = deriveFlipperModuleDisclosure(flipper, device, findRunningFlipperModuleIntegration(state))
+    expect(rows.map((row) => row.moduleId)).toEqual(['credential-access', 'rollback'])
+    expect(rows.find((row) => row.moduleId === 'rollback')).toMatchObject({ status: 'available', artifact: expect.objectContaining({ id: rollbackFile.id }) })
+  })
+
+  it('shows the running integration state on that module\'s row and never as a separate entry', () => {
+    const base = withModules()
+    const admitted = start(base, rollbackFile.id)
+    const flipper = findInstalledFlipper(admitted.state.player.localDevice)!
+    const rows = deriveFlipperModuleDisclosure(flipper, admitted.state.player.localDevice, findRunningFlipperModuleIntegration(admitted.state))
+    expect(rows.filter((row) => row.moduleId === 'rollback')).toHaveLength(1)
+    expect(rows.find((row) => row.moduleId === 'rollback')).toMatchObject({ status: 'integrating' })
+  })
+
+  it('keeps a module listed exactly once, as INTEGRATED, after its source artifact survives completion', () => {
+    const done = complete(withModules(), rollbackFile.id)
+    const flipper = findInstalledFlipper(done.player.localDevice)!
+    const rows = deriveFlipperModuleDisclosure(flipper, done.player.localDevice, undefined)
+    expect(rows.filter((row) => row.moduleId === 'rollback')).toHaveLength(1)
+    expect(rows.find((row) => row.moduleId === 'rollback')).toMatchObject({ status: 'integrated', artifact: expect.objectContaining({ id: rollbackFile.id }) })
+  })
+
+  it('never treats a foreign build sharing a moduleId as a compatible integration candidate', () => {
+    const base = withHost()
+    const foreign = { ...rollbackFile, buildId: 'unsupported-rollback-build' }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [foreign] } } } }
+    expect(findCompatibleLocalFlipperModuleArtifacts(state.player.localDevice)).toEqual([])
+    const flipper = findInstalledFlipper(state.player.localDevice)!
+    expect(deriveFlipperModuleDisclosure(flipper, state.player.localDevice, undefined)).toEqual([])
+  })
+
+  it('states a truthful empty disclosure without revealing the authored catalog', () => {
+    const state = withHost()
+    const flipper = findInstalledFlipper(state.player.localDevice)!
+    const noArtifacts = { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module') } }
+    expect(deriveFlipperModuleDisclosure(flipper, noArtifacts, undefined)).toEqual([])
   })
 })

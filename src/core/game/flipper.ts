@@ -96,10 +96,7 @@ export function findLocalTechniqueTool(device: Pick<LocalDeviceState, 'installed
   const moduleId = FLIPPER_MODULE_IDS.find((id) => FLIPPER_MODULE_TECHNIQUE[id] === vulnerabilityId)
   if (!moduleId) return undefined
   if (flipper?.integratedModules.includes(moduleId)) return { toolName: flipper.name, moduleName: FLIPPER_MODULE_NAME[moduleId] }
-  const authoredModule = moduleId === 'credential-access' ? CREDENTIAL_ACCESS_MODULE_1_0 : ROLLBACK_MODULE_1_0
-  const artifact = findLocalFlipperModuleArtifacts(device).find((file) => file.moduleId === moduleId
-    && file.releaseId === authoredModule.releaseId && file.buildId === authoredModule.buildId
-    && file.version === authoredModule.version && file.sizeBytes === authoredModule.sizeBytes)
+  const artifact = findLocalFlipperModuleArtifacts(device).find((file) => file.moduleId === moduleId && isSupportedFlipperModuleArtifact(file))
   return artifact ? { toolName: 'Standalone Module', moduleName: artifact.name } : undefined
 }
 
@@ -107,6 +104,71 @@ export function findLocalTechniqueTool(device: Pick<LocalDeviceState, 'installed
 export function findLocalFlipperModuleArtifacts(device: Pick<LocalDeviceState, 'filesystem'>): readonly SoftwareModuleFile[] {
   return device.filesystem.files.filter((file): file is SoftwareModuleFile =>
     file.kind === 'software_module' && file.hostProductId === FLIPPER_PRODUCT_ID)
+}
+
+function authoredModuleFor(moduleId: FlipperModuleId): typeof CREDENTIAL_ACCESS_MODULE_1_0 | typeof ROLLBACK_MODULE_1_0 {
+  return moduleId === 'credential-access' ? CREDENTIAL_ACCESS_MODULE_1_0 : ROLLBACK_MODULE_1_0
+}
+
+/**
+ * Whether a concrete module artifact is the exact currently represented
+ * build Flipper recognizes for its `moduleId` — the one recognition rule
+ * `startFlipperModuleIntegration` admits on and every other consumer
+ * (standalone technique lookup, player-facing disclosure) reuses rather than
+ * re-deriving. A foreign or hypothetical build carrying the same `moduleId`
+ * is never treated as equivalent.
+ */
+export function isSupportedFlipperModuleArtifact(file: Pick<SoftwareModuleFile, 'moduleId' | 'releaseId' | 'buildId' | 'version' | 'sizeBytes'>): boolean {
+  const authored = authoredModuleFor(file.moduleId)
+  return file.releaseId === authored.releaseId && file.buildId === authored.buildId
+    && file.version === authored.version && file.sizeBytes === authored.sizeBytes
+}
+
+/** Every currently possessed module artifact this Flipper actually recognizes as an integration candidate. */
+export function findCompatibleLocalFlipperModuleArtifacts(device: Pick<LocalDeviceState, 'filesystem'>): readonly SoftwareModuleFile[] {
+  return findLocalFlipperModuleArtifacts(device).filter(isSupportedFlipperModuleArtifact)
+}
+
+export type FlipperModuleDisclosureStatus = 'integrated' | 'integrating' | 'available'
+
+/** One player-facing MODULES row: everything the surface may state about one module. */
+export interface FlipperModuleDisclosureRow {
+  readonly moduleId: FlipperModuleId
+  readonly name: string
+  readonly technique: string
+  readonly status: FlipperModuleDisclosureStatus
+  /** Present exactly when this Device possesses the exact compatible artifact — including after integration, since it is never consumed. */
+  readonly artifact?: SoftwareModuleFile
+}
+
+/**
+ * The complete current MODULES disclosure, and nothing beyond it: a module
+ * already in `integratedModules`, or one this Device currently possesses an
+ * exact compatible artifact for. An authored module the player has neither
+ * integrated nor found a compatible artifact for is never listed — this is
+ * the one place that decides what MODULES may show, so React never
+ * re-derives module compatibility or enumerates the authored catalog itself.
+ */
+export function deriveFlipperModuleDisclosure(
+  flipper: FlipperInstallation,
+  device: Pick<LocalDeviceState, 'filesystem'>,
+  integrating: FlipperModuleIntegrationProcess | undefined,
+): readonly FlipperModuleDisclosureRow[] {
+  const compatible = findCompatibleLocalFlipperModuleArtifacts(device)
+  return FLIPPER_MODULE_IDS
+    .filter((moduleId) => flipper.integratedModules.includes(moduleId) || compatible.some((file) => file.moduleId === moduleId))
+    .map((moduleId) => {
+      const status: FlipperModuleDisclosureStatus = flipper.integratedModules.includes(moduleId)
+        ? 'integrated'
+        : integrating?.moduleId === moduleId ? 'integrating' : 'available'
+      return {
+        moduleId,
+        name: FLIPPER_MODULE_NAME[moduleId],
+        technique: FLIPPER_MODULE_TECHNIQUE[moduleId],
+        status,
+        artifact: compatible.find((file) => file.moduleId === moduleId),
+      }
+    })
 }
 
 export function findRunningFlipperModuleIntegration(state: Pick<GameState, 'player' | 'process'>): FlipperModuleIntegrationProcess | undefined {
@@ -147,11 +209,7 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
   // silently treated as equivalent — recognition is by exact release and
   // build identity, the same way ordinary package installation recognizes an
   // artifact's path rather than inferring compatibility from its kind alone.
-  const authoredModule = file.moduleId === 'credential-access' ? CREDENTIAL_ACCESS_MODULE_1_0 : ROLLBACK_MODULE_1_0
-  if (file.releaseId !== authoredModule.releaseId || file.buildId !== authoredModule.buildId
-    || file.version !== authoredModule.version || file.sizeBytes !== authoredModule.sizeBytes) {
-    return { status: 'unsupported_module_build', state }
-  }
+  if (!isSupportedFlipperModuleArtifact(file)) return { status: 'unsupported_module_build', state }
 
   if (flipper.integratedModules.includes(file.moduleId)) return { status: 'already_integrated', state }
   if (state.process.processes.some((process) => process.kind === 'flipper_module_integration' && process.status === 'running'

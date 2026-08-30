@@ -962,7 +962,8 @@ describe('RACK-OS remote NODE Miner execution', () => {
     await user.type(screen.getByLabelText('Remote command'), 'node-miner config payout node-addr-relay-77{enter}')
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
     expect(rackOs).toHaveTextContent('PAYOUT CONFIGURED')
-    expect(rackOs).toHaveTextContent('process-0060')
+    // The shared node-miner CLI never exposes the internal global GameProcess ID as a Device-local process number.
+    expect(rackOs).not.toHaveTextContent('PROCESS')
 
     const after = snapshot()
     const miner = after.process.processes[0] as NodeMinerProcess
@@ -1070,9 +1071,10 @@ describe('RACK-OS remote NODE Miner execution', () => {
     expect(started.executorDeviceId).toBe('host-lan-001')
 
     await user.type(input, 'node-miner status{enter}')
-    expect(rackOs).toHaveTextContent(`PROCESS ${started.id}`)
     expect(rackOs).toHaveTextContent('RAM 512 MiB')
     expect(rackOs).toHaveTextContent('ADDRESS node-addr-remote-cli')
+    // The shared node-miner CLI never exposes the internal global GameProcess ID as a Device-local process number, even though the running Process's identity is stable and available internally (asserted above via `started.id`).
+    expect(rackOs).not.toHaveTextContent('PROCESS')
 
     await user.type(input, 'node-miner config payout node-addr-retargeted{enter}')
     expect((snapshot().process.processes.find(({ id }) => id === started.id) as NodeMinerProcess).payoutAddress).toBe('node-addr-retargeted')
