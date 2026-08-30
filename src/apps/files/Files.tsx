@@ -18,7 +18,7 @@ const INITIAL_PATH = '/home/user'
 
 type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNRECOGNIZED' | 'NOT COMPATIBLE'
 
-export function Files() {
+export function Files({ openApp }: { openApp?: (app: 'flipper') => void } = {}) {
   const state = useGameState()
   const localDevice = state.player.localDevice
   const filesystem = localDevice.filesystem
@@ -64,7 +64,7 @@ export function Files() {
             <span aria-hidden="true">←</span> {path}
           </button>
           {selected?.status === 'ok'
-            ? <FileDetails file={selected.file} device={localDevice} process={state.process} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} />
+            ? <FileDetails file={selected.file} device={localDevice} process={state.process} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} openFlipper={openApp ? () => openApp('flipper') : undefined} />
             : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
         </>}
     </section>
@@ -143,7 +143,7 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload }: {
+function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload, openFlipper }: {
   file: FilesystemFile
   device: LocalDeviceState
   process: GameState['process']
@@ -157,6 +157,7 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
   upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult
   connectedAddress: string | undefined
   activeUpload: DeviceAccessFileTransfer | undefined
+  openFlipper?: () => void
 }) {
   return <div className="file-details">
     <header className="node-masthead">
@@ -173,7 +174,7 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
     </section>
       : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
         : file.kind === 'software_module' ? <ModuleDetails file={file} installedSoftware={installedSoftware} />
-          : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />}
+          : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} openFlipper={openFlipper} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
   </div>
 }
@@ -280,12 +281,14 @@ function InstallReview({ file, device, install, close }: {
   </div>
 }
 
-function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess }: {
+function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess, openFlipper }: {
   file: ExecutableFile
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
   runningProcess: NodeMinerProcess | undefined
+  openFlipper?: () => void
 }) {
+  const flipper = file.programId === 'flipper' && file.releaseId === 'flipper-1.0'
   const supported = file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID
   const [payoutAddress, setPayoutAddress] = useState(nodeWalletAddress)
   const [feedback, setFeedback] = useState<string>()
@@ -302,6 +305,7 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProce
       <div><dt>VERSION</dt><dd>{file.version}</dd></div>
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
     </dl>
+    {flipper && openFlipper && <div className="file-kind-actions"><button className="node-action" type="button" onClick={openFlipper}>OPEN</button></div>}
     {supported && (runningProcess
       ? <div className="file-kind-actions">
           <p className="node-note"><strong>RUNNING</strong><br />PROCESS {runningProcess.id}</p>

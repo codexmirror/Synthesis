@@ -27,8 +27,8 @@ within its filesystem; `path` is its current location rather than identity. A
 filesystem-owned monotonic counter allocates deterministic IDs using destination
 state alone. Raw IDs may coincide across Devices, so cross-Device references
 require both Device ID and file ID. The local Device's initial contents consist
-of the text file `/home/user/welcome.txt` and the NODE Miner 1.0
-software-package artifact `/home/user/downloads/node-miner-1.0.pkg`.
+of the text file `/home/user/welcome.txt`, the NODE Miner 1.0 package, and the
+standalone Credential Access Module artifact under `/home/user/modules`.
 
 The Files application begins at `/home/user`, states the current path and the
 local Device in its masthead, shows an explicit parent row, derives its
@@ -572,106 +572,47 @@ the shared NODE Miner Terminal integration's deeper control path on both
 NODE-OS and RACK-OS, owned by `docs/current/NODE_ECONOMY.md`.
 
 
-## Flipper and module integration
+## Flipper acquisition and module integration
 
-Flipper is the player's one installed offensive/access product
-(`productId: 'flipper'`, release `flipper-1.0`, published by NODE), and the
-only installed software that supplies offensive technique support. A **module**
-is a concrete technique Flipper can integrate and then execute. Exactly two
-modules are represented: the Credential Access Module (`AUTH-017`) and the
-Rollback Module (`UPD-001`). This is deliberately not a plugin, capability or
-composition framework: two concrete modules, one concrete integration mechanic.
+A fresh game has no installed Flipper. It instead starts with one concrete
+Credential Access Module 1.0 `software_module` artifact under
+`/home/user/modules`; that standalone artifact directly supplies the existing
+`AUTH-017` technique. Module possession is filesystem truth, not
+InstalledSoftware, and does not depend on Flipper.
 
-Four things stay separate:
+Open Package Exchange lists the ordinary Flipper 1.0 software package for
+0.01 NODE. Buying establishes entitlement, downloading creates the package
+artifact, and ordinary Software Installation creates both a module-free
+`FlipperInstallation` and its concrete executable at
+`/home/user/apps/flipper`. Flipper is not a Home launcher: selecting that
+installed executable in Files and choosing OPEN enters the Flipper surface.
 
-```text
-MODULE                  a technique identity Flipper can contain
-MODULE ARTIFACT         a software_module file on a Device-owned filesystem
-FLIPPER INSTALLATION    the installed product, at one concrete build
-VULNERABILITY           AUTH-017 / UPD-001, owned by the access and service
-                        systems (docs/current/NETWORK_ACCESS.md)
-```
+The installed canonical host is `build-flipper-1.0-base`, contains no modules,
+and is 4,000,000 represented bytes. It supplies no offensive technique merely
+because the product is installed. `integratedModules` remains the sole
+capability authority; `buildId` records concrete build identity and never
+implies capability.
 
-A `FlipperInstallation` is ordinary InstalledSoftware plus two concrete facts
-its build owns: `integratedModules` — the modules this build actually contains
-— and `sizeBytes`, that build's represented size. `integratedModules` is the
-**only** authority over what Flipper can execute; `buildId` never is. A build
-identity records which build this is, and a `buildId` that differs from the
-canonical one proves nothing about behavior on its own. V1 represents exactly
-two concrete Flipper 1.0 builds, each an explicit authored identity: the
-canonical build below, and the one integration produces.
+Exactly two standalone module builds are represented: Credential Access
+(`AUTH-017`, initially owned) and Rollback (`UPD-001`, acquired from the
+Market). Flipper admits either exact authored artifact by stable local file ID
+as a 900-work, 512-MiB `flipper_module_integration` Process. Admission requires
+the installed host, retains the artifact, changes no capability immediately,
+and rejects foreign builds, duplicate integration, and concurrent integration
+of the same module.
 
-The initial local Device carries Flipper at its canonical build
-(`build-flipper-1.0-credential-access`), which integrates the Credential Access
-Module alone at 5,600,000 represented bytes. That is what supplies the existing
-first `AUTH-017` opportunity, with no acquisition or integration step. The
-Rollback Module is not integrated: a fresh Device supports no `UPD-001`.
+Completion transforms only the installed host, exactly once. It retains the
+Flipper 1.0 release, adds the module in canonical order, increases represented
+size by that artifact's size, and selects an explicit authored build identity:
+`build-flipper-1.0-credential-access`, `build-flipper-1.0-rollback`, or the
+strongest `build-flipper-1.0-credential-access-rollback`. Integrating the two
+modules in either order converges on that same strongest build. Source module
+artifacts remain ordinary owned files after integration.
 
-Its module artifact is an ordinary filesystem possession. It keeps its host
-product, stable module identity, module release, concrete module build, name,
-version and size wherever it is copied to, exactly as every other artifact does;
-`id` and `path` are copy identity and location, never module or build identity.
-No installation path admits it, and the Market distributes it as a module rather
-than a package (`docs/current/MARKET.md`).
-
-Integration is real finite work, admitted from Flipper by stable local file ID:
-
-```text
-Flipper: possessed module artifact
-  -> INTEGRATE
-  -> flipper_module_integration GameProcess (local executor, 900 work, 512 MiB)
-  -> completion, at the canonical advancement boundary
-  -> the installed Flipper becomes a different build of the same release
-```
-
-Admission validates current truth once — the artifact must be a possessed
-compatible module, Flipper must be installed, the artifact must be the exact
-release and build V1 currently recognizes for that module (a different
-concrete artifact carrying the same module identity, for example a
-hypothetical future Rollback Module release, is rejected rather than treated
-as equivalent), that module must not already be integrated, and no
-integration of the same module may already be running — and snapshots only
-what completion needs (module identity, module release and build, name,
-version, represented size, plus the source file ID as provenance). It grants
-nothing: until the Process completes, Flipper keeps its build, its size and
-its integrated modules, and the technique remains unsupported. It shares the
-same local CPU/RAM scheduler and contention every other local Process uses.
-
-Completion applies the transformation exactly once, guarded by the same
-`!process.result` pattern every other completion resolver uses:
-
-- the product and release are unchanged — it stays Flipper 1.0;
-- `integratedModules` gains exactly that module, in canonical module order, and
-  every module already integrated is retained;
-- `sizeBytes` grows by exactly the module's own represented size;
-- `buildId` becomes the one other explicit Flipper 1.0 build V1 authors for
-  this outcome (`FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID`) — an authored
-  identity for this one concrete transition, not a value composed at runtime
-  from the integrated module set;
-- the technique that module supplies becomes available to the existing
-  admission checks, through `flipperSupportsTechnique` and nothing else.
-
-This integration keeps its source module artifact: completion never consumes,
-moves or deletes it, so after integration it remains an ordinary owned file
-the player may keep, copy, upload or delete, and deleting it takes nothing
-away from the build that already contains the module.
-
-Repetition cannot compound. Admission rejects a module the installed build
-already integrates — including a second concrete copy of the same module
-artifact, which is the same module — and a Process that completes after the
-module arrived by some other route resolves as a truthful `already_integrated`
-result that mutates nothing. Size therefore grows once per module, and no
-further build is fabricated.
-
-The Flipper application is that mechanic's surface. It states the installed
-product, its release, its current concrete build, that build's represented
-size, every represented module with whether this build integrates it, and the
-possessed module artifacts with the one action available. Every value is read
-from canonical installed software, the local filesystem and running Process
-state; a canonical admission failure is reported as-is rather than as
-fabricated integration state, and an absent Flipper is stated plainly rather
-than presented as an empty tool. It performs no reconnaissance, discovers
-nothing, and reads no hidden World Truth.
+The Flipper application derives the installed release, concrete build, size,
+integrated module set, compatible local artifacts, and running integration
+work from canonical Device and Process truth. It performs no reconnaissance,
+discovers nothing, and reads no hidden World Truth.
 
 ## Software Removal
 

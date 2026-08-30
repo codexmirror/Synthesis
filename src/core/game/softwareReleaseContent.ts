@@ -34,11 +34,10 @@ export const NODE_MINER_1_0_RELEASE_ID = 'node-miner-1.0' as const
 
 export const NODESCAN_1_0_STANDARD_BUILD_ID = 'build-nodescan-1.0-standard-v0' as const
 export const NODESCAN_1_1_EXPERIMENTAL_BUILD_ID = 'build-nodescan-1.1-experimental-v0' as const
-/**
- * The canonical Flipper 1.0 build: the one this release is authored as, which
- * integrates the Credential Access Module alone.
- */
-export const FLIPPER_1_0_CANONICAL_BUILD_ID = 'build-flipper-1.0-credential-access' as const
+/** The distributable Flipper 1.0 host before any standalone modules are integrated. */
+export const FLIPPER_1_0_CANONICAL_BUILD_ID = 'build-flipper-1.0-base' as const
+export const FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID = 'build-flipper-1.0-credential-access' as const
+export const FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID = 'build-flipper-1.0-rollback' as const
 /**
  * The one other concrete Flipper 1.0 build V1 represents: the canonical build
  * with the Rollback Module integrated. `flipper.ts` produces it only when
@@ -85,7 +84,7 @@ export const FLIPPER_1_0 = {
       { label: 'MODULE INTEGRATION', description: 'Integrate a locally possessed module artifact, producing a new build of this release.' },
       { label: 'INTEGRATED TECHNIQUES', description: 'Execute the represented techniques the integrated modules supply, against weaknesses already known.' },
     ],
-    changes: ['Initial NODE release.', 'Credential Access Module integrated in the canonical build.'],
+    changes: ['Initial NODE release.', 'Standalone module integration.'],
   },
 } as const satisfies SoftwareReleaseContent
 

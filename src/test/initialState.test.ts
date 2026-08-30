@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 49', () => {
+  it('separates identities and seeds canonical local-device state in schema version 50', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(49)
+    expect(GAME_STATE_VERSION).toBe(50)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(49)
+    expect(state.version).toBe(50)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The represented NODE recipients besides the local Wallet: the unofficial Miner release's own developer account and the Market operator's own settlement account, both starting empty.
@@ -69,16 +69,15 @@ describe('createInitialGameState', () => {
       runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
     })
     expect(state.player.localDevice.filesystem).toEqual({
-      nextFileId: 3,
+      nextFileId: 4,
       files: [
         { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
         { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', buildId: 'build-node-miner-1.0-v0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 },
+        { kind: 'software_module', id: 'file-0003', path: '/home/user/modules/credential-access-1.0.mod', hostProductId: 'flipper', moduleId: 'credential-access', releaseId: 'flipper-credential-access-module-1.0', buildId: 'build-flipper-credential-access-module-1.0-v0', name: 'Credential Access Module', version: '1.0', sizeBytes: 1_600_000 },
       ],
     })
     expect(state.player.localDevice.installedSoftware).toEqual([
       { id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', name: 'NodeScan', version: '1.0', channel: 'standard' },
-      // One offensive/access product, whose canonical build concretely integrates the Credential Access Module.
-      { id: 'flipper', releaseId: 'flipper-1.0', buildId: 'build-flipper-1.0-credential-access', name: 'Flipper', version: '1.0', channel: 'standard', publisher: 'NODE', integratedModules: ['credential-access'], sizeBytes: 5_600_000 },
     ])
     // The standalone offensive toolkits no longer exist as installed software at all.
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'basic-credential-toolkit' }))
@@ -86,7 +85,7 @@ describe('createInitialGameState', () => {
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'gate-ssh' }))
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'rollback-exploit-toolkit' }))
     // The Rollback Module is not integrated into the initial build: the Market is its represented acquisition path, not default Current Truth.
-    expect(state.player.localDevice.filesystem.files.some(({ kind }) => kind === 'software_module')).toBe(false)
+    expect(state.player.localDevice.filesystem.files).toContainEqual(expect.objectContaining({ kind: 'software_module', moduleId: 'credential-access' }))
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })

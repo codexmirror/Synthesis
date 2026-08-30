@@ -1,5 +1,5 @@
 import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
-import { NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { FLIPPER_1_0, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import { ROLLBACK_MODULE_1_0 } from './flipper'
 import type { FilesystemFile, FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState } from './types'
 import { debitNodeWalletMarketPurchase } from './nodeEconomy'
@@ -49,6 +49,12 @@ export function createInitialMarketState(): MarketState {
     // The endpoint's own represented capability. It is not a Device and holds no LocalNetwork membership.
     distributionCapacity: { uploadBytesPerSecond: 4_194_304, downloadBytesPerSecond: 4_194_304 },
     offers: [
+      {
+        id: 'market-offer-flipper-1.0', priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
+        distribution: { artifact: 'software_package', filename: 'flipper-1.0.pkg', releaseId: FLIPPER_1_0.releaseId, buildId: FLIPPER_1_0.buildId,
+          productId: FLIPPER_1_0.productId, name: FLIPPER_1_0.name, version: FLIPPER_1_0.version, channel: FLIPPER_1_0.channel,
+          publisher: FLIPPER_1_0.publisher, sizeBytes: 4_000_000 },
+      },
       {
         id: 'market-offer-nodescan-1.1-experimental',
         priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,

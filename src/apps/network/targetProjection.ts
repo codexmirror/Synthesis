@@ -1,5 +1,5 @@
 import { findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
-import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper, flipperSupportsTechnique } from '../../core/game/flipper'
+import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper, findLocalTechniqueTool, flipperSupportsTechnique } from '../../core/game/flipper'
 import type {
   CredentialAccessProcess,
   GameState,
@@ -385,15 +385,16 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     // actually learned about, there is no meaningful choice to force on them.
     // The tool stays a real requirement: without the installed build actually
     // containing that module, or without the Knowledge, no route is formed.
-    const supported = flipper && weaknesses.find(({ id }) => flipperSupportsTechnique(flipper, id))
-    if (flipper && supported && !viaAccess) {
+    const supported = weaknesses.find(({ id }) => findLocalTechniqueTool(information.player.localDevice, id))
+    const techniqueTool = supported ? findLocalTechniqueTool(information.player.localDevice, supported.id) : undefined
+    if (techniqueTool && supported && !viaAccess) {
       routes.push({
         serviceId: service.id,
         serviceName: service.name,
         endpoint: service.endpoint,
         vulnerabilityId: supported.id,
         vulnerabilityLabel: supported.label,
-        toolName: flipper.name,
+        toolName: techniqueTool.toolName,
         ...(moduleNameFor(supported.id) ? { moduleName: moduleNameFor(supported.id)! } : {}),
         ...(observed ? { implementation: observed.implementation } : {}),
       })

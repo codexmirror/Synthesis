@@ -71,9 +71,9 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly serviceId: string
   readonly startedEndpoint: string
   readonly vulnerabilityId: string
-  /** The installed host product that supplied the offensive capability. */
-  readonly toolId: 'flipper'
-  /** The concrete integrated module that actually supports the technique. */
+  /** The concrete execution source snapshotted when the attempt started. */
+  readonly toolId: 'flipper' | 'credential-access-module'
+  /** The concrete module that actually supports the technique. */
   readonly moduleId: 'credential-access'
   readonly result?: CredentialAccessResult
 }

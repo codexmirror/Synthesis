@@ -32,13 +32,8 @@ describe('authored software release content', () => {
       buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version,
       channel: NODESCAN_1_0_STANDARD.channel,
     })
-    // Flipper carries the authored ordinary metadata plus the concrete build state its installation owns.
-    expect(installed.find(({ id }) => id === FLIPPER_1_0.productId)).toEqual({
-      id: FLIPPER_1_0.productId, releaseId: FLIPPER_1_0.releaseId,
-      buildId: FLIPPER_1_0.buildId, name: FLIPPER_1_0.name, version: FLIPPER_1_0.version,
-      channel: FLIPPER_1_0.channel, publisher: FLIPPER_1_0.publisher,
-      integratedModules: ['credential-access'], sizeBytes: FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES,
-    })
+    // Flipper is authored but deliberately not initially installed.
+    expect(installed.find(({ id }) => id === FLIPPER_1_0.productId)).toBeUndefined()
   })
 
   it('authors package metadata without replacing concrete artifact truth', () => {

@@ -1,5 +1,5 @@
 import { startProcess } from './processes'
-import { FLIPPER_1_0, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
+import { FLIPPER_1_0, FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProcess, GameState, LocalDeviceState, SoftwareModuleFile } from './types'
 
 /**
@@ -35,13 +35,14 @@ export const FLIPPER_MODULE_NAME: Readonly<Record<FlipperModuleId, string>> = {
 }
 
 /**
- * The one concrete module artifact currently represented in the world.
- *
- * The Credential Access Module deliberately has no authored artifact: it is
- * already integrated into the canonical Flipper build, and no represented
- * acquisition path distributes it separately. Authoring one would be inventing
- * world state nothing produces.
+ * The two concrete standalone module builds currently represented.
  */
+export const CREDENTIAL_ACCESS_MODULE_1_0 = {
+  moduleId: 'credential-access', hostProductId: FLIPPER_PRODUCT_ID,
+  releaseId: 'flipper-credential-access-module-1.0', buildId: 'build-flipper-credential-access-module-1.0-v0',
+  name: FLIPPER_MODULE_NAME['credential-access'], version: '1.0', sizeBytes: 1_600_000,
+} as const satisfies Omit<SoftwareModuleFile, 'kind' | 'id' | 'path'>
+
 export const ROLLBACK_MODULE_1_0 = {
   moduleId: 'rollback',
   hostProductId: FLIPPER_PRODUCT_ID,
@@ -52,13 +53,15 @@ export const ROLLBACK_MODULE_1_0 = {
   sizeBytes: 2_100_000,
 } as const satisfies Omit<SoftwareModuleFile, 'kind' | 'id' | 'path'>
 
-/** Represented size of the canonical Flipper 1.0 build, which integrates the Credential Access Module. */
-export const FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES = 5_600_000
+/** Represented size of the distributable module-free Flipper host. */
+export const FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES = 4_000_000
+export const FLIPPER_INSTALLED_EXECUTABLE_PATH = '/home/user/apps/flipper'
+export const FLIPPER_EXECUTABLE_SIZE_BYTES = 4_000_000
 
 export const FLIPPER_MODULE_INTEGRATION_WORK_REQUIRED = 900
 export const FLIPPER_MODULE_INTEGRATION_RAM_REQUIRED_MIB = 512
 
-/** The concrete initial Flipper installation: release 1.0, canonical build, Credential Access integrated. */
+/** The concrete installation produced by the Market package: a module-free host. */
 export const FLIPPER_1_0_CANONICAL_INSTALLATION: FlipperInstallation = {
   id: FLIPPER_PRODUCT_ID,
   releaseId: FLIPPER_1_0.releaseId,
@@ -67,7 +70,7 @@ export const FLIPPER_1_0_CANONICAL_INSTALLATION: FlipperInstallation = {
   version: FLIPPER_1_0.version,
   channel: FLIPPER_1_0.channel,
   publisher: FLIPPER_1_0.publisher,
-  integratedModules: ['credential-access'],
+  integratedModules: [],
   sizeBytes: FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES,
 }
 
@@ -85,6 +88,17 @@ export function findInstalledFlipper(device: Pick<LocalDeviceState, 'installedSo
  */
 export function flipperSupportsTechnique(installation: FlipperInstallation, vulnerabilityId: string): boolean {
   return installation.integratedModules.some((moduleId) => FLIPPER_MODULE_TECHNIQUE[moduleId] === vulnerabilityId)
+}
+
+/** A concrete owned standalone module or integrated Flipper build that can execute a technique. */
+export function findLocalTechniqueTool(device: Pick<LocalDeviceState, 'installedSoftware' | 'filesystem'>, vulnerabilityId: string): { readonly toolName: string; readonly moduleName: string } | undefined {
+  const flipper = findInstalledFlipper(device)
+  const moduleId = FLIPPER_MODULE_IDS.find((id) => FLIPPER_MODULE_TECHNIQUE[id] === vulnerabilityId)
+  if (!moduleId) return undefined
+  if (flipper?.integratedModules.includes(moduleId)) return { toolName: flipper.name, moduleName: FLIPPER_MODULE_NAME[moduleId] }
+  const artifact = findLocalFlipperModuleArtifacts(device).find((file) => file.moduleId === moduleId
+    && file.releaseId === CREDENTIAL_ACCESS_MODULE_1_0.releaseId && file.buildId === CREDENTIAL_ACCESS_MODULE_1_0.buildId)
+  return artifact ? { toolName: 'Standalone Module', moduleName: artifact.name } : undefined
 }
 
 /** Every currently possessed module artifact on a filesystem, in filesystem order. */
@@ -128,7 +142,8 @@ export function startFlipperModuleIntegration(state: GameState, moduleFileId: st
   // silently treated as equivalent — recognition is by exact release and
   // build identity, the same way ordinary package installation recognizes an
   // artifact's path rather than inferring compatibility from its kind alone.
-  if (file.moduleId === 'rollback' && (file.releaseId !== ROLLBACK_MODULE_1_0.releaseId || file.buildId !== ROLLBACK_MODULE_1_0.buildId)) {
+  const authoredModule = file.moduleId === 'credential-access' ? CREDENTIAL_ACCESS_MODULE_1_0 : ROLLBACK_MODULE_1_0
+  if (file.releaseId !== authoredModule.releaseId || file.buildId !== authoredModule.buildId) {
     return { status: 'unsupported_module_build', state }
   }
 
@@ -203,7 +218,11 @@ export function resolveCompletedFlipperModuleIntegrations(state: GameState): Gam
     // Module build, so completing its integration always produces the one
     // explicit build authored for that outcome; a hypothetical future module
     // would need its own authored transition rather than a generic rule.
-    const buildId = process.moduleId === 'rollback' ? FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID : flipper.buildId
+    const buildId = integratedModules.length === 2
+      ? FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID
+      : process.moduleId === 'credential-access'
+        ? FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID
+        : FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID
     const integrated: FlipperInstallation = {
       ...flipper,
       buildId,

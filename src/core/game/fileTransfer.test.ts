@@ -1010,7 +1010,7 @@ describe('Market distribution Download', () => {
     const { artifact, filename, ...release } = findMarketOffer(state.market, OFFER_ID)!.distribution
     expect(written.file).toMatchObject(release)
     expect(written.file.kind).toBe(artifact)
-    expect(written.file.id).toBe('file-0003')
+    expect(written.file.id).toBe('file-0004')
     expect(completed.player.localDevice.filesystem.files.filter(({ path }) => path === MARKET_DESTINATION)).toHaveLength(1)
   })
 
@@ -1095,13 +1095,13 @@ describe('Market distribution Download', () => {
   it('never overwrites an artifact already occupying the V1 destination', () => {
     const base = createInitialGameState()
     const occupied: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: {
-      nextFileId: 4,
-      files: [...base.player.localDevice.filesystem.files, { kind: 'text', id: 'file-0003', path: MARKET_DESTINATION, content: 'not a package' }],
+      nextFileId: 5,
+      files: [...base.player.localDevice.filesystem.files, { kind: 'text', id: 'file-0004', path: MARKET_DESTINATION, content: 'not a package' }],
     } } } }
     const state = purchased(occupied)
     const result = startMarketPackageDownload(state, OFFER_ID)
     expect(result.status).toBe('destination_exists')
-    expect(result.state.player.localDevice.filesystem.files).toHaveLength(3)
+    expect(result.state.player.localDevice.filesystem.files).toHaveLength(4)
   })
 
   it('re-downloads after a local copy is lost, from the surviving entitlement alone', () => {

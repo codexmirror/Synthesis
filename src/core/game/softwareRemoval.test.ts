@@ -66,10 +66,10 @@ describe('removeInstalledSoftware: admission', () => {
     expect(removeInstalledSoftware(state, 'nodescan')).toMatchObject({ status: 'started', buildId: 'build-nodescan-synthetic-alternate' })
   })
 
-  it('rejects Flipper removal as unsupported in V1 without treating it as a protected baseline', () => {
+  it('reports Flipper absent in the fresh state rather than treating it as a protected baseline', () => {
     const state = createInitialGameState()
     const result = removeInstalledSoftware(state, 'flipper')
-    expect(result).toEqual({ status: 'unsupported_in_v1', state })
+    expect(result).toEqual({ status: 'not_installed', state })
     expect(result.status).not.toBe('protected_baseline')
   })
 

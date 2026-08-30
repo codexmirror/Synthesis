@@ -70,7 +70,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     if (analysis.status !== 'started') throw new Error(analysis.status)
     const analyzed = advanceGameState(analysis.state, 20_000)
 
-    const withoutTool: GameState = { ...analyzed, player: { ...analyzed.player, localDevice: { ...analyzed.player.localDevice, installedSoftware: analyzed.player.localDevice.installedSoftware.filter(({ id }) => id !== CREDENTIAL_ACCESS_TOOL_ID) } } }
+    const withoutTool: GameState = { ...analyzed, player: { ...analyzed.player, localDevice: { ...analyzed.player.localDevice, installedSoftware: analyzed.player.localDevice.installedSoftware.filter(({ id }) => id !== CREDENTIAL_ACCESS_TOOL_ID), filesystem: { ...analyzed.player.localDevice.filesystem, files: analyzed.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module' || file.moduleId !== 'credential-access') } } } }
     expect(canFormCredentialAccessAttempt(withoutTool, observation)).toBe(false)
     // Removing the tool removes the offer without touching the Knowledge.
     expect(withoutTool.knowledge).toEqual(analyzed.knowledge)

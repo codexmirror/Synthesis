@@ -1,7 +1,7 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
-import { FLIPPER_PRODUCT_ID, findInstalledFlipper, flipperSupportsTechnique } from './flipper'
+import { CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_MODULE_TECHNIQUE, FLIPPER_PRODUCT_ID, findInstalledFlipper, flipperSupportsTechnique } from './flipper'
 import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
@@ -30,7 +30,10 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
   const installation = findInstalledFlipper(state.player.localDevice)
-  const tool = Boolean(installation && flipperSupportsTechnique(installation, observed.vulnerabilityId))
+  const standaloneModule = observed.vulnerabilityId === FLIPPER_MODULE_TECHNIQUE['credential-access'] && state.player.localDevice.filesystem.files.some((file) => file.kind === 'software_module'
+    && file.moduleId === CREDENTIAL_ACCESS_MODULE_1_0.moduleId && file.releaseId === CREDENTIAL_ACCESS_MODULE_1_0.releaseId
+    && file.buildId === CREDENTIAL_ACCESS_MODULE_1_0.buildId)
+  const tool = standaloneModule || Boolean(installation && flipperSupportsTechnique(installation, observed.vulnerabilityId))
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   return Boolean(service && known && tool && !accessed)
 }
@@ -44,7 +47,7 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   const hasAccess = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   if (hasAccess) return { status: 'access_established', state }
   if (!canFormCredentialAccessAttempt(state, observed)) return { status: 'not_available', state }
-  if (state.process.processes.some((process) => process.kind === 'credential_access' && process.status === 'running' && process.targetDeviceId === observed.targetDeviceId && process.serviceId === observed.serviceId && process.toolId === observed.toolId)) return { status: 'already_running', state }
+  if (state.process.processes.some((process) => process.kind === 'credential_access' && process.status === 'running' && process.targetDeviceId === observed.targetDeviceId && process.serviceId === observed.serviceId)) return { status: 'already_running', state }
   const endpoint = resolveServiceEndpoint(state, observed.endpoint)
   if (!endpoint || endpoint === 'invalid' || endpoint.targetDeviceId !== observed.targetDeviceId || endpoint.serviceId !== observed.serviceId) return { status: 'endpoint_not_found', state }
   const started = startProcess(state.process, state.player.localDevice, {
@@ -52,9 +55,11 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
     workRequired: CREDENTIAL_ACCESS_WORK_REQUIRED, ramRequiredMiB: CREDENTIAL_ACCESS_RAM_REQUIRED_MIB,
   })
   if (started.status === 'insufficient_memory') return { ...started, state }
+  const installedHost = findInstalledFlipper(state.player.localDevice)
+  const executionToolId = installedHost && flipperSupportsTechnique(installedHost, observed.vulnerabilityId) ? FLIPPER_PRODUCT_ID : 'credential-access-module' as const
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
-    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: observed.toolId, moduleId: CREDENTIAL_ACCESS_MODULE_ID,
+    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: executionToolId, moduleId: CREDENTIAL_ACCESS_MODULE_ID,
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }

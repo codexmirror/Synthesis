@@ -146,7 +146,7 @@ export function Shell() {
               </button>
             ) : <span aria-hidden="true" />}
           </div>
-          <ActiveComponent />
+          <ActiveComponent openApp={setActiveAppId} />
         </main>
       ) : (
         <Home openApp={setActiveAppId} />

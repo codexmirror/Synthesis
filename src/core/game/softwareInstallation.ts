@@ -4,7 +4,8 @@ import { NODE_MINER_EXECUTABLE_SIZE_BYTES, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
 import { startProcess } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { GATE_SSH_PRODUCT_ID } from './serviceImplementations'
-import type { ExecutableFile, FilesystemState, GameState, HardwareState, InstalledSoftware, NetworkHost, ProcessState, RuntimeState, SoftwareInstallationProcess, SoftwareInstallationResult } from './types'
+import type { ExecutableFile, FilesystemState, FlipperInstallation, GameState, HardwareState, InstalledSoftware, NetworkHost, ProcessState, RuntimeState, SoftwareInstallationProcess, SoftwareInstallationResult } from './types'
+import { FLIPPER_EXECUTABLE_SIZE_BYTES, FLIPPER_INSTALLED_EXECUTABLE_PATH, FLIPPER_PRODUCT_ID } from './flipper'
 
 export const SOFTWARE_INSTALLATION_WORK_REQUIRED = 600
 export const SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB = 256
@@ -308,30 +309,35 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
  * partially installed or overwritten.
  */
 function applyInstallationCompletion(device: InstallationOwnedState, process: SoftwareInstallationProcess): InstallationOwnedState & { readonly result: SoftwareInstallationResult } {
-  const installation: InstalledSoftware = {
+  const installation = (process.productId === FLIPPER_PRODUCT_ID ? ({
+    id: FLIPPER_PRODUCT_ID, releaseId: process.releaseId, buildId: process.buildId, name: process.name, version: process.version,
+    ...(process.channel ? { channel: process.channel } : {}), ...(process.publisher ? { publisher: process.publisher } : {}),
+    integratedModules: [], sizeBytes: FLIPPER_EXECUTABLE_SIZE_BYTES,
+  } satisfies FlipperInstallation) : {
     id: process.productId, releaseId: process.releaseId, buildId: process.buildId, name: process.name, version: process.version,
     ...(process.channel ? { channel: process.channel } : {}),
     ...(process.publisher ? { publisher: process.publisher } : {}),
-  }
+  }) as InstalledSoftware
 
-  if (process.productId !== NODE_MINER_PROGRAM_ID) {
+  if (process.productId !== NODE_MINER_PROGRAM_ID && process.productId !== FLIPPER_PRODUCT_ID) {
     return { filesystem: device.filesystem, installedSoftware: applyInstalledSoftwareRelease(device.installedSoftware, installation), result: { status: 'installed' } }
   }
 
-  if (checkDestinationPlacement(device.filesystem, NODE_MINER_INSTALLED_EXECUTABLE_PATH) !== 'ok') {
+  const executablePath = process.productId === FLIPPER_PRODUCT_ID ? FLIPPER_INSTALLED_EXECUTABLE_PATH : NODE_MINER_INSTALLED_EXECUTABLE_PATH
+  if (checkDestinationPlacement(device.filesystem, executablePath) !== 'ok') {
     return { ...device, result: { status: 'install_path_occupied' } }
   }
 
   const executable: ExecutableFile = {
     kind: 'executable',
     id: `file-${String(device.filesystem.nextFileId).padStart(4, '0')}`,
-    path: NODE_MINER_INSTALLED_EXECUTABLE_PATH,
-    programId: NODE_MINER_PROGRAM_ID,
+    path: executablePath,
+    programId: process.productId,
     releaseId: process.releaseId,
     buildId: process.buildId,
     name: process.name,
     version: process.version,
-    sizeBytes: NODE_MINER_EXECUTABLE_SIZE_BYTES,
+    sizeBytes: process.productId === FLIPPER_PRODUCT_ID ? FLIPPER_EXECUTABLE_SIZE_BYTES : NODE_MINER_EXECUTABLE_SIZE_BYTES,
   }
   return {
     filesystem: { nextFileId: device.filesystem.nextFileId + 1, files: [...device.filesystem.files, executable] },

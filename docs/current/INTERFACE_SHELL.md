@@ -28,11 +28,12 @@ player-facing applications in order:
 - NodeMail
 - Processes
 - Files
-- Flipper
 - Market
 - Wallet
 - Notes
 - System
+
+Flipper is deliberately absent from Home; after ordinary installation its concrete executable in Files opens its application surface.
 
 These applications describe the current interface and are not a permanent
 product taxonomy.

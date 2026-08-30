@@ -84,10 +84,10 @@ MARKET OFFER / DISTRIBUTION TRUTH
      filesystem (software_package, or software_module)
 ```
 
-The V1 catalog lists five offerings, each represented once at exactly
+The V1 catalog lists six offerings, each represented once at exactly
 `0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
 every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
-GateSSH 1.3.2 Stable, GateSSH 1.3.3 and the Flipper Rollback Module 1.0 — the
+GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0 and the Flipper Rollback Module 1.0 — the
 one module offering. That
 price is a current tuning of what this operator charges, not a rule of the
 economy; every operation reads the offering's own `priceNodeUnits` rather than

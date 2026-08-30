@@ -54,7 +54,7 @@ function withRollbackModuleIntegrated(state: GameState): GameState {
     integratedModules: ['credential-access', 'rollback'],
     sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes,
   }
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID ? integrated : software) } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware.filter((software) => software.id !== FLIPPER_PRODUCT_ID), integrated] } } }
 }
 
 function ready(): GameState {
@@ -72,7 +72,7 @@ const alterSsh = (state: GameState, alter: (service: NetworkService) => NetworkS
 
 /** The default Flipper build: Credential Access integrated, Rollback not. */
 function withoutTool(state: GameState): GameState {
-  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID ? FLIPPER_1_0_CANONICAL_INSTALLATION : software) } } }
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter((software) => software.id !== FLIPPER_PRODUCT_ID) } } }
 }
 
 function grantSubmissionAccess(state: GameState) {

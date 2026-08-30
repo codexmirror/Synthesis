@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { advanceGameState } from '../../core/game/gameAdvancement'
-import { FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, findInstalledFlipper } from '../../core/game/flipper'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, findInstalledFlipper } from '../../core/game/flipper'
 import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from '../../core/game/softwareReleaseContent'
 import type { FlipperInstallation, GameState, SoftwareModuleFile } from '../../core/game/types'
 import { Flipper } from './Flipper'
@@ -16,7 +16,13 @@ const ROLLBACK_ARTIFACT: SoftwareModuleFile = {
 
 const value = (label: string) => screen.getByText(label).parentElement?.querySelector('dd')?.textContent
 
-function withModuleArtifact(state = createInitialGameState()): GameState {
+function withInstalledHost(state = createInitialGameState()): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
+    installedSoftware: [...state.player.localDevice.installedSoftware, { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'build-flipper-1.0-credential-access', integratedModules: ['credential-access'], sizeBytes: 5_600_000 } as FlipperInstallation],
+  } } }
+}
+
+function withModuleArtifact(state = withInstalledHost()): GameState {
   const filesystem = state.player.localDevice.filesystem
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...filesystem, files: [...filesystem.files, ROLLBACK_ARTIFACT] } } } }
 }
@@ -31,7 +37,7 @@ afterEach(() => { vi.useRealTimers() })
 
 describe('Flipper application', () => {
   it('states the installed product, its concrete build, size and integrated modules from canonical state', () => {
-    render(<GameProvider><Flipper /></GameProvider>)
+    render(<GameProvider initialState={withInstalledHost()}><Flipper /></GameProvider>)
     expect(screen.getByText('Flipper')).toBeInTheDocument()
     expect(value('RELEASE')).toBe('1.0 · STANDARD')
     expect(value('BUILD')).toBe('build-flipper-1.0-credential-access')
@@ -44,7 +50,7 @@ describe('Flipper application', () => {
   })
 
   it('reads build, size and module state from the installation rather than hardcoding them', () => {
-    const base = createInitialGameState()
+    const base = withInstalledHost()
     const altered: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: base.player.localDevice.installedSoftware.map((software) => software.id === FLIPPER_PRODUCT_ID
       ? { ...software, buildId: 'build-flipper-synthetic-alternate', integratedModules: ['rollback'], sizeBytes: 9_100_000 } as FlipperInstallation
       : software) } } }
@@ -57,7 +63,9 @@ describe('Flipper application', () => {
   })
 
   it('offers no integration path when the Device possesses no module artifact', () => {
-    render(<GameProvider><Flipper /></GameProvider>)
+    const base = withInstalledHost()
+    const noArtifacts = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: base.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module') } } } }
+    render(<GameProvider initialState={noArtifacts}><Flipper /></GameProvider>)
     expect(screen.getByText('NO MODULE ARTIFACTS')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INTEGRATE' })).not.toBeInTheDocument()
   })
