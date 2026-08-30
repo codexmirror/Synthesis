@@ -50,6 +50,8 @@ export interface ServiceAnalysisProcess extends ProcessBase {
   readonly serviceId: string
   /** Historical presentation only; gameplay resolution and identity use stable IDs. */
   readonly startedEndpoint: string
+  /** Remembered implementation evidence this work analyzed, when one was available at admission. */
+  readonly analyzedImplementation?: { readonly name: string; readonly version: string }
   readonly result?: ServiceAnalysisResult
 }
 

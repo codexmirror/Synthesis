@@ -52,14 +52,18 @@ observation.
 The target card states one stage at a time and normally offers one primary
 action for it. Its derived progression distinguishes NOT SCANNED, SERVICES
 FOUND / INSPECT available, SERVICES FOUND / ANALYZE available, ANALYZING,
-NO WAY IN FOUND, `n` WAY(S) IN FOUND, BYPASS work in progress, ACCESS GRANTED,
-and CONNECTED. NO WAY IN FOUND is shown only after every currently observed
-Service has either weakness Knowledge or a completed `no_weakness_detected`
-result; `service_unavailable` is inconclusive and remains retryable. An absence of
-Knowledge immediately after Scan is not a negative conclusion. A live Remote
-Session, established DeviceAccess, and a running credential attempt still outrank
-reconnaissance work. Pending NodeScan 1.1 Inspect depth outranks a merely known
-route, including when the release was installed after that route was learned.
+NO WAY IN FOUND, `n` WAY(S) IN FOUND, BYPASS work in progress, RackUpdate's
+distinct ATTACK and package-submission stages, ACCESS GRANTED, and CONNECTED.
+NO WAY IN FOUND is shown only after every currently observed Service has either
+weakness Knowledge or a current completed `no_weakness_detected` result and no
+other legitimate continuation exists; `service_unavailable` is inconclusive
+and remains retryable. An absence of Knowledge immediately after Scan is not a
+negative conclusion. A live Remote Session remains the highest-priority truth.
+Represented running work remains visible, and pending NodeScan 1.1 Inspect depth
+outranks passive established DeviceAccess and a merely known route when there
+is no active Session, including when the release was installed after Access or
+the route was learned. Inspect completion does not alter DeviceAccess and
+returns the primary decision to CONNECT where that relationship already exists.
 
 
 A way in is derived from the player's own Knowledge of a weakness on a
@@ -83,10 +87,11 @@ browses remembered information: it performs no observation and starts no
 gameplay. Unobserved depth is stated explicitly there and never rendered as an
 observed empty result.
 
-RackUpdate's package-submission lifecycle is projected only when remembered
+RackUpdate's package-submission lifecycle is projected when remembered
 Enhanced Inspect evidence includes its package-submission interface and earned
-`UPD-001` Knowledge explains it, and only inside RECON INTELLIGENCE — never on
-the primary decision surface. Before the narrow submission capability exists,
+`UPD-001` Knowledge explains it. Its technical facts remain in RECON
+INTELLIGENCE, while its actionable ATTACK, running work, and submission-ready
+continuation participate in the primary decision. Before the narrow submission capability exists,
 it states an ATTACK opportunity exactly like a credential way in: it names the
 weakness, the supporting installed tool, and offers ATTACK only where the
 Rollback Exploit Toolkit is actually installed; without that tool it states
@@ -112,6 +117,15 @@ predict success, refresh a fingerprint, or expose a way in: ATTACK opportunity,
 progress, and the narrow submission capability are all derived from the
 player's own Knowledge, installed software, Process, and `RackUpdateSubmissionAccess`
 state alone.
+
+Service Analysis Process history records the remembered implementation
+fingerprint available when its work began. Where both that snapshot and a
+current remembered fingerprint exist, a completed result is current only when
+they match; after a legitimate package application refreshes the remembered
+fingerprint, an older result remains historical and the newly remembered
+implementation requires fresh analysis. This comparison uses Discovery and
+Process history, never hidden World Truth. Analyses admitted without a
+remembered fingerprint remain supported for the NodeScan 1.0 flow.
 
 Because there is no canonical "analyzed" state, a Service that has not
 produced Knowledge claims no analysis state at all. A completed no-weakness or

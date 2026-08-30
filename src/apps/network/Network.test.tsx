@@ -176,6 +176,21 @@ describe('NodeScan first hack', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
   })
 
+  it('promotes newly available Inspect over passive Access, preserves Access on completion, and never displaces an active Session', async () => {
+    const accessUnder10 = withAccess(scannedTarget())
+    expect(selectTarget(accessUnder10, SRV_01)?.stage).toBe('access')
+
+    const upgraded = withNodeScan11(accessUnder10)
+    expect(selectTarget(upgraded, SRV_01)?.stage).toBe('inspect')
+    const user = await openTarget(upgraded)
+    await user.click(screen.getByRole('button', { name: 'INSPECT' }))
+    expect(currentState().deviceAccess).toEqual(accessUnder10.deviceAccess)
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
+
+    const connected = { ...upgraded, remoteSession: { nextId: 2, active: { id: 'session-0001', accessId: 'access-0001', connectedAddress: SRV_01_ADDRESS } } }
+    expect(selectTarget(connected, SRV_01)?.stage).toBe('connected')
+  })
+
   it('keeps Scan surface-only and starts Analyze only from an explicit Service action', async () => {
     const user = await openTarget(foundTargets())
     await user.click(screen.getByRole('button', { name: 'SCAN' }))
@@ -231,6 +246,22 @@ describe('NodeScan information boundary', () => {
     }))
     const target = selectTarget(withProcesses(scannedTarget(), completed), SRV_01)!
     expect(target.stage).toBe('no_route')
+  })
+
+  it('treats a completed analysis as current only for its remembered implementation snapshot', () => {
+    const observed = scannedTarget(withNodeScan11(createInitialGameState()))
+    const ssh = observed.discovery.devices.find(({ id }) => id === SRV_01)!.services.find(({ id }) => id === 'service-ssh-001')!
+    const oldNegative = {
+      ...analysisProcess('process-old', ssh.id, 1000), status: 'completed' as const,
+      analyzedImplementation: { name: 'GateSSH', version: '1.3.3' },
+      result: { status: 'no_weakness_detected' as const },
+    }
+    const stale = withProcesses(observed, [oldNegative])
+    expect(ssh.inspect?.implementation.version).toBe('1.3.2')
+    expect(selectTarget(stale, SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: true })
+
+    const fresh = { ...oldNegative, id: 'process-new', analyzedImplementation: ssh.inspect!.implementation }
+    expect(selectTarget(withProcesses(observed, [oldNegative, fresh]), SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: false, analysisOutcome: 'no_weakness_detected' })
   })
 
   it('prioritizes newly available Inspect over a route learned under NodeScan 1.0, then restores BYPASS', async () => {
@@ -485,7 +516,7 @@ describe('RackUpdate exploit and package submission', () => {
     }
   }
 
-  it('is never a way in and never reaches the primary surface', async () => {
+  it('presents the attack path as primary guidance without calling it Device access', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
@@ -493,11 +524,11 @@ describe('RackUpdate exploit and package submission', () => {
     const view = screen.getByLabelText('NodeScan')
     const details = view.querySelector('details')!
     expect(details).not.toHaveAttribute('open')
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
-    expect(view.textContent!.replace(details.textContent!, '')).not.toContain('RackUpdate')
-    // The whole avenue lives behind the disclosure, never on the decision surface.
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('ATTACK PATH FOUND')
+    expect(screen.getByLabelText('Target status')).not.toHaveTextContent('ACCESS')
+    expect(view.textContent!.replace(details.textContent!, '')).toContain('RackUpdate')
     await user.click(screen.getByText('RECON INTELLIGENCE'))
-    expect(screen.getByRole('button', { name: 'ATTACK' }).closest('details')).toBe(details)
+    expect(screen.getByRole('button', { name: 'ATTACK' }).closest('details')).toBeNull()
   })
 
   it('does not offer the avenue before UPD-001 is earned', async () => {
@@ -531,12 +562,14 @@ describe('RackUpdate exploit and package submission', () => {
     // ATTACK grants only the narrow submission capability: finite work, no immediate consequence.
     fireEvent.click(screen.getByRole('button', { name: 'ATTACK' }))
     expect(screen.getByRole('group', { name: 'Attack progress' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('ATTACKING RACKUPDATE')
     expect(currentState().rackUpdate.access.established).toEqual([])
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
 
     expect(currentState().rackUpdate.access.established).toHaveLength(1)
     expect(currentState().deviceAccess.established).toEqual([])
     expect(currentState().remoteSession.active).toBeNull()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('PACKAGE SUBMISSION READY')
     expect(screen.getByRole('combobox', { name: 'Rollback package' })).toBeInTheDocument()
 
     // Package submission is represented upload work, not an instant mutation.
