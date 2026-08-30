@@ -67,7 +67,7 @@ const cards = () => Array.from(monitor().querySelectorAll('.am-activity')) as HT
 const fact = (scope: HTMLElement, label: string) => within(scope).getByText(label).parentElement?.querySelector('dd')?.textContent
 
 describe('Processes application integration', () => {
-  it('is a canonical app while Network remains registered', () => { expect(appEntries).toHaveLength(9); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network') })
+  it('is a canonical app while Network remains registered', () => { expect(appEntries).toHaveLength(10); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network'); expect(appRegistry).toHaveProperty('networkManagement') })
 
   it('presents a truthful idle system summary and empty state', () => {
     render(<GameProvider><Processes /></GameProvider>)
