@@ -53,29 +53,42 @@ source/channel selection, or a grey/black market.
 - `purchases` — the canonical purchase entitlements the player holds.
 
 Each `MarketOffer` carries stable offer identity, `priceNodeUnits` in canonical
-integer atomic NODE units, and the `MarketPackageDistribution` it distributes.
-That distribution identifies one exact concrete software build with `buildId`;
-offer identity remains purchase-entitlement identity and is not build identity.
+integer atomic NODE units, and the `MarketDistribution` it distributes. That
+distribution identifies one exact concrete build with `buildId`; offer identity
+remains purchase-entitlement identity and is not build identity.
+
+A distribution states which concrete artifact kind it sends. A
+`MarketPackageDistribution` (`artifact: 'software_package'`) sends an ordinary
+installable package and carries the product identity, channel and publisher
+that release represents. A `MarketModuleDistribution`
+(`artifact: 'software_module'`) sends one concrete Flipper module artifact and
+carries the host product it belongs to plus its stable module identity — and
+deliberately no `productId`, `channel` or `publisher`, because a module is not
+a software product of its own. Buying a module offering therefore cannot
+produce InstalledSoftware; what it can produce is one module artifact the
+player then integrates into Flipper (`docs/current/FILES_SOFTWARE.md`).
 
 A distribution is represented offer and source truth: the release/build facts and
 byte size the operator states it will send, plus the `filename` the V1
-destination path is derived from. It is deliberately **not** a software
-package. A software package is a file on a Device-owned filesystem
-(`docs/design/SOFTWARE_AUTHORING.md`), and no `software_package` artifact,
-file ID or path exists for an offering until its download actually completes:
+destination path is derived from. It is deliberately **not** an artifact. A
+filesystem artifact is a file on a Device-owned filesystem
+(`docs/design/SOFTWARE_AUTHORING.md`), and no artifact, file ID or path exists
+for an offering until its download actually completes:
 
 ```text
 MARKET OFFER / DISTRIBUTION TRUTH
   -> purchase entitlement
   -> authorized elapsed FileTransfer
   -> completion
-  -> one ordinary software_package artifact on the local Device filesystem
+  -> one ordinary artifact of the offering's own kind on the local Device
+     filesystem (software_package, or software_module)
 ```
 
 The V1 catalog lists five offerings, each represented once at exactly
 `0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
 every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
-GateSSH 1.3.2 Stable, GateSSH 1.3.3 and Rollback Exploit Toolkit 1.0. That
+GateSSH 1.3.2 Stable, GateSSH 1.3.3 and the Flipper Rollback Module 1.0 — the
+one module offering. That
 price is a current tuning of what this operator charges, not a rule of the
 economy; every operation reads the offering's own `priceNodeUnits` rather than
 a constant.
@@ -92,21 +105,23 @@ Provenance and channel are stated exactly as each release represents them and
 are deliberately mixed. NODE Miner states the `nm-dev` publisher and GateSSH
 1.3.2 states `stable`/`rack-systems`, because those are what their own
 represented package artifacts claim. NodeScan 1.1 states no publisher.
-GateSSH 1.3.3 and the Rollback Exploit Toolkit state neither a channel nor a
-publisher: no accepted current truth represents either for GateSSH 1.3.3 (not
-even the Service implementation it patches — only the *distinct* 1.3.2 package
-artifact states `stable`/`rack-systems`), and the Rollback Exploit Toolkit's
-own authored release states neither. None of the three is inferred from a
-sibling release or invented to fill a field; the application presents each
-absence as `NOT STATED` (publisher) or by omitting the channel segment
-entirely.
+GateSSH 1.3.3 states neither a channel nor a publisher: no accepted current
+truth represents either for it (not even the Service implementation it patches
+— only the *distinct* 1.3.2 package artifact states `stable`/`rack-systems`).
+The Rollback Module carries neither field at all, because a module distribution
+does not represent them. None of it is inferred from a sibling release or
+invented to fill a field; the application presents each absence as `NOT STATED`
+(publisher) or by omitting the channel segment entirely.
 
-GateSSH 1.3.3 and the Rollback Exploit Toolkit 1.0 were already represented
-releases with no distributable package artifact anywhere in the world; this
-Market is the first concrete distribution of either, and their distribution
-facts are authored in `market.ts` alongside the other offerings. It is
-currently the only represented acquisition path for the Rollback Exploit
-Toolkit. NodeScan 1.1's, NODE Miner 1.0's and GateSSH 1.3.2's distributions
+GateSSH 1.3.3 had no distributable package artifact anywhere in the world, and
+the Rollback Module has no other represented source; this Market is the first
+concrete distribution of either, and their distribution facts are authored in
+`market.ts` alongside the other offerings. It is currently the only represented
+acquisition path for the Rollback Module. Distributing a module changes nothing
+about who operates this Market: Open Package Exchange remains the seller and
+operator of its own broad/open market, and Flipper being a NODE-published
+product makes neither NODE the operator nor this Market an official NODE
+store. NodeScan 1.1's, NODE Miner 1.0's and GateSSH 1.3.2's distributions
 deliberately repeat the represented artifacts that already exist on srv-01 and
 node-01 rather than deriving one from the other — each concrete artifact stays
 self-contained — and a focused test pins them to each other so the two
@@ -123,9 +138,9 @@ other software surface reads, and simply omits it for a release that has none.
 No documentation is authored for the GateSSH releases, because the represented
 difference between 1.3.2 and 1.3.3 is a target weakness that Service Analysis
 and Knowledge own (see `docs/current/NETWORK_ACCESS.md`); a store listing must
-not hand the player observation results. The Rollback Exploit Toolkit does
-carry its existing authored ABOUT/CAPABILITY/CHANGE copy, exactly as it already
-does everywhere else that release is presented.
+not hand the player observation results. The Rollback Module likewise carries
+no release documentation of its own: what integrating it changes is Flipper's
+concrete build, which the Flipper application states from installed truth.
 
 
 ## Purchase
@@ -296,7 +311,12 @@ Market -> BUY -> DOWNLOAD -> package in Files -> Files INSTALL -> InstalledSoftw
   as a fractional number.
 - Channel is optional release presentation metadata, not a required field a
   package or offering must always carry. A release with no represented channel
-  (GateSSH 1.3.3, the Rollback Exploit Toolkit) must keep that absence through
-  distribution, completed package, installation and InstalledSoftware — never
-  an invented value, an empty string, or a value inherited from a sibling
-  release of the same product.
+  (GateSSH 1.3.3) must keep that absence through distribution, completed
+  package, installation and InstalledSoftware — never an invented value, an
+  empty string, or a value inherited from a sibling release of the same
+  product.
+- A module offering is not a package offering. It distributes a module artifact
+  under module identity, carries no `productId`, and can never produce
+  InstalledSoftware; installing it is not an available operation at all. Do not
+  give a module distribution a fabricated product, channel or publisher to
+  reuse package code.

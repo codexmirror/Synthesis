@@ -1,7 +1,7 @@
 import { checkDestinationPlacement } from '../../core/game/filesystem'
 import { deriveMarketDownloadDestinationPath } from '../../core/game/fileTransfer'
-import { findLocalMarketPackageCopy, isMarketOfferPurchased } from '../../core/game/market'
-import type { GameState, MarketOffer } from '../../core/game/types'
+import { findLocalMarketArtifactCopy, isMarketOfferPurchased } from '../../core/game/market'
+import type { GameState, MarketDistribution, MarketOffer } from '../../core/game/types'
 
 /**
  * The acquisition lifecycle one Market offering is currently in, derived
@@ -28,7 +28,9 @@ export interface MarketOfferView {
   /** Present only where the represented release actually states provenance. */
   readonly publisher?: string
   readonly releaseId: string
-  readonly packageFilename: string
+  /** Which concrete artifact kind this offering distributes; a module is never an installable package. */
+  readonly artifact: MarketDistribution['artifact']
+  readonly filename: string
   readonly sizeBytes: number
   readonly priceNodeUnits: number
   readonly state: MarketAcquisitionState
@@ -53,7 +55,7 @@ export interface MarketView {
 function deriveOfferView(state: GameState, offer: MarketOffer): MarketOfferView {
   const local = state.player.localDevice
   const purchased = isMarketOfferPurchased(state.market, offer.id)
-  const localCopy = findLocalMarketPackageCopy(local.filesystem, offer)
+  const localCopy = findLocalMarketArtifactCopy(local.filesystem, offer)
   const destinationPath = deriveMarketDownloadDestinationPath(offer)
   const active = state.fileTransfer.active
   const transfer = active?.origin === 'market_distribution' && active.offerId === offer.id
@@ -70,10 +72,11 @@ function deriveOfferView(state: GameState, offer: MarketOffer): MarketOfferView 
     offerId: offer.id,
     name: offer.distribution.name,
     version: offer.distribution.version,
-    ...(offer.distribution.channel ? { channel: offer.distribution.channel } : {}),
-    ...(offer.distribution.publisher ? { publisher: offer.distribution.publisher } : {}),
+    ...(offer.distribution.artifact === 'software_package' && offer.distribution.channel ? { channel: offer.distribution.channel } : {}),
+    ...(offer.distribution.artifact === 'software_package' && offer.distribution.publisher ? { publisher: offer.distribution.publisher } : {}),
     releaseId: offer.distribution.releaseId,
-    packageFilename: offer.distribution.filename,
+    artifact: offer.distribution.artifact,
+    filename: offer.distribution.filename,
     sizeBytes: offer.distribution.sizeBytes,
     priceNodeUnits: offer.priceNodeUnits,
     state: acquisition,

@@ -3,8 +3,8 @@ import type { GameState } from '../../core/game/types'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
-import { BASIC_CREDENTIAL_TOOLKIT_ID } from '../../core/game/credentialAccess'
-import { ROLLBACK_EXPLOIT_TOOLKIT_ID } from '../../core/game/rackUpdate'
+import { CREDENTIAL_ACCESS_TOOL_ID } from '../../core/game/credentialAccess'
+import { RACK_UPDATE_EXPLOIT_TOOL_ID } from '../../core/game/rackUpdate'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
 import { deriveNodeMinerRuntimeStatus, findNodeMinerExecutable, findRunningLocalNodeMiner, isNodeMinerAvailable } from '../../core/game/nodeMiner'
 import type { deriveResourceUsage } from '../../core/game/processes'
@@ -82,7 +82,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
               targetDeviceId: device.id,
               serviceId: service.id,
               vulnerabilityId: known.vulnerabilityId,
-              toolId: ROLLBACK_EXPLOIT_TOOLKIT_ID,
+              toolId: RACK_UPDATE_EXPLOIT_TOOL_ID,
             })
           return result
         }
@@ -93,7 +93,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
             targetDeviceId: device.id,
             serviceId: service.id,
             vulnerabilityId: known.vulnerabilityId,
-            toolId: BASIC_CREDENTIAL_TOOLKIT_ID,
+            toolId: CREDENTIAL_ACCESS_TOOL_ID,
           })
 
         return result

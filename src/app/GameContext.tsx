@@ -11,6 +11,7 @@ import { createFindTargets, type FindTargetsOperation } from './targetDiscoveryO
 import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
 import { findInstalledNodeScan } from '../core/game/software'
+import { startFlipperModuleIntegration, type StartFlipperModuleIntegrationResult } from '../core/game/flipper'
 import { cancelFileTransfer, startMarketPackageDownload, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartMarketPackageDownloadResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
 import { purchaseMarketOffer, type PurchaseMarketOfferResult } from '../core/game/market'
 import { installLocalSoftwarePackage, installRemoteSoftwarePackage, type InstallLocalSoftwarePackageResult, type InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
@@ -53,6 +54,7 @@ export interface GameActions {
   installLocalSoftwarePackage(path: string): InstallLocalSoftwarePackageResult
   installRemoteSoftwarePackage(path: string): InstallRemoteSoftwarePackageResult
   removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
+  startFlipperModuleIntegration(moduleFileId: string): StartFlipperModuleIntegrationResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
   stopNodeMiner(processId: string): StopNodeMinerResult
   runRemoteNodeMiner(sourceFilePath: string, payoutAddress: string): StartRemoteNodeMinerResult
@@ -219,6 +221,13 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     return result
   }, installRemoteSoftwarePackage(path) {
     const result = installRemoteSoftwarePackage(currentState.current, path)
+    if (result.status === 'started') {
+      currentState.current = result.state
+      setGameState(result.state)
+    }
+    return result
+  }, startFlipperModuleIntegration(moduleFileId) {
+    const result = startFlipperModuleIntegration(currentState.current, moduleFileId)
     if (result.status === 'started') {
       currentState.current = result.state
       setGameState(result.state)

@@ -3,8 +3,10 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import { deriveResourceUsage } from '../../core/game/processes'
 import { NODE_MINER_PROGRAM_ID } from '../../core/game/nodeMiner'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
-import type { InstalledSoftware, SoftwareRemovalProcess } from '../../core/game/types'
+import { FLIPPER_MODULE_NAME, FLIPPER_PRODUCT_ID } from '../../core/game/flipper'
+import type { FlipperInstallation, InstalledSoftware, SoftwareRemovalProcess } from '../../core/game/types'
 import { SoftwareReleaseAbout, SoftwareReleaseCapabilities, SoftwareReleaseDisclosure } from '../SoftwareReleaseDocumentation'
+import { formatBytes } from '../byteFormat'
 
 export function System() {
   const state = useGameState()
@@ -55,13 +57,18 @@ export function System() {
  * stay behind RELEASE INFORMATION, and a destructive action exists only where
  * the canonical removal runtime actually supports one: NODE Miner is ordinary
  * removable software, a NodeScan override restores the protected baseline,
- * the NodeScan 1.0 Standard baseline itself is never removable, and the Basic
- * Credential Toolkit — ordinary preinstalled software, not a system baseline —
- * is offered no removal action the core would reject.
+ * the NodeScan 1.0 Standard baseline itself is never removable, and Flipper —
+ * ordinary preinstalled software, not a system baseline — is offered no
+ * removal action the core would reject.
+ *
+ * Flipper is the one product whose installed state carries more than a
+ * release: its concrete build's integrated modules and represented size are
+ * stated here from that installation alone, never inferred from its build ID.
  */
 function InstalledSoftwareManagement({ software, firmwareName, firmwareVersion, removing, remove }: { software: InstalledSoftware; firmwareName: string; firmwareVersion: string; removing: boolean; remove: () => unknown }) {
   const baseline = software.id === 'nodescan' && software.releaseId === NODESCAN_1_0_STANDARD_RELEASE_ID
   const canRemove = software.id === NODE_MINER_PROGRAM_ID || software.id === 'nodescan' && !baseline
+  const flipper = software.id === FLIPPER_PRODUCT_ID ? software as FlipperInstallation : undefined
   return <div className="software-expanded">
     <SoftwareReleaseAbout releaseId={software.releaseId} />
     <SoftwareReleaseCapabilities releaseId={software.releaseId} />
@@ -72,6 +79,14 @@ function InstalledSoftwareManagement({ software, firmwareName, firmwareVersion, 
         ? <><div><dt>{removing ? 'STATE' : 'ACTIVE'}</dt><dd>{removing ? 'RESTORING' : describeRelease(software)}</dd></div><div><dt>BASELINE</dt><dd>1.0 STANDARD</dd></div></>
         : <div><dt>STATE</dt><dd>{removing ? 'REMOVING' : 'INSTALLED'}</dd></div>}</dl>
     {/* The row itself already states version, channel and publisher; only the opaque release identity is left to disclose. */}
+    {flipper && <>
+      <div className="node-section"><span>FLIPPER BUILD</span><span>{flipper.integratedModules.length} {flipper.integratedModules.length === 1 ? 'MODULE' : 'MODULES'}</span></div>
+      <dl className="node-facts">
+        <div><dt>BUILD</dt><dd>{flipper.buildId}</dd></div>
+        <div><dt>SIZE</dt><dd>{formatBytes(flipper.sizeBytes)}</dd></div>
+        <div><dt>MODULES</dt><dd>{flipper.integratedModules.length ? flipper.integratedModules.map((moduleId) => FLIPPER_MODULE_NAME[moduleId]).join(', ') : 'NONE'}</dd></div>
+      </dl>
+    </>}
     <SoftwareReleaseDisclosure releaseId={software.releaseId} facts={<dl className="node-facts">
       <div><dt>RELEASE</dt><dd>{software.releaseId}</dd></div>
     </dl>} />

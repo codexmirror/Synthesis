@@ -27,7 +27,8 @@ GameState
 │       ├── runtime state
 │       ├── installed software
 │       │   ├── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
-│       │   └── Basic Credential Toolkit (`basic-credential-toolkit`, release `basic-credential-toolkit-1.0`) 1.0
+│       │   └── Flipper (`flipper`, release `flipper-1.0`, build `build-flipper-1.0-credential-access`) 1.0 Standard, published by NODE
+│       │       └── integrated modules: Credential Access Module
 │       └── saved Dollar sign-in
 ├── dollarFinance
 ├── nodeWallet
@@ -336,8 +337,11 @@ uses), its system context, its stable release ID behind the same RELEASE
 INFORMATION disclosure Files uses, and a destructive action only where the
 canonical removal runtime supports one: UNINSTALL for NODE Miner, RESTORE 1.0
 STANDARD for a NodeScan override, none for the protected NodeScan 1.0 Standard
-baseline, and none for the Basic Credential Toolkit, which is presented as
-ordinary installed software rather than as a system baseline. While a Software
+baseline, and none for Flipper, which is presented as ordinary installed
+software rather than as a system baseline. Flipper's expanded content
+additionally states its current concrete build, that build's represented size,
+and the modules it integrates, all read from the installation itself rather
+than inferred from the build ID. While a Software
 Removal Process is running for that product the expanded content shows REMOVING
 (or RESTORING for NodeScan) and offers no second action; cancelling that finite
 Process remains the Activity Monitor's. Software categories or grouping are not

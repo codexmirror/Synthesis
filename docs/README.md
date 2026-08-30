@@ -84,7 +84,10 @@ current implementation.
 ### Network, reconnaissance, and access
 
 Scan, NodeScan, Inspect, Discovery, Service Analysis, Knowledge, Credential
-Access, DeviceAccess, Remote Session, RACK-OS, Authentication History.
+Access, DeviceAccess, Remote Session, RACK-OS, Authentication History. Flipper
+supplies the offensive capability these techniques require; Flipper itself and
+its module-integration mechanic are routed under **Files, transfer, and
+software** below.
 
 - CURRENT TRUTH → [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - ARCHITECTURE → A01–A04, A09 in
@@ -127,7 +130,7 @@ state, authored replies, NodeMail.
 ### Files, transfer, and software
 
 Filesystem, Files, Download/Upload, packages, installation, removal,
-executables, software management.
+executables, software management, Flipper and its module-integration mechanic.
 
 - CURRENT TRUTH → [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md)
 - ARCHITECTURE → A17 (and A07) in
@@ -136,13 +139,15 @@ executables, software management.
   [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md)
 - CODE → `src/core/game/filesystem.ts`, `src/core/game/fileTransfer.ts`,
   `src/core/game/software.ts`, `src/core/game/softwareInstallation.ts`,
-  `src/core/game/softwareRemoval.ts`, `src/apps/files/`,
+  `src/core/game/softwareRemoval.ts`, `src/core/game/flipper.ts`,
+  `src/apps/files/`, `src/apps/flipper/`,
   `src/apps/softwareReleaseInformation.ts`, `src/apps/rackos/`
 - TESTS → `src/core/game/filesystem.test.ts`,
   `src/core/game/fileTransfer.test.ts`,
   `src/core/game/software.test.ts`,
   `src/core/game/softwareInstallation.test.ts`,
-  `src/core/game/softwareRemoval.test.ts`, `src/apps/files/Files.test.tsx`,
+  `src/core/game/softwareRemoval.test.ts`, `src/core/game/flipper.test.ts`,
+  `src/apps/files/Files.test.tsx`, `src/apps/flipper/Flipper.test.tsx`,
   `src/apps/softwareReleaseInformation.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
@@ -167,8 +172,8 @@ Market application.
   [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md) (the FileTransfer
   runtime and what happens to the package afterwards),
   [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md) (the existing
-  `UPD-001`/RackUpdate tool requirement a Market-installed Rollback Exploit
-  Toolkit satisfies, with no Market-specific integration)
+  `UPD-001`/RackUpdate tool requirement a Market-acquired Rollback Module
+  satisfies once integrated into Flipper, with no Market-specific integration)
 - CODE → `src/core/game/market.ts`, `src/core/game/fileTransfer.ts`,
   `src/apps/market/`
 - TESTS → `src/core/game/market.test.ts`,
@@ -363,8 +368,10 @@ parallelized.
 - ARCHITECTURE → A06 in
   [`architecture/INTERFACES_AND_PRESENTATION.md`](architecture/INTERFACES_AND_PRESENTATION.md),
   A07 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
-- CODE → `src/apps/softwareReleaseInformation.ts`, `src/core/game/software.ts`
+- CODE → `src/apps/softwareReleaseInformation.ts`, `src/core/game/software.ts`,
+  `src/core/game/softwareReleaseContent.ts`
 - TESTS → `src/core/game/software.test.ts`,
+  `src/core/game/softwareReleaseContent.test.ts`,
   `src/apps/softwareReleaseInformation.test.ts`
 
 

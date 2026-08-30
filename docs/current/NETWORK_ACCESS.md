@@ -68,12 +68,14 @@ returns the primary decision to CONNECT where that relationship already exists.
 
 A way in is derived from the player's own Knowledge of a weakness on a
 remembered Service together with an installed tool that supports that
-weakness, and not from any current target truth. Basic Credential Toolkit
-remains a real requirement: without the installation no way in is formed, the
-Knowledge that produced it is untouched, and the started attempt still carries
-its `toolId` and `vulnerabilityId`. Because exactly one represented credential
-tool currently exists, NodeScan selects it rather than presenting a choice
-with one option. A way in never predicts success; stale Player Information can
+weakness, and not from any current target truth. Flipper remains a real
+requirement, and so does the specific module its installed build integrates:
+without an installed Flipper whose build actually contains the Credential
+Access Module no way in is formed, the Knowledge that produced it is
+untouched, and the started attempt still carries its `toolId`, `moduleId` and
+`vulnerabilityId`. Because exactly one represented offensive product currently
+exists, NodeScan selects it rather than presenting a choice with one option,
+and names the concrete module beside it. A way in never predicts success; stale Player Information can
 still produce a legitimately failed attempt, which is reported coarsely while
 the same route stays available.
 
@@ -93,9 +95,10 @@ Enhanced Inspect evidence includes its package-submission interface and earned
 INTELLIGENCE, while its actionable ATTACK, running work, and submission-ready
 continuation participate in the primary decision. Before the narrow submission capability exists,
 it states an ATTACK opportunity exactly like a credential way in: it names the
-weakness, the supporting installed tool, and offers ATTACK only where the
-Rollback Exploit Toolkit is actually installed; without that tool it states
-that no installed tool currently supports the weakness. ATTACK starts a real
+weakness, the supporting installed tool and module, and offers ATTACK only
+where the installed Flipper build actually integrates the Rollback Module;
+without that module it states that no installed tool currently supports the
+weakness. ATTACK starts a real
 finite `rack_update_exploit` Process (see Service Analysis / Credential Access
 above for the shared Process model) and shows its own progress while running.
 Once that Process completes successfully, RackUpdate grants the player's local
@@ -351,15 +354,17 @@ After the player has remembered:
 - the represented SSH service
 - positive Weak Authentication Knowledge
 
-and SELF owns the Basic Credential Toolkit, the player may initiate a credential
-attempt through:
+and SELF owns a Flipper build that integrates the Credential Access Module, the
+player may initiate a credential attempt through:
 
 ```text
 attack <ipv4:port>
 ```
 
 or through NodeScan's HACK action, which uses the way in derived from the
-player's own Knowledge and installed tool.
+player's own Knowledge and installed tool. The initial local Device already
+carries that Flipper build, so the first `AUTH-017` opportunity needs no
+acquisition or integration step.
 
 Starting the attempt creates a Credential Access Process.
 
@@ -367,7 +372,9 @@ It does not establish access immediately.
 
 Completion resolves against current World Truth and validates the represented target, service, endpoint relationship, service availability, current weakness, and represented credential-access context. Success creates persistent USER `DeviceAccess`; failure creates no access and does not rewrite historical Discovery or Knowledge.
 
-RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release. Knowledge alone is informative rather than submission authority: exploiting it requires an installed tool that actually supports `UPD-001` — the Rollback Exploit Toolkit — exactly as Credential Access requires the Basic Credential Toolkit for `AUTH-017`, and this tool's role stays equally narrow. Unlike Basic Credential Toolkit, the Rollback Exploit Toolkit is deliberately not preinstalled: a fresh Device carries no installed tool supporting `UPD-001` until one is installed. The represented software Market is currently the only concrete acquisition path for it (`docs/current/MARKET.md`); once installed through the ordinary Files/INSTALL lifecycle, the resulting InstalledSoftware satisfies this requirement through the same `rollbackExploitToolkitSupports` check with no RackUpdate-specific integration.
+RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release. Knowledge alone is informative rather than submission authority: exploiting it requires an installed tool that actually supports `UPD-001` — a Flipper build integrating the Rollback Module — exactly as Credential Access requires a Flipper build integrating the Credential Access Module for `AUTH-017`, and each module's role stays equally narrow. Unlike the Credential Access Module, the Rollback Module is deliberately not integrated in the canonical Flipper build: a fresh Device supports no `UPD-001` until the module is acquired and integrated. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and integrating it into Flipper is finite represented work owned by `docs/current/FILES_SOFTWARE.md`; the resulting installed build satisfies this requirement through the same `flipperSupportsTechnique` check with no RackUpdate-specific integration.
+
+`AUTH-017` and `UPD-001` remain weakness identifiers owned by this document and by the service systems. A module is a technique Flipper can execute, never Knowledge: possessing or integrating one discovers nothing, changes no remembered evidence, and creates no `discoveredVulnerabilities` entry. Reconnaissance stays entirely with NodeScan.
 
 ATTACK against RackUpdate starts a real finite `rack_update_exploit` Process (see Service Analysis above for the shared Process model). Completion resolves against current World Truth exactly once and, on success, grants the attacking Device a narrow `RackUpdateSubmissionAccess` relationship scoped to that one RackUpdate Service (`GameState.rackUpdate.access`) — never `DeviceAccess`, never a `RemoteSession`, and no filesystem or credential authority. Failure creates no such relationship and does not rewrite historical Discovery or Knowledge, mirroring Credential Access's failure semantics.
 
@@ -383,13 +390,14 @@ SELF's temporary `home-net`, so Network Scan does not reveal it. Directly
 scanning its communicated address discovers it as a remote Device and observes
 its one open SSH Service; Service
 Analysis of that Service records the same `AUTH-017` Knowledge, because its
-implementation is the same represented GateSSH 1.3.2 release; the same Basic
-Credential Toolkit forms the same way in; the attempt creates the same
+implementation is the same represented GateSSH 1.3.2 release; the same Flipper
+Credential Access Module forms the same way in; the attempt creates the same
 Credential Access Process and, on success, the same USER `DeviceAccess`; and
 CONNECT opens the same kind of Session.
 
 No phone-specific weakness, tool, operation, mechanic or developer shortcut
-exists. Removing the credential tool removes the offer without touching the
+exists. Removing the credential tool — the installed Flipper, or the Credential
+Access Module from its build — removes the offer without touching the
 Knowledge, exactly as for any other target. The only thing that differs after
 entry is which operating surface the Shell presents.
 

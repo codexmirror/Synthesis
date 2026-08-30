@@ -4,6 +4,7 @@ import nodeUiCss from './nodeui.css?raw'
 import baseCss from './base.css?raw'
 import appsCss from '../apps/apps.css?raw'
 import networkCss from '../apps/network/network.css?raw'
+import flipperCss from '../apps/flipper/flipper.css?raw'
 import processesCss from '../apps/processes/processes.css?raw'
 import mailCss from '../apps/mail/mail.css?raw'
 import terminalCss from '../apps/terminal/terminal.css?raw'
@@ -12,6 +13,7 @@ import shellCss from '../shell/shell.css?raw'
 import rackosCss from '../apps/rackos/rackos.css?raw'
 import veyraCss from '../apps/veyra/veyra.css?raw'
 import filesSource from '../apps/files/Files.tsx?raw'
+import flipperSource from '../apps/flipper/Flipper.tsx?raw'
 import marketSource from '../apps/market/Market.tsx?raw'
 import systemSource from '../apps/system/System.tsx?raw'
 import walletSource from '../apps/wallet/Wallet.tsx?raw'
@@ -37,9 +39,9 @@ import veyraSettingsSource from '../apps/veyra/VeyraSettings.tsx?raw'
  * styled by none, and Terminal referenced an undefined `--muted`.
  */
 
-const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, shellCss]
+const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, flipperCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss, veyraCss]
-const applicationSources = [filesSource, marketSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
+const applicationSources = [filesSource, flipperSource, marketSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
 function referencedCustomProperties(css: string): string[] {
   return [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1])
@@ -107,6 +109,7 @@ describe('NODE-OS presentation language', () => {
       [networkCss, 'scan-app'],
       [processesCss, 'activity-monitor'],
       [appsCss, 'files-app'],
+      [flipperCss, 'flipper-app'],
       [appsCss, 'system-app'],
       [walletCss, 'wallet-app'],
       [mailCss, 'mail-app'],
@@ -157,7 +160,7 @@ describe('NODE-OS presentation language', () => {
     // Market states the Market it is presenting, which is a different operating
     // identity from the local Device the Shell names: NODE-OS supplies the client,
     // not the catalog.
-    const carries = [['Files', filesSource], ['Market', marketSource], ['System', systemSource], ['Terminal', terminalSource], ['Activity Monitor', processesSource], ['NodeMail', mailSource]] as const
+    const carries = [['Files', filesSource], ['Flipper', flipperSource], ['Market', marketSource], ['System', systemSource], ['Terminal', terminalSource], ['Activity Monitor', processesSource], ['NodeMail', mailSource]] as const
     for (const [name, source] of carries) {
       // Anchored on the class boundary: `node-masthead-subject` alone is a
       // child element, not evidence that the masthead itself is present.
@@ -254,7 +257,7 @@ describe('NODE-OS presentation language', () => {
     expect(editableClasses.size).toBeGreaterThan(0)
 
     const tooSmall: string[] = []
-    for (const [name, css] of [['apps', appsCss], ['network', networkCss], ['processes', processesCss], ['mail', mailCss], ['terminal', terminalCss], ['wallet', walletCss]] as const) {
+    for (const [name, css] of [['apps', appsCss], ['network', networkCss], ['processes', processesCss], ['mail', mailCss], ['terminal', terminalCss], ['wallet', walletCss], ['flipper', flipperCss]] as const) {
       for (const rule of stripComments(css).matchAll(/([^{}]+){([^}]*)}/g)) {
         const [, selector, body] = rule
         // A pseudo-element is not the control itself, and the zoom decision

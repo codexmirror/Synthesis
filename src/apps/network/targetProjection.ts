@@ -1,4 +1,5 @@
-import { basicCredentialToolkitSupports, findInstalledBasicCredentialToolkit, findInstalledNodeScan, findInstalledRollbackExploitToolkit, nodeScanSupportsInspect, rollbackExploitToolkitSupports } from '../../core/game/software'
+import { findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
+import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper, flipperSupportsTechnique } from '../../core/game/flipper'
 import type {
   CredentialAccessProcess,
   GameState,
@@ -86,6 +87,8 @@ export interface TargetRoute {
   readonly vulnerabilityId: string
   readonly vulnerabilityLabel: string
   readonly toolName: string
+  /** The concrete integrated Flipper module that supports this technique, where one is represented. */
+  readonly moduleName?: string
   /** Remembered implementation fingerprint, where a legitimate Inspect stored one. */
   readonly implementation?: string
 }
@@ -124,6 +127,8 @@ export interface PackageSubmissionRoute {
   readonly vulnerabilityId: string
   readonly vulnerabilityLabel: string
   readonly toolName: string
+  /** The concrete integrated Flipper module that supports this technique, where one is represented. */
+  readonly moduleName?: string
 }
 
 /**
@@ -338,6 +343,12 @@ export function selectTargets(information: PlayerInformation): readonly TargetSu
   })
 }
 
+/** The concrete module name for a technique, where one of Flipper's represented modules supplies it. */
+function moduleNameFor(vulnerabilityId: string): string | undefined {
+  const moduleId = (Object.keys(FLIPPER_MODULE_TECHNIQUE) as (keyof typeof FLIPPER_MODULE_TECHNIQUE)[]).find((id) => FLIPPER_MODULE_TECHNIQUE[id] === vulnerabilityId)
+  return moduleId ? FLIPPER_MODULE_NAME[moduleId] : undefined
+}
+
 export function selectTarget(information: PlayerInformation, deviceId: string): Target | undefined {
   const device = information.discovery.devices.find(({ id }) => id === deviceId)
   if (!device) return undefined
@@ -348,7 +359,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const established = accessFor(information, device.id)
   const activeAccess = established.find(({ id }) => id === information.remoteSession.active?.accessId)
   const serviceName = (serviceId: string) => device.services.find(({ id }) => id === serviceId)?.name
-  const toolkit = findInstalledBasicCredentialToolkit(information.player.localDevice)
+  const flipper = findInstalledFlipper(information.player.localDevice)
   const nodeScan = findInstalledNodeScan(information.player.localDevice)
 
   const routes: TargetRoute[] = []
@@ -369,19 +380,21 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    // Exactly one represented credential tool exists, so where it supports a
-    // weakness the player has actually learned about, there is no meaningful
-    // choice to force on them. The tool stays a real requirement: without the
-    // installation, or without the Knowledge, no route is formed at all.
-    const supported = toolkit && weaknesses.find(({ id }) => basicCredentialToolkitSupports(toolkit, id))
-    if (toolkit && supported && !viaAccess) {
+    // Exactly one represented offensive tool exists, so where the installed
+    // Flipper build integrates a module supporting a weakness the player has
+    // actually learned about, there is no meaningful choice to force on them.
+    // The tool stays a real requirement: without the installed build actually
+    // containing that module, or without the Knowledge, no route is formed.
+    const supported = flipper && weaknesses.find(({ id }) => flipperSupportsTechnique(flipper, id))
+    if (flipper && supported && !viaAccess) {
       routes.push({
         serviceId: service.id,
         serviceName: service.name,
         endpoint: service.endpoint,
         vulnerabilityId: supported.id,
         vulnerabilityLabel: supported.label,
-        toolName: toolkit.name,
+        toolName: flipper.name,
+        ...(moduleNameFor(supported.id) ? { moduleName: moduleNameFor(supported.id)! } : {}),
         ...(observed ? { implementation: observed.implementation } : {}),
       })
     }
@@ -488,14 +501,12 @@ function selectPackageSubmission(information: PlayerInformation, deviceId: strin
   const running = attack.find(({ status }) => status === 'running')
   const lastAttack = [...attack].reverse().find((process) => process.status === 'completed' && process.result)?.result
 
-  const toolkit = findInstalledRollbackExploitToolkit(information.player.localDevice)
+  const flipper = findInstalledFlipper(information.player.localDevice)
   const weakness = rackUpdate.weaknesses.find(({ id }) => id === 'UPD-001')
-  // Exactly one represented rollback-exploit tool currently exists, so where
-  // it supports a weakness the player has actually learned about, there is no
-  // meaningful choice to force on them. The tool stays a real requirement:
-  // without the installation the opportunity is never formed at all.
-  const route: PackageSubmissionRoute | undefined = !enabled && toolkit && weakness && rollbackExploitToolkitSupports(toolkit, weakness.id)
-    ? { vulnerabilityId: weakness.id, vulnerabilityLabel: weakness.label, toolName: toolkit.name }
+  // The tool stays a real requirement: without a Flipper build that actually
+  // integrates the Rollback Module, the opportunity is never formed at all.
+  const route: PackageSubmissionRoute | undefined = !enabled && flipper && weakness && flipperSupportsTechnique(flipper, weakness.id)
+    ? { vulnerabilityId: weakness.id, vulnerabilityLabel: weakness.label, toolName: flipper.name, ...(moduleNameFor(weakness.id) ? { moduleName: moduleNameFor(weakness.id)! } : {}) }
     : undefined
 
   const submission = information.rackUpdate.submission.active

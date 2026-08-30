@@ -67,7 +67,7 @@ const cards = () => Array.from(monitor().querySelectorAll('.am-activity')) as HT
 const fact = (scope: HTMLElement, label: string) => within(scope).getByText(label).parentElement?.querySelector('dd')?.textContent
 
 describe('Processes application integration', () => {
-  it('is a canonical app while Network remains registered', () => { expect(appEntries).toHaveLength(9); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network') })
+  it('is a canonical app while Network remains registered', () => { expect(appEntries).toHaveLength(10); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network') })
 
   it('presents a truthful idle system summary and empty state', () => {
     render(<GameProvider><Processes /></GameProvider>)
@@ -169,8 +169,8 @@ describe('Processes application integration', () => {
     const credential: GameState = { ...base,
       deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
       process: { nextId: 3, processes: [
-        { kind: 'credential_access', id: 'process-0001', label: 'CREDENTIAL ACCESS', executorDeviceId: base.player.localDevice.id, status: 'completed', workRequired: 1200, workCompleted: 1200, ramRequiredMiB: 896, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:22', vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit', result: { status: 'access_established', accessId: 'access-0001' } },
-        { kind: 'credential_access', id: 'process-0002', label: 'CREDENTIAL ACCESS', executorDeviceId: base.player.localDevice.id, status: 'completed', workRequired: 1200, workCompleted: 1200, ramRequiredMiB: 896, targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', startedEndpoint: '203.0.113.42:22', vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } },
+        { kind: 'credential_access', id: 'process-0001', label: 'CREDENTIAL ACCESS', executorDeviceId: base.player.localDevice.id, status: 'completed', workRequired: 1200, workCompleted: 1200, ramRequiredMiB: 896, targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:22', vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access', result: { status: 'access_established', accessId: 'access-0001' } },
+        { kind: 'credential_access', id: 'process-0002', label: 'CREDENTIAL ACCESS', executorDeviceId: base.player.localDevice.id, status: 'completed', workRequired: 1200, workCompleted: 1200, ramRequiredMiB: 896, targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', startedEndpoint: '203.0.113.42:22', vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } },
       ] } }
     render(<GameProvider initialState={credential}><Processes /></GameProvider>)
     expect(screen.getByText('ACCESS ESTABLISHED')).toBeInTheDocument()

@@ -106,6 +106,25 @@ GAMEPLAY BEHAVIOR
   Different behavior requires an explicitly represented build-specific fact or
   concrete transformation mechanic; runtime must never infer changed behavior
   merely because two artifacts have different `buildId` values.
+- A concrete mechanic may transform an installed product into a **different
+  build of the same release**. Flipper module integration is the implemented
+  precedent (`docs/current/FILES_SOFTWARE.md`): completing integration of the
+  currently represented Rollback Module 1.0 build keeps `productId` and
+  `releaseId`, and moves the installation to the one other explicit Flipper
+  1.0 build authored for that outcome, growing that build's represented size
+  by the module's own size. What changed behavior comes from is the
+  explicitly represented state the mechanic wrote — Flipper's own
+  `integratedModules` — never from the build identity being different, and
+  the capability check reads that state rather than parsing or comparing the
+  build ID. Admission recognizes this input by its exact release and build
+  identity, the same way ordinary package recognition works; a different
+  concrete artifact carrying the same module identity is not treated as
+  equivalent. This precedent authors each resulting build explicitly for the
+  one transition it represents. It does not establish that every future
+  transformation must derive its build ID deterministically from a module or
+  semantic-state set, or that every transformation's input artifact must
+  always survive unconsumed — those remain decisions for the mechanic that
+  introduces them, made on their own concrete terms.
 
 ### Software package
 

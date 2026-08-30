@@ -130,6 +130,10 @@ function toOperationSubject(process: Exclude<GameProcess, NodeMinerProcess>, dis
   if (process.kind === 'generic') return { title: process.label }
   if (process.kind === 'software_installation') return { titleLabel: 'PACKAGE', title: `${process.name} ${process.version}` }
   if (process.kind === 'software_removal') return { titleLabel: 'SOFTWARE', title: `${process.name} ${process.version}` }
+  // Module integration transforms an installed host product rather than reaching a target,
+  // so its subject is the module being integrated and its relationship line states the host
+  // product this work is snapshotted against, from the Process's own recorded identity.
+  if (process.kind === 'flipper_module_integration') return { titleLabel: 'MODULE', title: `${process.moduleName} ${process.moduleVersion}`, route: process.hostProductId.toUpperCase() }
   const remembered = discovery.devices
     .find(({ id }) => id === process.targetDeviceId)?.services
     .find(({ id }) => id === process.serviceId)?.name
@@ -223,6 +227,11 @@ function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[
     if (process.result?.status === 'installed') return { tone: 'positive', headline: 'INSTALLED', details: [] }
     if (process.result?.status === 'install_path_occupied') return { tone: 'negative', headline: 'INSTALLATION PATH OCCUPIED', details: [] }
     if (process.result?.status === 'target_unavailable') return { tone: 'negative', headline: 'TARGET UNAVAILABLE', details: [] }
+  }
+  if (process.kind === 'flipper_module_integration') {
+    if (process.result?.status === 'integrated') return { tone: 'positive', headline: 'MODULE INTEGRATED', details: [process.result.buildId] }
+    if (process.result?.status === 'already_integrated') return { tone: 'neutral', headline: 'ALREADY INTEGRATED', details: [] }
+    if (process.result?.status === 'host_unavailable') return { tone: 'negative', headline: 'HOST UNAVAILABLE', details: [] }
   }
   if (process.kind === 'software_removal') {
     if (process.result?.status === 'baseline_restored') return { tone: 'positive', headline: 'BASELINE RESTORED', details: [] }

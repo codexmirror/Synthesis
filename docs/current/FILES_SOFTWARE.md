@@ -4,7 +4,9 @@ Status: Accepted
 Scope: The Device-owned filesystem, the Files application, the FileTransfer
 runtime (Download and Upload), software packages and recognition, Software
 Installation on the local Device and on a represented remote Device, Software
-Removal, executables and RUN admission, and the local software
+Removal, executables and RUN admission, Flipper module artifacts and the
+concrete module-integration mechanic that transforms an installed Flipper into
+a different build of the same release, and the local software
 information/management lifecycle, as currently implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
@@ -19,8 +21,8 @@ products, releases, and their player-facing documentation belong to
 ## Filesystem and the Files application
 
 The player's local Device owns a canonical filesystem. It represents exactly
-three explicit filesystem file kinds: text files, software-package files, and
-executable files. Each concrete copy has an `id` that is unique and stable
+four explicit filesystem file kinds: text files, software-package files,
+software-module files, and executable files. Each concrete copy has an `id` that is unique and stable
 within its filesystem; `path` is its current location rather than identity. A
 filesystem-owned monotonic counter allocates deterministic IDs using destination
 state alone. Raw IDs may coincide across Devices, so cross-Device references
@@ -31,8 +33,8 @@ software-package artifact `/home/user/downloads/node-miner-1.0.pkg`.
 The Files application begins at `/home/user`, states the current path and the
 local Device in its masthead, shows an explicit parent row, derives its
 directory listing from that filesystem, and presents type and byte size plus
-coherent text, software-package, or executable details according to the file's
-explicit kind. A software-package row also carries its derived state —
+coherent text, software-package, software-module, or executable details
+according to the file's explicit kind. A software-package row also carries its derived state —
 INSTALLED, INSTALLABLE, INSTALLING, REMOVING, PROTECTED or UNRECOGNIZED — from the same
 canonical installed software, running local software-installation Process
 state, and normal package recognition of the artifact's current path. INSTALLING
@@ -48,9 +50,13 @@ and the opaque release ID stay behind a RELEASE INFORMATION disclosure that is
 closed by default and can be reopened and closed again: information is
 available without being permanently expanded.
 A path that does not resolve is stated explicitly rather than rendered as
-nothing. Text byte size is derived from
-its UTF-8 content. Package and executable byte sizes are explicit represented
-artifact data because their actual payloads are not modeled. Storage capacity,
+nothing. A software-module row and detail state what the artifact is, the host
+product it belongs to, the technique its module supplies, and whether the
+installed host build already integrates it — and deliberately offer no INSTALL,
+because a module is not installable software. Integration is admitted from
+Flipper, the application that owns that operation. Text byte size is derived from
+its UTF-8 content. Package, module and executable byte sizes are explicit
+represented artifact data because their actual payloads are not modeled. Storage capacity,
 usage, and disk-full behavior are intentionally not represented. Terminal
 provides local `ls` and type-aware `cat` commands over the same filesystem
 truth; `cat` rejects software packages rather than fabricating text.
@@ -236,10 +242,15 @@ no closed product whitelist: the package artifact's stable `productId`, opaque
 `releaseId`, stable concrete `buildId`, name, version, and stated channel and publisher where the package
 actually represents either, are the authoritative ordinary installation facts.
 Channel and publisher are both release presentation metadata rather than
-required fields; a release that represents neither (for example the Rollback
-Exploit Toolkit) keeps that absence through the package, the installation
-Process, and the resulting InstalledSoftware, rather than settling for an
-invented or inherited value.
+required fields; a release that represents neither (for example GateSSH 1.3.3)
+keeps that absence through the package, the installation Process, and the
+resulting InstalledSoftware, rather than settling for an invented or inherited
+value.
+
+A `software_module` artifact is never admitted here at all. Installation reads
+only `software_package` artifacts and rejects any other kind as
+`not_software_package` before recognition or product support is considered, so
+no module can become InstalledSoftware through any path.
 
 Normal NODE-OS package installation does, however, require the artifact's
 current concrete path to end in exactly `.pkg`, case-sensitively
@@ -484,13 +495,16 @@ A software package remains, exactly as this document and
 `docs/design/SOFTWARE_AUTHORING.md` define it, a file on a Device-owned
 filesystem. The represented software Market adds no exception: what it offers
 before a download is a *distribution* — represented offer and source truth
-about a release and its byte size — not an artifact. No `software_package`,
-file ID or path exists for a Market offering until its transfer completes, at
-which point completion creates one ordinary local package artifact to which
-every rule in this document then applies unchanged. GateSSH 1.3.3 and the
-Rollback Exploit Toolkit 1.0 are distributable that way for the first time,
-each keeping exactly the channel and publisher its own authored release
-actually represents — which for both is none. See `docs/current/MARKET.md`.
+about a release and its byte size — not an artifact. No artifact, file ID or
+path exists for a Market offering until its transfer completes, at which point
+completion creates one ordinary local artifact of exactly the kind that
+offering distributes, to which every rule in this document then applies
+unchanged. GateSSH 1.3.3 is distributable that way for the first time, keeping
+exactly the channel and publisher its own authored release actually represents
+— which is none. The Flipper Rollback Module is distributed the same way as a
+`software_module` artifact rather than a package: its completion creates a
+module artifact and no InstalledSoftware, and installation never admits it. See
+`docs/current/MARKET.md`.
 
 The continuous Miner runtime is owned by
 `docs/current/PROCESSES_ACTIVITY.md`; what it produces, routes, and records
@@ -558,6 +572,107 @@ the shared NODE Miner Terminal integration's deeper control path on both
 NODE-OS and RACK-OS, owned by `docs/current/NODE_ECONOMY.md`.
 
 
+## Flipper and module integration
+
+Flipper is the player's one installed offensive/access product
+(`productId: 'flipper'`, release `flipper-1.0`, published by NODE), and the
+only installed software that supplies offensive technique support. A **module**
+is a concrete technique Flipper can integrate and then execute. Exactly two
+modules are represented: the Credential Access Module (`AUTH-017`) and the
+Rollback Module (`UPD-001`). This is deliberately not a plugin, capability or
+composition framework: two concrete modules, one concrete integration mechanic.
+
+Four things stay separate:
+
+```text
+MODULE                  a technique identity Flipper can contain
+MODULE ARTIFACT         a software_module file on a Device-owned filesystem
+FLIPPER INSTALLATION    the installed product, at one concrete build
+VULNERABILITY           AUTH-017 / UPD-001, owned by the access and service
+                        systems (docs/current/NETWORK_ACCESS.md)
+```
+
+A `FlipperInstallation` is ordinary InstalledSoftware plus two concrete facts
+its build owns: `integratedModules` — the modules this build actually contains
+— and `sizeBytes`, that build's represented size. `integratedModules` is the
+**only** authority over what Flipper can execute; `buildId` never is. A build
+identity records which build this is, and a `buildId` that differs from the
+canonical one proves nothing about behavior on its own. V1 represents exactly
+two concrete Flipper 1.0 builds, each an explicit authored identity: the
+canonical build below, and the one integration produces.
+
+The initial local Device carries Flipper at its canonical build
+(`build-flipper-1.0-credential-access`), which integrates the Credential Access
+Module alone at 5,600,000 represented bytes. That is what supplies the existing
+first `AUTH-017` opportunity, with no acquisition or integration step. The
+Rollback Module is not integrated: a fresh Device supports no `UPD-001`.
+
+Its module artifact is an ordinary filesystem possession. It keeps its host
+product, stable module identity, module release, concrete module build, name,
+version and size wherever it is copied to, exactly as every other artifact does;
+`id` and `path` are copy identity and location, never module or build identity.
+No installation path admits it, and the Market distributes it as a module rather
+than a package (`docs/current/MARKET.md`).
+
+Integration is real finite work, admitted from Flipper by stable local file ID:
+
+```text
+Flipper: possessed module artifact
+  -> INTEGRATE
+  -> flipper_module_integration GameProcess (local executor, 900 work, 512 MiB)
+  -> completion, at the canonical advancement boundary
+  -> the installed Flipper becomes a different build of the same release
+```
+
+Admission validates current truth once — the artifact must be a possessed
+compatible module, Flipper must be installed, the artifact must be the exact
+release and build V1 currently recognizes for that module (a different
+concrete artifact carrying the same module identity, for example a
+hypothetical future Rollback Module release, is rejected rather than treated
+as equivalent), that module must not already be integrated, and no
+integration of the same module may already be running — and snapshots only
+what completion needs (module identity, module release and build, name,
+version, represented size, plus the source file ID as provenance). It grants
+nothing: until the Process completes, Flipper keeps its build, its size and
+its integrated modules, and the technique remains unsupported. It shares the
+same local CPU/RAM scheduler and contention every other local Process uses.
+
+Completion applies the transformation exactly once, guarded by the same
+`!process.result` pattern every other completion resolver uses:
+
+- the product and release are unchanged — it stays Flipper 1.0;
+- `integratedModules` gains exactly that module, in canonical module order, and
+  every module already integrated is retained;
+- `sizeBytes` grows by exactly the module's own represented size;
+- `buildId` becomes the one other explicit Flipper 1.0 build V1 authors for
+  this outcome (`FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID`) — an authored
+  identity for this one concrete transition, not a value composed at runtime
+  from the integrated module set;
+- the technique that module supplies becomes available to the existing
+  admission checks, through `flipperSupportsTechnique` and nothing else.
+
+This integration keeps its source module artifact: completion never consumes,
+moves or deletes it, so after integration it remains an ordinary owned file
+the player may keep, copy, upload or delete, and deleting it takes nothing
+away from the build that already contains the module.
+
+Repetition cannot compound. Admission rejects a module the installed build
+already integrates — including a second concrete copy of the same module
+artifact, which is the same module — and a Process that completes after the
+module arrived by some other route resolves as a truthful `already_integrated`
+result that mutates nothing. Size therefore grows once per module, and no
+further build is fabricated.
+
+The Flipper application is that mechanic's surface. It states the installed
+product, its release, its current concrete build, that build's represented
+size, every represented module with whether this build integrates it, and the
+possessed module artifacts with the one action available. Every value is read
+from canonical installed software, the local filesystem and running Process
+state; a canonical admission failure is reported as-is rather than as
+fabricated integration state, and an absent Flipper is stated plainly rather
+than presented as an empty tool. It performs no reconnaissance, discovers
+nothing, and reads no hidden World Truth.
+
 ## Software Removal
 
 REMOVE admits removal of the currently installed release of one product into
@@ -593,11 +708,12 @@ when the artifact at the deterministic installed path
 (`/usr/local/bin/node-miner`) still represents the exact release and build removal was
 admitted against, deletes that executable — an unrelated or already-replaced
 artifact occupying that path is left untouched, and the downloaded package
-artifact is never touched either way. The Basic Credential Toolkit is
-conceptually ordinary preinstalled software, not protected NODE-OS baseline
-software, but V1 has no represented acquisition/reinstallation path for it:
-REMOVE rejects it as unsupported for removal in this V1 rather than silently
-treating it as a system app.
+artifact is never touched either way. Flipper is conceptually ordinary
+preinstalled software, not protected NODE-OS baseline software, but V1 has no
+represented acquisition/reinstallation path for it — and removing it would also
+strip integrated modules the player could not obtain again: REMOVE rejects it
+as unsupported for removal in this V1 rather than silently treating it as a
+system app.
 
 An already-running `NodeMinerProcess` is a distinct, independent runtime from
 NODE Miner's InstalledSoftware and executable, and REMOVE never touches it:
@@ -663,9 +779,12 @@ changes). That documentation is descriptive presentation only: concrete game
 operations and release-specific rules remain gameplay authority, and release
 copy never discloses hidden target or runtime truth. System starts the existing
 finite removal operation, presenting removal of NodeScan 1.1 Experimental as
-restoration of the protected NodeScan 1.0 Standard NODE-OS baseline. Basic
-Credential Toolkit remains ordinary preinstalled software whose removal is
-unsupported in V1, while NODE Miner remains ordinary removable software.
+restoration of the protected NodeScan 1.0 Standard NODE-OS baseline. Flipper
+remains ordinary preinstalled software whose removal is unsupported in V1,
+while NODE Miner remains ordinary removable software. Flipper is also the one
+installed product whose expanded row states more than a release: its concrete
+build, that build's represented size, and the modules it integrates, all read
+from the installation itself.
 
 Files remains the filesystem/package surface. Software package details reuse the
 same release documentation and expose installation and observed package state,
@@ -685,6 +804,21 @@ state.
   downgrade, or reclassify it.
 - Release ≠ Build ≠ Package ≠ InstalledSoftware ≠ Executable ≠ Process.
   Concrete build identity survives the latter lifecycle without becoming file-copy identity.
+- A module is not software. A `software_module` artifact never becomes
+  InstalledSoftware and never installs; it is integrated into an
+  already-installed host product, and that host is the installed product. This
+  V1 module artifact has no direct execution path of its own — that is a
+  currently absent capability, not a durable claim that a module could never
+  run.
+- A module is not a Vulnerability and not Knowledge. Possessing or integrating
+  one discovers nothing and creates no remembered evidence.
+- Flipper's capability is `integratedModules`, never `buildId`. A different
+  build identity is provenance; it must never be read as evidence that a
+  technique is supported, and a technique must never be inferred from a build
+  ID's shape.
+- Integration never consumes the source artifact, and repeating it cannot
+  duplicate a module, grow the represented size again, or fabricate a further
+  build.
 - Installation is Device-targeted, not permanently local. `executorDeviceId` is
   the Device being installed onto, and completion applies its consequence
   there. Never infer the target from a package path, an address, a Session, or

@@ -16,6 +16,7 @@ import { installCommand } from './commands/install'
 import { inspectCommand } from './commands/inspect'
 import { nodeMinerCommand } from './commands/nodeMiner'
 import { nodeScanSupportsInspect } from '../../core/game/software'
+import { findInstalledFlipper } from '../../core/game/flipper'
 import type { NodeScanInstallation } from '../../core/game/types'
 
 function commandEntries(names: readonly string[]): [string, TerminalCommand][] {
@@ -25,14 +26,15 @@ function commandEntries(names: readonly string[]): [string, TerminalCommand][] {
 export const commands: Record<string, TerminalCommand> = {
   help: createHelpCommand(({ localDevice, nodeMiner }) => {
     const nodeScan = localDevice.installedSoftware.find((software): software is NodeScanInstallation => software.id === 'nodescan')
-    const toolkit = localDevice.installedSoftware.find(({ id }) => id === 'basic-credential-toolkit')
-    const rollbackToolkit = localDevice.installedSoftware.find(({ id }) => id === 'rollback-exploit-toolkit')
+    const flipper = findInstalledFlipper(localDevice)
     const nodeMinerSoftware = localDevice.installedSoftware.find(({ id }) => id === 'node-miner')
     return [
       { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'install', 'connect', 'disconnect']) },
       ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version}${nodeScan.channel ? ` ${nodeScan.channel.toUpperCase()}` : ''}`, commands: commandEntries(nodeScanSupportsInspect(nodeScan) ? ['ping', 'scan', 'inspect', 'analyze'] : ['ping', 'scan', 'analyze']) }] : []),
-      ...(toolkit ? [{ heading: `${toolkit.name.toUpperCase()} ${toolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }]
-        : rollbackToolkit ? [{ heading: `${rollbackToolkit.name.toUpperCase()} ${rollbackToolkit.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
+      // One offensive product now supplies `attack`. Which techniques it can
+      // actually execute is the installed build's integrated module state,
+      // resolved by the canonical operation rather than by this listing.
+      ...(flipper?.integratedModules.length ? [{ heading: `${flipper.name.toUpperCase()} ${flipper.version}`, commands: [['attack', commands.attack] as [string, TerminalCommand]] }] : []),
       ...(nodeMiner.available && nodeMinerSoftware ? [{ heading: `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, commands: [['node-miner', commands['node-miner']] as [string, TerminalCommand]] }] : []),
     ]
   }),

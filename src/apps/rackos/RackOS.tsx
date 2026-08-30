@@ -7,7 +7,7 @@ import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
 import { deriveSoftwarePackageEligibility, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
 import { deriveNodeMinerRuntimeStatus, findNodeMinerExecutable, findRunningNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartRemoteNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
-import type { AuthenticationHistoryRecord, GameState, ExecutableFile, FilesystemFile, FilesystemState, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile } from '../../core/game/types'
+import type { AuthenticationHistoryRecord, GameState, ExecutableFile, FilesystemFile, FilesystemState, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile, SoftwareModuleFile } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
@@ -192,7 +192,9 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
         ? <pre className="rack-file-content">{result.file.content}</pre>
         : result.file.kind === 'software_package'
           ? <RemotePackage key={selected} file={result.file} target={context.target} process={state.process} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
-          : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
+          : result.file.kind === 'software_module'
+            ? <RemoteModule key={selected} file={result.file} />
+            : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
           player is operating it stays secondary to that Device's own software and
           execution state. A text file has no such state, so it keeps no label. */}
@@ -248,6 +250,23 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
  * It deliberately offers no live payout retarget: that is the RACK-OS
  * Terminal's deeper control path, not a graphical convenience.
  */
+/**
+ * A module artifact on an operated Device. RACK-OS represents it truthfully as
+ * a possessed artifact and nothing more: module integration is a NODE-OS
+ * Flipper operation on the local Device, so no remote action exists for it.
+ */
+function RemoteModule({ file }: { file: SoftwareModuleFile }) {
+  return <div className="rack-artifact">
+    <p className="rack-artifact-kind">SOFTWARE MODULE</p>
+    <h2>{file.name}</h2>
+    <p className="rack-artifact-release">{file.version}</p>
+    <dl className="rack-facts rack-facts--dense">
+      <div><dt>HOST</dt><dd>{file.hostProductId}</dd></div>
+      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+    </dl>
+  </div>
+}
+
 function RemoteExecutable({ file, targetDisplayName, runningProcess, nodeWalletAddress, run, stop }: {
   file: ExecutableFile
   targetDisplayName: string
@@ -532,6 +551,6 @@ function AuthenticationHistory({ records }: { records: readonly AuthenticationHi
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
-function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : 'EXECUTABLE' }
+function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : 'EXECUTABLE' }
 
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

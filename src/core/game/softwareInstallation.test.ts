@@ -590,14 +590,14 @@ describe('installRemoteSoftwarePackage', () => {
     const state = operating((host) => ({ ...host, installedSoftware: [
       ...host.installedSoftware!,
       { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', buildId: 'build-packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' },
-      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', buildId: 'build-fixture-v0', name: 'Basic Credential Toolkit', version: '1.0' },
+      { id: 'flipper', releaseId: 'flipper-1.0', buildId: 'build-fixture-v0', name: 'Flipper', version: '1.0', integratedModules: ['credential-access'], sizeBytes: 5_600_000 },
     ] }))
     const started = installRemoteSoftwarePackage(state, REMOTE_PACKAGE_PATH)
     if (started.status !== 'started') throw new Error(started.status)
     expect(target(advanceGameState(started.state, 20_000)).installedSoftware).toEqual([
       expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
       { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
-      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', buildId: 'build-fixture-v0', name: 'Basic Credential Toolkit', version: '1.0' },
+      { id: 'flipper', releaseId: 'flipper-1.0', buildId: 'build-fixture-v0', name: 'Flipper', version: '1.0', integratedModules: ['credential-access'], sizeBytes: 5_600_000 },
     ])
   })
 

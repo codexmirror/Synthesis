@@ -1,6 +1,7 @@
 import './terminal.css'
 import { useEffect, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
+import { FLIPPER_MODULE_NAME } from '../../core/game/flipper'
 import { useTerminalInteraction } from './useTerminalInteraction'
 import { dispatchNodeCommand } from './nodeCommandAdapter'
 import type { TerminalLine } from './commandTypes'
@@ -63,7 +64,7 @@ function CompletedProcessProjection({ completed }: { completed: CompletedProject
 }
 
 function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess; gameState: ReturnType<typeof useGameState>; cpu: number }) {
-  if (!process || process.kind === 'generic' || process.kind === 'node_miner' || process.kind === 'software_installation' || process.kind === 'software_removal') return <div className="process-projection"><strong>PROCESS UNAVAILABLE</strong></div>
+  if (!process || process.kind === 'generic' || process.kind === 'node_miner' || process.kind === 'software_installation' || process.kind === 'software_removal' || process.kind === 'flipper_module_integration') return <div className="process-projection"><strong>PROCESS UNAVAILABLE</strong></div>
   const progress = Math.min(100, Math.floor(process.workCompleted / process.workRequired * 100))
   const filled = Math.round(progress / 10)
   const accessId = process.kind === 'credential_access' && process.result?.status === 'access_established' ? process.result.accessId : undefined
@@ -71,8 +72,7 @@ function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess;
   return <section className="process-projection" aria-label={`${process.label} ${process.status}`}>
     <strong>{process.label}</strong>
     <div><TargetToken value={process.startedEndpoint} scope="external" /></div>
-    {process.kind === 'credential_access' && process.status === 'running' && <div className="muted">Basic Credential Toolkit</div>}
-    {process.kind === 'rack_update_exploit' && process.status === 'running' && <div className="muted">Rollback Exploit Toolkit</div>}
+    {(process.kind === 'credential_access' || process.kind === 'rack_update_exploit') && process.status === 'running' && <div className="muted">Flipper · {FLIPPER_MODULE_NAME[process.moduleId]}</div>}
     <div className="process-state">{process.status.toUpperCase()}</div>
     {process.status === 'running' ? <>
       <div aria-label={`${progress}% complete`}><span aria-hidden="true">{'█'.repeat(filled)}{'░'.repeat(10 - filled)}</span> {progress}%</div>
@@ -103,7 +103,7 @@ export function Terminal() {
       const next = current.map((entry): Entry => {
         if (!('processId' in entry) || entry.completed) return entry
         const process = gameState.process.processes.find(({ id }) => id === entry.processId)
-        if (!process || process.kind === 'generic' || process.kind === 'software_installation' || process.kind === 'software_removal' || process.status !== 'completed' || !process.result) return entry
+        if (!process || process.kind === 'generic' || process.kind === 'software_installation' || process.kind === 'software_removal' || process.kind === 'flipper_module_integration' || process.status !== 'completed' || !process.result) return entry
         let completed: CompletedProjection
         if (process.kind === 'service_analysis') {
           completed = process.result.status === 'weaknesses_detected'

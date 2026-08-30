@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { Files } from '../apps/files/Files'
+import { Flipper } from '../apps/flipper/Flipper'
 import { Market } from '../apps/market/Market'
 import { Mail } from '../apps/mail/Mail'
 import { Network } from '../apps/network/Network'
@@ -17,6 +18,7 @@ export const appRegistry = {
   mail: { label: 'NodeMail', component: Mail },
   processes: { label: 'Processes', component: Processes },
   files: { label: 'Files', component: Files },
+  flipper: { label: 'Flipper', component: Flipper },
   market: { label: 'Market', component: Market },
   wallet: { label: 'Wallet', component: Wallet },
   notes: { label: 'Notes', component: Notes },

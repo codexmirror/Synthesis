@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 48', () => {
+  it('separates identities and seeds canonical local-device state in schema version 49', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(48)
+    expect(GAME_STATE_VERSION).toBe(49)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(48)
+    expect(state.version).toBe(49)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The represented NODE recipients besides the local Wallet: the unofficial Miner release's own developer account and the Market operator's own settlement account, both starting empty.
@@ -77,12 +77,16 @@ describe('createInitialGameState', () => {
     })
     expect(state.player.localDevice.installedSoftware).toEqual([
       { id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', name: 'NodeScan', version: '1.0', channel: 'standard' },
-      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', buildId: 'build-basic-credential-toolkit-1.0-v0', name: 'Basic Credential Toolkit', version: '1.0' },
+      // One offensive/access product, whose canonical build concretely integrates the Credential Access Module.
+      { id: 'flipper', releaseId: 'flipper-1.0', buildId: 'build-flipper-1.0-credential-access', name: 'Flipper', version: '1.0', channel: 'standard', publisher: 'NODE', integratedModules: ['credential-access'], sizeBytes: 5_600_000 },
     ])
+    // The standalone offensive toolkits no longer exist as installed software at all.
+    expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'basic-credential-toolkit' }))
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'gate-ssh' }))
-    // The Rollback Exploit Toolkit is not preinstalled: the Market is its represented acquisition path, not default Current Truth.
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'rollback-exploit-toolkit' }))
+    // The Rollback Module is not integrated into the initial build: the Market is its represented acquisition path, not default Current Truth.
+    expect(state.player.localDevice.filesystem.files.some(({ kind }) => kind === 'software_module')).toBe(false)
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })

@@ -3,7 +3,7 @@ import { findMarketOffer, isMarketOfferPurchased } from './market'
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { appendNetworkFileTransferEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
 import { resolveActiveRemoteTarget } from './remoteSession'
-import type { DeviceAccessFileTransfer, FileTransfer, FilesystemFile, FilesystemState, GameState, MarketDistributionFileTransfer, MarketOffer, NetworkHost, SoftwarePackageFile } from './types'
+import type { DeviceAccessFileTransfer, FileTransfer, FilesystemFile, FilesystemState, GameState, MarketDistributionFileTransfer, MarketOffer, NetworkHost } from './types'
 import { archiveFileTransfer } from './recentActivity'
 
 export function deriveDownloadDestinationPath(sourcePath: string): string {
@@ -123,19 +123,26 @@ function marketDistributionSizeBytes(offer: MarketOffer): number {
 }
 
 /**
- * Build the one ordinary `software_package` a completed Market download
- * writes, **at the completion moment only**.
+ * Build the one ordinary artifact a completed Market download writes, **at the
+ * completion moment only** — a `software_package` or a `software_module`,
+ * whichever the offering actually distributes.
  *
- * There is deliberately no `SoftwarePackageFile` for a Market offering before
- * this point: a software package is a file on a Device-owned filesystem, and
- * until the transfer completes there is no artifact, no allocated file ID and
- * no path anywhere. The `id` and `path` below exist only because the shared
- * copy operation allocates the real ones from the destination filesystem and
- * replaces both immediately; neither is ever observable.
+ * There is deliberately no artifact for a Market offering before this point: a
+ * file lives on a Device-owned filesystem, and until the transfer completes
+ * there is no artifact, no allocated file ID and no path anywhere. The `id`
+ * and `path` below exist only because the shared copy operation allocates the
+ * real ones from the destination filesystem and replaces both immediately;
+ * neither is ever observable. A module artifact is written exactly as it is
+ * distributed: completion installs nothing and creates no InstalledSoftware.
  */
-function createCompletedMarketPackage(offer: MarketOffer): SoftwarePackageFile {
-  const { filename, ...release } = offer.distribution
-  return { kind: 'software_package', id: 'pending-market-download', path: `/${filename}`, ...release }
+function createCompletedMarketArtifact(offer: MarketOffer): FilesystemFile {
+  const pending = { id: 'pending-market-download', path: `/${offer.distribution.filename}` }
+  if (offer.distribution.artifact === 'software_module') {
+    const { artifact, filename, ...distributed } = offer.distribution
+    return { kind: 'software_module', ...pending, ...distributed }
+  }
+  const { artifact, filename, ...distributed } = offer.distribution
+  return { kind: 'software_package', ...pending, ...distributed }
 }
 
 export type StartMarketPackageDownloadResult =
@@ -332,7 +339,7 @@ export function advanceFileTransfer(state: GameState, elapsedMs: number): GameSt
      it is a copy of the still-present source file, and for a Market
      distribution it is the ordinary package this completion brings into
      existence on the destination filesystem for the first time. */
-  const completedArtifact = endpoints.origin === 'market_distribution' ? createCompletedMarketPackage(endpoints.offer) : endpoints.sourceFile
+  const completedArtifact = endpoints.origin === 'market_distribution' ? createCompletedMarketArtifact(endpoints.offer) : endpoints.sourceFile
   const copied = copyFilesystemFileToPath(completedArtifact, endpoints.destinationFilesystem, transfer.destinationPath)
   if (copied.status !== 'copied') {
     const interrupted = appendFileTransferNetworkEvidence(state, finalTransfer, 'INTERRUPTED', bytesTransferred)

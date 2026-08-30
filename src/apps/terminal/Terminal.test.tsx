@@ -42,7 +42,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     connectRemoteFromObservation: () => ({ status: 'access_required', state }),
     disconnectRemoteSession: () => ({ status: 'not_connected', state }),
     startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
-    installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(),
+    installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(),
     openMailThread: () => {}, sendMailReply: () => ({ status: 'thread_unavailable', state }),
     clearRecentActivity: () => {}, removeRecentActivity: () => {}, authenticateDollarAccount: () => ({ status: 'invalid_credentials', state }), authenticateDollarAccountWithSavedSignIn: () => ({ status: 'no_saved_sign_in', state }), logoutDollarAccount: () => ({ status: 'not_signed_in', state }), transferDollars: () => ({ status: 'not_signed_in', state }), transferRemoteDollars: () => ({ status: 'session_unavailable', state }), cancelFileTransfer: () => ({ status: 'not_found', state }), purchaseMarketOffer: () => ({ status: 'unknown_offer' as const, state }), startMarketPackageDownload: () => ({ status: 'unknown_offer' as const, state }), cancelLocalProcess: () => ({ status: 'not_cancellable', state }),
     runNodeMiner: () => ({ status: 'source_not_found', state }), stopNodeMiner: () => ({ status: 'not_found', state }),
@@ -253,14 +253,14 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
-      startCredentialAccessAttemptFromObservation, startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+      startCredentialAccessAttemptFromObservation, startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
     expect(startCredentialAccessAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
       endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001',
-      vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit',
+      vulnerabilityId: 'AUTH-017', toolId: 'flipper',
     })
     expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
   })
@@ -274,14 +274,14 @@ describe('Terminal credential access', () => {
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
       pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
-      startCredentialAccessAttemptFromObservation, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
+      startCredentialAccessAttemptFromObservation, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
     })
     render(<Terminal />)
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Command input'), 'attack 203.0.113.42:8443{enter}')
     expect(startRackUpdateExploitAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
       endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002',
-      vulnerabilityId: 'UPD-001', toolId: 'rollback-exploit-toolkit',
+      vulnerabilityId: 'UPD-001', toolId: 'flipper',
     })
     expect(startCredentialAccessAttemptFromObservation).not.toHaveBeenCalled()
   })
@@ -295,7 +295,7 @@ describe('Terminal credential access', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
     expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS running' })).toBeInTheDocument()
-    expect(screen.getByText('Basic Credential Toolkit')).toBeInTheDocument()
+    expect(screen.getByText('Flipper · Credential Access Module')).toBeInTheDocument()
     await act(async () => { vi.advanceTimersByTime(20_000) })
     expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS completed' })).toHaveTextContent('ATTEMPT FAILED')
     expect(screen.getByText('Authentication attempt failed.')).toBeInTheDocument()
@@ -355,7 +355,7 @@ describe('Terminal local installation', () => {
     await user.type(input, `install ${packageFile.path}{enter}`)
     expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
     const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
-    expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }, { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0' }])
+    expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }, { id: 'flipper', releaseId: 'flipper-1.0' }])
     vi.useRealTimers()
   })
 })

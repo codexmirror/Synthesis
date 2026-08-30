@@ -15,7 +15,7 @@ import { Files } from '../files/Files'
 
 const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
-const ROLLBACK_OFFER = 'market-offer-rollback-exploit-toolkit-1.0'
+const ROLLBACK_OFFER = 'market-offer-flipper-rollback-module-1.0'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -66,7 +66,7 @@ describe('Market catalog presentation', () => {
     expect(screen.getByText('5 OFFERINGS')).toBeInTheDocument()
     const rows = screen.getAllByRole('button').filter((button) => button.className === 'node-row')
     expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual([
-      'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Exploit Toolkit',
+      'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
     ])
     expect(rows.map((row) => row.querySelector('small')?.textContent)).toEqual([
       '1.1 · EXPERIMENTAL · 18.4 MB · 0.01 NODE',
@@ -75,7 +75,7 @@ describe('Market catalog presentation', () => {
       // GateSSH 1.3.3 states no channel: no accepted current truth represents one for this
       // exact release, so the row omits the segment rather than inheriting 1.3.2's.
       '1.3.3 · 6.6 MB · 0.01 NODE',
-      // Rollback Exploit Toolkit's authored release states no channel either.
+      // The Rollback Module's authored release states no channel either.
       '1.0 · 2.1 MB · 0.01 NODE',
     ])
   })
@@ -126,14 +126,28 @@ describe('Market catalog presentation', () => {
     expect(screen.getByText('other-publisher')).toBeInTheDocument()
   })
 
-  it('presents the Rollback Exploit Toolkit with no invented channel or publisher', async () => {
+  it('presents the Rollback Module with no invented channel or publisher', async () => {
     renderMarket(createInitialGameState())
-    await open(/Rollback Exploit Toolkit/)
+    await open(/Rollback Module/)
     // No channel is stated, so the release line is version-only rather than a fabricated segment.
     expect(document.querySelector('.node-masthead-meta')).toHaveTextContent('1.0')
     expect(document.querySelector('.node-masthead-meta')).not.toHaveTextContent('·')
     expect(screen.getByText('NOT STATED')).toBeInTheDocument()
     expect(screen.getByText('Open Package Exchange')).toBeInTheDocument()
+  })
+
+  it('presents a module offering as MODULE and points at Flipper, never PACKAGE or Files, once it is on Device', async () => {
+    const purchasedState = purchased(ROLLBACK_OFFER, funded(3 * PRICE))
+    const started = startMarketPackageDownload(purchasedState, ROLLBACK_OFFER)
+    if (started.status !== 'started') throw new Error('expected started')
+    const completed = advanceGameState(started.state, 60_000)
+    renderMarket(completed)
+    await open(/Rollback Module/)
+    expect(stateRow()).toHaveTextContent('ON DEVICE')
+    expect(screen.getByText('MODULE')).toBeInTheDocument()
+    expect(screen.queryByText('PACKAGE')).not.toBeInTheDocument()
+    expect(screen.getByText('The Market ends at acquisition. Open Flipper to integrate this module.')).toBeInTheDocument()
+    expect(screen.queryByText(/Install this package from Files/)).not.toBeInTheDocument()
   })
 })
 
@@ -162,7 +176,7 @@ describe('Market purchase', () => {
     })
     expect(probe().accounts).toContain('node-account-opx-v0:10000')
     expect(probe().accounts).toContain('node-account-nm-dev-v0:0')
-    expect(probe().software).toEqual(['nodescan-1.0-standard', 'basic-credential-toolkit-1.0'])
+    expect(probe().software).toEqual(['nodescan-1.0-standard', 'flipper-1.0'])
     // The lifecycle moves on, and DOWNLOAD is what becomes available — not INSTALL.
     expect(stateRow()).toHaveTextContent('PURCHASED')
     expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeInTheDocument()
@@ -220,6 +234,7 @@ describe('Market download', () => {
     renderMarket(completed)
     await open(/NodeScan/)
     expect(stateRow()).toHaveTextContent('ON DEVICE')
+    expect(screen.getByText('PACKAGE')).toBeInTheDocument()
     expect(screen.getByText('/home/user/downloads/nodescan-exp-1.1.pkg')).toBeInTheDocument()
     expect(screen.getByText('The Market ends at acquisition. Install this package from Files.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'DOWNLOAD' })).not.toBeInTheDocument()

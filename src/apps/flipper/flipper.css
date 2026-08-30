@@ -1,0 +1,12 @@
+/*
+ * Flipper's own small identity, layered on the shared NODE-OS presentation
+ * language rather than replacing it. `.app-content` still owns the scrolling
+ * gutter, so nothing here declares padding on `.flipper-app`.
+ */
+
+.flipper-app { color: var(--text); }
+
+/* The build identity is long and opaque; it wraps rather than pushing the fact row wide. */
+.flipper-build { overflow-wrap: anywhere; }
+
+.flipper-artifact .node-action { flex: none; }

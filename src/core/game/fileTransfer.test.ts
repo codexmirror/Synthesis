@@ -1007,8 +1007,9 @@ describe('Market distribution Download', () => {
     expect(completed.fileTransfer.active).toBeNull()
     const written = getFilesystemFile(completed.player.localDevice.filesystem, MARKET_DESTINATION)
     if (written.status !== 'ok' || written.file.kind !== 'software_package') throw new Error('expected a package artifact')
-    const { filename, ...release } = findMarketOffer(state.market, OFFER_ID)!.distribution
+    const { artifact, filename, ...release } = findMarketOffer(state.market, OFFER_ID)!.distribution
     expect(written.file).toMatchObject(release)
+    expect(written.file.kind).toBe(artifact)
     expect(written.file.id).toBe('file-0003')
     expect(completed.player.localDevice.filesystem.files.filter(({ path }) => path === MARKET_DESTINATION)).toHaveLength(1)
   })

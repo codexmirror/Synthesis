@@ -135,14 +135,14 @@ describe('Wallet NODE section', () => {
     expect(screen.queryByText(/has not received NODE/i)).not.toBeInTheDocument()
   })
 
-  it('renders mining receipts and a Rollback Exploit Toolkit purchase newest-first with signed amounts', () => {
+  it('renders mining receipts and a Rollback Module purchase newest-first with signed amounts', () => {
     const mined = settledMiningState(10_000)
     const funded = { ...mined, nodeWallet: { ...mined.nodeWallet, balanceNodeUnits: mined.nodeWallet.balanceNodeUnits + 10_000 } }
-    const purchased = purchaseMarketOffer(funded, 'market-offer-rollback-exploit-toolkit-1.0')
+    const purchased = purchaseMarketOffer(funded, 'market-offer-flipper-rollback-module-1.0')
     if (purchased.status !== 'purchased') throw new Error(purchased.status)
     render(<GameProvider initialState={purchased.state}><Wallet /></GameProvider>)
     expect(screen.getByText('MARKET PURCHASE')).toBeInTheDocument()
-    expect(screen.getByText('Rollback Exploit Toolkit 1.0')).toBeInTheDocument()
+    expect(screen.getByText('Rollback Module 1.0')).toBeInTheDocument()
     expect(screen.getByText('-10,000 units')).toBeInTheDocument()
     expect(screen.getByText('+670 units')).toBeInTheDocument()
     expect(screen.getAllByText(/MARKET PURCHASE|MINING PAYOUT/).map((element) => element.textContent)).toEqual(['MARKET PURCHASE', 'MINING PAYOUT'])

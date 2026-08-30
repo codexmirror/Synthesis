@@ -13,6 +13,8 @@ import { pingNetworkTarget } from '../../core/game/ping'
 import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
 import { Network } from './Network'
 import { selectKnownSpace, selectTarget, selectTargets } from './targetProjection'
+import { FLIPPER_1_0_CANONICAL_INSTALLATION, ROLLBACK_MODULE_1_0 } from '../../core/game/flipper'
+import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from '../../core/game/softwareReleaseContent'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -66,7 +68,7 @@ function analysisProcess(id: string, serviceId: string, workCompleted: number): 
 }
 
 function credentialProcess(workCompleted: number): CredentialAccessProcess {
-  return { kind: 'credential_access', id: 'process-0009', label: 'CREDENTIAL ACCESS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 896, workRequired: 1200, workCompleted, targetDeviceId: SRV_01, serviceId: 'service-ssh-001', startedEndpoint: `${SRV_01_ADDRESS}:22`, vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit' }
+  return { kind: 'credential_access', id: 'process-0009', label: 'CREDENTIAL ACCESS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 896, workRequired: 1200, workCompleted, targetDeviceId: SRV_01, serviceId: 'service-ssh-001', startedEndpoint: `${SRV_01_ADDRESS}:22`, vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access' }
 }
 
 function withProcesses(state: GameState, processes: GameState['process']['processes']): GameState {
@@ -83,7 +85,7 @@ function actionStubs(): GameContext.GameActions {
     startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(),
     startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
-    installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
+    installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(),
     removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(),
   }
 }
@@ -207,13 +209,13 @@ describe('NodeScan first hack', () => {
     const status = screen.getByLabelText('Target status')
     expect(status).toHaveTextContent('1 WAY IN FOUND')
     expect(status.textContent).not.toContain('AUTH-017')
-    expect(status.textContent).not.toContain('Basic Credential Toolkit')
+    expect(status.textContent).not.toContain('Flipper')
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'BYPASS' }))
     // The tool and the technique are still real: the started attempt carries both.
     expect(currentState().process.processes).toEqual([expect.objectContaining({
-      kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'basic-credential-toolkit', status: 'running',
+      kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access', status: 'running',
     })])
   })
 })
@@ -227,7 +229,7 @@ describe('NodeScan information boundary', () => {
 
     expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route']])
     const target = selectTarget(information, SRV_01)!
-    expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Basic Credential Toolkit' })])
+    expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Flipper', moduleName: 'Credential Access Module' })])
   })
 
   it('offers no way in from hidden World Truth alone', async () => {
@@ -301,7 +303,7 @@ describe('NodeScan information boundary', () => {
 
   it('offers no way in without the represented tool, on identical Knowledge', () => {
     const withTool = selectTarget(knownWeakness(), SRV_01)!
-    const withoutTool = selectTarget(withoutSoftware(knownWeakness(), 'basic-credential-toolkit'), SRV_01)!
+    const withoutTool = selectTarget(withoutSoftware(knownWeakness(), 'flipper'), SRV_01)!
 
     expect(withTool.stage).toBe('route')
     expect(withoutTool.stage).toBe('analysis_ready')
@@ -315,7 +317,7 @@ describe('NodeScan information boundary', () => {
     expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
     cleanup()
 
-    await openTarget(withoutSoftware(knownWeakness(), 'basic-credential-toolkit'))
+    await openTarget(withoutSoftware(knownWeakness(), 'flipper'))
     expect(screen.queryByRole('button', { name: 'BYPASS' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
   })
@@ -429,7 +431,7 @@ describe('NodeScan technical details', () => {
 
     const details = screen.getByText('WAYS IN').closest('.ns-detail-panel')!
     expect(details).toHaveTextContent('Credential attack')
-    expect(details).toHaveTextContent('Basic Credential Toolkit')
+    expect(details).toHaveTextContent('Flipper · Credential Access Module')
     expect(details).toHaveTextContent('GateSSH 1.3.2')
     expect(details).toHaveTextContent('Weak authentication configuration · AUTH-017')
   })
@@ -497,7 +499,7 @@ describe('NodeScan technical details', () => {
 /* ------------------------------------------------ RackUpdate as depth only */
 
 describe('RackUpdate exploit and package submission', () => {
-  // The Rollback Exploit Toolkit is not preinstalled by default (the Market is its represented acquisition path), so this fixture installs it explicitly.
+  // The Rollback Module is not integrated by default (the Market is its represented acquisition path), so this fixture states the concrete Flipper build that has it.
   function srv02(): GameState {
     const observed = withNodeScan11(createInitialGameState())
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
@@ -512,7 +514,9 @@ describe('RackUpdate exploit and package submission', () => {
         ...observed.player,
         localDevice: {
           ...observed.player.localDevice,
-          installedSoftware: [...observed.player.localDevice.installedSoftware, { id: 'rollback-exploit-toolkit', releaseId: 'rollback-exploit-toolkit-1.0', buildId: 'build-fixture-v0', name: 'Rollback Exploit Toolkit', version: '1.0' }],
+          installedSoftware: observed.player.localDevice.installedSoftware.map((software) => software.id === 'flipper'
+            ? { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, integratedModules: ['credential-access', 'rollback'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes }
+            : software),
           filesystem: { ...observed.player.localDevice.filesystem, files: [...observed.player.localDevice.filesystem.files, { ...gatePackage, id: 'file-local-gate', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] },
         },
       },
@@ -545,7 +549,8 @@ describe('RackUpdate exploit and package submission', () => {
   })
 
   it('offers no ATTACK opportunity without the represented tool, on identical Knowledge', async () => {
-    const withoutTool = { ...srv02(), player: { ...srv02().player, localDevice: { ...srv02().player.localDevice, installedSoftware: srv02().player.localDevice.installedSoftware.filter(({ id }) => id !== 'rollback-exploit-toolkit') } } }
+    // The same Device, with the default Flipper build that does not integrate the Rollback Module.
+    const withoutTool = { ...srv02(), player: { ...srv02().player, localDevice: { ...srv02().player.localDevice, installedSoftware: srv02().player.localDevice.installedSoftware.map((software) => software.id === 'flipper' ? FLIPPER_1_0_CANONICAL_INSTALLATION : software) } } }
     const user = userEvent.setup()
     render(<GameProvider initialState={withoutTool}><Network /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))

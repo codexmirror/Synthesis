@@ -28,6 +28,7 @@ player-facing applications in order:
 - NodeMail
 - Processes
 - Files
+- Flipper
 - Market
 - Wallet
 - Notes
@@ -149,12 +150,13 @@ Terminal supports:
 
 Terminal help groups current direct commands by their represented provider:
 NODE-OS, NodeScan (`scan` and `analyze`, plus `inspect` when the installed
-release supports it), the Basic Credential Toolkit (`attack`), and NODE Miner
-(`node-miner`). Software provider groups and their represented versions derive
+release supports it), Flipper (`attack`), and NODE Miner (`node-miner`). Software provider groups and their represented versions derive
 from the local Device's installations. NodeScan Scan and Analyze are
 unavailable when NodeScan is absent. Inspect is additionally unavailable under
-NodeScan 1.0 Standard and is supplied by NodeScan 1.1 Experimental; Credential
-Access remains unavailable when the Basic Credential Toolkit is absent;
+NodeScan 1.0 Standard and is supplied by NodeScan 1.1 Experimental; `attack`
+and its Help group are unavailable when Flipper is absent or its installed
+build integrates no module, and which techniques it can actually execute stays
+the canonical operation's decision rather than the listing's;
 `node-miner` (and its Help section) is unavailable before NODE Miner is
 installed and its supported executable exists on the local Device.
 
