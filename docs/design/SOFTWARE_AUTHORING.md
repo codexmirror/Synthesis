@@ -12,15 +12,17 @@ This contract defines vocabulary, boundaries, and authoring rules. It does not
 authorize a SoftwareRegistry, a software framework, or a UI refactor.
 
 
-## The six distinct concepts
+## The seven distinct concepts
 
-Software in Synthesis is not one object. Six concerns stay separate, and each
+Software in Synthesis is not one object. Seven concepts stay separate, and each
 exists at a different moment.
 
 ```text
 SOFTWARE PRODUCT
       ↓ has releases
 SOFTWARE RELEASE
+      ↓ has concrete builds
+SOFTWARE BUILD
       ↓ distributed as
 SOFTWARE PACKAGE          artifact on a Device filesystem
       ↓ installation Process completes
@@ -34,7 +36,7 @@ GAME PROCESS              runtime work
 Preserve, always:
 
 ```text
-PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
+RELEASE ≠ BUILD ≠ PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
 ```
 
 ### Software product
@@ -54,8 +56,11 @@ PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
 - Publisher / provenance where represented.
 - Display name, version and channel are release presentation metadata, not
   identity.
-- Concrete represented behavior belongs to the release, not to the product: two
-  releases of one product may legitimately behave differently.
+- The release defines the authored baseline behavior, not the product: two
+  releases of one product may legitimately behave differently. A concrete build
+  normally preserves that release behavior, but a separately represented build
+  may differ where a concrete mechanic explicitly created or authored that
+  difference. Distinct `buildId` alone never implies different behavior.
 
 ### Authored release content
 
@@ -73,9 +78,9 @@ PACKAGE ≠ INSTALLED SOFTWARE ≠ EXECUTABLE ≠ PROCESS
 - Within canonical authored content, the same `releaseId` identifies one
   coherent authored release definition. Contradictory authored facts under one
   ID are an authoring bug, not something runtime reconciliation should repair.
-- A future distinction between canonical content and a Package's claims,
-  provenance or altered build would require separate represented concepts. It
-  must not be modeled by rewriting concrete Package state from authored content.
+- Canonical release content and a Package's concrete build remain separate
+  represented concepts. Runtime must not rewrite a Package build from authored
+  release content.
 
 ```text
 AUTHORED RELEASE CONTENT
@@ -87,12 +92,27 @@ CONCRETE STATE + EXPLICIT RELEASE MECHANICS
 GAMEPLAY BEHAVIOR
 ```
 
+### Software build
+
+- Stable opaque build identity (`buildId`), distinct from product, release,
+  filesystem-copy, executable, Process, and Market entitlement identity.
+- A release may have more than one concrete build. Current authored releases
+  presently carry one canonical represented build; a future altered build may
+  retain the same `releaseId` while receiving a distinct `buildId`.
+- Copying a Package creates a new file identity, not a new build. Runtime
+  installation snapshots the Package's exact build and must never consult
+  authored release content to normalize it back to the canonical build.
+  - Build identity is provenance, not a generic behavior or capability switch.
+  Different behavior requires an explicitly represented build-specific fact or
+  concrete transformation mechanic; runtime must never infer changed behavior
+  merely because two artifacts have different `buildId` values.
+
 ### Software package
 
 - The artifact *before* installation: a file on a Device-owned filesystem.
-- Carries the release identity it represents, plus its represented size.
+- Carries the release and concrete build identities it represents, plus its represented size.
 - Its path is its current location, never its identity. Copying it anywhere
-  preserves kind, product, release, name, version, publisher and size.
+  preserves kind, product, release, build, name, version, publisher and size.
 - Whether an operation is willing to admit it from a given path is recognition
   owned by that operation — never a property of the artifact, and never a
   reason to rewrite or reclassify it.
@@ -112,7 +132,7 @@ GAMEPLAY BEHAVIOR
 
 - A normally recognized concrete software package follows one reusable default
   path from package artifact to finite installation Process to InstalledSoftware.
-- Admission snapshots the package's actual product/release identity and ordinary
+- Admission snapshots the package's actual product/release/build identity and ordinary
   metadata; completion creates or updates the InstalledSoftware entry for that
   exact product. Adding an ordinary product does not require adding its ID to a
   global support whitelist.
@@ -130,8 +150,8 @@ GAMEPLAY BEHAVIOR
 ### Executable
 
 - The concrete runnable artifact, where a product represents one.
-- Carries its own program and release identity, so a stale or replaced artifact
-  can be recognized as not the release something was admitted against.
+- Carries its own program, release, and build identity, so a stale or replaced artifact
+  can be recognized as not the concrete build something was admitted against.
 - Installed-software metadata alone never conjures a missing executable into
   existence.
 
@@ -208,26 +228,29 @@ Before adding or changing a represented product or release:
 1. Does the product have a stable `productId` independent of its name and path?
 2. Does the release have its own opaque `releaseId`, distinct from the product
    ID and from any display string?
-3. Are version, channel and publisher represented as release presentation
+3. Does every concrete build have a stable `buildId`, distinct from release
+   identity and from filesystem-copy identity, without treating build identity
+   alone as evidence of changed behavior? 
+4. Are version, channel and publisher represented as release presentation
    metadata rather than identity?
-4. Is every concrete behavior attached to the release that actually has it,
+5. Is every concrete behavior attached to the release that actually has it,
    rather than to the product as a whole?
-5. Does a package artifact exist somewhere the player can legitimately obtain
+6. Does a package artifact exist somewhere the player can legitimately obtain
    it, and does it survive copying to any path unchanged?
-6. Which operation admits it, and what does that operation recognize? Is
+7. Which operation admits it, and what does that operation recognize? Is
    recognition clearly separated from artifact identity?
-7. What exists at admission versus at completion? Is every consequence applied
+8. What exists at admission versus at completion? Is every consequence applied
    exactly once, at completion, at the canonical advancement boundary?
-8. If the release is executable, what identifies a runnable artifact, and what
+9. If the release is executable, what identifies a runnable artifact, and what
    happens when that artifact is moved, replaced or deleted?
-9. If the release has economic behavior, which represented recipients exist,
+10. If the release has economic behavior, which represented recipients exist,
    and what happens when no recipient holds the address?
-10. Is removal represented? What does removal restore, and what does it
+11. Is removal represented? What does removal restore, and what does it
     deliberately not touch?
-11. Does the release's About / capability / change text describe only behavior
+12. Does the release's About / capability / change text describe only behavior
     the game actually represents, without leaking hidden truth?
-12. Which surfaces present it, and does each follow the level 1/2/3 hierarchy?
-13. Which current-truth owner must be updated in the same branch?
+13. Which surfaces present it, and does each follow the level 1/2/3 hierarchy?
+14. Which current-truth owner must be updated in the same branch?
 
 Do not build a SoftwareRegistry, capability engine, payout-policy framework, or
 generic software-inventory framework to support this contract (A16). Concrete

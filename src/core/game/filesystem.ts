@@ -95,6 +95,7 @@ export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: Filesys
   if (a.kind === 'text' && b.kind === 'text') return a.content === b.content
   if (a.kind === 'software_package' && b.kind === 'software_package') {
     return a.releaseId === b.releaseId
+      && a.buildId === b.buildId
       && a.productId === b.productId
       && a.name === b.name
       && a.version === b.version
@@ -105,6 +106,7 @@ export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: Filesys
   if (a.kind === 'executable' && b.kind === 'executable') {
     return a.programId === b.programId
       && a.releaseId === b.releaseId
+      && a.buildId === b.buildId
       && a.name === b.name
       && a.version === b.version
       && a.sizeBytes === b.sizeBytes

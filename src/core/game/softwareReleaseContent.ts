@@ -18,6 +18,8 @@ export interface SoftwareReleaseDocumentation {
 export interface SoftwareReleaseContent {
   readonly productId: string
   readonly releaseId: string
+  /** Stable identity of this release's currently authored canonical build. */
+  readonly buildId: string
   readonly name: string
   readonly version: string
   readonly channel?: string
@@ -31,8 +33,14 @@ export const BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID = 'basic-credential-toolkit
 export const ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID = 'rollback-exploit-toolkit-1.0' as const
 export const NODE_MINER_1_0_RELEASE_ID = 'node-miner-1.0' as const
 
+export const NODESCAN_1_0_STANDARD_BUILD_ID = 'build-nodescan-1.0-standard-v0' as const
+export const NODESCAN_1_1_EXPERIMENTAL_BUILD_ID = 'build-nodescan-1.1-experimental-v0' as const
+export const BASIC_CREDENTIAL_TOOLKIT_1_0_BUILD_ID = 'build-basic-credential-toolkit-1.0-v0' as const
+export const ROLLBACK_EXPLOIT_TOOLKIT_1_0_BUILD_ID = 'build-rollback-exploit-toolkit-1.0-v0' as const
+export const NODE_MINER_1_0_BUILD_ID = 'build-node-miner-1.0-v0' as const
+
 export const NODESCAN_1_0_STANDARD = {
-  productId: 'nodescan', releaseId: NODESCAN_1_0_STANDARD_RELEASE_ID,
+  productId: 'nodescan', releaseId: NODESCAN_1_0_STANDARD_RELEASE_ID, buildId: NODESCAN_1_0_STANDARD_BUILD_ID,
   name: 'NodeScan', version: '1.0', channel: 'standard',
   documentation: {
     about: 'Standard NODE-OS network reconnaissance software.',
@@ -45,7 +53,7 @@ export const NODESCAN_1_0_STANDARD = {
 } as const satisfies SoftwareReleaseContent
 
 export const NODESCAN_1_1_EXPERIMENTAL = {
-  productId: 'nodescan', releaseId: NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID,
+  productId: 'nodescan', releaseId: NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID, buildId: NODESCAN_1_1_EXPERIMENTAL_BUILD_ID,
   name: 'NodeScan', version: '1.1', channel: 'experimental',
   documentation: {
     about: 'Experimental NodeScan release with extended target inspection.',
@@ -59,7 +67,7 @@ export const NODESCAN_1_1_EXPERIMENTAL = {
 } as const satisfies SoftwareReleaseContent
 
 export const BASIC_CREDENTIAL_TOOLKIT_1_0 = {
-  productId: 'basic-credential-toolkit', releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID,
+  productId: 'basic-credential-toolkit', releaseId: BASIC_CREDENTIAL_TOOLKIT_1_0_RELEASE_ID, buildId: BASIC_CREDENTIAL_TOOLKIT_1_0_BUILD_ID,
   name: 'Basic Credential Toolkit', version: '1.0',
   documentation: {
     about: 'Credential-focused offensive toolkit for represented authentication techniques.',
@@ -78,7 +86,7 @@ export const BASIC_CREDENTIAL_TOOLKIT_1_0 = {
  * rollback attack surface, not a generic exploit framework.
  */
 export const ROLLBACK_EXPLOIT_TOOLKIT_1_0 = {
-  productId: 'rollback-exploit-toolkit', releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID,
+  productId: 'rollback-exploit-toolkit', releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0_RELEASE_ID, buildId: ROLLBACK_EXPLOIT_TOOLKIT_1_0_BUILD_ID,
   name: 'Rollback Exploit Toolkit', version: '1.0',
   documentation: {
     about: 'Offensive toolkit for represented rollback-protection weaknesses in package-submission interfaces.',
@@ -91,7 +99,7 @@ export const ROLLBACK_EXPLOIT_TOOLKIT_1_0 = {
 } as const satisfies SoftwareReleaseContent
 
 export const NODE_MINER_1_0 = {
-  productId: 'node-miner', releaseId: NODE_MINER_1_0_RELEASE_ID,
+  productId: 'node-miner', releaseId: NODE_MINER_1_0_RELEASE_ID, buildId: NODE_MINER_1_0_BUILD_ID,
   name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev',
   documentation: {
     about: 'Unofficial NODE mining software that converts Device compute into NODE production.',

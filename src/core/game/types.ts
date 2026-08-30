@@ -102,6 +102,8 @@ export interface NodeMinerProcess extends ProcessCommon {
   readonly status: 'running'
   readonly programId: 'node-miner'
   readonly releaseId: string
+  /** Stable identity of the concrete build admitted from the executable. */
+  readonly buildId: string
   /**
    * The payout address currently configured on this Miner. Set explicitly at
    * RUN and changeable in place by a live payout retarget, which never ends
@@ -167,6 +169,8 @@ export interface SoftwareInstallationProcess extends ProcessBase {
   readonly kind: 'software_installation'
   readonly productId: string
   readonly releaseId: string
+  /** Concrete package build snapshotted at admission. */
+  readonly buildId: string
   readonly name: string
   readonly version: string
   /** Snapshotted from the source package at admission; present only when that package stated a channel. */
@@ -196,6 +200,8 @@ export interface SoftwareRemovalProcess extends ProcessBase {
   readonly productId: 'nodescan' | 'node-miner'
   /** Release being removed, snapshotted at admission. */
   readonly releaseId: string
+  /** Concrete installed build snapshotted at admission. */
+  readonly buildId: string
   readonly name: string
   readonly version: string
   readonly channel?: string
@@ -244,6 +250,7 @@ export interface SoftwarePackageFile {
   readonly id: string
   readonly path: string
   readonly releaseId: string
+  readonly buildId: string
   readonly productId: string
   readonly name: string
   readonly version: string
@@ -260,6 +267,7 @@ export interface ExecutableFile {
   readonly path: string
   readonly programId: string
   readonly releaseId: string
+  readonly buildId: string
   readonly name: string
   readonly version: string
   readonly sizeBytes: number
@@ -276,6 +284,7 @@ export interface FilesystemState {
 export interface InstalledSoftware {
   readonly id: string
   readonly releaseId: string
+  readonly buildId: string
   readonly name: string
   readonly version: string
   readonly channel?: string
@@ -493,6 +502,8 @@ export interface MarketOperator {
 export interface MarketPackageDistribution {
   readonly filename: string
   readonly releaseId: string
+  /** Stable identity of the one concrete build this offering distributes. */
+  readonly buildId: string
   readonly productId: string
   readonly name: string
   readonly version: string
@@ -621,6 +632,8 @@ export interface NetworkService {
   readonly implementation: {
     readonly productId: string
     readonly releaseId: string
+    /** Concrete build currently backing this Service implementation. */
+    readonly buildId: string
     readonly name: string
     readonly version: string
   }

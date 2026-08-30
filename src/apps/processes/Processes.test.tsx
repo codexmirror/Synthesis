@@ -252,7 +252,7 @@ describe('Activity Monitor aggregation', () => {
     finite.unmount()
 
     const base = createInitialGameState()
-    const minerFile = { kind: 'executable' as const, id: 'file-fixture-matrix-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-matrix-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
     const withMinerFile: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, minerFile] } } } }
     const minerStarted = startNodeMiner(withMinerFile, minerFile.path, base.nodeWallet.address)
     if (minerStarted.status !== 'started') throw Error(minerStarted.status)
@@ -442,7 +442,7 @@ describe('Activity Monitor aggregation', () => {
 describe('Activity Monitor: continuous NODE Miner runtime', () => {
   const minerState = (payoutAddress?: string): GameState => {
     const base = createInitialGameState()
-    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
     const withFile: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 50, files: [...base.player.localDevice.filesystem.files, minerFile] } } } }
     const started = startNodeMiner(withFile, minerFile.path, payoutAddress ?? withFile.nodeWallet.address)
     if (started.status !== 'started') throw new Error(started.status)
@@ -505,7 +505,7 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
     const afterStop = JSON.parse(screen.getByRole('status').textContent ?? '')
     expect(afterStop).toEqual({ ids: [], nextId: state.process.nextId })
 
-    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner-2', path: '/home/user/node-miner-again.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner-2', path: '/home/user/node-miner-again.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
     const withFile: GameState = { ...state, process: { nextId: state.process.nextId, processes: [] }, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 51, files: [...state.player.localDevice.filesystem.files, minerFile] } } } }
     const restarted = startNodeMiner(withFile, minerFile.path, withFile.nodeWallet.address)
     if (restarted.status !== 'started') throw new Error(restarted.status)

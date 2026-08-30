@@ -91,12 +91,12 @@ export type SoftwarePackageEligibility =
  * particular Firmware; this is intentionally not a requirements framework.
  */
 export function deriveSoftwarePackageEligibility(
-  file: { readonly path: string; readonly productId: string; readonly releaseId: string },
+  file: { readonly path: string; readonly productId: string; readonly releaseId: string; readonly buildId: string },
   target: { readonly id: string; readonly firmware: { readonly id: string }; readonly installedSoftware: readonly InstalledSoftware[] },
   process: ProcessState,
 ): SoftwarePackageEligibility {
   if (!isRecognizedSoftwarePackagePath(file.path)) return { status: 'unrecognized' }
-  if (target.installedSoftware.find(({ id }) => id === file.productId)?.releaseId === file.releaseId) return { status: 'installed' }
+  if (target.installedSoftware.find(({ id }) => id === file.productId)?.buildId === file.buildId) return { status: 'installed' }
   if (process.processes.some((candidate) => candidate.kind === 'software_installation' && candidate.status === 'running' && candidate.executorDeviceId === target.id && candidate.productId === file.productId)) return { status: 'installing' }
   if (file.productId === 'nodescan' && target.firmware.id !== NODE_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'NODE-OS' }
   return { status: 'installable' }
@@ -154,6 +154,7 @@ function admitSoftwareInstallation(process: ProcessState, target: SoftwareInstal
         kind: 'software_installation' as const,
         productId: packageFile.productId,
         releaseId: packageFile.releaseId,
+        buildId: packageFile.buildId,
         name: packageFile.name,
         version: packageFile.version,
         ...(packageFile.channel ? { channel: packageFile.channel } : {}),
@@ -279,7 +280,7 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
     if (process.productId === GATE_SSH_PRODUCT_ID && !managedGateSsh) return { ...process, result: { status: 'target_unavailable' as const } }
     const applied = applyInstallationCompletion({ filesystem: host.filesystem, installedSoftware: host.installedSoftware }, process)
     const services = managedGateSsh ? host.services!.map((service) => service.id === managedGateSsh.id
-      ? { ...service, implementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: process.releaseId, name: process.name, version: process.version } }
+      ? { ...service, implementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: process.releaseId, buildId: process.buildId, name: process.name, version: process.version } }
       : service) : host.services
     hosts = hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem: applied.filesystem, installedSoftware: applied.installedSoftware, services } : candidate)
     return { ...process, result: applied.result }
@@ -308,7 +309,7 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
  */
 function applyInstallationCompletion(device: InstallationOwnedState, process: SoftwareInstallationProcess): InstallationOwnedState & { readonly result: SoftwareInstallationResult } {
   const installation: InstalledSoftware = {
-    id: process.productId, releaseId: process.releaseId, name: process.name, version: process.version,
+    id: process.productId, releaseId: process.releaseId, buildId: process.buildId, name: process.name, version: process.version,
     ...(process.channel ? { channel: process.channel } : {}),
     ...(process.publisher ? { publisher: process.publisher } : {}),
   }
@@ -327,6 +328,7 @@ function applyInstallationCompletion(device: InstallationOwnedState, process: So
     path: NODE_MINER_INSTALLED_EXECUTABLE_PATH,
     programId: NODE_MINER_PROGRAM_ID,
     releaseId: process.releaseId,
+    buildId: process.buildId,
     name: process.name,
     version: process.version,
     sizeBytes: NODE_MINER_EXECUTABLE_SIZE_BYTES,

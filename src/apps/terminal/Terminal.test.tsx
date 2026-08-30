@@ -289,7 +289,7 @@ describe('Terminal credential access', () => {
   it('starts from stale Knowledge and later fails against patched current World truth', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const known = knownCredentialState(); const host = known.world.network.hosts[0]
-    const patched = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...known.world.network.hosts.slice(1)] } } }
+    const patched = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...known.world.network.hosts.slice(1)] } } }
     function Snapshot() { return <output data-testid="attack-state">{JSON.stringify(useGameState())}</output> }
     render(<GameProvider initialState={patched}><Terminal /><Snapshot /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -334,7 +334,7 @@ describe('Terminal local installation', () => {
   it('starts a running installation Process through GameActions, completes with the represented release, and updates Help with baseline Inspect', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const base = createInitialGameState()
-    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/downloads/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
     const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 50, files: [...base.player.localDevice.filesystem.files, packageFile] } } } }
     render(<GameProvider initialState={state}><Terminal /><StateControls /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime }); const input = screen.getByLabelText('Command input')
@@ -454,11 +454,11 @@ describe('Terminal NODE Miner CLI', () => {
     const state = createInitialGameState()
     const minerProcess = {
       kind: 'node_miner' as const, id: 'process-0001', label: 'NODE MINER', executorDeviceId: state.player.localDevice.id, status: 'running' as const,
-      ramRequiredMiB: 512, programId: 'node-miner' as const, releaseId: 'node-miner-1.0', payoutAddress: state.nodeWallet.address, payoutSegment: 1, producedNodeUnits: 10, payoutNodeUnits: 9, developerFeeNodeUnits: 1, segmentPayoutNodeUnits: 9, segmentDeveloperFeeNodeUnits: 1, workRemainder: 0,
+      ramRequiredMiB: 512, programId: 'node-miner' as const, releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', payoutAddress: state.nodeWallet.address, payoutSegment: 1, producedNodeUnits: 10, payoutNodeUnits: 9, developerFeeNodeUnits: 1, segmentPayoutNodeUnits: 9, segmentDeveloperFeeNodeUnits: 1, workRemainder: 0,
     }
     const runningWithoutExecutable: GameState = {
       ...state,
-      player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }] } },
+      player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, { id: 'node-miner' as const, releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }] } },
       process: { nextId: 2, processes: [minerProcess] },
     }
     render(<GameProvider initialState={runningWithoutExecutable}><Terminal /><Processes /></GameProvider>)

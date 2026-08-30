@@ -12,7 +12,7 @@ import { Wallet } from './Wallet'
 /** A local Device mining with the Wallet's own address configured, so the Wallet really receives NODE. */
 function minedState(elapsedMs: number): GameState {
   const base = createInitialGameState()
-  const minerFile: ExecutableFile = { kind: 'executable', id: 'file-fixture-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+  const minerFile: ExecutableFile = { kind: 'executable', id: 'file-fixture-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
   const withFile: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { nextFileId: 50, files: [...base.player.localDevice.filesystem.files, minerFile] }, runtime: { ...base.player.localDevice.runtime, baselineCpuLoad: 0 } } } }
   const started = startNodeMiner(withFile, minerFile.path, withFile.nodeWallet.address)
   if (started.status !== 'started') throw new Error(started.status)

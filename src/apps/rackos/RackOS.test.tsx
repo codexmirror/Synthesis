@@ -110,7 +110,7 @@ describe('RACK-OS', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const initial = connectedState()
     const host = initial.world.network.hosts[0]
-    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/packages/scanner.release', releaseId: 'canonical-package', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly', sizeBytes: 1_000 }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/packages/scanner.release', releaseId: 'canonical-package', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly', sizeBytes: 1_000 }
     const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={state}><Shell /><StateSnapshot /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -232,7 +232,7 @@ describe('RACK-OS', () => {
 
   it('derives an existing package copy by full canonical metadata, not its filename', async () => {
     const initial = connectedState(); const host = initial.world.network.hosts[0]
-    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
     const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, { ...packageFile, id: 'file-local-package', path: '/home/user/downloads/weird.txt' }] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
     await enterRemote(user)
@@ -246,7 +246,7 @@ describe('RACK-OS', () => {
     ['changed metadata for the same release', { version: '9.9' }],
   ])('presents a package collision for %s', async (_description, changed) => {
     const initial = connectedState(); const host = initial.world.network.hosts[0]
-    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
     const localFile = { ...packageFile, ...changed, id: 'file-local-package', path: '/home/user/downloads/weird.txt' }
     const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, localFile] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
     const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
@@ -525,7 +525,7 @@ describe('RACK-OS', () => {
 describe('RACK-OS remote software installation', () => {
   const REMOTE_PACKAGE = '/opt/packages/packet-viewer-1.0.pkg'
 
-  const ordinaryPackage = { kind: 'software_package' as const, id: 'file-remote-ordinary', path: REMOTE_PACKAGE, productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 2_048 }
+  const ordinaryPackage = { kind: 'software_package' as const, id: 'file-remote-ordinary', path: REMOTE_PACKAGE, productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 2_048 }
 
   function withOrdinaryOnSrv01(state: GameState): GameState {
     return { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, filesystem: { ...host.filesystem!, files: [...host.filesystem!.files, ordinaryPackage] } } : host) } } }
@@ -590,7 +590,7 @@ describe('RACK-OS remote software installation', () => {
   })
 
   it('shows seeded GateSSH as installed and another GateSSH release as installable with real CURRENT state', async () => {
-    const newer = { kind: 'software_package' as const, id: 'gate-ui-new', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3', sizeBytes: 6_400_000 }
+    const newer = { kind: 'software_package' as const, id: 'gate-ui-new', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.3.3', sizeBytes: 6_400_000 }
     const user = userEvent.setup()
     const { unmount } = render(<GameProvider initialState={operatingState()}><Shell /></GameProvider>)
     await enterRemote(user)
@@ -606,7 +606,7 @@ describe('RACK-OS remote software installation', () => {
   })
 
   it('states the publisher a package actually claims', async () => {
-    const publisherPackage = { kind: 'software_package' as const, id: 'file-remote-publisher', path: '/opt/packages/node-miner-1.0.pkg', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 }
+    const publisherPackage = { kind: 'software_package' as const, id: 'file-remote-publisher', path: '/opt/packages/node-miner-1.0.pkg', productId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 }
     const user = userEvent.setup()
     render(<GameProvider initialState={operatingState((host) => ({ ...host, filesystem: { nextFileId: 90, files: [...host.filesystem!.files, publisherPackage] } }))}><Shell /></GameProvider>)
     await enterRemote(user)
@@ -620,7 +620,7 @@ describe('RACK-OS remote software installation', () => {
   it('derives installed state from the target Device, not from the local inventory', async () => {
     const user = userEvent.setup()
     // node-01 runs NodeScan 1.0 Standard; srv-01 runs the very release this package represents.
-    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard' }] }))}><Shell /></GameProvider>)
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard' }] }))}><Shell /></GameProvider>)
     await enterRemote(user)
     await openRemotePackage(user)
     expect(screen.getByRole('button', { name: 'INSTALLED ✓' })).toBeDisabled()
@@ -629,7 +629,7 @@ describe('RACK-OS remote software installation', () => {
 
   it('states another installed release of the same product as CURRENT while the package stays installable', async () => {
     const user = userEvent.setup()
-    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' }] }))}><Shell /></GameProvider>)
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', buildId: 'build-packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' }] }))}><Shell /></GameProvider>)
     await enterRemote(user)
     await openRemotePackage(user)
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
@@ -661,7 +661,7 @@ describe('RACK-OS remote software installation', () => {
   })
 
   it('offers no installation from an unrecognized package path', async () => {
-    const unrecognized = { kind: 'software_package' as const, id: 'file-remote-unrecognized', path: '/opt/packages/packet-viewer-1.0.pkd', productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', sizeBytes: 2_048 }
+    const unrecognized = { kind: 'software_package' as const, id: 'file-remote-unrecognized', path: '/opt/packages/packet-viewer-1.0.pkd', productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard', sizeBytes: 2_048 }
     const user = userEvent.setup()
     render(<GameProvider initialState={operatingState((host) => ({ ...host, filesystem: { nextFileId: 90, files: [...host.filesystem!.files, unrecognized] } }))}><Shell /></GameProvider>)
     await enterRemote(user)
@@ -776,7 +776,7 @@ describe('RACK-OS remote software installation', () => {
 
   it('adds no software management to RACK-OS System and no package commands to RACK-OS Terminal', async () => {
     const user = userEvent.setup()
-    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard' }] }))}><Shell /></GameProvider>)
+    render(<GameProvider initialState={operatingState((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard' }] }))}><Shell /></GameProvider>)
     await enterRemote(user)
 
     await user.click(screen.getByRole('button', { name: 'SYSTEM' }))
@@ -804,13 +804,13 @@ describe('RACK-OS remote NODE Miner execution', () => {
   const REMOTE_EXECUTABLE = '/usr/local/bin/node-miner'
 
   function minerExecutable(path = REMOTE_EXECUTABLE): ExecutableFile {
-    return { kind: 'executable', id: 'file-remote-miner', path, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    return { kind: 'executable', id: 'file-remote-miner', path, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
   }
 
   function runningMiner(executorDeviceId: string, overrides: Partial<NodeMinerProcess> = {}): NodeMinerProcess {
     return {
       kind: 'node_miner', id: 'process-0007', label: 'NODE MINER', executorDeviceId, status: 'running', ramRequiredMiB: 512,
-      programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'node-addr-canonical-remote', payoutSegment: 1,
+      programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', payoutAddress: 'node-addr-canonical-remote', payoutSegment: 1,
       producedNodeUnits: 2_500_000, payoutNodeUnits: 1_340, developerFeeNodeUnits: 660,
       segmentPayoutNodeUnits: 1_340, segmentDeveloperFeeNodeUnits: 660, workRemainder: 0, ...overrides,
     }
@@ -823,7 +823,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const host = {
       ...hosts[hostIndex],
       filesystem: { nextFileId: 90, files: [...hosts[hostIndex].filesystem!.files, minerExecutable()] },
-      installedSoftware: [{ id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }],
+      installedSoftware: [{ id: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' }],
     }
     const authorized: GameState = {
       ...base,
@@ -871,7 +871,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const admitted = snapshot()
     expect(admitted.process.processes).toEqual([expect.objectContaining({
       kind: 'node_miner', status: 'running', executorDeviceId: 'host-lan-001',
-      programId: 'node-miner', releaseId: 'node-miner-1.0', payoutAddress: 'node-addr-operator-01',
+      programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', payoutAddress: 'node-addr-operator-01',
     })])
     expect(rackOs).toHaveTextContent('RUNNING ON srv-01')
     expect(rackOs).toHaveTextContent('PROCESSprocess-0020')
@@ -924,7 +924,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const user = userEvent.setup()
     const base = operatingState()
     const host = base.world.network.hosts[0]
-    const unsupported = { ...minerExecutable('/usr/local/bin/other'), id: 'file-other', programId: 'other-program', releaseId: 'other-1.0', name: 'Other' }
+    const unsupported = { ...minerExecutable('/usr/local/bin/other'), id: 'file-other', programId: 'other-program', releaseId: 'other-1.0', buildId: 'build-fixture-v0', name: 'Other' }
     const state: GameState = { ...base, world: { ...base.world, network: { ...base.world.network, hosts: [{ ...host, filesystem: { nextFileId: 91, files: [...host.filesystem!.files, unsupported] } }, ...base.world.network.hosts.slice(1)] } } }
     render(<GameProvider initialState={state}><Shell /></GameProvider>)
     await enterRemote(user)
@@ -1006,7 +1006,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const remote = installed.world.network.hosts[0]
     const withoutRemoteInstallation: GameState = {
       ...installed,
-      player: { ...installed.player, localDevice: { ...installed.player.localDevice, installedSoftware: [{ id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' }] } },
+      player: { ...installed.player, localDevice: { ...installed.player.localDevice, installedSoftware: [{ id: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0' }] } },
       world: { ...installed.world, network: { ...installed.world.network, hosts: [{ ...remote, installedSoftware: [] }, ...installed.world.network.hosts.slice(1)] } },
     }
     render(<GameProvider initialState={withoutRemoteInstallation}><Shell /></GameProvider>)

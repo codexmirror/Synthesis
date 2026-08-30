@@ -131,7 +131,7 @@ describe('Remote Session handoff', () => {
     await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
     expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
-    expect(GAME_STATE_VERSION).toBe(47)
+    expect(GAME_STATE_VERSION).toBe(48)
   })
 
   it('switches between an entered remote context and usable NODE-OS without changing canonical session authority', async () => {

@@ -68,8 +68,8 @@ describe('Files', () => {
     const state = createInitialGameState()
     const files = [
       { kind: 'text' as const, id: 'file-text', path: '/home/user/docs/café.txt', content: 'café 🚀' },
-      { kind: 'software_package' as const, id: 'file-package', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
-      { kind: 'executable' as const, id: 'file-executable', path: '/home/user/tool.bin', programId: 'diagnostic-tool', releaseId: 'diagnostic-tool-2', name: 'Diagnostic Tool', version: '2.0', sizeBytes: 4_096 },
+      { kind: 'software_package' as const, id: 'file-package', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
+      { kind: 'executable' as const, id: 'file-executable', path: '/home/user/tool.bin', programId: 'diagnostic-tool', releaseId: 'diagnostic-tool-2', buildId: 'build-fixture-v0', name: 'Diagnostic Tool', version: '2.0', sizeBytes: 4_096 },
     ]
     render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 4, files } } } }}><Files /></GameProvider>)
     expect(screen.getByText('/home/user')).toBeInTheDocument()
@@ -193,7 +193,7 @@ describe('Files', () => {
   it('installs a supported local package through canonical state and derives the installed presentation on reopen', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const state = createInitialGameState()
-    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/release-4.2.pkg', releaseId: 'altered-release', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing', sizeBytes: 1_000 }
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/release-4.2.pkg', releaseId: 'altered-release', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'Canonical Scanner', version: '4.2', channel: 'testing', sizeBytes: 1_000 }
     const initialState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [packageFile] } } } }
     render(<GameProvider initialState={initialState}><Files /><Terminal /></GameProvider>)
 
@@ -235,7 +235,7 @@ describe('Files', () => {
 
   it('presents a recognized ordinary package as installable without release documentation', async () => {
     const state = createInitialGameState()
-    const file = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/packet-viewer.pkg', releaseId: 'packet-viewer-1.0', productId: 'packet-viewer', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 1_000 }
+    const file = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/home/user/packet-viewer.pkg', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', productId: 'packet-viewer', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 1_000 }
     render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [file] } } } }}><Files /></GameProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: /packet-viewer\.pkg/ }))
     expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
@@ -283,7 +283,7 @@ describe('Files NODE Miner installation', () => {
 describe('Files NODE Miner RUN', () => {
   const withMiner = (path = '/home/user/node-miner-1.0.bin') => {
     const state = createInitialGameState()
-    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner', path, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner', path, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
     return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [minerFile] } } } }
   }
 
@@ -309,7 +309,7 @@ describe('Files NODE Miner RUN', () => {
 
   it('never re-offers a normal RUN action while the same local Miner is already running, even across a different copy of the executable', async () => {
     const state = withMiner()
-    const otherCopy = { kind: 'executable' as const, id: 'file-fixture-miner-2', path: '/home/user/node-miner-copy.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+    const otherCopy = { kind: 'executable' as const, id: 'file-fixture-miner-2', path: '/home/user/node-miner-copy.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
     const withCopies = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, otherCopy] } } } }
     render(<GameProvider initialState={withCopies}><Files /></GameProvider>)
     const user = userEvent.setup()
@@ -326,7 +326,7 @@ describe('Files NODE Miner RUN', () => {
 
   it('does not offer RUN for an unsupported executable program', async () => {
     const state = createInitialGameState()
-    const file = { kind: 'executable' as const, id: 'file-fixture-exe', path: '/home/user/tool.bin', programId: 'diagnostic-tool', releaseId: 'diagnostic-tool-2', name: 'Diagnostic Tool', version: '2.0', sizeBytes: 4_096 }
+    const file = { kind: 'executable' as const, id: 'file-fixture-exe', path: '/home/user/tool.bin', programId: 'diagnostic-tool', releaseId: 'diagnostic-tool-2', buildId: 'build-fixture-v0', name: 'Diagnostic Tool', version: '2.0', sizeBytes: 4_096 }
     render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files: [file] } } } }}><Files /></GameProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: /tool\.bin/ }))
     expect(screen.getByText('UNSUPPORTED')).toBeInTheDocument()
@@ -372,25 +372,25 @@ describe('Files filesystem and software state', () => {
   })
 
   it('derives package listing state from the Device-owned installed software', () => {
-    const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
     const state = withFiles([experimental])
     const { unmount } = render(<GameProvider initialState={state}><Files /></GameProvider>)
     expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
     unmount()
 
-    const installed = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } } }
+    const installed = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } } }
     render(<GameProvider initialState={installed}><Files /></GameProvider>)
     expect(screen.getByText('INSTALLED')).toBeInTheDocument()
     expect(screen.queryByText('INSTALLABLE')).not.toBeInTheDocument()
   })
 
   it('shows INSTALLING while a real installation Process runs and disables duplicate admission for that product', () => {
-    const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
     const base = withFiles([experimental])
     const running: GameState = {
       ...base,
       process: { nextId: 2, processes: [
-        { kind: 'software_installation', id: 'process-0001', label: 'SOFTWARE INSTALLATION', executorDeviceId: base.player.localDevice.id, status: 'running', workRequired: 600, workCompleted: 100, ramRequiredMiB: 256, productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+        { kind: 'software_installation', id: 'process-0001', label: 'SOFTWARE INSTALLATION', executorDeviceId: base.player.localDevice.id, status: 'running', workRequired: 600, workCompleted: 100, ramRequiredMiB: 256, productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' },
       ] },
     }
     render(<GameProvider initialState={running}><Files /></GameProvider>)
@@ -432,10 +432,10 @@ describe('Files software removal', () => {
     const state = createInitialGameState()
     return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 50, files } } } }
   }
-  const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+  const experimental = { kind: 'software_package' as const, id: 'file-pkg', path: '/home/user/nodescan.pkg', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
 
   it('represents the protected NodeScan 1.0 Standard baseline truthfully, with no destructive REMOVE action', async () => {
-    const baseline = { kind: 'software_package' as const, id: 'file-baseline', path: '/home/user/nodescan-1.0.pkg', releaseId: 'nodescan-1.0-standard', productId: 'nodescan', name: 'NodeScan', version: '1.0', channel: 'standard', sizeBytes: 1_000 }
+    const baseline = { kind: 'software_package' as const, id: 'file-baseline', path: '/home/user/nodescan-1.0.pkg', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', productId: 'nodescan', name: 'NodeScan', version: '1.0', channel: 'standard', sizeBytes: 1_000 }
     render(<GameProvider initialState={withFiles([baseline])}><Files /></GameProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: /nodescan-1\.0\.pkg/ }))
     expect(screen.getByText('PROTECTED · SYSTEM BASELINE')).toBeInTheDocument()
@@ -444,7 +444,7 @@ describe('Files software removal', () => {
 
   it('presents installed package status without exposing removal from Files', async () => {
     const base = withFiles([experimental])
-    const installed = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } } }
+    const installed = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } } }
     render(<GameProvider initialState={installed}><Files /></GameProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: /nodescan\.pkg/ }))
     expect(screen.getAllByText('INSTALLED').length).toBeGreaterThan(0)
@@ -455,9 +455,9 @@ describe('Files software removal', () => {
     const base = withFiles([experimental])
     const running: GameState = {
       ...base,
-      player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } },
+      player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } },
       process: { nextId: 2, processes: [
-        { kind: 'software_removal', id: 'process-0001', label: 'SOFTWARE REMOVAL', executorDeviceId: base.player.localDevice.id, status: 'running', workRequired: 400, workCompleted: 100, ramRequiredMiB: 128, productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', name: 'NodeScan', version: '1.1', channel: 'experimental' },
+        { kind: 'software_removal', id: 'process-0001', label: 'SOFTWARE REMOVAL', executorDeviceId: base.player.localDevice.id, status: 'running', workRequired: 400, workCompleted: 100, ramRequiredMiB: 128, productId: 'nodescan', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' },
       ] },
     }
     render(<GameProvider initialState={running}><Files /></GameProvider>)
@@ -592,7 +592,7 @@ describe('Files install review', () => {
 
   it('CONFIRM forwards the exact selected package path to canonical installation exactly once', async () => {
     const base = createInitialGameState()
-    const secondCopy = { kind: 'software_package' as const, id: 'file-second-copy', path: '/home/user/downloads/node-miner-next.pkg', releaseId: 'node-miner-1.1', productId: 'node-miner', name: 'NODE Miner', version: '1.1', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_600_000 }
+    const secondCopy = { kind: 'software_package' as const, id: 'file-second-copy', path: '/home/user/downloads/node-miner-next.pkg', releaseId: 'node-miner-1.1', buildId: 'build-fixture-v0', productId: 'node-miner', name: 'NODE Miner', version: '1.1', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_600_000 }
     const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, secondCopy] } } } }
     render(<GameProvider initialState={state}><Files /><StateProbe /><Processes /></GameProvider>)
     const user = userEvent.setup()

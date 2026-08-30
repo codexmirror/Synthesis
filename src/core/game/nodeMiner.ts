@@ -116,6 +116,7 @@ function admitNodeMiner(process: ProcessState, executor: NodeMinerExecutor, sour
     ramRequiredMiB: NODE_MINER_RAM_REQUIRED_MIB,
     programId: NODE_MINER_PROGRAM_ID,
     releaseId: NODE_MINER_RELEASE_ID,
+    buildId: resolved.file.buildId,
     payoutAddress,
     payoutSegment: 1,
     producedNodeUnits: 0,

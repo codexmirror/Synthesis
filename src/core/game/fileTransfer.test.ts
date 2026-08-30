@@ -633,8 +633,8 @@ describe('bidirectional Upload core', () => {
 
   it.each([
     { kind: 'text' as const, id: 'upload-text', path: '/home/user/upload.txt', content: 'upload semantics' },
-    { kind: 'software_package' as const, id: 'upload-package', path: '/home/user/upload.pkg', productId: 'tool', releaseId: 'tool-2', name: 'Tool', version: '2', channel: 'stable', publisher: 'Publisher', sizeBytes: 1024 },
-    { kind: 'executable' as const, id: 'upload-executable', path: '/home/user/upload.bin', programId: 'tool', releaseId: 'tool-2', name: 'Tool', version: '2', sizeBytes: 1024 },
+    { kind: 'software_package' as const, id: 'upload-package', path: '/home/user/upload.pkg', productId: 'tool', releaseId: 'tool-2', buildId: 'build-fixture-v0', name: 'Tool', version: '2', channel: 'stable', publisher: 'Publisher', sizeBytes: 1024 },
+    { kind: 'executable' as const, id: 'upload-executable', path: '/home/user/upload.bin', programId: 'tool', releaseId: 'tool-2', buildId: 'build-fixture-v0', name: 'Tool', version: '2', sizeBytes: 1024 },
   ])('copies $kind semantics exactly once while retaining the local source', (file) => {
     const base = connectedState()
     const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, file] } } } }

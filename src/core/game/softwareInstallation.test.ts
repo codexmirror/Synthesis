@@ -7,10 +7,11 @@ import { installLocalSoftwarePackage, installRemoteSoftwarePackage, isRecognized
 import { advanceFileTransfer, startRemoteFileDownload } from './fileTransfer'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { clearRecentActivity } from './recentActivity'
+import { NODESCAN_1_0_STANDARD, NODE_MINER_1_0 } from './softwareReleaseContent'
 import type { ExecutableFile, GameState, NetworkHost, SoftwareInstallationProcess, SoftwarePackageFile } from './types'
 
 const path = '/home/user/downloads/nodescan-build.pkg'
-const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path, releaseId: 'build-a91f7', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+const packageFile: SoftwarePackageFile = { kind: 'software_package', id: 'file-package', path, releaseId: 'build-a91f7', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
 
 function withFiles(files: GameState['player']['localDevice']['filesystem']['files']): GameState {
   const state = createInitialGameState()
@@ -52,7 +53,7 @@ describe('installLocalSoftwarePackage', () => {
   it('validates canonical file kind while admitting an ordinary package from its artifact identity', () => {
     const text = withFiles([{ kind: 'text', id: 'file-fixture-text', path: '/home/user/nodescan.pkg', content: '' }])
     expect(installLocalSoftwarePackage(text, '/home/user/nodescan.pkg')).toEqual({ status: 'not_software_package', state: text })
-    const ordinary = withFiles([{ ...packageFile, productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer' }])
+    const ordinary = withFiles([{ ...packageFile, productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer' }])
     expect(installLocalSoftwarePackage(ordinary, path)).toMatchObject({ status: 'started', productId: 'packet-viewer' })
   })
 
@@ -69,13 +70,13 @@ describe('installLocalSoftwarePackage', () => {
     expect(result.state.world).toBe(state.world)
 
     const process = installation(result.state.process.processes[0])
-    expect(process).toMatchObject({ kind: 'software_installation', status: 'running', productId: 'nodescan', releaseId: 'build-a91f7', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', executorDeviceId: state.player.localDevice.id, ramRequiredMiB: SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB })
+    expect(process).toMatchObject({ kind: 'software_installation', status: 'running', productId: 'nodescan', releaseId: 'build-a91f7', buildId: 'build-fixture-v0', name: 'Canonical Scanner', version: '1.1', channel: 'experimental', executorDeviceId: state.player.localDevice.id, ramRequiredMiB: SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB })
     expect(process.result).toBeUndefined()
     expect(deriveResourceUsage(result.state.player.localDevice, result.state.process).processRamMiB).toBe(SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB)
   })
 
   it('shares real CPU with another running local Process', () => {
-    const state = withFiles([packageFile, { ...packageFile, id: 'file-package-2', path: '/home/user/downloads/node-miner-second.pkg', releaseId: 'node-miner-1.0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'unofficial' }])
+    const state = withFiles([packageFile, { ...packageFile, id: 'file-package-2', path: '/home/user/downloads/node-miner-second.pkg', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'unofficial' }])
     const first = installLocalSoftwarePackage(state, path)
     if (first.status !== 'started') throw new Error(first.status)
     const second = installLocalSoftwarePackage(first.state, '/home/user/downloads/node-miner-second.pkg')
@@ -98,13 +99,17 @@ describe('installLocalSoftwarePackage', () => {
     expect(installLocalSoftwarePackage(first.state, path)).toEqual({ status: 'already_installing', state: first.state })
   })
 
-  it('uses releaseId alone for sameness and replaces any different release without version ordering', () => {
-    const same = withFiles([{ ...packageFile, releaseId: 'nodescan-1.0-standard', name: 'Malformed Metadata', version: '99' }])
+  it('uses concrete build identity for sameness and replaces another build without version ordering', () => {
+    const same = withFiles([{ ...packageFile, releaseId: 'nodescan-1.0-standard', buildId: NODESCAN_1_0_STANDARD.buildId, name: 'Malformed Metadata', version: '99' }])
     expect(installLocalSoftwarePackage(same, path)).toEqual({ status: 'already_installed', state: same })
-    const lowerLooking = withFiles([{ ...packageFile, releaseId: 'different-build', version: '0.1', channel: 'modified' }])
+    const lowerLooking = withFiles([{ ...packageFile, releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-synthetic-alternate', version: '0.1', channel: 'modified' }])
     const started = installLocalSoftwarePackage(lowerLooking, path)
     if (started.status !== 'started') throw new Error(started.status)
-    expect(installation(started.state.process.processes[0])).toMatchObject({ releaseId: 'different-build', version: '0.1', channel: 'modified' })
+    expect(installation(started.state.process.processes[0])).toMatchObject({ releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-synthetic-alternate', version: '0.1', channel: 'modified' })
+    const completed = completeInstallation(started.state)
+    expect(completed.player.localDevice.installedSoftware.filter(({ id }) => id === 'nodescan')).toEqual([
+      expect.objectContaining({ releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-synthetic-alternate' }),
+    ])
   })
 
   it('cannot install a package that exists only on a remote filesystem', () => {
@@ -119,7 +124,7 @@ describe('software installation completion: ordinary products', () => {
   const ordinaryPath = '/home/user/downloads/packet-viewer.pkg'
   const ordinaryPackage: SoftwarePackageFile = {
     kind: 'software_package', id: 'file-packet-viewer-1', path: ordinaryPath,
-    productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer',
+    productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer',
     version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 2_048,
   }
 
@@ -130,7 +135,7 @@ describe('software installation completion: ordinary products', () => {
     expect(started).toMatchObject({ status: 'started', productId: 'packet-viewer' })
     if (started.status !== 'started') throw new Error(started.status)
     expect(installation(started.state.process.processes[0])).toMatchObject({
-      productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer',
+      productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer',
       version: '1.0', channel: 'standard', publisher: 'test-publisher', status: 'running',
     })
     expect(started.state.player.localDevice.installedSoftware).toEqual(initialSoftware)
@@ -139,7 +144,7 @@ describe('software installation completion: ordinary products', () => {
     const completed = completeInstallation(started.state)
     expect(completed.player.localDevice.installedSoftware).toEqual([
       ...initialSoftware,
-      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
     ])
     expect(completed.player.localDevice.filesystem.files).toContainEqual(ordinaryPackage)
     expect(completed.player.localDevice.filesystem.files.some((file) => file.kind === 'executable' && file.programId === 'packet-viewer')).toBe(false)
@@ -149,7 +154,7 @@ describe('software installation completion: ordinary products', () => {
     const first = installLocalSoftwarePackage(withFiles([ordinaryPackage]), ordinaryPath)
     if (first.status !== 'started') throw new Error(first.status)
     const installed = completeInstallation(first.state)
-    const nextPackage: SoftwarePackageFile = { ...ordinaryPackage, id: 'file-packet-viewer-2', path: '/home/user/downloads/packet-viewer-1.1.pkg', releaseId: 'packet-viewer-1.1', version: '1.1', channel: 'experimental', publisher: 'next-publisher' }
+    const nextPackage: SoftwarePackageFile = { ...ordinaryPackage, id: 'file-packet-viewer-2', path: '/home/user/downloads/packet-viewer-1.1.pkg', releaseId: 'packet-viewer-1.1', buildId: 'build-packet-viewer-1.1', version: '1.1', channel: 'experimental', publisher: 'next-publisher' }
     const withNextPackage: GameState = {
       ...installed,
       player: { ...installed.player, localDevice: { ...installed.player.localDevice, filesystem: { ...installed.player.localDevice.filesystem, files: [...installed.player.localDevice.filesystem.files, nextPackage] } } },
@@ -158,7 +163,7 @@ describe('software installation completion: ordinary products', () => {
     if (second.status !== 'started') throw new Error(second.status)
     const updated = completeInstallation(second.state)
     expect(updated.player.localDevice.installedSoftware.filter(({ id }) => id === 'packet-viewer')).toEqual([
-      { id: 'packet-viewer', releaseId: 'packet-viewer-1.1', name: 'Packet Viewer', version: '1.1', channel: 'experimental', publisher: 'next-publisher' },
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.1', buildId: 'build-packet-viewer-1.1', name: 'Packet Viewer', version: '1.1', channel: 'experimental', publisher: 'next-publisher' },
     ])
     expect(updated.player.localDevice.installedSoftware.filter(({ id }) => id !== 'packet-viewer')).toEqual(
       installed.player.localDevice.installedSoftware.filter(({ id }) => id !== 'packet-viewer'),
@@ -174,7 +179,7 @@ describe('software installation completion: NodeScan', () => {
     const done = completeInstallation(started.state)
     const process = installation(done.process.processes.find(({ id }) => id === started.processId)!)
     expect(process).toMatchObject({ status: 'completed', result: { status: 'installed' } })
-    expect(done.player.localDevice.installedSoftware).toContainEqual({ id: 'nodescan', releaseId: 'build-a91f7', name: 'Canonical Scanner', version: '1.1', channel: 'experimental' })
+    expect(done.player.localDevice.installedSoftware).toContainEqual({ id: 'nodescan', releaseId: 'build-a91f7', buildId: 'build-fixture-v0', name: 'Canonical Scanner', version: '1.1', channel: 'experimental' })
     expect(done.player.localDevice.filesystem.files[0]).toBe(packageFile)
   })
 
@@ -211,11 +216,11 @@ describe('software installation completion: NODE Miner', () => {
     const done = completeInstallation(started.state)
     const process = installation(done.process.processes.find(({ id }) => id === started.processId)!)
     expect(process).toMatchObject({ status: 'completed', result: { status: 'installed' } })
-    expect(done.player.localDevice.installedSoftware).toContainEqual({ id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' })
+    expect(done.player.localDevice.installedSoftware).toContainEqual({ id: 'node-miner', releaseId: 'node-miner-1.0', buildId: NODE_MINER_1_0.buildId, name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' })
 
     const executables = done.player.localDevice.filesystem.files.filter((file): file is ExecutableFile => file.kind === 'executable')
     expect(executables).toHaveLength(1)
-    expect(executables[0]).toMatchObject({ path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' })
+    expect(executables[0]).toMatchObject({ path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: NODE_MINER_1_0.buildId, name: 'NODE Miner', version: '1.0' })
     expect(done.player.localDevice.filesystem.files.some((file) => file.path === packagePath)).toBe(true)
 
     // Installation applies InstalledSoftware and the executable; it never automatically RUNs anything.
@@ -305,7 +310,7 @@ describe('normal package recognition of the current path', () => {
   })
 
   it('admits the recognized .pkg package and rejects the same intrinsic artifact at an unrecognized path without mutating it', () => {
-    const recognized = withFiles([{ ...packageFile, id: 'file-miner', path: '/home/user/downloads/node-miner-1.0.pkg', productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 }])
+    const recognized = withFiles([{ ...packageFile, id: 'file-miner', path: '/home/user/downloads/node-miner-1.0.pkg', productId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 }])
     expect(installLocalSoftwarePackage(recognized, '/home/user/downloads/node-miner-1.0.pkg').status).toBe('started')
 
     for (const unrecognizedPath of UNRECOGNIZED) {
@@ -317,7 +322,7 @@ describe('normal package recognition of the current path', () => {
       // Recognition is not identity: the artifact keeps its intrinsic package truth exactly.
       const current = state.player.localDevice.filesystem.files[0]
       expect(current.kind).toBe('software_package')
-      expect(current).toMatchObject({ productId: source.productId, releaseId: source.releaseId, name: source.name, version: source.version, sizeBytes: source.sizeBytes })
+      expect(current).toMatchObject({ productId: source.productId, releaseId: source.releaseId, buildId: 'build-fixture-v0', name: source.name, version: source.version, sizeBytes: source.sizeBytes })
       expect(current).toEqual({ ...source, path: unrecognizedPath })
     }
   })
@@ -350,7 +355,7 @@ describe('normal package recognition of the current path', () => {
     const copy = downloaded.player.localDevice.filesystem.files.find(({ path: candidate }) => candidate === started.destinationPath)!
     expect(started.destinationPath).toBe('/home/user/downloads/nodescan-exp-1.1.pkd')
     expect(copy.kind).toBe('software_package')
-    expect(copy).toMatchObject({ productId: remoteSource.productId, releaseId: remoteSource.releaseId, name: remoteSource.name, version: remoteSource.version })
+    expect(copy).toMatchObject({ productId: remoteSource.productId, releaseId: remoteSource.releaseId, buildId: remoteSource.buildId, name: remoteSource.name, version: remoteSource.version })
     expect(installLocalSoftwarePackage(downloaded, started.destinationPath).status).toBe('unrecognized_package_extension')
   })
 })
@@ -369,13 +374,13 @@ describe('installRemoteSoftwarePackage', () => {
 
   const remoteMinerPackage: SoftwarePackageFile = {
     kind: 'software_package', id: 'file-remote-miner', path: REMOTE_MINER_PATH,
-    productId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner',
+    productId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner',
     version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000,
   }
 
   const remoteOrdinaryPackage: SoftwarePackageFile = {
     kind: 'software_package', id: 'file-remote-ordinary-baseline', path: REMOTE_PACKAGE_PATH,
-    productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer',
+    productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer',
     version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 2_048,
   }
 
@@ -431,7 +436,7 @@ describe('installRemoteSoftwarePackage', () => {
     const process = installation(result.state.process.processes[0])
     expect(process).toMatchObject({
       kind: 'software_installation', status: 'running', executorDeviceId: 'host-lan-001',
-      productId: remotePackage.productId, releaseId: remotePackage.releaseId, name: remotePackage.name,
+      productId: remotePackage.productId, releaseId: remotePackage.releaseId, buildId: 'build-fixture-v0', name: remotePackage.name,
       version: remotePackage.version, channel: remotePackage.channel, ramRequiredMiB: SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB,
     })
     expect(process.result).toBeUndefined()
@@ -465,11 +470,11 @@ describe('installRemoteSoftwarePackage', () => {
     // node-01 already runs NodeScan 1.0 Standard; that says nothing about srv-01.
     expect(state.player.localDevice.installedSoftware.find(({ id }) => id === 'nodescan')).toBeDefined()
 
-    const installedRemotely = operating((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard' }] }))
+    const installedRemotely = operating((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard' }] }))
     expect(installRemoteSoftwarePackage(installedRemotely, REMOTE_PACKAGE_PATH)).toEqual({ status: 'already_installed', state: installedRemotely })
 
     // A different release of the same product installed there is a replacement, not a block.
-    const otherRelease = operating((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' }] }))
+    const otherRelease = operating((host) => ({ ...host, installedSoftware: [...host.installedSoftware!, { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', buildId: 'build-packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' }] }))
     expect(installRemoteSoftwarePackage(otherRelease, REMOTE_PACKAGE_PATH)).toMatchObject({ status: 'started', productId: 'packet-viewer' })
 
     const started = installRemoteSoftwarePackage(state, REMOTE_PACKAGE_PATH)
@@ -549,11 +554,11 @@ describe('installRemoteSoftwarePackage', () => {
 
     expect(target(done).installedSoftware).toEqual([
       expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
-      { id: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' },
+      { id: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev' },
     ])
     const remoteExecutables = target(done).filesystem!.files.filter((file): file is ExecutableFile => file.kind === 'executable')
     expect(remoteExecutables).toHaveLength(1)
-    expect(remoteExecutables[0]).toMatchObject({ path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', name: 'NODE Miner', version: '1.0' })
+    expect(remoteExecutables[0]).toMatchObject({ path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0' })
     expect(target(done).filesystem!.files).toContainEqual(remoteMinerPackage)
 
     // node-01 gains no installed software, no executable, and no filesystem identity.
@@ -568,7 +573,7 @@ describe('installRemoteSoftwarePackage', () => {
   it('installs an ordinary product with no represented mechanics through the same default path', () => {
     const ordinary: SoftwarePackageFile = {
       kind: 'software_package', id: 'file-remote-ordinary', path: '/opt/packages/packet-viewer-1.0.pkg',
-      productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer',
+      productId: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer',
       version: '1.0', channel: 'standard', publisher: 'test-publisher', sizeBytes: 2_048,
     }
     const started = installRemoteSoftwarePackage(operating(withRemoteFiles([ordinary])), ordinary.path)
@@ -576,7 +581,7 @@ describe('installRemoteSoftwarePackage', () => {
     const done = advanceGameState(started.state, 20_000)
     expect(target(done).installedSoftware).toEqual([
       expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
-      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
     ])
     expect(target(done).filesystem!.files.some((file) => file.kind === 'executable')).toBe(false)
   })
@@ -584,15 +589,15 @@ describe('installRemoteSoftwarePackage', () => {
   it('replaces only the matching product on the target and leaves its unrelated software alone', () => {
     const state = operating((host) => ({ ...host, installedSoftware: [
       ...host.installedSoftware!,
-      { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' },
-      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' },
+      { id: 'packet-viewer', releaseId: 'packet-viewer-0.9', buildId: 'build-packet-viewer-0.9', name: 'Packet Viewer', version: '0.9' },
+      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', buildId: 'build-fixture-v0', name: 'Basic Credential Toolkit', version: '1.0' },
     ] }))
     const started = installRemoteSoftwarePackage(state, REMOTE_PACKAGE_PATH)
     if (started.status !== 'started') throw new Error(started.status)
     expect(target(advanceGameState(started.state, 20_000)).installedSoftware).toEqual([
       expect.objectContaining({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2' }),
-      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
-      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', name: 'Basic Credential Toolkit', version: '1.0' },
+      { id: 'packet-viewer', releaseId: 'packet-viewer-1.0', buildId: 'build-fixture-v0', name: 'Packet Viewer', version: '1.0', channel: 'standard', publisher: 'test-publisher' },
+      { id: 'basic-credential-toolkit', releaseId: 'basic-credential-toolkit-1.0', buildId: 'build-fixture-v0', name: 'Basic Credential Toolkit', version: '1.0' },
     ])
   })
 
@@ -618,12 +623,14 @@ describe('installRemoteSoftwarePackage', () => {
     const gatePath = '/opt/packages/gatessh-1.3.2.pkg'
     const initial = operating()
     expect(installRemoteSoftwarePackage(initial, gatePath)).toEqual({ status: 'already_installed', state: initial })
-    const newer: SoftwarePackageFile = { kind: 'software_package', id: 'gate-new', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3', sizeBytes: 6_400_000 }
+    const newer: SoftwarePackageFile = { kind: 'software_package', id: 'gate-new', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.3.3', sizeBytes: 6_400_000 }
     const upgrade = installRemoteSoftwarePackage(operating(withRemoteFiles([newer])), newer.path)
     if (upgrade.status !== 'started') throw new Error(upgrade.status)
     const upgraded = advanceGameState(upgrade.state, 20_000)
     expect(target(upgraded).installedSoftware!.find(({ id }) => id === 'gate-ssh')?.releaseId).toBe('gate-ssh-1.3.3')
     expect(target(upgraded).services!.find(({ implementation }) => implementation.productId === 'gate-ssh')?.implementation.releaseId).toBe('gate-ssh-1.3.3')
+    expect(target(upgraded).installedSoftware!.find(({ id }) => id === 'gate-ssh')?.buildId).toBe(newer.buildId)
+    expect(target(upgraded).services!.find(({ implementation }) => implementation.productId === 'gate-ssh')?.implementation.buildId).toBe(newer.buildId)
     const downgrade = installRemoteSoftwarePackage(upgraded, gatePath)
     if (downgrade.status !== 'started') throw new Error(downgrade.status)
     const downgraded = advanceGameState(downgrade.state, 20_000)
@@ -632,7 +639,7 @@ describe('installRemoteSoftwarePackage', () => {
   })
 
   it('applies neither GateSSH half if the managed Service disappears before completion', () => {
-    const newer: SoftwarePackageFile = { kind: 'software_package', id: 'gate-missing-service', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', name: 'GateSSH', version: '1.3.3', sizeBytes: 1 }
+    const newer: SoftwarePackageFile = { kind: 'software_package', id: 'gate-missing-service', path: '/opt/packages/gatessh-1.3.3.pkg', productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.3.3', sizeBytes: 1 }
     const original = operating(withRemoteFiles([newer]))
     const started = installRemoteSoftwarePackage(original, newer.path)
     if (started.status !== 'started') throw new Error(started.status)
@@ -651,7 +658,7 @@ describe('completed installation history stays the local Device\'s own observati
   function operating(): GameState {
     const base = createInitialGameState()
     const authored = base.world.network.hosts[0]
-    const pkg: SoftwarePackageFile = { kind: 'software_package', id: 'history-viewer', path: REMOTE_PACKAGE_PATH, productId: 'history-viewer', releaseId: 'history-viewer-1.0', name: 'History Viewer', version: '1.0', sizeBytes: 10 }
+    const pkg: SoftwarePackageFile = { kind: 'software_package', id: 'history-viewer', path: REMOTE_PACKAGE_PATH, productId: 'history-viewer', releaseId: 'history-viewer-1.0', buildId: 'build-fixture-v0', name: 'History Viewer', version: '1.0', sizeBytes: 10 }
     const host = { ...authored, filesystem: { ...authored.filesystem!, files: [...authored.filesystem!.files, pkg] } }
     const authorized: GameState = { ...base, world: { ...base.world, network: { ...base.world.network, hosts: [host, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-history', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-ssh-001', privilege: 'USER' }] } }
     return connectRemoteFromObservation(authorized, { targetDeviceId: host.id, address: host.ip }).state

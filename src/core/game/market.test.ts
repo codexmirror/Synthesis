@@ -57,7 +57,7 @@ describe('Market catalog', () => {
     expect(distribution).toMatchObject({
       productId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.productId,
       releaseId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.releaseId,
-      name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name,
+      buildId: ROLLBACK_EXPLOIT_TOOLKIT_1_0.buildId, name: ROLLBACK_EXPLOIT_TOOLKIT_1_0.name,
       version: ROLLBACK_EXPLOIT_TOOLKIT_1_0.version,
     })
     // Absence preserved as a genuinely missing key, never an empty-string or invented value.
@@ -228,7 +228,7 @@ describe('possession and entitlement', () => {
     expect(state.market.purchases.entitlements).toEqual([])
   })
 
-  it('derives possession from filesystem truth by release identity, not from a stored flag', () => {
+  it('derives possession from exact concrete build truth, not from a stored flag or release alone', () => {
     const state = createInitialGameState()
     const nodeScanOffer = findMarketOffer(state.market, NODESCAN_OFFER)!
     expect(findLocalMarketPackageCopy(state.player.localDevice.filesystem, nodeScanOffer)).toBeUndefined()
@@ -241,6 +241,12 @@ describe('possession and entitlement', () => {
       }],
     } } } }
     expect(findLocalMarketPackageCopy(copiedElsewhere.player.localDevice.filesystem, nodeScanOffer)?.path).toBe('/home/user/keep/nodescan-exp-1.1.pkg')
+
+    const alternateBuild = { ...copiedElsewhere, player: { ...copiedElsewhere.player, localDevice: { ...copiedElsewhere.player.localDevice, filesystem: {
+      ...copiedElsewhere.player.localDevice.filesystem,
+      files: copiedElsewhere.player.localDevice.filesystem.files.map((file) => file.id === 'file-0003' && file.kind === 'software_package' ? { ...file, buildId: 'build-nodescan-synthetic-alternate' } : file),
+    } } } }
+    expect(findLocalMarketPackageCopy(alternateBuild.player.localDevice.filesystem, nodeScanOffer)).toBeUndefined()
 
     const removed: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: {
       ...state.player.localDevice.filesystem,

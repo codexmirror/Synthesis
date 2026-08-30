@@ -59,7 +59,7 @@ describe('Initial credential access', () => {
   })
 
   it('does not consult secretly changed weakness truth for known feasibility or start admission', () => {
-    const patched = changeService(prepared(), (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } }))
+    const patched = changeService(prepared(), (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } }))
     expect(canFormCredentialAccessAttempt(patched, observation)).toBe(true)
     expect(startCredentialAccessAttemptFromObservation(patched, observation).status).toBe('started')
   })
@@ -107,7 +107,7 @@ describe('Initial credential access', () => {
 
   it('appends a FAILURE record, and creates no DeviceAccess, when the Service is reached but its weakness is gone', () => {
     const running = start(); const discovery = running.discovery; const knowledge = running.knowledge
-    const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } })), 30_000)
+    const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000)
     expect(done.deviceAccess.established).toEqual([])
     expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.' }, startedEndpoint: observation.endpoint })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
@@ -145,7 +145,7 @@ describe('Initial credential access', () => {
 
     it('appends one internal Network record with FAILURE for a reached, failed attempt', () => {
       const running = start()
-      const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', name: 'GateSSH', version: '1.4.0' } })), 30_000)
+      const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000)
       const homeNet = done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
       expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ kind: 'connection_attempt', result: 'FAILURE' })])
     })
