@@ -12,7 +12,48 @@ export interface HardwareState {
 export interface RuntimeState {
   readonly baselineCpuLoad: number
   readonly baselineRamUsage: number
-  readonly networkStatus: 'ONLINE' | 'OFFLINE'
+}
+
+/**
+ * A Device's own boot/shutdown state, independent of whether it currently
+ * has connectivity. `RUNNING` is the ordinary steady state; `SHUTTING_DOWN`
+ * and `BOOTING` are the two transient phases of a real represented boot.
+ */
+export type DeviceLifecycleStatus = 'RUNNING' | 'SHUTTING_DOWN' | 'BOOTING'
+
+/**
+ * A Device's own network reachability state, independent of whether it is
+ * currently running. `RECONNECTING` is the transient phase of a Device's own
+ * represented reconnect behavior after losing connectivity.
+ */
+export type DeviceConnectivityStatus = 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTING'
+
+/**
+ * Canonical Device operational truth: two independent dimensions, neither
+ * derived from the other and neither dependent on hardware/runtime
+ * representation. A Device is usable for ordinary network interaction only
+ * when it is `RUNNING` and `CONNECTED` (`isDeviceNetworkUsable`,
+ * `deviceOperationalState.ts`). This replaces the old competing
+ * `NetworkHost.online` / `RuntimeState.networkStatus` availability truths.
+ */
+export interface DeviceOperationalState {
+  readonly lifecycle: DeviceLifecycleStatus
+  readonly connectivity: DeviceConnectivityStatus
+}
+
+/** The represented recovery behavior a Device reacts to connectivity loss with. Device/Firmware-owned configuration, never inferred from a display name. */
+export type DeviceConnectivityRecoveryBehavior = 'RECONNECT' | 'REBOOT_ON_DISCONNECT'
+
+/**
+ * Canonical progress of one Device's own active connectivity-recovery cycle,
+ * present only while that cycle is running. `RECONNECTING` belongs to the
+ * `RECONNECT` behavior; `SHUTTING_DOWN` and `BOOTING` belong to the
+ * `REBOOT_ON_DISCONNECT` behavior and cross the real boot boundary once
+ * `BOOTING` completes.
+ */
+export interface DeviceConnectivityRecoveryProgress {
+  readonly phase: 'RECONNECTING' | 'SHUTTING_DOWN' | 'BOOTING'
+  readonly elapsedMs: number
 }
 
 export interface Vulnerability {
@@ -402,6 +443,8 @@ export interface LocalDeviceState {
   readonly network: DeviceNetworkState
   readonly hardware: HardwareState
   readonly runtime: RuntimeState
+  /** Canonical lifecycle/connectivity truth for this Device. */
+  readonly operational: DeviceOperationalState
   readonly installedSoftware: readonly InstalledSoftware[]
   /** Client-side Dollar sign-in this Device has stored; absent on a Device that saved none. */
   readonly savedDollarSignIn?: DeviceSavedDollarSignIn
@@ -680,7 +723,17 @@ export interface NetworkHost {
   /** Stable entity identity; the simulated IP remains a separate attribute. */
   readonly id: string
   readonly ip: string
-  readonly online: boolean
+  /** Canonical lifecycle/connectivity truth for this Device, independent of hardware/runtime representation. */
+  readonly operational: DeviceOperationalState
+  /**
+   * This Device's own represented reaction to losing connectivity, when it
+   * has one. Device-owned configuration, not derived from Firmware name or a
+   * universal rule: a Device with no configured behavior simply does not
+   * autonomously react to connectivity loss.
+   */
+  readonly connectivityRecoveryBehavior?: DeviceConnectivityRecoveryBehavior
+  /** Canonical progress of this Device's own active connectivity-recovery cycle, present only while one is running. */
+  readonly connectivityRecovery?: DeviceConnectivityRecoveryProgress
   /** Optional mutable presentation identity for a concretely operable host. */
   readonly displayName?: string
   /** Device-owned operating environment and filesystem, when represented. */

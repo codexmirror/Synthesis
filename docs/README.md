@@ -249,13 +249,19 @@ runtime, network transfer capacity, System application.
 - DESIGN → [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
   (target Device ownership and boot activation of pending GateSSH only),
   [`design/DEAUTH_NETWORK_DISRUPTION_V1.md`](design/DEAUTH_NETWORK_DISRUPTION_V1.md)
-  (names Device/RACK-OS reboot reaction as the boundary owner without
-  designing it; future direction, not implemented)
+  (DEAUTH's own connectivity-disruption effect only; DEAUTH itself remains
+  unimplemented — the Device lifecycle/connectivity model and the Petra's
+  Phone / srv-02 recovery precedent it named are now Current Truth here)
 - CODE → `src/core/game/types.ts`, `src/core/game/initialState.ts`,
+  `src/core/game/deviceOperationalState.ts`, `src/core/game/networkConnectivity.ts`,
+  `src/core/game/deviceConnectivityRecovery.ts`, `src/core/game/deviceBootBoundary.ts`,
+  `src/core/game/deviceBootActivation.ts`,
   `src/core/game/networkTransferCapacity.ts`, `src/core/game/networkActivityHistory.ts`,
   `src/core/game/networkManagement.ts`, `src/core/game/serviceImplementations.ts`,
   `src/apps/system/`, `src/apps/networkManagement/`
 - TESTS → `src/test/initialState.test.ts`,
+  `src/core/game/networkConnectivity.test.ts`, `src/core/game/deviceConnectivityRecovery.test.ts`,
+  `src/core/game/connectivityRecoveryRegression.test.ts`, `src/core/game/deviceBootActivation.test.ts`,
   `src/core/game/networkTransferCapacity.test.ts`, `src/core/game/networkActivityHistory.test.ts`,
   `src/core/game/networkManagement.test.ts`, `src/core/game/serviceImplementations.test.ts`,
   `src/apps/system/System.test.tsx`, `src/apps/networkManagement/networkProjection.test.ts`

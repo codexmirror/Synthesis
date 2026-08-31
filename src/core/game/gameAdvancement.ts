@@ -3,6 +3,8 @@ import { resolveCompletedServiceAnalysis } from './serviceAnalysis'
 import { resolveCompletedCredentialAccess } from './credentialAccess'
 import { advanceFileTransfer } from './fileTransfer'
 import { advanceRackUpdatePackageSubmission, resolveCompletedRackUpdateExploit } from './rackUpdate'
+import { advanceDeviceConnectivityRecovery } from './deviceConnectivityRecovery'
+import { advanceRemoteSessionReachability } from './remoteSession'
 import { resolveNodeMinerProduction } from './nodeMiner'
 import { resolveCompletedSoftwareInstallations } from './softwareInstallation'
 import { resolveCompletedSoftwareRemovals } from './softwareRemoval'
@@ -67,7 +69,12 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
   }
 
   nextState = advanceFileTransfer(nextState, elapsedMs)
-  return advanceRackUpdatePackageSubmission(nextState, elapsedMs)
+  nextState = advanceRackUpdatePackageSubmission(nextState, elapsedMs)
+  // Device connectivity/lifecycle recovery, and the Remote Session reachability
+  // it may invalidate, both derive from Device operational truth that this step
+  // may have just changed, so both advance after every other domain this tick.
+  nextState = advanceDeviceConnectivityRecovery(nextState, elapsedMs)
+  return advanceRemoteSessionReachability(nextState)
 }
 
 /**

@@ -1882,7 +1882,7 @@ describe('NODE-OS shell and applications', () => {
           ...base.player.localDevice,
           displayName: 'field-node',
           network: { ip: '203.0.113.77', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
-          runtime: { ...base.player.localDevice.runtime, networkStatus: 'OFFLINE' as const },
+          operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const },
           firmware: { ...base.player.localDevice.firmware, name: 'TEST-OS' },
         },
       },

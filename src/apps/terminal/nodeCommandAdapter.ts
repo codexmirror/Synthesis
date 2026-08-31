@@ -5,6 +5,7 @@ import { parseCommand } from './parser'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
 import { deriveNodeMinerRuntimeStatus, findNodeMinerExecutable, findRunningLocalNodeMiner, isNodeMinerAvailable } from '../../core/game/nodeMiner'
+import { deriveNetworkStatusLabel } from '../../core/game/deviceOperationalState'
 import type { deriveResourceUsage } from '../../core/game/processes'
 
 type ResourceUsage = ReturnType<typeof deriveResourceUsage>
@@ -21,7 +22,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
     runtime: {
       cpuLoad: Math.round(usage.totalCpuLoad),
       ramUsage: Math.round(usage.totalRamUsage),
-      networkStatus: gameState.player.localDevice.runtime.networkStatus,
+      networkStatus: deriveNetworkStatusLabel(gameState.player.localDevice.operational),
     },
     nodeMiner: { available: isNodeMinerAvailable(gameState.player.localDevice) },
     operations: {

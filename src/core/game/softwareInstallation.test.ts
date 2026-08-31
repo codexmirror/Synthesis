@@ -416,7 +416,7 @@ describe('installRemoteSoftwarePackage', () => {
 
     // A target that went offline while the Session was live is reported truthfully.
     const connected = operating()
-    const offline: GameState = { ...connected, world: { ...connected.world, network: { ...connected.world.network, hosts: connected.world.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, online: false } : host) } } }
+    const offline: GameState = { ...connected, world: { ...connected.world, network: { ...connected.world.network, hosts: connected.world.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } : host) } } }
     expect(installRemoteSoftwarePackage(offline, REMOTE_PACKAGE_PATH)).toEqual({ status: 'target_offline', state: offline })
 
     // A Device that represents no software inventory is not given a fabricated one to make it installable.

@@ -45,7 +45,7 @@ describe('local Scan application operation', () => {
       world: {
         network: {
           ...state.world.network,
-          hosts: [{ ...host, online: false }, ...state.world.network.hosts.slice(1)],
+          hosts: [{ ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } }, ...state.world.network.hosts.slice(1)],
         },
       },
     }

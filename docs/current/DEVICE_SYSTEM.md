@@ -113,7 +113,7 @@ Successful RackUpdate submission stores one exact pending GateSSH activation on 
 
 ### The represented personal phone
 
-`host-phone-001` is the one represented ordinary personal Device: display name `Petra’s Phone`, address `198.51.100.61`, online, and a member of `remote-segment-01` with `host-lan-002`. It owns VEYRA OS 4.1 Firmware (`firmware-veyra-os-v4-1`), concrete Mobile CPU / 6 GB hardware and CPU/RAM runtime baselines, its own filesystem, and its own installed-software inventory. It carries no `role`, because it is not a server, and owns its own `NetworkTransferCapacity` (2 MiB/s upload, 4 MiB/s download) like the other concretely represented Devices, so an existing transfer involving it is decided on real grounds rather than for want of a represented capability.
+`host-phone-001` is the one represented ordinary personal Device: display name `Petra’s Phone`, address `198.51.100.61`, `RUNNING`/`CONNECTED`, and a member of `remote-segment-01` with `host-lan-002`. It owns VEYRA OS 4.1 Firmware (`firmware-veyra-os-v4-1`), concrete Mobile CPU / 6 GB hardware and CPU/RAM runtime baselines, its own filesystem, and its own installed-software inventory. It carries no `role`, because it is not a server, and owns its own `NetworkTransferCapacity` (2 MiB/s upload, 4 MiB/s download) like the other concretely represented Devices, so an existing transfer involving it is decided on real grounds rather than for want of a represented capability.
 
 Its filesystem and installed-software inventory are both represented and empty. That is the truthful minimum for this slice: a Device that owns those concerns but currently holds nothing, rather than one filled with invented personal content. It owns an empty Authentication History like the other resource-capable Devices.
 
@@ -143,10 +143,11 @@ phone is 2 MiB/s upload and 4 MiB/s download. The shallow training hosts are
 deliberately given none. Upload and
 download are always interpreted from the perspective of the Device that owns
 the capacity. This capacity is a pure maximum-capability value, not runtime
-usage, and remains distinct from existing availability state
-(`runtime.networkStatus` on the local Device, `online` on a `NetworkHost`):
-an offline endpoint still carries its normal capacity rather than a zeroed
-one. The shallow training hosts are not given an invented capacity.
+usage, and remains distinct from canonical Device operational truth
+(`LocalDeviceState.operational` / `NetworkHost.operational`, below): a
+Device that is not currently network-usable still carries its normal
+capacity rather than a zeroed one. The shallow training hosts are not given
+an invented capacity.
 
 Each `LocalNetwork` also owns its own canonical `NetworkTransferCapacity`,
 representing that Network's own external uplink/downlink rather than any
@@ -217,8 +218,102 @@ and ambiguous-membership rules that govern `FileTransfer` govern it too.
 
 Both represented servers and the represented personal phone also own concrete
 CPU, RAM, and baseline CPU/RAM runtime state. This resource truth is not exposed through Scan, Discovery, or
-Inspect. The shallow training hosts remain non-resource-capable, and
-`NetworkHost.online` remains the sole server availability truth.
+Inspect. The shallow training hosts remain non-resource-capable but still
+own ordinary `operational` truth (below): Device operational state is
+deliberately independent of hardware/runtime representation.
+
+
+## Device lifecycle and connectivity
+
+Canonical Device operational truth (`DeviceOperationalState`,
+`src/core/game/types.ts`) is two independent dimensions owned by every
+Device — the local Device (`LocalDeviceState.operational`) and every
+represented `NetworkHost` (`NetworkHost.operational`) alike, including the
+shallow training hosts:
+
+```text
+LIFECYCLE     = RUNNING | SHUTTING_DOWN | BOOTING
+CONNECTIVITY  = CONNECTED | DISCONNECTED | RECONNECTING
+```
+
+This is canonical World Truth for the local Device as well: `RUNNING` /
+`CONNECTED` describes the ordinary steady state, and `SHUTTING_DOWN` /
+`BOOTING` / `RECONNECTING` are transient phases a Device's own recovery
+behavior (below) may pass through. Neither dimension is derived from the
+other, and neither depends on hardware/runtime representation — a shallow
+training host owns ordinary `operational` truth without being given
+fabricated hardware/runtime to support it.
+
+This replaces the former competing availability truths `NetworkHost.online`
+and `RuntimeState.networkStatus` (both removed). `isDeviceNetworkUsable`
+(`src/core/game/deviceOperationalState.ts`) is the one shared derivation
+every Network/Access/Transfer mechanic uses in their place: a Device is
+usable for ordinary network interaction only while `RUNNING` and
+`CONNECTED`. An SSH Service may remain `open: true` on its Device's own
+Service state while that Device is temporarily unreachable — Service
+configuration and Device reachability remain distinct, exactly as before
+this truth was two-dimensional.
+
+### Neutral connectivity interruption
+
+`interruptLocalNetworkConnectivity` (`src/core/game/networkConnectivity.ts`)
+is the smallest neutral canonical operation that can interrupt a represented
+`LocalNetwork`'s connectivity. Given a `LocalNetwork` id, it resolves
+affected Devices from that Network's own canonical `memberDeviceIds` and
+moves each currently-`CONNECTED` member (the local Device included, when it
+is itself a member) straight to `DISCONNECTED`. It is a transient V1
+mutation, not a persistent Network-outage record: it stores no duration or
+outage state, and a Device already `DISCONNECTED` or `RECONNECTING` is left
+untouched, so calling it again mid-recovery is a no-op rather than a
+restart. It knows nothing about which Devices those are or why the Network
+lost connectivity — no offensive technique, Device, or Firmware identity
+appears anywhere in it. No current mechanic calls it yet; it exists as the
+seam a future connectivity-loss cause (DEAUTH among them, `docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`) composes with.
+
+### Device-owned connectivity recovery
+
+A Device may own a concrete, configured reaction to losing connectivity —
+`NetworkHost.connectivityRecoveryBehavior`, one of `RECONNECT` or
+`REBOOT_ON_DISCONNECT` — and canonical progress through that reaction
+(`NetworkHost.connectivityRecovery`), advanced deterministically every
+`advanceGameState(elapsedMs)` tick by
+`advanceDeviceConnectivityRecovery` (`src/core/game/deviceConnectivityRecovery.ts`).
+Neither the interruption operation above nor this advancement reads an
+attack name, Firmware display name, or Device identity to select a
+reaction: only the Device's own `connectivityRecoveryBehavior` configuration
+decides, and a Device with none configured (srv-01, the shallow training
+hosts) simply stays disconnected — a future Device or Firmware release
+remains free to configure a different reaction, or none.
+
+The first two concretely configured Devices, both on `remote-segment-01`,
+establish the precedent named in
+`docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`:
+
+- **Petra’s Phone** (`RECONNECT`): `CONNECTED → DISCONNECTED → RECONNECTING → CONNECTED`, remaining `RUNNING` throughout and never crossing a boot boundary.
+- **srv-02** (`REBOOT_ON_DISCONNECT`): `RUNNING+CONNECTED → SHUTTING_DOWN+DISCONNECTED → BOOTING+DISCONNECTED → RUNNING+CONNECTED`, crossing a real boot boundary whether or not pending GateSSH exists.
+
+### The real boot boundary
+
+`runRealDeviceBootConsequences` (`src/core/game/deviceBootBoundary.ts`) is
+the one narrow composition boundary for an already-established real Device
+boot. A reboot cause — currently only srv-02's own `REBOOT_ON_DISCONNECT`
+recovery, once its `BOOTING` phase completes — calls it exactly once; it
+never invokes an individual boot consequence directly, and the reboot cause
+never inspects pending software state to decide whether to reboot. Today
+this boundary composes exactly one concrete consequence,
+`activatePendingGateSshAtDeviceBoot`
+(`docs/design/RACKUPDATE_PENDING_ACTIVATION_V1.md`); a future boot
+consequence is added as one more concrete call at this same seam, not
+through a generic hook/plugin/event system.
+
+### Other systems reacting to lost connectivity
+
+Other systems observe changed Device operational truth independently rather
+than being told about it directly:
+
+- `advanceFileTransfer` and `advanceRackUpdatePackageSubmission` already re-resolve their endpoints' usability fresh on every advancement step, so a Device that stops being network-usable mid-transfer interrupts that transfer through its own existing revalidation, unchanged by this model.
+- `advanceRemoteSessionReachability` (`src/core/game/remoteSession.ts`) ends the active Remote Session once its target is no longer network-usable, without touching the `DeviceAccess` relationship the Session was built on: access remains independent and persistent even though the interactive Session built on it does not survive the target's own connectivity loss.
+- Discovery, Knowledge, and `DeviceAccess` are never mutated by connectivity interruption, recovery advancement, or boot activation.
 
 
 ## Network activity evidence
@@ -430,8 +525,24 @@ is observed through RACK-OS, never listed here.
   Device-owned World Truth, not `InstalledSoftware` and not a package.
 - Two Devices may share one Firmware product identity without sharing Device
   identity.
-- `NetworkTransferCapacity` is capability, not usage, and not availability. An
-  offline endpoint still carries its normal capacity.
+- `NetworkTransferCapacity` is capability, not usage, and not availability. A
+  Device that is not currently network-usable still carries its normal
+  capacity.
+- Device lifecycle and connectivity are distinct dimensions of one
+  `operational` state, neither derived from the other and neither dependent
+  on hardware/runtime representation. `NetworkHost.online` and
+  `RuntimeState.networkStatus` are gone; `isDeviceNetworkUsable` is the one
+  shared usability derivation.
+- Connectivity interruption (`networkConnectivity.ts`) only ever mutates
+  connectivity. It must never invoke a per-Device outcome directly — Device
+  reactions belong to `deviceConnectivityRecovery.ts`, which reads only
+  `NetworkHost.connectivityRecoveryBehavior`, never a Firmware display name
+  or attack identifier.
+- A real Device boot has exactly one composition boundary
+  (`deviceBootBoundary.ts`). A reboot cause crosses it once; it must never
+  call an individual boot consequence (GateSSH activation, or a future one)
+  directly, and it must never inspect pending software state to decide
+  whether to reboot.
 - Device transfer capacity and LocalNetwork transfer capacity are two
   distinct capacities. Do not conflate them, and do not let a same-Network
   transfer apply LocalNetwork capacity — that field represents external

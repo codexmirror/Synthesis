@@ -1,4 +1,5 @@
 import { isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DiscoveryState, EnhancedInspectEvidence, InspectedNetworkRelationship, NetworkHost, ServiceInspectSnapshot } from './types'
 
 export type InspectTargets = NetworkTargets
@@ -100,14 +101,14 @@ export function inspectNetworkTarget(targets: Readonly<InspectTargets>, input: s
   if (!resolved) return { status: 'no_response', address: input }
   if (resolved.scope === 'self') {
     const device = resolved.entity
-    return device.runtime.networkStatus === 'ONLINE'
+    return isDeviceNetworkUsable(device.operational)
       ? {
         status: 'device', targetId: device.id, address: input, scope: 'self', networkStatus: 'ONLINE',
         hardware: { cpu: device.hardware.cpu.name, ram: device.hardware.ram.name },
       }
       : { status: 'no_response', address: input }
   }
-  if (!resolved.entity.online) return { status: 'no_response', address: input }
+  if (!isDeviceNetworkUsable(resolved.entity.operational)) return { status: 'no_response', address: input }
   const enhanced = depth === 'enhanced' ? enhancedEvidenceFor(resolved.entity) : undefined
   return {
     status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networkStatus: 'ONLINE',
@@ -131,7 +132,7 @@ export function inspectKnownTarget(targets: Readonly<InspectTargets>, discovery:
   const remembered = discovery.devices.find(({ address }) => address === input)
   if (!remembered) return { status: 'unknown_target', input }
   const current = resolveNetworkTarget(targets, input)
-  if (!current || current.scope === 'self' || current.entity.id !== remembered.id || !current.entity.online) {
+  if (!current || current.scope === 'self' || current.entity.id !== remembered.id || !isDeviceNetworkUsable(current.entity.operational)) {
     return { status: 'no_response', address: input }
   }
   const enhanced = depth === 'enhanced' ? enhancedEvidenceFor(current.entity) : undefined

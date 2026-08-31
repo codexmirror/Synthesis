@@ -3,6 +3,7 @@ import { useGameState } from '../app/GameContext'
 import { AppIcon } from './AppIcon'
 import { deriveActivityMonitor } from '../apps/processes/activityMonitor'
 import { deriveUnreadMailCount } from '../core/game/mail'
+import { deriveNetworkStatusLabel } from '../core/game/deviceOperationalState'
 
 export function Home({ openApp }: { openApp: (app: AppId) => void }) {
   const state = useGameState()
@@ -46,7 +47,7 @@ export function Home({ openApp }: { openApp: (app: AppId) => void }) {
           <div><dt>DEVICE</dt><dd>{device.displayName}</dd></div>
           <div><dt>ADDRESS</dt><dd>{device.network.ip}</dd></div>
           <div><dt>FIRMWARE</dt><dd>{device.firmware.name} {device.firmware.version}</dd></div>
-          <div><dt>NETWORK</dt><dd>{device.runtime.networkStatus}</dd></div>
+          <div><dt>NETWORK</dt><dd>{deriveNetworkStatusLabel(device.operational)}</dd></div>
         </dl>
       </section>
     </main>

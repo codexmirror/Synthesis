@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation, disconnectRemoteSession, resolveActiveRemoteTarget } from './remoteSession'
+import { interruptLocalNetworkConnectivity } from './networkConnectivity'
+import { advanceGameState } from './gameAdvancement'
 import type { GameState } from './types'
 
 const observation = { targetDeviceId: 'host-lan-001', address: '198.51.100.47' }
@@ -36,8 +38,8 @@ describe('remote session lifecycle', () => {
   })
 
   it.each([
-    [(state: GameState) => ({ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, runtime: { ...state.player.localDevice.runtime, networkStatus: 'OFFLINE' as const } } } }), observation],
-    [(state: GameState) => ({ ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, online: false } : host) } } }), observation],
+    [(state: GameState) => ({ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } } } }), observation],
+    [(state: GameState) => ({ ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } } : host) } } }), observation],
     [(state: GameState) => state, { ...observation, address: '192.0.2.80' }],
     [(state: GameState) => ({ ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, services: host.services?.map((service) => ({ ...service, open: false })) } : host) } } }), observation],
   ] as const)('returns the same coarse result for unavailable current paths', (alter, requested) => {
@@ -57,5 +59,19 @@ describe('remote session lifecycle', () => {
     expect({ ...disconnected.state, remoteSession: base.remoteSession }).toEqual(base)
     expect(connectRemoteFromObservation(disconnected.state, observation).state.remoteSession.active?.id).toBe('session-0002')
     expect(disconnectRemoteSession(base)).toEqual({ status: 'not_connected', state: base })
+  })
+
+  it('ends the Session once its target is no longer network-usable, without touching the DeviceAccess it was built on', () => {
+    const connected = connectRemoteFromObservation(accessed(), observation).state
+    const interrupted = interruptLocalNetworkConnectivity(connected, 'network-local-001')
+    const advanced = advanceGameState(interrupted, 100)
+    expect(advanced.remoteSession.active).toBeNull()
+    expect(advanced.deviceAccess).toEqual(connected.deviceAccess)
+  })
+
+  it('leaves an active Session alone while its target remains network-usable', () => {
+    const connected = connectRemoteFromObservation(accessed(), observation).state
+    const advanced = advanceGameState(connected, 100)
+    expect(advanced.remoteSession.active).toEqual(connected.remoteSession.active)
   })
 })

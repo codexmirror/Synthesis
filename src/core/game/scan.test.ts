@@ -27,7 +27,7 @@ describe('scanNetworkTarget outward discovery', () => {
         { targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' },
       ],
     })
-    const offlineHosts = targets.network.hosts.map((host) => host.id === 'device-local-v0' ? host : { ...host, online: false })
+    const offlineHosts = targets.network.hosts.map((host) => host.id === 'device-local-v0' ? host : { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } })
     expect(scanNetworkTarget({ ...targets, network: { ...targets.network, hosts: offlineHosts } }, 'home-net')).toMatchObject({
       devices: [{ targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' }],
     })
@@ -50,7 +50,7 @@ describe('scanNetworkTarget outward discovery', () => {
 
     const offlineDevice = {
       ...movedDevice,
-      runtime: { ...movedDevice.runtime, networkStatus: 'OFFLINE' as const },
+      operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const },
     }
     expect(scanNetworkTarget({ ...targets, localDevice: offlineDevice }, '192.0.2.44')).toEqual({
       status: 'no_response', address: '192.0.2.44',
@@ -70,7 +70,7 @@ describe('scanNetworkTarget outward discovery', () => {
   })
 
   it('excludes represented online hosts that are not network members', () => {
-    const unrelatedHost = { id: 'host-unrelated', ip: '192.0.2.77', online: true }
+    const unrelatedHost = { id: 'host-unrelated', ip: '192.0.2.77', operational: { lifecycle: 'RUNNING' as const, connectivity: 'CONNECTED' as const } }
     const network = { ...targets.network, hosts: [...targets.network.hosts, unrelatedHost] }
     const result = scanNetworkTarget({ ...targets, network }, 'home-net')
 

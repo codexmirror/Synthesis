@@ -319,7 +319,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
   it('interruption from a lost route applies no part of the package', () => {
     let state = submit(grantSubmissionAccess(ready()))
     state = advanceGameState(state, 1000)
-    const offline = alterTarget(state, (host) => ({ ...host, online: false }))
+    const offline = alterTarget(state, (host) => ({ ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } }))
     const interrupted = advanceGameState(offline, 1000)
     expect(interrupted.rackUpdate.submission.active).toBeNull()
     const managed = interrupted.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
@@ -357,7 +357,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
   it.each([
     ['wrong observed endpoint', (state: GameState) => state, { endpoint: '203.0.113.42:9443' }, 'observation_required'],
     ['stale endpoint after the current port changes', (state: GameState) => alterUpdate(state, (service) => ({ ...service, port: 9443 })), {}, 'service_unavailable'],
-    ['offline target', (state: GameState) => alterTarget(state, (host) => ({ ...host, online: false })), {}, 'service_unavailable'],
+    ['offline target', (state: GameState) => alterTarget(state, (host) => ({ ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } })), {}, 'service_unavailable'],
     ['closed RackUpdate', (state: GameState) => alterUpdate(state, (service) => ({ ...service, open: false })), {}, 'service_unavailable'],
     ['changed RackUpdate', (state: GameState) => alterUpdate(state, (service) => ({ ...service, implementation: { ...service.implementation, releaseId: 'rack-update-1.1' } })), {}, 'service_unavailable'],
     ['already-applied build', (state: GameState) => alterSsh(state, (service) => ({ ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, version: '1.3.2' } })), {}, 'package_incompatible'],

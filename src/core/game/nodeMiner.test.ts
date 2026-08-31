@@ -503,7 +503,7 @@ describe('remote NODE Miner RUN admission', () => {
   })
 
   it('fails admission when the target went offline while the Session was live', () => {
-    const state = operatingState((host) => ({ ...host, online: false }))
+    const state = operatingState((host) => ({ ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } }))
     const result = startRemoteNodeMiner(state, REMOTE_MINER_PATH, 'addr')
     expect(result.status).toBe('target_offline')
     expect(result.state).toBe(state)

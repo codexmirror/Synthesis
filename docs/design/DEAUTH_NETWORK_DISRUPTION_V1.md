@@ -5,11 +5,17 @@ Scope: Design authority for the first planned offensive network-disruption
 effect ("DEAUTH") and the srv-02 multi-step composition it is intended to
 prove. Defines DEAUTH's own effect narrowly, and how it relates to the
 already Accepted `RACKUPDATE_PENDING_ACTIVATION_V1.md` boot-activation
-boundary. Direction only: DEAUTH, a reboot lifecycle, and boot activation are
-not implemented. This contract does not design a reboot lifecycle, a
-firewall/reachability system, or NetworkManagement acquisition.
+boundary. DEAUTH itself — the player-facing offensive technique, its
+tool/software source, acquisition/progression, cost, UI action, and success
+model — remains unimplemented direction only. The neutral Network
+connectivity-interruption primitive, the Device lifecycle/connectivity
+model, and the concrete Petra's Phone / srv-02 recovery precedent this
+contract names are now implemented and are Current Truth in
+`docs/current/DEVICE_SYSTEM.md`; boot activation is likewise implemented.
+This contract does not design a firewall/reachability system or
+NetworkManagement acquisition.
 Normative owners of current implemented behavior: `docs/current/NETWORK_ACCESS.md`
-and `docs/current/DEVICE_SYSTEM.md`; neither currently implements DEAUTH.
+and `docs/current/DEVICE_SYSTEM.md`; neither implements DEAUTH itself.
 
 
 ## Purpose and authority
@@ -111,11 +117,12 @@ release
 ```
 
 Petra's Phone (`docs/V0.md`, `docs/current/VEYRA_OS.md`) already exists on
-the player's own `home-net` alongside `srv-02`. It is named here only as the
-concrete illustration of an independent reaction on a Device the player was
-not attacking. This contract does not select or change Petra's Phone's
-represented reconnect behavior; it only names the kind of independent
-reaction a Network-scoped effect should be able to produce.
+the neutral foreign `remote-segment-01`, alongside `srv-02` — not the
+player's own `home-net`. It is named here only as the concrete illustration
+of an independent reaction on a Device the player was not attacking. This
+contract does not select or change Petra's Phone's represented reconnect
+behavior; it only names the kind of independent reaction a Network-scoped
+effect should be able to produce.
 
 At no point in this chain does DEAUTH itself decide that `srv-02` reboots, or
 that the pending GateSSH release becomes active. Each arrow is owned by the
@@ -202,18 +209,22 @@ connectivity loss.
 ## Authority for the concrete precedent
 
 The concrete reconnect behavior of Petra's Phone and the concrete reboot
-reaction of `srv-02` are not yet established anywhere in current design or
-implementation authority. `docs/current/VEYRA_OS.md` presents no reconnect
-behavior for the phone; `docs/design/REMOTE_SERVER_OS_V1.md` explicitly
-excludes "reboot handling" from its own scope; and
-`RACKUPDATE_PENDING_ACTIVATION_V1.md` already states that reboot lifecycle
-timing and Device-local power management remain deferred.
+reaction of `srv-02` are now implemented and are Current Truth, owned by
+`docs/current/DEVICE_SYSTEM.md` (`NetworkHost.connectivityRecoveryBehavior`,
+`RECONNECT` for the phone and `REBOOT_ON_DISCONNECT` for `srv-02`), closing
+the authority gap this section previously named. `docs/current/VEYRA_OS.md`
+still presents no reconnect *presentation* for the phone — this precedent is
+represented Device/RACK-OS behavior, not a VEYRA OS product surface — and
+`docs/design/REMOTE_SERVER_OS_V1.md` still excludes general "reboot
+handling" from its own scope, which remains accurate: this contract's
+precedent is one concrete Device's own configured reaction, not a general
+RACK-OS reboot-handling model. This design document does not itself own that
+implemented behavior and is not turned into its owner by this note; it
+records only that the gap it once named is closed elsewhere.
 
-This document does not close that authority gap. The Petra's Phone reconnect
-and `srv-02` reboot behavior described above are the accepted intended
-precedent — the selected concrete shape a future implementation slice should
-produce — not Current Truth, and not a claim that either behavior already
-exists.
+Exact reconnect/reboot phase timing remains this implementation's own
+concrete decision, deliberately left unselected by this contract and by
+`RACKUPDATE_PENDING_ACTIVATION_V1.md` alike.
 
 
 ## Non-goals
@@ -240,10 +251,13 @@ requires them.
 
 ## Deferred
 
-Everything needed to actually implement DEAUTH — which Network-scoped
-represented state changes, which Device(s) observe it, resource cost,
-elapsed work, the concrete offensive technique or tool, and the concrete
-Device/RACK-OS reboot behavior it may eventually trigger — remains
-unimplemented and outside this contract, exactly as
-`RACKUPDATE_PENDING_ACTIVATION_V1.md` already states for the reboot side of
-the same chain.
+Everything needed to actually implement DEAUTH itself — which represented
+cause performs the Network-scoped connectivity mutation, resource cost,
+elapsed work, and the concrete offensive technique or tool — remains
+unimplemented and outside this contract. The neutral connectivity-mutation
+operation it would call
+(`interruptLocalNetworkConnectivity`, `docs/current/DEVICE_SYSTEM.md`) and
+the concrete Device/RACK-OS reaction it would trigger (Petra's Phone
+reconnect, `srv-02` reboot through the real boot boundary) are already
+implemented, independently of DEAUTH, so a future DEAUTH implementation
+composes with existing Current Truth rather than designing it anew.

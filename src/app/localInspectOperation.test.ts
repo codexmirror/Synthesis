@@ -59,7 +59,7 @@ describe('player-facing Inspect operation', () => {
     expect(inspect('198.51.100.47')).toMatchObject({ status: 'device', targetId: 'host-lan-001', deviceKind: 'server' })
     expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toMatchObject({ networkStatus: 'ONLINE', deviceKind: 'server' })
     const host = state.world.network.hosts[0]
-    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', online: false }, ...state.world.network.hosts.slice(1)] } } }
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } }, ...state.world.network.hosts.slice(1)] } } }
     expect(inspect('198.51.100.47')).toEqual({ status: 'no_response', address: '198.51.100.47' })
     expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect?.deviceKind).toBe('server')
     expect(state.knowledge.discoveredVulnerabilities).toEqual([])
@@ -70,7 +70,7 @@ describe('player-facing Inspect operation', () => {
     expect(inspect('198.51.100.47')).toMatchObject({ status: 'device', targetId: 'host-lan-001' })
     const remembered = structuredClone(state.discovery)
     const host = state.world.network.hosts[0]
-    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', online: true }, ...state.world.network.hosts.slice(1)] } } }
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' } }, ...state.world.network.hosts.slice(1)] } } }
 
     expect(inspect('198.51.100.47')).toEqual({ status: 'no_response', address: '198.51.100.47' })
     expect(state.discovery).toEqual(remembered)
@@ -162,7 +162,7 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     expect(state.discovery.devices[0].services[0].inspect).toMatchObject({ implementation: { version: '1.4.0' }, authentication: 'Credential' })
 
     const remembered = structuredClone(state.discovery)
-    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...state.world.network.hosts[0], online: false }, ...state.world.network.hosts.slice(1)] } } }
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...state.world.network.hosts[0], operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } }, ...state.world.network.hosts.slice(1)] } } }
     expect(inspect('198.51.100.47')).toEqual({ status: 'no_response', address: '198.51.100.47' })
     expect(state.discovery).toEqual(remembered)
   })
@@ -220,7 +220,7 @@ describe('NodeScan 1.1 Experimental Enhanced Inspect', () => {
     inspect('198.51.100.47')
     const remembered = structuredClone(state.discovery)
     const host = state.world.network.hosts[0]
-    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', online: true }, ...state.world.network.hosts.slice(1)] } } }
+    state = { ...state, world: { network: { ...state.world.network, hosts: [{ ...host, ip: '198.51.100.88', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' } }, ...state.world.network.hosts.slice(1)] } } }
 
     expect(inspect('198.51.100.47')).toEqual({ status: 'no_response', address: '198.51.100.47' })
     expect(state.discovery).toEqual(remembered)

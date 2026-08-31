@@ -2,6 +2,7 @@ import { startProcess } from './processes'
 import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
 import { vulnerabilitiesForService } from './serviceImplementations'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 
 export const SERVICE_ANALYSIS_WORK_REQUIRED = 1000
 export const SERVICE_ANALYSIS_RAM_REQUIRED_MIB = 768
@@ -25,14 +26,14 @@ export function resolveServiceEndpoint(state: GameState, endpoint: string): { ta
   return host && service ? { targetDeviceId: host.id, serviceId: service.id } : undefined
 }
 
-function currentService(state: GameState, targetDeviceId: string, serviceId: string): { online: boolean; hostIp?: string; service?: NetworkService } {
+function currentService(state: GameState, targetDeviceId: string, serviceId: string): { usable: boolean; hostIp?: string; service?: NetworkService } {
   const host = state.world.network.hosts.find(({ id }) => id === targetDeviceId)
-  return { online: host?.online ?? false, hostIp: host?.ip, service: host?.services?.find(({ id }) => id === serviceId) }
+  return { usable: Boolean(host && isDeviceNetworkUsable(host.operational)), hostIp: host?.ip, service: host?.services?.find(({ id }) => id === serviceId) }
 }
 
 export function startServiceAnalysis(state: GameState, targetDeviceId: string, serviceId: string): StartServiceAnalysisResult {
   const current = currentService(state, targetDeviceId, serviceId)
-  if (!current.online || !current.hostIp || !current.service?.open) return { status: 'unavailable', state }
+  if (!current.usable || !current.hostIp || !current.service?.open) return { status: 'unavailable', state }
   const startedEndpoint = `${current.hostIp}:${current.service.port}`
   if (state.process.processes.some((process) => process.kind === 'service_analysis' && process.status === 'running' && process.targetDeviceId === targetDeviceId && process.serviceId === serviceId)) return { status: 'already_running', state }
   const started = startProcess(state.process, state.player.localDevice, {
@@ -72,7 +73,7 @@ export function startServiceAnalysisFromObservation(state: GameState, observed: 
 /** Owned by Service Analysis: resolves finished work against current world truth exactly once. */
 export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
-  if (!current.online || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
+  if (!current.usable || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
   const rememberedImplementation = state.discovery.devices.find(({ id }) => id === process.targetDeviceId)
     ?.services.find(({ id }) => id === process.serviceId)?.inspect?.implementation
   const analyzedImplementation = rememberedImplementation

@@ -3,6 +3,7 @@ import { findMarketOffer, isMarketOfferPurchased } from './market'
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { appendNetworkFileTransferEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
 import { resolveActiveRemoteTarget } from './remoteSession'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DeviceAccessFileTransfer, FileTransfer, FilesystemFile, FilesystemState, GameState, MarketDistributionFileTransfer, MarketOffer, NetworkHost } from './types'
 import { archiveFileTransfer } from './recentActivity'
 
@@ -48,8 +49,8 @@ export function startRemoteFileDownload(state: GameState, sourcePath: string): S
   if (source.status === 'not_found') return { status: 'source_not_found', state }
   if (source.status === 'not_file') return { status: 'source_not_file', state }
   const local = state.player.localDevice
-  if (local.runtime.networkStatus !== 'ONLINE') return { status: 'local_offline', state }
-  if (!remote.target.online) return { status: 'source_offline', state }
+  if (!isDeviceNetworkUsable(local.operational)) return { status: 'local_offline', state }
+  if (!isDeviceNetworkUsable(remote.target.operational)) return { status: 'source_offline', state }
   if (!remote.target.transferCapacity || !isValidNetworkTransferCapacity(remote.target.transferCapacity) || !isValidNetworkTransferCapacity(local.network.transferCapacity)) return { status: 'capacity_unavailable', state }
   if (state.fileTransfer.active) return { status: 'transfer_in_progress', state }
   const destinationPath = deriveDownloadDestinationPath(source.file.path)
@@ -73,8 +74,8 @@ export function startRemoteFileUpload(state: GameState, sourcePath: string, dest
   if (source.status === 'not_found') return { status: 'source_not_found', state }
   if (source.status === 'not_file') return { status: 'source_not_file', state }
   const local = state.player.localDevice
-  if (local.runtime.networkStatus !== 'ONLINE') return { status: 'local_offline', state }
-  if (!remote.target.online) return { status: 'destination_offline', state }
+  if (!isDeviceNetworkUsable(local.operational)) return { status: 'local_offline', state }
+  if (!isDeviceNetworkUsable(remote.target.operational)) return { status: 'destination_offline', state }
   if (!remote.target.filesystem) return { status: 'destination_conflict', state }
   if (!remote.target.transferCapacity || !isValidNetworkTransferCapacity(local.network.transferCapacity) || !isValidNetworkTransferCapacity(remote.target.transferCapacity)) return { status: 'capacity_unavailable', state }
   if (state.fileTransfer.active) return { status: 'transfer_in_progress', state }
@@ -165,7 +166,7 @@ export function startMarketPackageDownload(state: GameState, offerId: string): S
   if (!offer) return { status: 'unknown_offer', state }
   if (!isMarketOfferPurchased(state.market, offerId)) return { status: 'not_purchased', state }
   const local = state.player.localDevice
-  if (local.runtime.networkStatus !== 'ONLINE') return { status: 'local_offline', state }
+  if (!isDeviceNetworkUsable(local.operational)) return { status: 'local_offline', state }
   if (!isValidNetworkTransferCapacity(state.market.distributionCapacity) || !isValidNetworkTransferCapacity(local.network.transferCapacity)) return { status: 'capacity_unavailable', state }
   if (state.fileTransfer.active) return { status: 'transfer_in_progress', state }
   const destinationPath = deriveMarketDownloadDestinationPath(offer)
@@ -213,7 +214,7 @@ type ResolvedTransfer =
  */
 function resolveMarketTransfer(state: GameState, transfer: MarketDistributionFileTransfer): ResolvedTransfer | undefined {
   const local = state.player.localDevice
-  if (transfer.destinationDeviceId !== local.id || local.runtime.networkStatus !== 'ONLINE') return undefined
+  if (transfer.destinationDeviceId !== local.id || !isDeviceNetworkUsable(local.operational)) return undefined
   const offer = findMarketOffer(state.market, transfer.offerId)
   if (!offer || !isMarketOfferPurchased(state.market, transfer.offerId)) return undefined
   const distributionCapacity = state.market.distributionCapacity
@@ -229,13 +230,13 @@ function resolveMarketTransfer(state: GameState, transfer: MarketDistributionFil
 function resolveDeviceAccessTransfer(state: GameState, transfer: DeviceAccessFileTransfer): ResolvedTransfer | undefined {
   const local = state.player.localDevice
   const direction = deriveFileTransferDirection(local.id, transfer)
-  if (!direction || local.runtime.networkStatus !== 'ONLINE') return undefined
+  if (!direction || !isDeviceNetworkUsable(local.operational)) return undefined
   const access = state.deviceAccess.established.find(({ id }) => id === transfer.accessId)
   if (!access || access.sourceDeviceId !== local.id) return undefined
   const remoteDeviceId = direction === 'download' ? transfer.sourceDeviceId : transfer.destinationDeviceId
   if (access.targetDeviceId !== remoteDeviceId) return undefined
   const remoteHost = state.world.network.hosts.find(({ id }) => id === remoteDeviceId)
-  if (!remoteHost?.online || !remoteHost.filesystem || !remoteHost.transferCapacity) return undefined
+  if (!remoteHost || !isDeviceNetworkUsable(remoteHost.operational) || !remoteHost.filesystem || !remoteHost.transferCapacity) return undefined
   const sourceFilesystem = direction === 'download' ? remoteHost.filesystem : local.filesystem
   const destinationFilesystem = direction === 'download' ? local.filesystem : remoteHost.filesystem
   const sourceDeviceCapacity = direction === 'download' ? remoteHost.transferCapacity : local.network.transferCapacity
