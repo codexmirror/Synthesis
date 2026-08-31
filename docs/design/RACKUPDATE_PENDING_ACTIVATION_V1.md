@@ -166,6 +166,13 @@ Device-local power management, generic boot hooks, NodeScan acute-status
 presentation, new offensive modules, and new Access semantics all remain
 deferred.
 
+DEAUTH's own narrow effect definition and the intended `srv-02` composition
+precedent — RackUpdate pending state, DEAUTH connectivity disruption, Device
+reaction, and this boundary's activation — are frozen as design authority in
+`docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`. That contract does not change
+anything stated above; it only completes the DEAUTH side of the separation
+this section already requires.
+
 
 ## Deterministic next implementation slice
 

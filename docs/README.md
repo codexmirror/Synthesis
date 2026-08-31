@@ -93,9 +93,14 @@ software** below.
 - ARCHITECTURE → A01–A04, A09 in
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
   A07–A08 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
-- DESIGN → [`design/HACKING_AND_OBSERVATION_V1.md`](design/HACKING_AND_OBSERVATION_V1.md),
+- DESIGN → [`design/HACKING_AND_OBSERVATION_V1.md`](design/HACKING_AND_OBSERVATION_V1.md)
+  (also owns the long-term capability-collection progression and composition
+  principle, sections 14-16),
   [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
   (RackUpdate submission, pending GateSSH state, and boot activation only),
+  [`design/DEAUTH_NETWORK_DISRUPTION_V1.md`](design/DEAUTH_NETWORK_DISRUPTION_V1.md)
+  (DEAUTH's own narrow connectivity-disruption effect and the srv-02
+  composition precedent only; future direction, not implemented),
   [`design/SCAN_INFORMATION_ARCHITECTURE_V1.md`](design/SCAN_INFORMATION_ARCHITECTURE_V1.md),
   [`design/REMOTE_SERVER_OS_V1.md`](design/REMOTE_SERVER_OS_V1.md) (RACK-OS work only)
 - CODE → `src/core/game/scan.ts`, `src/core/game/inspect.ts`,
@@ -242,7 +247,10 @@ runtime, network transfer capacity, System application.
   [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md);
   A01–A02 in [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md)
 - DESIGN → [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
-  (target Device ownership and boot activation of pending GateSSH only)
+  (target Device ownership and boot activation of pending GateSSH only),
+  [`design/DEAUTH_NETWORK_DISRUPTION_V1.md`](design/DEAUTH_NETWORK_DISRUPTION_V1.md)
+  (names Device/RACK-OS reboot reaction as the boundary owner without
+  designing it; future direction, not implemented)
 - CODE → `src/core/game/types.ts`, `src/core/game/initialState.ts`,
   `src/core/game/networkTransferCapacity.ts`, `src/core/game/networkActivityHistory.ts`,
   `src/core/game/networkManagement.ts`, `src/core/game/serviceImplementations.ts`,

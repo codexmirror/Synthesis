@@ -1,0 +1,161 @@
+# DEAUTH / NETWORK DISRUPTION V1
+
+Status: Accepted
+Scope: Design authority for the first planned offensive network-disruption
+effect ("DEAUTH") and the srv-02 multi-step composition it is intended to
+prove. Defines DEAUTH's own effect narrowly, and how it relates to the
+already Accepted `RACKUPDATE_PENDING_ACTIVATION_V1.md` boot-activation
+boundary. Direction only: DEAUTH, a reboot lifecycle, and boot activation are
+not implemented. This contract does not design a reboot lifecycle, a
+firewall/reachability system, or NetworkManagement acquisition.
+Normative owners of current implemented behavior: `docs/current/NETWORK_ACCESS.md`
+and `docs/current/DEVICE_SYSTEM.md`; neither currently implements DEAUTH.
+
+
+## Purpose and authority
+
+This contract narrows the Accepted hacking direction in
+`HACKING_AND_OBSERVATION_V1.md` — specifically its capability-collection and
+composition principles (sections 14-16) — to one concrete offensive effect:
+represented network connectivity disruption. It also completes the
+separation already stated in `RACKUPDATE_PENDING_ACTIVATION_V1.md`'s
+"Separation from a future reboot trigger" section by giving that future
+connectivity effect an explicit, narrow definition, rather than duplicating
+that section's existing normative language.
+
+It does not redesign RackUpdate submission or boot activation. Those remain
+owned by `RACKUPDATE_PENDING_ACTIVATION_V1.md`, unchanged.
+
+
+## What DEAUTH is responsible for
+
+DEAUTH / network disruption is a concrete offensive effect with exactly one
+represented consequence:
+
+```text
+DEAUTH / NETWORK DISRUPTION
+        ↓
+represented connectivity of affected Devices is interrupted
+```
+
+That is the entire semantic content this contract assigns to DEAUTH. It is
+narrow by design, in keeping with `HACKING_AND_OBSERVATION_V1.md` section 5:
+an offensive effect is a concrete state transition, not a magic downstream
+consequence.
+
+DEAUTH does **not** semantically mean, and must not be implemented to mean:
+
+- reboot all Devices;
+- apply pending GateSSH, or any other pending software state;
+- grant `DeviceAccess`;
+- grant `NetworkManagementAuthority`;
+- complete the srv-02 progression step directly;
+- a specific reconnect timeline, reconnect phase, or its UI copy; or
+- which concrete tool or software supplies the effect.
+
+Anything else that appears to happen after DEAUTH belongs to the systems that
+react to the changed connectivity state, not to DEAUTH itself. This mirrors
+the existing rule in `RACKUPDATE_PENDING_ACTIVATION_V1.md`: RackUpdate causes
+the target to accept pending state, but does not itself apply it; DEAUTH
+causes connectivity to change, but does not itself decide what that change
+causes.
+
+
+## Why a Network-scoped effect
+
+The intended target of DEAUTH is a Network, not a single Device. That is the
+deliberate source of its intended gameplay consequence: the player may act
+against a Network for one reason while visibly affecting other Devices that
+share it, producing the first meaningful "my action changed more of the
+world than just my target" moment
+(`HACKING_AND_OBSERVATION_V1.md` section 16).
+
+This contract does not select which represented Network-scoped state DEAUTH
+mutates, how many Devices observe it, or the resource cost and elapsed work
+of the attempt. Those remain concrete implementation decisions for a later
+slice.
+
+
+## The srv-02 precedent
+
+The intended first proof of composition beyond Proof E chains three
+independently owned causal boundaries:
+
+```text
+RackUpdate pending GateSSH        (owned by RACKUPDATE_PENDING_ACTIVATION_V1)
+        +
+DEAUTH connectivity disruption    (owned by this contract)
+        ↓
+Device / RACK-OS behavior reacts to the changed connectivity
+        ↓
+a represented reboot occurs       (owned by Device/Firmware behavior, not
+                                    this contract)
+        ↓
+the ordinary boot-activation boundary applies the pending GateSSH release
+                                   (owned by RACKUPDATE_PENDING_ACTIVATION_V1)
+```
+
+Concretely, for the intended `srv-02` precedent:
+
+```text
+network connectivity disruption
+        ↓
+Petra's Phone may reconnect according to its own represented behavior
+        ↓
+srv-02 reacts according to its own represented RACK-OS / Device behavior
+        ↓
+that behavior causes a real Device reboot
+        ↓
+the existing ordinary boot-activation boundary applies the pending GateSSH
+release
+```
+
+Petra's Phone (`docs/V0.md`, `docs/current/VEYRA_OS.md`) already exists on
+the player's own `home-net` alongside `srv-02`. It is named here only as the
+concrete illustration of an independent reaction on a Device the player was
+not attacking. This contract does not select or change Petra's Phone's
+represented reconnect behavior; it only names the kind of independent
+reaction a Network-scoped effect should be able to produce.
+
+At no point in this chain does DEAUTH itself decide that `srv-02` reboots, or
+that the pending GateSSH release becomes active. Each arrow is owned by the
+system on its right: connectivity by DEAUTH, reboot-or-not by Device/RACK-OS
+behavior, activation by the existing boot boundary in
+`RACKUPDATE_PENDING_ACTIVATION_V1.md`. Neither RackUpdate nor DEAUTH grants
+`DeviceAccess` merely because each is an offensive action; the eventual
+credential or access opportunity this chain is intended to reopen belongs to
+whichever concrete mechanic legitimately establishes it, exactly as Proof E
+already requires.
+
+
+## Non-goals
+
+This contract does not authorize:
+
+- an exact reconnect timeline, reconnect phases, or their UI copy;
+- a RACK-OS watchdog or reboot-trigger implementation;
+- selecting the exact software/tool that supplies DEAUTH, unless a future
+  concrete mechanic requires one;
+- a third Flipper module created merely to give DEAUTH somewhere to live
+  (`HACKING_AND_OBSERVATION_V1.md` section 14);
+- a reboot lifecycle or generic Device lifecycle framework;
+- a firewall/reachability implementation;
+- `NetworkManagementAuthority` acquisition through an offensive technique;
+- evidence or log deletion;
+- a universal Exploit, Capability, Technique, or Effect registry;
+- a generic consequence/event bus that would let DEAUTH itself invoke reboot
+  or activation.
+
+These may be revisited only when a concrete implementation slice actually
+requires them.
+
+
+## Deferred
+
+Everything needed to actually implement DEAUTH — which Network-scoped
+represented state changes, which Device(s) observe it, resource cost,
+elapsed work, the concrete offensive technique or tool, and the concrete
+Device/RACK-OS reboot behavior it may eventually trigger — remains
+unimplemented and outside this contract, exactly as
+`RACKUPDATE_PENDING_ACTIVATION_V1.md` already states for the reboot side of
+the same chain.
