@@ -75,7 +75,7 @@ describe('inspectNetworkTarget inward inspection', () => {
   it('returns no response when the current SELF device is offline', () => {
     const localDevice = {
       ...targets.localDevice,
-      runtime: { ...targets.localDevice.runtime, networkStatus: 'OFFLINE' as const },
+      operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const },
     }
 
     expect(inspectNetworkTarget({ ...targets, localDevice }, localDevice.network.ip)).toEqual({

@@ -47,7 +47,7 @@ describe('findTargets', () => {
 
   it('reports no response when SELF is offline rather than inventing an observation', async () => {
     const offline = createInitialGameState()
-    const state = store({ ...offline, player: { ...offline.player, localDevice: { ...offline.player.localDevice, runtime: { ...offline.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } })
+    const state = store({ ...offline, player: { ...offline.player, localDevice: { ...offline.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } })
     expect(await createFindTargets(state.read, state.write)()).toEqual({ status: 'no_response' })
     expect(state.current.discovery.networks).toEqual([])
   })

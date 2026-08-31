@@ -29,7 +29,8 @@ describe('System', () => {
       firmware: { id: 'firmware-test', name: 'TEST-OS', version: '7.4' },
       hardware: { cpu: { name: 'Altered CPU', computeCapacity: 250 }, ram: { name: '16 GB', capacityMiB: 16_384 } },
       network: { ip: '203.0.113.77', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
-      runtime: { baselineCpuLoad: 41, baselineRamUsage: 12, networkStatus: 'OFFLINE' },
+      runtime: { baselineCpuLoad: 41, baselineRamUsage: 12 },
+      operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' },
     })}><System /></GameProvider>)
 
     expect(value('DEVICE')).toBe('field-node')

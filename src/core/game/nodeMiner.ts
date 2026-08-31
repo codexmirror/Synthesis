@@ -4,6 +4,7 @@ import { recordNodeMinerPayout } from './nodeMinerPayoutLog'
 import { deriveResourceUsage } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { findInstalledNodeMiner } from './software'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { ExecutableFile, FilesystemState, GameState, HardwareState, LocalDeviceState, NetworkHost, NodeMinerProcess, ProcessState, RuntimeState } from './types'
 import { archiveProcess } from './recentActivity'
 import { NODE_MINER_1_0_RELEASE_ID } from './softwareReleaseContent'
@@ -177,7 +178,7 @@ export function startRemoteNodeMiner(state: GameState, sourceFilePath: string, p
 function resolveOperatedDevice(state: GameState): { readonly status: 'ok'; readonly target: NetworkHost } | { readonly status: OperatedDeviceFailure } {
   const remote = resolveActiveRemoteTarget(state)
   if (!remote) return { status: 'session_unavailable' }
-  if (!remote.target.online) return { status: 'target_offline' }
+  if (!isDeviceNetworkUsable(remote.target.operational)) return { status: 'target_offline' }
   return { status: 'ok', target: remote.target }
 }
 

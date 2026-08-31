@@ -1,4 +1,5 @@
 import { classifyHostScope, isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 
 export type ScanTargets = NetworkTargets
 
@@ -38,11 +39,11 @@ export function scanNetworkTarget(targets: Readonly<ScanTargets>, input: string)
     const network = resolveLocalNetwork(targets.network, input)
     if (!network) return { status: 'unknown_target', input }
     const devices: { targetId: string; address: string; scope: 'self' | 'lan' | 'remote' }[] = []
-    if (network.memberDeviceIds.includes(targets.localDevice.id) && targets.localDevice.runtime.networkStatus === 'ONLINE') {
+    if (network.memberDeviceIds.includes(targets.localDevice.id) && isDeviceNetworkUsable(targets.localDevice.operational)) {
       devices.push({ targetId: targets.localDevice.id, address: targets.localDevice.network.ip, scope: 'self' })
     }
     for (const host of targets.network.hosts) {
-      if (network.memberDeviceIds.includes(host.id) && host.online) {
+      if (network.memberDeviceIds.includes(host.id) && isDeviceNetworkUsable(host.operational)) {
         devices.push({ targetId: host.id, address: host.ip, scope: classifyHostScope(targets, host.id) })
       }
     }
@@ -51,10 +52,7 @@ export function scanNetworkTarget(targets: Readonly<ScanTargets>, input: string)
 
   const resolved = resolveNetworkTarget(targets, input)
   if (!resolved) return { status: 'no_response', address: input }
-  const online = resolved.scope === 'self'
-    ? resolved.entity.runtime.networkStatus === 'ONLINE'
-    : resolved.entity.online
-  if (!online) return { status: 'no_response', address: input }
+  if (!isDeviceNetworkUsable(resolved.entity.operational)) return { status: 'no_response', address: input }
 
   const networks = resolved.scope === 'self' ? targets.network.localNetworks
     .filter(({ memberDeviceIds }) => memberDeviceIds.includes(resolved.entity.id))

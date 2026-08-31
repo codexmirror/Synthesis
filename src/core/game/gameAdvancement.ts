@@ -3,6 +3,8 @@ import { resolveCompletedServiceAnalysis } from './serviceAnalysis'
 import { resolveCompletedCredentialAccess } from './credentialAccess'
 import { advanceFileTransfer } from './fileTransfer'
 import { advanceRackUpdatePackageSubmission, resolveCompletedRackUpdateExploit } from './rackUpdate'
+import { advanceDeviceConnectivityRecovery } from './deviceConnectivityRecovery'
+import { advanceRemoteSessionReachability } from './remoteSession'
 import { resolveNodeMinerProduction } from './nodeMiner'
 import { resolveCompletedSoftwareInstallations } from './softwareInstallation'
 import { resolveCompletedSoftwareRemovals } from './softwareRemoval'
@@ -67,7 +69,15 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
   }
 
   nextState = advanceFileTransfer(nextState, elapsedMs)
-  return advanceRackUpdatePackageSubmission(nextState, elapsedMs)
+  nextState = advanceRackUpdatePackageSubmission(nextState, elapsedMs)
+  // Remote Session reachability must observe this tick's *starting* Device
+  // operational truth — before Device connectivity recovery has a chance to
+  // restore it within this same call. Otherwise a Session could survive an
+  // interruption that fully resolved (e.g. Petra's Phone reconnecting) inside
+  // one large advancement step, because the step that would have invalidated
+  // it never saw the intervening disconnected state.
+  nextState = advanceRemoteSessionReachability(nextState)
+  return advanceDeviceConnectivityRecovery(nextState, elapsedMs)
 }
 
 /**

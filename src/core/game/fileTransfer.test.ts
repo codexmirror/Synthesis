@@ -261,7 +261,7 @@ describe('endpoint availability', () => {
     const state = connectedState()
     const started = startRemoteFileDownload(state, NODESCAN_PATH)
     if (started.status !== 'started') throw new Error('expected started')
-    const offline: GameState = { ...started.state, player: { ...started.state.player, localDevice: { ...started.state.player.localDevice, runtime: { ...started.state.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    const offline: GameState = { ...started.state, player: { ...started.state.player, localDevice: { ...started.state.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } }
     const advanced = advanceFileTransfer(offline, 60_000)
     expect(advanced.fileTransfer.active).toBeNull()
     expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
@@ -272,7 +272,7 @@ describe('endpoint availability', () => {
     const started = startRemoteFileDownload(state, NODESCAN_PATH)
     if (started.status !== 'started') throw new Error('expected started')
     const host = started.state.world.network.hosts[0]
-    const offlineHost: GameState = { ...started.state, world: { network: { ...started.state.world.network, hosts: [{ ...host, online: false }, ...started.state.world.network.hosts.slice(1)] } } }
+    const offlineHost: GameState = { ...started.state, world: { network: { ...started.state.world.network, hosts: [{ ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } }, ...started.state.world.network.hosts.slice(1)] } } }
     const advanced = advanceFileTransfer(offlineHost, 60_000)
     expect(advanced.fileTransfer.active).toBeNull()
     expect(getFilesystemFile(advanced.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
@@ -515,7 +515,7 @@ describe('Network activity evidence', () => {
     if (started.status !== 'started') throw new Error('expected started')
     const partial = advanceFileTransfer(started.state, 2_000)
     const bytesAtInterruption = partial.fileTransfer.active!.bytesTransferred
-    const offline: GameState = { ...partial, player: { ...partial.player, localDevice: { ...partial.player.localDevice, runtime: { ...partial.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    const offline: GameState = { ...partial, player: { ...partial.player, localDevice: { ...partial.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } }
     const interrupted = advanceFileTransfer(offline, 60_000)
     expect(getFilesystemFile(interrupted.player.localDevice.filesystem, started.destinationPath).status).toBe('not_found')
     const homeNet = interrupted.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
@@ -668,8 +668,8 @@ describe('bidirectional Upload core', () => {
     if (result.status !== 'started') throw new Error('expected started')
     const host = result.state.world.network.hosts[0]
     let invalid = result.state
-    if (condition === 'local offline') invalid = { ...invalid, player: { ...invalid.player, localDevice: { ...invalid.player.localDevice, runtime: { ...invalid.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
-    if (condition === 'remote offline') invalid = { ...invalid, world: { ...invalid.world, network: { ...invalid.world.network, hosts: [{ ...host, online: false }, ...invalid.world.network.hosts.slice(1)] } } }
+    if (condition === 'local offline') invalid = { ...invalid, player: { ...invalid.player, localDevice: { ...invalid.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } }
+    if (condition === 'remote offline') invalid = { ...invalid, world: { ...invalid.world, network: { ...invalid.world.network, hosts: [{ ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } }, ...invalid.world.network.hosts.slice(1)] } } }
     if (condition === 'access removed') invalid = { ...invalid, deviceAccess: { ...invalid.deviceAccess, established: [] } }
     if (condition === 'access mismatch') invalid = { ...invalid, deviceAccess: { ...invalid.deviceAccess, established: invalid.deviceAccess.established.map((access) => ({ ...access, targetDeviceId: 'host-lan-002' })) } }
     if (condition === 'source removed') invalid = { ...invalid, player: { ...invalid.player, localDevice: { ...invalid.player.localDevice, filesystem: { ...invalid.player.localDevice.filesystem, files: invalid.player.localDevice.filesystem.files.filter(({ id }) => id !== 'file-0002') } } } }
@@ -1064,7 +1064,7 @@ describe('Market distribution Download', () => {
     const started = startMarketPackageDownload(state, OFFER_ID)
     if (started.status !== 'started') throw new Error('expected started')
     const running = advanceGameState(started.state, 3_000)
-    const offline: GameState = { ...running, player: { ...running.player, localDevice: { ...running.player.localDevice, runtime: { ...running.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    const offline: GameState = { ...running, player: { ...running.player, localDevice: { ...running.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } }
     const advanced = advanceFileTransfer(offline, 60_000)
     expect(advanced.fileTransfer.active).toBeNull()
     expect(getFilesystemFile(advanced.player.localDevice.filesystem, MARKET_DESTINATION).status).toBe('not_found')
@@ -1131,7 +1131,7 @@ describe('Market distribution Download', () => {
 
   it('rejects admission while the local Device is offline', () => {
     const base = purchased()
-    const offline: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, runtime: { ...base.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    const offline: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } }
     expect(startMarketPackageDownload(offline, OFFER_ID).status).toBe('local_offline')
   })
 

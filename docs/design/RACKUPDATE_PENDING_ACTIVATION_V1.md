@@ -161,10 +161,12 @@ represented reboot occurs
 boot activation applies pending software
 ```
 
-DEAUTH, network disruption, reconnect behavior, reboot lifecycle timing,
-Device-local power management, generic boot hooks, NodeScan acute-status
-presentation, new offensive modules, and new Access semantics all remain
-deferred.
+DEAUTH itself, network disruption's eventual offensive cause, Device-local
+power management, generic boot hooks, NodeScan acute-status presentation,
+new offensive modules, and new Access semantics all remain deferred. The
+neutral connectivity-mutation primitive, Device-owned reconnect/reboot
+recovery behavior, and reboot phase timing are implemented Current Truth
+(`docs/current/DEVICE_SYSTEM.md`), independently of DEAUTH.
 
 DEAUTH's own narrow effect definition and the intended `srv-02` composition
 precedent — RackUpdate pending state, DEAUTH connectivity disruption, Device
@@ -182,6 +184,11 @@ and the managed Service coherently, then clears pending and the consumed
 submission's stale `REBOOT REQUIRED` outcome. It performs no observation refresh
 and leaves pending intact when coherent activation cannot be completed.
 
-The reboot trigger, lifecycle, timing, connectivity effects and Device-specific
-reactions remain deferred. The activation operation does not know why the Device
-booted.
+The connectivity-mutation primitive, Device lifecycle/connectivity model, and
+the concrete `srv-02` reboot trigger and reconnect/reboot phase timing are
+now implemented too (`docs/current/DEVICE_SYSTEM.md`), through the narrow
+`runRealDeviceBootConsequences` composition boundary that calls this
+activation operation without telling it why the Device booted. The
+activation operation itself still does not know, and must not come to know,
+why the Device booted. DEAUTH itself remains the one deferred cause of that
+chain.

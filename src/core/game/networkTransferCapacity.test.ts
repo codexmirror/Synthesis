@@ -180,16 +180,16 @@ describe('availability remains distinct from capacity', () => {
   it('an offline represented host still carries its normal, non-zeroed transfer capacity', () => {
     const state = createInitialGameState()
     const host = findHost(state, 'host-lan-001')
-    const offlineButCapable = { ...host, online: false }
+    const offlineButCapable = { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } }
     expect(offlineButCapable.transferCapacity).toEqual({ uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 })
     expect(offlineButCapable.transferCapacity!.uploadBytesPerSecond).not.toBe(0)
     expect(offlineButCapable.transferCapacity!.downloadBytesPerSecond).not.toBe(0)
   })
 
-  it('online remains a separate boolean attribute unaffected by reading capacity', () => {
+  it('operational truth remains a separate attribute unaffected by reading capacity', () => {
     const state = createInitialGameState()
     const host = findHost(state, 'host-lan-002')
-    expect(host.online).toBe(true)
-    expect(host).not.toHaveProperty('transferCapacity.online')
+    expect(host.operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
+    expect(host).not.toHaveProperty('transferCapacity.operational')
   })
 })

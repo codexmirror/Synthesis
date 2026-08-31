@@ -12,6 +12,7 @@ import {
 } from './serviceImplementations'
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { GameState, InstalledSoftware, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
@@ -86,7 +87,7 @@ export function resolveCompletedRackUpdateExploit(state: GameState, process: Rac
   const host = state.world.network.hosts.find(({ id }) => id === process.targetDeviceId)
   const service = host?.services?.find(({ id }) => id === process.serviceId)
   const validEndpoint = resolved !== 'invalid' && resolved?.targetDeviceId === process.targetDeviceId && resolved.serviceId === process.serviceId
-  const reached = Boolean(host?.online && service?.open && validEndpoint)
+  const reached = Boolean(host && isDeviceNetworkUsable(host.operational) && service?.open && validEndpoint)
   const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Exploit attempt failed.' as const } }, rackUpdateAccess: state.rackUpdate.access }
   if (!reached || !service) return failedResult
 
@@ -152,7 +153,7 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
   const targetIndex = state.world.network.hosts.findIndex(({ id }) => id === input.targetDeviceId)
   const target = state.world.network.hosts[targetIndex]
   const update = target?.services?.find(({ id }) => id === input.serviceId)
-  if (!target || !target.online || !update || !update.open || `${target.ip}:${update.port}` !== input.endpoint
+  if (!target || !isDeviceNetworkUsable(target.operational) || !update || !update.open || `${target.ip}:${update.port}` !== input.endpoint
     || update.implementation.productId !== RACK_UPDATE_PRODUCT_ID || update.implementation.releaseId !== RACK_UPDATE_1_0_RELEASE_ID) {
     return { status: 'service_unavailable', state }
   }
@@ -163,7 +164,7 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
   if (managed.implementation.buildId === localFile.buildId) return { status: 'package_incompatible', state }
 
   if (state.rackUpdate.submission.active) return { status: 'submission_in_progress', state }
-  if (local.runtime.networkStatus !== 'ONLINE') return { status: 'local_offline', state }
+  if (!isDeviceNetworkUsable(local.operational)) return { status: 'local_offline', state }
   if (!isValidNetworkTransferCapacity(local.network.transferCapacity) || !target.transferCapacity || !isValidNetworkTransferCapacity(target.transferCapacity)) {
     return { status: 'capacity_unavailable', state }
   }
@@ -188,11 +189,11 @@ interface SubmissionEndpoints {
 /** Ongoing validity is derived fresh from current canonical state, exactly like FileTransfer, so a stale display attribute never kills or misroutes a running submission. */
 function resolveSubmissionEndpoints(state: GameState, submission: RackUpdatePackageSubmission): SubmissionEndpoints | undefined {
   const local = state.player.localDevice
-  if (local.runtime.networkStatus !== 'ONLINE' || local.id !== submission.sourceDeviceId) return undefined
+  if (!isDeviceNetworkUsable(local.operational) || local.id !== submission.sourceDeviceId) return undefined
   const grant = state.rackUpdate.access.established.find(({ id }) => id === submission.accessId)
   if (!grant || grant.targetDeviceId !== submission.targetDeviceId || grant.viaServiceId !== submission.serviceId) return undefined
   const target = state.world.network.hosts.find(({ id }) => id === submission.targetDeviceId)
-  if (!target?.online || !target.transferCapacity) return undefined
+  if (!target || !isDeviceNetworkUsable(target.operational) || !target.transferCapacity) return undefined
   const update = target.services?.find(({ id }) => id === submission.serviceId)
   if (!update?.open || update.implementation.productId !== RACK_UPDATE_PRODUCT_ID || update.implementation.releaseId !== RACK_UPDATE_1_0_RELEASE_ID) return undefined
   const managed = resolveManagedGateSshService(target)

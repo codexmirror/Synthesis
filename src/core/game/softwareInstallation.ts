@@ -4,6 +4,7 @@ import { NODE_MINER_EXECUTABLE_SIZE_BYTES, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
 import { startProcess } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { GATE_SSH_PRODUCT_ID } from './serviceImplementations'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { ExecutableFile, FilesystemState, FlipperInstallation, GameState, HardwareState, InstalledSoftware, NetworkHost, ProcessState, RuntimeState, SoftwareInstallationProcess, SoftwareInstallationResult } from './types'
 import { FLIPPER_EXECUTABLE_SIZE_BYTES, FLIPPER_INSTALLED_EXECUTABLE_PATH, FLIPPER_PRODUCT_ID } from './flipper'
 
@@ -211,7 +212,7 @@ export function installLocalSoftwarePackage(state: GameState, packagePath: strin
 export function installRemoteSoftwarePackage(state: GameState, packagePath: string): InstallRemoteSoftwarePackageResult {
   const remote = resolveActiveRemoteTarget(state)
   if (!remote) return { status: 'session_unavailable', state }
-  if (!remote.target.online) return { status: 'target_offline', state }
+  if (!isDeviceNetworkUsable(remote.target.operational)) return { status: 'target_offline', state }
   const target = resolveRemoteInstallationTarget(remote.target)
   if (!target) return { status: 'target_not_installable', state }
   const admitted = admitSoftwareInstallation(state.process, target, packagePath)

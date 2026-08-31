@@ -1,3 +1,4 @@
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DeviceAccess, GameState, NetworkHost, NetworkService, RemoteSession } from './types'
 
 export interface ActiveRemoteTarget {
@@ -42,7 +43,7 @@ export function connectRemoteFromObservation(state: GameState, observation: Remo
 
   const target = state.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
   const service = target?.services?.find(({ id }) => id === access.viaServiceId)
-  if (state.player.localDevice.runtime.networkStatus !== 'ONLINE' || !target?.online || target.ip !== observation.address || !service?.open) {
+  if (!isDeviceNetworkUsable(state.player.localDevice.operational) || !target || !isDeviceNetworkUsable(target.operational) || target.ip !== observation.address || !service?.open) {
     return { status: 'target_not_available', state }
   }
 
@@ -63,4 +64,25 @@ export function disconnectRemoteSession(state: GameState): DisconnectRemoteResul
   const activeSession = state.remoteSession.active
   if (!activeSession) return { status: 'not_connected', state }
   return { status: 'disconnected', state: { ...state, remoteSession: { ...state.remoteSession, active: null } } }
+}
+
+/**
+ * Canonical advancement for the active Remote Session's own reachability,
+ * called from `advanceGameState` alongside FileTransfer and RackUpdate
+ * submission's own per-tick revalidation, and deliberately before Device
+ * connectivity recovery advances that same tick (`gameAdvancement.ts`) so a
+ * Session cannot outlive an interruption that recovers within one large
+ * advancement step. Either endpoint losing usable connectivity — the local
+ * source Device or the remote target Device, mid reconnect, mid reboot, or
+ * otherwise disconnected — ends the Session exactly like any other lost
+ * reachability, without touching the `DeviceAccess` relationship the Session
+ * was built on: access remains independent and persistent even though the
+ * interactive Session built on it does not survive either endpoint's own
+ * connectivity loss.
+ */
+export function advanceRemoteSessionReachability(state: GameState): GameState {
+  const resolved = resolveActiveRemoteTarget(state)
+  if (!resolved) return state
+  if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational)) return state
+  return { ...state, remoteSession: { ...state.remoteSession, active: null } }
 }

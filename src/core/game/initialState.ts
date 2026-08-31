@@ -7,7 +7,7 @@ import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 54
+export const GAME_STATE_VERSION = 55
 
 export function createInitialGameState(): GameState {
   return {
@@ -34,8 +34,8 @@ export function createInitialGameState(): GameState {
         runtime: {
           baselineCpuLoad: 18,
           baselineRamUsage: 23,
-          networkStatus: 'ONLINE',
         },
+        operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
         installedSoftware: [
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
           // Flipper is acquired later. The initial standalone Credential Access Module in Files supplies the first AUTH-017 opportunity directly.
@@ -102,7 +102,7 @@ export function createInitialGameState(): GameState {
             id: 'host-lan-001',
             displayName: 'srv-01',
             ip: '198.51.100.47',
-            online: true,
+            operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 },
             firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
@@ -125,7 +125,9 @@ export function createInitialGameState(): GameState {
             id: 'host-lan-002',
             displayName: 'srv-02',
             ip: '203.0.113.42',
-            online: true,
+            operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
+            // This concrete srv-02's own represented recovery behavior for this precedent: it reboots on connectivity loss. Device-owned configuration, not a universal "every RACK-OS reboots" rule.
+            connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT',
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
             firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
@@ -145,7 +147,9 @@ export function createInitialGameState(): GameState {
             id: 'host-phone-001',
             displayName: 'Petra’s Phone',
             ip: '198.51.100.61',
-            online: true,
+            operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
+            // This concrete phone's own represented recovery behavior for this precedent: it reconnects on connectivity loss without ever rebooting. Device-owned configuration, not a universal "every VEYRA OS Device reconnects" rule.
+            connectivityRecoveryBehavior: 'RECONNECT',
             // Concretely represented like the other operable Devices, so an existing transfer to it is refused on real grounds rather than for want of a represented capability.
             transferCapacity: { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 4_194_304 },
             firmware: { id: VEYRA_OS_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
@@ -160,7 +164,8 @@ export function createInitialGameState(): GameState {
             ],
             authenticationHistory: { nextId: 1, records: [] },
           },
-          { id: 'host-training-002', ip: '203.0.113.99', online: false },
+          // Deliberately shallow: operational truth is independent of hardware/runtime representation, so this unreachable training host needs no fabricated resource state to participate in it.
+          { id: 'host-training-002', ip: '203.0.113.99', operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } },
         ],
       },
     },

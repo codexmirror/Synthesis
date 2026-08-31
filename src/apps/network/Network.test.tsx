@@ -681,7 +681,7 @@ describe('NodeScan software and request lifecycle', () => {
 
   it('reports a coarse connection failure without leaking current target state', async () => {
     const offline = withAccess()
-    const user = await openTarget({ ...offline, world: { network: { ...offline.world.network, hosts: offline.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, online: false } : host) } } })
+    const user = await openTarget({ ...offline, world: { network: { ...offline.world.network, hosts: offline.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } : host) } } })
     await user.click(screen.getByRole('button', { name: 'CONNECT' }))
 
     expect(screen.getByText('TARGET NOT AVAILABLE')).toBeInTheDocument()

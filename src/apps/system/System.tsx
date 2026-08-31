@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { deriveResourceUsage } from '../../core/game/processes'
+import { deriveNetworkStatusLabel } from '../../core/game/deviceOperationalState'
 import { NODE_MINER_PROGRAM_ID } from '../../core/game/nodeMiner'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
 import { FLIPPER_MODULE_NAME, FLIPPER_PRODUCT_ID } from '../../core/game/flipper'
@@ -12,7 +13,7 @@ export function System() {
   const state = useGameState()
   const actions = useGameActions()
   const { localDevice } = state.player
-  const { firmware, hardware, network, runtime, installedSoftware } = localDevice
+  const { firmware, hardware, network, installedSoftware } = localDevice
   const usage = deriveResourceUsage(localDevice, state.process)
   /** Which installed-software row is currently expanded. Presentation only, and only ever one. */
   const [expandedProductId, setExpandedProductId] = useState<string>()
@@ -27,7 +28,7 @@ export function System() {
     <div className="node-section"><span>HARDWARE</span></div>
     <dl className="node-facts"><div><dt>CPU</dt><dd>{hardware.cpu.name}</dd></div><div><dt>CPU LOAD</dt><dd>{Math.round(usage.totalCpuLoad)}%</dd></div><div><dt>RAM</dt><dd>{hardware.ram.name} · {hardware.ram.capacityMiB} MiB</dd></div><div><dt>RAM USED</dt><dd>{Math.round(usage.totalRamUsage)}%</dd></div></dl>
     <div className="node-section"><span>NETWORK</span></div>
-    <dl className="node-facts"><div><dt>ADDRESS</dt><dd>{network.ip}</dd></div><div><dt>STATUS</dt><dd>{runtime.networkStatus}</dd></div></dl>
+    <dl className="node-facts"><div><dt>ADDRESS</dt><dd>{network.ip}</dd></div><div><dt>STATUS</dt><dd>{deriveNetworkStatusLabel(localDevice.operational)}</dd></div></dl>
     <div className="node-section"><span>INSTALLED SOFTWARE</span><span>{installedSoftware.length}</span></div>
     {installedSoftware.length ? <div className="node-list">{installedSoftware.map((software) => {
       const removing = removals.some(({ productId }) => productId === software.id)

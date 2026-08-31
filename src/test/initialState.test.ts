@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 54', () => {
+  it('separates identities and seeds canonical local-device state in schema version 55', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(54)
+    expect(GAME_STATE_VERSION).toBe(55)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(54)
+    expect(state.version).toBe(55)
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
@@ -68,7 +68,8 @@ describe('createInitialGameState', () => {
       firmware: { id: 'firmware-node-os-v1', name: 'NODE-OS', version: '1.0' },
       network: { ip: '198.51.100.23', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
       hardware: { cpu: { name: 'Basic CPU', computeCapacity: 100 }, ram: { name: '4 GB', capacityMiB: 4096 } },
-      runtime: { baselineCpuLoad: 18, baselineRamUsage: 23, networkStatus: 'ONLINE' },
+      runtime: { baselineCpuLoad: 18, baselineRamUsage: 23 },
+      operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
     })
     expect(state.player.localDevice.filesystem).toEqual({
       nextFileId: 4,
@@ -117,7 +118,9 @@ describe('createInitialGameState', () => {
     const state = createInitialGameState()
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')
 
-    expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server' })
+    expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' } })
+    // srv-01 is not part of the remote-segment-01 connectivity/recovery precedent and is given no configured reaction of its own.
+    expect(server?.connectivityRecoveryBehavior).toBeUndefined()
     expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 4, files: [
       { kind: 'text', id: 'file-0001', path: '/srv/readme.txt', content: 'Service workspace.' },
       { kind: 'software_package', id: 'file-0002', path: '/opt/packages/nodescan-exp-1.1.pkg', releaseId: 'nodescan-1.1-experimental', buildId: 'build-nodescan-1.1-experimental-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 18_400_000 },
@@ -144,7 +147,7 @@ describe('createInitialGameState', () => {
     const state = createInitialGameState()
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')
 
-    expect(server).toMatchObject({ id: 'host-lan-002', ip: '203.0.113.42', role: 'server' })
+    expect(server).toMatchObject({ id: 'host-lan-002', ip: '203.0.113.42', role: 'server', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' }, connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT' })
     expect(server).toMatchObject({ displayName: 'srv-02', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] } })
     expect(state.world.network.localNetworks[0].memberDeviceIds).not.toContain(server?.id)
     expect(server?.services).toEqual([
@@ -181,7 +184,8 @@ describe('createInitialGameState', () => {
       id: 'host-phone-001',
       displayName: 'Petra\u2019s Phone',
       ip: '198.51.100.61',
-      online: true,
+      operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
+      connectivityRecoveryBehavior: 'RECONNECT',
       firmware: { id: VEYRA_OS_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
       hardware: { cpu: { name: 'Mobile CPU', computeCapacity: 70 }, ram: { name: '6 GB', capacityMiB: 6144 } },
       runtime: { baselineCpuLoad: 6, baselineRamUsage: 34 },

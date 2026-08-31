@@ -257,7 +257,7 @@ describe('Market download', () => {
 
   it('reports a canonical admission failure as-is instead of faking progress', async () => {
     const purchasedState = purchased(NODESCAN_OFFER, funded(3 * PRICE))
-    const offline: GameState = { ...purchasedState, player: { ...purchasedState.player, localDevice: { ...purchasedState.player.localDevice, runtime: { ...purchasedState.player.localDevice.runtime, networkStatus: 'OFFLINE' } } } }
+    const offline: GameState = { ...purchasedState, player: { ...purchasedState.player, localDevice: { ...purchasedState.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } }
     renderMarket(offline)
     await open(/NodeScan/)
     const user = userEvent.setup()

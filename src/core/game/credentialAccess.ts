@@ -5,6 +5,7 @@ import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalTechniqueTool, flipp
 import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
 const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
@@ -70,8 +71,8 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const host = state.world.network.hosts.find(({ id }) => id === process.targetDeviceId)
   const service = host?.services?.find(({ id }) => id === process.serviceId)
   const validEndpoint = resolved !== 'invalid' && resolved?.targetDeviceId === process.targetDeviceId && resolved.serviceId === process.serviceId
-  // The simulated target only "received" the attempt while the originally selected endpoint still resolves to the same online Device and open Service.
-  const reached = Boolean(host?.online && service?.open && validEndpoint)
+  // The simulated target only "received" the attempt while the originally selected endpoint still resolves to the same network-usable Device and open Service.
+  const reached = Boolean(host && isDeviceNetworkUsable(host.operational) && service?.open && validEndpoint)
   const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
   if (!reached || !service) return failedResult
 

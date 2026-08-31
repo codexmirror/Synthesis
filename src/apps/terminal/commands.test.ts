@@ -12,6 +12,7 @@ import { inspectNetworkTarget } from '../../core/game/inspect'
 import { parseCommand } from './parser'
 import { commands, dispatchCommand } from './registry'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
+import { deriveNetworkStatusLabel } from '../../core/game/deviceOperationalState'
 
 const state = createInitialGameState()
 // @ts-expect-error Implemented Terminal operations are required integration contracts.
@@ -19,7 +20,7 @@ const invalidContext: CommandContext = { localDevice: { ip: '198.51.100.23', ins
 void invalidContext
 const context: CommandContext = {
   localDevice: { ip: state.player.localDevice.network.ip, installedSoftware: state.player.localDevice.installedSoftware },
-  runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: state.player.localDevice.runtime.networkStatus },
+  runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: deriveNetworkStatusLabel(state.player.localDevice.operational) },
   filesystem: {
     list: (path) => listDirectory(state.player.localDevice.filesystem, path),
     readText: (path) => readTextFile(state.player.localDevice.filesystem, path),
@@ -173,7 +174,7 @@ describe('command dispatcher', () => {
   it('renders no response when the local device is offline', () => {
     const offlineDevice = {
       ...state.player.localDevice,
-      runtime: { ...state.player.localDevice.runtime, networkStatus: 'OFFLINE' as const },
+      operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const },
     }
     const offlineContext: CommandContext = {
       ...context,
