@@ -698,6 +698,12 @@ export interface NetworkHost {
    * than a fabricated empty inventory.
    */
   readonly installedSoftware?: readonly InstalledSoftware[]
+  /**
+   * One exact GateSSH release accepted for activation at a future Device boot.
+   * This is Device-owned software truth, not active InstalledSoftware and not
+   * the implementation of the currently running SSH Service.
+   */
+  readonly pendingGateSshActivation?: InstalledSoftware
   /** Present only when the represented device has a concrete server role. */
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */
@@ -1054,8 +1060,8 @@ export interface RackUpdateAccessState { readonly nextId: number; readonly estab
  * bytes to a RackUpdate Service's own package-submission interface. Distinct
  * from `FileTransfer`: the destination is a Service interaction, not a
  * foreign filesystem path, so completion never creates a destination
- * filesystem artifact — it applies the submitted release to the target's
- * canonical Service implementation instead (see `rackUpdate.ts`).
+ * filesystem artifact. Completion may cause the target Device to accept the
+ * submitted release as pending software (see `rackUpdate.ts`).
  */
 export interface RackUpdatePackageSubmission {
   readonly id: string
@@ -1069,7 +1075,18 @@ export interface RackUpdatePackageSubmission {
   readonly bytesTransferred: number
 }
 
-export interface RackUpdateSubmissionState { readonly nextId: number; readonly active: RackUpdatePackageSubmission | null }
+/** Player-facing persistence of the result of the player's own interaction; never canonical pending-software truth. */
+export interface RackUpdateSubmissionOutcome {
+  readonly targetDeviceId: string
+  readonly serviceId: string
+  readonly result: 'package_accepted_reboot_required'
+}
+
+export interface RackUpdateSubmissionState {
+  readonly nextId: number
+  readonly active: RackUpdatePackageSubmission | null
+  readonly outcome: RackUpdateSubmissionOutcome | null
+}
 
 export interface RackUpdateState {
   readonly access: RackUpdateAccessState

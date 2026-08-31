@@ -188,9 +188,11 @@ At completion, Service Analysis Process history associates the result with a
 remembered implementation fingerprint only when that evidence matches the
 current Service implementation the Process actually resolves. Where a current
 remembered fingerprint exists, a completed result is current only when its
-association matches; after a legitimate package application refreshes the
+association matches; after a later legitimate observation refreshes the
 remembered fingerprint, an older result remains historical and the newly remembered
-implementation requires fresh analysis. This comparison uses Discovery and
+implementation requires fresh analysis. RackUpdate submission completion itself
+does not refresh that evidence because its accepted release is not yet active.
+This comparison uses Discovery and
 Process history; World Truth is consulted only by the gameplay completion that
 already owns result resolution, never by NodeScan. Completed analyses without
 an implementation association remain supported for the NodeScan 1.0 flow but
@@ -461,7 +463,7 @@ ATTACK against RackUpdate starts a real finite `rack_update_exploit` Process (se
 
 Only a Device holding that narrow capability may submit a compatible local GateSSH package. Submission is represented finite upload work (`GameState.rackUpdate.submission`), a distinct network runtime from `GameProcess` and from `FileTransfer` — it is not a filesystem Upload and requires neither `RemoteSession` nor `DeviceAccess`. It resolves the observed stable Device and Service identities and endpoint plus a stable local file ID, admits one active submission at a time, and its effective byte rate is derived through the same Device/LocalNetwork transfer-capacity model `docs/current/DEVICE_SYSTEM.md` and `docs/current/FILES_SOFTWARE.md` describe for `FileTransfer`. Admission requires both the target's managed GateSSH Service and its represented InstalledSoftware inventory; losing either while the submission runs interrupts it. Cancelling or losing the route (an offline endpoint, a changed RackUpdate Service, missing required GateSSH state, ambiguous or invalid transfer capacity) ends the submission with no part of the package applied; a terminal outcome (COMPLETED, CANCELLED, or INTERRUPTED) appends its own Network-owned `NetworkPackageSubmissionRecord` (`kind: 'package_submission'`, never `'file_transfer'`, since a RackUpdate submission is not a FileTransfer), reusing the same membership-resolution model and the exact record shape and terminal-result semantics `FileTransfer` evidence uses rather than a parallel model, and never once per advancement tick.
 
-Only when the upload actually completes does a valid represented GateSSH 1.3.2 package coherently change both the target's GateSSH InstalledSoftware release and its managed GateSSH 1.3.3 Service implementation to 1.3.2; cancellation, interruption, or failure changes neither. Existing Analysis and Credential Access subsequently react to the newly applicable `AUTH-017`. This successful submission is also the player's own legitimate observation of what they just applied: it refreshes only that Service's own already-remembered Enhanced Inspect implementation fingerprint, and touches no other remembered evidence and no hidden World Truth. This remains the current concrete proof that interaction is not access: represented state mutation, reached only through represented elapsed work, changes which existing technique applies.
+Only when the upload actually completes does a valid represented GateSSH package become the target Device's one exact pending GateSSH activation, preserving product, release, build, and ordinary release metadata. Active GateSSH InstalledSoftware and the managed SSH Service remain unchanged and coherent; for `srv-02`, both therefore remain 1.3.3 and `AUTH-017` is not yet current World Truth. Completion clears the active upload and retains a separate player-interaction outcome so NodeScan can state `PACKAGE ACCEPTED` / `REBOOT REQUIRED` without reading hidden pending software. It does not refresh remembered Inspect evidence to the pending release. A target with pending GateSSH rejects another submission rather than replacing it. Cancellation, interruption, or failure creates no pending activation. Boot activation and reboot behavior remain unimplemented.
 
 ## Reaching the represented personal phone
 

@@ -7,7 +7,7 @@ import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 53
+export const GAME_STATE_VERSION = 54
 
 export function createInitialGameState(): GameState {
   return {
@@ -85,7 +85,7 @@ export function createInitialGameState(): GameState {
     ] },
     remoteSession: { nextId: 1, active: null },
     fileTransfer: { nextId: 1, active: null },
-    rackUpdate: { access: { nextId: 1, established: [] }, submission: { nextId: 1, active: null } },
+    rackUpdate: { access: { nextId: 1, established: [] }, submission: { nextId: 1, active: null, outcome: null } },
     // The player's represented in-world mailbox, owned by their mail identity rather than by node-01 or NODE-OS.
     mail: createInitialMailState(),
     recentActivity: { entries: [] },

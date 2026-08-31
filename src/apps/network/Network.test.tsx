@@ -15,6 +15,7 @@ import { Network } from './Network'
 import { selectKnownSpace, selectTarget, selectTargets } from './targetProjection'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION, ROLLBACK_MODULE_1_0 } from '../../core/game/flipper'
 import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from '../../core/game/softwareReleaseContent'
+import { GATE_SSH_1_3_2_BUILD_ID } from '../../core/game/serviceImplementations'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -572,7 +573,7 @@ describe('RackUpdate exploit and package submission', () => {
     expect(screen.getByText('No installed tool currently supports this weakness.')).toBeInTheDocument()
   })
 
-  it('requires a finite ATTACK before the package-submission interface is usable, then applies the submitted release only once the upload completes', async () => {
+  it('requires finite work, then presents accepted/reboot-required while active GateSSH stays unchanged', async () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: `Open target 203.0.113.42` }))
@@ -600,7 +601,11 @@ describe('RackUpdate exploit and package submission', () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
     managed = currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
-    expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.2')
+    expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.3')
+    expect(currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.3')
+    expect(currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.pendingGateSshActivation).toMatchObject({ releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID })
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('PACKAGE ACCEPTED')
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('REBOOT REQUIRED')
     expect(currentState().deviceAccess.established).toEqual([])
     expect(currentState().remoteSession.active).toBeNull()
   })
@@ -610,7 +615,7 @@ describe('RackUpdate exploit and package submission', () => {
     const newerPackage = { ...base.player.localDevice.filesystem.files.find(({ id }) => id === 'file-local-gate')!, id: 'file-local-newer', path: '/home/user/downloads/gatessh-1.4.0.pkg', releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }
     const withCandidates: GameState = {
       ...base,
-      rackUpdate: { access: { nextId: 2, established: [{ id: 'rack-update-access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-rack-update-002' }] }, submission: { nextId: 1, active: null } },
+      rackUpdate: { access: { nextId: 2, established: [{ id: 'rack-update-access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-rack-update-002' }] }, submission: { nextId: 1, active: null, outcome: null } },
       player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, newerPackage] } } },
     }
     const target = selectTarget(withCandidates, 'host-lan-002')!

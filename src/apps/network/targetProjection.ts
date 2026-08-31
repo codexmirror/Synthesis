@@ -77,6 +77,7 @@ export type TargetStage =
   | 'attacking'
   | 'submission_ready'
   | 'submitting'
+  | 'submission_completed'
   | 'access'
   | 'connected'
 
@@ -158,6 +159,7 @@ export interface PackageSubmission {
   readonly candidates: readonly LocalPackage[]
   readonly submitting: boolean
   readonly submitPercent?: number
+  readonly completed: boolean
 }
 
 /**
@@ -321,6 +323,7 @@ function stageOf(input: {
   if (input.analyzing) return 'analyzing'
   if (input.packageSubmission?.attacking) return 'attacking'
   if (input.packageSubmission?.submitting) return 'submitting'
+  if (input.packageSubmission?.completed) return 'submission_completed'
   if (!input.servicesObserved) return 'unscanned'
   if (input.hasAccess) return 'access'
   if (input.packageSubmission?.enabled) return 'submission_ready'
@@ -558,6 +561,9 @@ function selectPackageSubmission(information: PlayerInformation, deviceId: strin
 
   const submission = information.rackUpdate.submission.active
   const submitting = Boolean(submission && submission.sourceDeviceId === localDeviceId && submission.targetDeviceId === deviceId && submission.serviceId === rackUpdate.id)
+  const completed = information.rackUpdate.submission.outcome?.targetDeviceId === deviceId
+    && information.rackUpdate.submission.outcome.serviceId === rackUpdate.id
+    && information.rackUpdate.submission.outcome.result === 'package_accepted_reboot_required'
 
   return {
     packageSubmission: {
@@ -574,6 +580,7 @@ function selectPackageSubmission(information: PlayerInformation, deviceId: strin
           ? [{ id: file.id, path: file.path, label: `${file.name} ${file.version}` }]
           : []) : [],
       submitting,
+      completed,
       ...(submitting && submission ? { submitPercent: Math.floor(submission.bytesTransferred / submission.bytesTotal * 100) } : {}),
     },
   }

@@ -69,6 +69,7 @@ const STAGE_MARK: Record<TargetStage, string> = {
   attacking: 'ATTACKING',
   submission_ready: 'SUBMISSION READY',
   submitting: 'SUBMITTING',
+  submission_completed: 'REBOOT REQUIRED',
   access: 'ACCESS',
   connected: 'CONNECTED',
 }
@@ -263,6 +264,7 @@ export function Network() {
         : result.status === 'access_required' ? 'ATTACK RACKUPDATE FIRST'
           : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
             : result.status === 'package_incompatible' ? 'PACKAGE REJECTED'
+              : result.status === 'activation_pending' ? 'REBOOT REQUIRED'
               : result.status === 'submission_in_progress' ? 'SUBMISSION ALREADY IN PROGRESS'
                 : result.status === 'capacity_unavailable' ? 'NETWORK UNAVAILABLE'
                   : 'PACKAGE NOT SUBMITTED')
@@ -659,6 +661,11 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         <Progress percent={target.percent} label="Submission progress" />
       </>}
 
+      {target.stage === 'submission_completed' && <>
+        <strong className="ns-stage-headline">PACKAGE ACCEPTED</strong>
+        <span className="ns-stage-note">REBOOT REQUIRED</span>
+      </>}
+
       {target.stage === 'access' && <>
         <strong className="ns-stage-headline">ACCESS GRANTED</strong>
         <span className="ns-stage-note">You can connect to this target now.</span>
@@ -835,7 +842,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
 
         {!target.packageSubmission.enabled && !target.packageSubmission.route && !target.packageSubmission.attacking && <p className="ns-quiet-note">No installed tool currently supports this weakness.</p>}
 
-        {target.packageSubmission.enabled && !target.packageSubmission.submitting && <>
+        {target.packageSubmission.enabled && !target.packageSubmission.submitting && !target.packageSubmission.completed && <>
           <p className="ns-quiet-note">Submission enabled. Requires a compatible GateSSH package that differs from the currently deployed release.</p>
           <label className="node-field">
             <span>AVAILABLE</span>
@@ -848,6 +855,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
         </>}
 
         {target.packageSubmission.submitting && target.stage !== 'submitting' && <Progress percent={target.packageSubmission.submitPercent ?? 0} label="Submission progress" />}
+        {target.packageSubmission.completed && target.stage !== 'submission_completed' && <p className="ns-quiet-note">PACKAGE ACCEPTED · REBOOT REQUIRED</p>}
       </div>
     </>}
   </div>
