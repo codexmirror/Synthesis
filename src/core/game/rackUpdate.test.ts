@@ -13,6 +13,7 @@ import {
 import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
+import { activatePendingGateSshAtDeviceBoot } from './deviceBootActivation'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0 } from './flipper'
 import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation } from './types'
@@ -367,7 +368,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(result).toEqual({ status, state })
   })
 
-  it('composes the whole flow only through pending acceptance, without making AUTH-017 applicable', () => {
+  it('composes submission through the explicit boot boundary, where AUTH-017 becomes World Truth', () => {
     let state = ready()
     const srv02 = () => state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
     const ssh = () => srv02().services!.find(({ id }) => id === 'service-ssh-002')!
@@ -391,5 +392,15 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(srv02().installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.3')
     expect(vulnerabilitiesForService(ssh())).toEqual([])
     expect(state.knowledge.discoveredVulnerabilities).not.toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: srv02().id, serviceId: ssh().id }))
+
+    const discoveryBeforeBoot = state.discovery
+    const knowledgeBeforeBoot = state.knowledge
+    state = activatePendingGateSshAtDeviceBoot(state, srv02().id)
+    expect(srv02().pendingGateSshActivation).toBeUndefined()
+    expect(srv02().installedSoftware!.find(({ id }) => id === 'gate-ssh')).toMatchObject({ releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID })
+    expect(ssh().implementation).toMatchObject({ releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID })
+    expect(vulnerabilitiesForService(ssh())).toContainEqual(expect.objectContaining({ id: 'AUTH-017' }))
+    expect(state.discovery).toBe(discoveryBeforeBoot)
+    expect(state.knowledge).toBe(knowledgeBeforeBoot)
   })
 })

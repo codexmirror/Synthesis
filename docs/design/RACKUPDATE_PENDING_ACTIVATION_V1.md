@@ -4,8 +4,8 @@ Status: Accepted
 Scope: Feature-specific design authority for the first `srv-02` GateSSH
 submission-to-activation precedent. It defines what successful RackUpdate
 submission completion changes and the later Device boot boundary that activates
-that change. The pending-submission slice is implemented; boot activation is
-not current implemented truth. This contract does not design a general updater
+that change. Both the pending-submission slice and the boot-activation software
+boundary are implemented. This contract does not design a general updater
 or Device lifecycle.
 Normative owners of current implemented behavior:
 `docs/current/NETWORK_ACCESS.md`, `docs/current/FILES_SOFTWARE.md`, and
@@ -31,9 +31,9 @@ LATER REPRESENTED DEVICE BOOT
 PENDING RELEASE BECOMES ACTIVE
 ```
 
-The submission-completion slice is now Current Truth in the normative owners:
-pending activation exists, while a represented reboot lifecycle and boot
-activation do not.
+Submission completion and the explicit boot-activation software consequence are
+now Current Truth in the normative owners. A represented reboot cause and
+lifecycle do not exist yet; callers establish that a real boot boundary occurred.
 
 
 ## Submission completion
@@ -174,15 +174,14 @@ anything stated above; it only completes the DEAUTH side of the separation
 this section already requires.
 
 
-## Deterministic next implementation slice
+## Implemented boundary and deferred lifecycle
 
-The next slice is limited to RackUpdate submission completion:
+The canonical operation now consumes exact pending GateSSH only when invoked at
+an already-established real Device boot boundary. It replaces InstalledSoftware
+and the managed Service coherently, then clears pending and the consumed
+submission's stale `REBOOT REQUIRED` outcome. It performs no observation refresh
+and leaves pending intact when coherent activation cannot be completed.
 
-1. stop immediate GateSSH activation;
-2. persist one exact pending GateSSH activation on the target Device;
-3. keep active GateSSH InstalledSoftware and the active SSH Service at 1.3.3;
-4. stop refreshing observation as though 1.3.2 were active; and
-5. expose `REBOOT REQUIRED` where the existing completion surface reports the
-   accepted package.
-
-No reboot mechanic is required by that slice.
+The reboot trigger, lifecycle, timing, connectivity effects and Device-specific
+reactions remain deferred. The activation operation does not know why the Device
+booted.
