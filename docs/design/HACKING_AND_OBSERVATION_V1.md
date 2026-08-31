@@ -5,7 +5,12 @@ Scope: Product and design direction for hacking, reconnaissance, observation,
 and access. Design authority for the epistemic model and for the player-facing
 interaction model, including the casual SCAN / HACK / CONNECT interaction and
 the progressive technical depth beneath it; not a description of what is
-currently implemented.
+currently implemented. Also design authority for the long-term
+capability-collection progression model and the composition principle
+(sections 14-16). Concrete precedents built on that principle are owned by
+their own focused contracts, for example `RACKUPDATE_PENDING_ACTIVATION_V1.md`
+and `DEAUTH_NETWORK_DISRUPTION_V1.md`; this document does not duplicate their
+normative detail.
 Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md`.
 
 ## Status and purpose
@@ -1492,6 +1497,23 @@ be introduced to explain one.
 
 ⸻
 
+7. Accepted — capability-collection progression and the DEAUTH composition
+   precedent
+
+Sections 14-16 freeze long-term hacking progression as an expanding
+collection of concrete technical capabilities rather than a skill tree, freeze
+capability rarity/value as something that may emerge from world distribution
+rather than RPG tiers, and freeze composition — one mutation creating the
+conditions for another technique — as the general shape of advanced hacking.
+
+DEAUTH / network disruption is frozen as the first planned precedent for that
+composition, narrowed to represented connectivity disruption only. Its own
+design authority is `docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`. Nothing in
+this entry is current implemented truth: no capability collection, rarity
+system, or DEAUTH mechanic exists yet.
+
+⸻
+
 11. Consequences and execution styles
 
 Hacks should eventually create real represented consequences and traces. That
@@ -1566,6 +1588,12 @@ This design contract does not authorize implementation of:
 * a fourth primary player verb adopted as a routine consequence of adding a
   mechanic
 * tutorial or story content introduced to explain a complicated interface
+* a hacking skill tree, capability level, or stat that makes existing
+  techniques more likely to succeed
+* RPG rarity tiers or a loot taxonomy
+* a rule that a new weakness or technique requires a new Flipper module
+* a universal consequence/event bus that lets one mechanic directly invoke
+  another mechanic's effect
 
 Concrete mechanics should continue to precede generic abstractions.
 
@@ -1634,3 +1662,236 @@ If those distinctions remain intact, Synthesis can support fundamentally
 different approaches to the same digital world without requiring a separate
 scripted solution path for each target, and without requiring the player to
 learn its internal architecture to use them.
+
+⸻
+
+14. Technical capabilities as player progression
+
+Long-term hacking progression is an expanding collection of concrete
+technical capabilities, not a generic skill tree.
+
+```text
+SKILL TREE
+level up an abstract stat
+        ↓
+existing situations become statistically easier
+
+CAPABILITY COLLECTION
+acquire a new concrete technical means
+        ↓
+new situations become possible
+```
+
+A newly acquired technique should give the player a new technical verb, state
+mutation, or method of interacting with represented systems — not a
+percentage, a stat increase, or an unlocked tier of an existing action.
+Section 3 already frames Capability as a reasoning concept rather than a
+canonical registry; this section freezes what that reasoning concept is for:
+it is what the player's progression grows.
+
+Mastery should increasingly come from understanding and combining an
+expanding set of capabilities (section 16), not from advancing a level that
+makes existing techniques more statistically likely to succeed.
+
+The player's growing collection expands the solution space. It does not
+raise a hacking level.
+
+⸻
+
+Technique, capability, tool, and effect remain distinct
+
+Sections 3 and 4 already separate Capability, Surface, Condition, Technique,
+and Effect. This freeze adds one boundary those sections leave implicit: a
+technique is not permanently owned by one tool.
+
+Keep distinct:
+
+```text
+WEAKNESS / CONDITION
+what is technically exploitable or relevant on the target
+
+TECHNIQUE
+the concrete method an actor can attempt
+
+CAPABILITY
+whether the actor currently has the represented means to attempt it
+
+TOOL / MODULE / SOFTWARE
+one possible concrete provider of that capability
+
+EFFECT
+the concrete state transition the attempt causes
+```
+
+A new weakness does not require a new Flipper module. A new technique may be
+supplied by an existing module, a new module, other installed software, a
+represented condition, or another concrete capability source entirely. Which
+one currently provides it is a fact about the represented world, not a rule
+this design imposes.
+
+The existing Flipper modules — Credential Access and Rollback — remain valid
+concrete mechanics under this freeze. Nothing here redesigns or invalidates
+them, and nothing here requires giving a future technique a Flipper module
+merely so it has somewhere to live.
+
+⸻
+
+Capability is derived, not unlocked
+
+A technique is currently available because concrete represented state gives
+the actor the means to attempt it, not because an abstract progression system
+declared it unlocked.
+
+```text
+CAPABILITY
+= derived from represented causes and current conditions
+```
+
+not:
+
+```text
+abstract progression unlock
+        ↓
+capability becomes true
+```
+
+Depending on the concrete mechanic, that represented cause may be installed
+software, a tool/module, an acquired artifact or file, learned Knowledge,
+equipment/hardware, position/reachability, an authority relationship, or
+another represented condition. Section 3 already lists these as the concrete
+sources Capability may emerge from; this freeze commits that they remain the
+only legitimate sources — collection progression does not add a parallel one.
+
+Do not introduce a canonical `CapabilityCollection`, `unlockedTechniques[]`,
+`TechniqueRegistry`, card inventory, or similar domain model that would let a
+technique become available independent of its represented cause.
+
+A future Arsenal, Technique Library, or similar collection presentation may
+project the technical possibilities the player legitimately has, exactly as
+NodeScan projects reconnaissance state (section 9). That presentation must
+never become the canonical owner of capability truth: removing or losing the
+represented cause removes the capability, whether or not any collection
+surface is rebuilt to notice.
+
+This freeze does not decide how future exploit artifacts, copying, trading,
+or distribution work. It only fixes that whatever mechanism eventually
+provides a capability, the capability remains true only while its represented
+cause remains true.
+
+⸻
+
+Collection growth does not grow the primary interaction grammar
+
+Section 7.2 already requires that interaction complexity not scale
+one-for-one with simulation complexity. This freeze states the same rule for
+the specific case of a growing capability collection:
+
+```text
+Collection progression may expand technical verbs without expanding the
+primary interaction grammar at the same rate.
+```
+
+A new technical capability may add a new technical verb semantically — a new
+kind of state mutation or interaction the player can reason about — without
+that verb automatically earning another top-level primary button or a
+permanent primary interaction verb. The existing rule that a fourth primary
+player verb requires its own justification (section 8.2, section 12) is the
+concrete form this takes today; a growing capability collection is exactly
+the kind of pressure that rule exists to resist.
+
+The intended direction is a small, comprehensible primary interaction grammar
+— SCAN / HACK / CONNECT today — with a growing set of contextually available
+techniques beneath it, reached through the same progressive technical depth
+already described in section 8.5. This document does not freeze exact future
+labels such as HACK, BREACH, MANIPULATE, ARSENAL, or TECHNIQUE LIBRARY; that
+remains presentation work for whichever design contract eventually owns it.
+
+⸻
+
+15. World-emergent availability and rarity
+
+Some technical capabilities may eventually be common; others may be
+difficult or rare to acquire. This freeze commits to that outcome, not to a
+mechanism that produces it.
+
+Do not define RPG rarity tiers or a loot taxonomy. Synthesis has no
+`common / rare / epic` field, and this document does not introduce one.
+
+Rarity and value should be able to emerge from the same kinds of concrete
+systems `docs/FUTURE.md` already describes for software — world distribution,
+provenance, software releases, locations, access requirements, information
+requirements, and other concrete mechanics — rather than from a label
+attached to a capability at authoring time.
+
+This document does not design the acquisition or distribution system that
+would produce that emergence. It commits only that when such a system exists,
+a capability's value comes from where it actually sits in the represented
+world, not from a tier the design assigns to it.
+
+⸻
+
+16. Composition creates advanced hacking
+
+Proof E already demonstrated that one represented state mutation can create
+the conditions for a technique that did not previously apply. This section
+freezes that as the general shape of advanced hacking, not a one-off proof.
+
+The intended player reasoning is:
+
+```text
+I need state X.
+Capability A can change Y.
+System B will react to Y by producing X.
+That makes technique C possible.
+```
+
+not:
+
+```text
+I need the next hacking level / module.
+```
+
+This document does not prescribe a universal attack pipeline. Which
+capability changes which state, and which system reacts to it, remains a
+concrete fact about the mechanics involved — the same rule section 4 already
+states for any single attempt.
+
+⸻
+
+Mechanics keep their causal meaning
+
+A technique must never receive an unrelated downstream effect merely to
+complete a desired gameplay combination. The represented systems determine
+which combinations are possible, not the designer wiring a shortcut into the
+initiating technique.
+
+```text
+A technique owns its concrete technical effect.
+Affected systems own their reactions to that effect.
+A designed combo emerges from those represented reactions.
+```
+
+not:
+
+```text
+A technique gains extra semantics because a combo needs them.
+```
+
+This is the rule that keeps DEAUTH itself connectivity disruption rather than
+"reboot target": the srv-02 puzzle needing a reboot is not a reason for
+DEAUTH to own one. The affected Device's own behavior owns whether, and how,
+it reacts to lost connectivity; see
+`docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`.
+
+⸻
+
+The first planned proof of multi-step composition beyond Proof E is DEAUTH /
+network disruption, owned by `docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`.
+Its intended srv-02 chain composes three independently owned causal
+boundaries — RackUpdate's pending GateSSH state, DEAUTH's connectivity
+disruption, and the existing boot-activation boundary in
+`RACKUPDATE_PENDING_ACTIVATION_V1.md` — without any one of them directly
+causing the others' effect. That separation is the point: composition works
+because each mutation stays owned by the system that owns it, and
+consequences emerge from those systems reacting to each other's state rather
+than from a scripted chain.
