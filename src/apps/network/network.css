@@ -381,15 +381,39 @@
 
 /* Stage: the one thing this target is currently waiting on ------------- */
 
+/*
+ * The stage is one block whose height barely moves between states, so the
+ * ACTIONS and TECHNICAL INTELLIGENCE below it stay where the player left
+ * them while an operation starts, runs and resolves.
+ */
 .ns-stage {
+  position: relative;
+  min-height: 158px;
   padding: 22px 18px;
   display: grid;
-  justify-items: center;
-  gap: 10px;
+  align-content: center;
   border: 1px solid var(--line-strong);
   background: var(--surface-raised);
   text-align: center;
 }
+
+.ns-stage[data-running] { border-color: var(--line-accent); }
+
+/*
+ * Completion is the moment the loop is played for, so it arrives rather than
+ * appears: one accent edge that settles as the resolved state takes over.
+ */
+.ns-stage[data-resolved]::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--green);
+  opacity: 0;
+  pointer-events: none;
+  animation: ns-resolve 900ms ease-out both;
+}
+
+.ns-stage-body { display: grid; justify-items: center; gap: 10px; animation: ns-stage-in 190ms ease-out both; }
 
 .ns-stage-headline {
   color: var(--text-strong);
@@ -400,9 +424,147 @@
 
 .ns-stage-note { color: var(--text-quiet); font-size: .68rem; line-height: 1.5; }
 
+/* What the Scan just observed, stated in the target's own decision. */
+.ns-stage-observed { color: var(--accent); font-size: .66rem; letter-spacing: .1em; }
+
 .ns-progress { display: grid; justify-items: center; gap: 8px; width: 100%; }
 .ns-progress .node-progress { width: min(100%, 320px); }
-.ns-progress-value { color: var(--accent); font-size: .8rem; letter-spacing: .1em; }
+.ns-progress-value { color: var(--accent); font-size: .8rem; letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+
+/* Acquisition and execution ------------------------------------------- */
+
+/*
+ * A live indicator NODE-OS already uses for running work in the Activity
+ * Monitor, reused here so a running operation reads the same in both places.
+ */
+.ns-live-dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  /* Takes the tone of whatever state it marks, so it never adds a second accent. */
+  background: currentColor;
+  animation: ns-live 2.4s ease-in-out infinite;
+}
+
+.ns-target-mark .ns-live-dot,
+.node-chip .ns-live-dot { display: inline-block; margin-right: 6px; vertical-align: middle; }
+
+/* Working caret. Same cadence as the Terminal's own caret. */
+.ns-caret {
+  flex: none;
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  margin-left: 7px;
+  background: var(--accent-mark);
+  vertical-align: -1px;
+  animation: ns-caret-blink .72s steps(1, end) infinite;
+}
+
+/* One request being issued: what NodeScan is doing, in the order it does it. */
+.ns-acquire { display: grid; justify-items: center; gap: 10px; width: 100%; }
+
+.ns-acquire-label {
+  color: var(--text-strong);
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+}
+
+/* Beside a control that already names the operation, only the steps are needed. */
+.ns-acquire--compact { justify-items: start; padding: 2px 0 8px; }
+.ns-group .ns-acquire--compact { padding-left: 24px; }
+.ns-primary-slot .ns-acquire--compact { max-width: 320px; padding-top: 8px; }
+
+/* A trace line is procedural choreography, never a finding. */
+.ns-trace { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; width: 100%; }
+
+.ns-trace-line {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  color: var(--text-quiet);
+  font-size: .6rem;
+  letter-spacing: .09em;
+  text-align: left;
+  animation: ns-trace-in 180ms ease-out both;
+}
+
+.ns-trace-mark { flex: none; color: var(--accent-mark); }
+.ns-trace-at { flex: none; width: 30px; color: var(--text-faint); font-variant-numeric: tabular-nums; text-align: right; }
+.ns-trace-label { min-width: 0; overflow-wrap: anywhere; }
+.ns-trace-line[data-active] { color: var(--accent); }
+
+.ns-op { display: grid; gap: 12px; width: 100%; text-align: left; }
+
+.ns-op-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-quiet);
+}
+
+.ns-op-title { min-width: 0; color: var(--text-strong); font-size: .78rem; font-weight: 600; letter-spacing: .14em; overflow-wrap: anywhere; }
+/* The same word Known Space marks this target with, so the two never disagree. */
+.ns-op-live { flex: none; display: inline-flex; align-items: center; color: var(--caution); font-size: .52rem; letter-spacing: .13em; }
+
+.ns-op-facts { margin: 0; display: grid; gap: 5px; }
+.ns-op-facts > div { display: grid; grid-template-columns: minmax(74px, 26%) minmax(0, 1fr); align-items: baseline; gap: 10px; }
+.ns-op-facts dt { color: var(--text-muted); font-size: .5rem; letter-spacing: var(--label-tracking); }
+.ns-op-facts dd { min-width: 0; margin: 0; color: var(--text-secondary); font-size: .64rem; overflow-wrap: anywhere; }
+
+/*
+ * Height is reserved for every mark this operation will pass, so a mark
+ * arriving never moves the surface — or anything under it — mid-operation.
+ */
+.ns-op-trace {
+  /* Overridden per operation with the number of marks it will actually pass. */
+  --ns-trace-lines: 3;
+  min-height: calc(var(--ns-trace-lines) * 16px + (var(--ns-trace-lines) - 1) * 5px);
+  padding-block-start: 11px;
+  align-content: start;
+  border-top: 1px solid var(--line-quiet);
+}
+
+.ns-op .ns-progress {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.ns-op .ns-progress .node-progress { width: 100%; }
+.ns-op .ns-progress-value { font-size: .72rem; }
+
+@keyframes ns-stage-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ns-trace-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ns-resolve {
+  0% { opacity: 0; }
+  22% { opacity: .85; }
+  100% { opacity: 0; }
+}
+
+@keyframes ns-live { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+@keyframes ns-caret-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+/* A target observed while the player was looking at Known Space arrives. */
+.ns-node--revealed { animation: ns-node-in 260ms ease-out both; }
+
+@keyframes ns-node-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
 
 /* The primary action. One per screen, always touch-sized and full width. */
 .ns-primary {
@@ -505,6 +667,26 @@
 
 .ns-quiet-note { margin: 0; color: var(--text-quiet); font-size: .64rem; line-height: 1.5; }
 
+/* This Service's analysis is running; the target's execution surface owns its progress. */
+.ns-service-running { margin: 0; display: flex; align-items: center; color: var(--caution); font-size: .56rem; letter-spacing: .13em; }
+.ns-service-running .ns-live-dot { margin-right: 6px; }
+
 .ns-package-submission { display: grid; gap: 10px; justify-items: start; }
 .ns-package-submission .node-field { max-width: 100%; }
 .ns-package-outcome { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-quiet); font-size: .64rem; letter-spacing: .08em; }
+
+/*
+ * Reduced motion removes the movement, not the information: every state the
+ * animations above accompany is still stated in text, so nothing is lost by
+ * turning them off.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ns-stage-body,
+  .ns-stage[data-resolved]::before,
+  .ns-trace-line,
+  .ns-node--revealed,
+  .ns-live-dot,
+  .ns-caret { animation: none; }
+
+  .ns-twist { transition: none; }
+}

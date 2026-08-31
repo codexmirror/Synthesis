@@ -108,6 +108,15 @@ async function openDetails(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByText('TECHNICAL INTELLIGENCE'))
 }
 
+/**
+ * NodeScan states a synchronous observation before it issues it, so a test
+ * that expects the observation itself waits out that presentation beat rather
+ * than asserting on the moment the control was pressed.
+ */
+async function observed() {
+  await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((complete) => { resolve = complete })
@@ -127,15 +136,15 @@ describe('NodeScan first hack', () => {
     expect(screen.getByRole('region', { name: 'Self' })).toHaveTextContent('NOT SCANNED')
     const directAddress = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
     fireEvent.click(screen.getByRole('button', { name: 'SCAN SELF' }))
-    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await observed()
     fireEvent.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
-    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await observed()
 
     fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
     expect(screen.getByLabelText('Target status')).toHaveTextContent('NOT SCANNED')
 
     fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
-    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await observed()
     expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
     expect(screen.queryByText('NO WAY IN FOUND')).not.toBeInTheDocument()
     expect(currentState().process.processes).toEqual([])
@@ -197,6 +206,9 @@ describe('NodeScan first hack', () => {
 
     await openDetails(user)
     await user.click(screen.getByRole('button', { name: 'INSPECT' }))
+    // Inspect is optional depth: its own beat belongs to the disclosure, never to the target's stage.
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
+    await waitFor(() => expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeDefined())
     expect(currentState().deviceAccess).toEqual(accessUnder10.deviceAccess)
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
 
@@ -207,6 +219,7 @@ describe('NodeScan first hack', () => {
   it('keeps Scan surface-only and starts Analyze only from an explicit Service action', async () => {
     const user = await openTarget(foundTargets())
     await user.click(screen.getByRole('button', { name: 'SCAN' }))
+    await waitFor(() => expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND'))
 
     expect(currentState().process.processes).toEqual([])
     expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
@@ -409,6 +422,82 @@ describe('NodeScan progress', () => {
     expect(screen.getByRole('group', { name: 'Hack progress' })).toHaveTextContent('25%')
   })
 
+  it('states the running attempt from its own canonical facts, and never from World Truth', async () => {
+    const running = withProcesses(knownWeakness(), [{ ...credentialProcess(300), toolId: 'credential-access-module' }])
+    // The surface is built from the same information-only slice as the rest of NodeScan.
+    const information = Object.defineProperty({ ...running }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
+    expect(selectTarget(information, SRV_01)?.operation).toEqual({
+      kind: 'credential_access',
+      title: 'CREDENTIAL ACCESS',
+      percent: 25,
+      facts: [
+        { label: 'PROVIDER', value: 'Credential Access Module' },
+        { label: 'ENDPOINT', value: `${SRV_01_ADDRESS}:22` },
+        { label: 'WEAKNESS', value: 'AUTH-017 · Weak authentication configuration' },
+      ],
+    })
+
+    await openTarget(running)
+    const status = screen.getByLabelText('Target status')
+    // The operation names itself; the stage keeps the word Known Space marks this target with.
+    expect(status).toHaveTextContent('CREDENTIAL ACCESS')
+    expect(status).toHaveTextContent('HACKING')
+    expect(status).toHaveTextContent(`${SRV_01_ADDRESS}:22`)
+    expect(screen.getByRole('group', { name: 'Hack progress' })).toHaveTextContent('25%')
+  })
+
+  it('names the provider the attempt actually ran through, not the one currently owned', () => {
+    const throughFlipper = withProcesses(knownWeakness(), [credentialProcess(600)])
+    expect(selectTarget(throughFlipper, SRV_01)?.operation?.facts[0]).toEqual({ label: 'PROVIDER', value: 'Flipper · Credential Access Module' })
+  })
+
+  it('says a Technique is running where its EXECUTE was, rather than offering an attempt that cannot start', async () => {
+    await openTarget(withProcesses(knownWeakness(), [credentialProcess(300)]))
+    const actions = screen.getByRole('region', { name: 'ACTIONS' })
+
+    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access' })).not.toBeInTheDocument()
+    expect(within(actions).getByLabelText('Credential Access running')).toHaveTextContent('RUNNING')
+  })
+
+  it('describes running analyses per Service, at the endpoints they were started against', async () => {
+    await openTarget(withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 250), analysisProcess('process-0002', 'service-http-001', 750)]))
+    const status = screen.getByLabelText('Target status')
+
+    expect(status).toHaveTextContent('SERVICE ANALYSIS')
+    expect(status).toHaveTextContent(`SSH${SRV_01_ADDRESS}:22`)
+    expect(status).toHaveTextContent(`HTTP${SRV_01_ADDRESS}:80`)
+  })
+
+  it('draws one progress rail for a running analysis, not one per surface it appears on', async () => {
+    const user = await openTarget(withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 250)]))
+    await openDetails(user)
+
+    // The execution surface carries the progress; the Service states that it is running.
+    expect(screen.getAllByRole('group', { name: /progress/ })).toHaveLength(1)
+    expect(screen.getByRole('group', { name: 'Analysis progress' }).closest('.ns-op')).not.toBeNull()
+
+    // Where the stage is something else, the Service row stays the only place its progress is shown.
+    cleanup()
+    const access = withAccess()
+    const connected = { ...access, remoteSession: { nextId: 2, active: { id: 'session-0001', accessId: access.deviceAccess.established[0].id, connectedAddress: SRV_01_ADDRESS } } }
+    const alongside = await openTarget(withProcesses(connected, [analysisProcess('process-0001', 'service-http-001', 500)]))
+    await openDetails(alongside)
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('CONNECTED')
+    expect(screen.getByRole('group', { name: 'HTTP analysis progress' })).toHaveTextContent('50%')
+  })
+
+  it('rebuilds the same trace after the player leaves a running target and returns', async () => {
+    const user = await openTarget(withProcesses(knownWeakness(), [credentialProcess(300)]))
+    const marks = () => [...screen.getByLabelText('Target status').querySelectorAll('.ns-trace-line')].map((line) => line.textContent)
+    const before = marks()
+    expect(before.length).toBeGreaterThan(1)
+
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+
+    expect(marks()).toEqual(before)
+  })
+
   it('reports a failed attempt coarsely while the same route stays available', async () => {
     const failed = withProcesses(knownWeakness(), [{ ...credentialProcess(1200), status: 'completed', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } }])
     await openTarget(failed)
@@ -444,6 +533,7 @@ describe('NodeScan technical details', () => {
     const explicit = await openTarget(withoutInspect)
     await openDetails(explicit)
     await explicit.click(screen.getAllByRole('button', { name: 'INSPECT' })[0])
+    await waitFor(() => expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeDefined())
     const observed = currentState().discovery.devices.find(({ id }) => id === SRV_01)
     expect(observed?.inspect?.enhanced?.firmware).toEqual({ name: 'RACK-OS', version: '1.0' })
     expect(observed?.services.find(({ id }) => id === 'service-ssh-001')?.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
@@ -656,6 +746,31 @@ describe('RackUpdate exploit and package submission', () => {
     expect(currentState().remoteSession.active).toBeNull()
   })
 
+  it('describes a running submission from the canonical upload itself', () => {
+    const base = srv02()
+    const submitting: GameState = {
+      ...base,
+      rackUpdate: {
+        access: { nextId: 2, established: [{ id: 'rack-update-access-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-rack-update-002' }] },
+        submission: { nextId: 2, outcome: null, active: {
+          id: 'submission-0001', accessId: 'rack-update-access-0001', sourceDeviceId: base.player.localDevice.id, sourceFileId: 'file-local-gate',
+          targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', bytesTotal: 6_400_000, bytesTransferred: 1_600_000,
+        } },
+      },
+    }
+
+    expect(selectTarget(submitting, 'host-lan-002')?.operation).toEqual({
+      kind: 'package_submission',
+      title: 'PACKAGE SUBMISSION',
+      percent: 25,
+      facts: [
+        { label: 'PACKAGE', value: 'GateSSH 1.3.2' },
+        { label: 'ENDPOINT', value: '203.0.113.42:8443' },
+        { label: 'UPLOADED', value: '1.6 / 6.4 MB' },
+      ],
+    })
+  })
+
   it('offers both older and newer compatible GateSSH candidates once submission is enabled, from Player Information alone', () => {
     const base = srv02()
     const newerPackage = { ...base.player.localDevice.filesystem.files.find(({ id }) => id === 'file-local-gate')!, id: 'file-local-newer', path: '/home/user/downloads/gatessh-1.4.0.pkg', releaseId: 'gate-ssh-1.4.0', version: '1.4.0' }
@@ -692,7 +807,35 @@ describe('NodeScan software and request lifecycle', () => {
     expect(appRegistry.network.label).toBe('NodeScan')
   })
 
-  it('deduplicates rapid requests for the same subject', async () => {
+  it('announces a Scan before issuing it, and claims no stage it has not observed yet', async () => {
+    vi.useFakeTimers()
+    render(<GameProvider initialState={foundTargets()}><Network /><StateSnapshot /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
+
+    const status = screen.getByLabelText('Target status')
+    expect(status).toHaveTextContent('SCANNING')
+    expect(status).toHaveTextContent(`CONTACTING ${SRV_01_ADDRESS}`)
+    // The beat is in front of the observation, not over it: nothing is remembered yet.
+    expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.servicesObserved).toBe(false)
+
+    await observed()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
+    expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.servicesObserved).toBe(true)
+  })
+
+  it('abandons an announced observation the player leaves before it is issued', async () => {
+    vi.useFakeTimers()
+    render(<GameProvider initialState={foundTargets()}><Network /><StateSnapshot /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    fireEvent.click(screen.getByRole('button', { name: 'SCAN' }))
+    fireEvent.click(screen.getByRole('button', { name: '← Known Space' }))
+    await observed()
+
+    expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.servicesObserved).toBe(false)
+  })
+
+  it('issues one observation per subject and offers no second request while one is in flight', async () => {
     const pending = deferred<Awaited<ReturnType<GameContext.GameActions['scanTarget']>>>()
     const actions = { ...actionStubs(), scanTarget: vi.fn(() => pending.promise) }
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue(actions)
@@ -702,9 +845,11 @@ describe('NodeScan software and request lifecycle', () => {
     render(<Network />)
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
     await user.click(screen.getByRole('button', { name: 'SCAN' }))
-    await user.click(screen.getByRole('button', { name: 'SCAN' }))
 
-    expect(actions.scanTarget).toHaveBeenCalledTimes(1)
+    // The request itself becomes this target's status, so there is no second SCAN to press.
+    expect(screen.queryByRole('button', { name: 'SCAN' })).not.toBeInTheDocument()
+    await waitFor(() => expect(actions.scanTarget).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('button', { name: 'SCAN' })).not.toBeInTheDocument()
     await act(async () => { pending.resolve({ status: 'device', targetId: SRV_01, address: SRV_01_ADDRESS, scope: 'lan', networks: [], services: [] }) })
   })
 
@@ -773,6 +918,7 @@ describe('Known Space topology', () => {
     expect(scanTargetSpy).not.toHaveBeenCalled()
 
     await user.click(within(form).getByRole('button', { name: 'Ping target address' }))
+    await waitFor(() => expect(currentState().discovery.devices).toHaveLength(1))
 
     expect(scanTargetSpy).not.toHaveBeenCalled()
     expect(currentState().discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, scope: 'unknown' }))
@@ -821,14 +967,14 @@ describe('Known Space topology', () => {
 
     await user.type(input, '192.0.2.250')
     await user.click(scan)
-    expect(screen.getByRole('status')).toHaveTextContent('NO RESPONSE')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('NO RESPONSE'))
     expect(currentState().discovery.devices).toEqual([])
 
     await user.clear(input)
     await user.type(input, createInitialGameState().player.localDevice.network.ip)
     await user.click(scan)
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(currentState().discovery.networks).toEqual([])
     expect(screen.getByRole('region', { name: 'Self' })).toHaveTextContent('SELF')
   })
@@ -1094,6 +1240,7 @@ describe('observed Device display identity', () => {
     const user = await openTarget(withNodeScan11(scannedTarget()))
     await openDetails(user)
     await user.click(screen.getByRole('button', { name: 'INSPECT' }))
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('srv-01'))
 
     expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect?.displayName).toBe('srv-01')
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('srv-01')

@@ -120,6 +120,35 @@ disabled EXECUTE control paired with repeated explanatory copy, so an
 unavailable Technique reads as quietly unavailable rather than as a broken
 configuration form.
 
+NodeScan's immediate observations are announced before they are issued. Scan,
+Ping and Inspect resolve synchronously in canon, so NodeScan states the request
+it is about to make — the address it is contacting and what that operation
+reads — holds it for one short presentation beat, and only then invokes the
+canonical operation. The beat is in front of the observation rather than over
+it, so remembered information and what the interface is saying never disagree:
+until it ends nothing has been observed, and leaving the surface abandons the
+request before it is issued. Each announced request is issued exactly once, and
+the control that started it is not offered again while it is in flight. Inspect
+announces itself inside TECHNICAL INTELLIGENCE, where it is offered; it never
+takes over the target's own status.
+
+A running stage presents that work as an execution surface rather than as a
+headline and a percentage. It names the operation, states the facts the running
+work itself supplies — the endpoint the attempt was actually started against,
+the provider the canonical resolver actually selected, the weakness Knowledge
+that justified it, the Service and endpoint each running analysis is bound to,
+and the bytes a submission has actually carried — and marks the phases that
+operation passes through, derived from its own canonical progress. Those phase
+marks are procedural presentation, not represented technical truth: they state
+what the operation is doing to itself, observe nothing, and never report a
+finding. Canonical progress has one source, so the surface, the stage and Known
+Space's mark for that target always agree, and the same trace is rebuilt from
+canonical progress alone whenever the player returns to a running target.
+Progress is drawn once: while the target's stage carries a running analysis,
+that Service states that it is analyzing instead of repeating the same rail
+under TECHNICAL INTELLIGENCE. A Technique whose own attempt is currently
+running is stated as running in place of its EXECUTE control.
+
 Manual Inspect is deliberately absent from that progression: it is optional
 depth under TECHNICAL INTELLIGENCE, not a step the ordinary SCAN → HACK →
 CONNECT line passes through, so installing NodeScan 1.1 Experimental never
@@ -678,6 +707,13 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   never stops a Miner running on the target, and never removes DeviceAccess.
 - A remote operation resolves its target only through `accessId` → target
   identity. Presentation never supplies an executor Device ID.
+- An execution-surface phase mark is presentation choreography over canonical
+  progress. It is never an observation, a finding, or a second information
+  channel, and it must not state anything the player has not legitimately
+  learned or that the running operation does not itself supply.
+- The beat in front of an immediate observation is presentation, not a new
+  gameplay stage or duration. The canonical operation is issued after it, once,
+  and abandoning the surface abandons the request rather than the result.
 - A NodeScan target stage is derived presentation, not canonical state. There
   is no stored stage, no `hacked` flag, and no canonical target progress; each
   stage is recomputed from Discovery, Knowledge, Process, DeviceAccess and

@@ -1,9 +1,10 @@
 import './network.css'
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { isValidIpv4 } from '../../core/game/networkTarget'
 import { formatBytes, formatTransferRate } from '../byteFormat'
 import { selectManagedNetworks, type ManagedNetworkActivityRecordView, type ManagedNetworkView } from '../networkManagement/networkProjection'
+import { operationPhases, reachedPhases } from './executionTrace'
 import {
   resolveNodeScanRelease,
   selectKnownSpace,
@@ -14,6 +15,7 @@ import {
   type PlayerInformation,
   type Target,
   type TargetOffensiveAction,
+  type TargetOperation,
   type TargetRoute,
   type TargetService,
   type TargetStage,
@@ -57,6 +59,42 @@ type Focus =
   | { readonly kind: 'network'; readonly networkId: string }
 
 type CopyState = { value: string; status: 'copied' | 'failed' } | null
+
+/**
+ * What NodeScan is currently issuing, while it is issuing it.
+ *
+ * Scan, Ping and Inspect resolve immediately in canon, so this is the whole
+ * of their temporal presentation: the request is stated, held for one short
+ * beat, and then actually issued. The steps are the operation's own intent —
+ * never an observation, and never a result.
+ */
+type Acquisition = { readonly subject: string; readonly label: string; readonly steps: readonly string[] } | null
+
+/**
+ * Long enough for an observation to read as an act rather than a redraw,
+ * short enough that scanning a row of targets in sequence never feels like
+ * waiting. Nothing canonical is deferred behind it except the observation
+ * this beat is announcing.
+ */
+const ACQUISITION_HOLD_MS = 620
+
+/** How long a completed operation's arrival is marked before the card settles. */
+const STAGE_RESOLVE_MS = 900
+
+/**
+ * The stages that describe work currently running: the word this interface
+ * marks each one with, and the canonical-progress label it has always
+ * carried. Known Space and the target card read the same table, so a running
+ * target never reads as one thing in the tree and another on its card.
+ */
+const RUNNING_STAGE = {
+  analyzing: { status: 'ANALYZING', progressLabel: 'Analysis progress' },
+  hacking: { status: 'HACKING', progressLabel: 'Hack progress' },
+  attacking: { status: 'ATTACKING RACKUPDATE', progressLabel: 'Attack progress' },
+  submitting: { status: 'SUBMITTING PACKAGE', progressLabel: 'Submission progress' },
+} as const satisfies Partial<Record<TargetStage, { status: string; progressLabel: string }>>
+
+function isRunning(stage: TargetStage): boolean { return stage in RUNNING_STAGE }
 
 const STAGE_MARK: Record<TargetStage, string> = {
   unscanned: 'NOT SCANNED',
@@ -112,10 +150,12 @@ export function Network() {
   const [selectedPackageId, setSelectedPackageId] = useState('')
   const [directAddress, setDirectAddress] = useState('')
   const [pending, setPending] = useState<string | null>(null)
+  const [acquisition, setAcquisition] = useState<Acquisition>(null)
   const pendingRef = useRef<string | null>(null)
   const requestGeneration = useRef(0)
   const copyTimer = useRef<ReturnType<typeof setTimeout>>()
-  useEffect(() => () => { requestGeneration.current++; clearTimeout(copyTimer.current) }, [])
+  const holdTimer = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => () => { requestGeneration.current++; clearTimeout(copyTimer.current); clearTimeout(holdTimer.current) }, [])
 
   function beginRequest(subject: string) {
     if (pendingRef.current === subject) return null
@@ -128,14 +168,37 @@ export function Network() {
     if (requestGeneration.current !== generation) return false
     if (pendingRef.current === subject) pendingRef.current = null
     setPending(null)
+    setAcquisition(null)
     return true
   }
   /** A result that arrives after the player moved on is no longer their answer. */
   function invalidateRequests() {
     requestGeneration.current++
+    clearTimeout(holdTimer.current)
     pendingRef.current = null
     setPending(null)
+    setAcquisition(null)
     setNotice(null)
+  }
+  /**
+   * Issue one immediate observation with a beat in front of it.
+   *
+   * The canonical operation is deliberately invoked *after* the hold rather
+   * than presented behind it, so remembered information and what NodeScan is
+   * saying can never disagree: until the beat ends, the observation genuinely
+   * has not happened yet. Leaving the surface abandons the request before it
+   * is issued, exactly as it already abandoned a result the player moved on
+   * from.
+   */
+  async function observe(subject: string, label: string, steps: readonly string[], run: (current: () => boolean) => void | Promise<void>) {
+    const generation = beginRequest(subject)
+    if (generation === null) return
+    const current = () => requestGeneration.current === generation
+    setAcquisition({ subject, label, steps })
+    await new Promise<void>((resolve) => { holdTimer.current = setTimeout(resolve, ACQUISITION_HOLD_MS) })
+    if (!current()) return
+    try { await run(current) } catch { /* an abandoned request simply reports nothing */ }
+    finishRequest(subject, generation)
   }
   function open(next: Focus) {
     invalidateRequests()
@@ -146,24 +209,21 @@ export function Network() {
   }
 
   async function findTargets() {
-    const generation = beginRequest('targets')
-    if (generation === null) return
-    try {
+    await observe('targets', 'SWEEPING KNOWN SPACE', ['REFRESHING SELF RELATIONSHIPS', 'QUERYING KNOWN NETWORKS'], async (current) => {
       const result = await actions.findTargets()
-      if (!finishRequest('targets', generation)) return
+      if (!current()) return
       if (result.status !== 'observed') setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : 'NO RESPONSE')
       else if (result.targetsKnown === 0) setNotice('NOTHING FOUND')
-    } catch { finishRequest('targets', generation) }
+    })
   }
 
   async function scanSelf() {
-    const generation = beginRequest('self')
-    if (generation === null) return
-    try {
-      const result = await actions.scanTarget(gameState.player.localDevice.network.ip)
-      if (!finishRequest('self', generation)) return
+    const address = gameState.player.localDevice.network.ip
+    await observe('self', 'SCANNING SELF', [`CONTACTING ${address}`, 'READING NETWORK RELATIONSHIPS'], async (current) => {
+      const result = await actions.scanTarget(address)
+      if (!current()) return
       if (result.status !== 'device') setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : 'NO RESPONSE')
-    } catch { finishRequest('self', generation) }
+    })
   }
 
   async function pingDirectAddress() {
@@ -172,34 +232,33 @@ export function Network() {
       setNotice('INVALID ADDRESS')
       return
     }
-    const generation = beginRequest('direct-address')
-    if (generation === null) return
-    try {
+    await observe('direct-address', 'PINGING', [`CONTACTING ${address}`, 'AWAITING RESPONSE'], (current) => {
       const result = actions.pingTarget(address)
-      if (!finishRequest('direct-address', generation)) return
+      if (!current()) return
       setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
         : result.status === 'no_response' ? 'NO RESPONSE'
           : result.status === 'device' ? null
             : 'INVALID ADDRESS')
-    } catch { finishRequest('direct-address', generation) }
+    })
   }
 
   async function scan(target: Target) {
-    const generation = beginRequest(target.id)
-    if (generation === null) return
-    try {
+    await observe(target.id, target.servicesObserved ? 'RESCANNING' : 'SCANNING', [`CONTACTING ${target.address}`, 'READING OPEN SERVICES'], async (current) => {
       const result = await actions.scanTarget(target.address)
-      if (!finishRequest(target.id, generation)) return
+      if (!current()) return
       if (result.status !== 'device' || result.targetId !== target.id) setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : result.status === 'no_response' ? 'NO RESPONSE' : 'UNKNOWN TARGET')
-    } catch { finishRequest(target.id, generation) }
+    })
   }
 
-  function inspect(target: Target) {
-    const result = actions.inspectTarget(target.address)
-    setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
-      : result.status === 'capability_unavailable' ? 'INSPECT UNAVAILABLE'
-        : result.status === 'no_response' ? 'NO RESPONSE'
-          : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
+  async function inspect(target: Target) {
+    await observe(`inspect:${target.id}`, 'INSPECTING', [`CONTACTING ${target.address}`, 'READING DEVICE EVIDENCE'], (current) => {
+      const result = actions.inspectTarget(target.address)
+      if (!current()) return
+      setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
+        : result.status === 'capability_unavailable' ? 'INSPECT UNAVAILABLE'
+          : result.status === 'no_response' ? 'NO RESPONSE'
+            : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
+    })
   }
 
   function hack(route: TargetRoute, targetDeviceId: string) {
@@ -258,7 +317,7 @@ export function Network() {
     const packageSubmission = target.packageSubmission
     if (!packageSubmission) return
     const result = actions.startRackUpdatePackageSubmission({ targetDeviceId: target.id, serviceId: packageSubmission.serviceId, endpoint: packageSubmission.endpoint, localFileId: selectedPackageId })
-    setNotice(result.status === 'started' ? 'SUBMISSION STARTED'
+    setNotice(result.status === 'started' ? null
       : result.status === 'observation_required' ? 'OBSERVATION REQUIRED'
         : result.status === 'access_required' ? 'ATTACK RACKUPDATE FIRST'
           : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
@@ -305,6 +364,9 @@ export function Network() {
         target={target}
         release={release}
         pending={pending === target.id}
+        inspecting={pending === `inspect:${target.id}`}
+        acquisition={acquisition?.subject === target.id ? acquisition : null}
+        inspectAcquisition={acquisition?.subject === `inspect:${target.id}` ? acquisition : null}
         notice={notice}
         copyState={copyState}
         selectedPackageId={selectedPackageId}
@@ -330,7 +392,9 @@ export function Network() {
       space={selectKnownSpace(information, managedNetworks)}
       release={release}
       pending={pending === 'targets'}
+      selfPending={pending === 'self'}
       directPending={pending === 'direct-address'}
+      acquisition={acquisition}
       directAddress={directAddress}
       notice={notice}
       closedNetworkIds={closedNetworkIds}
@@ -345,11 +409,13 @@ export function Network() {
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, onToggleNetwork, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork }: {
+function KnownSpaceView({ space, release, pending, selfPending, directPending, acquisition, directAddress, notice, closedNetworkIds, onToggleNetwork, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
+  selfPending: boolean
   directPending: boolean
+  acquisition: Acquisition
   directAddress: string
   notice: string | null
   closedNetworkIds: readonly string[]
@@ -362,6 +428,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   onOpenNetwork(networkId: string): void
 }) {
   const selfPlaced = space.networks.some(({ includesSelf }) => includesSelf)
+  const settled = useSettled()
   return <div className="ns-view">
     <header className="ns-masthead">
       <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
@@ -382,23 +449,26 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
           value={directAddress}
           onChange={(event) => onDirectAddressChange(event.target.value)}
         />
-        <button type="submit" aria-label="Ping target address" disabled={directPending}>PING</button>
+        <button type="submit" aria-label="Ping target address" disabled={directPending}>{directPending ? 'PINGING' : 'PING'}</button>
       </div>
+      {acquisition?.subject === 'direct-address' && <Acquisition acquisition={acquisition} compact />}
     </form>
 
     <div className="ns-space">
       {!selfPlaced && <section className="ns-group" aria-label="Self">
-        <button type="button" className="ns-node ns-node--self ns-self-scan" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}>
+        <button type="button" className="ns-node ns-node--self ns-self-scan" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending || selfPending}>
           <span className="ns-glyph ns-glyph--self" aria-hidden="true" />
           <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span>
-          <span className="ns-target-mark">NOT SCANNED</span>
-          <span className="ns-self-action">SCAN</span>
+          {!selfPending && <span className="ns-target-mark">NOT SCANNED</span>}
+          <span className="ns-self-action">{selfPending ? 'SCANNING' : 'SCAN'}</span>
         </button>
+        {acquisition?.subject === 'self' && <Acquisition acquisition={acquisition} compact />}
       </section>}
 
       {space.networks.map((network) => <NetworkBranch
         key={network.id}
         network={network}
+        settled={settled}
         selfAddress={space.self.address}
         expanded={!closedNetworkIds.includes(network.id)}
         onToggle={() => onToggleNetwork(network.id)}
@@ -411,6 +481,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
         <div className="ns-loose">{space.elsewhere.map((target) => <DeviceRow
           key={target.id}
           target={target}
+          settled={settled}
           showLocation
           onOpen={onOpen}
         />)}</div>
@@ -418,8 +489,10 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
     </div>
 
     {space.remembersNetwork && <div className="ns-primary-slot">
-      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>SCAN AGAIN</button>
-      <p className="ns-primary-note">Look for devices on known Networks.</p>
+      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>{pending ? 'SCANNING' : 'SCAN AGAIN'}</button>
+      {acquisition?.subject === 'targets'
+        ? <Acquisition acquisition={acquisition} compact />
+        : <p className="ns-primary-note">Look for devices on known Networks.</p>}
     </div>}
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
   </div>
@@ -433,8 +506,9 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
  * its administration; a Network merely observed carries no such control,
  * because observing a Network is not authority over it.
  */
-function NetworkBranch({ network, selfAddress, expanded, onToggle, onOpen, onOpenNetwork }: {
+function NetworkBranch({ network, settled, selfAddress, expanded, onToggle, onOpen, onOpenNetwork }: {
   network: KnownNetwork
+  settled(): boolean
   selfAddress: string
   expanded: boolean
   onToggle(): void
@@ -472,7 +546,7 @@ function NetworkBranch({ network, selfAddress, expanded, onToggle, onOpen, onOpe
           </div>
         </div>}
         {network.targets.map((target) => <div className="ns-limb" key={target.id}>
-          <DeviceRow target={target} onOpen={onOpen} />
+          <DeviceRow target={target} settled={settled} onOpen={onOpen} />
         </div>)}
       </div>}
       {!network.membersObserved
@@ -491,22 +565,42 @@ function NetworkBranch({ network, selfAddress, expanded, onToggle, onOpen, onOpe
  * under TECHNICAL INTELLIGENCE; Known Space states only where a Device is and
  * what its current stage is.
  */
-function DeviceRow({ target, showLocation, onOpen }: {
+function DeviceRow({ target, settled, showLocation, onOpen }: {
   target: TargetSummary
+  /** Whether Known Space was already on screen when this row mounted. */
+  settled(): boolean
   showLocation?: boolean
   onOpen(deviceId: string): void
 }) {
+  const [revealed] = useState(settled)
   const note = [target.displayName ? target.address : undefined, showLocation ? locationOf(target) : undefined].filter(Boolean).join(' · ')
-  return <button type="button" className="ns-node ns-node--device" aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
+  return <button type="button" className={`ns-node ns-node--device${revealed ? ' ns-node--revealed' : ''}`} aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
     <span className="ns-glyph" aria-hidden="true" />
     <span className="ns-target-copy">
       <strong>{target.displayName ?? target.address}</strong>
       {!target.displayName && <span className="ns-target-note">UNKNOWN DEVICE</span>}
       {note && <span className="ns-target-note">{note}</span>}
     </span>
-    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
+    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>
+      {isRunning(target.stage) && <i className="ns-live-dot" aria-hidden="true" />}
+      {STAGE_MARK[target.stage]}
+    </span>
     <span className="ns-arrow" aria-hidden="true">›</span>
   </button>
+}
+
+/**
+ * Whether Known Space has finished arriving.
+ *
+ * A target row that mounts afterwards is one the player just observed, and it
+ * should read as an arrival rather than as a list that is silently longer
+ * than before. Rows already remembered when the surface opened are simply
+ * there. Nothing here observes or remembers anything of its own.
+ */
+function useSettled(): () => boolean {
+  const settled = useRef(false)
+  useEffect(() => { settled.current = true }, [])
+  return () => settled.current
 }
 
 /**
@@ -568,10 +662,15 @@ function ActivityRow({ record }: { record: ManagedNetworkActivityRecordView }) {
 }
 
 /** One target context, with status, player-chosen offensive ACTIONS, and depth. */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, inspecting, acquisition, inspectAcquisition, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
+  inspecting: boolean
+  /** The target's own Scan, which is its whole status while it is being issued. */
+  acquisition: Acquisition
+  /** Inspect's own beat, which belongs to the disclosure that offers it. */
+  inspectAcquisition: Acquisition
   notice: string | null
   copyState: CopyState
   selectedPackageId: string
@@ -587,6 +686,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   onSelectPackage(fileId: string): void
   onSubmitPackage(): void
 }) {
+  const resolved = useStageResolution(target)
   return <div className="ns-view">
     <nav className="scan-crumbs" aria-label="NodeScan navigation">
       <button type="button" onClick={onBack}>← Known Space</button>
@@ -600,71 +700,71 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <p className="ns-subject-note">{[target.displayName ? target.address : undefined, locationOf(target)].filter(Boolean).join(' · ')}</p>
     </header>
 
-    <section className="ns-stage" aria-label="Target status">
-      {target.stage === 'unscanned' && <>
-        <strong className="ns-stage-headline">NOT SCANNED</strong>
-        <span className="ns-stage-note">Nothing is known about this target yet.</span>
-        <Primary label="SCAN" disabled={pending} onClick={onScan} />
-      </>}
+    <section className="ns-stage" aria-label="Target status" data-running={isRunning(target.stage) || undefined} data-resolved={resolved || undefined}>
+      {/*
+        * While an observation is being issued, that request is the whole of
+        * this target's status: the state it is about to be in has not been
+        * observed yet, so the card states what it is doing rather than a
+        * stage it cannot yet claim.
+        */}
+      {acquisition
+        ? <div className="ns-stage-body"><Acquisition acquisition={acquisition} /></div>
+        : <div className="ns-stage-body" key={target.stage}>
+          {target.stage === 'unscanned' && <>
+            <strong className="ns-stage-headline">NOT SCANNED</strong>
+            <span className="ns-stage-note">Nothing is known about this target yet.</span>
+            <Primary label="SCAN" disabled={pending} onClick={onScan} />
+          </>}
 
-      {target.stage === 'analysis_ready' && <>
-        <strong className="ns-stage-headline">SERVICES FOUND</strong>
-        <span className="ns-stage-note">The observed attack surface is ready to investigate.</span>
-        <Primary label="ANALYZE" onClick={onAnalyzeAll} />
-      </>}
+          {target.stage === 'analysis_ready' && <>
+            <strong className="ns-stage-headline">SERVICES FOUND</strong>
+            {/* What the Scan actually observed, named where the decision is made. */}
+            <span className="ns-stage-observed">{target.services.map(({ name }) => name).join(' · ')}</span>
+            <span className="ns-stage-note">The observed attack surface is ready to investigate.</span>
+            <Primary label="ANALYZE" onClick={onAnalyzeAll} />
+          </>}
 
-      {target.stage === 'analyzing' && <>
-        <strong className="ns-stage-headline">ANALYZING</strong>
-        <Progress percent={target.percent} label="Analysis progress" />
-      </>}
+          {target.stage === 'analyzing' && <Operation target={target} {...RUNNING_STAGE.analyzing} />}
 
-      {target.stage === 'no_route' && <>
-        <strong className="ns-stage-headline">OBSERVATION COMPLETE</strong>
-        <span className="ns-stage-note">Review technical intelligence or attempt an available Technique.</span>
-        <Primary label="SCAN AGAIN" disabled={pending} onClick={onScan} />
-      </>}
+          {target.stage === 'no_route' && <>
+            <strong className="ns-stage-headline">OBSERVATION COMPLETE</strong>
+            <span className="ns-stage-note">Review technical intelligence or attempt an available Technique.</span>
+            <Primary label="SCAN AGAIN" disabled={pending} onClick={onScan} />
+          </>}
 
-      {target.stage === 'route' && <>
-        <strong className="ns-stage-headline">TARGET OBSERVED</strong>
-        <span className="ns-stage-note">Choose an available Technique below.</span>
-      </>}
+          {target.stage === 'route' && <>
+            <strong className="ns-stage-headline">TARGET OBSERVED</strong>
+            <span className="ns-stage-note">Choose an available Technique below.</span>
+          </>}
 
-      {target.stage === 'hacking' && <>
-        <strong className="ns-stage-headline">HACKING</strong>
-        <Progress percent={target.percent} label="Hack progress" />
-      </>}
+          {target.stage === 'hacking' && <Operation target={target} {...RUNNING_STAGE.hacking} />}
 
-      {target.stage === 'attack' && <>
-        <strong className="ns-stage-headline">TARGET OBSERVED</strong>
-        <span className="ns-stage-note">Choose an available Technique below.</span>
-      </>}
+          {target.stage === 'attack' && <>
+            <strong className="ns-stage-headline">TARGET OBSERVED</strong>
+            <span className="ns-stage-note">Choose an available Technique below.</span>
+          </>}
 
-      {target.stage === 'attacking' && <>
-        <strong className="ns-stage-headline">ATTACKING RACKUPDATE</strong>
-        <Progress percent={target.percent} label="Attack progress" />
-      </>}
+          {target.stage === 'attacking' && <Operation target={target} {...RUNNING_STAGE.attacking} />}
 
-      {target.stage === 'submission_ready' && <>
-        <strong className="ns-stage-headline">PACKAGE SUBMISSION READY</strong>
-        <span className="ns-stage-note">RackUpdate accepts a compatible GateSSH package through the established submission authority.</span>
-      </>}
+          {target.stage === 'submission_ready' && <>
+            <strong className="ns-stage-headline">PACKAGE SUBMISSION READY</strong>
+            <span className="ns-stage-note">RackUpdate accepts a compatible GateSSH package through the established submission authority.</span>
+          </>}
 
-      {target.stage === 'submitting' && <>
-        <strong className="ns-stage-headline">SUBMITTING PACKAGE</strong>
-        <Progress percent={target.percent} label="Submission progress" />
-      </>}
+          {target.stage === 'submitting' && <Operation target={target} {...RUNNING_STAGE.submitting} />}
 
-      {target.stage === 'access' && <>
-        <strong className="ns-stage-headline">ACCESS GRANTED</strong>
-        <span className="ns-stage-note">You can connect to this target now.</span>
-        <Primary label="CONNECT" onClick={onConnect} />
-      </>}
+          {target.stage === 'access' && <>
+            <strong className="ns-stage-headline">ACCESS GRANTED</strong>
+            <span className="ns-stage-note">You can connect to this target now.</span>
+            <Primary label="CONNECT" onClick={onConnect} />
+          </>}
 
-      {target.stage === 'connected' && <>
-        <strong className="ns-stage-headline">CONNECTED</strong>
-        <span className="ns-stage-note">{target.session?.connectedAddress} is open.</span>
-        <Primary label="DISCONNECT" onClick={onDisconnect} />
-      </>}
+          {target.stage === 'connected' && <>
+            <strong className="ns-stage-headline">CONNECTED</strong>
+            <span className="ns-stage-note">{target.session?.connectedAddress} is open.</span>
+            <Primary label="DISCONNECT" onClick={onDisconnect} />
+          </>}
+        </div>}
     </section>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
@@ -672,15 +772,19 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
       {target.offensiveActions.length === 0
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
-        : <div className="ns-action-list">{target.offensiveActions.map((action) => {
-          const executable = Boolean(action.route)
-          return <article className="ns-action" key={action.technique}>
-            <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
-            {executable
+        : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={action.technique}>
+          <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
+          {/*
+            * A Technique whose own attempt is already running says so where
+            * the control was, rather than offering an EXECUTE that can only
+            * report that it is already running.
+            */}
+          {action.running
+            ? <span className="node-chip" aria-label={`${action.technique} running`}><i className="ns-live-dot" aria-hidden="true" />RUNNING</span>
+            : action.route
               ? <button type="button" className="node-action" aria-label={`Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>EXECUTE</button>
               : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} unavailable`}>UNAVAILABLE</span>}
-          </article>
-        })}</div>}
+        </article>)}</div>}
     </section>
 
     <details className="ns-details">
@@ -695,6 +799,9 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <TechnicalDetails
         target={target}
         release={release}
+        inspecting={inspecting}
+        inspectAcquisition={inspectAcquisition}
+        stageOwnsAnalysis={target.stage === 'analyzing'}
         copyState={copyState}
         selectedPackageId={selectedPackageId}
         onInspect={onInspect}
@@ -705,6 +812,86 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       />
     </details>
   </div>
+}
+
+/**
+ * What NodeScan is currently doing, while a synchronous observation is being
+ * issued. Presentation only: the steps state the request NodeScan is about to
+ * make, in the order it makes it, and never a result.
+ */
+function Acquisition({ acquisition, compact }: { acquisition: NonNullable<Acquisition>; compact?: boolean }) {
+  return <div className={`ns-acquire${compact ? ' ns-acquire--compact' : ''}`} role="status">
+    {/* Beside a control that already says what it is doing, the steps are the whole statement. */}
+    {!compact && <span className="ns-acquire-label">{acquisition.label}</span>}
+    <ol className="ns-trace">
+      {acquisition.steps.map((step, index) => <li className="ns-trace-line" key={step} style={{ animationDelay: `${index * 190}ms` }}>
+        <span className="ns-trace-mark" aria-hidden="true">›</span>
+        <span className="ns-trace-label">{step}</span>
+        {index === acquisition.steps.length - 1 && <i className="ns-caret" aria-hidden="true" />}
+      </li>)}
+    </ol>
+  </div>
+}
+
+/**
+ * The execution surface for work actually running against this target.
+ *
+ * It answers three separate questions the old headline-and-bar could not: what
+ * is running, what it is operating on, and how far through itself it is. The
+ * facts come from the running work's own canonical state
+ * (`targetProjection.ts`); the phase marks are procedural choreography over
+ * canonical progress (`executionTrace.ts`) and are deliberately not findings.
+ * A target whose stage is running but whose operation could not be described
+ * still states the stage rather than an empty surface.
+ */
+function Operation({ target, status, progressLabel }: { target: Target; status: string; progressLabel: string }) {
+  const { operation } = target
+  if (!operation) return <>
+    <strong className="ns-stage-headline">{status}</strong>
+    <Progress percent={target.percent} label={progressLabel} />
+  </>
+  const phases = reachedPhases(operation)
+  return <div className="ns-op">
+    <header className="ns-op-head">
+      <strong className="ns-op-title">{operation.title}</strong>
+      <span className="ns-op-live"><i className="ns-live-dot" aria-hidden="true" />{status}</span>
+    </header>
+    <dl className="ns-op-facts">
+      {operation.facts.map(({ label: factLabel, value }) => <div key={factLabel}><dt>{factLabel}</dt><dd>{value}</dd></div>)}
+    </dl>
+    {/* Every mark this operation will pass is reserved, so appending one shifts nothing below it. */}
+    <ol className="ns-trace ns-op-trace" style={{ '--ns-trace-lines': operationPhases(operation.kind).length } as CSSProperties}>
+      {phases.map((phase, index) => <li className="ns-trace-line" key={phase.label} data-active={index === phases.length - 1 || undefined}>
+        <span className="ns-trace-at">{phase.at}%</span>
+        <span className="ns-trace-label">{phase.label}</span>
+        {index === phases.length - 1 && <i className="ns-caret" aria-hidden="true" />}
+      </li>)}
+    </ol>
+    <Progress percent={operation.percent} label={progressLabel} />
+  </div>
+}
+
+/**
+ * Whether this target's stage has just resolved out of running work while the
+ * player was watching it.
+ *
+ * Completion is the moment the whole loop is played for, so it gets its own
+ * arrival rather than the ordinary one. It is remembered per target: opening
+ * a different target is a new subject, not a resolution.
+ */
+function useStageResolution(target: Target): boolean {
+  const previous = useRef<{ deviceId: string; stage: TargetStage } | null>(null)
+  const [resolved, setResolved] = useState(false)
+  useEffect(() => {
+    const before = previous.current
+    previous.current = { deviceId: target.id, stage: target.stage }
+    const justResolved = Boolean(before && before.deviceId === target.id && before.stage !== target.stage && isRunning(before.stage))
+    setResolved(justResolved)
+    if (!justResolved) return
+    const timer = setTimeout(() => setResolved(false), STAGE_RESOLVE_MS)
+    return () => clearTimeout(timer)
+  }, [target.id, target.stage])
+  return resolved
 }
 
 function Primary({ label, disabled, onClick }: { label: string; disabled?: boolean; onClick(): void }) {
@@ -732,9 +919,17 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
  * information and their own represented resources; none of it is a new
  * observation, and none of it reads current target truth.
  */
-function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TechnicalDetails({ target, release, inspecting, inspectAcquisition, stageOwnsAnalysis, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
+  inspecting: boolean
+  inspectAcquisition: Acquisition
+  /**
+   * Whether the target's own execution surface is already carrying this
+   * analysis progress. When it is, a Service states that it is analyzing
+   * rather than drawing the same rail a second time on the same screen.
+   */
+  stageOwnsAnalysis: boolean
   copyState: CopyState
   selectedPackageId: string
   onInspect(): void
@@ -768,7 +963,8 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
       <p className="ns-quiet-note">{target.observed
         ? 'Inspect again to refresh this target’s identity and service fingerprints.'
         : 'Inspect looks deeper than Scan: it resolves this target’s device identity, firmware and service fingerprints.'}</p>
-      <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>
+      <button type="button" className="node-action" disabled={inspecting} onClick={onInspect}>{inspecting ? 'INSPECTING' : 'INSPECT'}</button>
+      {inspectAcquisition && <Acquisition acquisition={inspectAcquisition} compact />}
     </div>}
 
     {(target.access || target.session) && <>
@@ -806,9 +1002,11 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
           {service.analysisPercent === undefined && service.analysisOutcome === 'no_weakness_detected' && <p className="ns-quiet-note">Last analysis found no weakness.</p>}
           {service.analysisPercent === undefined && service.analysisOutcome === 'service_unavailable' && <p className="ns-quiet-note">Last analysis did not complete against the service.</p>}
           {service.accessPrivilege && <p className="ns-quiet-note">{service.accessPrivilege} access was established through this service.</p>}
-          {service.analysisPercent !== undefined
-            ? <Progress percent={service.analysisPercent} label={`${service.name} analysis progress`} />
-            : <button type="button" className="node-action" aria-label={`Analyze ${service.name}`} onClick={() => onAnalyze(service)}>ANALYZE</button>}
+          {service.analysisPercent === undefined
+            ? <button type="button" className="node-action" aria-label={`Analyze ${service.name}`} onClick={() => onAnalyze(service)}>ANALYZE</button>
+            : stageOwnsAnalysis
+              ? <p className="ns-service-running"><i className="ns-live-dot" aria-hidden="true" />ANALYZING</p>
+              : <Progress percent={service.analysisPercent} label={`${service.name} analysis progress`} />}
         </article>)}</div>}
 
     {target.packageSubmission && <>
