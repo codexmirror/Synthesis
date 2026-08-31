@@ -70,11 +70,14 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
 
   nextState = advanceFileTransfer(nextState, elapsedMs)
   nextState = advanceRackUpdatePackageSubmission(nextState, elapsedMs)
-  // Device connectivity/lifecycle recovery, and the Remote Session reachability
-  // it may invalidate, both derive from Device operational truth that this step
-  // may have just changed, so both advance after every other domain this tick.
-  nextState = advanceDeviceConnectivityRecovery(nextState, elapsedMs)
-  return advanceRemoteSessionReachability(nextState)
+  // Remote Session reachability must observe this tick's *starting* Device
+  // operational truth — before Device connectivity recovery has a chance to
+  // restore it within this same call. Otherwise a Session could survive an
+  // interruption that fully resolved (e.g. Petra's Phone reconnecting) inside
+  // one large advancement step, because the step that would have invalidated
+  // it never saw the intervening disconnected state.
+  nextState = advanceRemoteSessionReachability(nextState)
+  return advanceDeviceConnectivityRecovery(nextState, elapsedMs)
 }
 
 /**

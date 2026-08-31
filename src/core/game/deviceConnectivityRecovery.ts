@@ -40,33 +40,45 @@ function replaceHost(state: GameState, hostId: string, next: NetworkHost): GameS
 }
 
 /**
- * Advance one Device's already-running recovery cycle by the elapsed step.
+ * Advance one Device's already-running recovery cycle by the elapsed step,
+ * consuming that elapsed time coherently across phase boundaries: a single
+ * large step that contains enough time to finish `SHUTTING_DOWN` and reach
+ * or pass the end of `BOOTING` must produce the identical final outcome an
+ * equivalent sequence of smaller steps would, rather than only crossing one
+ * phase boundary per call and requiring an artificial extra scheduler tick
+ * to notice the next one.
+ *
  * `RECONNECT` moves the Device straight back to `CONNECTED` without ever
- * touching lifecycle. `REBOOT_ON_DISCONNECT` crosses `SHUTTING_DOWN` into
- * `BOOTING`, and once `BOOTING` completes that is a real represented Device
- * boot: this is the one call site that reaches the boot boundary, and it
- * does so through `runRealDeviceBootConsequences` rather than invoking
- * GateSSH activation (or any other consequence) directly.
+ * touching lifecycle — it has no further phase to cascade into.
+ * `REBOOT_ON_DISCONNECT` crosses `SHUTTING_DOWN` into `BOOTING`, carrying any
+ * leftover elapsed time forward, and once `BOOTING` completes that is a real
+ * represented Device boot: this is the one call site that reaches the boot
+ * boundary, and it does so through `runRealDeviceBootConsequences` — exactly
+ * once, regardless of how the elapsed time was partitioned — rather than
+ * invoking GateSSH activation (or any other consequence) directly.
  */
 function advanceOneHostRecovery(state: GameState, hostId: string, elapsedMs: number): GameState {
   const host = state.world.network.hosts.find((candidate) => candidate.id === hostId)
   const recovery = host?.connectivityRecovery
   if (!host || !recovery) return state
-  const elapsed = recovery.elapsedMs + Math.max(0, elapsedMs)
 
-  if (recovery.phase === 'RECONNECTING') {
-    if (elapsed < RECONNECT_DURATION_MS) return replaceHost(state, hostId, { ...host, connectivityRecovery: { ...recovery, elapsedMs: elapsed } })
+  let phase = recovery.phase
+  let elapsed = recovery.elapsedMs + Math.max(0, elapsedMs)
+
+  if (phase === 'RECONNECTING') {
+    if (elapsed < RECONNECT_DURATION_MS) return replaceHost(state, hostId, { ...host, connectivityRecovery: { phase, elapsedMs: elapsed } })
     const { connectivityRecovery: _done, ...recovered } = host
     return replaceHost(state, hostId, { ...recovered, operational: { ...host.operational, connectivity: 'CONNECTED' } })
   }
 
-  if (recovery.phase === 'SHUTTING_DOWN') {
-    if (elapsed < SHUTDOWN_DURATION_MS) return replaceHost(state, hostId, { ...host, connectivityRecovery: { ...recovery, elapsedMs: elapsed } })
-    return replaceHost(state, hostId, { ...host, operational: { ...host.operational, lifecycle: 'BOOTING' }, connectivityRecovery: { phase: 'BOOTING', elapsedMs: elapsed - SHUTDOWN_DURATION_MS } })
+  if (phase === 'SHUTTING_DOWN') {
+    if (elapsed < SHUTDOWN_DURATION_MS) return replaceHost(state, hostId, { ...host, connectivityRecovery: { phase, elapsedMs: elapsed } })
+    elapsed -= SHUTDOWN_DURATION_MS
+    phase = 'BOOTING'
   }
 
-  // phase === 'BOOTING'
-  if (elapsed < BOOT_DURATION_MS) return replaceHost(state, hostId, { ...host, connectivityRecovery: { ...recovery, elapsedMs: elapsed } })
+  // phase === 'BOOTING', carrying forward any leftover elapsed time from SHUTTING_DOWN.
+  if (elapsed < BOOT_DURATION_MS) return replaceHost(state, hostId, { ...host, operational: { ...host.operational, lifecycle: 'BOOTING' }, connectivityRecovery: { phase: 'BOOTING', elapsedMs: elapsed } })
   const { connectivityRecovery: _done, ...rebooted } = host
   const restarted = replaceHost(state, hostId, { ...rebooted, operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' } })
   return runRealDeviceBootConsequences(restarted, hostId)

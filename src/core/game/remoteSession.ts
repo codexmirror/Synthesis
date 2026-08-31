@@ -69,15 +69,20 @@ export function disconnectRemoteSession(state: GameState): DisconnectRemoteResul
 /**
  * Canonical advancement for the active Remote Session's own reachability,
  * called from `advanceGameState` alongside FileTransfer and RackUpdate
- * submission's own per-tick revalidation. A target that is no longer
- * network-usable — mid reconnect, mid reboot, or otherwise disconnected —
- * ends the Session exactly like any other lost reachability, without
- * touching the `DeviceAccess` relationship the Session was built on: access
- * remains independent and persistent even though the interactive Session
- * built on it does not survive the target's own connectivity loss.
+ * submission's own per-tick revalidation, and deliberately before Device
+ * connectivity recovery advances that same tick (`gameAdvancement.ts`) so a
+ * Session cannot outlive an interruption that recovers within one large
+ * advancement step. Either endpoint losing usable connectivity — the local
+ * source Device or the remote target Device, mid reconnect, mid reboot, or
+ * otherwise disconnected — ends the Session exactly like any other lost
+ * reachability, without touching the `DeviceAccess` relationship the Session
+ * was built on: access remains independent and persistent even though the
+ * interactive Session built on it does not survive either endpoint's own
+ * connectivity loss.
  */
 export function advanceRemoteSessionReachability(state: GameState): GameState {
   const resolved = resolveActiveRemoteTarget(state)
-  if (!resolved || isDeviceNetworkUsable(resolved.target.operational)) return state
+  if (!resolved) return state
+  if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational)) return state
   return { ...state, remoteSession: { ...state.remoteSession, active: null } }
 }

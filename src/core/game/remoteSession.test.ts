@@ -61,17 +61,44 @@ describe('remote session lifecycle', () => {
     expect(disconnectRemoteSession(base)).toEqual({ status: 'not_connected', state: base })
   })
 
-  it('ends the Session once its target is no longer network-usable, without touching the DeviceAccess it was built on', () => {
+  it('ends the Session once its target alone is no longer network-usable, without touching the DeviceAccess it was built on', () => {
     const connected = connectRemoteFromObservation(accessed(), observation).state
-    const interrupted = interruptLocalNetworkConnectivity(connected, 'network-local-001')
-    const advanced = advanceGameState(interrupted, 100)
+    const disconnectedTarget: GameState = { ...connected, world: { ...connected.world, network: { ...connected.world.network, hosts: connected.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } : host) } } }
+    const advanced = advanceGameState(disconnectedTarget, 100)
     expect(advanced.remoteSession.active).toBeNull()
     expect(advanced.deviceAccess).toEqual(connected.deviceAccess)
   })
 
-  it('leaves an active Session alone while its target remains network-usable', () => {
+  it('ends the Session once its local source alone is no longer network-usable, without touching the DeviceAccess it was built on', () => {
+    const connected = connectRemoteFromObservation(accessed(), observation).state
+    const disconnectedSource: GameState = { ...connected, player: { ...connected.player, localDevice: { ...connected.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } }
+    const advanced = advanceGameState(disconnectedSource, 100)
+    expect(advanced.remoteSession.active).toBeNull()
+    expect(advanced.deviceAccess).toEqual(connected.deviceAccess)
+  })
+
+  it('leaves an active Session alone while both endpoints remain network-usable', () => {
     const connected = connectRemoteFromObservation(accessed(), observation).state
     const advanced = advanceGameState(connected, 100)
     expect(advanced.remoteSession.active).toEqual(connected.remoteSession.active)
+  })
+
+  it('does not let a Session outlive an interruption that fully recovers within one large advancement step', () => {
+    const base = createInitialGameState()
+    const withPhoneAccess: GameState = {
+      ...base,
+      discovery: { ...base.discovery, devices: [{ id: 'host-phone-001', address: '198.51.100.61', scope: 'remote', servicesObserved: true, services: [] }] },
+      deviceAccess: { nextId: 2, established: [{ id: 'access-phone-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-phone-001', viaServiceId: 'service-ssh-003', privilege: 'USER' }] },
+    }
+    const connected = connectRemoteFromObservation(withPhoneAccess, { targetDeviceId: 'host-phone-001', address: '198.51.100.61' }).state
+    expect(connected.remoteSession.active).not.toBeNull()
+
+    const interrupted = interruptLocalNetworkConnectivity(connected, 'network-foreign-001')
+    // One large step, comfortably covering Petra's full RECONNECT cycle in a single advanceGameState call.
+    const advanced = advanceGameState(interrupted, 30_000)
+
+    expect(advanced.world.network.hosts.find(({ id }) => id === 'host-phone-001')?.operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
+    expect(advanced.remoteSession.active).toBeNull()
+    expect(advanced.deviceAccess).toEqual(connected.deviceAccess)
   })
 })

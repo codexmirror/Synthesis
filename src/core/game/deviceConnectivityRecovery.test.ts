@@ -114,6 +114,60 @@ describe('srv-02 connectivity recovery (REBOOT_ON_DISCONNECT)', () => {
   })
 })
 
+describe('elapsed-time partition equivalence', () => {
+  it('srv-02: one large elapsed step covering the complete shutdown+boot duration reaches RUNNING+CONNECTED in a single advanceGameState call', () => {
+    const interrupted = interruptLocalNetworkConnectivity(createInitialGameState(), REMOTE_SEGMENT)
+    // Exactly SHUTDOWN_DURATION_MS + BOOT_DURATION_MS: enough to cross both phase
+    // boundaries and reach the real boot boundary without an extra scheduler tick.
+    const rebootedInOneStep = advanceGameState(interrupted, 10_000)
+    expect(host(rebootedInOneStep, SRV_02).operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
+    expect(host(rebootedInOneStep, SRV_02).connectivityRecovery).toBeUndefined()
+  })
+
+  it('srv-02: reaches the identical final operational state whether delivered as one large step or many small ones', () => {
+    const interrupted = interruptLocalNetworkConnectivity(createInitialGameState(), REMOTE_SEGMENT)
+    const largeStep = advanceGameState(interrupted, 10_000)
+    const smallSteps = advanceUntil(interrupted, (s) => host(s, SRV_02).operational.connectivity === 'CONNECTED', 100, 200)
+    expect(host(largeStep, SRV_02).operational).toEqual(host(smallSteps, SRV_02).operational)
+  })
+
+  it('srv-02: crosses the real boot boundary exactly once regardless of step partitioning, activating identical pending GateSSH', () => {
+    const pending = { id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' } as const
+    const base = createInitialGameState()
+    const withPending: GameState = { ...base, world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((h) => h.id === SRV_02 ? { ...h, pendingGateSshActivation: pending } : h) } } }
+    const interrupted = interruptLocalNetworkConnectivity(withPending, REMOTE_SEGMENT)
+
+    const largeStep = advanceGameState(interrupted, 10_000)
+    const smallSteps = advanceUntil(interrupted, (s) => host(s, SRV_02).operational.connectivity === 'CONNECTED', 100, 200)
+
+    for (const rebooted of [largeStep, smallSteps]) {
+      expect(host(rebooted, SRV_02).operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
+      expect(host(rebooted, SRV_02).pendingGateSshActivation).toBeUndefined()
+      const managedSsh = rebooted.world.network.hosts.find(({ id }) => id === SRV_02)!.services!.find(({ id }) => id === 'service-ssh-002')!
+      expect(managedSsh.implementation.releaseId).toBe('gate-ssh-1.3.2')
+      expect(host(rebooted, SRV_02).installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.2')
+    }
+  })
+
+  it('srv-02: without pending GateSSH, active GateSSH remains unchanged under both large and partitioned steps', () => {
+    const interrupted = interruptLocalNetworkConnectivity(createInitialGameState(), REMOTE_SEGMENT)
+    const largeStep = advanceGameState(interrupted, 10_000)
+    const smallSteps = advanceUntil(interrupted, (s) => host(s, SRV_02).operational.connectivity === 'CONNECTED', 100, 200)
+    for (const rebooted of [largeStep, smallSteps]) {
+      const managedSsh = rebooted.world.network.hosts.find(({ id }) => id === SRV_02)!.services!.find(({ id }) => id === 'service-ssh-002')!
+      expect(managedSsh.implementation.releaseId).toBe('gate-ssh-1.3.3')
+    }
+  })
+
+  it("Petra's Phone: reconnects coherently under both a single large step and many partitioned steps", () => {
+    const interrupted = interruptLocalNetworkConnectivity(createInitialGameState(), REMOTE_SEGMENT)
+    const largeStep = advanceGameState(interrupted, 6_000)
+    const smallSteps = advanceUntil(interrupted, (s) => host(s, PHONE).operational.connectivity === 'CONNECTED', 100, 200)
+    expect(host(largeStep, PHONE).operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
+    expect(host(largeStep, PHONE).operational).toEqual(host(smallSteps, PHONE).operational)
+  })
+})
+
 describe('a Device with no configured connectivity-recovery behavior', () => {
   it('stays disconnected rather than autonomously reacting', () => {
     const interrupted = interruptLocalNetworkConnectivity(createInitialGameState(), HOME_NET)
