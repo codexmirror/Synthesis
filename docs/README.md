@@ -84,18 +84,21 @@ current implementation.
 ### Network, reconnaissance, and access
 
 Scan, NodeScan, Inspect, Discovery, Service Analysis, Knowledge, Credential
-Access, DeviceAccess, Remote Session, RACK-OS, Authentication History. Flipper
-supplies the offensive capability these techniques require; Flipper itself and
-its module-integration mechanic are routed under **Files, transfer, and
-software** below.
+Access, DeviceAccess, Remote Session, RACK-OS, Authentication History. Concrete
+represented providers supply the Techniques these mechanics require; the
+current standalone artifacts and compatible integrated Flipper builds are
+examples, not a universal provider taxonomy. Flipper itself and its concrete
+module-integration mechanic are routed under **Files, transfer, and software**
+below.
 
 - CURRENT TRUTH → [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - ARCHITECTURE → A01–A04, A09 in
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
   A07–A08 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
 - DESIGN → [`design/HACKING_AND_OBSERVATION_V1.md`](design/HACKING_AND_OBSERVATION_V1.md)
-  (also owns the long-term capability-collection progression and composition
-  principle, sections 14-16),
+  (also owns Technique/provider semantics, contextual HACK, and the long-term
+  capability-collection progression and composition principle, sections
+  14-16),
   [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
   (RackUpdate submission, pending GateSSH state, and boot activation only),
   [`design/DEAUTH_NETWORK_DISRUPTION_V1.md`](design/DEAUTH_NETWORK_DISRUPTION_V1.md)

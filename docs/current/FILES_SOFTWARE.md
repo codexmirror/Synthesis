@@ -580,6 +580,16 @@ Credential Access Module 1.0 `software_module` artifact under
 `AUTH-017` technique. Module possession is filesystem truth, not
 InstalledSoftware, and does not depend on Flipper.
 
+The current code and state schema name both represented artifacts
+`SoftwareModuleFile` and associate them with the Flipper host. In current
+behavior, however, each exact supported artifact is also a standalone provider
+of its one Technique: possession can make Credential Access or Rollback
+executable without Flipper. "Module" here is therefore current Flipper product
+and implementation terminology, not the universal Synthesis category for an
+offensive capability or Technique. The accepted broader semantics are owned by
+`docs/design/HACKING_AND_OBSERVATION_V1.md`; this documentation pass does not
+rename the current types, artifact names, or UI.
+
 Open Package Exchange lists the ordinary Flipper 1.0 software package for
 0.01 NODE. Buying establishes entitlement, downloading creates the package
 artifact, and ordinary Software Installation creates both a module-free
@@ -772,10 +782,11 @@ state.
   Concrete build identity survives the latter lifecycle without becoming file-copy identity.
 - A module is not software. A `software_module` artifact never becomes
   InstalledSoftware and never installs; it is integrated into an
-  already-installed host product, and that host is the installed product. This
-  V1 module artifact has no direct execution path of its own — that is a
-  currently absent capability, not a durable claim that a module could never
-  run.
+  already-installed host product, and that host is the installed product.
+  Both exact supported V1 artifacts nevertheless supply their Techniques
+  standalone through the concrete Credential Access and RackUpdate attempt
+  mechanics. That is provider behavior, not software installation and not a
+  generic file-execution path.
 - A module is not a Vulnerability and not Knowledge. Possessing or integrating
   one discovers nothing and creates no remembered evidence.
 - Flipper's capability is `integratedModules`, never `buildId`. A different
