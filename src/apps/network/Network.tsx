@@ -69,7 +69,6 @@ const STAGE_MARK: Record<TargetStage, string> = {
   attacking: 'ATTACKING',
   submission_ready: 'SUBMISSION READY',
   submitting: 'SUBMITTING',
-  submission_completed: 'REBOOT REQUIRED',
   access: 'ACCESS',
   connected: 'CONNECTED',
 }
@@ -655,11 +654,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         <Progress percent={target.percent} label="Submission progress" />
       </>}
 
-      {target.stage === 'submission_completed' && <>
-        <strong className="ns-stage-headline">PACKAGE ACCEPTED</strong>
-        <span className="ns-stage-note">REBOOT REQUIRED</span>
-      </>}
-
       {target.stage === 'access' && <>
         <strong className="ns-stage-headline">ACCESS GRANTED</strong>
         <span className="ns-stage-note">You can connect to this target now.</span>
@@ -682,8 +676,9 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
           const executable = Boolean(action.route)
           return <article className="ns-action" key={action.technique}>
             <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
-            <button type="button" className="node-action" aria-label={`Execute ${action.technique}`} disabled={!executable} onClick={() => onExecuteAction(action)}>EXECUTE</button>
-            {!executable && <p className="ns-quiet-note">No observed execution context is available.</p>}
+            {executable
+              ? <button type="button" className="node-action" aria-label={`Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>EXECUTE</button>
+              : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} unavailable`}>UNAVAILABLE</span>}
           </article>
         })}</div>}
     </section>
@@ -840,7 +835,10 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
         </>}
 
         {target.packageSubmission.submitting && target.stage !== 'submitting' && <Progress percent={target.packageSubmission.submitPercent ?? 0} label="Submission progress" />}
-        {target.packageSubmission.completed && target.stage !== 'submission_completed' && <p className="ns-quiet-note">PACKAGE ACCEPTED · REBOOT REQUIRED</p>}
+        {target.packageSubmission.completed && <p className="ns-package-outcome">
+          <span className="node-chip">ACCEPTED</span>
+          <span>REBOOT REQUIRED</span>
+        </p>}
       </div>
     </>}
   </div>

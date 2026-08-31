@@ -112,6 +112,14 @@ recommendation, compatibility score, or hidden target-truth filtering. If
 neither provider is owned, ACTIONS states that no offensive Techniques are
 available.
 
+An owned Technique with no currently formed execution context (no remembered
+Knowledge/route yet, or Rollback already spent on this target) stays listed —
+its name and provider provenance remain legible — rather than being hidden.
+It is presented with a restrained unavailable mark rather than a large
+disabled EXECUTE control paired with repeated explanatory copy, so an
+unavailable Technique reads as quietly unavailable rather than as a broken
+configuration form.
+
 Manual Inspect is deliberately absent from that progression: it is optional
 depth under TECHNICAL INTELLIGENCE, not a step the ordinary SCAN → HACK →
 CONNECT line passes through, so installing NodeScan 1.1 Experimental never
@@ -173,7 +181,12 @@ package-submission mechanism rather than an older-package-only one; `UPD-001`
 ("Rollback protection not enforced") remains the specific explanation for why
 a rollback to an *older* release in particular is accepted. With no candidate
 it reports `None`. It does not reveal a hidden package, path, source Device,
-or prescribed next observation.
+or prescribed next observation. A completed submission's own `PACKAGE
+ACCEPTED` / `REBOOT REQUIRED` outcome is stated inside this same
+package-submission technical context, never as the target's own high-level
+status: that headline area stays reserved for state that genuinely describes
+the whole target, and a subsystem-specific outcome like this one stays
+visually owned by the subsystem — RackUpdate — that produced it.
 
 This projection reads no hidden target World Truth to label the opportunity,
 predict success or refresh a fingerprint: Rollback execution context,
@@ -697,3 +710,8 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
 - Manual Inspect is optional technical depth, not a target stage. A NodeScan
   release that supplies Inspect must never insert a step into the target's
   primary decision.
+- The target's high-level status area is reserved for truth that genuinely
+  describes the whole target (a live stage such as ANALYZING, ATTACKING, or a
+  granted Access relationship). A Service- or submission-specific outcome —
+  RackUpdate's `PACKAGE ACCEPTED` / `REBOOT REQUIRED` chief among them — stays
+  presented inside the subsystem that owns it and never becomes that headline.

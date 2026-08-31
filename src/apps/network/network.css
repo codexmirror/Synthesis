@@ -104,10 +104,10 @@
 .ns-action-copy { min-width: 0; display: grid; gap: 5px; }
 .ns-action-copy strong { color: var(--text-strong); font: 600 .72rem Inter, system-ui, sans-serif; letter-spacing: .1em; }
 .ns-action-copy span { color: var(--text-quiet); font: .6rem ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
-.ns-action .ns-quiet-note { grid-column: 1 / -1; margin: 0; }
 @media (max-width: 420px) {
   .ns-action { grid-template-columns: 1fr; }
-  .ns-action .node-action { justify-self: start; }
+  .ns-action .node-action,
+  .ns-action .node-chip { justify-self: start; }
 }
 
 /* Known Space --------------------------------------------------------- */
@@ -507,3 +507,4 @@
 
 .ns-package-submission { display: grid; gap: 10px; justify-items: start; }
 .ns-package-submission .node-field { max-width: 100%; }
+.ns-package-outcome { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-quiet); font-size: .64rem; letter-spacing: .08em; }
