@@ -6,7 +6,8 @@ and access. Design authority for the epistemic model and for the player-facing
 interaction model, including the casual SCAN / HACK / CONNECT interaction and
 the progressive technical depth beneath it; not a description of what is
 currently implemented. Also design authority for Technique/provider semantics,
-Flipper's place in that model, contextual HACK composition, and the long-term
+Flipper's selected NodeScan-extension product role, contextual HACK composition,
+and the long-term
 capability-collection progression model and composition principle (sections
 14-16). Concrete precedents built on that principle are owned by
 their own focused contracts, for example `RACKUPDATE_PENDING_ACTIVATION_V1.md`
@@ -1168,6 +1169,45 @@ can be stale, a way in can be attempted and fail, Access persists whether or
 not a Session is active. Compressing them into one opaque progress bar
 re-creates exactly the omniscient "hack progress" model this document rejects.
 
+The prominent action area on NodeScan's Target / Network view is selected to
+evolve into a **contextual execution surface**. NodeScan owns the subject,
+remembered context, and surrounding reconnaissance experience. Represented
+software state may change the interaction experience rendered within that
+surface: the base surface may offer raw access to a standalone Technique
+provider, while a represented Flipper extension may provide a materially richer
+offensive workspace in the same context. A later host-compatible extension may
+do so only when separately designed.
+
+This is a product and presentation boundary, not a generic embedded-application
+renderer, widget registry, runtime sandbox, extension API, or plugin protocol.
+The surface may evolve visually because represented software state and concrete
+mechanics justify the change; a build ID by itself must never select behavior.
+
+The intended transition is gradual and mechanic-owned:
+
+```text
+known weakness → one prescribed WAY IN → one obvious ATTACK / BYPASS
+
+becomes
+
+represented target state + Player Information
+        ↓
+contextual offensive surface
+        ↓
+player chooses a technically applicable Technique
+        ↓
+concrete attempt
+        ↓
+concrete World Truth mutation, failure, or consequence
+```
+
+Knowledge should increasingly improve the quality of that decision rather than
+merely unlock one prescribed next button. This does not make every current
+Technique freely attemptable without known weakness: each concrete mechanic
+must introduce its own legitimate offer and execution rules. Truthful state
+such as `PACKAGE ACCEPTED` / `REBOOT REQUIRED` may remain visible without
+becoming an instruction to perform one prescribed next attack.
+
 ⸻
 
 8.4 What a way in claims
@@ -1769,19 +1809,35 @@ the concrete state transition the attempt causes
 ```
 
 A standalone technique artifact may be its Technique's provider independently
-of Flipper. Flipper is one extensible offensive execution host/platform: it may
-integrate compatible concrete providers and expose their Techniques through
-one common environment. Its selected value is that integration and common
-execution surface, not ownership of the global Technique space and not making
-standalone execution deliberately tedious. Future Flipper releases may gain
-workflow, context, efficiency, configuration, history, chaining, or ergonomic
-advantages only when concrete mechanics design and represent them; none is
-Current Truth merely because it is plausible.
+of Flipper. In the selected product direction, Flipper is not a standalone
+application or offensive host. It is an independently identifiable and
+distributable **NodeScan extension/modification**. NodeScan remains the host
+application and owns reconnaissance plus Target / Network context; represented
+Flipper integration extends NodeScan with a richer offensive execution
+experience in that context and may organize compatible providers and expose
+their Techniques there.
 
-Flipper does not define Techniques, own weaknesses, own Capability globally,
-or require every offensive mechanic to integrate with it. "Module" means a
-provider compatible with/integrable into a particular host product where that
-term genuinely applies; it does not mean "any hacking ability in Synthesis."
+Flipper may retain its own stable identity, releases/versions, publisher and
+provenance, artifacts/packages, acquisition path, and distribution history.
+Independent identity does not imply an independently launchable application.
+The exact eventual state shape for its identity, compatibility, installation,
+or transformed NodeScan build is deferred to the concrete implementation
+slice; this contract does not pretend the current standalone
+`FlipperInstallation` representation has already migrated.
+
+Without Flipper, a standalone provider may still support its Technique through
+a deliberately simple contextual surface where that provider's concrete
+mechanic allows it. Flipper's selected value is a richer NodeScan offensive
+workspace capable of organizing a growing technical arsenal, not making raw
+standalone execution artificially tedious or weaker. Search, filtering,
+grouping, relevant Knowledge, history, configuration, chaining, and workflow
+improvements are plausible future benefits, not Current Truth or promises.
+
+Neither NodeScan nor Flipper defines Techniques or owns weaknesses or
+Capability globally. Neither requires every offensive mechanic to integrate
+with that product. "Module" means a provider compatible with/integrable into a
+particular host product where that term genuinely applies; it does not mean
+"any hacking ability in Synthesis."
 Consequently, a new weakness or Technique does not automatically require a new
 Flipper module. Its provider is selected from the concrete mechanic's actual
 needs and may instead be a standalone artifact, another software product,

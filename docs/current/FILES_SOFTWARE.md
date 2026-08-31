@@ -590,6 +590,18 @@ offensive capability or Technique. The accepted broader semantics are owned by
 `docs/design/HACKING_AND_OBSERVATION_V1.md`; this documentation pass does not
 rename the current types, artifact names, or UI.
 
+This entire section records the **current standalone Flipper implementation**.
+Current Flipper is its own `InstalledSoftware`, managed executable, separately
+opened application surface, build lineage, and integration owner. The selected
+future product direction intentionally differs: Flipper becomes an
+independently identifiable NodeScan extension/modification, while NodeScan
+remains the host application and owns Target / Network context. That migration's
+extension identity, compatibility, installation, transformed NodeScan state,
+and embedded presentation are not implemented or specified here; their design
+boundaries belong to `docs/design/HACKING_AND_OBSERVATION_V1.md` and
+`docs/design/SOFTWARE_AUTHORING.md`. Until a concrete migration changes code,
+the standalone facts below remain Current Truth.
+
 Open Package Exchange lists the ordinary Flipper 1.0 software package for
 0.01 NODE. Buying establishes entitlement, downloading creates the package
 artifact, and ordinary Software Installation creates both a module-free

@@ -147,6 +147,9 @@ executables, software management, Flipper and its module-integration mechanic.
   [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
 - DESIGN → [`design/FILES_AND_TRANSFER_V1.md`](design/FILES_AND_TRANSFER_V1.md),
   [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md),
+  [`design/HACKING_AND_OBSERVATION_V1.md`](design/HACKING_AND_OBSERVATION_V1.md)
+  (selected Flipper-as-NodeScan-extension product direction and contextual
+  execution surface only),
   [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
   (RackUpdate pending GateSSH software state only)
 - CODE → `src/core/game/filesystem.ts`, `src/core/game/fileTransfer.ts`,
