@@ -580,6 +580,13 @@ describe('RackUpdate exploit and package submission', () => {
     expect(actions).toHaveTextContent('CREDENTIAL ACCESS')
     expect(actions).toHaveTextContent('ROLLBACK')
     expect(actions).not.toHaveTextContent(/RECOMMENDED|BEST OPTION/)
+    // Credential Access has no currently formed execution context (AUTH-017
+    // is not yet Knowledge here), so it stays visible with its provider but
+    // presents a quiet unavailable mark instead of a disabled EXECUTE control.
+    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access' })).not.toBeInTheDocument()
+    expect(within(actions).getByLabelText('Credential Access unavailable')).toBeInTheDocument()
+    // Rollback's context is formed, so it stays a real EXECUTE control.
+    expect(within(actions).getByRole('button', { name: 'Execute Rollback' })).toBeInTheDocument()
     await user.click(screen.getByText('TECHNICAL INTELLIGENCE'))
     expect(screen.getByRole('button', { name: 'Execute Rollback' }).closest('details')).toBeNull()
   })
@@ -636,8 +643,15 @@ describe('RackUpdate exploit and package submission', () => {
     expect(managed.implementation.releaseId).toBe('gate-ssh-1.3.3')
     expect(currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.3')
     expect(currentState().world.network.hosts.find(({ id }) => id === 'host-lan-002')!.pendingGateSshActivation).toMatchObject({ releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID })
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('PACKAGE ACCEPTED')
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('REBOOT REQUIRED')
+    // The accepted package and its reboot requirement are RackUpdate's own
+    // technical-context truth, not the whole target's headline: the target
+    // status area never claims PACKAGE ACCEPTED / REBOOT REQUIRED itself.
+    expect(screen.getByLabelText('Target status')).not.toHaveTextContent('PACKAGE ACCEPTED')
+    expect(screen.getByLabelText('Target status')).not.toHaveTextContent('REBOOT REQUIRED')
+    fireEvent.click(screen.getByText('TECHNICAL INTELLIGENCE'))
+    expect(screen.getByText('PACKAGE SUBMISSION')).toBeInTheDocument()
+    expect(screen.getByText('ACCEPTED')).toBeInTheDocument()
+    expect(screen.getByText('REBOOT REQUIRED')).toBeInTheDocument()
     expect(currentState().deviceAccess.established).toEqual([])
     expect(currentState().remoteSession.active).toBeNull()
   })

@@ -77,7 +77,6 @@ export type TargetStage =
   | 'attacking'
   | 'submission_ready'
   | 'submitting'
-  | 'submission_completed'
   | 'access'
   | 'connected'
 
@@ -331,10 +330,14 @@ function stageOf(input: {
   if (input.analyzing) return 'analyzing'
   if (input.packageSubmission?.attacking) return 'attacking'
   if (input.packageSubmission?.submitting) return 'submitting'
-  if (input.packageSubmission?.completed) return 'submission_completed'
   if (!input.servicesObserved) return 'unscanned'
   if (input.hasAccess) return 'access'
-  if (input.packageSubmission?.enabled) return 'submission_ready'
+  // Once a package is accepted, this Device-wide headline has nothing further
+  // to say about the submission itself: the accepted/reboot-required outcome
+  // is RackUpdate's own technical-context truth (see `PackageSubmission`),
+  // not a new Target-wide stage. The player either still has another route or
+  // has reached the end of what NodeScan currently forms for this target.
+  if (input.packageSubmission?.enabled && !input.packageSubmission.completed) return 'submission_ready'
   if (input.packageSubmission?.route) return 'attack'
   if (input.routes > 0) return 'route'
   if (input.services.some((service) => service.analysisRequired)) return 'analysis_ready'
