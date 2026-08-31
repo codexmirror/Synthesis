@@ -53,7 +53,7 @@ GameState
 ├── fileTransfer
 ├── rackUpdate
 │   ├── access — narrow RackUpdate package-submission capability grants
-│   └── submission — the one active RackUpdate package-submission upload runtime
+│   └── submission — the one active RackUpdate package-submission upload runtime and its distinct player-interaction outcome
 ├── mail
 │   └── the player's represented in-world mailbox
 └── recentActivity
@@ -109,7 +109,7 @@ The current World contains `home-net` with node-01 and `srv-01`, plus the neutra
 
 `srv-02` (`host-lan-002`) owns RACK-OS 1.0, GateSSH 1.3.3 on `service-ssh-002`, and RackUpdate 1.0 on the separate open TCP/8443 `service-rack-update-002`. GateSSH 1.3.3 is patched for `AUTH-017`. RackUpdate 1.0 derives `UPD-001` (rollback protection not enforced) and exposes its concrete public package-submission protocol. These are Device-owned Service implementations, distinct from the matching GateSSH InstalledSoftware represented on each server.
 
-RackUpdate can replace the managed GateSSH implementation release/build while atomically keeping GateSSH InstalledSoftware coherent and preserving Device and Service identity and all unrelated state. The resulting vulnerability set is derived from the new release truth rather than synchronized by a vulnerability flag.
+Successful RackUpdate submission stores one exact pending GateSSH activation on the target Device while leaving active GateSSH InstalledSoftware and its managed Service implementation coherent and unchanged. `srv-02` therefore remains actively on 1.3.3 after accepting 1.3.2, and derives no `AUTH-017` until a future represented boot activates it. Pending software is neither InstalledSoftware, a Service implementation, a filesystem artifact, nor Player Information; no boot activation is implemented yet.
 
 ### The represented personal phone
 

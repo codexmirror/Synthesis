@@ -37,13 +37,15 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 53', () => {
+  it('separates identities and seeds canonical local-device state in schema version 54', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(53)
+    expect(GAME_STATE_VERSION).toBe(54)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(53)
+    expect(state.version).toBe(54)
+    expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
+    expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
     expect(state.nodeWallet).toEqual({ id: 'wallet-node-local-v0', address: 'node-wallet-addr-0001', balanceNodeUnits: 0, activity: { nextId: 1, records: [] } })
     // The represented NODE recipients besides the local Wallet: the unofficial Miner release's own developer account and the Market operator's own settlement account, both starting empty.

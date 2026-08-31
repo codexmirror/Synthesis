@@ -13,7 +13,6 @@ import {
 import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0 } from './flipper'
 import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import type { FlipperInstallation } from './types'
@@ -185,9 +184,10 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(result.status).toBe('started')
     if (result.status !== 'started') throw new Error(result.status)
     expect(result.state.rackUpdate.submission.active).toMatchObject({ id: result.submissionId, sourceFileId: 'file-local-gatessh', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', bytesTransferred: 0, bytesTotal: 6_400_000 })
-    // Nothing applied yet: the managed Service implementation, filesystem, and Discovery are all untouched at admission.
+    // Nothing accepted yet: active software, the managed Service, pending state, filesystem, and Discovery are untouched at admission.
     const after = result.state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
     expect(after).toEqual(before)
+    expect(result.state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.pendingGateSshActivation).toBeUndefined()
     expect(result.state.discovery).toEqual(state.discovery)
   })
 
@@ -210,7 +210,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(startRackUpdatePackageSubmission(changed, { ...RACK_UPDATE_ENDPOINT, localFileId: 'file-local-gatessh' })).toMatchObject({ status: 'started' })
   })
 
-  it('supports the general direction of applying a compatible newer release, not only an older one', () => {
+  it('supports accepting a compatible newer release as pending, not only an older one', () => {
     // The mechanism is not hardcoded to exactly 1.3.2 replacing exactly 1.3.3: any recognized
     // GateSSH release differing from the currently managed one is a valid submission.
     const state = grantSubmissionAccess(withRollbackModuleIntegrated(withUpd001Knowledge(observed())))
@@ -222,8 +222,9 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(started.status).toBe('started')
     if (started.status !== 'started') throw new Error(started.status)
     const done = advanceGameState(started.state, 20_000)
-    const managed = done.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
-    expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: newerPackage.buildId, name: 'GateSSH', version: '1.4.0' })
+    const target = done.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    expect(target.pendingGateSshActivation).toMatchObject({ id: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: newerPackage.buildId, name: 'GateSSH', version: '1.4.0' })
+    expect(target.services!.find(({ id }) => id === 'service-ssh-002')!.implementation.releaseId).toBe('gate-ssh-1.3.3')
   })
 
   function submit(state: GameState) {
@@ -232,7 +233,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     return started.state
   }
 
-  it('progresses over elapsed time and completes with the release applied exactly once', () => {
+  it('progresses over elapsed time and completes with exact pending software while active truth remains unchanged', () => {
     let state = submit(grantSubmissionAccess(ready()))
     const submissionId = state.rackUpdate.submission.active!.id
     // node-01 (home-net) -> srv-02 (remote-segment-01) is the represented cross-Network route: min(1 MiB/s upload, 16 MiB/s home-net, 8 MiB/s remote-segment-01, 1 MiB/s srv-02 download) = 1 MiB/s.
@@ -244,10 +245,13 @@ describe('RackUpdate package submission: represented upload work, not an instant
 
     state = advanceGameState(state, 20_000)
     expect(state.rackUpdate.submission.active).toBeNull()
-    const managed = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services!.find(({ id }) => id === 'service-ssh-002')!
-    expect(managed.implementation).toEqual({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2' })
-    expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware!.find(({ id }) => id === 'gate-ssh')).toMatchObject({ releaseId: 'gate-ssh-1.3.2', version: '1.3.2' })
-    expect(vulnerabilitiesForService(managed).map(({ id }) => id)).toEqual(['AUTH-017'])
+    const target = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    const managed = target.services!.find(({ id }) => id === 'service-ssh-002')!
+    expect(target.pendingGateSshActivation).toEqual({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' })
+    expect(managed.implementation).toMatchObject({ releaseId: 'gate-ssh-1.3.3', version: '1.3.3' })
+    expect(target.installedSoftware!.find(({ id }) => id === 'gate-ssh')).toMatchObject({ releaseId: 'gate-ssh-1.3.3', version: '1.3.3' })
+    expect(vulnerabilitiesForService(managed)).toEqual([])
+    expect(state.rackUpdate.submission.outcome).toEqual({ targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', result: 'package_accepted_reboot_required' })
     // No access, session, or filesystem consequence anywhere.
     expect(state.deviceAccess.established).toEqual([])
     expect(state.remoteSession.active).toBeNull()
@@ -255,15 +259,23 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.filesystem).toEqual(grantSubmissionAccess(ready()).world.network.hosts.find(({ id }) => id === 'host-lan-002')!.filesystem)
   })
 
-  it('refreshes only the remembered implementation fingerprint the successful submission itself established', () => {
+  it('does not rewrite remembered implementation evidence to the pending release', () => {
     let state = submit(grantSubmissionAccess(ready()))
     const beforeInterface = state.discovery.devices.find(({ id }) => id === 'host-lan-002')!.services.find(({ id }) => id === 'service-rack-update-002')!.inspect
     state = advanceGameState(state, 20_000)
     const device = state.discovery.devices.find(({ id }) => id === 'host-lan-002')!
-    expect(device.services.find(({ id }) => id === 'service-ssh-002')!.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
+    expect(device.services.find(({ id }) => id === 'service-ssh-002')!.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.3' })
     // Unrelated remembered evidence is untouched.
     expect(device.services.find(({ id }) => id === 'service-rack-update-002')!.inspect).toEqual(beforeInterface)
     expect(device.inspect?.enhanced).toEqual(grantSubmissionAccess(ready()).discovery.devices.find(({ id }) => id === 'host-lan-002')!.inspect?.enhanced)
+  })
+
+  it('rejects a second submission rather than replacing accepted pending software', () => {
+    const completed = advanceGameState(submit(grantSubmissionAccess(ready())), 20_000)
+    const pending = completed.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.pendingGateSshActivation
+    const second = startRackUpdatePackageSubmission(completed, { ...RACK_UPDATE_ENDPOINT, localFileId: 'file-local-gatessh' })
+    expect(second).toEqual({ status: 'activation_pending', state: completed })
+    expect(second.state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.pendingGateSshActivation).toEqual(pending)
   })
 
   it('generates terminal Network Activity evidence exactly once, never per tick', () => {
@@ -355,7 +367,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(result).toEqual({ status, state })
   })
 
-  it('composes the whole flow with existing observation, analysis, and Credential Access operations, reaching AUTH-017 applicability', () => {
+  it('composes the whole flow only through pending acceptance, without making AUTH-017 applicable', () => {
     let state = ready()
     const srv02 = () => state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
     const ssh = () => srv02().services!.find(({ id }) => id === 'service-ssh-002')!
@@ -374,16 +386,10 @@ describe('RackUpdate package submission: represented upload work, not an instant
     const submitted = startRackUpdatePackageSubmission(state, { targetDeviceId: srv02().id, serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443', localFileId: 'file-local-gatessh' })
     expect(submitted.status).toBe('started'); state = advanceGameState(submitted.state, 20_000)
     expect(state.deviceAccess.established).toEqual([]); expect(state.remoteSession.active).toBeNull()
-    expect(ssh().implementation.releaseId).toBe('gate-ssh-1.3.2')
-
-    const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    state = { ...state, discovery: rememberInspect(state.discovery, inspectKnownTarget(targets, state.discovery, '203.0.113.42', 'enhanced'), state.player.localDevice.id) }
-    expect(state.discovery.devices.find(({ id }) => id === srv02().id)!.services.find(({ id }) => id === ssh().id)!.inspect?.implementation.version).toBe('1.3.2')
-    const sshAnalysis = startServiceAnalysisFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id })
-    expect(sshAnalysis.status).toBe('started'); state = advanceGameState(sshAnalysis.state, 20_000)
-    expect(state.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: srv02().id, serviceId: ssh().id }))
-    const access = startCredentialAccessAttemptFromObservation(state, { endpoint: '203.0.113.42:22', targetDeviceId: srv02().id, serviceId: ssh().id, vulnerabilityId: 'AUTH-017' })
-    expect(access.status).toBe('started'); state = advanceGameState(access.state, 30_000)
-    expect(state.deviceAccess.established).toContainEqual(expect.objectContaining({ targetDeviceId: srv02().id, viaServiceId: ssh().id, privilege: 'USER' }))
+    expect(srv02().pendingGateSshActivation).toMatchObject({ releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, version: '1.3.2' })
+    expect(ssh().implementation.releaseId).toBe('gate-ssh-1.3.3')
+    expect(srv02().installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.3')
+    expect(vulnerabilitiesForService(ssh())).toEqual([])
+    expect(state.knowledge.discoveredVulnerabilities).not.toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: srv02().id, serviceId: ssh().id }))
   })
 })

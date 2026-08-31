@@ -4,8 +4,9 @@ Status: Accepted
 Scope: Feature-specific design authority for the first `srv-02` GateSSH
 submission-to-activation precedent. It defines what successful RackUpdate
 submission completion changes and the later Device boot boundary that activates
-that change. It is not current implemented truth and does not design a general
-updater or Device lifecycle.
+that change. The pending-submission slice is implemented; boot activation is
+not current implemented truth. This contract does not design a general updater
+or Device lifecycle.
 Normative owners of current implemented behavior:
 `docs/current/NETWORK_ACCESS.md`, `docs/current/FILES_SOFTWARE.md`, and
 `docs/current/DEVICE_SYSTEM.md`.
@@ -30,10 +31,9 @@ LATER REPRESENTED DEVICE BOOT
 PENDING RELEASE BECOMES ACTIVE
 ```
 
-Until implementation lands, the immediate activation described by the current
-owners and code remains Current Truth. This document is Accepted design
-authority for the requested delta, not a claim that pending activation or a
-represented reboot lifecycle already exists.
+The submission-completion slice is now Current Truth in the normative owners:
+pending activation exists, while a represented reboot lifecycle and boot
+activation do not.
 
 
 ## Submission completion

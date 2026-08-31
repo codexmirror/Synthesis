@@ -12,7 +12,6 @@ import {
 } from './serviceImplementations'
 import { deriveCrossNetworkTransferRateBytesPerSecond, deriveEffectiveTransferRateBytesPerSecond, isValidNetworkTransferCapacity } from './networkTransferCapacity'
 import { appendNetworkPackageSubmissionEvidence, resolveDeviceLocalNetworkMembership } from './networkActivityHistory'
-import { refreshSubmittedServiceImplementation } from './discovery'
 import type { GameState, InstalledSoftware, NetworkHost, NetworkService, RackUpdateExploitProcess, RackUpdatePackageSubmission } from './types'
 
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
@@ -119,7 +118,7 @@ export interface RackUpdateSubmissionObservation {
 
 export type StartRackUpdatePackageSubmissionResult =
   | { readonly status: 'started'; readonly state: GameState; readonly submissionId: string }
-  | { readonly status: 'observation_required' | 'access_required' | 'service_unavailable' | 'package_unavailable' | 'package_incompatible' | 'submission_in_progress' | 'local_offline' | 'capacity_unavailable'; readonly state: GameState }
+  | { readonly status: 'observation_required' | 'access_required' | 'service_unavailable' | 'package_unavailable' | 'package_incompatible' | 'activation_pending' | 'submission_in_progress' | 'local_offline' | 'capacity_unavailable'; readonly state: GameState }
 
 function resolveManagedGateSshService(target: NetworkHost): NetworkService | undefined {
   return target.services?.find(({ implementation }) => implementation.productId === GATE_SSH_PRODUCT_ID)
@@ -160,6 +159,7 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
   const managed = resolveManagedGateSshService(target)
   const installedGateSsh = target.installedSoftware?.find(({ id }) => id === GATE_SSH_PRODUCT_ID)
   if (!managed || !installedGateSsh) return { status: 'service_unavailable', state }
+  if (target.pendingGateSshActivation) return { status: 'activation_pending', state }
   if (managed.implementation.buildId === localFile.buildId) return { status: 'package_incompatible', state }
 
   if (state.rackUpdate.submission.active) return { status: 'submission_in_progress', state }
@@ -175,7 +175,7 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
   }
   return {
     status: 'started', submissionId,
-    state: { ...state, rackUpdate: { ...state.rackUpdate, submission: { nextId: state.rackUpdate.submission.nextId + 1, active: submission } } },
+    state: { ...state, rackUpdate: { ...state.rackUpdate, submission: { nextId: state.rackUpdate.submission.nextId + 1, active: submission, outcome: null } } },
   }
 }
 
@@ -197,7 +197,7 @@ function resolveSubmissionEndpoints(state: GameState, submission: RackUpdatePack
   if (!update?.open || update.implementation.productId !== RACK_UPDATE_PRODUCT_ID || update.implementation.releaseId !== RACK_UPDATE_1_0_RELEASE_ID) return undefined
   const managed = resolveManagedGateSshService(target)
   const installedGateSsh = target.installedSoftware?.find(({ id }) => id === GATE_SSH_PRODUCT_ID)
-  if (!managed || !installedGateSsh) return undefined
+  if (!managed || !installedGateSsh || target.pendingGateSshActivation) return undefined
   const localFile = local.filesystem.files.find(({ id }) => id === submission.sourceFileId)
   if (!localFile || localFile.kind !== 'software_package') return undefined
   if (!isValidNetworkTransferCapacity(local.network.transferCapacity) || !isValidNetworkTransferCapacity(target.transferCapacity)) return undefined
@@ -249,28 +249,20 @@ function appendSubmissionNetworkEvidence(state: GameState, submission: RackUpdat
 }
 
 /**
- * Applies the submitted package's release to the target's canonical GateSSH
- * Service and installed-software inventory exactly once, at real upload
- * completion — never speculatively, and never partially. Also refreshes only the one already-remembered Enhanced
- * Inspect fingerprint this successful action legitimately establishes; it
- * never touches unrelated remembered evidence or hidden World Truth.
+ * Persists the exact submitted release as the target Device's one pending
+ * GateSSH activation. Active InstalledSoftware, the running Service, Discovery,
+ * and both filesystems remain unchanged.
  */
 function applyRackUpdateSubmission(state: GameState, submission: RackUpdatePackageSubmission): GameState | undefined {
   const targetIndex = state.world.network.hosts.findIndex(({ id }) => id === submission.targetDeviceId)
   const target = state.world.network.hosts[targetIndex]
   const localFile = state.player.localDevice.filesystem.files.find(({ id }) => id === submission.sourceFileId)
   const managed = target ? resolveManagedGateSshService(target) : undefined
-  if (!target || !target.installedSoftware || !localFile || localFile.kind !== 'software_package' || !managed) return undefined
+  if (!target || !target.installedSoftware || target.pendingGateSshActivation || !localFile || localFile.kind !== 'software_package' || !managed) return undefined
 
-  const implementation = { productId: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, buildId: localFile.buildId, name: 'GateSSH', version: localFile.version }
-  const services = target.services!.map((service) => service.id === managed.id ? { ...service, implementation } : service)
-  const installation: InstalledSoftware = { id: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, buildId: localFile.buildId, name: localFile.name, version: localFile.version, ...(localFile.channel ? { channel: localFile.channel } : {}), ...(localFile.publisher ? { publisher: localFile.publisher } : {}) }
-  const installedSoftware = target.installedSoftware.some(({ id }) => id === GATE_SSH_PRODUCT_ID)
-    ? target.installedSoftware.map((software) => software.id === GATE_SSH_PRODUCT_ID ? installation : software)
-    : [...target.installedSoftware, installation]
-  const hosts = state.world.network.hosts.map((host, index) => index === targetIndex ? { ...host, services, installedSoftware } : host)
-  const discovery = refreshSubmittedServiceImplementation(state.discovery, target.id, managed.id, { name: implementation.name, version: implementation.version })
-  return { ...state, world: { ...state.world, network: { ...state.world.network, hosts } }, discovery }
+  const pendingGateSshActivation: InstalledSoftware = { id: GATE_SSH_PRODUCT_ID, releaseId: localFile.releaseId, buildId: localFile.buildId, name: localFile.name, version: localFile.version, ...(localFile.channel ? { channel: localFile.channel } : {}), ...(localFile.publisher ? { publisher: localFile.publisher } : {}) }
+  const hosts = state.world.network.hosts.map((host, index) => index === targetIndex ? { ...host, pendingGateSshActivation } : host)
+  return { ...state, world: { ...state.world, network: { ...state.world.network, hosts } } }
 }
 
 /**
@@ -300,7 +292,7 @@ export function advanceRackUpdatePackageSubmission(state: GameState, elapsedMs: 
     return { ...interrupted, rackUpdate: { ...interrupted.rackUpdate, submission: { ...interrupted.rackUpdate.submission, active: null } } }
   }
   const completed = appendSubmissionNetworkEvidence(applied, finalSubmission, 'COMPLETED', bytesTransferred)
-  return { ...completed, rackUpdate: { ...completed.rackUpdate, submission: { ...completed.rackUpdate.submission, active: null } } }
+  return { ...completed, rackUpdate: { ...completed.rackUpdate, submission: { ...completed.rackUpdate.submission, active: null, outcome: { targetDeviceId: submission.targetDeviceId, serviceId: submission.serviceId, result: 'package_accepted_reboot_required' } } } }
 }
 
 export type CancelRackUpdatePackageSubmissionResult = { readonly status: 'cancelled' | 'not_found'; readonly state: GameState }
