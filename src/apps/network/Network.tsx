@@ -24,10 +24,13 @@ import {
  * player legitimately administers and the ones reconnaissance remembers, in
  * one restrained technical map.
  *
- * KNOWN SPACE is a compact expandable relationship tree — Network → Device →
- * remembered Service — carried by indentation, type weight and thin
- * connectors rather than nested cards. Expanding is presentation state only:
- * browsing the tree never observes anything.
+ * KNOWN SPACE is a compact expandable relationship tree — Network → Device —
+ * carried by indentation, type weight and thin connectors rather than nested
+ * cards. Only the Network level expands: a Device is a leaf whose whole row
+ * is the route into its existing target card, where Service identity and
+ * every other technical fact already live under TECHNICAL INTELLIGENCE.
+ * Expanding a Network is presentation state only: browsing the tree never
+ * observes anything.
  *
  * Two routes hang off it, and they are deliberately different kinds of thing:
  *
@@ -100,11 +103,10 @@ export function Network() {
    * Tree shape is local presentation state and nothing else: it starts and
    * ends in this component, and no expansion ever reaches a gameplay
    * operation. Network roots read open, because a root the player already
-   * knows about has nothing to hide; Device children stay closed until asked
-   * for, so Known Space stays a map rather than a list of everything.
+   * knows about has nothing to hide. Devices are leaves and never expand;
+   * their row is the route straight into the target card.
    */
   const [closedNetworkIds, setClosedNetworkIds] = useState<readonly string[]>([])
-  const [openDeviceIds, setOpenDeviceIds] = useState<readonly string[]>([])
   const [copyState, setCopyState] = useState<CopyState>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [selectedPackageId, setSelectedPackageId] = useState('')
@@ -141,9 +143,6 @@ export function Network() {
   }
   function toggleNetwork(networkId: string) {
     setClosedNetworkIds((closed) => closed.includes(networkId) ? closed.filter((id) => id !== networkId) : [...closed, networkId])
-  }
-  function toggleDevice(deviceId: string) {
-    setOpenDeviceIds((open) => open.includes(deviceId) ? open.filter((id) => id !== deviceId) : [...open, deviceId])
   }
 
   async function findTargets() {
@@ -333,9 +332,7 @@ export function Network() {
       directAddress={directAddress}
       notice={notice}
       closedNetworkIds={closedNetworkIds}
-      openDeviceIds={openDeviceIds}
       onToggleNetwork={toggleNetwork}
-      onToggleDevice={toggleDevice}
       onFind={findTargets}
       onScanSelf={scanSelf}
       onDirectAddressChange={setDirectAddress}
@@ -346,7 +343,7 @@ export function Network() {
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, openDeviceIds, onToggleNetwork, onToggleDevice, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork }: {
+function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, onToggleNetwork, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
@@ -354,9 +351,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   directAddress: string
   notice: string | null
   closedNetworkIds: readonly string[]
-  openDeviceIds: readonly string[]
   onToggleNetwork(networkId: string): void
-  onToggleDevice(deviceId: string): void
   onFind(): void
   onScanSelf(): void
   onDirectAddressChange(value: string): void
@@ -404,9 +399,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
         network={network}
         selfAddress={space.self.address}
         expanded={!closedNetworkIds.includes(network.id)}
-        openDeviceIds={openDeviceIds}
         onToggle={() => onToggleNetwork(network.id)}
-        onToggleDevice={onToggleDevice}
         onOpen={onOpen}
         onOpenNetwork={onOpenNetwork}
       />)}
@@ -416,9 +409,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
         <div className="ns-loose">{space.elsewhere.map((target) => <DeviceRow
           key={target.id}
           target={target}
-          expanded={openDeviceIds.includes(target.id)}
           showLocation
-          onToggle={() => onToggleDevice(target.id)}
           onOpen={onOpen}
         />)}</div>
       </section>}
@@ -440,13 +431,11 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
  * its administration; a Network merely observed carries no such control,
  * because observing a Network is not authority over it.
  */
-function NetworkBranch({ network, selfAddress, expanded, openDeviceIds, onToggle, onToggleDevice, onOpen, onOpenNetwork }: {
+function NetworkBranch({ network, selfAddress, expanded, onToggle, onOpen, onOpenNetwork }: {
   network: KnownNetwork
   selfAddress: string
   expanded: boolean
-  openDeviceIds: readonly string[]
   onToggle(): void
-  onToggleDevice(deviceId: string): void
   onOpen(deviceId: string): void
   onOpenNetwork(networkId: string): void
 }) {
@@ -481,12 +470,7 @@ function NetworkBranch({ network, selfAddress, expanded, openDeviceIds, onToggle
           </div>
         </div>}
         {network.targets.map((target) => <div className="ns-limb" key={target.id}>
-          <DeviceRow
-            target={target}
-            expanded={openDeviceIds.includes(target.id)}
-            onToggle={() => onToggleDevice(target.id)}
-            onOpen={onOpen}
-          />
+          <DeviceRow target={target} onOpen={onOpen} />
         </div>)}
       </div>}
       {!network.membersObserved
@@ -497,62 +481,30 @@ function NetworkBranch({ network, selfAddress, expanded, openDeviceIds, onToggle
 }
 
 /**
- * One remembered Device. Its identity line is exactly what the player has
- * legitimately learned: an address until an Inspect observed the represented
- * name, and the name over the address afterwards.
- *
- * Expanding it lists the Services already remembered from a Scan. That is a
- * read of memory, not a new observation, so a Device with nothing remembered
- * offers no branch at all rather than an empty one.
+ * One remembered Device: a leaf in the tree whose whole row is the route
+ * straight into its existing target card. Its identity line is exactly what
+ * the player has legitimately learned — an address until an Inspect observed
+ * the represented name, and the name over the address afterwards. Service
+ * identity, fingerprints, and every other technical fact live on that card
+ * under TECHNICAL INTELLIGENCE; Known Space states only where a Device is and
+ * what its current stage is.
  */
-function DeviceRow({ target, expanded, showLocation, onToggle, onOpen }: {
+function DeviceRow({ target, showLocation, onOpen }: {
   target: TargetSummary
-  expanded: boolean
   showLocation?: boolean
-  onToggle(): void
   onOpen(deviceId: string): void
 }) {
-  const expandable = target.services.length > 0
   const note = [target.displayName ? target.address : undefined, showLocation ? locationOf(target) : undefined].filter(Boolean).join(' · ')
-  const identity = <span className="ns-target-copy">
-    <strong>{target.displayName ?? target.address}</strong>
-    {!target.displayName && <span className="ns-target-note">UNKNOWN DEVICE</span>}
-    {note && <span className="ns-target-note">{note}</span>}
-  </span>
-  return <>
-    <div className={`ns-node ns-node--device${expandable && expanded ? ' is-expanded' : ''}`}>
-      {expandable
-        ? <button
-          type="button"
-          className="ns-node-main"
-          aria-expanded={expanded}
-          aria-label={`${expanded ? 'Collapse' : 'Expand'} device ${target.address}`}
-          onClick={onToggle}
-        >
-          <span className="ns-twist" aria-hidden="true">▸</span>
-          {identity}
-        </button>
-        : <div className="ns-node-main ns-node-main--static">
-          <span className="ns-glyph" aria-hidden="true" />
-          {identity}
-        </div>}
-      <button type="button" className="ns-node-route" aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
-        <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
-        <span aria-hidden="true">›</span>
-      </button>
-    </div>
-    {expandable && expanded && <div className="ns-limbs ns-limbs--service" aria-label={`Remembered services for ${target.address}`}>
-      {target.services.map((service) => <div className="ns-limb ns-limb--service" key={service.id}>
-        <div className="ns-node ns-node--service ns-node--static">
-          <span className="ns-glyph" aria-hidden="true" />
-          <span className="ns-target-copy">
-            <strong>{service.name}</strong>
-            <span className="ns-target-note">{service.port} / {service.protocol}</span>
-          </span>
-        </div>
-      </div>)}
-    </div>}
-  </>
+  return <button type="button" className="ns-node ns-node--device" aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
+    <span className="ns-glyph" aria-hidden="true" />
+    <span className="ns-target-copy">
+      <strong>{target.displayName ?? target.address}</strong>
+      {!target.displayName && <span className="ns-target-note">UNKNOWN DEVICE</span>}
+      {note && <span className="ns-target-note">{note}</span>}
+    </span>
+    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
+    <span className="ns-arrow" aria-hidden="true">›</span>
+  </button>
 }
 
 /**

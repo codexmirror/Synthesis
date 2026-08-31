@@ -205,15 +205,6 @@ export interface KnownSpace {
   readonly remembersNetwork: boolean
 }
 
-/** A remembered Service as a lightweight child row of its Device in the tree. */
-export interface TargetServiceSummary {
-  readonly id: string
-  readonly name: string
-  readonly port: number
-  readonly protocol: 'TCP' | 'UDP'
-  readonly endpoint: string
-}
-
 export interface TargetSummary {
   readonly id: string
   readonly address: string
@@ -227,7 +218,6 @@ export interface TargetSummary {
    */
   readonly displayName?: string
   readonly servicesObserved: boolean
-  readonly services: readonly TargetServiceSummary[]
 }
 
 export interface Target extends TargetSummary {
@@ -341,9 +331,11 @@ function stageOf(input: {
 }
 
 /**
- * Known Space: one restrained relationship tree — Network → Device →
- * remembered Service — over two legitimately different sources composed side
- * by side.
+ * Known Space: one restrained relationship tree — Network → Device — over two
+ * legitimately different sources composed side by side. A Device is a leaf:
+ * it carries no Service children here, and opens straight into the existing
+ * target card, where Service identity and every other technical fact already
+ * live under TECHNICAL INTELLIGENCE.
  *
  * The Network roots are the Networks the local Device manages (supplied by
  * the caller from `NetworkManagementAuthority`) plus the Networks

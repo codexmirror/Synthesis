@@ -56,13 +56,16 @@ the slice that view model is built from; the managed-Network route is the one
 deliberate, separately owned exception, and it supplies only the Network's own
 canonical facts.
 
-Known Space is one compact expandable relationship tree — Network → Device →
-remembered Service — carried by indentation, type weight and thin connectors
-rather than nested cards. Its Network roots are the Networks the local Device
-manages plus the Networks reconnaissance remembers; everything below a root
-comes from remembered Discovery alone. A managed Network therefore appears as
-a root on a fresh game, before anything has been observed on it, and honestly
-states that its members are unobserved.
+Known Space is one compact expandable relationship tree — Network → Device —
+carried by indentation, type weight and thin connectors rather than nested
+cards. Its Network roots are the Networks the local Device manages plus the
+Networks reconnaissance remembers; everything below a root comes from
+remembered Discovery alone. A managed Network therefore appears as a root on a
+fresh game, before anything has been observed on it, and honestly states that
+its members are unobserved. A Device is a leaf: it carries no remembered
+Service children in the tree, and its whole row is the route straight into
+the existing target card, where Service identity, fingerprints and every
+other technical fact already live under TECHNICAL INTELLIGENCE.
 
 SELF and its current address appear intrinsically on fresh Known Space without
 a synthetic Discovery record or a claimed Network relationship. Before its
@@ -74,13 +77,11 @@ stays visibly separate under ELSEWHERE with its own scope stated. Unobserved
 membership is stated explicitly rather than reported as an observed empty
 result, and an observed Network with no responding members says so.
 
-Expansion is local presentation state only. A Network root reads open and a
-Device reads closed; a Device offers a Service branch only where a Scan
-actually remembered Services, so an unscanned Device states that instead of
-opening an empty branch. Service children are remembered identity, port and
-protocol only — every Service action stays on the target card. Opening,
-expanding, collapsing or browsing Known Space performs no observation and
-mutates no Discovery.
+Expansion is local presentation state only, and only the Network level
+expands. A Network root reads open; a Device never expands and carries no
+twisty of its own — its row is always the single leaf control that opens the
+target card. Opening, expanding, collapsing or browsing Known Space performs
+no observation and mutates no Discovery.
 
 Two routes hang off the tree, and they are deliberately different kinds of
 thing. A target row opens its card directly — there is no Device page or
@@ -687,9 +688,11 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
 - A Device display name is remembered Player Information observed by Inspect,
   never a value presentation may resolve from World Truth. A target with no
   such evidence is an UNKNOWN DEVICE at its observed address.
-- Known Space expansion is presentation state. Expanding a Network or Device,
-  or opening the managed-Network administration route, observes nothing and
-  writes nothing to Discovery.
+- Known Space expansion is presentation state. Only the Network level
+  expands; a Device is a leaf that opens its target card directly rather than
+  a further expansion of the tree. Expanding a Network, or opening the
+  managed-Network administration route, observes nothing and writes nothing
+  to Discovery.
 - Manual Inspect is optional technical depth, not a target stage. A NodeScan
   release that supplies Inspect must never insert a step into the target's
   primary decision.

@@ -815,9 +815,10 @@ describe('Known Space topology', () => {
     expect(within(network).queryByRole('button', { name: 'Open target 198.51.100.23' })).not.toBeInTheDocument()
     // SELF is not a target and adds no control of its own: the only controls
     // on this Network are the branch itself, its administration route, and
-    // its remembered targets.
+    // its remembered targets — each a single leaf button, not an expandable
+    // level of its own.
     expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
-      .toEqual(['Collapse network home-net', 'Manage network home-net', `Expand device ${SRV_01_ADDRESS}`, `Open target ${SRV_01_ADDRESS}`])
+      .toEqual(['Collapse network home-net', 'Manage network home-net', `Open target ${SRV_01_ADDRESS}`])
   })
 
   it('keeps a Device with no remembered Network relationship visibly separate', () => {
@@ -908,42 +909,44 @@ describe('simulation physics after the reset', () => {
 /* ---------------------------------------------- known space as one tree */
 
 describe('Known Space hierarchy', () => {
-  it('presents Network → Device → remembered Service through progressive expansion', async () => {
+  it('presents Network → Device, with the Device as a leaf that routes directly into its target card', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={scannedTarget()}><Network /></GameProvider>)
     const network = screen.getByRole('region', { name: 'Network home-net' })
 
-    // The Network root is open, its Devices are not: Known Space is a map, not
-    // a list of everything remembered.
+    // The Network root is open; the Device beneath it is a leaf, not another
+    // expandable level. Its remembered Services live on the target card, not
+    // in the tree.
     expect(within(network).getByRole('button', { name: 'Collapse network home-net' })).toHaveAttribute('aria-expanded', 'true')
+    const device = within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })
+    expect(device).not.toHaveAttribute('aria-expanded')
     expect(network).toHaveTextContent(SRV_01_ADDRESS)
     expect(within(network).queryByText('SSH')).not.toBeInTheDocument()
-
-    await user.click(within(network).getByRole('button', { name: `Expand device ${SRV_01_ADDRESS}` }))
-    const services = within(network).getByLabelText(`Remembered services for ${SRV_01_ADDRESS}`)
-    expect(within(services).getByText('SSH')).toBeInTheDocument()
-    expect(within(services).getByText('HTTP')).toBeInTheDocument()
-    expect(services).toHaveTextContent('22 / TCP')
+    expect(screen.queryByLabelText(`Remembered services for ${SRV_01_ADDRESS}`)).not.toBeInTheDocument()
 
     await user.click(within(network).getByRole('button', { name: 'Collapse network home-net' }))
     expect(screen.queryByText(SRV_01_ADDRESS)).not.toBeInTheDocument()
   })
 
-  it('offers no Service branch for a Device whose Services were never observed', () => {
+  it('never offers a Device-level expand control, whether or not Services were ever observed', () => {
     render(<GameProvider initialState={foundTargets()}><Network /></GameProvider>)
     const network = screen.getByRole('region', { name: 'Network home-net' })
     expect(within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('NOT SCANNED')
     expect(within(network).queryByRole('button', { name: `Expand device ${SRV_01_ADDRESS}` })).not.toBeInTheDocument()
+
+    cleanup()
+    render(<GameProvider initialState={scannedTarget()}><Network /></GameProvider>)
+    const scanned = screen.getByRole('region', { name: 'Network home-net' })
+    expect(within(scanned).queryByRole('button', { name: `Expand device ${SRV_01_ADDRESS}` })).not.toBeInTheDocument()
   })
 
-  it('observes nothing and remembers nothing by expanding or collapsing the tree', async () => {
+  it('observes nothing and remembers nothing by expanding or collapsing a Network', async () => {
     const user = userEvent.setup()
     const known = scannedTarget()
     scanTargetSpy.mockClear()
     render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
     const before = screen.getByTestId('game-state').textContent
 
-    await user.click(screen.getByRole('button', { name: `Expand device ${SRV_01_ADDRESS}` }))
     await user.click(screen.getByRole('button', { name: 'Collapse network home-net' }))
     await user.click(screen.getByRole('button', { name: 'Expand network home-net' }))
 

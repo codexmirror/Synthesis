@@ -1,10 +1,12 @@
 /*
  * NodeScan.
  *
- * KNOWN SPACE is one restrained relationship tree — Network → Device →
- * remembered Service. Hierarchy is carried by indentation, type weight and
- * thin connectors; borders are spent only where an object genuinely needs an
- * edge, and nothing nests a bordered box inside a bordered box.
+ * KNOWN SPACE is one restrained relationship tree — Network → Device.
+ * Hierarchy is carried by indentation, type weight and thin connectors;
+ * borders are spent only where an object genuinely needs an edge, and nothing
+ * nests a bordered box inside a bordered box. Only the Network level expands;
+ * a Device is a leaf whose row opens straight into the existing target card,
+ * where Service identity and every other technical fact already live.
  *
  * The connectors are pure normal-flow CSS. Each child is an `.ns-limb` that
  * draws its own vertical rail and elbow relative to itself, so the rail spans
@@ -179,9 +181,7 @@
   cursor: pointer;
 }
 
-.ns-node-main--static,
-.ns-node--static { cursor: default; }
-.ns-node--static { padding: 9px 0; gap: 10px; align-items: center; }
+.ns-node--static { cursor: default; padding: 9px 0; gap: 10px; align-items: center; }
 
 .ns-node-main:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
 
@@ -215,16 +215,28 @@
 .ns-glyph--self::before { border-color: var(--accent-mark); background: var(--accent-rule); }
 
 /*
- * Network is the strongest identity in the tree; Device and Service step
- * down. Each level also fixes its own row height, so every elbow meets its
- * node on the same line at that level.
+ * Network is the strongest identity in the tree; Device steps down. Each
+ * level also fixes its own row height, so every elbow meets its node on the
+ * same line at that level.
  */
 .ns-node--network .ns-node-main { min-height: 54px; }
 .ns-node--network .ns-target-copy > strong { color: var(--text-strong); font-size: .96rem; letter-spacing: .01em; }
 .ns-node--network .ns-eyebrow { color: var(--accent-mark); }
-.ns-node--device .ns-node-main { min-height: 48px; }
-.ns-node--service { min-height: 40px; }
-.ns-node--service .ns-target-copy > strong { font-size: .78rem; }
+
+/*
+ * A Device is a leaf: its whole row is the one control, opening straight
+ * into the target card, so it takes the same single-button treatment as
+ * SELF's own SCAN row rather than the Network row's separate twisty/route
+ * split.
+ */
+.ns-node--device {
+  min-height: 48px;
+  padding: 9px 0;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.ns-node--device:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
 
 /* ELSEWHERE: remembered Devices with no remembered Network relationship. */
 .ns-group-head { display: grid; gap: 3px; padding: 4px 0 2px; }
@@ -289,8 +301,11 @@
 .ns-target-mark--access,
 .ns-target-mark--connected { color: var(--green); }
 
+.ns-arrow { flex: none; color: var(--accent-mark); font-size: .8rem; }
+
 @media (hover: hover) {
   .ns-node-main:hover .ns-target-copy > strong { color: var(--green); }
+  .ns-node--device:hover .ns-target-copy > strong { color: var(--green); }
   .ns-node-route:hover { color: var(--accent-strong); }
 }
 
@@ -303,22 +318,19 @@
  */
 .ns-branch { margin: 0 0 4px; padding-left: 7px; }
 .ns-limbs { display: block; }
-.ns-limbs--service { margin: 0 0 4px; padding-left: 7px; }
 
 .ns-limb { --indent: 20px; position: relative; padding-left: var(--indent); }
-.ns-limb--service { --indent: 16px; }
 
 /*
- * The trunk: where a node actually carries children, its own marker column
- * continues into the branch below it, so the rail is unbroken from that node
- * to its last child. A node with nothing under it draws none and terminates
- * cleanly.
+ * The trunk: where a Network actually carries children, its own marker
+ * column continues into the branch below it, so the rail is unbroken from
+ * the Network to its last Device. A Network with nothing under it draws none
+ * and terminates cleanly. A Device is a leaf and never carries a trunk of its
+ * own.
  */
-.ns-group.is-populated.is-expanded > .ns-node--network,
-.ns-node--device.is-expanded { position: relative; }
+.ns-group.is-populated.is-expanded > .ns-node--network { position: relative; }
 
-.ns-group.is-populated.is-expanded > .ns-node--network::after,
-.ns-node--device.is-expanded::after {
+.ns-group.is-populated.is-expanded > .ns-node--network::after {
   content: "";
   position: absolute;
   top: 50%;
