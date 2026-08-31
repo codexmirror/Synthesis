@@ -128,6 +128,94 @@ whichever concrete mechanic legitimately establishes it, exactly as Proof E
 already requires.
 
 
+## Same effect, different system reactions
+
+The srv-02 precedent above is one concrete instance of a broader rule this
+contract also freezes. Be precise about ownership. This contract does not
+define:
+
+```text
+DEAUTH → reboot srv-02
+```
+
+It defines:
+
+```text
+DEAUTH → connectivity mutation
+        +
+represented srv-02 RACK-OS / Device behavior → reacts to that mutation with
+                                                 reboot
+```
+
+DEAUTH owns neither outcome shown above the line. It does not own `srv-02`'s
+reboot, and by the same rule it does not own Petra's Phone's reconnect
+either — both belong to the Device/Firmware/Runtime behavior of the system
+that reacts, not to the effect that changed their connectivity.
+
+More generally, the same DEAUTH connectivity mutation may legitimately
+produce different consequences on different Devices, because each affected
+system owns its own reaction to that mutation rather than DEAUTH selecting a
+per-Device outcome.
+
+```text
+DEAUTH / NETWORK DISRUPTION
+        ↓
+connectivity loss on every affected Device
+```
+
+is the entire effect DEAUTH owns, regardless of which Devices are affected.
+What a given Device does next is that Device's own represented behavior —
+for the two Devices this precedent names:
+
+```text
+VEYRA OS Device (Petra's Phone)
+        connectivity loss
+                ↓
+        its own represented reconnect behavior
+                ↓
+        connectivity restored
+
+srv-02 (represented RACK-OS Device)
+        connectivity loss
+                ↓
+        its own represented Device / Firmware / Runtime reaction
+                ↓
+        a real reboot occurs
+                ↓
+        ordinary boot-activation boundary runs
+        (RACKUPDATE_PENDING_ACTIVATION_V1)
+```
+
+This rule is expected to outlive the selected precedent. A future VEYRA OS
+release, a different Device model, or a different represented configuration
+may legitimately react to the same connectivity loss differently — by
+reconnecting on a different schedule, by not reconnecting automatically, or
+through some other represented behavior — without this contract or DEAUTH
+itself changing. Likewise, a future RACK-OS Device or Firmware release is not
+required to reboot on connectivity loss merely because `srv-02` does in this
+precedent. This contract freezes the selected `srv-02` and Petra's Phone
+precedent; it does not freeze a universal rule that every VEYRA OS Device
+always reconnects, or that every RACK-OS Device always reboots, on
+connectivity loss.
+
+
+## Authority for the concrete precedent
+
+The concrete reconnect behavior of Petra's Phone and the concrete reboot
+reaction of `srv-02` are not yet established anywhere in current design or
+implementation authority. `docs/current/VEYRA_OS.md` presents no reconnect
+behavior for the phone; `docs/design/REMOTE_SERVER_OS_V1.md` explicitly
+excludes "reboot handling" from its own scope; and
+`RACKUPDATE_PENDING_ACTIVATION_V1.md` already states that reboot lifecycle
+timing and Device-local power management remain deferred.
+
+This document does not close that authority gap. The Petra's Phone reconnect
+and `srv-02` reboot behavior described above are the accepted intended
+precedent — the selected concrete shape a future implementation slice should
+produce — not Current Truth, and not a claim that either behavior already
+exists.
+
+
 ## Non-goals
 
 This contract does not authorize:

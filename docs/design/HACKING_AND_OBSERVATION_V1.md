@@ -1736,6 +1736,78 @@ merely so it has somewhere to live.
 
 ⸻
 
+Capability is derived, not unlocked
+
+A technique is currently available because concrete represented state gives
+the actor the means to attempt it, not because an abstract progression system
+declared it unlocked.
+
+```text
+CAPABILITY
+= derived from represented causes and current conditions
+```
+
+not:
+
+```text
+abstract progression unlock
+        ↓
+capability becomes true
+```
+
+Depending on the concrete mechanic, that represented cause may be installed
+software, a tool/module, an acquired artifact or file, learned Knowledge,
+equipment/hardware, position/reachability, an authority relationship, or
+another represented condition. Section 3 already lists these as the concrete
+sources Capability may emerge from; this freeze commits that they remain the
+only legitimate sources — collection progression does not add a parallel one.
+
+Do not introduce a canonical `CapabilityCollection`, `unlockedTechniques[]`,
+`TechniqueRegistry`, card inventory, or similar domain model that would let a
+technique become available independent of its represented cause.
+
+A future Arsenal, Technique Library, or similar collection presentation may
+project the technical possibilities the player legitimately has, exactly as
+NodeScan projects reconnaissance state (section 9). That presentation must
+never become the canonical owner of capability truth: removing or losing the
+represented cause removes the capability, whether or not any collection
+surface is rebuilt to notice.
+
+This freeze does not decide how future exploit artifacts, copying, trading,
+or distribution work. It only fixes that whatever mechanism eventually
+provides a capability, the capability remains true only while its represented
+cause remains true.
+
+⸻
+
+Collection growth does not grow the primary interaction grammar
+
+Section 7.2 already requires that interaction complexity not scale
+one-for-one with simulation complexity. This freeze states the same rule for
+the specific case of a growing capability collection:
+
+```text
+Collection progression may expand technical verbs without expanding the
+primary interaction grammar at the same rate.
+```
+
+A new technical capability may add a new technical verb semantically — a new
+kind of state mutation or interaction the player can reason about — without
+that verb automatically earning another top-level primary button or a
+permanent primary interaction verb. The existing rule that a fourth primary
+player verb requires its own justification (section 8.2, section 12) is the
+concrete form this takes today; a growing capability collection is exactly
+the kind of pressure that rule exists to resist.
+
+The intended direction is a small, comprehensible primary interaction grammar
+— SCAN / HACK / CONNECT today — with a growing set of contextually available
+techniques beneath it, reached through the same progressive technical depth
+already described in section 8.5. This document does not freeze exact future
+labels such as HACK, BREACH, MANIPULATE, ARSENAL, or TECHNIQUE LIBRARY; that
+remains presentation work for whichever design contract eventually owns it.
+
+⸻
+
 15. World-emergent availability and rarity
 
 Some technical capabilities may eventually be common; others may be
@@ -1783,6 +1855,35 @@ This document does not prescribe a universal attack pipeline. Which
 capability changes which state, and which system reacts to it, remains a
 concrete fact about the mechanics involved — the same rule section 4 already
 states for any single attempt.
+
+⸻
+
+Mechanics keep their causal meaning
+
+A technique must never receive an unrelated downstream effect merely to
+complete a desired gameplay combination. The represented systems determine
+which combinations are possible, not the designer wiring a shortcut into the
+initiating technique.
+
+```text
+A technique owns its concrete technical effect.
+Affected systems own their reactions to that effect.
+A designed combo emerges from those represented reactions.
+```
+
+not:
+
+```text
+A technique gains extra semantics because a combo needs them.
+```
+
+This is the rule that keeps DEAUTH itself connectivity disruption rather than
+"reboot target": the srv-02 puzzle needing a reboot is not a reason for
+DEAUTH to own one. The affected Device's own behavior owns whether, and how,
+it reacts to lost connectivity; see
+`docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`.
+
+⸻
 
 The first planned proof of multi-step composition beyond Proof E is DEAUTH /
 network disruption, owned by `docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`.
