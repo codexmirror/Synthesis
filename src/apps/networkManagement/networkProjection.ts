@@ -39,25 +39,23 @@ function projectActivityRecord(record: NetworkActivityRecord): ManagedNetworkAct
 }
 
 /**
- * The one Network the local Device currently holds explicit management
- * authority over, projected for read-only presentation. Returns `null` when
- * no such authority is currently held — including when it has been removed
- * — rather than falling back to Network membership or any other truth.
+ * Every Network the local Device currently holds explicit management
+ * authority over, projected for read-only presentation. Derived from that
+ * authority relationship alone — never from Network membership, DeviceAccess,
+ * a RemoteSession, or NodeScan Discovery — so removing the authority removes
+ * the Network from this projection entirely.
  *
- * V1 presents at most the first authorized Network directly, matching the
- * product's one seeded relationship, rather than a navigation framework
- * across several: `resolveManagedNetworks` already resolves the full set,
- * so a later multi-Network surface would build on that rather than on a
- * changed resolver.
+ * NodeScan composes this beside its own remembered reconnaissance rather than
+ * merging the two: authority legitimately supplies a managed Network's own
+ * canonical facts (name, capacity, coarse member count, activity) and
+ * deliberately never supplies member Device identity.
  */
-export function selectManagedNetwork(state: GameState): ManagedNetworkView | null {
-  const [network] = resolveManagedNetworks(state, state.player.localDevice.id)
-  if (!network) return null
-  return {
+export function selectManagedNetworks(state: GameState): readonly ManagedNetworkView[] {
+  return resolveManagedNetworks(state, state.player.localDevice.id).map((network) => ({
     id: network.id,
     name: network.name,
     connectivity: network.transferCapacity,
     memberCount: network.memberDeviceIds.length,
     activity: network.activityHistory.records.map(projectActivityRecord),
-  }
+  }))
 }

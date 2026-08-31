@@ -324,28 +324,35 @@ NodeScan Discovery, DeviceAccess, or a RemoteSession. `resolveManagedNetworks`
 (`src/core/game/networkManagement.ts`) resolves the full set of Networks a
 Device currently holds authority over, from this relationship alone.
 
-## Network application
+## Managed-Network administration
 
-Network is the local Device's read-only administration surface over the
-`LocalNetwork`(s) it currently holds explicit management authority over
-(`networkManagement`), distinct from NodeScan's remembered reconnaissance
-(`docs/current/NETWORK_ACCESS.md`). It presents canonical World Truth the
-authority relationship legitimately supplies, not remembered Player
-Information, and performs no observation, mutation, or Discovery of its own.
+Network administration is a read-only surface over the `LocalNetwork`(s) the
+local Device currently holds explicit management authority over
+(`networkManagement`). It presents canonical World Truth the authority
+relationship legitimately supplies, not remembered Player Information, and
+performs no observation, mutation, or Discovery of its own.
 
-A fresh game seeds exactly one authorized Network, so Network presents it
-directly on open — NETWORK naming the authorized Network, CONNECTIVITY
-stating its own represented external upload/download capacity (maximum
-capability, not current throughput or usage), MEMBERSHIP stating a coarse
-member count without enumerating member identity, address, Firmware, or
-Services, and ACTIVITY presenting the Network's own canonical
-`NetworkActivityHistoryState`, oldest first, with a truthful empty state
-before any record exists. `resolveManagedNetworks` already resolves the full
-authorized set rather than assuming one, so a later multi-Network surface
-would build on that resolver rather than on a changed one; V1 deliberately
-builds no navigation framework across several. A Device with no current
-management authority is presented with a truthful no-authority empty state
-rather than any Network's truth.
+There is no separate Network application on NODE-OS Home. Administration is
+reached inside NodeScan, from the managed Network's own root in Known Space
+(`docs/current/NETWORK_ACCESS.md`). The product unification does not merge the
+semantic owners: `selectManagedNetworks`
+(`src/apps/networkManagement/networkProjection.ts`) remains the projection over
+management authority, NodeScan composes it beside its own reconnaissance
+projection rather than deriving one from the other, and authority never
+becomes observation.
+
+The administration detail presents the authorized Network directly — MANAGED
+NETWORK naming it, CONNECTIVITY stating its own represented external
+upload/download capacity (maximum capability, not current throughput or
+usage), MEMBERSHIP stating a coarse member count without enumerating member
+identity, address, Firmware, or Services, and ACTIVITY presenting the
+Network's own canonical `NetworkActivityHistoryState`, oldest first, with a
+truthful empty state before any record exists. `resolveManagedNetworks`
+already resolves the full authorized set rather than assuming one, so a later
+multi-Network surface builds on that resolver rather than on a changed one; V1
+deliberately builds no navigation framework across several. A Device with no
+current management authority reaches no administration route at all, rather
+than any Network's truth.
 
 Activity presentation projects only what each record itself observed —
 perspective, address snapshots, service name where the record kind carries
@@ -455,9 +462,10 @@ is observed through RACK-OS, never listed here.
   Device must never be treated as holding management authority over a
   Network merely because `memberDeviceIds` contains it, and access to one
   Device never implies authority over any Network.
-- The Network application reads `networkManagement` and `LocalNetwork` World
-  Truth directly; it must never derive an authorized Network from NodeScan
-  Discovery, and opening it must never mutate Discovery.
+- Managed-Network administration reads `networkManagement` and `LocalNetwork`
+  World Truth directly; it must never derive an authorized Network from
+  NodeScan Discovery, and opening it must never mutate Discovery. Presenting
+  it inside NodeScan is a product decision, not a merge of the two owners.
 - Network activity presentation must never expose a record's internal
   Device or Service IDs, matching the same boundary Authentication History
   presentation already keeps in RACK-OS System.

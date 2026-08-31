@@ -84,7 +84,7 @@ describe('command dispatcher', () => {
     expect(commands.disconnect.description).toBe('Close the active remote session')
   })
   it('dispatches inspect as a direct player verb', () => {
-    expect(dispatch('inspect 198.51.100.47')).toMatchObject({ type: 'output', lines: ['SERVER', expect.any(Array), 'Scope:   LAN', 'Status:  ONLINE'] })
+    expect(dispatch('inspect 198.51.100.47')).toMatchObject({ type: 'output', lines: ['SERVER', 'Name:    srv-01', expect.any(Array), 'Scope:   LAN', 'Status:  ONLINE'] })
   })
   it('dispatches ip with the player-visible address marked as a local target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23', 'local')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))

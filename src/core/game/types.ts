@@ -812,7 +812,13 @@ export interface DiscoveredDeviceSnapshot {
   readonly scope: 'unknown' | 'lan' | 'remote'
   readonly servicesObserved: boolean
   readonly services: readonly DiscoveredServiceSnapshot[]
-  readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server'; readonly enhanced?: EnhancedInspectEvidence }
+  /**
+   * Remembered Inspect evidence. `displayName` is the represented Device
+   * display identity as legitimately *observed* by an Inspect that reached
+   * it — never World Truth read directly by presentation, and absent until
+   * such an observation happened.
+   */
+  readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server'; readonly displayName?: string; readonly enhanced?: EnhancedInspectEvidence }
 }
 
 export interface DiscoveryState {

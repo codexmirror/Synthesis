@@ -83,7 +83,12 @@ export function rememberInspect(discovery: DiscoveryState, result: InspectResult
     const inspect = fingerprints.get(service.id)
     return inspect ? { ...service, inspect } : service
   })
-  devices[index] = { ...devices[index], address: result.address, scope: result.scope, services, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(result.enhanced ? { enhanced: result.enhanced } : previousEnhanced ? { enhanced: previousEnhanced } : {}) } }
+  // Observed display identity is remembered exactly like the rest of the
+  // Inspect snapshot: a later observation may refresh it, and an observation
+  // that saw none never deletes what an earlier one legitimately observed.
+  const previousDisplayName = devices[index].inspect?.displayName
+  const displayName = result.displayName ?? previousDisplayName
+  devices[index] = { ...devices[index], address: result.address, scope: result.scope, services, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(displayName ? { displayName } : {}), ...(result.enhanced ? { enhanced: result.enhanced } : previousEnhanced ? { enhanced: previousEnhanced } : {}) } }
   const networks = [...discovery.networks]
   const relations = [...discovery.networkDeviceRelations]
   for (const observed of result.networks ?? []) {

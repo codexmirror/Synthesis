@@ -3,18 +3,15 @@ import { useGameState } from '../app/GameContext'
 import { AppIcon } from './AppIcon'
 import { deriveActivityMonitor } from '../apps/processes/activityMonitor'
 import { deriveUnreadMailCount } from '../core/game/mail'
-import { selectManagedNetwork } from '../apps/networkManagement/networkProjection'
 
 export function Home({ openApp }: { openApp: (app: AppId) => void }) {
   const state = useGameState()
   const device = state.player.localDevice
   const activeActivities = deriveActivityMonitor(state).summary.activeCount
   const unreadMail = deriveUnreadMailCount(state.mail)
-  const managedNetwork = selectManagedNetwork(state)
   const secondary: Partial<Record<AppId, string>> = {
     terminal: 'LOCAL SHELL',
     network: 'KNOWN SPACE',
-    networkManagement: managedNetwork ? managedNetwork.name : 'NO AUTHORITY',
     mail: `${unreadMail} UNREAD`,
     processes: `${activeActivities} RUNNING`,
     files: 'LOCAL',

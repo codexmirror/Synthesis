@@ -104,7 +104,7 @@ async function openTarget(state: GameState) {
 }
 
 async function openDetails(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByText('RECON INTELLIGENCE'))
+  await user.click(screen.getByText('TECHNICAL INTELLIGENCE'))
 }
 
 function deferred<T>() {
@@ -181,13 +181,20 @@ describe('NodeScan first hack', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
   })
 
-  it('promotes newly available Inspect over passive Access, preserves Access on completion, and never displaces an active Session', async () => {
+  it('never lets newly available Inspect displace the relationship the player already holds', async () => {
     const accessUnder10 = withAccess(scannedTarget())
     expect(selectTarget(accessUnder10, SRV_01)?.stage).toBe('access')
 
+    // Installing a release that supplies Inspect adds optional depth; it does
+    // not insert a step into this target's line of action.
     const upgraded = withNodeScan11(accessUnder10)
-    expect(selectTarget(upgraded, SRV_01)?.stage).toBe('inspect')
+    expect(selectTarget(upgraded, SRV_01)?.stage).toBe('access')
     const user = await openTarget(upgraded)
+    const status = screen.getByLabelText('Target status')
+    expect(status).toHaveTextContent('ACCESS GRANTED')
+    expect(within(status).queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
+
+    await openDetails(user)
     await user.click(screen.getByRole('button', { name: 'INSPECT' }))
     expect(currentState().deviceAccess).toEqual(accessUnder10.deviceAccess)
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
@@ -272,18 +279,21 @@ describe('NodeScan information boundary', () => {
     expect(selectTarget(withProcesses(observed, [oldNegative, fresh]), SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: false, analysisOutcome: 'no_weakness_detected' })
   })
 
-  it('prioritizes newly available Inspect over a route learned under NodeScan 1.0, then restores BYPASS', async () => {
+  it('keeps a learned route as the primary decision while offering Inspect only as technical depth', async () => {
     const learnedUnder10 = knownWeakness(scannedTarget())
     expect(selectTarget(learnedUnder10, SRV_01)?.stage).toBe('route')
 
     const upgraded = withNodeScan11(learnedUnder10)
     expect(upgraded.discovery.devices.find(({ id }) => id === SRV_01)?.inspect?.enhanced).toBeUndefined()
-    expect(selectTarget(upgraded, SRV_01)?.stage).toBe('inspect')
+    expect(selectTarget(upgraded, SRV_01)?.stage).toBe('route')
 
     const user = await openTarget(upgraded)
-    const primaryInspect = within(screen.getByLabelText('Target status')).getByRole('button', { name: 'INSPECT' })
-    expect(primaryInspect).toBeInTheDocument()
-    await user.click(primaryInspect)
+    const status = screen.getByLabelText('Target status')
+    expect(within(status).getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
+    expect(within(status).queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
+
+    await openDetails(user)
+    await user.click(screen.getByRole('button', { name: 'INSPECT' }))
     expect(selectTarget(currentState(), SRV_01)?.stage).toBe('route')
     expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
   })
@@ -535,7 +545,7 @@ describe('RackUpdate exploit and package submission', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ATTACK PATH FOUND')
     expect(screen.getByLabelText('Target status')).not.toHaveTextContent('ACCESS')
     expect(view.textContent!.replace(details.textContent!, '')).toContain('RackUpdate')
-    await user.click(screen.getByText('RECON INTELLIGENCE'))
+    await user.click(screen.getByText('TECHNICAL INTELLIGENCE'))
     expect(screen.getByRole('button', { name: 'ATTACK' }).closest('details')).toBeNull()
   })
 
@@ -566,7 +576,7 @@ describe('RackUpdate exploit and package submission', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: `Open target 203.0.113.42` }))
-    fireEvent.click(screen.getByText('RECON INTELLIGENCE'))
+    fireEvent.click(screen.getByText('TECHNICAL INTELLIGENCE'))
 
     // ATTACK grants only the narrow submission capability: finite work, no immediate consequence.
     fireEvent.click(screen.getByRole('button', { name: 'ATTACK' }))
@@ -804,9 +814,11 @@ describe('Known Space topology', () => {
     expect(network).toHaveTextContent('198.51.100.23')
     expect(within(network).queryByRole('button', { name: 'Open target 198.51.100.23' })).not.toBeInTheDocument()
     // SELF is not a target and adds no control of its own: the only controls
-    // on this Network are its remembered targets.
+    // on this Network are the branch itself, its administration route, and
+    // its remembered targets — each a single leaf button, not an expandable
+    // level of its own.
     expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
-      .toEqual([`Open target ${SRV_01_ADDRESS}`])
+      .toEqual(['Collapse network home-net', 'Manage network home-net', `Open target ${SRV_01_ADDRESS}`])
   })
 
   it('keeps a Device with no remembered Network relationship visibly separate', () => {
@@ -821,7 +833,8 @@ describe('Known Space topology', () => {
     expect(within(home).queryByRole('button', { name: 'Open target 203.0.113.42' })).not.toBeInTheDocument()
 
     const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
-    expect(within(elsewhere).getByRole('button', { name: 'Open target 203.0.113.42' })).toHaveTextContent('Remote')
+    expect(within(elsewhere).getByRole('button', { name: 'Open target 203.0.113.42' })).toBeInTheDocument()
+    expect(elsewhere).toHaveTextContent('Remote')
   })
 
   it('opens the same simple target card straight from the topology', async () => {
@@ -855,7 +868,10 @@ describe('Known Space topology', () => {
     const network = screen.getByRole('region', { name: 'Network home-net' })
     expect(network).toHaveTextContent('Members not observed')
     expect(network).toHaveTextContent('SELF')
-    expect(within(network).queryAllByRole('button')).toHaveLength(0)
+    // Nothing is claimed about members: the branch offers its own controls and
+    // no target row at all.
+    expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
+      .toEqual(['Collapse network home-net', 'Manage network home-net'])
   })
 
   it('derives each row from canonical state rather than a stored label', () => {
@@ -887,5 +903,173 @@ describe('simulation physics after the reset', () => {
     expect(state.world.network.hosts.find(({ id }) => id === SRV_01)!.authenticationHistory!.records).toEqual([
       expect.objectContaining({ serviceName: 'SSH', sourceAddress: '198.51.100.23', result: 'SUCCESS' }),
     ])
+  })
+})
+
+/* ---------------------------------------------- known space as one tree */
+
+describe('Known Space hierarchy', () => {
+  it('presents Network → Device, with the Device as a leaf that routes directly into its target card', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={scannedTarget()}><Network /></GameProvider>)
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+
+    // The Network root is open; the Device beneath it is a leaf, not another
+    // expandable level. Its remembered Services live on the target card, not
+    // in the tree.
+    expect(within(network).getByRole('button', { name: 'Collapse network home-net' })).toHaveAttribute('aria-expanded', 'true')
+    const device = within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })
+    expect(device).not.toHaveAttribute('aria-expanded')
+    expect(network).toHaveTextContent(SRV_01_ADDRESS)
+    expect(within(network).queryByText('SSH')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(`Remembered services for ${SRV_01_ADDRESS}`)).not.toBeInTheDocument()
+
+    await user.click(within(network).getByRole('button', { name: 'Collapse network home-net' }))
+    expect(screen.queryByText(SRV_01_ADDRESS)).not.toBeInTheDocument()
+  })
+
+  it('never offers a Device-level expand control, whether or not Services were ever observed', () => {
+    render(<GameProvider initialState={foundTargets()}><Network /></GameProvider>)
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+    expect(within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('NOT SCANNED')
+    expect(within(network).queryByRole('button', { name: `Expand device ${SRV_01_ADDRESS}` })).not.toBeInTheDocument()
+
+    cleanup()
+    render(<GameProvider initialState={scannedTarget()}><Network /></GameProvider>)
+    const scanned = screen.getByRole('region', { name: 'Network home-net' })
+    expect(within(scanned).queryByRole('button', { name: `Expand device ${SRV_01_ADDRESS}` })).not.toBeInTheDocument()
+  })
+
+  it('observes nothing and remembers nothing by expanding or collapsing a Network', async () => {
+    const user = userEvent.setup()
+    const known = scannedTarget()
+    scanTargetSpy.mockClear()
+    render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
+    const before = screen.getByTestId('game-state').textContent
+
+    await user.click(screen.getByRole('button', { name: 'Collapse network home-net' }))
+    await user.click(screen.getByRole('button', { name: 'Expand network home-net' }))
+
+    expect(scanTargetSpy).not.toHaveBeenCalled()
+    expect(screen.getByTestId('game-state').textContent).toBe(before)
+  })
+})
+
+/* --------------------------------------- managed networks inside NodeScan */
+
+describe('Network administration inside NodeScan', () => {
+  it('roots the managed home-net in Known Space from authority alone, before reconnaissance remembers anything', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+
+    // Authority states the Network exists and what it is; it observes nothing
+    // on it, so membership is honestly unobserved and SELF still needs a Scan.
+    expect(network).toHaveTextContent('Members not observed')
+    expect(screen.getByRole('button', { name: 'SCAN SELF' })).toBeInTheDocument()
+    expect(screen.queryByText('srv-01')).not.toBeInTheDocument()
+    expect(screen.queryByText(SRV_01_ADDRESS)).not.toBeInTheDocument()
+
+    await user.click(within(network).getByRole('button', { name: 'Manage network home-net' }))
+    expect(screen.getByText('MANAGED NETWORK')).toBeInTheDocument()
+    expect(screen.getByText('MEMBERS').parentElement).toHaveTextContent('2')
+    expect(screen.getAllByText('16 MiB/s')).toHaveLength(2)
+    expect(screen.getByText('NO ACTIVITY')).toBeInTheDocument()
+    // Opening administration is not observation.
+    expect(currentState().discovery).toEqual(createInitialGameState().discovery)
+  })
+
+  it('never enumerates member Device identity from management authority', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Manage network home-net' }))
+
+    const detail = screen.getByLabelText('NodeScan')
+    for (const hidden of ['srv-01', SRV_01_ADDRESS, 'host-lan-001', 'RACK-OS', 'SSH']) {
+      expect(detail.textContent, `${hidden} must not reach managed-Network administration`).not.toContain(hidden)
+    }
+  })
+
+  it('gives a discovered foreign Network no administration route, because Discovery is not authority', () => {
+    const base = createInitialGameState()
+    const targets = { localDevice: base.player.localDevice, network: base.world.network }
+    // The phone's foreign Network becomes remembered only through legitimate Inspect.
+    let discovery = rememberPing(base.discovery, pingNetworkTarget(targets, PHONE_ADDRESS), base.player.localDevice.id)
+    discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, PHONE_ADDRESS, 'enhanced'), base.player.localDevice.id)
+    render(<GameProvider initialState={{ ...base, discovery }}><Network /></GameProvider>)
+
+    const foreign = screen.getByRole('region', { name: 'Network remote-segment-01' })
+    expect(foreign).toHaveTextContent('OBSERVED')
+    expect(within(foreign).queryByRole('button', { name: 'Manage network remote-segment-01' })).not.toBeInTheDocument()
+    // The one Network the local Device actually administers still has its route.
+    expect(screen.getByRole('button', { name: 'Manage network home-net' })).toBeInTheDocument()
+  })
+
+  it('offers no administration route at all once the authority relationship is removed', () => {
+    const base = foundTargets()
+    render(<GameProvider initialState={{ ...base, networkManagement: { ...base.networkManagement, established: [] } }}><Network /></GameProvider>)
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+
+    // home-net is still remembered by reconnaissance and SELF still belongs to
+    // it; neither is authority over it.
+    expect(network).toHaveTextContent('home-net')
+    expect(within(network).queryByRole('button', { name: 'Manage network home-net' })).not.toBeInTheDocument()
+    expect(network).toHaveTextContent('OBSERVED')
+  })
+})
+
+/* ------------------------------------------ progressive target identity */
+
+describe('observed Device display identity', () => {
+  it('presents a scanned but uninspected Device as an unknown Device at its address', async () => {
+    const user = await openTarget(scannedTarget())
+
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(SRV_01_ADDRESS)
+    expect(screen.getByText('UNKNOWN DEVICE')).toBeInTheDocument()
+    expect(screen.queryByText('srv-01')).not.toBeInTheDocument()
+
+    await openDetails(user)
+    expect(screen.queryByText('NAME')).not.toBeInTheDocument()
+  })
+
+  it('never remembers a display name from Scan or PING alone', () => {
+    const scanned = scannedTarget()
+    expect(scanned.discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
+    expect(selectTarget(scanned, SRV_01)?.displayName).toBeUndefined()
+    expect(JSON.stringify(selectKnownSpace(scanned))).not.toContain('srv-01')
+  })
+
+  it('remembers and then presents the represented display name after a successful Inspect', async () => {
+    const user = await openTarget(withNodeScan11(scannedTarget()))
+    await openDetails(user)
+    await user.click(screen.getByRole('button', { name: 'INSPECT' }))
+
+    expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect?.displayName).toBe('srv-01')
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('srv-01')
+    expect(screen.getByText('NAME').parentElement).toHaveTextContent('srv-01')
+    // The address it was reached at stays stated beside the observed name.
+    expect(document.querySelector('.ns-subject-note')).toHaveTextContent(`${SRV_01_ADDRESS} · home-net`)
+
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    const network = screen.getByRole('region', { name: 'Network home-net' })
+    expect(within(network).getByText('srv-01')).toBeInTheDocument()
+    expect(within(network).queryByText('UNKNOWN DEVICE')).not.toBeInTheDocument()
+  })
+
+  it('keeps manual Inspect in technical depth, announced there, only where the installed release supplies it', async () => {
+    const under10 = await openTarget(scannedTarget())
+    expect(screen.getByLabelText('Target status')).not.toHaveTextContent('INSPECT')
+    expect(screen.queryByText('INSPECT AVAILABLE')).not.toBeInTheDocument()
+    await openDetails(under10)
+    expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
+
+    cleanup()
+    const under11 = await openTarget(withNodeScan11(scannedTarget()))
+    expect(screen.getByLabelText('Target status')).not.toHaveTextContent('INSPECT')
+    expect(screen.getByText('INSPECT AVAILABLE')).toBeInTheDocument()
+    await openDetails(under11)
+    expect(screen.getByRole('button', { name: 'INSPECT' })).toBeInTheDocument()
+    // The affordance explains itself where it is offered, without a tutorial.
+    expect(screen.getByText(/Inspect looks deeper than Scan/)).toBeInTheDocument()
   })
 })

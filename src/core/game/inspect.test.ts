@@ -34,13 +34,15 @@ describe('inspectNetworkTarget inward inspection', () => {
       status: 'device', targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self', networkStatus: 'ONLINE',
       hardware: { cpu: 'Changed CPU', ram: '12 GB' },
     })
+    // The represented display name is one of those actual properties: Inspect
+    // observes it, which is exactly why Scan and PING never report it.
     expect(inspectNetworkTarget(targets, '198.51.100.47')).toEqual({
       status: 'device', targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan', networkStatus: 'ONLINE',
-      deviceKind: 'server',
+      deviceKind: 'server', displayName: 'srv-01',
     })
     expect(inspectNetworkTarget(targets, '203.0.113.42')).toEqual({
       status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote', networkStatus: 'ONLINE',
-      deviceKind: 'server',
+      deviceKind: 'server', displayName: 'srv-02',
     })
   })
 
