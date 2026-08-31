@@ -94,6 +94,8 @@ software** below.
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
   A07–A08 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
 - DESIGN → [`design/HACKING_AND_OBSERVATION_V1.md`](design/HACKING_AND_OBSERVATION_V1.md),
+  [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
+  (RackUpdate submission, pending GateSSH state, and boot activation only),
   [`design/SCAN_INFORMATION_ARCHITECTURE_V1.md`](design/SCAN_INFORMATION_ARCHITECTURE_V1.md),
   [`design/REMOTE_SERVER_OS_V1.md`](design/REMOTE_SERVER_OS_V1.md) (RACK-OS work only)
 - CODE → `src/core/game/scan.ts`, `src/core/game/inspect.ts`,
@@ -136,7 +138,9 @@ executables, software management, Flipper and its module-integration mechanic.
 - ARCHITECTURE → A17 (and A07) in
   [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
 - DESIGN → [`design/FILES_AND_TRANSFER_V1.md`](design/FILES_AND_TRANSFER_V1.md),
-  [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md)
+  [`design/SOFTWARE_AUTHORING.md`](design/SOFTWARE_AUTHORING.md),
+  [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
+  (RackUpdate pending GateSSH software state only)
 - CODE → `src/core/game/filesystem.ts`, `src/core/game/fileTransfer.ts`,
   `src/core/game/software.ts`, `src/core/game/softwareInstallation.ts`,
   `src/core/game/softwareRemoval.ts`, `src/core/game/flipper.ts`,
@@ -237,7 +241,8 @@ runtime, network transfer capacity, System application.
 - ARCHITECTURE → A07, A08, A17 in
   [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md);
   A01–A02 in [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md)
-- DESIGN → none currently
+- DESIGN → [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
+  (target Device ownership and boot activation of pending GateSSH only)
 - CODE → `src/core/game/types.ts`, `src/core/game/initialState.ts`,
   `src/core/game/networkTransferCapacity.ts`, `src/core/game/networkActivityHistory.ts`,
   `src/core/game/networkManagement.ts`, `src/core/game/serviceImplementations.ts`,
