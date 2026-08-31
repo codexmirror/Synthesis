@@ -5,9 +5,11 @@ Scope: Product and design direction for hacking, reconnaissance, observation,
 and access. Design authority for the epistemic model and for the player-facing
 interaction model, including the casual SCAN / HACK / CONNECT interaction and
 the progressive technical depth beneath it; not a description of what is
-currently implemented. Also design authority for the long-term
-capability-collection progression model and the composition principle
-(sections 14-16). Concrete precedents built on that principle are owned by
+currently implemented. Also design authority for Technique/provider semantics,
+Flipper's selected NodeScan-extension product role, contextual HACK composition,
+and the long-term
+capability-collection progression model and composition principle (sections
+14-16). Concrete precedents built on that principle are owned by
 their own focused contracts, for example `RACKUPDATE_PENDING_ACTIVATION_V1.md`
 and `DEAUTH_NETWORK_DISRUPTION_V1.md`; this document does not duplicate their
 normative detail.
@@ -345,7 +347,9 @@ The current implementation should remain concrete.
 
 For example:
 
-Flipper installed, with the Credential Access Module integrated
+exact standalone Credential Access artifact owned
+or
+compatible Flipper build with that provider integrated
 +
 required remembered information
 +
@@ -501,8 +505,25 @@ Technique
 
 A Technique describes the concrete method being attempted.
 
-A technique may currently be represented directly by a particular piece of
-software and its gameplay operation.
+A Technique is distinct from the weakness or condition it interacts with, the
+concrete provider that makes it executable, the attempt that evaluates it, and
+the effect an attempt produces. Credential Access, Rollback, and the planned
+DEAUTH are Techniques in this vocabulary.
+
+A **provider** is the concrete represented cause that currently makes a
+Technique executable. Depending on a justified concrete mechanic, that may be
+a standalone tool or artifact, a compatible provider integrated into Flipper,
+another software product, equipment, or another represented mechanism.
+"Provider" is reasoning language, not a canonical `GameState` entity, type, or
+registry.
+
+A standalone technique artifact supplies its Technique independently of
+Flipper. Compatibility with Flipper does not make that Technique or artifact
+semantically belong to Flipper. Current implementation terminology still calls
+the Credential Access and Rollback artifacts `SoftwareModuleFile` / Flipper
+modules; both exact supported artifacts can supply their Technique standalone.
+That naming is Current Truth pending an intentional later code migration, not
+the universal design category.
 
 The weakness and the technique must not be permanently identical.
 
@@ -679,7 +700,8 @@ remembered SSH Service
 +
 positive Weak Authentication Knowledge
 +
-Flipper installed, with the Credential Access Module integrated
+exact standalone Credential Access artifact, or a compatible Flipper build
+with that provider integrated
 +
 current represented conditions
 ↓
@@ -1078,6 +1100,27 @@ New mechanics are expected to arrive as new situations these verbs already
 express — a different kind of way in, a different consequence, a different
 cost — not as new verbs.
 
+HACK is a stable contextual player intent and interaction surface, not the
+canonical owner of Techniques or a generic domain operation. Conceptually:
+
+```text
+selected object
+        ↓
+HACK
+        ↓
+concrete mechanics relevant to that object contribute their legitimate,
+currently available attempts
+        ↓
+the UI presents those attempts coherently
+```
+
+Each concrete mechanic continues to own whether its attempt is offerable and
+executable and what it does. This composition authorizes no discovery or
+registration protocol, universal action list, Technique/Capability registry,
+or generic `HackOperation`. Device/Service-relevant and Network-relevant
+Techniques may therefore appear beneath the same contextual HACK intent
+without creating a global "Network Tech" category or another top-level verb.
+
 Adding a fourth primary verb is a design decision requiring its own
 justification, not a routine consequence of adding a mechanic.
 
@@ -1125,6 +1168,45 @@ The stages fail differently and must keep saying so: remembered observation
 can be stale, a way in can be attempted and fail, Access persists whether or
 not a Session is active. Compressing them into one opaque progress bar
 re-creates exactly the omniscient "hack progress" model this document rejects.
+
+The prominent action area on NodeScan's Target / Network view is selected to
+evolve into a **contextual execution surface**. NodeScan owns the subject,
+remembered context, and surrounding reconnaissance experience. Represented
+software state may change the interaction experience rendered within that
+surface: the base surface may offer raw access to a standalone Technique
+provider, while a represented Flipper extension may provide a materially richer
+offensive workspace in the same context. A later host-compatible extension may
+do so only when separately designed.
+
+This is a product and presentation boundary, not a generic embedded-application
+renderer, widget registry, runtime sandbox, extension API, or plugin protocol.
+The surface may evolve visually because represented software state and concrete
+mechanics justify the change; a build ID by itself must never select behavior.
+
+The intended transition is gradual and mechanic-owned:
+
+```text
+known weakness → one prescribed WAY IN → one obvious ATTACK / BYPASS
+
+becomes
+
+represented target state + Player Information
+        ↓
+contextual offensive surface
+        ↓
+player chooses a technically applicable Technique
+        ↓
+concrete attempt
+        ↓
+concrete World Truth mutation, failure, or consequence
+```
+
+Knowledge should increasingly improve the quality of that decision rather than
+merely unlock one prescribed next button. This does not make every current
+Technique freely attemptable without known weakness: each concrete mechanic
+must introduce its own legitimate offer and execution rules. Truthful state
+such as `PACKAGE ACCEPTED` / `REBOOT REQUIRED` may remain visible without
+becoming an instruction to perform one prescribed next attack.
 
 ⸻
 
@@ -1698,11 +1780,11 @@ raise a hacking level.
 
 ⸻
 
-Technique, capability, tool, and effect remain distinct
+Technique, provider, capability, tool, and effect remain distinct
 
 Sections 3 and 4 already separate Capability, Surface, Condition, Technique,
-and Effect. This freeze adds one boundary those sections leave implicit: a
-technique is not permanently owned by one tool.
+Attempt, and Effect. This freeze makes their provider boundary explicit: a
+Technique is not permanently owned by one tool or host product.
 
 Keep distinct:
 
@@ -1716,23 +1798,57 @@ the concrete method an actor can attempt
 CAPABILITY
 whether the actor currently has the represented means to attempt it
 
-TOOL / MODULE / SOFTWARE
-one possible concrete provider of that capability
+PROVIDER
+the concrete represented cause that currently makes the Technique executable
+
+TOOL / ARTIFACT / SOFTWARE / EQUIPMENT
+possible concrete forms a provider may take
 
 EFFECT
 the concrete state transition the attempt causes
 ```
 
-A new weakness does not require a new Flipper module. A new technique may be
-supplied by an existing module, a new module, other installed software, a
-represented condition, or another concrete capability source entirely. Which
-one currently provides it is a fact about the represented world, not a rule
-this design imposes.
+A standalone technique artifact may be its Technique's provider independently
+of Flipper. In the selected product direction, Flipper is not a standalone
+application or offensive host. It is an independently identifiable and
+distributable **NodeScan extension/modification**. NodeScan remains the host
+application and owns reconnaissance plus Target / Network context; represented
+Flipper integration extends NodeScan with a richer offensive execution
+experience in that context and may organize compatible providers and expose
+their Techniques there.
 
-The existing Flipper modules — Credential Access and Rollback — remain valid
-concrete mechanics under this freeze. Nothing here redesigns or invalidates
-them, and nothing here requires giving a future technique a Flipper module
-merely so it has somewhere to live.
+Flipper may retain its own stable identity, releases/versions, publisher and
+provenance, artifacts/packages, acquisition path, and distribution history.
+Independent identity does not imply an independently launchable application.
+The exact eventual state shape for its identity, compatibility, installation,
+or transformed NodeScan build is deferred to the concrete implementation
+slice; this contract does not pretend the current standalone
+`FlipperInstallation` representation has already migrated.
+
+Without Flipper, a standalone provider may still support its Technique through
+a deliberately simple contextual surface where that provider's concrete
+mechanic allows it. Flipper's selected value is a richer NodeScan offensive
+workspace capable of organizing a growing technical arsenal, not making raw
+standalone execution artificially tedious or weaker. Search, filtering,
+grouping, relevant Knowledge, history, configuration, chaining, and workflow
+improvements are plausible future benefits, not Current Truth or promises.
+
+Neither NodeScan nor Flipper defines Techniques or owns weaknesses or
+Capability globally. Neither requires every offensive mechanic to integrate
+with that product. "Module" means a provider compatible with/integrable into a
+particular host product where that term genuinely applies; it does not mean
+"any hacking ability in Synthesis."
+Consequently, a new weakness or Technique does not automatically require a new
+Flipper module. Its provider is selected from the concrete mechanic's actual
+needs and may instead be a standalone artifact, another software product,
+equipment, or another justified represented mechanism.
+
+The current Credential Access and Rollback artifacts remain named Flipper
+modules in `SoftwareModuleFile`, UI, and current-state documentation, and the
+exact supported artifacts remain both standalone providers and Flipper
+integration inputs. That is accurate implementation truth intentionally left
+unchanged by this design-only pass; it is not authority to extend "module" to
+future Techniques.
 
 ⸻
 
@@ -1756,14 +1872,15 @@ capability becomes true
 ```
 
 Depending on the concrete mechanic, that represented cause may be installed
-software, a tool/module, an acquired artifact or file, learned Knowledge,
+software, a tool, an acquired artifact or file, learned Knowledge,
 equipment/hardware, position/reachability, an authority relationship, or
 another represented condition. Section 3 already lists these as the concrete
 sources Capability may emerge from; this freeze commits that they remain the
 only legitimate sources — collection progression does not add a parallel one.
 
 Do not introduce a canonical `CapabilityCollection`, `unlockedTechniques[]`,
-`TechniqueRegistry`, card inventory, or similar domain model that would let a
+`TechniqueRegistry`, `ProviderRegistry`, `ActionDefinition` registry, generic
+`canPerform(action)`, card inventory, or similar domain model that would let a
 technique become available independent of its represented cause.
 
 A future Arsenal, Technique Library, or similar collection presentation may
@@ -1802,9 +1919,12 @@ the kind of pressure that rule exists to resist.
 The intended direction is a small, comprehensible primary interaction grammar
 — SCAN / HACK / CONNECT today — with a growing set of contextually available
 techniques beneath it, reached through the same progressive technical depth
-already described in section 8.5. This document does not freeze exact future
-labels such as HACK, BREACH, MANIPULATE, ARSENAL, or TECHNIQUE LIBRARY; that
-remains presentation work for whichever design contract eventually owns it.
+already described in section 8.5. HACK remains the stable selected contextual
+intent: concrete mechanics relevant to the selected object decide whether
+their own attempts are currently legitimate, and the UI composes those offers
+without becoming their canonical owner. This requires neither a universal
+discovery/registration system nor a new top-level interaction category for a
+Network-relevant Technique such as DEAUTH.
 
 ⸻
 

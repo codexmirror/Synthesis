@@ -26,9 +26,9 @@ GameState
 │       ├── hardware
 │       ├── runtime state
 │       ├── installed software
-│       │   ├── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
-│       │   └── Flipper (`flipper`, release `flipper-1.0`, build `build-flipper-1.0-credential-access`) 1.0 Standard, published by NODE
-│       │       └── integrated modules: Credential Access Module
+│       │   └── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
+│       ├── filesystem
+│       │   └── standalone Credential Access Module artifact
 │       └── saved Dollar sign-in
 ├── dollarFinance
 ├── nodeWallet

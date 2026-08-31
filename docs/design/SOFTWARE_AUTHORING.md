@@ -3,7 +3,9 @@
 Status: Accepted
 Scope: Agent-neutral design contract for adding or changing a represented
 software product, release, package, installation, executable, or its
-player-facing release documentation and presentation.
+player-facing release documentation and presentation; also owns the broader
+design boundary for concrete host-specific software extensions and
+modifications.
 Normative owner of current implemented behavior: `docs/current/FILES_SOFTWARE.md`
 (artifacts, installation, removal, execution) and `docs/current/NODE_ECONOMY.md`
 (represented economic behavior of a release).
@@ -135,6 +137,47 @@ GAMEPLAY BEHAVIOR
 - Whether an operation is willing to admit it from a given path is recognition
   owned by that operation — never a property of the artifact, and never a
   reason to rewrite or reclassify it.
+
+### Software extension and modification direction
+
+A represented artifact may concretely extend or modify installed software when
+the added behavior product-logically belongs to that host product. The result
+must be explicit represented software, build, or configuration state written by
+a concrete mechanic. Behavior is read from that represented state; a different
+`buildId` remains provenance and never becomes a magical behavior switch.
+
+An extension or modification may have stable identity, its own release/version
+lineage, publisher/provenance, package or artifact, acquisition, and
+distribution while still requiring its host. Independent identity therefore
+does not imply independent application identity or launchability. A future
+modified or cracked derivative may preserve meaningful original
+product/release/build lineage rather than becoming an unrelated universal app
+kind, but its exact identity and transformation rules belong to the concrete
+mechanic that eventually represents it.
+
+Flipper is the first selected design proof: it is to become an independently
+identifiable NodeScan extension/modification that enriches NodeScan's contextual
+offensive experience. This differs from Current Truth, where Flipper is its own
+InstalledSoftware and executable and module integration transforms Flipper's
+explicit build and `integratedModules`. The current implementation remains an
+important transformation precedent, but it does not determine the future
+extension state shape, compatibility rule, installation path, or transformed
+NodeScan build.
+
+This direction can accommodate separately designed official or unofficial
+extensions, altered derivatives, host-specific additions, and much later
+player-created software. It does not make any of those Current Truth and does
+not authorize `CrackedApp`, `ModdedSoftware`, `Extension`, or `Plugin` as a
+universal runtime category; a registry, manifest system, Extension API, generic
+host/plugin protocol, embedded-app renderer, software-transformation engine, or
+modding framework; or automatic reuse of Flipper's eventual mechanic by another
+product. Different products may expose different concrete modification
+mechanics when repeated implementation justifies them.
+
+Host extension is appropriate only where the behavior belongs to that host.
+Independent products remain valid and necessary. NodeScan owns reconnaissance
+and Target / Network context; it does not own offensive Techniques, become the
+operating system, or become a universal host for unrelated software.
 
 ### Installed software
 
@@ -270,10 +313,15 @@ Before adding or changing a represented product or release:
     the game actually represents, without leaking hidden truth?
 13. Which surfaces present it, and does each follow the level 1/2/3 hierarchy?
 14. Which current-truth owner must be updated in the same branch?
+15. If this is a host-specific extension or modification, what explicit state
+    carries the changed behavior, why does the behavior belong to that host,
+    and which identity/compatibility/transformation details are actually
+    required by this concrete mechanic?
 
 Do not build a SoftwareRegistry, capability engine, payout-policy framework, or
-generic software-inventory framework to support this contract (A16). Concrete
-products and releases come first.
+generic software-inventory, extension, plugin, transformation, or modding
+framework to support this contract (A16). Concrete products, releases, and
+mechanics come first.
 
 ## Terminal integration precedent
 

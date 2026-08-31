@@ -5,8 +5,8 @@ Scope: Design authority for the first planned offensive network-disruption
 effect ("DEAUTH") and the srv-02 multi-step composition it is intended to
 prove. Defines DEAUTH's own effect narrowly, and how it relates to the
 already Accepted `RACKUPDATE_PENDING_ACTIVATION_V1.md` boot-activation
-boundary. DEAUTH itself — the player-facing offensive technique, its
-tool/software source, acquisition/progression, cost, UI action, and success
+boundary. DEAUTH itself — the player-facing offensive Technique, its concrete
+provider, acquisition/progression, requirements, cost, UI wiring, and success
 model — remains unimplemented direction only. The neutral Network
 connectivity-interruption primitive, the Device lifecycle/connectivity
 model, and the concrete Petra's Phone / srv-02 recovery precedent this
@@ -77,9 +77,11 @@ world than just my target" moment
 (`HACKING_AND_OBSERVATION_V1.md` section 16).
 
 This contract does not select which represented Network-scoped state DEAUTH
-mutates, how many Devices observe it, or the resource cost and elapsed work
-of the attempt. Those remain concrete implementation decisions for a later
-slice.
+mutates, how many Devices observe it, or the provider, acquisition,
+requirements, resource cost, elapsed work, success model, and contextual HACK
+UI wiring of the attempt. Those remain concrete implementation decisions for
+a later slice. The missing provider does not make DEAUTH a special "Network
+module" and does not imply that Flipper must own it.
 
 
 ## The srv-02 precedent
@@ -233,7 +235,7 @@ This contract does not authorize:
 
 - an exact reconnect timeline, reconnect phases, or their UI copy;
 - a RACK-OS watchdog or reboot-trigger implementation;
-- selecting the exact software/tool that supplies DEAUTH, unless a future
+- selecting the concrete provider that supplies DEAUTH, unless a future
   concrete mechanic requires one;
 - a third Flipper module created merely to give DEAUTH somewhere to live
   (`HACKING_AND_OBSERVATION_V1.md` section 14);
@@ -251,10 +253,11 @@ requires them.
 
 ## Deferred
 
-Everything needed to actually implement DEAUTH itself — which represented
-cause performs the Network-scoped connectivity mutation, resource cost,
-elapsed work, and the concrete offensive technique or tool — remains
-unimplemented and outside this contract. The neutral connectivity-mutation
+Everything needed to actually implement DEAUTH itself — its concrete provider
+and acquisition, requirements, resource cost, elapsed work, success model,
+contextual HACK UI wiring, and the exact represented cause that performs the
+Network-scoped connectivity mutation — remains unimplemented and outside this
+contract. The neutral connectivity-mutation
 operation it would call
 (`interruptLocalNetworkConnectivity`, `docs/current/DEVICE_SYSTEM.md`) and
 the concrete Device/RACK-OS reaction it would trigger (Petra's Phone
