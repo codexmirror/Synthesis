@@ -41,13 +41,12 @@ Both interfaces invoke the same shared Scan gameplay/application operation.
 
 Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, pasting, or locally validating it is presentation state only. A positive PING remembers only stable Device identity and the observed address; it observes no name, Firmware, Services, vulnerabilities, Network membership, or topology. Invalid input is rejected before observation, no response creates no Discovery, and PING creates no Process. A foreign Device learned this way appears under ELSEWHERE as NOT SCANNED.
 
-NodeScan is presented as KNOWN SPACE plus two routes off it, with one guided
-next action at a time. KNOWN SPACE presents the shape of the player's network
-space; a target card is one target's whole line of action; a managed Network's
-administration detail is the other route. The guided actions preserve the
-separate canonical operations: SCAN observes Services, ANALYZE may start
-independent analyses for the observed Services, BYPASS uses a supported
-remembered route, and CONNECT operates established Access. Manual INSPECT is
+NodeScan is presented as KNOWN SPACE plus two routes off it. KNOWN SPACE
+presents the shape of the player's network space; a target card owns selected
+Target context; a managed Network's administration detail is the other route.
+SCAN observes Services, ANALYZE may start independent analyses for the
+observed Services, the target's ACTIONS surface executes concrete owned
+Techniques, and CONNECT operates established Access. Manual INSPECT is
 deliberately not one of those stages; it is optional depth (see below). Known
 Space and the target card are built from a view model derived from remembered
 Discovery, Knowledge, the player's own Processes, the player's own installed
@@ -102,44 +101,46 @@ name; from then on the remembered name leads and the address supports it.
 Scan and PING never observe a name, and no presentation code resolves one from
 World Truth.
 
-The target card states one stage at a time and normally offers one primary
-action for it. Its derived progression distinguishes NOT SCANNED, SERVICES
-FOUND / ANALYZE available, ANALYZING,
-NO WAY IN FOUND, `n` WAY(S) IN FOUND, BYPASS work in progress, RackUpdate's
-distinct ATTACK and package-submission stages, ACCESS GRANTED, and CONNECTED.
+The target card retains concise reconnaissance, running-work, established
+Access, package-submission and connection states, but no longer converts known
+weaknesses into a prescribed WAY IN / BYPASS / ATTACK button. Its ACTIONS
+surface separately lists the offensive Techniques for which SELF owns a
+supported provider. The Technique name is primary and the concrete provider
+path or integrated provider name is visible provenance. Credential Access and
+Rollback are the two concrete entries; there is no module dropdown, ranking,
+recommendation, compatibility score, or hidden target-truth filtering. If
+neither provider is owned, ACTIONS states that no offensive Techniques are
+available.
+
 Manual Inspect is deliberately absent from that progression: it is optional
 depth under TECHNICAL INTELLIGENCE, not a step the ordinary SCAN → HACK →
 CONNECT line passes through, so installing NodeScan 1.1 Experimental never
 displaces a route the player has learned or a relationship they already hold.
-NO WAY IN FOUND is shown only after every currently observed Service has either
-weakness Knowledge or a current completed `no_weakness_detected` result and no
-other legitimate continuation exists; `service_unavailable` is inconclusive
-and remains retryable. An absence of Knowledge immediately after Scan is not a
-negative conclusion. A live Remote Session remains the highest-priority truth,
-and represented running work remains visible.
+`service_unavailable` analysis remains inconclusive and retryable. An absence
+of Knowledge immediately after Scan is not a negative conclusion. A live
+Remote Session remains the highest-priority truth, and represented running work
+remains visible.
 
 
-A way in is derived from the player's own Knowledge of a weakness on a
-remembered Service together with a concrete owned tool that supports that
-weakness, and not from any current target truth. The initial standalone
+A concrete attempt context is derived from the player's own Knowledge of a
+weakness on a remembered Service together with a concrete owned provider, and
+not from any current target truth. The initial standalone
 Credential Access Module supports `AUTH-017` directly; a later installed
 Flipper build supports it after integrating that same module. Without either
-concrete source no way in is formed, the Knowledge that produced it is
+concrete source no action is formed, the Knowledge that produced it is
 untouched, and the started attempt still carries its `toolId`, `moduleId` and
 `vulnerabilityId`. The canonical resolver selects the actual local source —
 preferring an integrated Flipper build when it supports the technique and
 otherwise using the exact standalone module — and NodeScan names that source
-and module without moving capability selection into presentation. A way in never predicts success; stale Player Information can
+and module without moving capability selection into presentation. Availability never predicts success; stale Player Information can
 still produce a legitimately failed attempt, which is reported coarsely while
 the same route stays available.
 
 TECHNICAL INTELLIGENCE is one disclosure on the target card carrying the
 copyable address, remembered Inspect evidence (including the observed display
 NAME where one was observed) and its capability note, the manual INSPECT
-action, the provenance
-of established Access, the explanation of each way in (method, tool, service,
-remembered software fingerprint, weakness label and identity), the remembered
-Services with their endpoints, fingerprints, weaknesses and per-Service
+action, the provenance of established Access, and the remembered Services with
+their endpoints, fingerprints, weaknesses and per-Service
 Analyze action, and RackUpdate's package-submission lifecycle. Opening it
 browses remembered information: it performs no observation and starts no
 gameplay. Unobserved depth is stated explicitly there and never rendered as an
@@ -154,14 +155,10 @@ occupying the target's primary decision.
 
 RackUpdate's package-submission lifecycle is projected when remembered
 Enhanced Inspect evidence includes its package-submission interface and earned
-`UPD-001` Knowledge explains it. Its technical facts remain in RECON
-INTELLIGENCE, while its actionable ATTACK, running work, and submission-ready
-continuation participate in the primary decision. Before the narrow submission capability exists,
-it states an ATTACK opportunity exactly like a credential way in: it names the
-weakness, the supporting tool and module, and offers ATTACK only
-where either the exact standalone Rollback Module is owned or the installed
-Flipper build integrates it; without either source it states that no tool currently supports the
-weakness. ATTACK starts a real
+`UPD-001` Knowledge explains it. Its technical facts remain in TECHNICAL
+INTELLIGENCE, while Rollback is a separately named ACTION when its exact
+standalone provider is owned or the current installed Flipper build integrates
+it. EXECUTE starts the existing real
 finite `rack_update_exploit` Process (see Service Analysis / Credential Access
 above for the shared Process model) and shows its own progress while running.
 Once that Process completes successfully, RackUpdate grants the player's local
@@ -179,7 +176,7 @@ it reports `None`. It does not reveal a hidden package, path, source Device,
 or prescribed next observation.
 
 This projection reads no hidden target World Truth to label the opportunity,
-predict success, refresh a fingerprint, or expose a way in: ATTACK opportunity,
+predict success or refresh a fingerprint: Rollback execution context,
 progress, and the narrow submission capability are all derived from the
 player's own Knowledge, installed software, Process, and `RackUpdateSubmissionAccess`
 state alone.
@@ -446,8 +443,10 @@ player may initiate a credential attempt through:
 attack <ipv4:port>
 ```
 
-or through NodeScan's HACK action, which uses the way in derived from the
-player's own Knowledge and installed tool. The initial local Device carries the standalone module artifact, so the first `AUTH-017` opportunity needs no Flipper acquisition or integration step.
+or through NodeScan's Credential Access ACTION, which uses the concrete context
+derived from the player's own Knowledge and owned provider. The initial local
+Device carries the standalone module artifact, so the first `AUTH-017`
+opportunity needs no Flipper acquisition or integration step.
 
 Starting the attempt creates a Credential Access Process.
 

@@ -13,6 +13,7 @@ import {
   type NodeScanRelease,
   type PlayerInformation,
   type Target,
+  type TargetOffensiveAction,
   type TargetRoute,
   type TargetService,
   type TargetStage,
@@ -37,9 +38,8 @@ import {
  * - A managed Network opens its administration detail, drawn from the local
  *   Device's explicit `NetworkManagementAuthority`. That authority states the
  *   Network's own canonical facts and never its members' identities.
- * - A target opens its card: one target's whole line of action — SCAN,
- *   ANALYZE, BYPASS, then CONNECT — stating one thing at a time, because at
- *   any moment there is one thing the player is waiting on or deciding.
+ * - A target opens its card. Reconnaissance and connection state stay concise,
+ *   while ACTIONS lets the player choose among concrete owned Techniques.
  *
  * INSPECT is not a stage in that line. It is optional depth under TECHNICAL
  * INTELLIGENCE, where it also pays off visibly: a target the player has only
@@ -62,10 +62,10 @@ const STAGE_MARK: Record<TargetStage, string> = {
   unscanned: 'NOT SCANNED',
   analysis_ready: 'SERVICES FOUND',
   analyzing: 'ANALYZING',
-  no_route: 'NO WAY IN',
-  route: 'WAY IN FOUND',
+  no_route: 'OBSERVED',
+  route: 'ACTIONS AVAILABLE',
   hacking: 'HACKING',
-  attack: 'ATTACK PATH FOUND',
+  attack: 'ACTIONS AVAILABLE',
   attacking: 'ATTACKING',
   submission_ready: 'SUBMISSION READY',
   submitting: 'SUBMITTING',
@@ -312,14 +312,15 @@ export function Network() {
         onBack={() => open({ kind: 'targets' })}
         onScan={() => scan(target)}
         onInspect={() => inspect(target)}
-        onHack={(route) => hack(route, target.id)}
+        onExecuteAction={(action) => action.technique === 'Credential Access'
+          ? action.route && hack(action.route as TargetRoute, target.id)
+          : action.route && attackPackageSubmission(target)}
         onConnect={() => connect(target)}
         onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
         onAnalyze={(service) => analyze(target, service)}
         onAnalyzeAll={() => analyzeAll(target)}
         onCopy={copy}
         onSelectPackage={setSelectedPackageId}
-        onAttackPackageSubmission={() => attackPackageSubmission(target)}
         onSubmitPackage={() => submitPackage(target)}
       />
     </section>
@@ -567,11 +568,8 @@ function ActivityRow({ record }: { record: ManagedNetworkActivityRecordView }) {
   </div>
 }
 
-/**
- * One target, one decision. The stage panel states where this target's line of
- * action currently is and offers the single action that continues it.
- */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onHack, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onAttackPackageSubmission, onSubmitPackage }: {
+/** One target context, with status, player-chosen offensive ACTIONS, and depth. */
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -581,17 +579,15 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   onBack(): void
   onScan(): void
   onInspect(): void
-  onHack(route: TargetRoute): void
+  onExecuteAction(action: TargetOffensiveAction): void
   onConnect(): void
   onDisconnect(): void
   onAnalyze(service: TargetService): void
   onAnalyzeAll(): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
-  onAttackPackageSubmission(): void
   onSubmitPackage(): void
 }) {
-  const routes = target.routes.length
   return <div className="ns-view">
     <nav className="scan-crumbs" aria-label="NodeScan navigation">
       <button type="button" onClick={onBack}>← Known Space</button>
@@ -624,15 +620,14 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       </>}
 
       {target.stage === 'no_route' && <>
-        <strong className="ns-stage-headline">NO WAY IN FOUND</strong>
-        <span className="ns-stage-note">Nothing you currently know opens this target.</span>
+        <strong className="ns-stage-headline">OBSERVATION COMPLETE</strong>
+        <span className="ns-stage-note">Review technical intelligence or attempt an available Technique.</span>
         <Primary label="SCAN AGAIN" disabled={pending} onClick={onScan} />
       </>}
 
       {target.stage === 'route' && <>
-        <strong className="ns-stage-headline">{routes} WAY{routes === 1 ? '' : 'S'} IN FOUND</strong>
-        {target.lastAttemptFailed && <span className="ns-stage-note">The last attempt failed.</span>}
-        <Primary label={target.lastAttemptFailed ? 'BYPASS AGAIN' : 'BYPASS'} onClick={() => onHack(target.routes[0])} />
+        <strong className="ns-stage-headline">TARGET OBSERVED</strong>
+        <span className="ns-stage-note">Choose an available Technique below.</span>
       </>}
 
       {target.stage === 'hacking' && <>
@@ -641,9 +636,8 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       </>}
 
       {target.stage === 'attack' && <>
-        <strong className="ns-stage-headline">ATTACK PATH FOUND</strong>
-        <span className="ns-stage-note">RackUpdate can be exploited through the known weakness.</span>
-        <Primary label="ATTACK" onClick={onAttackPackageSubmission} />
+        <strong className="ns-stage-headline">TARGET OBSERVED</strong>
+        <span className="ns-stage-note">Choose an available Technique below.</span>
       </>}
 
       {target.stage === 'attacking' && <>
@@ -680,6 +674,20 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
     </section>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
+    <section className="ns-actions" aria-labelledby="nodescan-actions-heading">
+      <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
+      {target.offensiveActions.length === 0
+        ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
+        : <div className="ns-action-list">{target.offensiveActions.map((action) => {
+          const executable = Boolean(action.route)
+          return <article className="ns-action" key={action.technique}>
+            <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
+            <button type="button" className="node-action" aria-label={`Execute ${action.technique}`} disabled={!executable} onClick={() => onExecuteAction(action)}>EXECUTE</button>
+            {!executable && <p className="ns-quiet-note">No observed execution context is available.</p>}
+          </article>
+        })}</div>}
+    </section>
+
     <details className="ns-details">
       <summary>
         <span>TECHNICAL INTELLIGENCE</span>
@@ -698,7 +706,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         onAnalyze={onAnalyze}
         onCopy={onCopy}
         onSelectPackage={onSelectPackage}
-        onAttackPackageSubmission={onAttackPackageSubmission}
         onSubmitPackage={onSubmitPackage}
       />
     </details>
@@ -730,7 +737,7 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
  * information and their own represented resources; none of it is a new
  * observation, and none of it reads current target truth.
  */
-function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onAttackPackageSubmission, onSubmitPackage }: {
+function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   copyState: CopyState
@@ -739,7 +746,6 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
   onAnalyze(service: TargetService): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
-  onAttackPackageSubmission(): void
   onSubmitPackage(): void
 }) {
   return <div className="ns-detail-panel">
@@ -779,19 +785,6 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
       </dl>
     </>}
 
-    {target.routes.length > 0 && <>
-      <div className="node-section"><span>WAYS IN</span><span>{target.routes.length}</span></div>
-      <div className="ns-routes">{target.routes.map((route) => <article className="ns-route" key={`${route.serviceId}-${route.vulnerabilityId}`}>
-        <dl className="node-facts">
-          <div><dt>METHOD</dt><dd>Credential attack</dd></div>
-          <div><dt>TOOL</dt><dd>{route.moduleName ? `${route.toolName} · ${route.moduleName}` : route.toolName}</dd></div>
-          <div><dt>SERVICE</dt><dd>{route.serviceName}</dd></div>
-          {route.implementation && <div><dt>SOFTWARE</dt><dd>{route.implementation}</dd></div>}
-          <div><dt>WEAKNESS</dt><dd>{route.vulnerabilityLabel} · {route.vulnerabilityId}</dd></div>
-        </dl>
-      </article>)}</div>
-    </>}
-
     <div className="node-section"><span>SERVICES</span><span>{target.servicesObserved ? `${target.services.length} known` : 'Not observed'}</span></div>
     {!target.servicesObserved
       ? <div className="node-empty"><strong>SERVICES NOT OBSERVED</strong><span>This target has never been scanned.</span></div>
@@ -828,15 +821,7 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
       <div className="ns-package-submission">
         <p className="ns-quiet-note">{target.packageSubmission.serviceName} accepts submitted packages and does not enforce rollback protection.</p>
 
-        {!target.packageSubmission.enabled && target.packageSubmission.route && !target.packageSubmission.attacking && <>
-          <dl className="node-facts">
-            <div><dt>METHOD</dt><dd>Rollback exploit</dd></div>
-            <div><dt>TOOL</dt><dd>{target.packageSubmission.route.moduleName ? `${target.packageSubmission.route.toolName} · ${target.packageSubmission.route.moduleName}` : target.packageSubmission.route.toolName}</dd></div>
-            <div><dt>WEAKNESS</dt><dd>{target.packageSubmission.route.vulnerabilityLabel} · {target.packageSubmission.route.vulnerabilityId}</dd></div>
-          </dl>
-          {target.packageSubmission.lastAttackFailed && <p className="ns-quiet-note">The last attack failed.</p>}
-          {target.stage !== 'attack' && <button type="button" className="node-action" onClick={onAttackPackageSubmission}>{target.packageSubmission.lastAttackFailed ? 'ATTACK AGAIN' : 'ATTACK'}</button>}
-        </>}
+        {!target.packageSubmission.enabled && target.packageSubmission.lastAttackFailed && <p className="ns-quiet-note">The last Rollback attempt failed.</p>}
 
         {target.packageSubmission.attacking && target.stage !== 'attacking' && <Progress percent={target.packageSubmission.attackPercent ?? 0} label="Attack progress" />}
 

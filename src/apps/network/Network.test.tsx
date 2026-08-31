@@ -119,7 +119,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 /* ------------------------------------------------------------- the loop */
 
 describe('NodeScan first hack', () => {
-  it('walks explicit SCAN and guided ANALYZE before BYPASS and CONNECT', async () => {
+  it('walks explicit SCAN and ANALYZE before choosing Credential Access and CONNECT', async () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
 
@@ -143,9 +143,9 @@ describe('NodeScan first hack', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ANALYZE' }))
     expect(currentState().process.processes).toHaveLength(2)
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
 
-    fireEvent.click(screen.getByRole('button', { name: 'BYPASS' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access' }))
     expect(screen.getByLabelText('Target status')).toHaveTextContent('HACKING')
     expect(screen.getByRole('group', { name: 'Hack progress' })).toBeInTheDocument()
 
@@ -162,7 +162,7 @@ describe('NodeScan first hack', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={knownWeakness()}><Network /><StateSnapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    fireEvent.click(screen.getByRole('button', { name: 'BYPASS' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
 
     const afterHack = currentState()
@@ -215,15 +215,18 @@ describe('NodeScan first hack', () => {
     expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-ssh-001' })])
   })
 
-  it('offers the hack without asking the player to read a weakness identity or pick a tool', async () => {
+  it('names the Technique before its concrete provider and delegates execution', async () => {
     const user = await openTarget(knownWeakness())
     const status = screen.getByLabelText('Target status')
-    expect(status).toHaveTextContent('1 WAY IN FOUND')
+    expect(status).toHaveTextContent('TARGET OBSERVED')
     expect(status.textContent).not.toContain('AUTH-017')
     expect(status.textContent).not.toContain('Flipper')
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'BYPASS' }))
+    const actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('CREDENTIAL ACCESS')
+    expect(actions).toHaveTextContent('/home/user/modules/credential-access-1.0.mod')
+    await user.click(screen.getByRole('button', { name: 'Execute Credential Access' }))
     // The tool and the technique are still real: the started attempt carries both.
     expect(currentState().process.processes).toEqual([expect.objectContaining({
       kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'credential-access-module', moduleId: 'credential-access', status: 'running',
@@ -234,6 +237,13 @@ describe('NodeScan first hack', () => {
 /* -------------------------------------------------- information boundary */
 
 describe('NodeScan information boundary', () => {
+  it('shows an intentional empty ACTIONS state when no supported provider is owned', async () => {
+    await openTarget(withoutSoftware(scannedTarget(), 'flipper'))
+    const actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('NO OFFENSIVE TECHNIQUES AVAILABLE')
+    expect(within(actions).queryByRole('button')).not.toBeInTheDocument()
+  })
+
   it('builds every target view from player information alone', () => {
     const known = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
     const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
@@ -290,13 +300,14 @@ describe('NodeScan information boundary', () => {
 
     const user = await openTarget(upgraded)
     const status = screen.getByLabelText('Target status')
-    expect(within(status).getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
+    expect(within(status).queryByRole('button', { name: 'BYPASS' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access' })).toBeInTheDocument()
     expect(within(status).queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
 
     await openDetails(user)
     await user.click(screen.getByRole('button', { name: 'INSPECT' }))
     expect(selectTarget(currentState(), SRV_01)?.stage).toBe('route')
-    expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access' })).toBeInTheDocument()
   })
 
   it('treats service-unavailable analysis as inconclusive and offers a canonical retry', async () => {
@@ -328,11 +339,11 @@ describe('NodeScan information boundary', () => {
 
   it('withdraws the hack from the interface when the represented tool is gone', async () => {
     await openTarget(knownWeakness())
-    expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access' })).toBeInTheDocument()
     cleanup()
 
     await openTarget(withoutSoftware(knownWeakness(), 'flipper'))
-    expect(screen.queryByRole('button', { name: 'BYPASS' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Execute Credential Access' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
   })
 
@@ -402,9 +413,8 @@ describe('NodeScan progress', () => {
     const failed = withProcesses(knownWeakness(), [{ ...credentialProcess(1200), status: 'completed', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } }])
     await openTarget(failed)
     const status = screen.getByLabelText('Target status')
-    expect(status).toHaveTextContent('1 WAY IN FOUND')
-    expect(status).toHaveTextContent('The last attempt failed.')
-    expect(screen.getByRole('button', { name: 'BYPASS AGAIN' })).toBeInTheDocument()
+    expect(status).toHaveTextContent('TARGET OBSERVED')
+    expect(screen.getByRole('button', { name: 'Execute Credential Access' })).toBeInTheDocument()
   })
 })
 
@@ -439,15 +449,15 @@ describe('NodeScan technical details', () => {
     expect(observed?.services.find(({ id }) => id === 'service-ssh-001')?.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
   })
 
-  it('explains the route from player information and represented software', async () => {
+  it('keeps technical intelligence separate from the action provenance', async () => {
     const user = await openTarget(withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState())))))
     await openDetails(user)
 
-    const details = screen.getByText('WAYS IN').closest('.ns-detail-panel')!
-    expect(details).toHaveTextContent('Credential attack')
-    expect(details).toHaveTextContent('Standalone Module · Credential Access Module')
+    const details = screen.getByText('SERVICES').closest('.ns-detail-panel')!
+    expect(details).not.toHaveTextContent('Standalone Module')
     expect(details).toHaveTextContent('GateSSH 1.3.2')
-    expect(details).toHaveTextContent('Weak authentication configuration · AUTH-017')
+    expect(details).toHaveTextContent('Weak authentication configuration')
+    expect(details).toHaveTextContent('AUTH-017')
   })
 
   it('keeps single-Service investigation available as advanced depth', async () => {
@@ -535,7 +545,28 @@ describe('RackUpdate exploit and package submission', () => {
     }
   }
 
-  it('presents the attack path as primary guidance without calling it Device access', async () => {
+  it('shows Rollback alone when that is the only exact supported provider owned', async () => {
+    const state = srv02()
+    const rollbackOnly = {
+      ...state,
+      player: { ...state.player, localDevice: {
+        ...state.player.localDevice,
+        installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'),
+        filesystem: { ...state.player.localDevice.filesystem, files: [
+          ...state.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module'),
+          { kind: 'software_module' as const, id: 'rollback-only', path: '/home/user/modules/rollback_1.0.mod', ...ROLLBACK_MODULE_1_0 },
+        ] },
+      } },
+    }
+    render(<GameProvider initialState={rollbackOnly}><Network /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Open target 203.0.113.42' }))
+    const actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('ROLLBACK')
+    expect(actions).toHaveTextContent('/home/user/modules/rollback_1.0.mod')
+    expect(actions).not.toHaveTextContent('CREDENTIAL ACCESS')
+  })
+
+  it('presents owned Techniques without recommending one or calling Rollback Device access', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
@@ -543,11 +574,14 @@ describe('RackUpdate exploit and package submission', () => {
     const view = screen.getByLabelText('NodeScan')
     const details = view.querySelector('details')!
     expect(details).not.toHaveAttribute('open')
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('ATTACK PATH FOUND')
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
     expect(screen.getByLabelText('Target status')).not.toHaveTextContent('ACCESS')
-    expect(view.textContent!.replace(details.textContent!, '')).toContain('RackUpdate')
+    const actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('CREDENTIAL ACCESS')
+    expect(actions).toHaveTextContent('ROLLBACK')
+    expect(actions).not.toHaveTextContent(/RECOMMENDED|BEST OPTION/)
     await user.click(screen.getByText('TECHNICAL INTELLIGENCE'))
-    expect(screen.getByRole('button', { name: 'ATTACK' }).closest('details')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Execute Rollback' }).closest('details')).toBeNull()
   })
 
   it('does not offer the avenue before UPD-001 is earned', async () => {
@@ -569,7 +603,7 @@ describe('RackUpdate exploit and package submission', () => {
     await openDetails(user)
 
     expect(screen.getByText(/does not enforce rollback protection/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'ATTACK' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Execute Rollback' })).not.toBeInTheDocument()
     expect(screen.getByText('No installed tool currently supports this weakness.')).toBeInTheDocument()
   })
 
@@ -577,10 +611,8 @@ describe('RackUpdate exploit and package submission', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: `Open target 203.0.113.42` }))
-    fireEvent.click(screen.getByText('TECHNICAL INTELLIGENCE'))
-
-    // ATTACK grants only the narrow submission capability: finite work, no immediate consequence.
-    fireEvent.click(screen.getByRole('button', { name: 'ATTACK' }))
+    // Rollback grants only the narrow submission capability: finite work, no immediate consequence.
+    fireEvent.click(screen.getByRole('button', { name: 'Execute Rollback' }))
     expect(screen.getByRole('group', { name: 'Attack progress' })).toBeInTheDocument()
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ATTACKING RACKUPDATE')
     expect(currentState().rackUpdate.access.established).toEqual([])
@@ -848,8 +880,8 @@ describe('Known Space topology', () => {
     await user.click(within(screen.getByRole('region', { name: 'Network home-net' })).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
 
     // One tap, straight to the decision: no Network page and no Device page between.
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('1 WAY IN FOUND')
-    expect(screen.getByRole('button', { name: 'BYPASS' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'ACTIONS' })).toHaveTextContent('CREDENTIAL ACCESS')
+    expect(screen.getByRole('button', { name: 'Execute Credential Access' })).toBeInTheDocument()
   })
 
   it('observes nothing by presenting topology', async () => {
@@ -891,7 +923,7 @@ describe('Known Space topology', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
 
     expect(currentState().knowledge.discoveredVulnerabilities).toEqual([expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: SRV_01 })])
-    expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('WAY IN FOUND')
+    expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('ACTIONS AVAILABLE')
   })
 })
 

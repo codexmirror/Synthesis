@@ -1,5 +1,5 @@
 import { findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
-import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper, findLocalTechniqueTool, flipperSupportsTechnique } from '../../core/game/flipper'
+import { CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
   CredentialAccessProcess,
   GameState,
@@ -226,6 +226,8 @@ export interface Target extends TargetSummary {
   /** Canonical progress of the work the current stage is waiting on, 0 when nothing runs. */
   readonly percent: number
   readonly routes: readonly TargetRoute[]
+  /** Concrete owned providers, projected independently of target weaknesses. */
+  readonly offensiveActions: readonly TargetOffensiveAction[]
   readonly lastAttemptFailed: boolean
   readonly observed?: {
     readonly deviceKind: 'device' | 'server'
@@ -241,6 +243,12 @@ export interface Target extends TargetSummary {
    * Player Information justifies it. It remains distinct from Device access.
    */
   readonly packageSubmission?: PackageSubmission
+}
+
+export interface TargetOffensiveAction {
+  readonly technique: 'Credential Access' | 'Rollback'
+  readonly provider: string
+  readonly route?: TargetRoute | PackageSubmissionRoute
 }
 
 function percentOf(process: { workCompleted: number; workRequired: number }): number {
@@ -470,6 +478,19 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     .reverse()
     .find((process) => process.targetDeviceId === device.id && process.status === 'completed' && process.result)?.result
   const packageSubmission = selectPackageSubmission(information, device.id, exploits, services)?.packageSubmission
+  const localArtifacts = findLocalFlipperModuleArtifacts(information.player.localDevice).filter(isSupportedFlipperModuleArtifact)
+  const providerFor = (moduleId: 'credential-access' | 'rollback', artifactName: string) => {
+    if (flipper?.integratedModules.includes(moduleId)) return `${flipper.name} · ${artifactName}`
+    const artifact = localArtifacts.find((file) => file.moduleId === moduleId)
+    return artifact?.path
+  }
+  const credentialProvider = providerFor('credential-access', CREDENTIAL_ACCESS_MODULE_1_0.name)
+  const rollbackProvider = providerFor('rollback', ROLLBACK_MODULE_1_0.name)
+  const credentialRoute = routes.find(({ vulnerabilityId }) => vulnerabilityId === 'AUTH-017')
+  const offensiveActions: TargetOffensiveAction[] = [
+    ...(credentialProvider ? [{ technique: 'Credential Access' as const, provider: credentialProvider, ...(credentialRoute ? { route: credentialRoute } : {}) }] : []),
+    ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
+  ]
   const stage = stageOf({
     connected: Boolean(activeAccess && information.remoteSession.active),
     hasAccess: Boolean(passive),
@@ -491,6 +512,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     ...(device.inspect?.displayName ? { displayName: device.inspect.displayName } : {}),
     percent: stage === 'hacking' ? runningPercent(hacking) : stage === 'analyzing' ? runningPercent(analyzing) : stage === 'attacking' ? packageSubmission?.attackPercent ?? 0 : stage === 'submitting' ? packageSubmission?.submitPercent ?? 0 : 0,
     routes,
+    offensiveActions,
     lastAttemptFailed: lastAttempt?.status === 'attempt_failed',
     ...(device.inspect
       ? {
