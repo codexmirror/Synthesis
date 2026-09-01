@@ -1,5 +1,5 @@
 import './network.css'
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { isValidIpv4 } from '../../core/game/networkTarget'
 import { formatBytes, formatTransferRate } from '../byteFormat'
@@ -57,6 +57,24 @@ type Focus =
   | { readonly kind: 'network'; readonly networkId: string }
 
 type CopyState = { value: string; status: 'copied' | 'failed' } | null
+
+/**
+ * The stages that describe work currently running: the word this interface
+ * marks each one with, and the canonical-progress label it has always
+ * carried. Known Space and the target card read the same words, so a running
+ * target never reads as one thing in the tree and another on its card.
+ */
+const RUNNING_STAGE = {
+  analyzing: { status: 'ANALYZING', progressLabel: 'Analysis progress' },
+  hacking: { status: 'HACKING', progressLabel: 'Hack progress' },
+  attacking: { status: 'ATTACKING RACKUPDATE', progressLabel: 'Attack progress' },
+  submitting: { status: 'SUBMITTING PACKAGE', progressLabel: 'Submission progress' },
+} as const satisfies Partial<Record<TargetStage, { status: string; progressLabel: string }>>
+
+function isRunning(stage: TargetStage): boolean { return stage in RUNNING_STAGE }
+
+/** How long a stage that just resolved out of running work stays marked, before the card settles. */
+const STAGE_RESOLVE_MS = 900
 
 const STAGE_MARK: Record<TargetStage, string> = {
   unscanned: 'NOT SCANNED',
@@ -258,7 +276,9 @@ export function Network() {
     const packageSubmission = target.packageSubmission
     if (!packageSubmission) return
     const result = actions.startRackUpdatePackageSubmission({ targetDeviceId: target.id, serviceId: packageSubmission.serviceId, endpoint: packageSubmission.endpoint, localFileId: selectedPackageId })
-    setNotice(result.status === 'started' ? 'SUBMISSION STARTED'
+    // The submission's own running surface states that it is underway; a
+    // one-shot notice here would go stale the moment that surface moves on.
+    setNotice(result.status === 'started' ? null
       : result.status === 'observation_required' ? 'OBSERVATION REQUIRED'
         : result.status === 'access_required' ? 'ATTACK RACKUPDATE FIRST'
           : result.status === 'package_unavailable' ? 'PACKAGE UNAVAILABLE'
@@ -362,6 +382,8 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   onOpenNetwork(networkId: string): void
 }) {
   const selfPlaced = space.networks.some(({ includesSelf }) => includesSelf)
+  const allTargetIds = [...space.networks.flatMap(({ targets }) => targets.map(({ id }) => id)), ...space.elsewhere.map(({ id }) => id)]
+  const arrivedIds = useNewlyArrivedIds(allTargetIds)
   return <div className="ns-view">
     <header className="ns-masthead">
       <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
@@ -400,6 +422,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
         key={network.id}
         network={network}
         selfAddress={space.self.address}
+        arrivedIds={arrivedIds}
         expanded={!closedNetworkIds.includes(network.id)}
         onToggle={() => onToggleNetwork(network.id)}
         onOpen={onOpen}
@@ -412,6 +435,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
           key={target.id}
           target={target}
           showLocation
+          arrived={arrivedIds.has(target.id)}
           onOpen={onOpen}
         />)}</div>
       </section>}
@@ -433,9 +457,10 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
  * its administration; a Network merely observed carries no such control,
  * because observing a Network is not authority over it.
  */
-function NetworkBranch({ network, selfAddress, expanded, onToggle, onOpen, onOpenNetwork }: {
+function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, onOpen, onOpenNetwork }: {
   network: KnownNetwork
   selfAddress: string
+  arrivedIds: ReadonlySet<string>
   expanded: boolean
   onToggle(): void
   onOpen(deviceId: string): void
@@ -472,7 +497,7 @@ function NetworkBranch({ network, selfAddress, expanded, onToggle, onOpen, onOpe
           </div>
         </div>}
         {network.targets.map((target) => <div className="ns-limb" key={target.id}>
-          <DeviceRow target={target} onOpen={onOpen} />
+          <DeviceRow target={target} arrived={arrivedIds.has(target.id)} onOpen={onOpen} />
         </div>)}
       </div>}
       {!network.membersObserved
@@ -491,23 +516,67 @@ function NetworkBranch({ network, selfAddress, expanded, onToggle, onOpen, onOpe
  * under TECHNICAL INTELLIGENCE; Known Space states only where a Device is and
  * what its current stage is.
  */
-function DeviceRow({ target, showLocation, onOpen }: {
+function DeviceRow({ target, showLocation, arrived, onOpen }: {
   target: TargetSummary
   showLocation?: boolean
+  /** This Device newly appeared in Known Space while the player was looking at it. */
+  arrived: boolean
   onOpen(deviceId: string): void
 }) {
   const note = [target.displayName ? target.address : undefined, showLocation ? locationOf(target) : undefined].filter(Boolean).join(' · ')
-  return <button type="button" className="ns-node ns-node--device" aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
+  return <button type="button" className={`ns-node ns-node--device${arrived ? ' ns-node--arrived' : ''}`} aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
     <span className="ns-glyph" aria-hidden="true" />
     <span className="ns-target-copy">
       <strong>{target.displayName ?? target.address}</strong>
       {!target.displayName && <span className="ns-target-note">UNKNOWN DEVICE</span>}
       {note && <span className="ns-target-note">{note}</span>}
     </span>
-    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>{STAGE_MARK[target.stage]}</span>
+    <span className={`ns-target-mark ns-target-mark--${target.stage}`}>
+      {isRunning(target.stage) && <i className="ns-live-dot" aria-hidden="true" />}
+      {STAGE_MARK[target.stage]}
+    </span>
     <span className="ns-arrow" aria-hidden="true">›</span>
   </button>
 }
+
+/**
+ * Devices in the ids given that were not yet known the last time this hook
+ * observed them, so a row can arrive rather than simply appear.
+ *
+ * This is presentation only: it observes nothing and creates no canonical
+ * "new" flag. The first time this hook ever runs — whether NodeScan just
+ * mounted, or the player returned to Known Space after visiting a target
+ * card — every currently known id is treated as already-there, so browsing
+ * never itself produces an arrival. Only an id that appears on a later
+ * render, once a Scan or PING has actually remembered a new Device, arrives.
+ */
+function useNewlyArrivedIds(ids: readonly string[]): ReadonlySet<string> {
+  const seen = useRef<Set<string> | null>(null)
+  const [arrived, setArrived] = useState<ReadonlySet<string>>(EMPTY_ID_SET)
+  const key = ids.join(',')
+  useEffect(() => {
+    const before = seen.current
+    seen.current = new Set(ids)
+    // The first observation of any id is simply there, never an arrival —
+    // this is what keeps a fresh mount (NodeScan opening, or returning from a
+    // target card) from marking everything already known as newly arrived.
+    if (before === null) return
+    const newly = ids.filter((id) => !before.has(id))
+    if (newly.length === 0) return
+    setArrived(new Set(newly))
+    const timer = setTimeout(() => setArrived(EMPTY_ID_SET), ARRIVAL_MARK_MS)
+    return () => clearTimeout(timer)
+    // `ids` is intentionally represented by `key` here: the effect must key
+    // off the settled id set, not the object identity of a fresh array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  return arrived
+}
+
+/** How long a newly observed Device stays marked as arriving. */
+const ARRIVAL_MARK_MS = 700
+
+const EMPTY_ID_SET: ReadonlySet<string> = new Set()
 
 /**
  * The administration detail for a Network the local Device actually manages.
@@ -600,7 +669,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <p className="ns-subject-note">{[target.displayName ? target.address : undefined, locationOf(target)].filter(Boolean).join(' · ')}</p>
     </header>
 
-    <section className="ns-stage" aria-label="Target status">
+    <StageSection target={target}>
       {target.stage === 'unscanned' && <>
         <strong className="ns-stage-headline">NOT SCANNED</strong>
         <span className="ns-stage-note">Nothing is known about this target yet.</span>
@@ -609,14 +678,13 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
 
       {target.stage === 'analysis_ready' && <>
         <strong className="ns-stage-headline">SERVICES FOUND</strong>
+        {/* What the Scan just observed, stated where the next decision is made. */}
+        <span className="ns-stage-observed">{target.services.map(({ name }) => name).join(' · ')}</span>
         <span className="ns-stage-note">The observed attack surface is ready to investigate.</span>
         <Primary label="ANALYZE" onClick={onAnalyzeAll} />
       </>}
 
-      {target.stage === 'analyzing' && <>
-        <strong className="ns-stage-headline">ANALYZING</strong>
-        <Progress percent={target.percent} label="Analysis progress" />
-      </>}
+      {target.stage === 'analyzing' && <Operation target={target} {...RUNNING_STAGE.analyzing} />}
 
       {target.stage === 'no_route' && <>
         <strong className="ns-stage-headline">OBSERVATION COMPLETE</strong>
@@ -629,30 +697,21 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         <span className="ns-stage-note">Choose an available Technique below.</span>
       </>}
 
-      {target.stage === 'hacking' && <>
-        <strong className="ns-stage-headline">HACKING</strong>
-        <Progress percent={target.percent} label="Hack progress" />
-      </>}
+      {target.stage === 'hacking' && <Operation target={target} {...RUNNING_STAGE.hacking} />}
 
       {target.stage === 'attack' && <>
         <strong className="ns-stage-headline">TARGET OBSERVED</strong>
         <span className="ns-stage-note">Choose an available Technique below.</span>
       </>}
 
-      {target.stage === 'attacking' && <>
-        <strong className="ns-stage-headline">ATTACKING RACKUPDATE</strong>
-        <Progress percent={target.percent} label="Attack progress" />
-      </>}
+      {target.stage === 'attacking' && <Operation target={target} {...RUNNING_STAGE.attacking} />}
 
       {target.stage === 'submission_ready' && <>
         <strong className="ns-stage-headline">PACKAGE SUBMISSION READY</strong>
         <span className="ns-stage-note">RackUpdate accepts a compatible GateSSH package through the established submission authority.</span>
       </>}
 
-      {target.stage === 'submitting' && <>
-        <strong className="ns-stage-headline">SUBMITTING PACKAGE</strong>
-        <Progress percent={target.percent} label="Submission progress" />
-      </>}
+      {target.stage === 'submitting' && <Operation target={target} {...RUNNING_STAGE.submitting} />}
 
       {target.stage === 'access' && <>
         <strong className="ns-stage-headline">ACCESS GRANTED</strong>
@@ -665,22 +724,26 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         <span className="ns-stage-note">{target.session?.connectedAddress} is open.</span>
         <Primary label="DISCONNECT" onClick={onDisconnect} />
       </>}
-    </section>
+    </StageSection>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
     <section className="ns-actions" aria-labelledby="nodescan-actions-heading">
       <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
       {target.offensiveActions.length === 0
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
-        : <div className="ns-action-list">{target.offensiveActions.map((action) => {
-          const executable = Boolean(action.route)
-          return <article className="ns-action" key={action.technique}>
-            <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
-            {executable
+        : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={action.technique}>
+          <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
+          {/*
+            * A Technique whose own attempt is already running says so where
+            * EXECUTE was, rather than offering a control that can only answer
+            * ALREADY RUNNING.
+            */}
+          {action.running
+            ? <span className="node-chip node-chip--running" aria-label={`${action.technique} running`}><i className="ns-live-dot" aria-hidden="true" />RUNNING</span>
+            : action.route
               ? <button type="button" className="node-action" aria-label={`Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>EXECUTE</button>
               : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} unavailable`}>UNAVAILABLE</span>}
-          </article>
-        })}</div>}
+        </article>)}</div>}
     </section>
 
     <details className="ns-details">
@@ -695,6 +758,9 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <TechnicalDetails
         target={target}
         release={release}
+        // The execution surface above already draws this target's one shared
+        // analysis progress rail; a Service never repeats it while that is true.
+        stageOwnsAnalysis={target.stage === 'analyzing'}
         copyState={copyState}
         selectedPackageId={selectedPackageId}
         onInspect={onInspect}
@@ -704,6 +770,72 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         onSubmitPackage={onSubmitPackage}
       />
     </details>
+  </div>
+}
+
+/**
+ * The target's status block. Its height barely moves between states, so
+ * ACTIONS and TECHNICAL INTELLIGENCE below it stay where the player left them
+ * while an operation starts, runs and resolves. `data-resolved` marks the
+ * short moment a running stage just settled into a different one — completion
+ * is the moment the loop is played for, so it gets a brief arrival rather than
+ * an abrupt redraw; `data-running` gives the whole block a quiet accent while
+ * work is in flight. Both are derived from `target.stage` alone: no canonical
+ * state is created for either.
+ */
+function StageSection({ target, children }: { target: Target; children: ReactNode }) {
+  const resolved = useStageResolution(target)
+  return <section className="ns-stage" aria-label="Target status" data-running={isRunning(target.stage) || undefined} data-resolved={resolved || undefined}>
+    <div className="ns-stage-body" key={target.stage}>{children}</div>
+  </section>
+}
+
+/**
+ * Whether this target's stage has just resolved out of running work while the
+ * player was watching it. Remembered per target: opening a different target
+ * is a new subject, not a resolution.
+ */
+function useStageResolution(target: Target): boolean {
+  const previous = useRef<{ deviceId: string; stage: TargetStage } | null>(null)
+  const [resolved, setResolved] = useState(false)
+  useEffect(() => {
+    const before = previous.current
+    previous.current = { deviceId: target.id, stage: target.stage }
+    const justResolved = Boolean(before && before.deviceId === target.id && before.stage !== target.stage && isRunning(before.stage))
+    setResolved(justResolved)
+    if (!justResolved) return
+    const timer = setTimeout(() => setResolved(false), STAGE_RESOLVE_MS)
+    return () => clearTimeout(timer)
+  }, [target.id, target.stage])
+  return resolved
+}
+
+/**
+ * The execution surface for work actually running against this target.
+ *
+ * It answers what the old headline-and-bar could not: what is running, what
+ * it is operating on, and how far through itself it is. The facts come from
+ * the running work's own canonical state (`targetProjection.ts`); nothing
+ * here is invented, and nothing here reads hidden World Truth. A target whose
+ * stage is running but whose operation could not be described (a defensive
+ * fallback, not an expected path) still states the stage rather than an empty
+ * surface.
+ */
+function Operation({ target, status, progressLabel }: { target: Target; status: string; progressLabel: string }) {
+  const { operation } = target
+  if (!operation) return <>
+    <strong className="ns-stage-headline">{status}</strong>
+    <Progress percent={target.percent} label={progressLabel} />
+  </>
+  return <div className="ns-op">
+    <header className="ns-op-head">
+      <strong className="ns-op-title">{operation.title}</strong>
+      <span className="ns-op-live"><i className="ns-live-dot" aria-hidden="true" />{status}<i className="ns-caret" aria-hidden="true" /></span>
+    </header>
+    <dl className="ns-op-facts">
+      {operation.facts.map(({ label: factLabel, value }) => <div key={factLabel}><dt>{factLabel}</dt><dd>{value}</dd></div>)}
+    </dl>
+    <Progress percent={operation.percent} label={progressLabel} />
   </div>
 }
 
@@ -732,9 +864,17 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
  * information and their own represented resources; none of it is a new
  * observation, and none of it reads current target truth.
  */
-function TechnicalDetails({ target, release, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
+  /**
+   * Whether the target's own execution surface is already drawing this
+   * analysis's progress rail. When it is, a Service states that it is
+   * analyzing rather than repeating the same rail a second time on the same
+   * screen; where the headline is something else (an active Session, say),
+   * the Service row stays the only place that progress is shown.
+   */
+  stageOwnsAnalysis: boolean
   copyState: CopyState
   selectedPackageId: string
   onInspect(): void
@@ -806,9 +946,11 @@ function TechnicalDetails({ target, release, copyState, selectedPackageId, onIns
           {service.analysisPercent === undefined && service.analysisOutcome === 'no_weakness_detected' && <p className="ns-quiet-note">Last analysis found no weakness.</p>}
           {service.analysisPercent === undefined && service.analysisOutcome === 'service_unavailable' && <p className="ns-quiet-note">Last analysis did not complete against the service.</p>}
           {service.accessPrivilege && <p className="ns-quiet-note">{service.accessPrivilege} access was established through this service.</p>}
-          {service.analysisPercent !== undefined
-            ? <Progress percent={service.analysisPercent} label={`${service.name} analysis progress`} />
-            : <button type="button" className="node-action" aria-label={`Analyze ${service.name}`} onClick={() => onAnalyze(service)}>ANALYZE</button>}
+          {service.analysisPercent === undefined
+            ? <button type="button" className="node-action" aria-label={`Analyze ${service.name}`} onClick={() => onAnalyze(service)}>ANALYZE</button>
+            : stageOwnsAnalysis
+              ? <p className="ns-service-running"><i className="ns-live-dot" aria-hidden="true" />ANALYZING</p>
+              : <Progress percent={service.analysisPercent} label={`${service.name} analysis progress`} />}
         </article>)}</div>}
 
     {target.packageSubmission && <>

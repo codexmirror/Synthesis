@@ -1,3 +1,4 @@
+import { formatByteProgress } from '../byteFormat'
 import { findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
 import { CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
@@ -6,6 +7,7 @@ import type {
   GameProcess,
   LocalDeviceState,
   RackUpdateExploitProcess,
+  RackUpdatePackageSubmission,
   ServiceAnalysisProcess,
 } from '../../core/game/types'
 
@@ -224,6 +226,8 @@ export interface TargetSummary {
 export interface Target extends TargetSummary {
   /** Canonical progress of the work the current stage is waiting on, 0 when nothing runs. */
   readonly percent: number
+  /** The work currently running against this target, present exactly while the stage is a running stage. */
+  readonly operation?: TargetOperation
   readonly routes: readonly TargetRoute[]
   /** Concrete owned providers, projected independently of target weaknesses. */
   readonly offensiveActions: readonly TargetOffensiveAction[]
@@ -248,6 +252,30 @@ export interface TargetOffensiveAction {
   readonly technique: 'Credential Access' | 'Rollback'
   readonly provider: string
   readonly route?: TargetRoute | PackageSubmissionRoute
+  /** This Technique's own attempt is currently running against this target. */
+  readonly running: boolean
+}
+
+/** One canonical or already-remembered fact the running operation itself supplies. */
+export interface TargetOperationFact { readonly label: string; readonly value: string }
+
+/**
+ * The work currently running against this target, described from that work
+ * itself rather than from what the player could start next.
+ *
+ * Every value here is either the running Process's or submission's own
+ * canonical state — the endpoint it was actually started against, the
+ * provider the canonical resolver actually selected, the bytes the
+ * submission runtime has actually carried — or a label the player already
+ * legitimately holds (a remembered weakness, a remembered fingerprint).
+ * Nothing is read from World Truth, and nothing is invented to fill an
+ * execution surface: this projects real state, it does not narrate it.
+ */
+export interface TargetOperation {
+  readonly kind: 'service_analysis' | 'credential_access' | 'rack_update_exploit' | 'package_submission'
+  readonly title: string
+  readonly percent: number
+  readonly facts: readonly TargetOperationFact[]
 }
 
 function percentOf(process: { workCompleted: number; workRequired: number }): number {
@@ -491,8 +519,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const rollbackProvider = providerFor('rollback', ROLLBACK_MODULE_1_0.name)
   const credentialRoute = routes.find(({ vulnerabilityId }) => vulnerabilityId === 'AUTH-017')
   const offensiveActions: TargetOffensiveAction[] = [
-    ...(credentialProvider ? [{ technique: 'Credential Access' as const, provider: credentialProvider, ...(credentialRoute ? { route: credentialRoute } : {}) }] : []),
-    ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
+    ...(credentialProvider ? [{ technique: 'Credential Access' as const, provider: credentialProvider, running: hacking.length > 0, ...(credentialRoute ? { route: credentialRoute } : {}) }] : []),
+    ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, running: Boolean(packageSubmission?.attacking), ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
   ]
   const stage = stageOf({
     connected: Boolean(activeAccess && information.remoteSession.active),
@@ -504,6 +532,22 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     services,
     packageSubmission,
   })
+  const percent = stage === 'hacking' ? runningPercent(hacking)
+    : stage === 'analyzing' ? runningPercent(analyzing)
+      : stage === 'attacking' ? packageSubmission?.attackPercent ?? 0
+        : stage === 'submitting' ? packageSubmission?.submitPercent ?? 0 : 0
+  const operation = selectOperation({
+    stage,
+    percent,
+    analyzing,
+    hacking,
+    exploiting: exploits.filter((process) => process.targetDeviceId === device.id && process.status === 'running'),
+    submission: information.rackUpdate.submission.active,
+    localFiles: information.player.localDevice.filesystem.files,
+    services,
+    weaknessLabel: (serviceId, vulnerabilityId) => knowledgeFor(information, device.id, serviceId).find(({ id }) => id === vulnerabilityId)?.label,
+    flipperName: flipper?.name,
+  })
 
   return {
     id: device.id,
@@ -513,7 +557,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     stage,
     // Only an Inspect that actually observed it; never resolved from World Truth.
     ...(device.inspect?.displayName ? { displayName: device.inspect.displayName } : {}),
-    percent: stage === 'hacking' ? runningPercent(hacking) : stage === 'analyzing' ? runningPercent(analyzing) : stage === 'attacking' ? packageSubmission?.attackPercent ?? 0 : stage === 'submitting' ? packageSubmission?.submitPercent ?? 0 : 0,
+    percent,
+    ...(operation ? { operation } : {}),
     routes,
     offensiveActions,
     lastAttemptFailed: lastAttempt?.status === 'attempt_failed',
@@ -540,6 +585,82 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       : {}),
     ...(packageSubmission ? { packageSubmission } : {}),
   }
+}
+
+/**
+ * Describe the work actually running against this target.
+ *
+ * The stage already says *which* kind of work that is; this says what that
+ * work is operating on, using only the running Process's or submission's own
+ * canonical fields and labels the player already holds. It deliberately does
+ * not restate CPU or RAM: the Activity Monitor owns the executor's runtime,
+ * and this is the target's own line of action.
+ */
+function selectOperation(input: {
+  stage: TargetStage
+  /** The target's own canonical progress, so the surface and the stage can never disagree. */
+  percent: number
+  analyzing: readonly ServiceAnalysisProcess[]
+  hacking: readonly CredentialAccessProcess[]
+  exploiting: readonly RackUpdateExploitProcess[]
+  submission: RackUpdatePackageSubmission | null
+  localFiles: LocalDeviceState['filesystem']['files']
+  services: readonly TargetService[]
+  weaknessLabel(serviceId: string, vulnerabilityId: string): string | undefined
+  flipperName?: string
+}): TargetOperation | undefined {
+  const serviceOf = (serviceId: string) => input.services.find(({ id }) => id === serviceId)
+  // The provider the canonical resolver actually selected when the attempt started, not whatever is currently owned.
+  const providerOf = (process: { toolId: string; moduleId: 'credential-access' | 'rollback' }) =>
+    process.toolId === 'flipper' ? `${input.flipperName ?? 'Flipper'} · ${FLIPPER_MODULE_NAME[process.moduleId]}` : FLIPPER_MODULE_NAME[process.moduleId]
+  const attemptFacts = (process: CredentialAccessProcess | RackUpdateExploitProcess): TargetOperationFact[] => {
+    const label = input.weaknessLabel(process.serviceId, process.vulnerabilityId)
+    return [
+      { label: 'PROVIDER', value: providerOf(process) },
+      { label: 'ENDPOINT', value: process.startedEndpoint },
+      { label: 'WEAKNESS', value: label ? `${process.vulnerabilityId} · ${label}` : process.vulnerabilityId },
+    ]
+  }
+
+  if (input.stage === 'analyzing' && input.analyzing.length) {
+    const single = input.analyzing.length === 1 ? input.analyzing[0] : undefined
+    const observed = single ? serviceOf(single.serviceId)?.observed?.implementation : undefined
+    return {
+      kind: 'service_analysis',
+      title: 'SERVICE ANALYSIS',
+      percent: input.percent,
+      facts: single
+        ? [
+          { label: 'SERVICE', value: serviceOf(single.serviceId)?.name ?? single.serviceId },
+          { label: 'ENDPOINT', value: single.startedEndpoint },
+          ...(observed ? [{ label: 'SOFTWARE', value: observed }] : []),
+        ]
+        // One line per running analysis: which Service, and the endpoint it was started against.
+        : input.analyzing.map((process) => ({ label: serviceOf(process.serviceId)?.name ?? process.serviceId, value: process.startedEndpoint })),
+    }
+  }
+  if (input.stage === 'hacking' && input.hacking.length) {
+    return { kind: 'credential_access', title: 'CREDENTIAL ACCESS', percent: input.percent, facts: attemptFacts(input.hacking[0]) }
+  }
+  if (input.stage === 'attacking' && input.exploiting.length) {
+    return { kind: 'rack_update_exploit', title: 'ROLLBACK', percent: input.percent, facts: attemptFacts(input.exploiting[0]) }
+  }
+  if (input.stage === 'submitting' && input.submission) {
+    const { submission } = input
+    const source = input.localFiles.find((file) => file.id === submission.sourceFileId)
+    const endpoint = serviceOf(submission.serviceId)?.endpoint
+    return {
+      kind: 'package_submission',
+      title: 'PACKAGE SUBMISSION',
+      percent: input.percent,
+      facts: [
+        ...(source && source.kind === 'software_package' ? [{ label: 'PACKAGE', value: `${source.name} ${source.version}` }] : []),
+        ...(endpoint ? [{ label: 'ENDPOINT', value: endpoint }] : []),
+        { label: 'UPLOADED', value: formatByteProgress(submission.bytesTransferred, submission.bytesTotal) },
+      ],
+    }
+  }
+  return undefined
 }
 
 /**
