@@ -1,5 +1,6 @@
 import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID, VEYRA_OS_FIRMWARE_ID } from './firmwareIdentity'
 import { createInitialMailState } from './mail'
+import { createInitialPetraCompanyChatState } from './petraCompanyChat'
 import { MARKET_OPERATOR_SETTLEMENT_ADDRESS, createInitialMarketState } from './market'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
@@ -7,7 +8,7 @@ import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 55
+export const GAME_STATE_VERSION = 56
 
 export function createInitialGameState(): GameState {
   return {
@@ -88,6 +89,8 @@ export function createInitialGameState(): GameState {
     rackUpdate: { access: { nextId: 1, established: [] }, submission: { nextId: 1, active: null, outcome: null } },
     // The player's represented in-world mailbox, owned by their mail identity rather than by node-01 or NODE-OS.
     mail: createInitialMailState(),
+    // Foreign work communication belongs to Petra's represented Company Chat, never the player's NodeMail account.
+    petraCompanyChat: createInitialPetraCompanyChatState(),
     recentActivity: { entries: [] },
     world: {
       network: {

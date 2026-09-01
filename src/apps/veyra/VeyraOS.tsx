@@ -32,8 +32,7 @@ type VeyraLocation =
  *
  * It is a Firmware presentation layer over that Device's represented truth. It
  * owns no canonical state, and it may interpret represented facts but never
- * manufacture them. Communication is deliberately present only as a built-in
- * presentation surface and therefore exposes no communication data.
+ * manufacture them. Communication presents Petra's represented Company Chat.
  *
  * `editingRecoveryReady` and `onEndEditing` are the Shell's editing lifecycle,
  * passed in. VEYRA reads no viewport and keeps no keyboard state of its own; it

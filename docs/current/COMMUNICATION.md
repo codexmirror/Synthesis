@@ -1,10 +1,10 @@
 # Communication and mail — current truth
 
 Status: Accepted
-Scope: The player's represented in-world mail account, correspondents, threads
-and messages, canonical read state, the deterministic reply operation, and the
-boundary between communicated information and Discovery/Knowledge, as currently
-implemented on `main`.
+Scope: The player's represented in-world mail account and Petra's represented
+Company Chat, their authored messages, canonical mail read state, the
+deterministic reply operation, and the boundary between communicated
+information and Discovery/Knowledge, as currently implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
@@ -24,6 +24,39 @@ be truthful, mistaken, or out of date, and nothing in the mail domain checks.
 
 Mail therefore never creates Discovery or Knowledge, never establishes access,
 and never resolves anything against World Truth.
+
+The same boundary applies to Company Chat. A chat message is historical
+communication — what its author said — rather than an observation or a live
+projection of World Truth.
+
+
+## Petra's Company Chat
+
+`GameState.petraCompanyChat` owns the one concrete foreign Company Chat now
+represented. It is separate from `GameState.mail`: Petra's work communication
+does not belong to the player's NodeMail account merely because the player can
+operate Petra's phone. VEYRA Communication is the client that presents this
+chat and owns none of its history.
+
+The chat initially has no messages. After a successful canonical Civic Dollar
+Transaction from `dollar-account-veyra-phone-v0` (Petra's represented phone
+Account) to `dollar-account-local-v0` (the player's represented Account) has
+been appended, Petra immediately posts: “There’s a transaction from the work
+phone that I don’t recognize. Can someone take a look?” The qualifying rule
+uses stable Account IDs, never displayed account references or UI state.
+
+The message stores Petra's authored words and the concrete Transaction ID that
+caused them. The existing message history makes this first reaction
+idempotent: later qualifying transfers do not add another alert. Refused
+transfers, and transfers with any other source or destination Account, add
+nothing. Opening or navigating Communication is read-only and never causes the
+reaction.
+
+This reaction is immediate but represents no time, delay, probability,
+schedule, Process, routine, technician response, security consequence, or
+generic actor/reaction system. It changes no Discovery, Knowledge,
+DeviceAccess, credentials, Wallet protection, server state, or other World
+Truth.
 
 
 ## The mailbox

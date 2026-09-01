@@ -1,4 +1,5 @@
 import { resolveActiveRemoteTarget } from './remoteSession'
+import { resolvePetraTransactionReaction } from './petraCompanyChat'
 import type { DeviceSavedDollarSignIn, DollarFinancialAccount, DollarTransaction, GameState } from './types'
 
 export type AuthenticateDollarAccountResult =
@@ -104,10 +105,15 @@ export function transferDollars(state: GameState, clientDeviceId: string, recipi
     return account
   })
 
+  const transferredState: GameState = {
+    ...state,
+    dollarFinance: { ...state.dollarFinance, accounts, transactions: { nextId: transactions.nextId + 1, records: [...transactions.records, transaction] } },
+  }
   return {
     status: 'transferred',
     transactionId: transaction.id,
-    state: { ...state, dollarFinance: { ...state.dollarFinance, accounts, transactions: { nextId: transactions.nextId + 1, records: [...transactions.records, transaction] } } },
+    // The Transaction exists in transferredState before the separate concrete reaction resolves.
+    state: resolvePetraTransactionReaction(transferredState, transaction),
   }
 }
 

@@ -18,17 +18,17 @@ export interface VeyraHomeEntry {
  * presentation and represented facts; it is never stored. There is no
  * `homeApps[]`, no launcher inventory, no per-app
  * presentation flag and no app registry. This concrete VEYRA release bundles
- * Communication as a presentation-only Firmware client, while the remaining
+ * Communication as a Firmware client over Petra's represented Company Chat, while the remaining
  * entries follow their represented bases:
  *
  * ```text
- * Communication -> this represented VEYRA OS Firmware (a presentation-only client)
+ * Communication -> this represented VEYRA OS Firmware -> Petra's Company Chat
  * Wallet        -> this Device -> its Civic Dollar Financial Session -> Account
  * Settings      -> this Device's represented VEYRA OS Firmware (a Firmware-owned system surface)
  * ```
  *
- * Communication's presence represents only the built-in client surface. It
- * asserts no communication data, capability, account, or installed Software.
+ * Communication's presence represents the built-in client surface, not an
+ * account, capability, or installed Software.
  *
  * An entry is a way to open a surface. It is not authority: opening Wallet
  * still resolves the Account through the Session, and every action still goes
@@ -37,8 +37,8 @@ export interface VeyraHomeEntry {
 export function deriveVeyraHomeEntries(state: GameState, device: NetworkHost): readonly VeyraHomeEntry[] {
   const entries: VeyraHomeEntry[] = []
 
-  // Communication is a deliberately presentation-only client bundled into
-  // this VEYRA Firmware. Its presence does not imply communication world truth.
+  // Communication is bundled into this VEYRA Firmware; the client owns none
+  // of the Company Chat truth it presents.
   if (device.firmware) {
     entries.push({ id: 'communication', label: 'Communication', icon: 'communication' })
   }

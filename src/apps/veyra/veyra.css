@@ -201,19 +201,16 @@ button.veyra-frame__disconnect { color: #d4a099; }
 .veyra-app:focus-visible .veyra-app__tile { outline: 2px solid var(--veyra-accent); outline-offset: 3px; }
 .veyra-app:active .veyra-app__tile { background: var(--veyra-surface-sunk); }
 
-/* ---- Communication placeholder ---- */
+/* ---- Company Communication ---- */
 
 .veyra-communication { min-height: 100%; grid-template-rows: auto minmax(180px, 1fr); }
 .veyra-communication__head { display: grid; gap: 3px; }
-.veyra-communication__status {
-  align-self: center;
-  padding: 28px 24px;
-  border-top: 1px solid var(--veyra-line-strong);
-  border-bottom: 1px solid var(--veyra-line-strong);
-  color: var(--veyra-ink-soft);
-  text-align: center;
-}
-.veyra-communication__status p { margin: 0; font-size: 1rem; line-height: 1.5; }
+.veyra-company-chat { align-self: start; border-radius: var(--veyra-radius); background: var(--veyra-surface); box-shadow: 0 1px 2px rgba(33, 31, 28, .06); overflow: hidden; }
+.veyra-company-chat h2 { margin: 0; padding: 16px 18px; border-bottom: 1px solid var(--veyra-line); font-size: 1rem; }
+.veyra-company-chat__empty { margin: 0; padding: 28px 18px; color: var(--veyra-ink-soft); text-align: center; }
+.veyra-company-message { margin: 16px; padding: 14px 16px; border-radius: 4px 16px 16px 16px; background: var(--veyra-surface-sunk); }
+.veyra-company-message strong { font-size: .82rem; color: var(--veyra-accent-strong); }
+.veyra-company-message p { margin: 6px 0 0; font-size: .95rem; line-height: 1.5; }
 
 /* ---- cards, rows and figures ---- */
 

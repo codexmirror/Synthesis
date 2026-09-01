@@ -67,7 +67,7 @@ Which entries exist is derived on every render by `deriveVeyraHomeEntries` in
 represented bases it observes:
 
 ```text
-Communication <- this VEYRA OS Firmware's presentation-only built-in client
+Communication <- this VEYRA OS Firmware's client -> Petra's Company Chat
 Wallet        <- this Device -> its Civic Dollar Financial Session -> Account
 Settings      <- this Device's represented VEYRA OS Firmware
 ```
@@ -77,13 +77,14 @@ There is no `homeApps[]`, launcher inventory, app registry, `LauncherState`,
 `GameState` or in presentation. Removing the phone's Financial Session removes
 Wallet from Home; the player's own Financial Session is not a basis for it.
 
-Communication is a built-in VEYRA OS placeholder client and appears first. Its
-presence is Firmware presentation/product truth only: it is not installed
-Software and establishes no communication capability or canonical state. The
-root states only that Communication is unavailable. It presents no people,
-messages, conversations, contacts, accounts, history, activity, notifications
-or other communication data, and it does not infer an empty inbox or history
-from the absence of represented foreign communication truth.
+Communication is a built-in VEYRA OS client and appears first. It presents the
+one concrete Company Chat owned by `GameState.petraCompanyChat`, including
+Petra's authored unusual-transaction message after the qualifying canonical
+Civic Dollar Transaction. The client owns no communication history, and merely
+opening or navigating it changes no canonical state. It adds no private chats,
+contacts, presence, timestamps, typing state, reactions, attachments or
+notifications. Detailed communication and reaction truth belongs to
+`docs/current/COMMUNICATION.md`.
 
 Wallet remains conditional on the operated Device's Financial Session, while
 Settings remains a Firmware-owned system surface. Messages, Mail, Photos,
@@ -264,9 +265,8 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
 - A Home icon is not authority. Presence is derived from represented truth on
   every render; there is no stored launcher state to disagree with the world.
 - Client presence, represented data and emptiness are different. Communication
-  is a Firmware-bundled placeholder with no represented communication data; it
-  therefore states only that the client is unavailable and makes no claim about
-  the person's history. Wallet with no Transactions has a represented Account
+  is a Firmware-bundled client over represented Company Chat history, not the
+  owner of that history. Wallet with no Transactions has a represented Account
   basis and may show a truthful empty Activity.
 - A Remote Session is operating context, not financial authority. It decides
   which Device is acting and grants no Account: a phone with no Financial
