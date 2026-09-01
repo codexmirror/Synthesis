@@ -51,7 +51,26 @@ it('monitors the latest running deployment after its Remote Session is gone', ()
   render(<GameProvider initialState={withRattlerProcess('running')}><Rattler /></GameProvider>)
   expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('RUNNING')
   expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('42 / 2500')
-  expect(screen.queryByLabelText('IP address')).not.toBeInTheDocument()
+  expect(screen.getByLabelText('IP address')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'CREATE PAYLOAD' })).toBeInTheDocument()
+})
+
+it('reconstructs and selects multiple canonical target deployments while authoring remains available', async () => {
+  const user = userEvent.setup()
+  const first = withRattlerProcess('running')
+  const second: RattlerPinSearchProcess = {
+    ...(first.process.processes[0] as RattlerPinSearchProcess), id: 'process-0043', targetDeviceId: 'host-phone-002',
+    executorDeviceId: 'host-phone-002', status: 'completed', attemptsCompleted: 2500, workCompleted: 2500,
+    elapsedMs: 1_250_000, currentCandidate: '8499', result: { status: 'search_exhausted' },
+  }
+  render(<GameProvider initialState={{ ...first, process: { ...first.process, processes: [...first.process.processes, second] } }}><Rattler /></GameProvider>)
+  const deployments = screen.getByRole('navigation', { name: 'RATTLER deployments' })
+  expect(deployments).toHaveTextContent('host-phone-001 · RUNNING')
+  expect(deployments).toHaveTextContent('host-phone-002 · SEARCH EXHAUSTED')
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('host-phone-002')
+  await user.click(screen.getByRole('button', { name: 'host-phone-001 · RUNNING' }))
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('host-phone-001')
+  expect(screen.getByRole('button', { name: 'CREATE PAYLOAD' })).toBeInTheDocument()
 })
 
 it('keeps a terminal deployment inspectable after its Remote Session is gone', () => {

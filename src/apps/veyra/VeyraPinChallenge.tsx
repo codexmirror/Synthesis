@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const PIN_LENGTH = 4
 const KEYPAD_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
@@ -29,12 +29,24 @@ export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, on
 }) {
   const [digits, setDigits] = useState('')
   const [refusal, setRefusal] = useState<string>()
+  const isObservedAttempt = observedCandidate !== undefined && observedAttemptNumber !== undefined
+  const [observedLength, setObservedLength] = useState(isObservedAttempt ? 1 : 0)
 
-  // A masked submit cycle derived only from canonical attempt identity. It
-  // resets across successive real attempts without encoding candidate digits.
-  const presentedLength = observedCandidate && observedAttemptNumber !== undefined
-    ? (Math.max(1, observedAttemptNumber) - 1) % PIN_LENGTH + 1
-    : digits.length
+  // Canonical RATTLER owns both the candidate and the 500 ms attempt. This
+  // effect only reveals that candidate's four masked digits inside its slot;
+  // changing canonical attempt identity cancels every stale reveal and starts
+  // the newly represented candidate immediately.
+  useEffect(() => {
+    if (!isObservedAttempt) {
+      setObservedLength(0)
+      return
+    }
+    setObservedLength(1)
+    const timers = [2, 3, 4].map((length) => window.setTimeout(() => setObservedLength(length), (length - 1) * 125))
+    return () => timers.forEach((timer) => window.clearTimeout(timer))
+  }, [isObservedAttempt, observedAttemptNumber, observedCandidate])
+
+  const presentedLength = isObservedAttempt ? observedLength : digits.length
 
   function press(digit: string) {
     if (digits.length >= PIN_LENGTH) return
@@ -57,13 +69,13 @@ export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, on
   return <section className="veyra-screen veyra-pin" aria-label={title}>
     <h1 className="veyra-title">{title}</h1>
     {note && <p className="veyra-note">{note}</p>}
-    {observedCandidate && observedAttemptNumber !== undefined && <p className="veyra-pin__rattler">RATTLER · ATTEMPT {observedAttemptNumber}</p>}
+    {isObservedAttempt && <p className="veyra-pin__rattler">RATTLER · ATTEMPT {observedAttemptNumber}</p>}
     <div className="veyra-pin__dots" aria-hidden="true">
       {Array.from({ length: PIN_LENGTH }, (_, index) => <span className="veyra-pin__dot" key={index}
         data-filled={index < presentedLength || undefined}
-        data-rattler-attempt={observedCandidate ? true : undefined} />)}
+        data-rattler-attempt={isObservedAttempt ? true : undefined} />)}
     </div>
-    <output className="veyra-hidden" aria-live="polite">{observedCandidate ? `RATTLER attempt ${observedAttemptNumber ?? ''} submitted` : `${digits.length} of ${PIN_LENGTH} digits entered`}</output>
+    <output className="veyra-hidden" aria-live="polite">{isObservedAttempt ? `RATTLER attempt ${observedAttemptNumber}: ${observedLength} of ${PIN_LENGTH} digits entered` : `${digits.length} of ${PIN_LENGTH} digits entered`}</output>
     <p className="veyra-pin__refusal" role={refusal ? 'alert' : undefined}>{refusal || ' '}</p>
     <div className="veyra-keypad">
       {KEYPAD_DIGITS.map((digit) => <button key={digit} type="button" className="veyra-key" onClick={() => press(digit)}>{digit}</button>)}

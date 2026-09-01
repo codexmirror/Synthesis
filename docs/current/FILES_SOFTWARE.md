@@ -613,7 +613,11 @@ DeviceAccess, RATTLER offers a separate explicit **DEPLOY** action. Admission
 starts exactly one target-Device-owned `rattler_pin_search` Process for VEYRA
 Wallet's Device-PIN challenge; a Session authorizes admission only and is not a
 continuing dependency. A second running deployment for that Device and surface
-is refused.
+is refused. RATTLER's program remains an authoring surface after admission and
+derives a selectable monitor for every retained RATTLER Process, so deployments
+on different target Devices remain independently inspectable. Only the active
+Remote Session's exact target-bound payload can surface the current **DEPLOY**
+action; the monitor does not inspect arbitrary remote filesystems.
 
 The Process remains bound to the admitted payload's target Device, filesystem
 copy ID, release, and build. Removing or replacing that exact copy interrupts

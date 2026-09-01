@@ -107,6 +107,11 @@ export function deriveLatestRattlerProcess(state: GameState): RattlerPinSearchPr
   return [...state.process.processes].reverse().find((process): process is RattlerPinSearchProcess => process.kind === 'rattler_pin_search')
 }
 
+/** RATTLER's own concrete deployment records, retained in canonical admission order. */
+export function deriveRattlerProcesses(state: GameState): readonly RattlerPinSearchProcess[] {
+  return state.process.processes.filter((process): process is RattlerPinSearchProcess => process.kind === 'rattler_pin_search')
+}
+
 export type CreateRattlerPayloadResult =
   | { readonly status: 'created'; readonly state: GameState; readonly file: RattlerPayloadFile }
   | { readonly status: 'software_unavailable' | 'executable_unavailable' | 'unknown_target' | 'ambiguous_target' | 'destination_exists' | 'destination_conflict' | 'invalid_path'; readonly state: GameState }
