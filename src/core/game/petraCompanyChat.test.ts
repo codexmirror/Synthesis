@@ -4,6 +4,7 @@ import { transferDollars } from './dollarFinance'
 import {
   PETRA_PHONE_ACCOUNT_ID,
   PETRA_UNUSUAL_TRANSACTION_MESSAGE,
+  PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID,
   PLAYER_DOLLAR_ACCOUNT_ID,
   resolvePetraTransactionReaction,
 } from './petraCompanyChat'
@@ -11,16 +12,6 @@ import type { DollarTransaction, GameState } from './types'
 
 const PHONE_DEVICE_ID = 'host-phone-001'
 const PLAYER_REFERENCE = 'CD-1042-7781'
-
-function communicationProjection(state: GameState) {
-  return {
-    chat: state.petraCompanyChat,
-    discovery: state.discovery,
-    knowledge: state.knowledge,
-    deviceAccess: state.deviceAccess,
-    phoneSecurity: state.world.network.hosts.find(({ id }) => id === PHONE_DEVICE_ID)?.security,
-  }
-}
 
 describe('Petra Company Chat transaction reaction', () => {
   it('reacts to the canonical Petra-phone-to-player Transaction after it exists', () => {
@@ -81,16 +72,35 @@ describe('Petra Company Chat transaction reaction', () => {
     expect(result.state.petraCompanyChat.messages).toEqual([])
   })
 
-  it('records the first reaction once across later qualifying and unrelated operations', () => {
-    const before = createInitialGameState()
+  it('appends the reaction beside unrelated chat history, then records it only once', () => {
+    const base = createInitialGameState()
+    const unrelatedMessage = {
+      id: 'petra-company-message-unrelated',
+      authorId: 'correspondent-colleague-v0',
+      authorName: 'Colleague',
+      body: 'The morning delivery is here.',
+      causedByTransactionId: 'dollar-transaction-unrelated',
+    }
+    const before: GameState = {
+      ...base,
+      petraCompanyChat: { ...base.petraCompanyChat, messages: [unrelatedMessage] },
+    }
     const first = transferDollars(before, PHONE_DEVICE_ID, PLAYER_REFERENCE, 100)
     if (first.status !== 'transferred') throw new Error(first.status)
-    const snapshot = communicationProjection(first.state)
+    expect(first.state.petraCompanyChat.messages).toEqual([
+      unrelatedMessage,
+      expect.objectContaining({
+        id: PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID,
+        body: PETRA_UNUSUAL_TRANSACTION_MESSAGE,
+        causedByTransactionId: first.transactionId,
+      }),
+    ])
+
     const second = transferDollars(first.state, PHONE_DEVICE_ID, PLAYER_REFERENCE, 100)
     if (second.status !== 'transferred') throw new Error(second.status)
 
     expect(second.state.dollarFinance.transactions.records).toHaveLength(2)
     expect(second.state.petraCompanyChat.messages).toEqual(first.state.petraCompanyChat.messages)
-    expect(communicationProjection(second.state)).toEqual(snapshot)
+    expect(second.state.petraCompanyChat.messages.filter(({ id }) => id === PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID)).toHaveLength(1)
   })
 })

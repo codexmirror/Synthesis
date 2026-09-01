@@ -6,6 +6,7 @@ export const PETRA_COMPANY_CHAT_ID = 'petra-company-chat-v0'
 export const PETRA_COMPANY_CHAT_NAME = 'Company Chat'
 export const PETRA_CORRESPONDENT_ID = 'correspondent-petra-v0'
 export const PETRA_NAME = 'Petra'
+export const PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID = 'petra-company-message-0001'
 export const PETRA_UNUSUAL_TRANSACTION_MESSAGE =
   'There’s a transaction from the work phone that I don’t recognize. Can someone take a look?'
 
@@ -23,14 +24,14 @@ export function resolvePetraTransactionReaction(state: GameState, transaction: D
   if (transaction.sourceAccountId !== PETRA_PHONE_ACCOUNT_ID
     || transaction.destinationAccountId !== PLAYER_DOLLAR_ACCOUNT_ID
     || !state.dollarFinance.transactions.records.some(({ id }) => id === transaction.id)
-    || state.petraCompanyChat.messages.length > 0) return state
+    || state.petraCompanyChat.messages.some(({ id }) => id === PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID)) return state
 
   return {
     ...state,
     petraCompanyChat: {
       ...state.petraCompanyChat,
-      messages: [{
-        id: 'petra-company-message-0001',
+      messages: [...state.petraCompanyChat.messages, {
+        id: PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID,
         authorId: PETRA_CORRESPONDENT_ID,
         authorName: PETRA_NAME,
         body: PETRA_UNUSUAL_TRANSACTION_MESSAGE,
