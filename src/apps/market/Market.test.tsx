@@ -63,12 +63,13 @@ async function open(name: RegExp) {
 describe('Market catalog presentation', () => {
   it('lists every represented offering once with its own release, size and price', () => {
     renderMarket(createInitialGameState())
-    expect(screen.getByText('6 OFFERINGS')).toBeInTheDocument()
+    expect(screen.getByText('7 OFFERINGS')).toBeInTheDocument()
     const rows = screen.getAllByRole('button').filter((button) => button.className === 'node-row')
     expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual([
-      'Flipper', 'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
+      'RATTLER', 'Flipper', 'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
     ])
     expect(rows.map((row) => row.querySelector('small')?.textContent)).toEqual([
+      '1.0 · UNOFFICIAL · 2.8 MB · 0.01 NODE',
       '1.0 · STANDARD · 4 MB · 0.01 NODE',
       '1.1 · EXPERIMENTAL · 18.4 MB · 0.01 NODE',
       '1.0 · UNOFFICIAL · 3.4 MB · 0.01 NODE',

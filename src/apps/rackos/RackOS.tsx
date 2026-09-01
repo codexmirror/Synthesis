@@ -194,7 +194,9 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
           ? <RemotePackage key={selected} file={result.file} target={context.target} process={state.process} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
           : result.file.kind === 'software_module'
             ? <RemoteModule key={selected} file={result.file} />
-            : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
+            : result.file.kind === 'rattler_payload'
+              ? <dl className="rack-facts"><div><dt>RATTLER TARGET</dt><dd>{result.file.targetAddressSnapshot}</dd></div><div><dt>DEVICE</dt><dd>{result.file.targetDeviceId}</dd></div></dl>
+              : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
           player is operating it stays secondary to that Device's own software and
           execution state. A text file has no such state, so it keeps no label. */}

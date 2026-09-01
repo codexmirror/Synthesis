@@ -21,8 +21,9 @@ products, releases, and their player-facing documentation belong to
 ## Filesystem and the Files application
 
 The player's local Device owns a canonical filesystem. It represents exactly
-four explicit filesystem file kinds: text files, software-package files,
-software-module files, and executable files. Each concrete copy has an `id` that is unique and stable
+five explicit filesystem file kinds: text files, software-package files,
+software-module files, executable files, and the narrow RATTLER payload file.
+Each concrete copy has an `id` that is unique and stable
 within its filesystem; `path` is its current location rather than identity. A
 filesystem-owned monotonic counter allocates deterministic IDs using destination
 state alone. Raw IDs may coincide across Devices, so cross-Device references
@@ -33,7 +34,7 @@ standalone Credential Access Module artifact under `/home/user/modules`.
 The Files application begins at `/home/user`, states the current path and the
 local Device in its masthead, shows an explicit parent row, derives its
 directory listing from that filesystem, and presents type and byte size plus
-coherent text, software-package, software-module, or executable details
+coherent text, software-package, software-module, executable, or RATTLER payload details
 according to the file's explicit kind. A software-package row also carries its derived state —
 INSTALLED, INSTALLABLE, INSTALLING, REMOVING, PROTECTED or UNRECOGNIZED — from the same
 canonical installed software, running local software-installation Process
@@ -570,6 +571,42 @@ execution.
 Live payout retargeting is deliberately **not** offered in RACK-OS Files; it is
 the shared NODE Miner Terminal integration's deeper control path on both
 NODE-OS and RACK-OS, owned by `docs/current/NODE_ECONOMY.md`.
+
+
+## RATTLER 1.0 and target-bound artifacts
+
+RATTLER 1.0 is the first concrete standalone underground offensive software
+product. Its ordinary package installation follows the shared finite
+`software_installation` Process and, only at successful completion, atomically
+creates InstalledSoftware plus the one executable at
+`/opt/rattler/rattler.exe`. Admission and completion both refuse an occupied
+managed destination; neither half of installation is applied in that case.
+RATTLER requires NODE-OS through the same narrow concrete-product eligibility
+rule used by NodeScan and Flipper, not through a generic requirements system.
+
+Files opens the dedicated RATTLER surface only from the exact current
+executable. `createRattlerPayload` separately revalidates both the exact
+InstalledSoftware release/build and the concrete executable's program,
+release, and build at its managed path. Missing, deleted, replaced, stale, or
+mismatched executable truth refuses creation without mutation; installed
+metadata alone grants no authority and never recreates the file.
+
+The player supplies an address. Resolution reads only remembered
+`Discovery.devices`, requires exactly one matching observation, and never
+searches hidden World hosts. Success writes one `rattler_payload` artifact at
+`/opt/rattler/payload-<stable-device-id>.rpl`. The artifact owns its
+filesystem-local copy ID, represented size, RATTLER release/build provenance,
+stable target Device ID, and creation-time address snapshot. Stable Device ID
+is target binding; the address is presentation/provenance only. Existing
+destination-placement rules reject duplicates without overwrite.
+
+The payload is an ordinary selectable Files artifact and the existing
+authorized Device FileTransfer Upload path can copy it to a represented remote
+filesystem. Copying allocates a destination-filesystem ID and destination path
+while preserving all RATTLER and target metadata. Completion places only the
+file: it installs or executes nothing, starts no Process, attempts or reveals
+no PIN, and mutates no security, Discovery, Knowledge, or DeviceAccess state.
+Remote activation and PIN cracking remain explicitly unimplemented.
 
 
 ## Flipper acquisition and module integration

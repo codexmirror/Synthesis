@@ -10,12 +10,13 @@ import {
 import { FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES } from './flipper'
 
 describe('authored software release content', () => {
-  it('owns the four current releases under their exact stable release IDs', () => {
+  it('owns the five current releases under their exact stable release IDs', () => {
     expect(AUTHORED_SOFTWARE_RELEASES.map(({ releaseId }) => releaseId)).toEqual([
       'nodescan-1.0-standard',
       'nodescan-1.1-experimental',
       'flipper-1.0',
       'node-miner-1.0',
+      'release-rattler-1.0-v0',
     ])
   })
 

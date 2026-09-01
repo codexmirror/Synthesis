@@ -31,6 +31,7 @@ export const NODESCAN_1_0_STANDARD_RELEASE_ID = 'nodescan-1.0-standard' as const
 export const NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID = 'nodescan-1.1-experimental' as const
 export const FLIPPER_1_0_RELEASE_ID = 'flipper-1.0' as const
 export const NODE_MINER_1_0_RELEASE_ID = 'node-miner-1.0' as const
+export const RATTLER_1_0_RELEASE_ID = 'release-rattler-1.0-v0' as const
 
 export const NODESCAN_1_0_STANDARD_BUILD_ID = 'build-nodescan-1.0-standard-v0' as const
 export const NODESCAN_1_1_EXPERIMENTAL_BUILD_ID = 'build-nodescan-1.1-experimental-v0' as const
@@ -47,6 +48,7 @@ export const FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID = 'build-flipper-1.0-
  */
 export const FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID = 'build-flipper-1.0-credential-access-rollback' as const
 export const NODE_MINER_1_0_BUILD_ID = 'build-node-miner-1.0-v0' as const
+export const RATTLER_1_0_BUILD_ID = 'build-rattler-1.0-v0' as const
 
 export const NODESCAN_1_0_STANDARD = {
   productId: 'nodescan', releaseId: NODESCAN_1_0_STANDARD_RELEASE_ID, buildId: NODESCAN_1_0_STANDARD_BUILD_ID,
@@ -101,10 +103,23 @@ export const NODE_MINER_1_0 = {
   },
 } as const satisfies SoftwareReleaseContent
 
+export const RATTLER_1_0 = {
+  productId: 'product-rattler-v0', releaseId: RATTLER_1_0_RELEASE_ID, buildId: RATTLER_1_0_BUILD_ID,
+  name: 'RATTLER', version: '1.0', channel: 'unofficial', publisher: 'NULL//WORKS',
+  documentation: {
+    about: 'Standalone underground software for authoring a deployable artifact bound to a legitimately known target Device.',
+    capabilities: [
+      { label: 'TARGET-BOUND PAYLOAD', description: 'Create a concrete deployable artifact for an address already represented in player Discovery.' },
+    ],
+    changes: ['Initial unofficial release.'],
+  },
+} as const satisfies SoftwareReleaseContent
+
 /** The complete authored V1 content set, used only for authoring and descriptive projection. */
 export const AUTHORED_SOFTWARE_RELEASES: readonly SoftwareReleaseContent[] = [
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
   FLIPPER_1_0,
   NODE_MINER_1_0,
+  RATTLER_1_0,
 ]

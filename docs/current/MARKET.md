@@ -84,14 +84,22 @@ MARKET OFFER / DISTRIBUTION TRUTH
      filesystem (software_package, or software_module)
 ```
 
-The V1 catalog lists six offerings, each represented once at exactly
+The V1 catalog lists seven offerings, each represented once at exactly
 `0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
 every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
-GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0 and the Flipper Rollback Module 1.0 — the
+GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0, RATTLER 1.0, and the Flipper Rollback Module 1.0 — the
 one module offering. That
 price is a current tuning of what this operator charges, not a rule of the
 economy; every operation reads the offering's own `priceNodeUnits` rather than
 a constant.
+
+RATTLER is one independently authored unofficial software-package offering,
+published by `NULL//WORKS`; it is not represented as a cracked derivative.
+Its exact distribution is `rattler-1.0.pkg`, product
+`product-rattler-v0`, release `release-rattler-1.0-v0`, and build
+`build-rattler-1.0-v0`. Purchase and download use the same entitlement,
+economy, destination-placement, and elapsed FileTransfer mechanics as every
+other package offer.
 
 `channel` is release presentation metadata and is genuinely optional on a
 distribution, on the `software_package` a completed download creates, and on

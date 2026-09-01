@@ -23,6 +23,7 @@ import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core
 import { cancelRackUpdatePackageSubmission, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission, type CancelRackUpdatePackageSubmissionResult, type RackUpdateExploitObservation, type RackUpdateSubmissionObservation, type StartRackUpdateExploitResult, type StartRackUpdatePackageSubmissionResult } from '../core/game/rackUpdate'
 import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, logoutDollarAccount, transferDollars, transferDollarsFromOperatedRemoteDevice, type AuthenticateDollarAccountResult, type AuthenticateWithSavedDollarSignInResult, type LogoutDollarAccountResult, type TransferDollarsResult, type TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 import { changeWalletProtectionForOperatedRemoteDevice, verifyDevicePinForOperatedRemoteDevice, type ChangeWalletProtectionForOperatedRemoteDeviceResult, type VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
+import { createRattlerPayload, type CreateRattlerPayloadResult } from '../core/game/rattler'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -74,6 +75,7 @@ export interface GameActions {
   changeWalletProtectionForOperatedRemoteDevice(pin: string, enabled: boolean): ChangeWalletProtectionForOperatedRemoteDeviceResult
   /** Checks a submitted PIN against the operated remote Device's own PIN without committing anything. */
   verifyDevicePinForOperatedRemoteDevice(pin: string): VerifyDevicePinForOperatedRemoteDeviceResult
+  createRattlerPayload(targetAddress: string): CreateRattlerPayloadResult
   openMailThread(threadId: string): void
   sendMailReply(threadId: string, text: string): SendMailReplyResult
   clearRecentActivity(): void
@@ -322,6 +324,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, verifyDevicePinForOperatedRemoteDevice(pin) {
     // A query only: it commits nothing, so there is no canonical state to advance.
     return verifyDevicePinForOperatedRemoteDevice(currentState.current, pin)
+  }, createRattlerPayload(targetAddress) {
+    const result = createRattlerPayload(currentState.current, targetAddress)
+    if (result.status === 'created') { currentState.current = result.state; setGameState(result.state) }
+    return result
   }, openMailThread(threadId) {
     const state = currentState.current
     const nextState = openMailThread(state, threadId)
