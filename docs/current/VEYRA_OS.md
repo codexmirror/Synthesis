@@ -133,7 +133,12 @@ read fresh, not cached.
 While that protected Wallet challenge is actually mounted, a running matching
 RATTLER 1.0 Process is projected through the same PIN surface: the displayed
 candidate is the Process's canonical current candidate, not VEYRA animation or
-a second attempt mechanism. If the observed Process reaches the real PIN while
+a second attempt mechanism. Four compact numeric slots visibly reveal only the
+canonical candidate's current prefix over 375 ms and remain complete within
+that candidate's canonical 500 ms attempt slot.
+A new canonical attempt immediately resets and rebinds that presentation, and
+terminal Process state cancels pending presentation timers rather than
+fabricating a successor. If the observed Process reaches the real PIN while
 this particular challenge is open, that one Wallet opening receives the same
 presentation-local authorization as a successful manual entry. Success while
 Wallet is not being viewed opens nothing, and opening the challenge after a
