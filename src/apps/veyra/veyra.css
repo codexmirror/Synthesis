@@ -408,17 +408,6 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
   transition: background-color .1s ease, border-color .1s ease;
 }
 .veyra-pin__dot[data-filled] { background: var(--veyra-accent); border-color: var(--veyra-accent); }
-.veyra-pin__dots[data-rattler-input] .veyra-pin__dot {
-  width: 28px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  color: var(--veyra-ink);
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-.veyra-pin__dots[data-rattler-input] .veyra-pin__dot[data-filled] { background: none; }
 .veyra-pin__rattler { margin: 2px 0 -2px; color: var(--veyra-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; }
 
 .veyra-pin__refusal {
@@ -450,7 +439,8 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
   box-shadow: 0 1px 2px rgba(33, 31, 28, .06);
   cursor: pointer;
 }
-.veyra-key:active { background: var(--veyra-surface-sunk); }
+.veyra-key:active,
+.veyra-key[data-rattler-active] { background: var(--veyra-surface-sunk); }
 .veyra-key:focus-visible { outline: 2px solid var(--veyra-accent); outline-offset: 2px; }
 .veyra-key:disabled { color: var(--veyra-ink-mute); cursor: default; box-shadow: none; }
 .veyra-key--empty { visibility: hidden; box-shadow: none; background: none; cursor: default; }

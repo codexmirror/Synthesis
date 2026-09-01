@@ -29,11 +29,11 @@ function withRattlerProcess(status: 'running' | 'completed', result?: RattlerPin
   const base = availableState()
   const process: RattlerPinSearchProcess = {
     kind: 'rattler_pin_search', id: 'process-0042', label: 'RATTLER 1.0', executorDeviceId: 'host-phone-001',
-    status, ramRequiredMiB: 96, workRequired: 2500, workCompleted: status === 'running' ? 42 : 1043,
+    status, ramRequiredMiB: 96, workRequired: 10_000, workCompleted: status === 'running' ? 42 : 7043,
     targetDeviceId: 'host-phone-001', attackedSurface: 'veyra_wallet_device_pin', rattlerReleaseId: RATTLER_1_0.releaseId,
     rattlerBuildId: RATTLER_1_0.buildId, payloadFileId: 'file-remote-payload', payloadPathSnapshot: '/tmp/rattler.rpl',
-    attemptsCompleted: status === 'running' ? 42 : 1043, elapsedMs: status === 'running' ? 21_000 : 521_500,
-    currentCandidate: status === 'running' ? '6041' : '7042', result,
+    attemptsCompleted: status === 'running' ? 42 : 7043, elapsedMs: status === 'running' ? 4_032 : 676_128,
+    currentCandidate: status === 'running' ? '0041' : '7042', result,
   }
   return { ...base, remoteSession: { ...base.remoteSession, active: null }, process: { ...base.process, processes: [process] } }
 }
@@ -50,7 +50,7 @@ it('presents only the target input and CREATE PAYLOAD action, then reports the c
 it('monitors the latest running deployment after its Remote Session is gone', () => {
   render(<GameProvider initialState={withRattlerProcess('running')}><Rattler /></GameProvider>)
   expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('RUNNING')
-  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('42 / 2500')
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('42 / 10000')
   expect(screen.getByLabelText('IP address')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'CREATE PAYLOAD' })).toBeInTheDocument()
 })
@@ -60,8 +60,8 @@ it('reconstructs and selects multiple canonical target deployments while authori
   const first = withRattlerProcess('running')
   const second: RattlerPinSearchProcess = {
     ...(first.process.processes[0] as RattlerPinSearchProcess), id: 'process-0043', targetDeviceId: 'host-phone-002',
-    executorDeviceId: 'host-phone-002', status: 'completed', attemptsCompleted: 2500, workCompleted: 2500,
-    elapsedMs: 1_250_000, currentCandidate: '8499', result: { status: 'search_exhausted' },
+    executorDeviceId: 'host-phone-002', status: 'completed', attemptsCompleted: 10_000, workCompleted: 10_000,
+    elapsedMs: 960_000, currentCandidate: '9999', result: { status: 'search_exhausted' },
   }
   render(<GameProvider initialState={{ ...first, process: { ...first.process, processes: [...first.process.processes, second] } }}><Rattler /></GameProvider>)
   const deployments = screen.getByRole('navigation', { name: 'RATTLER deployments' })
@@ -76,5 +76,5 @@ it('reconstructs and selects multiple canonical target deployments while authori
 it('keeps a terminal deployment inspectable after its Remote Session is gone', () => {
   render(<GameProvider initialState={withRattlerProcess('completed', { status: 'pin_found', pin: '7042' })}><Rattler /></GameProvider>)
   expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('SUCCESS / PIN FOUND')
-  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('1043 / 2500')
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('7043 / 10000')
 })

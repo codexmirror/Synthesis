@@ -131,15 +131,28 @@ Wallet is next opened, with no reload, reconnect, or delay: it is Device state
 read fresh, not cached.
 
 While that protected Wallet challenge is actually mounted, a running matching
-RATTLER 1.0 Process is projected through the same PIN surface: the displayed
-candidate is the Process's canonical current candidate, not VEYRA animation or
-a second attempt mechanism. Four compact numeric slots visibly reveal only the
-canonical candidate's current prefix over 375 ms and remain complete within
-that candidate's canonical 500 ms attempt slot.
-A new canonical attempt immediately resets and rebinds that presentation, and
-terminal Process state cancels pending presentation timers rather than
-fabricating a successor. If the observed Process reaches the real PIN while
-this particular challenge is open, that one Wallet opening receives the same
+RATTLER 1.0 Process is projected through the same PIN surface: the ordinary
+masked indicators fill while the existing numeric keypad visibly presses each
+digit of a sampled canonical candidate. The candidate itself is never exposed
+in the indicator row or accessibility output, and this remains presentation
+over canonical state rather than a second attempt mechanism.
+
+The canonical search (625 candidates/minute, exhausting the full `0000`..`9999`
+space in 16 minutes) runs far faster than a readable four-key reveal, so the
+presentation does not attempt to play every canonical attempt. Instead it
+periodically takes one read-only snapshot of whatever candidate and attempt
+number canonical Process state currently holds, plays that snapshot's four
+digits at a readable cadence, then samples again. Canonical ATTEMPT/CURRENT
+routinely advance past what is currently on screen between samples — that gap
+is the intended projection of the real, faster search, not a discrepancy. The
+keypad presentation never generates, increments, or independently verifies a
+candidate, and it maintains no attempt counter of its own.
+The manual keypad is inert for the duration of an observed sample so keypad
+presses can never become a second, player-driven cracking mechanism. Terminal
+or interrupted Process state — and any other loss of the observed Process —
+cancels pending presentation timers immediately rather than fabricating a
+successor sample. If the observed Process reaches the real PIN while this
+particular challenge is open, that one Wallet opening receives the same
 presentation-local authorization as a successful manual entry. Success while
 Wallet is not being viewed opens nothing, and opening the challenge after a
 completed attack does not replay authorization. Settings continues to use the

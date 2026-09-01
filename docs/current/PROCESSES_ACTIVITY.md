@@ -36,10 +36,14 @@ Current production Process consumers are:
 - RATTLER PIN Search (`rattler_pin_search`) — one finite remote Process owned
   by its target Device. It retains exact payload/release/build provenance and
   canonical elapsed time, attempt count, current candidate, and terminal
-  Wallet-PIN result. Its authored 120/minute candidate rate is elapsed-time
-  runtime within the canonical advancement boundary; no interface owns a
-  parallel timer or attempt stream. Payload loss interrupts it, and completed
-  RATTLER state is retained so the dedicated program can present its result.
+  Wallet-PIN result. Its authored 625/minute candidate rate over the full
+  10,000-candidate `0000`..`9999` space (exactly 16 minutes to exhaustion) is
+  elapsed-time runtime within the canonical advancement boundary; no
+  interface owns a parallel timer or attempt stream. The VEYRA Wallet
+  keypad presentation only periodically samples this canonical candidate for
+  a readable display — it never drives, counts toward, or independently
+  verifies the search. Payload loss interrupts it, and completed RATTLER
+  state is retained so the dedicated program can present its result.
 - NODE Miner, the one continuous Process kind: it never reaches `completed`
   from elapsed work
 
