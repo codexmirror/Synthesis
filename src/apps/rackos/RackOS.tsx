@@ -194,7 +194,8 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
           ? <RemotePackage key={selected} file={result.file} target={context.target} process={state.process} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
           : result.file.kind === 'software_module'
             ? <RemoteModule key={selected} file={result.file} />
-            : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
+            : result.file.kind === 'executable' ? <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />
+              : <div className="node-empty"><strong>RATTLER PAYLOAD</strong><span>Stored on this Device. No execution behavior is available.</span></div>}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
           player is operating it stays secondary to that Device's own software and
           execution state. A text file has no such state, so it keeps no label. */}
@@ -551,6 +552,6 @@ function AuthenticationHistory({ records }: { records: readonly AuthenticationHi
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
-function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : 'EXECUTABLE' }
+function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : file.kind === 'rattler_payload' ? 'RATTLER PAYLOAD' : 'EXECUTABLE' }
 
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

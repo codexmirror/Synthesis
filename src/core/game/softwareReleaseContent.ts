@@ -47,6 +47,7 @@ export const FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID = 'build-flipper-1.0-
  */
 export const FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID = 'build-flipper-1.0-credential-access-rollback' as const
 export const NODE_MINER_1_0_BUILD_ID = 'build-node-miner-1.0-v0' as const
+export const RATTLER_1_0_BUILD_ID = 'build-rattler-1.0-v0' as const
 
 export const NODESCAN_1_0_STANDARD = {
   productId: 'nodescan', releaseId: NODESCAN_1_0_STANDARD_RELEASE_ID, buildId: NODESCAN_1_0_STANDARD_BUILD_ID,
@@ -101,10 +102,21 @@ export const NODE_MINER_1_0 = {
   },
 } as const satisfies SoftwareReleaseContent
 
+export const RATTLER_1_0 = {
+  productId: 'rattler', releaseId: 'rattler-1.0', buildId: RATTLER_1_0_BUILD_ID,
+  name: 'RATTLER', version: '1.0', channel: 'unofficial', publisher: 'NULL//WORKS',
+  documentation: {
+    about: 'Unofficial offensive software for creating target-bound payload artifacts for later deployment.',
+    capabilities: [{ label: 'PAYLOAD CREATION', description: 'Create a deployable artifact bound to one legitimately known target Device.' }],
+    changes: ['Initial unofficial release.', 'Target-bound payload artifact creation.'],
+  },
+} as const satisfies SoftwareReleaseContent
+
 /** The complete authored V1 content set, used only for authoring and descriptive projection. */
 export const AUTHORED_SOFTWARE_RELEASES: readonly SoftwareReleaseContent[] = [
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
   FLIPPER_1_0,
   NODE_MINER_1_0,
+  RATTLER_1_0,
 ]

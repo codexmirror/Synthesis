@@ -84,10 +84,10 @@ MARKET OFFER / DISTRIBUTION TRUTH
      filesystem (software_package, or software_module)
 ```
 
-The V1 catalog lists six offerings, each represented once at exactly
+The V1 catalog lists seven offerings, each represented once at exactly
 `0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
 every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
-GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0 and the Flipper Rollback Module 1.0 — the
+GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0, RATTLER 1.0, and the Flipper Rollback Module 1.0 — the
 one module offering. That
 price is a current tuning of what this operator charges, not a rule of the
 economy; every operation reads the offering's own `priceNodeUnits` rather than
@@ -320,3 +320,8 @@ Market -> BUY -> DOWNLOAD -> package in Files -> Files INSTALL -> InstalledSoftw
   InstalledSoftware; installing it is not an available operation at all. Do not
   give a module distribution a fabricated product, channel or publisher to
   reuse package code.
+
+
+## RATTLER 1.0 offering
+
+Open Package Exchange offers the independently authored unofficial `RATTLER` 1.0 release from publisher `NULL//WORKS` as `rattler-1.0.pkg` for the same 10,000 atomic NODE-unit catalog price. Its release information states only its implemented capability: creating a deployable artifact bound to one legitimately known target Device. It does not claim PIN discovery, guessing, bypass, activation, or remote execution. Purchase and download use the ordinary entitlement, economy, and Market FileTransfer lifecycle above.

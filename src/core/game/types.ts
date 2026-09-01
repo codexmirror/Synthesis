@@ -365,6 +365,20 @@ export interface ExecutableFile {
   readonly sizeBytes: number
 }
 
+/** The one concrete deployable artifact produced by RATTLER 1.0. */
+export interface RattlerPayloadFile {
+  readonly kind: 'rattler_payload'
+  readonly id: string
+  readonly path: string
+  readonly productId: 'rattler'
+  readonly releaseId: string
+  readonly buildId: string
+  /** Stable Device identity owns binding; the address is only a creation-time snapshot. */
+  readonly targetDeviceId: string
+  readonly targetAddressSnapshot: string
+  readonly sizeBytes: number
+}
+
 /**
  * A concrete Flipper module artifact on a Device-owned filesystem.
  *
@@ -391,7 +405,7 @@ export interface SoftwareModuleFile {
   readonly sizeBytes: number
 }
 
-export type FilesystemFile = TextFile | SoftwarePackageFile | SoftwareModuleFile | ExecutableFile
+export type FilesystemFile = TextFile | SoftwarePackageFile | SoftwareModuleFile | ExecutableFile | RattlerPayloadFile
 
 export interface FilesystemState {
   /** Next filesystem-local concrete copy identity. Cross-device references also require the Device ID. */

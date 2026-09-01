@@ -22,7 +22,7 @@ products, releases, and their player-facing documentation belong to
 
 The player's local Device owns a canonical filesystem. It represents exactly
 four explicit filesystem file kinds: text files, software-package files,
-software-module files, and executable files. Each concrete copy has an `id` that is unique and stable
+software-module files, executable files, and the concrete RATTLER payload file. Each concrete copy has an `id` that is unique and stable
 within its filesystem; `path` is its current location rather than identity. A
 filesystem-owned monotonic counter allocates deterministic IDs using destination
 state alone. Raw IDs may coincide across Devices, so cross-Device references
@@ -862,3 +862,12 @@ reuse one product command integration, but their explicit local and
 Session-authorized remote adapters keep filesystem, installation, Process, and
 resource consequences Device-owned. This adds no release dependency,
 compatibility, capability, or plugin metadata.
+
+
+## RATTLER 1.0
+
+Ordinary completion of the RATTLER 1.0 package installation atomically creates its `InstalledSoftware` record and one managed executable at `/opt/rattler/rattler.exe`; an occupied destination prevents both consequences. Opening that executable opens the dedicated RATTLER application.
+
+RATTLER payload creation resolves an entered address only against the player's remembered Discovery. A successful resolution writes `/opt/rattler/payload-<device-id>.rpl`, allocated with the destination filesystem's own copy identity. The narrow `rattler_payload` artifact preserves RATTLER release/build provenance, represented byte size, the stable target Device ID, and an address snapshot. The stable Device ID owns binding. Existing destination placement refuses duplicates without overwrite.
+
+The artifact is an ordinary selectable local file for FileTransfer. Upload copies all intrinsic payload metadata unchanged while allocating a new destination-filesystem copy identity and changing only its path. Completion writes only that file to the remote Device filesystem; it performs no installation or execution, starts no Process, attempts or reveals no PIN, and changes no Discovery, Knowledge, DeviceAccess, Remote Session, or security state. Remote activation and PIN-guessing runtime remain deferred.

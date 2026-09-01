@@ -23,6 +23,7 @@ import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core
 import { cancelRackUpdatePackageSubmission, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission, type CancelRackUpdatePackageSubmissionResult, type RackUpdateExploitObservation, type RackUpdateSubmissionObservation, type StartRackUpdateExploitResult, type StartRackUpdatePackageSubmissionResult } from '../core/game/rackUpdate'
 import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, logoutDollarAccount, transferDollars, transferDollarsFromOperatedRemoteDevice, type AuthenticateDollarAccountResult, type AuthenticateWithSavedDollarSignInResult, type LogoutDollarAccountResult, type TransferDollarsResult, type TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 import { changeWalletProtectionForOperatedRemoteDevice, verifyDevicePinForOperatedRemoteDevice, type ChangeWalletProtectionForOperatedRemoteDeviceResult, type VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
+import { createRattlerPayload, type CreateRattlerPayloadResult } from '../core/game/rattler'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -56,6 +57,7 @@ export interface GameActions {
   installRemoteSoftwarePackage(path: string): InstallRemoteSoftwarePackageResult
   removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
   startFlipperModuleIntegration(moduleFileId: string): StartFlipperModuleIntegrationResult
+  createRattlerPayload?: (address: string) => CreateRattlerPayloadResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
   stopNodeMiner(processId: string): StopNodeMinerResult
   runRemoteNodeMiner(sourceFilePath: string, payoutAddress: string): StartRemoteNodeMinerResult
@@ -328,6 +330,10 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     if (nextState === state) return
     currentState.current = nextState
     setGameState(nextState)
+  }, createRattlerPayload(address) {
+    const result = createRattlerPayload(currentState.current, address)
+    if (result.status === 'created') { currentState.current = result.state; setGameState(result.state) }
+    return result
   }, sendMailReply(threadId, text) {
     const result = sendMailReply(currentState.current, threadId, text)
     if (result.status === 'sent') {

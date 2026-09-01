@@ -17,6 +17,7 @@ export function AppIcon({ app }: { app: AppId }) {
     processes: <><path d="M4 6h6v4H4zM14 6h6M14 10h4M4 14h6v4H4zM14 14h6M14 18h4" /></>,
     files: <><path d="M3 7h7l2 2h9v10H3z" /><path d="M3 7V5h7l2 2h7" /></>,
     flipper: <><rect x="5" y="3" width="14" height="18" /><rect x="8" y="6" width="8" height="6" /><circle cx="9" cy="17" r="1.4" /><path d="M13 17h4" /></>,
+    rattler: <><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" /></>,
     market: <><path d="M4 9h16l-1.5 11H5.5z" /><path d="M9 9V6a3 3 0 0 1 6 0v3" /></>,
     wallet: <><path d="M3 6h15v12H3z" /><path d="M18 10h3v5h-7v-5h4" /><circle cx="16.5" cy="12.5" r=".7" fill="currentColor" stroke="none" /></>,
     notes: <><path d="M5 3h12l3 3v15H5z" /><path d="M17 3v4h3M8 11h8M8 15h8M8 19h5" /></>,

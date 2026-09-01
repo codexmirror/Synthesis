@@ -28,7 +28,7 @@ describe('Market catalog', () => {
   it('represents each required release exactly once, under stable offer identity', () => {
     const { offers } = createInitialGameState().market
     expect(offers.map(({ id }) => id)).toEqual([
-      FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
+      'market-offer-rattler-1.0', FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
     ])
     expect(new Set(offers.map(({ id }) => id)).size).toBe(offers.length)
     expect(new Set(offers.map(({ distribution }) => distribution.releaseId)).size).toBe(offers.length)
@@ -43,13 +43,13 @@ describe('Market catalog', () => {
     }
   })
 
-  it('is exactly the six intended V1 offerings, no more and no fewer', () => {
+  it('is exactly the seven intended V1 offerings, no more and no fewer', () => {
     const { offers } = createInitialGameState().market
-    expect(offers).toHaveLength(6)
-    // Five package offerings and one module offering: a module is distributed as a
+    expect(offers).toHaveLength(7)
+    // Six package offerings and one module offering: a module is distributed as a
     // module artifact, never as an installable package with a product identity.
     expect(offers.map(({ distribution }) => distribution.artifact === 'software_package' ? distribution.productId : `module:${distribution.moduleId}`)).toEqual([
-      'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
+      'rattler', 'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
     ])
   })
 
