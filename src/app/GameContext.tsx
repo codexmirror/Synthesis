@@ -22,6 +22,7 @@ import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/
 import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
 import { cancelRackUpdatePackageSubmission, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission, type CancelRackUpdatePackageSubmissionResult, type RackUpdateExploitObservation, type RackUpdateSubmissionObservation, type StartRackUpdateExploitResult, type StartRackUpdatePackageSubmissionResult } from '../core/game/rackUpdate'
 import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, logoutDollarAccount, transferDollars, transferDollarsFromOperatedRemoteDevice, type AuthenticateDollarAccountResult, type AuthenticateWithSavedDollarSignInResult, type LogoutDollarAccountResult, type TransferDollarsResult, type TransferRemoteDollarsResult } from '../core/game/dollarFinance'
+import { changeWalletProtectionForOperatedRemoteDevice, type ChangeWalletProtectionForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
 
 const GameContext = createContext<GameState | null>(null)
 export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
@@ -69,6 +70,8 @@ export interface GameActions {
   transferDollars(recipientAccountReference: string, amountCents: number): TransferDollarsResult
   /** The same canonical transfer, acted by the Device the player is currently operating remotely. */
   transferRemoteDollars(recipientAccountReference: string, amountCents: number): TransferRemoteDollarsResult
+  /** Changes the operated remote Device's own Wallet-protection setting; verified solely against that Device's own PIN. */
+  changeWalletProtectionForOperatedRemoteDevice(pin: string, enabled: boolean): ChangeWalletProtectionForOperatedRemoteDeviceResult
   openMailThread(threadId: string): void
   sendMailReply(threadId: string, text: string): SendMailReplyResult
   clearRecentActivity(): void
@@ -308,6 +311,11 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     // Deliberately no Device argument: the acting Device is resolved from the active Remote Session inside the domain operation.
     const result = transferDollarsFromOperatedRemoteDevice(currentState.current, recipientAccountReference, amountCents)
     if (result.status === 'transferred') { currentState.current = result.state; setGameState(result.state) }
+    return result
+  }, changeWalletProtectionForOperatedRemoteDevice(pin, enabled) {
+    // Deliberately no Device argument: the acting Device is resolved from the active Remote Session inside the domain operation, exactly as the remote Dollar transfer already does.
+    const result = changeWalletProtectionForOperatedRemoteDevice(currentState.current, pin, enabled)
+    if (result.status === 'changed') { currentState.current = result.state; setGameState(result.state) }
     return result
   }, openMailThread(threadId) {
     const state = currentState.current

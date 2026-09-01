@@ -765,6 +765,22 @@ export interface NetworkHost {
   readonly transferCapacity?: NetworkTransferCapacity
   /** Device-owned authentication history, present only for concretely represented resource-capable hosts. */
   readonly authenticationHistory?: AuthenticationHistoryState
+  /**
+   * Device-owned security truth: this Device's own secret PIN and the
+   * persistent security settings gated behind it. Present only for a
+   * concretely represented Device that owns this concern. Distinct from
+   * Civic Dollar Credentials, DeviceAccess and Remote Session: this PIN
+   * verifies Device-owner security authority, not financial or operating
+   * authority, and is never itself Player Knowledge.
+   */
+  readonly security?: DeviceSecurityState
+}
+
+export interface DeviceSecurityState {
+  /** Secret World Truth. Never exposed as Player Knowledge or ordinary owner-facing presentation. */
+  readonly devicePin: string
+  /** Persistent Device-owned setting: whether opening Wallet requires this Device's PIN. Enforcement at Wallet-open time is a later slice; this is state only. */
+  readonly walletProtectionEnabled: boolean
 }
 
 /**

@@ -137,20 +137,49 @@ never reaches `GameState`.
 
 ## Settings
 
-Settings is a Firmware-owned system surface. Its root currently has exactly one
-entry, **This Device**, which presents the Device display name and the
-represented Firmware name and version as large, calmly spaced labelled rows.
+Settings is a Firmware-owned system surface. Its root currently has two
+entries: **This Device**, which presents the Device display name and the
+represented Firmware name and version as large, calmly spaced labelled rows;
+and **Security**.
 
 Nothing else is presented. There is no Connection entry, because this phone
 represents no owner-facing connection state worth showing — and the player's
 Remote Session is emphatically not it. There is no battery, storage, update,
-security, permission, network or telemetry state, no internal Device ID, no
-CPU, RAM, port, address, privilege, DeviceAccess, Session or exploit state:
-none of it is either represented as owner-facing truth or appropriate to it.
+permission, network or telemetry state, no internal Device ID, no CPU, RAM,
+port, address, privilege, DeviceAccess, Session or exploit state: none of it
+is either represented as owner-facing truth or appropriate to it.
 
 ```text
 VEYRA CONNECTION != PLAYER REMOTE SESSION
 ```
+
+### Security
+
+Security presents exactly one concrete setting, **Wallet protection** —
+"Require Device PIN to open Wallet" — as a labelled row with a switch stating
+the Device's own canonical `walletProtectionEnabled` truthfully (`docs/current/DEVICE_SYSTEM.md`).
+It starts OFF.
+
+Tapping the switch never mutates the setting by itself. It opens a Device-PIN
+challenge screen, still inside Security, that submits the entered PIN and the
+requested state to `changeWalletProtectionForOperatedRemoteDevice`
+(`src/core/game/deviceSecurity.ts`) only on Confirm. A correct PIN commits the
+requested state and returns to Security with an ordinary confirmation notice;
+an incorrect PIN states "Incorrect PIN." and leaves the setting exactly as it
+was, without ever restating or otherwise implying the correct value; Cancel
+leaves the setting exactly as it was and returns to Security. The PIN itself
+never reaches this surface's own state beyond the field the owner is typing
+into, and is cleared from that field after every submission.
+
+A Remote Session and DeviceAccess make this screen reachable; they grant no
+authority to change what it shows. The only successful path is verification
+against the operated Device's own PIN, resolved the same way Wallet resolves
+its Account — through the active Remote Session's own target, never a
+caller-supplied identity.
+
+This slice is state and its own gate only: `walletProtectionEnabled` is not
+yet read anywhere else. Opening VEYRA Wallet is unaffected by it in either
+state; enforcing it at Wallet-open time is explicitly deferred.
 
 
 ## Navigation, and the operating-context frame
@@ -221,3 +250,8 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
 - Unsupported Firmware is refused at the handoff. It never falls back to
   RACK-OS, and the Session it refuses to present is still real and still
   disconnectable.
+- A Remote Session is operating context, not Device-owner security authority
+  either. Reaching Security and tapping its switch changes nothing by
+  themselves; only a correct Device PIN commits the requested Wallet
+  protection state, and the PIN is never Player Knowledge or ordinary
+  presentation.
