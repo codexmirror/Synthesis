@@ -15,6 +15,11 @@ function installed(): GameState {
   return advanceGameState(started.state, 20_000)
 }
 
+function knownTarget(state: GameState): { readonly state: GameState; readonly address: string } {
+  const address = state.world.network.hosts[0].ip
+  return { address, state: { ...state, discovery: { ...state.discovery, devices: [{ id: 'host-lan-001', address, scope: 'lan', servicesObserved: false, services: [] }] } } }
+}
+
 describe('RATTLER 1.0', () => {
   it('installs atomically with its one managed executable', () => {
     const state = installed()
@@ -32,5 +37,25 @@ describe('RATTLER 1.0', () => {
     if (result.status !== 'created') throw new Error(result.status)
     expect(result.file).toMatchObject({ kind: 'rattler_payload', path: '/opt/rattler/payload-host-lan-001.rpl', targetDeviceId: 'host-lan-001', targetAddressSnapshot: hiddenAddress, releaseId: RATTLER_RELEASE_ID, buildId: RATTLER_BUILD_ID })
     expect(createRattlerPayload(result.state, hiddenAddress)).toEqual({ status: 'destination_exists', state: result.state })
+  })
+
+  it('requires the corresponding concrete RATTLER executable and leaves state unchanged when it is removed', () => {
+    const known = knownTarget(installed())
+    const withoutExecutable = { ...known.state, player: { ...known.state.player, localDevice: { ...known.state.player.localDevice, filesystem: { ...known.state.player.localDevice.filesystem, files: known.state.player.localDevice.filesystem.files.filter(({ path }) => path !== RATTLER_INSTALLED_EXECUTABLE_PATH) } } } }
+    const result = createRattlerPayload(withoutExecutable, known.address)
+    expect(result).toEqual({ status: 'software_unavailable', state: withoutExecutable })
+    expect(result.state).toBe(withoutExecutable)
+  })
+
+  it.each([
+    ['program', { programId: 'not-rattler' }],
+    ['release', { releaseId: 'rattler-0.9' }],
+    ['build', { buildId: 'build-rattler-stale' }],
+  ])('refuses a RATTLER executable with mismatched %s identity without any canonical mutation', (_field, mismatch) => {
+    const known = knownTarget(installed())
+    const mismatched = { ...known.state, player: { ...known.state.player, localDevice: { ...known.state.player.localDevice, filesystem: { ...known.state.player.localDevice.filesystem, files: known.state.player.localDevice.filesystem.files.map((file) => file.kind === 'executable' && file.path === RATTLER_INSTALLED_EXECUTABLE_PATH ? { ...file, ...mismatch } : file) } } } }
+    const result = createRattlerPayload(mismatched, known.address)
+    expect(result).toEqual({ status: 'software_unavailable', state: mismatched })
+    expect(result.state).toBe(mismatched)
   })
 })

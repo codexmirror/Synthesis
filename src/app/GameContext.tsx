@@ -57,7 +57,7 @@ export interface GameActions {
   installRemoteSoftwarePackage(path: string): InstallRemoteSoftwarePackageResult
   removeInstalledSoftware(productId: InstalledSoftware['id']): RemoveInstalledSoftwareResult
   startFlipperModuleIntegration(moduleFileId: string): StartFlipperModuleIntegrationResult
-  createRattlerPayload?: (address: string) => CreateRattlerPayloadResult
+  createRattlerPayload(address: string): CreateRattlerPayloadResult
   runNodeMiner(sourceFilePath: string, payoutAddress: string): StartNodeMinerResult
   stopNodeMiner(processId: string): StopNodeMinerResult
   runRemoteNodeMiner(sourceFilePath: string, payoutAddress: string): StartRemoteNodeMinerResult

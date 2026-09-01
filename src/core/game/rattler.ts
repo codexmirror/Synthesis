@@ -17,6 +17,9 @@ export type CreateRattlerPayloadResult =
 export function createRattlerPayload(state: GameState, enteredAddress: string): CreateRattlerPayloadResult {
   const installed = state.player.localDevice.installedSoftware.find(({ id }) => id === RATTLER_PRODUCT_ID)
   if (!installed || installed.releaseId !== RATTLER_RELEASE_ID || installed.buildId !== RATTLER_BUILD_ID) return { status: 'software_unavailable', state }
+  const executable = state.player.localDevice.filesystem.files.find((file) => file.kind === 'executable'
+    && file.programId === RATTLER_PROGRAM_ID && file.releaseId === installed.releaseId && file.buildId === installed.buildId)
+  if (!executable) return { status: 'software_unavailable', state }
   const address = enteredAddress.trim()
   const known = state.discovery.devices.find((device) => device.address === address)
   if (!known) return { status: 'unknown_target', state }

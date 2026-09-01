@@ -6,7 +6,6 @@ export function Rattler() {
   const [address, setAddress] = useState('')
   const [feedback, setFeedback] = useState<string>()
   function create() {
-    if (!createRattlerPayload) return
     const result = createRattlerPayload(address)
     setFeedback(result.status === 'created' ? `CREATED · ${result.file.path}` : result.status === 'unknown_target' ? 'TARGET ADDRESS IS NOT KNOWN' : result.status === 'destination_exists' ? 'PAYLOAD DESTINATION ALREADY EXISTS' : 'RATTLER 1.0 IS NOT AVAILABLE')
   }
