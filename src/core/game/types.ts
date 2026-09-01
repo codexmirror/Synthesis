@@ -1195,8 +1195,26 @@ export interface GameState {
   readonly rackUpdate: RackUpdateState
   /** The player's represented in-world mailbox; communication, not Discovery or Knowledge. */
   readonly mail: MailState
+  /** Petra's represented work communication, separate from the player's mailbox. */
+  readonly petraCompanyChat: PetraCompanyChatState
   /** Bounded Device-runtime observations; not a world event history. */
   readonly recentActivity: RecentActivityState
+}
+
+/** The one concrete represented Company Chat available on Petra's phone. */
+export interface PetraCompanyChatState {
+  readonly id: string
+  readonly name: string
+  readonly messages: readonly PetraCompanyChatMessage[]
+}
+
+/** Historical authored communication caused by one concrete Dollar Transaction. */
+export interface PetraCompanyChatMessage {
+  readonly id: string
+  readonly authorId: string
+  readonly authorName: string
+  readonly body: string
+  readonly causedByTransactionId: string
 }
 
 /**

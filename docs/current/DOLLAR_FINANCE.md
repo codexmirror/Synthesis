@@ -47,6 +47,13 @@ It refuses, changing nothing at all, with `not_signed_in` (no Session, an invent
 
 On `transferred` it debits the source and credits the recipient by exactly `amountCents` in one state transition and appends exactly one Transaction. Unrelated Accounts, Credentials, Sessions, saved sign-in, Processes, NODE Wallet and NODE Economy are untouched. There is no Process, delay, settlement, pending state, fee, overdraft or reversal.
 
+Once that Transaction exists, the concrete transfer from Petra's phone Account
+to the player's Account immediately causes the separate Petra Company Chat
+reaction owned by the communication domain. Finance does not own the message,
+and a refusal creates neither a Transaction nor a reaction. The qualifying
+rule uses the Transaction's stable source and destination Account IDs; see
+`docs/current/COMMUNICATION.md` for the authored and idempotent communication.
+
 A Transaction carries a stable monotonic ID (`dollar-transaction-0001`, following the Authentication History pattern), the source and destination stable Account IDs, the integer `amountCents`, and a snapshot of each side's account reference as it was at the moment of the transfer. The snapshots exist because an account reference is a mutable attribute: renaming an Account afterwards changes nothing about historical activity. Transactions carry no timestamp, no Device, no Session and no Credential material; ordering is canonical insertion order, and records are retained without eviction.
 
 `transferDollarsFromOperatedRemoteDevice` is the same operation acted by a Device the player is currently operating through a Remote Session. It adds no financial rule and no authority: it resolves the acting Device from the active Session's own `accessId` → target relationship, then calls `transferDollars`, which still derives the source Account from that Device's Financial Session. A caller therefore still cannot name whose money moves; with no Session it returns `session_unavailable`, and with a Session over a Device that has no Financial Session it returns the ordinary `not_signed_in`. A Remote Session is operating context, not financial authority: it decides which Device acts and grants no Account. `resolveDollarAccountForOperatedRemoteDevice` is the read-only counterpart used by a client running on that Device.

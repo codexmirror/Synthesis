@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 import { createInitialGameState } from '../../core/game/initialState'
+import { transferDollars } from '../../core/game/dollarFinance'
 import { Shell } from '../../shell/Shell'
 import { Wallet } from '../wallet/Wallet'
 import type { GameState } from '../../core/game/types'
@@ -92,15 +93,18 @@ describe('VEYRA Home', () => {
 })
 
 describe('VEYRA Communication', () => {
-  it('opens an intentional unavailable client without claiming an empty history or fabricating content', async () => {
-    const user = await enterPhone()
+  it('presents Petra’s represented Company Chat message after the qualifying transfer', async () => {
+    const base = createInitialGameState()
+    const transferred = transferDollars(base, PHONE_DEVICE_ID, PLAYER_REFERENCE, 2_000)
+    if (transferred.status !== 'transferred') throw new Error(transferred.status)
+    const user = await enterPhone(phoneConnectedState(transferred.state))
     const before = canonical()
     await user.click(screen.getByRole('button', { name: 'Communication' }))
 
     const communication = screen.getByRole('region', { name: 'Communication' })
-    expect(communication).toHaveTextContent('Communication is unavailable.')
-    expect(communication.textContent).not.toMatch(/no messages|no conversations|inbox|contact|sender|unread|online|delivered|timestamp/i)
-    expect(within(communication).queryAllByRole('button')).toHaveLength(0)
+    expect(within(communication).getByLabelText('Company Chat')).toHaveTextContent('Petra')
+    expect(communication).toHaveTextContent('There’s a transaction from the work phone that I don’t recognize. Can someone take a look?')
+    expect(communication.textContent).not.toMatch(/exploit|credential|attacker|technician|timestamp/i)
     expect(canonical()).toEqual(before)
   })
 
