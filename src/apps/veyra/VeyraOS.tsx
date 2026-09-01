@@ -5,6 +5,7 @@ import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { deriveVeyraHomeEntries, type VeyraAppId, type VeyraHomeEntry } from './veyraHome'
 import { VeyraIcon } from './VeyraIcon'
 import { VeyraCommunication } from './VeyraCommunication'
+import { VeyraPinChallenge } from './VeyraPinChallenge'
 import { VeyraSettings, type VeyraSettingsDetail } from './VeyraSettings'
 import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
 
@@ -21,6 +22,7 @@ import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
 type VeyraLocation =
   | { readonly app: 'home' }
   | { readonly app: 'communication' }
+  | { readonly app: 'wallet-locked' }
   | { readonly app: 'wallet'; readonly detail?: VeyraWalletDetail }
   | { readonly app: 'settings'; readonly detail?: VeyraSettingsDetail }
 
@@ -47,7 +49,7 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
   onEndEditing(): void
 }) {
   const state = useGameState()
-  const { disconnectRemoteSession } = useGameActions()
+  const { disconnectRemoteSession, verifyDevicePinForOperatedRemoteDevice } = useGameActions()
   const { target, session } = context
   const [location, setLocation] = useState<VeyraLocation>({ app: 'home' })
   const [requested, setRequested] = useState<VeyraLocation>()
@@ -66,11 +68,28 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
 
   function back() {
     if (location.app === 'home') return
-    if (location.app === 'communication' || !location.detail) {
+    if (location.app === 'communication' || location.app === 'wallet-locked' || !location.detail) {
       go({ app: 'home' })
       return
     }
     go({ app: location.app })
+  }
+
+  /**
+   * Opening Wallet while this Device's own `walletProtectionEnabled` is on
+   * goes to the Device-PIN challenge instead of Wallet content. Successful
+   * verification authorizes only this one opening: it is expressed purely as
+   * `location` becoming `wallet`, so leaving Wallet to Home or any other
+   * surface — which always changes `location` away from `wallet` — discards
+   * that authorization exactly as naturally as losing the phone entirely
+   * does. No unlocked flag is ever stored.
+   */
+  function openHomeEntry(app: VeyraAppId) {
+    if (app === 'wallet' && target.security?.walletProtectionEnabled) {
+      go({ app: 'wallet-locked' })
+      return
+    }
+    go({ app })
   }
 
   return <section className="veyra" hidden={hidden} aria-label={`${target.firmware!.name} personal device environment`}>
@@ -91,8 +110,14 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
     </header>
 
     <main className="veyra-viewport">
-      {location.app === 'home' && <VeyraHome entries={entries} onOpen={(app) => go({ app })} />}
+      {location.app === 'home' && <VeyraHome entries={entries} onOpen={openHomeEntry} />}
       {location.app === 'communication' && <VeyraCommunication />}
+      {location.app === 'wallet-locked' && <VeyraPinChallenge
+        note="Enter this Device's PIN to open Wallet."
+        verify={(pin) => verifyDevicePinForOperatedRemoteDevice(pin).status === 'verified'}
+        onSuccess={() => go({ app: 'wallet' })}
+        onCancel={() => go({ app: 'home' })}
+      />}
       {location.app === 'wallet' && <VeyraWallet
         detail={location.detail}
         onDetail={(detail) => go(detail ? { app: 'wallet', detail } : { app: 'wallet' })}

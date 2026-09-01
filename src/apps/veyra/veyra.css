@@ -396,6 +396,62 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
 .veyra-copy[data-copy-state='copied'] { border-color: var(--veyra-accent); color: var(--veyra-accent); }
 .veyra-copy:focus-visible { outline: 2px solid var(--veyra-accent); outline-offset: 2px; }
 
+/* ---- Device-PIN challenge ---- */
+
+.veyra-pin { justify-items: center; padding-top: 30px; text-align: center; }
+.veyra-pin .veyra-note { max-width: 300px; }
+
+.veyra-pin__dots { display: flex; gap: 18px; margin: 8px 0 0; }
+.veyra-pin__dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 1.5px solid var(--veyra-line-strong);
+  background: none;
+  transition: background-color .1s ease, border-color .1s ease;
+}
+.veyra-pin__dot[data-filled] { background: var(--veyra-accent); border-color: var(--veyra-accent); }
+
+.veyra-pin__refusal {
+  min-height: 1.3em;
+  margin: 0;
+  color: #8c3a2c;
+  font-size: .86rem;
+  line-height: 1.3;
+}
+
+.veyra-keypad {
+  width: min(280px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 16px;
+  margin-top: 2px;
+}
+
+.veyra-key {
+  aspect-ratio: 1;
+  min-height: 56px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--veyra-surface);
+  color: var(--veyra-ink);
+  font: 500 1.4rem var(--veyra-sans);
+  box-shadow: 0 1px 2px rgba(33, 31, 28, .06);
+  cursor: pointer;
+}
+.veyra-key:active { background: var(--veyra-surface-sunk); }
+.veyra-key:focus-visible { outline: 2px solid var(--veyra-accent); outline-offset: 2px; }
+.veyra-key:disabled { color: var(--veyra-ink-mute); cursor: default; box-shadow: none; }
+.veyra-key--empty { visibility: hidden; box-shadow: none; background: none; cursor: default; }
+.veyra-key--backspace { font-size: .8rem; font-weight: 400; }
+
+@media (max-width: 360px) {
+  .veyra-keypad { gap: 10px 12px; }
+  .veyra-key { min-height: 50px; font-size: 1.25rem; }
+}
+
 /* ---- VEYRA's own navigation band ---- */
 
 .veyra-nav {

@@ -131,7 +131,9 @@ The phone's `security` seeds `{ devicePin: '7042', walletProtectionEnabled: fals
 
 `changeDeviceWalletProtection` (`src/core/game/deviceSecurity.ts`) is the one canonical mutation: given a target Device id, a submitted PIN, and a requested enabled state, it verifies the PIN against that Device's own `security.devicePin` and, only on an exact match, commits the requested `walletProtectionEnabled` value. A Device with no represented `security` refuses rather than inventing one; a wrong PIN leaves canonical state exactly as it was. `changeWalletProtectionForOperatedRemoteDevice` is the same mutation resolved against whichever Device the player currently operates through a Remote Session (`resolveActiveRemoteTarget`), following the same "Session decides *which* Device acts, and grants no authority of its own" precedent `transferDollarsFromOperatedRemoteDevice` already established: DeviceAccess and an active Remote Session alone never satisfy the PIN check.
 
-The setting is persistent Device state with no timer, temporary-unlock duration, or automatic reset: once successfully changed it remains canonical until successfully changed again through the same PIN verification. This slice enforces nothing at Wallet-open time — opening VEYRA Wallet is unaffected by `walletProtectionEnabled`, in either state; that enforcement is explicitly deferred.
+The setting is persistent Device state with no timer, temporary-unlock duration, or automatic reset: once successfully changed it remains canonical until successfully changed again through the same PIN verification.
+
+`verifyDevicePinForOperatedRemoteDevice` is the query counterpart used to enforce `walletProtectionEnabled` at Wallet-open time (`docs/current/VEYRA_OS.md`): it checks a submitted PIN against the same operated Device's `security.devicePin` and commits nothing, because authorizing one Wallet opening has no canonical fact to change. VEYRA reads `walletProtectionEnabled` fresh every time Wallet is opened from Home; a successful verification authorizes only that opening as presentation-local state in `VeyraOS`, never a canonical unlock, trusted session, or timer.
 
 ## Network transfer capacity
 
@@ -593,5 +595,7 @@ is observed through RACK-OS, never listed here.
 - A Device's own `security.devicePin` is never Player Knowledge. DeviceAccess,
   a Remote Session, or opening VEYRA Settings must never substitute for
   verifying it, and no operation or presentation may return, log, or display
-  it. `walletProtectionEnabled` is state only in this slice — nothing yet
-  reads it when Wallet opens.
+  it. `walletProtectionEnabled` gates VEYRA Wallet opening
+  (`docs/current/VEYRA_OS.md`); a successful check never becomes canonical
+  unlock state — `verifyDevicePinForOperatedRemoteDevice` commits nothing at
+  all.

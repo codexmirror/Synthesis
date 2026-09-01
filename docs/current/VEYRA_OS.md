@@ -104,6 +104,31 @@ own Financial Session — never through Player identity, the player's Account, o
 the Remote Session itself. With no Financial Session on that Device the Wallet
 states that the phone is not signed in to an account and shows nothing else.
 
+### Wallet-open enforcement
+
+Opening Wallet from Home reads the operated Device's own canonical
+`walletProtectionEnabled` (`docs/current/DEVICE_SYSTEM.md`) fresh, every time.
+With protection OFF, Wallet opens exactly as before. With protection ON,
+`VeyraOS` (`src/apps/veyra/VeyraOS.tsx`) sends the player to the same
+`VeyraPinChallenge` Settings uses, instead of Wallet: no balance, Account,
+Activity or Send/Receive control ever mounts before a correct PIN. Verification
+goes through `verifyDevicePinForOperatedRemoteDevice`
+(`src/core/game/deviceSecurity.ts`), the same "Session decides *which* Device
+acts, and grants no authority of its own" precedent as the Settings mutation,
+except it commits nothing — there is no canonical fact for a single Wallet
+opening to change.
+
+Successful verification authorizes only that one opening. It exists purely as
+the phone's `location` presentation state becoming `wallet`; VEYRA holds no
+`walletUnlocked`, trusted-session, or timer state anywhere, in `GameState` or
+otherwise. Leaving Wallet to Home or any other VEYRA surface always moves
+`location` away from `wallet`, so the next Wallet opening is challenged again
+exactly like the first, and losing the VEYRA operating surface (Return to
+NODE-OS, DISCONNECT) discards it the same way by unmounting `VeyraOS`
+entirely. Enabling or disabling protection in Settings is read at the moment
+Wallet is next opened, with no reload, reconnect, or delay: it is Device state
+read fresh, not cached.
+
 The consumer hierarchy is balance, Provider, SEND / RECEIVE, ACCOUNT, ACTIVITY:
 
 - **Balance** is the canonical Account balance with the Provider display name
@@ -160,16 +185,19 @@ Security presents exactly one concrete setting, **Wallet protection** —
 the Device's own canonical `walletProtectionEnabled` truthfully (`docs/current/DEVICE_SYSTEM.md`).
 It starts OFF.
 
-Tapping the switch never mutates the setting by itself. It opens a Device-PIN
-challenge screen, still inside Security, that submits the entered PIN and the
-requested state to `changeWalletProtectionForOperatedRemoteDevice`
-(`src/core/game/deviceSecurity.ts`) only on Confirm. A correct PIN commits the
-requested state and returns to Security with an ordinary confirmation notice;
-an incorrect PIN states "Incorrect PIN." and leaves the setting exactly as it
-was, without ever restating or otherwise implying the correct value; Cancel
-leaves the setting exactly as it was and returns to Security. The PIN itself
-never reaches this surface's own state beyond the field the owner is typing
-into, and is cleared from that field after every submission.
+Tapping the switch never mutates the setting by itself. It opens
+`VeyraPinChallenge` (`src/apps/veyra/VeyraPinChallenge.tsx`) — the same
+Device-PIN keypad Wallet-open uses — still inside Security, which verifies
+against `changeWalletProtectionForOperatedRemoteDevice`
+(`src/core/game/deviceSecurity.ts`) automatically on the fourth digit. A
+correct PIN commits the requested state and returns to Security with an
+ordinary confirmation notice; an incorrect PIN states "Incorrect PIN.",
+clears the entered digits for another attempt, and leaves the setting exactly
+as it was, without ever restating or otherwise implying the correct value;
+Cancel leaves the setting exactly as it was and returns to Security. The PIN
+itself never reaches this surface's own state beyond the digits currently
+being entered, is never shown as visible text, and is cleared after every
+attempt.
 
 A Remote Session and DeviceAccess make this screen reachable; they grant no
 authority to change what it shows. The only successful path is verification
@@ -177,9 +205,8 @@ against the operated Device's own PIN, resolved the same way Wallet resolves
 its Account — through the active Remote Session's own target, never a
 caller-supplied identity.
 
-This slice is state and its own gate only: `walletProtectionEnabled` is not
-yet read anywhere else. Opening VEYRA Wallet is unaffected by it in either
-state; enforcing it at Wallet-open time is explicitly deferred.
+`walletProtectionEnabled` gates Wallet opening from Home, read fresh on every
+attempt; see Wallet's own Wallet-open enforcement section above.
 
 
 ## Navigation, and the operating-context frame
@@ -255,3 +282,8 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
   themselves; only a correct Device PIN commits the requested Wallet
   protection state, and the PIN is never Player Knowledge or ordinary
   presentation.
+- Wallet-open authorization is presentation-local and single-use, never a
+  canonical unlock. A correct PIN opens Wallet exactly once; it is never
+  stored as `walletUnlocked`, a trusted session, or a timer, and leaving
+  Wallet or losing the VEYRA operating surface discards it without any
+  explicit reset code — the location that granted it is simply gone.

@@ -44,3 +44,23 @@ export function changeWalletProtectionForOperatedRemoteDevice(state: GameState, 
   if (!remote) return { status: 'session_unavailable', state }
   return changeDeviceWalletProtection(state, remote.target.id, pin, enabled)
 }
+
+export type VerifyDevicePinForOperatedRemoteDeviceResult =
+  | { readonly status: 'verified' }
+  | { readonly status: 'invalid_pin' | 'device_not_found' | 'session_unavailable' }
+
+/**
+ * Verifies a submitted PIN against the operated remote Device's own secret
+ * PIN. It commits nothing: authorizing a single Wallet opening has no
+ * canonical state to change, unlike `changeWalletProtectionForOperatedRemoteDevice`.
+ * The same "Session decides *which* Device acts, and grants no authority of
+ * its own" precedent applies — DeviceAccess and an active Remote Session
+ * alone never satisfy the PIN check.
+ */
+export function verifyDevicePinForOperatedRemoteDevice(state: GameState, pin: string): VerifyDevicePinForOperatedRemoteDeviceResult {
+  const remote = resolveActiveRemoteTarget(state)
+  if (!remote) return { status: 'session_unavailable' }
+  if (!remote.target.security) return { status: 'device_not_found' }
+  if (remote.target.security.devicePin !== pin) return { status: 'invalid_pin' }
+  return { status: 'verified' }
+}
