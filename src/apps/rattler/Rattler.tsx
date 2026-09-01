@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
-import { deriveRattlerProcessForDevice, RATTLER_ATTEMPTS_PER_MINUTE, RATTLER_CANDIDATE_BUDGET } from '../../core/game/rattler'
+import { deriveLatestRattlerProcess, RATTLER_ATTEMPTS_PER_MINUTE, RATTLER_CANDIDATE_BUDGET } from '../../core/game/rattler'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
 
 export function Rattler() {
@@ -9,7 +9,7 @@ export function Rattler() {
   const [target, setTarget] = useState('')
   const [feedback, setFeedback] = useState<string>()
   const remote = resolveActiveRemoteTarget(state)
-  const process = remote ? deriveRattlerProcessForDevice(state, remote.target.id) : undefined
+  const process = deriveLatestRattlerProcess(state)
   const remotePayload = remote?.target.filesystem?.files.find((file) => file.kind === 'rattler_payload' && file.targetDeviceId === remote.target.id)
 
   function create() {

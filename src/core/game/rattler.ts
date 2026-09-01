@@ -102,6 +102,11 @@ export function deriveRattlerProcessForDevice(state: GameState, deviceId: string
   return [...state.process.processes].reverse().find((process): process is RattlerPinSearchProcess => process.kind === 'rattler_pin_search' && process.targetDeviceId === deviceId)
 }
 
+/** RATTLER's product-specific monitor follows the most recently admitted deployment, independent of Session state. */
+export function deriveLatestRattlerProcess(state: GameState): RattlerPinSearchProcess | undefined {
+  return [...state.process.processes].reverse().find((process): process is RattlerPinSearchProcess => process.kind === 'rattler_pin_search')
+}
+
 export type CreateRattlerPayloadResult =
   | { readonly status: 'created'; readonly state: GameState; readonly file: RattlerPayloadFile }
   | { readonly status: 'software_unavailable' | 'executable_unavailable' | 'unknown_target' | 'ambiguous_target' | 'destination_exists' | 'destination_conflict' | 'invalid_path'; readonly state: GameState }

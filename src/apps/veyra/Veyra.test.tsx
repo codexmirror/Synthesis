@@ -397,6 +397,8 @@ describe('VEYRA Security — Wallet protection', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(challenge.querySelector('input')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
+    expect(challenge).not.toHaveTextContent('RATTLER')
+    expect(challenge.querySelector('[data-rattler-attempt]')).toBeNull()
     // Tapping the control alone changes nothing.
     expect(canonical()).toEqual(before)
 

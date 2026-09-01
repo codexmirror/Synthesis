@@ -130,6 +130,7 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
         onSuccess={() => go({ app: 'wallet' })}
         onCancel={() => go({ app: 'home' })}
         observedCandidate={rattler?.status === 'running' ? rattler.currentCandidate : undefined}
+        observedAttemptNumber={rattler?.status === 'running' ? rattler.attemptsCompleted : undefined}
       />}
       {location.app === 'wallet' && <VeyraWallet
         detail={location.detail}
