@@ -1,63 +1,109 @@
 import '@testing-library/jest-dom/vitest'
 import { act, render, screen } from '@testing-library/react'
-import { expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, expect, it, vi } from 'vitest'
 import { VeyraPinChallenge } from './VeyraPinChallenge'
 
 const props = { verify: vi.fn(() => false), onSuccess: vi.fn(), onCancel: vi.fn() }
 
-it('types each canonical candidate prefix inside its one attempt slot', () => {
-  vi.useFakeTimers()
-  const view = render(<VeyraPinChallenge {...props} observedCandidate="6999" observedAttemptNumber={1000} />)
-  const challenge = screen.getByRole('region', { name: 'Enter Device PIN' })
-  const visibleCandidate = () => challenge.querySelector('[data-rattler-input]')?.textContent ?? ''
-  expect(visibleCandidate()).toBe('6')
-  expect(challenge).toHaveTextContent('RATTLER · ATTEMPT 1000')
-  act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('69')
-  act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('699')
-  act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('6999')
-
-  view.rerender(<VeyraPinChallenge {...props} observedCandidate="7000" observedAttemptNumber={1001} />)
-  expect(visibleCandidate()).toBe('7')
-  expect(challenge).toHaveTextContent('RATTLER · ATTEMPT 1001')
-  act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('70')
-  act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('700')
-  act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('7000')
+afterEach(() => {
   vi.useRealTimers()
+  vi.clearAllMocks()
 })
 
-it('cancels stale prefix timers when canonical attempt identity changes', () => {
+function challenge() {
+  return screen.getByRole('region', { name: 'Enter Device PIN' })
+}
+
+function filledIndicators() {
+  return challenge().querySelectorAll('.veyra-pin__dot[data-filled]').length
+}
+
+function activeKey() {
+  return challenge().querySelector<HTMLButtonElement>('.veyra-key[data-rattler-active]')
+}
+
+it('keeps candidate 6064 masked while pressing its keypad digits in four steps', () => {
   vi.useFakeTimers()
-  const view = render(<VeyraPinChallenge {...props} observedCandidate="6999" observedAttemptNumber={1000} />)
-  const visibleCandidate = () => screen.getByRole('region', { name: 'Enter Device PIN' }).querySelector('[data-rattler-input]')?.textContent ?? ''
+  render(<VeyraPinChallenge {...props} observedCandidate="6064" observedAttemptNumber={1000} />)
+
+  expect(Array.from(challenge().querySelectorAll('.veyra-pin__dot')).every((dot) => dot.textContent === '')).toBe(true)
+  expect(challenge()).not.toHaveTextContent('6064')
+  expect(filledIndicators()).toBe(1)
+  expect(activeKey()).toHaveTextContent('6')
+
   act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('69')
-  view.rerender(<VeyraPinChallenge {...props} observedCandidate="7000" observedAttemptNumber={1001} />)
-  expect(visibleCandidate()).toBe('7')
+  expect(filledIndicators()).toBe(2)
+  expect(activeKey()).toHaveTextContent('0')
+
   act(() => vi.advanceTimersByTime(125))
-  expect(visibleCandidate()).toBe('70')
-  vi.useRealTimers()
+  expect(filledIndicators()).toBe(3)
+  expect(activeKey()).toHaveTextContent('6')
+
+  act(() => vi.advanceTimersByTime(125))
+  expect(filledIndicators()).toBe(4)
+  expect(activeKey()).toHaveTextContent('4')
+  expect(challenge().querySelector('output')).toHaveTextContent('4 of 4 digits entered')
 })
 
-it('stops observed playback without fabricating a successor after canonical completion', () => {
+it('immediately resets and rebinds playback when canonical attempt identity changes', () => {
+  vi.useFakeTimers()
+  const view = render(<VeyraPinChallenge {...props} observedCandidate="6064" observedAttemptNumber={1000} />)
+  act(() => vi.advanceTimersByTime(250))
+  expect(filledIndicators()).toBe(3)
+  expect(activeKey()).toHaveTextContent('6')
+
+  view.rerender(<VeyraPinChallenge {...props} observedCandidate="7812" observedAttemptNumber={1001} />)
+  expect(filledIndicators()).toBe(1)
+  expect(activeKey()).toHaveTextContent('7')
+  expect(challenge()).toHaveTextContent('RATTLER · ATTEMPT 1001')
+
+  act(() => vi.advanceTimersByTime(125))
+  expect(filledIndicators()).toBe(2)
+  expect(activeKey()).toHaveTextContent('8')
+  act(() => vi.advanceTimersByTime(125))
+  expect(activeKey()).toHaveTextContent('1')
+  act(() => vi.advanceTimersByTime(125))
+  expect(activeKey()).toHaveTextContent('2')
+})
+
+it('cancels stale candidate timers when rebinding before their next step', () => {
+  vi.useFakeTimers()
+  const view = render(<VeyraPinChallenge {...props} observedCandidate="6999" observedAttemptNumber={1000} />)
+  act(() => vi.advanceTimersByTime(100))
+  view.rerender(<VeyraPinChallenge {...props} observedCandidate="1234" observedAttemptNumber={1001} />)
+
+  act(() => vi.advanceTimersByTime(25))
+  expect(filledIndicators()).toBe(1)
+  expect(activeKey()).toHaveTextContent('1')
+  act(() => vi.advanceTimersByTime(100))
+  expect(filledIndicators()).toBe(2)
+  expect(activeKey()).toHaveTextContent('2')
+})
+
+it('stops observed keypad activity without fabricating a successor after canonical completion', () => {
   vi.useFakeTimers()
   const view = render(<VeyraPinChallenge {...props} observedCandidate="7042" observedAttemptNumber={1043} />)
   view.rerender(<VeyraPinChallenge {...props} />)
   act(() => vi.advanceTimersByTime(500))
-  expect(screen.getByRole('region', { name: 'Enter Device PIN' }).querySelector('[data-rattler-attempt]')).toBeNull()
-  expect(screen.getByRole('region', { name: 'Enter Device PIN' }).querySelector('[data-rattler-input]')).toBeNull()
-  vi.useRealTimers()
+
+  expect(challenge().querySelector('[data-rattler-attempt]')).toBeNull()
+  expect(activeKey()).toBeNull()
+  expect(filledIndicators()).toBe(0)
+  expect(challenge()).not.toHaveTextContent('RATTLER')
 })
 
-it('keeps the ordinary manual challenge free of RATTLER projection', () => {
-  render(<VeyraPinChallenge {...props} />)
-  const challenge = screen.getByRole('region', { name: 'Enter Device PIN' })
-  expect(challenge).not.toHaveTextContent('RATTLER')
-  expect(challenge.querySelector('[data-rattler-attempt]')).toBeNull()
-  expect(challenge.querySelector('[data-rattler-input]')).toBeNull()
+it('preserves ordinary masked manual entry and verification', async () => {
+  const verify = vi.fn((pin: string) => pin === '7042')
+  const onSuccess = vi.fn()
+  const user = userEvent.setup()
+  render(<VeyraPinChallenge {...props} verify={verify} onSuccess={onSuccess} />)
+
+  for (const digit of '7042') await user.click(screen.getByRole('button', { name: digit }))
+
+  expect(verify).toHaveBeenCalledOnce()
+  expect(verify).toHaveBeenCalledWith('7042')
+  expect(onSuccess).toHaveBeenCalledOnce()
+  expect(activeKey()).toBeNull()
+  expect(Array.from(challenge().querySelectorAll('.veyra-pin__dot')).every((dot) => dot.textContent === '')).toBe(true)
 })
