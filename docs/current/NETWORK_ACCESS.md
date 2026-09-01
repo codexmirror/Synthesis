@@ -118,7 +118,29 @@ its name and provider provenance remain legible — rather than being hidden.
 It is presented with a restrained unavailable mark rather than a large
 disabled EXECUTE control paired with repeated explanatory copy, so an
 unavailable Technique reads as quietly unavailable rather than as a broken
-configuration form.
+configuration form. A Technique whose own attempt is currently running against
+this target states itself as running in the same place, in place of EXECUTE,
+rather than continuing to offer a control that can only answer ALREADY
+RUNNING; this never hides an owned Technique that is not the one running.
+
+A running stage — Service Analysis, Credential Access, Rollback's attack, or
+package submission — presents that work as an execution surface rather than a
+bare headline and percentage. It states the operation's own name, the facts
+the running work itself already carries (the endpoint it was actually started
+against, the provider the canonical resolver actually selected, the remembered
+weakness or package it concerns) and canonical progress, plus a restrained
+live indicator. Every stated fact is either the running Process's or
+submission's own canonical field or Player Information the player already
+holds; nothing is invented for atmosphere, and no new canonical state, phase,
+or duration is introduced. Where this surface already draws a Service's
+analysis progress, that Service states under TECHNICAL INTELLIGENCE that it is
+analyzing instead of repeating the same progress a second time on the same
+screen; where the headline belongs to something else (an active Session, for
+example), the Service row remains the only place that progress is shown. A
+completed running operation may settle with a brief presentation-only
+transition, and a Device newly observed in Known Space may likewise arrive
+rather than simply appear; neither creates canonical state, and both respect
+reduced motion.
 
 Manual Inspect is deliberately absent from that progression: it is optional
 depth under TECHNICAL INTELLIGENCE, not a step the ordinary SCAN → HACK →
@@ -682,6 +704,12 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   is no stored stage, no `hacked` flag, and no canonical target progress; each
   stage is recomputed from Discovery, Knowledge, Process, DeviceAccess and
   RemoteSession on every render.
+- A running stage's execution surface, the RUNNING mark in place of EXECUTE,
+  the brief settle transition on completion and a Device's arrival in Known
+  Space are presentation over already-produced canonical state. None of them
+  delays, gates, or is a precondition for the canonical operation it presents;
+  Scan, Ping, Inspect and Known-Space sweep remain issued immediately, with no
+  presentation timer in front of them.
 - A way in is a statement about the player's Knowledge and installed software,
   never a prediction. Removing the supporting tool removes the offer without
   touching the Knowledge, and a stale endpoint can still produce a legitimate
