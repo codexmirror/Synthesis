@@ -5,23 +5,42 @@ import { VeyraPinChallenge } from './VeyraPinChallenge'
 
 const props = { verify: vi.fn(() => false), onSuccess: vi.fn(), onCancel: vi.fn() }
 
-it('types all four masked digits inside one canonical RATTLER attempt and rebinds immediately', () => {
+it('types each canonical candidate prefix inside its one attempt slot', () => {
   vi.useFakeTimers()
   const view = render(<VeyraPinChallenge {...props} observedCandidate="6999" observedAttemptNumber={1000} />)
   const challenge = screen.getByRole('region', { name: 'Enter Device PIN' })
-  const filled = () => Array.from(challenge.querySelectorAll('.veyra-pin__dot')).filter((dot) => dot.hasAttribute('data-filled')).length
-  expect(filled()).toBe(1)
+  const visibleCandidate = () => challenge.querySelector('[data-rattler-input]')?.textContent ?? ''
+  expect(visibleCandidate()).toBe('6')
   expect(challenge).toHaveTextContent('RATTLER · ATTEMPT 1000')
-  expect(challenge).not.toHaveTextContent('6999')
-  act(() => vi.advanceTimersByTime(375))
-  expect(filled()).toBe(4)
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('69')
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('699')
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('6999')
 
   view.rerender(<VeyraPinChallenge {...props} observedCandidate="7000" observedAttemptNumber={1001} />)
-  expect(filled()).toBe(1)
+  expect(visibleCandidate()).toBe('7')
   expect(challenge).toHaveTextContent('RATTLER · ATTEMPT 1001')
-  expect(challenge).not.toHaveTextContent('7000')
-  act(() => vi.advanceTimersByTime(375))
-  expect(filled()).toBe(4)
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('70')
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('700')
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('7000')
+  vi.useRealTimers()
+})
+
+it('cancels stale prefix timers when canonical attempt identity changes', () => {
+  vi.useFakeTimers()
+  const view = render(<VeyraPinChallenge {...props} observedCandidate="6999" observedAttemptNumber={1000} />)
+  const visibleCandidate = () => screen.getByRole('region', { name: 'Enter Device PIN' }).querySelector('[data-rattler-input]')?.textContent ?? ''
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('69')
+  view.rerender(<VeyraPinChallenge {...props} observedCandidate="7000" observedAttemptNumber={1001} />)
+  expect(visibleCandidate()).toBe('7')
+  act(() => vi.advanceTimersByTime(125))
+  expect(visibleCandidate()).toBe('70')
   vi.useRealTimers()
 })
 
@@ -31,6 +50,7 @@ it('stops observed playback without fabricating a successor after canonical comp
   view.rerender(<VeyraPinChallenge {...props} />)
   act(() => vi.advanceTimersByTime(500))
   expect(screen.getByRole('region', { name: 'Enter Device PIN' }).querySelector('[data-rattler-attempt]')).toBeNull()
+  expect(screen.getByRole('region', { name: 'Enter Device PIN' }).querySelector('[data-rattler-input]')).toBeNull()
   vi.useRealTimers()
 })
 
@@ -39,4 +59,5 @@ it('keeps the ordinary manual challenge free of RATTLER projection', () => {
   const challenge = screen.getByRole('region', { name: 'Enter Device PIN' })
   expect(challenge).not.toHaveTextContent('RATTLER')
   expect(challenge.querySelector('[data-rattler-attempt]')).toBeNull()
+  expect(challenge.querySelector('[data-rattler-input]')).toBeNull()
 })

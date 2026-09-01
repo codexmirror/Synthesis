@@ -33,7 +33,7 @@ export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, on
   const [observedLength, setObservedLength] = useState(isObservedAttempt ? 1 : 0)
 
   // Canonical RATTLER owns both the candidate and the 500 ms attempt. This
-  // effect only reveals that candidate's four masked digits inside its slot;
+  // effect only reveals a prefix of that candidate inside its slot;
   // changing canonical attempt identity cancels every stale reveal and starts
   // the newly represented candidate immediately.
   useEffect(() => {
@@ -70,12 +70,14 @@ export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, on
     <h1 className="veyra-title">{title}</h1>
     {note && <p className="veyra-note">{note}</p>}
     {isObservedAttempt && <p className="veyra-pin__rattler">RATTLER · ATTEMPT {observedAttemptNumber}</p>}
-    <div className="veyra-pin__dots" aria-hidden="true">
+    <div className="veyra-pin__dots" data-rattler-input={isObservedAttempt ? true : undefined} aria-hidden="true">
       {Array.from({ length: PIN_LENGTH }, (_, index) => <span className="veyra-pin__dot" key={index}
         data-filled={index < presentedLength || undefined}
-        data-rattler-attempt={isObservedAttempt ? true : undefined} />)}
+        data-rattler-attempt={isObservedAttempt ? true : undefined}>
+        {isObservedAttempt && index < observedLength ? observedCandidate[index] : ''}
+      </span>)}
     </div>
-    <output className="veyra-hidden" aria-live="polite">{isObservedAttempt ? `RATTLER attempt ${observedAttemptNumber}: ${observedLength} of ${PIN_LENGTH} digits entered` : `${digits.length} of ${PIN_LENGTH} digits entered`}</output>
+    <output className="veyra-hidden" aria-live="polite">{isObservedAttempt ? `RATTLER attempt ${observedAttemptNumber}: ${observedCandidate.slice(0, observedLength)}` : `${digits.length} of ${PIN_LENGTH} digits entered`}</output>
     <p className="veyra-pin__refusal" role={refusal ? 'alert' : undefined}>{refusal || ' '}</p>
     <div className="veyra-keypad">
       {KEYPAD_DIGITS.map((digit) => <button key={digit} type="button" className="veyra-key" onClick={() => press(digit)}>{digit}</button>)}
