@@ -9,14 +9,14 @@ export const RATTLER_PROGRAM_ID = 'program-rattler-v0' as const
 export const RATTLER_INSTALLED_EXECUTABLE_PATH = '/opt/rattler/rattler.exe'
 export const RATTLER_EXECUTABLE_SIZE_BYTES = 1_900_000
 export const RATTLER_PAYLOAD_SIZE_BYTES = 65_536
-export const RATTLER_CANDIDATE_BUDGET = 2_500
-export const RATTLER_ATTEMPTS_PER_MINUTE = 120
+export const RATTLER_CANDIDATE_BUDGET = 10_000
+export const RATTLER_ATTEMPTS_PER_MINUTE = 625
 export const RATTLER_RAM_REQUIRED_MIB = 96
 
-/** RATTLER 1.0's authored, unique bounded order: 6000..8499. Petra's 7042 is attempt 1043. */
+/** RATTLER 1.0's full deterministic ascending search: 0000..9999. Petra's 7042 is attempt 7043. */
 export function rattlerCandidateAt(index: number): string | undefined {
   return Number.isInteger(index) && index >= 0 && index < RATTLER_CANDIDATE_BUDGET
-    ? String(6000 + index).padStart(4, '0') : undefined
+    ? String(index).padStart(4, '0') : undefined
 }
 
 export function deriveRattlerPayloadPath(targetDeviceId: string): string {

@@ -23,7 +23,7 @@ function activeKey() {
   return challenge().querySelector<HTMLButtonElement>('.veyra-key[data-rattler-active]')
 }
 
-it('keeps candidate 6064 masked while pressing its keypad digits in four steps', () => {
+it('keeps the upper PIN indicators masked while pressing a sampled candidate\'s keypad digits in four steps', () => {
   vi.useFakeTimers()
   render(<VeyraPinChallenge {...props} observedCandidate="6064" observedAttemptNumber={1000} />)
 
@@ -46,51 +46,63 @@ it('keeps candidate 6064 masked while pressing its keypad digits in four steps',
   expect(challenge().querySelector('output')).toHaveTextContent('4 of 4 digits entered')
 })
 
-it('immediately resets and rebinds playback when canonical attempt identity changes', () => {
+it('resamples the real canonical candidate on a fixed interval and is unaffected by how often canonical state changes in between', () => {
   vi.useFakeTimers()
   const view = render(<VeyraPinChallenge {...props} observedCandidate="6064" observedAttemptNumber={1000} />)
-  act(() => vi.advanceTimersByTime(250))
-  expect(filledIndicators()).toBe(3)
+  expect(filledIndicators()).toBe(1)
   expect(activeKey()).toHaveTextContent('6')
 
-  view.rerender(<VeyraPinChallenge {...props} observedCandidate="7812" observedAttemptNumber={1001} />)
-  expect(filledIndicators()).toBe(1)
-  expect(activeKey()).toHaveTextContent('7')
-  expect(challenge()).toHaveTextContent('RATTLER · ATTEMPT 1001')
+  // Canonical Process state races ahead of the visible reveal several times inside one sample window.
+  view.rerender(<VeyraPinChallenge {...props} observedCandidate="6065" observedAttemptNumber={1001} />)
+  view.rerender(<VeyraPinChallenge {...props} observedCandidate="6066" observedAttemptNumber={1002} />)
 
   act(() => vi.advanceTimersByTime(125))
   expect(filledIndicators()).toBe(2)
-  expect(activeKey()).toHaveTextContent('8')
+  expect(activeKey()).toHaveTextContent('0')
+  expect(challenge()).toHaveTextContent('RATTLER · ATTEMPT 1000')
+
+  act(() => vi.advanceTimersByTime(250))
+  expect(filledIndicators()).toBe(4)
+  expect(challenge()).toHaveTextContent('RATTLER · ATTEMPT 1000')
+
+  // At the next sample boundary, a fresh snapshot of the then-current live candidate is taken.
   act(() => vi.advanceTimersByTime(125))
-  expect(activeKey()).toHaveTextContent('1')
+  expect(filledIndicators()).toBe(1)
+  expect(activeKey()).toHaveTextContent('6')
+  expect(challenge()).toHaveTextContent('RATTLER · ATTEMPT 1002')
+
   act(() => vi.advanceTimersByTime(125))
-  expect(activeKey()).toHaveTextContent('2')
+  expect(filledIndicators()).toBe(2)
+  expect(activeKey()).toHaveTextContent('0')
 })
 
-it('cancels stale candidate timers when rebinding before their next step', () => {
+it('disables the manual keypad while an observed RATTLER candidate is playing, never running as a second cracking mechanism', () => {
   vi.useFakeTimers()
-  const view = render(<VeyraPinChallenge {...props} observedCandidate="6999" observedAttemptNumber={1000} />)
-  act(() => vi.advanceTimersByTime(100))
-  view.rerender(<VeyraPinChallenge {...props} observedCandidate="1234" observedAttemptNumber={1001} />)
+  const verify = vi.fn(() => true)
+  const onSuccess = vi.fn()
+  render(<VeyraPinChallenge {...props} verify={verify} onSuccess={onSuccess} observedCandidate="6064" observedAttemptNumber={1000} />)
 
-  act(() => vi.advanceTimersByTime(25))
-  expect(filledIndicators()).toBe(1)
-  expect(activeKey()).toHaveTextContent('1')
-  act(() => vi.advanceTimersByTime(100))
-  expect(filledIndicators()).toBe(2)
-  expect(activeKey()).toHaveTextContent('2')
+  for (const digit of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']) {
+    expect(screen.getByRole('button', { name: digit })).toBeDisabled()
+  }
+  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+
+  act(() => challenge().querySelectorAll<HTMLButtonElement>('.veyra-key').forEach((key) => key.click()))
+  expect(verify).not.toHaveBeenCalled()
+  expect(onSuccess).not.toHaveBeenCalled()
 })
 
 it('stops observed keypad activity without fabricating a successor after canonical completion', () => {
   vi.useFakeTimers()
-  const view = render(<VeyraPinChallenge {...props} observedCandidate="7042" observedAttemptNumber={1043} />)
+  const view = render(<VeyraPinChallenge {...props} observedCandidate="7042" observedAttemptNumber={7043} />)
   view.rerender(<VeyraPinChallenge {...props} />)
-  act(() => vi.advanceTimersByTime(500))
+  act(() => vi.advanceTimersByTime(1_000))
 
   expect(challenge().querySelector('[data-rattler-attempt]')).toBeNull()
   expect(activeKey()).toBeNull()
   expect(filledIndicators()).toBe(0)
   expect(challenge()).not.toHaveTextContent('RATTLER')
+  expect(screen.getByRole('button', { name: '1' })).not.toBeDisabled()
 })
 
 it('preserves ordinary masked manual entry and verification', async () => {

@@ -621,15 +621,19 @@ action; the monitor does not inspect arbitrary remote filesystems.
 
 The Process remains bound to the admitted payload's target Device, filesystem
 copy ID, release, and build. Removing or replacing that exact copy interrupts
-the Process before further candidates are tested. RATTLER 1.0 tests the unique
-authored sequence `6000` through `8499` at 120 attempts per minute: 2,500 real
-candidates over at most 20 minutes 50 seconds, never a probability roll. Each
+the Process before further candidates are tested. RATTLER 1.0 tests the full
+deterministic ascending four-digit space `0000` through `9999` at 625
+attempts per minute: 10,000 real candidates in exactly 16 minutes, never a
+probability roll and never a previously-tested or skipped candidate. Each
 candidate is compared with the Device-owned secret; success or exhaustion is
-terminal and idempotent. Success records the matching PIN as narrow Player
-Knowledge associated with stable Device identity. It changes no PIN, Wallet
-protection, access, Session, or financial truth. This concrete release attacks
-only VEYRA Wallet authentication; Settings remains an ordinary manual consumer
-of the same Device-owned PIN, not another RATTLER surface.
+terminal and idempotent. Because the search is exhaustive over every possible
+four-digit PIN, an ordinary Device PIN is always eventually reached — a real
+PIN succeeds only when the canonical sequence reaches it, never sooner.
+Success records the matching PIN as narrow Player Knowledge associated with
+stable Device identity. It changes no PIN, Wallet protection, access,
+Session, or financial truth. This concrete release attacks only VEYRA Wallet
+authentication; Settings remains an ordinary manual consumer of the same
+Device-owned PIN, not another RATTLER surface.
 
 
 ## Flipper acquisition and module integration
