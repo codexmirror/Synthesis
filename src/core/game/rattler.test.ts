@@ -4,7 +4,7 @@ import { advanceFileTransfer, startMarketPackageDownload, startRemoteFileUpload 
 import { getFilesystemFile } from './filesystem'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation } from './remoteSession'
-import { createRattlerPayload, deriveRattlerPayloadPath, RATTLER_INSTALLED_EXECUTABLE_PATH, RATTLER_PROGRAM_ID } from './rattler'
+import { createRattlerPayload, deployRattler, deriveRattlerPayloadPath, RATTLER_INSTALLED_EXECUTABLE_PATH, RATTLER_PROGRAM_ID, rattlerCandidateAt } from './rattler'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { purchaseMarketOffer } from './market'
 import { RATTLER_1_0 } from './softwareReleaseContent'
@@ -31,6 +31,63 @@ function withKnownTarget(state = installRattler()): GameState {
 }
 
 describe('RATTLER 1.0', () => {
+  function deployedPhone(pin = '7042') {
+    const installed = installRattler()
+    const base = { ...installed, process: { ...installed.process, processes: [] } }
+    const phone = base.world.network.hosts.find(({ id }) => id === 'host-phone-001')!
+    const payload = { kind: 'rattler_payload' as const, id: 'file-phone-payload', path: '/tmp/rattler.rpl', sizeBytes: 65_536,
+      rattlerReleaseId: RATTLER_1_0.releaseId, rattlerBuildId: RATTLER_1_0.buildId, targetDeviceId: phone.id, targetAddressSnapshot: phone.ip }
+    const withPayload: GameState = { ...base, world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((host) => host.id === phone.id
+      ? { ...host, security: { ...host.security!, devicePin: pin }, filesystem: { ...host.filesystem!, files: [...host.filesystem!.files, payload] } } : host) } },
+      deviceAccess: { nextId: 2, established: [{ id: 'access-phone', sourceDeviceId: base.player.localDevice.id, targetDeviceId: phone.id, viaServiceId: 'service-ssh-003', privilege: 'USER' }] } }
+    return connectRemoteFromObservation(withPayload, { targetDeviceId: phone.id, address: phone.ip }).state
+  }
+
+  it('uses 2,500 unique deterministic candidates with Petra at attempt 1043', () => {
+    const candidates = Array.from({ length: 2_500 }, (_, index) => rattlerCandidateAt(index))
+    expect(new Set(candidates).size).toBe(2_500)
+    expect(candidates.indexOf('7042') + 1).toBe(1_043)
+  })
+
+  it('requires represented session authority and the concrete payload, and refuses a duplicate', () => {
+    const admitted = deployedPhone()
+    const disconnected: GameState = { ...admitted, remoteSession: { ...admitted.remoteSession, active: null } }
+    expect(deployRattler(disconnected)).toEqual({ status: 'session_unavailable', state: disconnected })
+    const noPayload = { ...admitted, world: { ...admitted.world, network: { ...admitted.world.network, hosts: admitted.world.network.hosts.map((host) => host.id === 'host-phone-001' ? { ...host, filesystem: { ...host.filesystem!, files: [] } } : host) } } }
+    expect(deployRattler(noPayload)).toEqual({ status: 'payload_unavailable', state: noPayload })
+    const started = deployRattler(admitted)
+    if (started.status !== 'started') throw new Error(started.status)
+    expect(started.state.process.processes).toHaveLength(1)
+    expect(deployRattler(started.state)).toEqual({ status: 'already_running', state: started.state })
+  })
+
+  it('tests actual candidates at 120/min, learns Petra PIN once, and remains terminal', () => {
+    const started = deployRattler(deployedPhone())
+    if (started.status !== 'started') throw new Error(started.status)
+    const before = started.state
+    const running = advanceGameState(before, 500_000)
+    expect(running.process.processes[0]).toMatchObject({ kind: 'rattler_pin_search', status: 'running', attemptsCompleted: 1000, currentCandidate: '6999' })
+    const succeeded = advanceGameState(running, 22_000)
+    expect(succeeded.process.processes[0]).toMatchObject({ status: 'completed', attemptsCompleted: 1043, currentCandidate: '7042', result: { status: 'pin_found', pin: '7042' } })
+    expect(succeeded.knowledge.knownDevicePins).toEqual([{ deviceId: 'host-phone-001', pin: '7042' }])
+    expect(succeeded.world).toEqual(before.world)
+    expect(succeeded.deviceAccess).toEqual(before.deviceAccess)
+    expect(succeeded.remoteSession).toEqual(before.remoteSession)
+    expect(advanceGameState(succeeded, 999_999).knowledge.knownDevicePins).toEqual(succeeded.knowledge.knownDevicePins)
+  })
+
+  it('exhausts without knowledge and interrupts when its exact payload copy disappears', () => {
+    const outside = deployRattler(deployedPhone('9999'))
+    if (outside.status !== 'started') throw new Error(outside.status)
+    const exhausted = advanceGameState(outside.state, 1_250_000)
+    expect(exhausted.process.processes[0]).toMatchObject({ status: 'completed', attemptsCompleted: 2500, result: { status: 'search_exhausted' } })
+    expect(exhausted.knowledge.knownDevicePins).toEqual([])
+
+    const active = deployRattler(deployedPhone())
+    if (active.status !== 'started') throw new Error(active.status)
+    const removed = { ...active.state, world: { ...active.state.world, network: { ...active.state.world.network, hosts: active.state.world.network.hosts.map((host) => host.id === 'host-phone-001' ? { ...host, filesystem: { ...host.filesystem!, files: [] } } : host) } } }
+    expect(advanceGameState(removed, 500).process.processes[0]).toMatchObject({ status: 'completed', attemptsCompleted: 0, result: { status: 'payload_interrupted' } })
+  })
   it('uses Market purchase and elapsed download to create the exact ordinary package', () => {
     const base = createInitialGameState()
     const funded = { ...base, nodeWallet: { ...base.nodeWallet, balanceNodeUnits: 10_000 } }

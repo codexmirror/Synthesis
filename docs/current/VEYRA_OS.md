@@ -130,6 +130,16 @@ entirely. Enabling or disabling protection in Settings is read at the moment
 Wallet is next opened, with no reload, reconnect, or delay: it is Device state
 read fresh, not cached.
 
+While that protected Wallet challenge is actually mounted, a running matching
+RATTLER 1.0 Process is projected through the same PIN surface: the displayed
+candidate is the Process's canonical current candidate, not VEYRA animation or
+a second attempt mechanism. If the observed Process reaches the real PIN while
+this particular challenge is open, that one Wallet opening receives the same
+presentation-local authorization as a successful manual entry. Success while
+Wallet is not being viewed opens nothing, and opening the challenge after a
+completed attack does not replay authorization. Settings continues to use the
+ordinary manual challenge and never projects RATTLER activity.
+
 The consumer hierarchy is balance, Provider, SEND / RECEIVE, ACCOUNT, ACTIVITY:
 
 - **Balance** is the canonical Account balance with the Provider display name

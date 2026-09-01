@@ -6,7 +6,7 @@ import { GameProvider } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { RATTLER_INSTALLED_EXECUTABLE_PATH, RATTLER_PROGRAM_ID } from '../../core/game/rattler'
 import { RATTLER_1_0 } from '../../core/game/softwareReleaseContent'
-import type { GameState } from '../../core/game/types'
+import type { GameState, RattlerPinSearchProcess } from '../../core/game/types'
 import { Rattler } from './Rattler'
 
 function availableState(): GameState {
@@ -25,6 +25,19 @@ function availableState(): GameState {
   }
 }
 
+function withRattlerProcess(status: 'running' | 'completed', result?: RattlerPinSearchProcess['result']): GameState {
+  const base = availableState()
+  const process: RattlerPinSearchProcess = {
+    kind: 'rattler_pin_search', id: 'process-0042', label: 'RATTLER 1.0', executorDeviceId: 'host-phone-001',
+    status, ramRequiredMiB: 96, workRequired: 2500, workCompleted: status === 'running' ? 42 : 1043,
+    targetDeviceId: 'host-phone-001', attackedSurface: 'veyra_wallet_device_pin', rattlerReleaseId: RATTLER_1_0.releaseId,
+    rattlerBuildId: RATTLER_1_0.buildId, payloadFileId: 'file-remote-payload', payloadPathSnapshot: '/tmp/rattler.rpl',
+    attemptsCompleted: status === 'running' ? 42 : 1043, elapsedMs: status === 'running' ? 21_000 : 521_500,
+    currentCandidate: status === 'running' ? '6041' : '7042', result,
+  }
+  return { ...base, remoteSession: { ...base.remoteSession, active: null }, process: { ...base.process, processes: [process] } }
+}
+
 it('presents only the target input and CREATE PAYLOAD action, then reports the concrete artifact', async () => {
   const user = userEvent.setup()
   render(<GameProvider initialState={availableState()}><Rattler /></GameProvider>)
@@ -32,4 +45,17 @@ it('presents only the target input and CREATE PAYLOAD action, then reports the c
   await user.type(screen.getByLabelText('IP address'), '198.51.100.47')
   await user.click(screen.getByRole('button', { name: 'CREATE PAYLOAD' }))
   expect(screen.getByText(/CREATED · \/opt\/rattler\/payload-target-stable-id\.rpl/)).toBeInTheDocument()
+})
+
+it('monitors the latest running deployment after its Remote Session is gone', () => {
+  render(<GameProvider initialState={withRattlerProcess('running')}><Rattler /></GameProvider>)
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('RUNNING')
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('42 / 2500')
+  expect(screen.queryByLabelText('IP address')).not.toBeInTheDocument()
+})
+
+it('keeps a terminal deployment inspectable after its Remote Session is gone', () => {
+  render(<GameProvider initialState={withRattlerProcess('completed', { status: 'pin_found', pin: '7042' })}><Rattler /></GameProvider>)
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('SUCCESS / PIN FOUND')
+  expect(screen.getByLabelText('RATTLER deployment status')).toHaveTextContent('1043 / 2500')
 })

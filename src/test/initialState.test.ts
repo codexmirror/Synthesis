@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 56', () => {
+  it('separates identities and seeds canonical local-device state in schema version 58', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(57)
+    expect(GAME_STATE_VERSION).toBe(58)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(57)
+    expect(state.version).toBe(58)
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
@@ -91,7 +91,7 @@ describe('createInitialGameState', () => {
     expect(state.player.localDevice.filesystem.files).toContainEqual(expect.objectContaining({ kind: 'software_module', moduleId: 'credential-access' }))
     expect(state.player.localDevice).not.toHaveProperty('tools')
     expect(state.process).toEqual({ nextId: 1, processes: [] })
-    expect(state.knowledge).toEqual({ discoveredVulnerabilities: [] })
+    expect(state.knowledge).toEqual({ discoveredVulnerabilities: [], knownDevicePins: [] })
     expect(state.world.network.hosts.map(({ id, ip }) => ({ id, ip }))).toEqual([
       { id: 'host-lan-001', ip: '198.51.100.47' },
       { id: 'host-lan-002', ip: '203.0.113.42' },

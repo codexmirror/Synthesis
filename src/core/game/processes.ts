@@ -8,6 +8,10 @@ function isFiniteWork(process: GameProcess): process is FiniteProcess {
   return process.kind !== 'node_miner'
 }
 
+function isCpuAdvancedWork(process: GameProcess): process is Exclude<FiniteProcess, import('./types').RattlerPinSearchProcess> {
+  return isFiniteWork(process) && process.kind !== 'rattler_pin_search'
+}
+
 export interface ProcessExecutor {
   readonly id: string
   readonly hardware: HardwareState
@@ -118,11 +122,12 @@ function advanceExecutorProcesses(processes: readonly GameProcess[], executor: P
     const running = next.filter((process) => process.status === 'running' && process.executorDeviceId === executor.id)
     if (!running.length) break
     const rate = availableCompute / running.length
-    const finiteRunning = running.filter(isFiniteWork)
+    const finiteRunning = running.filter(isCpuAdvancedWork)
     const toCompletion = finiteRunning.length ? Math.min(...finiteRunning.map((process) => (process.workRequired - process.workCompleted) / rate)) : Infinity
     const step = Math.min(remainingSeconds, toCompletion)
     next = next.map((process) => {
       if (process.status !== 'running' || process.executorDeviceId !== executor.id) return process
+      if (process.kind === 'rattler_pin_search') return process
       if (!isFiniteWork(process)) return { ...process, workRemainder: process.workRemainder + rate * step }
       const workCompleted = Math.min(process.workRequired, process.workCompleted + rate * step)
       return { ...process, workCompleted, status: workCompleted >= process.workRequired - 1e-9 ? 'completed' : 'running' }

@@ -11,6 +11,7 @@ import { resolveCompletedSoftwareRemovals } from './softwareRemoval'
 import { resolveCompletedFlipperModuleIntegrations } from './flipper'
 import type { GameProcess, GameState } from './types'
 import { archiveProcess } from './recentActivity'
+import { advanceRattlerPinSearches } from './rattler'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -20,7 +21,7 @@ import { archiveProcess } from './recentActivity'
  * running or changing.
  */
 export function advanceGameState(state: GameState, elapsedMs: number): GameState {
-  let nextState = state
+  let nextState = advanceRattlerPinSearches(state, elapsedMs)
 
   const executors = [nextState.player.localDevice, ...nextState.world.network.hosts.filter((host) => host.hardware && host.runtime).map((host) => ({ id: host.id, hardware: host.hardware!, runtime: host.runtime! }))]
   const processState = advanceProcesses(nextState.process, executors, elapsedMs)
@@ -52,7 +53,7 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
     nextState = resolveNodeMinerProduction({
       ...nextState,
       process: { ...processState, processes },
-      knowledge: discoveries === nextState.knowledge.discoveredVulnerabilities ? nextState.knowledge : { discoveredVulnerabilities: discoveries },
+      knowledge: discoveries === nextState.knowledge.discoveredVulnerabilities ? nextState.knowledge : { ...nextState.knowledge, discoveredVulnerabilities: discoveries },
       deviceAccess,
       world,
       rackUpdate: { ...nextState.rackUpdate, access: rackUpdateAccess },
@@ -63,7 +64,7 @@ export function advanceGameState(state: GameState, elapsedMs: number): GameState
     const previouslyRunning = new Set(state.process.processes.filter((process) => process.status === 'running').map(({ id }) => id))
     const localDeviceId = nextState.player.localDevice.id
     for (const process of nextState.process.processes) {
-      if (process.status === 'completed' && previouslyRunning.has(process.id) && !isRemoteSoftwareInstallationCompletion(process, localDeviceId)) nextState = archiveProcess(nextState, process)
+      if (process.status === 'completed' && previouslyRunning.has(process.id) && process.kind !== 'rattler_pin_search' && !isRemoteSoftwareInstallationCompletion(process, localDeviceId)) nextState = archiveProcess(nextState, process)
     }
     nextState = releaseRemoteSoftwareInstallationCompletions(nextState)
   }

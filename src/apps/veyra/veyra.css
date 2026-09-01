@@ -408,6 +408,7 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
   transition: background-color .1s ease, border-color .1s ease;
 }
 .veyra-pin__dot[data-filled] { background: var(--veyra-accent); border-color: var(--veyra-accent); }
+.veyra-pin__rattler { margin: 2px 0 -2px; color: var(--veyra-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; }
 
 .veyra-pin__refusal {
   min-height: 1.3em;
