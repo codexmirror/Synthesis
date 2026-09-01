@@ -163,6 +163,8 @@ export function createInitialGameState(): GameState {
               { id: 'service-ssh-003', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
             ],
             authenticationHistory: { nextId: 1, records: [] },
+            // Petra's own secret Device PIN and Wallet-protection setting. The PIN is never Player Knowledge merely from DeviceAccess, a Remote Session, or opening Settings; Wallet protection starts OFF.
+            security: { devicePin: '7042', walletProtectionEnabled: false },
           },
           // Deliberately shallow: operational truth is independent of hardware/runtime representation, so this unreachable training host needs no fabricated resource state to participate in it.
           { id: 'host-training-002', ip: '203.0.113.99', operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } },

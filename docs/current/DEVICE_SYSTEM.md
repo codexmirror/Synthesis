@@ -123,6 +123,16 @@ The three represented Firmware release identities — NODE-OS, RACK-OS and VEYRA
 
 The phone is signed in to its own Civic Dollar Account through its own Device-bound Financial Session (`docs/current/DOLLAR_FINANCE.md`), and the operating surface it presents belongs to `docs/current/VEYRA_OS.md`.
 
+### Device-owned security truth
+
+`NetworkHost.security` (`DeviceSecurityState`, `src/core/game/types.ts`) is a concretely represented Device's own secret PIN and the persistent security settings gated behind it: `devicePin` and `walletProtectionEnabled`. It is present only for a Device that concretely owns this concern; the phone is currently the only one. It is deliberately its own narrow concern, not a generic permissions system, authentication framework, or security-policy registry, and it is distinct from Civic Dollar Credentials, Financial Sessions, Account authority, DeviceAccess, Remote Sessions, and Firmware identity — none of those substitute for it and it substitutes for none of them.
+
+The phone's `security` seeds `{ devicePin: '7042', walletProtectionEnabled: false }`. The PIN is secret World Truth: it is never returned, logged, or otherwise exposed by any operation or presentation, and the player never comes to know it merely by discovering the Device, gaining DeviceAccess, establishing a Remote Session, entering VEYRA OS, or opening Settings.
+
+`changeDeviceWalletProtection` (`src/core/game/deviceSecurity.ts`) is the one canonical mutation: given a target Device id, a submitted PIN, and a requested enabled state, it verifies the PIN against that Device's own `security.devicePin` and, only on an exact match, commits the requested `walletProtectionEnabled` value. A Device with no represented `security` refuses rather than inventing one; a wrong PIN leaves canonical state exactly as it was. `changeWalletProtectionForOperatedRemoteDevice` is the same mutation resolved against whichever Device the player currently operates through a Remote Session (`resolveActiveRemoteTarget`), following the same "Session decides *which* Device acts, and grants no authority of its own" precedent `transferDollarsFromOperatedRemoteDevice` already established: DeviceAccess and an active Remote Session alone never satisfy the PIN check.
+
+The setting is persistent Device state with no timer, temporary-unlock duration, or automatic reset: once successfully changed it remains canonical until successfully changed again through the same PIN verification. This slice enforces nothing at Wallet-open time — opening VEYRA Wallet is unaffected by `walletProtectionEnabled`, in either state; that enforcement is explicitly deferred.
+
 ## Network transfer capacity
 
 Three distinct concerns make up represented transfer throughput, and V1
@@ -580,3 +590,8 @@ is observed through RACK-OS, never listed here.
 - Network activity presentation must never expose a record's internal
   Device or Service IDs, matching the same boundary Authentication History
   presentation already keeps in RACK-OS System.
+- A Device's own `security.devicePin` is never Player Knowledge. DeviceAccess,
+  a Remote Session, or opening VEYRA Settings must never substitute for
+  verifying it, and no operation or presentation may return, log, or display
+  it. `walletProtectionEnabled` is state only in this slice — nothing yet
+  reads it when Wallet opens.

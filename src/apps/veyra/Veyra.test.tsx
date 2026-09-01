@@ -20,6 +20,7 @@ const PHONE_ADDRESS = '198.51.100.61'
 const PHONE_ACCOUNT_ID = 'dollar-account-veyra-phone-v0'
 const PHONE_REFERENCE = 'CD-3318-2204'
 const PLAYER_REFERENCE = 'CD-1042-7781'
+const PHONE_PIN = '7042'
 
 /** An entered-Session world for the represented VEYRA phone, reached the way the game reaches it. */
 function phoneConnectedState(state = createInitialGameState()): GameState {
@@ -316,7 +317,7 @@ describe('VEYRA Settings', () => {
     await user.click(screen.getByRole('button', { name: 'Settings' }))
 
     const settings = screen.getByRole('region', { name: 'Settings' })
-    expect(within(settings).getAllByRole('button').map((row) => row.textContent)).toEqual(['This Device'])
+    expect(within(settings).getAllByRole('button').map((row) => row.textContent)).toEqual(['This Device', 'Security'])
 
     await user.click(within(settings).getByRole('button', { name: 'This Device' }))
     const device = screen.getByRole('region', { name: 'This Device' })
@@ -348,6 +349,93 @@ describe('VEYRA Settings', () => {
       expect(owner).not.toMatch(/USER|SSH|privilege|exploit|CPU|RAM/)
       await user.click(screen.getByRole('button', { name: 'Home' }))
     }
+  })
+})
+
+describe('VEYRA Security — Wallet protection', () => {
+  async function openSecurity() {
+    const user = await enterPhone()
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.click(screen.getByRole('button', { name: 'Security' }))
+    return user
+  }
+
+  it('presents Wallet protection OFF truthfully, deriving nothing from the Remote Session', async () => {
+    await openSecurity()
+    const security = screen.getByRole('region', { name: 'Security' })
+    expect(security).toHaveTextContent('Wallet protection')
+    expect(security).toHaveTextContent('Require Device PIN to open Wallet')
+    expect(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' })).toHaveAttribute('aria-checked', 'false')
+    expect(canonical().world.network.hosts.find(({ id }) => id === PHONE_DEVICE_ID)?.security?.walletProtectionEnabled).toBe(false)
+  })
+
+  it('requests the Device PIN before mutating anything, and commits the requested state on a correct PIN', async () => {
+    const user = await openSecurity()
+    const before = canonical()
+    await user.click(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' }))
+
+    const challenge = screen.getByRole('region', { name: 'Confirm Device PIN' })
+    expect(challenge).toBeInTheDocument()
+    // Tapping the control alone changes nothing.
+    expect(canonical()).toEqual(before)
+
+    await user.type(screen.getByLabelText('Device PIN'), PHONE_PIN)
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(screen.getByRole('region', { name: 'Security' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' })).toHaveAttribute('aria-checked', 'true')
+    expect(canonical().world.network.hosts.find(({ id }) => id === PHONE_DEVICE_ID)?.security).toEqual({ devicePin: PHONE_PIN, walletProtectionEnabled: true })
+  })
+
+  it('refuses an incorrect PIN in ordinary wording, leaves the setting unchanged, and never leaks the correct PIN', async () => {
+    const user = await openSecurity()
+    const before = canonical()
+    await user.click(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' }))
+    await user.type(screen.getByLabelText('Device PIN'), '0000')
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Incorrect PIN.')
+    expect(screen.getByRole('region', { name: 'Confirm Device PIN' })).toBeInTheDocument()
+    expect(canonical()).toEqual(before)
+    expect(screen.getByLabelText('Device PIN')).toHaveValue('')
+    // The correct PIN never appears anywhere in the owner-facing phone.
+    expect(ownerFacing().textContent ?? '').not.toContain(PHONE_PIN)
+  })
+
+  it('leaves the setting unchanged when the PIN challenge is cancelled', async () => {
+    const user = await openSecurity()
+    const before = canonical()
+    await user.click(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' }))
+    await user.type(screen.getByLabelText('Device PIN'), '1111')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.getByRole('region', { name: 'Security' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' })).toHaveAttribute('aria-checked', 'false')
+    expect(canonical()).toEqual(before)
+  })
+
+  it('persists the committed setting across navigation rather than resetting it', async () => {
+    const user = await openSecurity()
+    await user.click(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' }))
+    await user.type(screen.getByLabelText('Device PIN'), PHONE_PIN)
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await user.click(screen.getByRole('button', { name: 'Home' }))
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.click(screen.getByRole('button', { name: 'Security' }))
+    expect(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('does not gate opening Wallet in this slice: Wallet still opens normally with protection on', async () => {
+    const user = await openSecurity()
+    await user.click(screen.getByRole('switch', { name: 'Require Device PIN to open Wallet' }))
+    await user.type(screen.getByLabelText('Device PIN'), PHONE_PIN)
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await user.click(screen.getByRole('button', { name: 'Home' }))
+    await user.click(screen.getByRole('button', { name: 'Wallet' }))
+    expect(screen.getByRole('region', { name: 'Wallet' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Confirm Device PIN' })).not.toBeInTheDocument()
   })
 })
 
