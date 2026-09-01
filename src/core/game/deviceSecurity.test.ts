@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { changeDeviceWalletProtection, changeWalletProtectionForOperatedRemoteDevice } from './deviceSecurity'
+import { changeDeviceWalletProtection, changeWalletProtectionForOperatedRemoteDevice, verifyDevicePinForOperatedRemoteDevice } from './deviceSecurity'
 import { connectRemoteFromObservation } from './remoteSession'
 import type { GameState } from './types'
 
@@ -84,6 +84,26 @@ describe('Device-owned Wallet protection', () => {
       const before = createInitialGameState()
       const result = changeWalletProtectionForOperatedRemoteDevice(before, PHONE_PIN, true)
       expect(result).toEqual({ status: 'session_unavailable', state: before })
+    })
+  })
+
+  describe('verifyDevicePinForOperatedRemoteDevice — Wallet-open authorization only, no mutation', () => {
+    it('verifies a correct PIN against the operated Device and commits nothing', () => {
+      const connected = phoneConnectedState()
+      const result = verifyDevicePinForOperatedRemoteDevice(connected, PHONE_PIN)
+      expect(result).toEqual({ status: 'verified' })
+    })
+
+    it('refuses an incorrect PIN without exposing the correct one', () => {
+      const connected = phoneConnectedState()
+      const result = verifyDevicePinForOperatedRemoteDevice(connected, '0000')
+      expect(result).toEqual({ status: 'invalid_pin' })
+    })
+
+    it('refuses with no active Remote Session, granting no authority from Session absence', () => {
+      const before = createInitialGameState()
+      const result = verifyDevicePinForOperatedRemoteDevice(before, PHONE_PIN)
+      expect(result).toEqual({ status: 'session_unavailable' })
     })
   })
 })

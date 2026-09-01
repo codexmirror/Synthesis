@@ -1,7 +1,8 @@
-import { type FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useGameActions } from '../../app/GameContext'
 import type { NetworkHost } from '../../core/game/types'
 import { VeyraIcon } from './VeyraIcon'
+import { VeyraPinChallenge } from './VeyraPinChallenge'
 
 /** Which Settings surface is open. Presentation only; it never reaches `GameState`. */
 export type VeyraSettingsDetail = 'this-device' | 'security'
@@ -62,10 +63,10 @@ export function VeyraSettings({ device, detail, onDetail }: {
 
 /**
  * Security presents exactly one concrete Device-owned setting: whether
- * opening Wallet requires this Device's own PIN. This slice does not yet
- * enforce that requirement anywhere; it only lets the owner see and change
- * the setting itself, and changing it in either direction is gated on this
- * Device's own secret PIN.
+ * opening Wallet requires this Device's own PIN (enforced by VeyraOS at
+ * Wallet-open time, `src/apps/veyra/VeyraOS.tsx`). Changing it in either
+ * direction is gated on this Device's own secret PIN through the same
+ * `VeyraPinChallenge` Wallet-open uses.
  *
  * The PIN is never read, stored, or displayed by this surface — it is only
  * submitted for verification by the canonical operation, which reports
@@ -76,51 +77,23 @@ function VeyraSecurity({ device }: { device: NetworkHost }) {
   const { changeWalletProtectionForOperatedRemoteDevice } = useGameActions()
   const walletProtectionEnabled = device.security?.walletProtectionEnabled ?? false
   const [challenge, setChallenge] = useState<{ requestedEnabled: boolean }>()
-  const [pin, setPin] = useState('')
-  const [refusal, setRefusal] = useState<string>()
   const [notice, setNotice] = useState<string>()
 
   function requestChange(requestedEnabled: boolean) {
     setNotice(undefined)
-    setRefusal(undefined)
-    setPin('')
     setChallenge({ requestedEnabled })
   }
 
-  function cancel() {
-    setChallenge(undefined)
-    setPin('')
-    setRefusal(undefined)
-  }
-
-  function confirm(event: FormEvent) {
-    event.preventDefault()
-    if (!challenge) return
-    const result = changeWalletProtectionForOperatedRemoteDevice(pin, challenge.requestedEnabled)
-    setPin('')
-    if (result.status === 'changed') {
-      setNotice(challenge.requestedEnabled ? 'Wallet protection is on.' : 'Wallet protection is off.')
-      setChallenge(undefined)
-      return
-    }
-    setRefusal('Incorrect PIN.')
-  }
-
   if (challenge) {
-    return <section className="veyra-screen" aria-label="Confirm Device PIN">
-      <p className="veyra-eyebrow">Security</p>
-      <h1 className="veyra-title">Enter Device PIN</h1>
-      <p className="veyra-note">Enter this Device's PIN to turn Wallet protection {challenge.requestedEnabled ? 'on' : 'off'}.</p>
-      <form className="veyra-form" onSubmit={confirm} aria-label="Confirm Device PIN">
-        <label className="veyra-field">
-          <span>Device PIN</span>
-          <input className="veyra-input" name="devicePin" type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(event) => setPin(event.target.value)} />
-        </label>
-        {refusal && <p className="veyra-refusal" role="alert">{refusal}</p>}
-        <button className="veyra-submit" type="submit">Confirm</button>
-      </form>
-      <button className="veyra-quiet" type="button" onClick={cancel}>Cancel</button>
-    </section>
+    return <VeyraPinChallenge
+      note={`Enter this Device's PIN to turn Wallet protection ${challenge.requestedEnabled ? 'on' : 'off'}.`}
+      verify={(pin) => changeWalletProtectionForOperatedRemoteDevice(pin, challenge.requestedEnabled).status === 'changed'}
+      onSuccess={() => {
+        setNotice(challenge.requestedEnabled ? 'Wallet protection is on.' : 'Wallet protection is off.')
+        setChallenge(undefined)
+      }}
+      onCancel={() => setChallenge(undefined)}
+    />
   }
 
   return <section className="veyra-screen" aria-label="Security">
