@@ -120,6 +120,13 @@ export function sameFilesystemArtifactIgnoringPath(a: FilesystemFile, b: Filesys
       && a.version === b.version
       && a.sizeBytes === b.sizeBytes
   }
+  if (a.kind === 'rattler_payload' && b.kind === 'rattler_payload') {
+    return a.sizeBytes === b.sizeBytes
+      && a.rattlerReleaseId === b.rattlerReleaseId
+      && a.rattlerBuildId === b.rattlerBuildId
+      && a.targetDeviceId === b.targetDeviceId
+      && a.targetAddressSnapshot === b.targetAddressSnapshot
+  }
   return false
 }
 

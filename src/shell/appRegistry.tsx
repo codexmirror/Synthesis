@@ -9,8 +9,10 @@ import { System } from '../apps/system/System'
 import { Terminal } from '../apps/terminal/Terminal'
 import { Wallet } from '../apps/wallet/Wallet'
 import { Processes } from '../apps/processes/Processes'
+import { Rattler } from '../apps/rattler/Rattler'
 
-export interface AppDefinition { label: string; component: ComponentType<{ openApp?: (app: 'flipper') => void }>; home?: boolean }
+export type ExecutableAppId = 'flipper' | 'rattler'
+export interface AppDefinition { label: string; component: ComponentType<{ openApp?: (app: ExecutableAppId) => void }>; home?: boolean }
 
 export const appRegistry = {
   terminal: { label: 'Terminal', component: Terminal },
@@ -19,6 +21,7 @@ export const appRegistry = {
   processes: { label: 'Processes', component: Processes },
   files: { label: 'Files', component: Files },
   flipper: { label: 'Flipper', component: Flipper, home: false },
+  rattler: { label: 'RATTLER', component: Rattler, home: false },
   market: { label: 'Market', component: Market },
   wallet: { label: 'Wallet', component: Wallet },
   notes: { label: 'Notes', component: Notes },

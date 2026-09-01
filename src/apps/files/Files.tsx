@@ -12,13 +12,16 @@ import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '.
 import { describeUploadFailure } from '../uploadFailure'
 import { describeInstallFailure } from '../installFailure'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
-import type { DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile, SoftwareModuleFile, FlipperInstallation } from '../../core/game/types'
+import type { DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile, SoftwareModuleFile, FlipperInstallation, RattlerPayloadFile } from '../../core/game/types'
+import { RATTLER_1_0 } from '../../core/game/softwareReleaseContent'
+import { RATTLER_PROGRAM_ID } from '../../core/game/rattler'
+import type { ExecutableAppId } from '../../shell/appRegistry'
 
 const INITIAL_PATH = '/home/user'
 
 type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNRECOGNIZED' | 'NOT COMPATIBLE'
 
-export function Files({ openApp }: { openApp?: (app: 'flipper') => void } = {}) {
+export function Files({ openApp }: { openApp?: (app: ExecutableAppId) => void } = {}) {
   const state = useGameState()
   const localDevice = state.player.localDevice
   const filesystem = localDevice.filesystem
@@ -64,7 +67,7 @@ export function Files({ openApp }: { openApp?: (app: 'flipper') => void } = {}) 
             <span aria-hidden="true">←</span> {path}
           </button>
           {selected?.status === 'ok'
-            ? <FileDetails file={selected.file} device={localDevice} process={state.process} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} openFlipper={openApp ? () => openApp('flipper') : undefined} />
+            ? <FileDetails file={selected.file} device={localDevice} process={state.process} installedSoftware={localDevice.installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={() => setReviewingInstall(true)} nodeWalletAddress={state.nodeWallet.address} runNodeMiner={actions.runNodeMiner} runningProcess={localNodeMinerProcess} upload={actions.startRemoteFileUpload} connectedAddress={connectedAddress} activeUpload={activeUploadForSelectedFile} openExecutableApp={openApp} />
             : <div className="node-empty"><strong>FILE NOT FOUND</strong><span>This path no longer resolves on the local filesystem.</span></div>}
         </>}
     </section>
@@ -143,7 +146,7 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
-function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload, openFlipper }: {
+function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload, openExecutableApp }: {
   file: FilesystemFile
   device: LocalDeviceState
   process: GameState['process']
@@ -157,7 +160,7 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
   upload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult
   connectedAddress: string | undefined
   activeUpload: DeviceAccessFileTransfer | undefined
-  openFlipper?: () => void
+  openExecutableApp?: (app: ExecutableAppId) => void
 }) {
   return <div className="file-details">
     <header className="node-masthead">
@@ -172,9 +175,10 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
       <div className="node-section"><span>CONTENT</span></div>
       <pre className="file-content">{file.content}</pre>
     </section>
-      : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
+        : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
         : file.kind === 'software_module' ? <ModuleDetails file={file} installedSoftware={installedSoftware} />
-          : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} openFlipper={openFlipper} />}
+        : file.kind === 'rattler_payload' ? <RattlerPayloadDetails file={file} />
+          : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} openExecutableApp={openExecutableApp} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
   </div>
 }
@@ -281,14 +285,15 @@ function InstallReview({ file, device, install, close }: {
   </div>
 }
 
-function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess, openFlipper }: {
+function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess, openExecutableApp }: {
   file: ExecutableFile
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
   runningProcess: NodeMinerProcess | undefined
-  openFlipper?: () => void
+  openExecutableApp?: (app: ExecutableAppId) => void
 }) {
   const flipper = file.programId === 'flipper' && file.releaseId === 'flipper-1.0'
+  const rattler = file.programId === RATTLER_PROGRAM_ID && file.releaseId === RATTLER_1_0.releaseId && file.buildId === RATTLER_1_0.buildId
   const supported = file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID
   const [payoutAddress, setPayoutAddress] = useState(nodeWalletAddress)
   const [feedback, setFeedback] = useState<string>()
@@ -299,13 +304,14 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProce
   }
 
   return <section className="file-kind-details">
-    <div className="node-section"><span>PROGRAM</span>{!supported && <span className="node-chip node-chip--quiet">UNSUPPORTED</span>}</div>
+    <div className="node-section"><span>PROGRAM</span>{!supported && !flipper && !rattler && <span className="node-chip node-chip--quiet">UNSUPPORTED</span>}</div>
     <dl className="node-facts">
       <div><dt>PROGRAM</dt><dd>{file.name} ({file.programId})</dd></div>
       <div><dt>VERSION</dt><dd>{file.version}</dd></div>
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
     </dl>
-    {flipper && openFlipper && <div className="file-kind-actions"><button className="node-action" type="button" onClick={openFlipper}>OPEN</button></div>}
+    {flipper && openExecutableApp && <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => openExecutableApp('flipper')}>OPEN</button></div>}
+    {rattler && openExecutableApp && <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => openExecutableApp('rattler')}>OPEN</button></div>}
     {supported && (runningProcess
       ? <div className="file-kind-actions">
           <p className="node-note"><strong>RUNNING</strong><br />PROCESS {runningProcess.id}</p>
@@ -371,6 +377,18 @@ function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; 
   </section>
 }
 
+function RattlerPayloadDetails({ file }: { file: RattlerPayloadFile }) {
+  return <section className="file-kind-details">
+    <header className="node-masthead"><h2 className="node-masthead-subject">RATTLER PAYLOAD</h2><span className="node-masthead-meta">TARGET BOUND</span></header>
+    <dl className="node-facts">
+      <div><dt>TARGET</dt><dd>{file.targetAddressSnapshot}</dd></div>
+      <div><dt>DEVICE</dt><dd>{file.targetDeviceId}</dd></div>
+      <div><dt>RELEASE</dt><dd>{file.rattlerReleaseId}</dd></div>
+      <div><dt>BUILD</dt><dd>{file.rattlerBuildId}</dd></div>
+    </dl>
+  </section>
+}
+
 /**
  * Package state derived from canonical truth alone: normal NODE-OS package
  * recognition of the artifact's current path, Device-owned installed
@@ -392,5 +410,5 @@ function derivePackageState(file: SoftwarePackageFile, device: LocalDeviceState,
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
-function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : 'EXECUTABLE' }
+function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : file.kind === 'rattler_payload' ? 'RATTLER PAYLOAD' : 'EXECUTABLE' }
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

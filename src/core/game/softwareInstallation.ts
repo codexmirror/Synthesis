@@ -7,6 +7,7 @@ import { GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { ExecutableFile, FilesystemState, FlipperInstallation, GameState, HardwareState, InstalledSoftware, NetworkHost, ProcessState, RuntimeState, SoftwareInstallationProcess, SoftwareInstallationResult } from './types'
 import { FLIPPER_EXECUTABLE_SIZE_BYTES, FLIPPER_INSTALLED_EXECUTABLE_PATH, FLIPPER_PRODUCT_ID } from './flipper'
+import { RATTLER_EXECUTABLE_SIZE_BYTES, RATTLER_INSTALLED_EXECUTABLE_PATH, RATTLER_PRODUCT_ID, RATTLER_PROGRAM_ID } from './rattler'
 
 export const SOFTWARE_INSTALLATION_WORK_REQUIRED = 600
 export const SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB = 256
@@ -88,7 +89,7 @@ export type SoftwarePackageEligibility =
   | { readonly status: 'incompatible'; readonly requiredFirmware: 'NODE-OS' }
 
 /** Products whose ordinary installation currently requires NODE-OS specifically. Not a requirements framework — a narrow named list of the concrete products that carry this one rule. */
-const NODE_OS_ONLY_PRODUCT_IDS: readonly string[] = ['nodescan', FLIPPER_PRODUCT_ID]
+const NODE_OS_ONLY_PRODUCT_IDS: readonly string[] = ['nodescan', FLIPPER_PRODUCT_ID, RATTLER_PRODUCT_ID]
 
 /**
  * Narrow pure projection shared by admission and package surfaces. NodeScan
@@ -144,6 +145,9 @@ function admitSoftwareInstallation(process: ProcessState, target: SoftwareInstal
   if (eligibility.status === 'incompatible') return { status: 'incompatible_firmware' }
 
   if (packageFile.productId === NODE_MINER_PROGRAM_ID && checkDestinationPlacement(target.filesystem, NODE_MINER_INSTALLED_EXECUTABLE_PATH) !== 'ok') {
+    return { status: 'install_path_occupied' }
+  }
+  if (packageFile.productId === RATTLER_PRODUCT_ID && checkDestinationPlacement(target.filesystem, RATTLER_INSTALLED_EXECUTABLE_PATH) !== 'ok') {
     return { status: 'install_path_occupied' }
   }
 
@@ -324,11 +328,13 @@ function applyInstallationCompletion(device: InstallationOwnedState, process: So
     ...(process.publisher ? { publisher: process.publisher } : {}),
   }) as InstalledSoftware
 
-  if (process.productId !== NODE_MINER_PROGRAM_ID && process.productId !== FLIPPER_PRODUCT_ID) {
+  if (process.productId !== NODE_MINER_PROGRAM_ID && process.productId !== FLIPPER_PRODUCT_ID && process.productId !== RATTLER_PRODUCT_ID) {
     return { filesystem: device.filesystem, installedSoftware: applyInstalledSoftwareRelease(device.installedSoftware, installation), result: { status: 'installed' } }
   }
 
-  const executablePath = process.productId === FLIPPER_PRODUCT_ID ? FLIPPER_INSTALLED_EXECUTABLE_PATH : NODE_MINER_INSTALLED_EXECUTABLE_PATH
+  const executablePath = process.productId === FLIPPER_PRODUCT_ID
+    ? FLIPPER_INSTALLED_EXECUTABLE_PATH
+    : process.productId === RATTLER_PRODUCT_ID ? RATTLER_INSTALLED_EXECUTABLE_PATH : NODE_MINER_INSTALLED_EXECUTABLE_PATH
   if (checkDestinationPlacement(device.filesystem, executablePath) !== 'ok') {
     return { ...device, result: { status: 'install_path_occupied' } }
   }
@@ -337,12 +343,14 @@ function applyInstallationCompletion(device: InstallationOwnedState, process: So
     kind: 'executable',
     id: `file-${String(device.filesystem.nextFileId).padStart(4, '0')}`,
     path: executablePath,
-    programId: process.productId,
+    programId: process.productId === RATTLER_PRODUCT_ID ? RATTLER_PROGRAM_ID : process.productId,
     releaseId: process.releaseId,
     buildId: process.buildId,
     name: process.name,
     version: process.version,
-    sizeBytes: process.productId === FLIPPER_PRODUCT_ID ? FLIPPER_EXECUTABLE_SIZE_BYTES : NODE_MINER_EXECUTABLE_SIZE_BYTES,
+    sizeBytes: process.productId === FLIPPER_PRODUCT_ID
+      ? FLIPPER_EXECUTABLE_SIZE_BYTES
+      : process.productId === RATTLER_PRODUCT_ID ? RATTLER_EXECUTABLE_SIZE_BYTES : NODE_MINER_EXECUTABLE_SIZE_BYTES,
   }
   return {
     filesystem: { nextFileId: device.filesystem.nextFileId + 1, files: [...device.filesystem.files, executable] },

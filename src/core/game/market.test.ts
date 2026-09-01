@@ -13,6 +13,7 @@ const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
 const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
 const ROLLBACK_OFFER = 'market-offer-flipper-rollback-module-1.0'
 const FLIPPER_OFFER = 'market-offer-flipper-1.0'
+const RATTLER_OFFER = 'market-offer-rattler-1.0-v0'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -28,7 +29,7 @@ describe('Market catalog', () => {
   it('represents each required release exactly once, under stable offer identity', () => {
     const { offers } = createInitialGameState().market
     expect(offers.map(({ id }) => id)).toEqual([
-      FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
+      RATTLER_OFFER, FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
     ])
     expect(new Set(offers.map(({ id }) => id)).size).toBe(offers.length)
     expect(new Set(offers.map(({ distribution }) => distribution.releaseId)).size).toBe(offers.length)
@@ -43,14 +44,19 @@ describe('Market catalog', () => {
     }
   })
 
-  it('is exactly the six intended V1 offerings, no more and no fewer', () => {
+  it('adds RATTLER to the intended catalog exactly once', () => {
     const { offers } = createInitialGameState().market
-    expect(offers).toHaveLength(6)
-    // Five package offerings and one module offering: a module is distributed as a
+    expect(offers).toHaveLength(7)
+    // Six package offerings and one module offering: a module is distributed as a
     // module artifact, never as an installable package with a product identity.
     expect(offers.map(({ distribution }) => distribution.artifact === 'software_package' ? distribution.productId : `module:${distribution.moduleId}`)).toEqual([
-      'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
+      'product-rattler-v0', 'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
     ])
+    expect(findMarketOffer(createInitialGameState().market, RATTLER_OFFER)?.distribution).toMatchObject({
+      artifact: 'software_package', filename: 'rattler-1.0.pkg', productId: 'product-rattler-v0',
+      releaseId: 'release-rattler-1.0-v0', buildId: 'build-rattler-1.0-v0', name: 'RATTLER', version: '1.0',
+      channel: 'unofficial', publisher: 'NULL//WORKS',
+    })
   })
 
   it('distributes the Rollback Module as a module artifact under its own module identity, with no invented channel or publisher', () => {
