@@ -66,6 +66,28 @@ function resolveExecutorAddress(state: GameState, executorDeviceId: string): str
   return state.world.network.hosts.find(({ id }) => id === executorDeviceId)?.ip
 }
 
+/**
+ * Owned by Credential Access: resolves every completed, unresolved
+ * Credential Access Process against current world truth exactly once,
+ * aggregating the resulting DeviceAccess and World mutations itself so the
+ * canonical advancement boundary never has to thread them by hand.
+ */
+export function resolveCompletedCredentialAccessAttempts(state: GameState): GameState {
+  let deviceAccess = state.deviceAccess
+  let world = state.world
+  let changed = false
+  const processes = state.process.processes.map((process) => {
+    if (process.kind !== 'credential_access' || process.status !== 'completed' || process.result) return process
+    changed = true
+    const resolved = resolveCompletedCredentialAccess({ ...state, deviceAccess, world }, process)
+    deviceAccess = resolved.deviceAccess
+    world = resolved.world
+    return resolved.process
+  })
+  if (!changed) return state
+  return { ...state, process: { ...state.process, processes }, deviceAccess, world }
+}
+
 export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess']; world: GameState['world'] } {
   const resolved = resolveServiceEndpoint(state, process.startedEndpoint)
   const host = state.world.network.hosts.find(({ id }) => id === process.targetDeviceId)

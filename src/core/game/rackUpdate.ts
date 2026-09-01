@@ -81,6 +81,26 @@ export function startRackUpdateExploitAttemptFromObservation(state: GameState, o
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }
 
+/**
+ * Owned by the RackUpdate exploit: resolves every completed, unresolved
+ * exploit Process against current world truth exactly once, aggregating the
+ * resulting RackUpdate access grants itself so the canonical advancement
+ * boundary never has to thread them by hand.
+ */
+export function resolveCompletedRackUpdateExploits(state: GameState): GameState {
+  let rackUpdateAccess = state.rackUpdate.access
+  let changed = false
+  const processes = state.process.processes.map((process) => {
+    if (process.kind !== 'rack_update_exploit' || process.status !== 'completed' || process.result) return process
+    changed = true
+    const resolved = resolveCompletedRackUpdateExploit({ ...state, rackUpdate: { ...state.rackUpdate, access: rackUpdateAccess } }, process)
+    rackUpdateAccess = resolved.rackUpdateAccess
+    return resolved.process
+  })
+  if (!changed) return state
+  return { ...state, process: { ...state.process, processes }, rackUpdate: { ...state.rackUpdate, access: rackUpdateAccess } }
+}
+
 /** Owned by the RackUpdate exploit: resolves finished work against current world truth exactly once. */
 export function resolveCompletedRackUpdateExploit(state: GameState, process: RackUpdateExploitProcess): { readonly process: RackUpdateExploitProcess; readonly rackUpdateAccess: GameState['rackUpdate']['access'] } {
   const resolved = resolveServiceEndpoint(state, process.startedEndpoint)
