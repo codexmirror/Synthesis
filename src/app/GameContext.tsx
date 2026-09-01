@@ -1,37 +1,46 @@
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
-import { startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation, type EndpointAnalysisResult, type ObservedServiceTarget, type StartServiceAnalysisResult } from '../core/game/serviceAnalysis'
-import { clearRecentActivity, removeRecentActivity } from '../core/game/recentActivity'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { createLocalPingTarget, type PingTargetOperation } from './localPingOperation'
 import { createLocalInspectTarget, type InspectTargetOperation } from './localInspectOperation'
 import { createFindTargets, type FindTargetsOperation } from './targetDiscoveryOperation'
-import { startCredentialAccessAttemptFromObservation, type CredentialAccessObservation, type StartCredentialAccessResult } from '../core/game/credentialAccess'
-import { connectRemoteFromObservation, disconnectRemoteSession, type ConnectRemoteResult, type DisconnectRemoteResult, type RemoteDeviceObservation } from '../core/game/remoteSession'
-import { findInstalledNodeScan } from '../core/game/software'
-import { startFlipperModuleIntegration, type StartFlipperModuleIntegrationResult } from '../core/game/flipper'
-import { cancelFileTransfer, startMarketPackageDownload, startRemoteFileDownload, startRemoteFileUpload, type CancelFileTransferResult, type StartMarketPackageDownloadResult, type StartRemoteFileDownloadResult, type StartRemoteFileUploadResult } from '../core/game/fileTransfer'
-import { purchaseMarketOffer, type PurchaseMarketOfferResult } from '../core/game/market'
-import { installLocalSoftwarePackage, installRemoteSoftwarePackage, type InstallLocalSoftwarePackageResult, type InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
-import { removeInstalledSoftware, type RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
-import { payoutLocalNodeMiner, payoutNodeMiner, retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner, type PayoutNodeMinerResult, type RetargetLocalNodeMinerPayoutResult, type RetargetNodeMinerPayoutResult, type StartNodeMinerResult, type StartRemoteNodeMinerResult, type StopNodeMinerResult, type StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
+import type { GameStateAccessor } from './gameStateAccess'
+import { createServiceAnalysisActions, type NodeScanEndpointAnalysisResult, type NodeScanStartServiceAnalysisResult, type ObservedServiceAnalysisBatchResult } from './serviceAnalysisOperations'
+import { createCredentialAccessActions } from './credentialAccessOperations'
+import { createRackUpdateActions } from './rackUpdateOperations'
+import { createRemoteSessionActions } from './remoteSessionOperations'
+import { createFileTransferActions } from './fileTransferOperations'
+import { createMarketActions } from './marketOperations'
+import { createProcessActions } from './processOperations'
+import { createSoftwareActions } from './softwareOperations'
+import { createFlipperActions } from './flipperOperations'
+import { createNodeMinerActions } from './nodeMinerOperations'
+import { createDollarFinanceActions } from './dollarFinanceOperations'
+import { createDeviceSecurityActions } from './deviceSecurityOperations'
+import { createRattlerActions } from './rattlerOperations'
+import { createMailActions } from './mailOperations'
+import { createRecentActivityActions } from './recentActivityOperations'
+import type { ObservedServiceTarget } from '../core/game/serviceAnalysis'
+import type { CredentialAccessObservation, StartCredentialAccessResult } from '../core/game/credentialAccess'
+import type { RackUpdateExploitObservation, RackUpdateSubmissionObservation, StartRackUpdateExploitResult, StartRackUpdatePackageSubmissionResult, CancelRackUpdatePackageSubmissionResult } from '../core/game/rackUpdate'
+import type { ConnectRemoteResult, DisconnectRemoteResult, RemoteDeviceObservation } from '../core/game/remoteSession'
+import type { CancelFileTransferResult, StartMarketPackageDownloadResult, StartRemoteFileDownloadResult, StartRemoteFileUploadResult } from '../core/game/fileTransfer'
+import type { PurchaseMarketOfferResult } from '../core/game/market'
+import type { CancelLocalProcessResult } from '../core/game/processes'
+import type { InstallLocalSoftwarePackageResult, InstallRemoteSoftwarePackageResult } from '../core/game/softwareInstallation'
+import type { RemoveInstalledSoftwareResult } from '../core/game/softwareRemoval'
+import type { StartFlipperModuleIntegrationResult } from '../core/game/flipper'
+import type { PayoutNodeMinerResult, RetargetLocalNodeMinerPayoutResult, RetargetNodeMinerPayoutResult, StartNodeMinerResult, StartRemoteNodeMinerResult, StopNodeMinerResult, StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
+import type { AuthenticateDollarAccountResult, AuthenticateWithSavedDollarSignInResult, LogoutDollarAccountResult, TransferDollarsResult, TransferRemoteDollarsResult } from '../core/game/dollarFinance'
+import type { ChangeWalletProtectionForOperatedRemoteDeviceResult, VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
+import type { CreateRattlerPayloadResult, DeployRattlerResult } from '../core/game/rattler'
+import type { SendMailReplyResult } from '../core/game/mail'
 import type { InstalledSoftware } from '../core/game/types'
-import { cancelLocalProcess, type CancelLocalProcessResult } from '../core/game/processes'
-import { openMailThread, sendMailReply, type SendMailReplyResult } from '../core/game/mail'
-import { cancelRackUpdatePackageSubmission, startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission, type CancelRackUpdatePackageSubmissionResult, type RackUpdateExploitObservation, type RackUpdateSubmissionObservation, type StartRackUpdateExploitResult, type StartRackUpdatePackageSubmissionResult } from '../core/game/rackUpdate'
-import { authenticateDollarAccount, authenticateDollarAccountWithSavedSignIn, logoutDollarAccount, transferDollars, transferDollarsFromOperatedRemoteDevice, type AuthenticateDollarAccountResult, type AuthenticateWithSavedDollarSignInResult, type LogoutDollarAccountResult, type TransferDollarsResult, type TransferRemoteDollarsResult } from '../core/game/dollarFinance'
-import { changeWalletProtectionForOperatedRemoteDevice, verifyDevicePinForOperatedRemoteDevice, type ChangeWalletProtectionForOperatedRemoteDeviceResult, type VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
-import { createRattlerPayload, deployRattler, type CreateRattlerPayloadResult, type DeployRattlerResult } from '../core/game/rattler'
 
 const GameContext = createContext<GameState | null>(null)
-export type NodeScanStartServiceAnalysisResult = StartServiceAnalysisResult | { status: 'software_unavailable'; state: GameState }
-export type NodeScanEndpointAnalysisResult = EndpointAnalysisResult | { status: 'software_unavailable'; state: GameState }
-export interface ObservedServiceAnalysisBatchResult {
-  readonly started: number
-  readonly insufficientMemory?: { readonly requiredMiB: number; readonly availableMiB: number }
-}
+
 export interface GameActions {
   pingTarget: PingTargetOperation
   scanTarget: ScanTargetOperation
@@ -88,22 +97,14 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   const [gameState, setGameState] = useState(() => initialState ?? createInitialGameState())
   const currentState = useRef(gameState)
   const lastTick = useRef(performance.now())
-  const [scanTarget] = useState(() => createLocalScanTarget(() => currentState.current, (nextState) => {
-    currentState.current = nextState
-    setGameState(nextState)
+  const [accessor] = useState<GameStateAccessor>(() => ({
+    read: () => currentState.current,
+    write: (next) => { currentState.current = next; setGameState(next) },
   }))
-  const [pingTarget] = useState(() => createLocalPingTarget(() => currentState.current, (nextState) => {
-    currentState.current = nextState
-    setGameState(nextState)
-  }))
-  const [inspectTarget] = useState(() => createLocalInspectTarget(() => currentState.current, (nextState) => {
-    currentState.current = nextState
-    setGameState(nextState)
-  }))
-  const [findTargets] = useState(() => createFindTargets(() => currentState.current, (nextState) => {
-    currentState.current = nextState
-    setGameState(nextState)
-  }))
+  const [scanTarget] = useState(() => createLocalScanTarget(accessor.read, accessor.write))
+  const [pingTarget] = useState(() => createLocalPingTarget(accessor.read, accessor.write))
+  const [inspectTarget] = useState(() => createLocalInspectTarget(accessor.read, accessor.write))
+  const [findTargets] = useState(() => createFindTargets(accessor.read, accessor.write))
   useEffect(() => {
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
@@ -115,250 +116,25 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     }, 250)
     return () => window.clearInterval(timer)
   }, [])
-  const actions: GameActions = { pingTarget, scanTarget, inspectTarget, findTargets, startServiceAnalysis(targetDeviceId, serviceId) {
-    const state = currentState.current
-    if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
-    const result = startServiceAnalysis(state, targetDeviceId, serviceId)
-    if (result.status === 'started') {
-      const nextState = result.state
-      currentState.current = nextState
-      setGameState(nextState)
-    }
-    return result
-  }, startServiceAnalysisAtEndpoint(endpoint) {
-    const state = currentState.current
-    if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
-    const result = startServiceAnalysisAtEndpoint(state, endpoint)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, startServiceAnalysisFromObservation(observed) {
-    const state = currentState.current
-    if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable', state }
-    const result = startServiceAnalysisFromObservation(state, observed)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, startObservedServiceAnalyses(observed) {
-    let started = 0
-    let insufficientMemory: ObservedServiceAnalysisBatchResult['insufficientMemory']
-    for (const service of observed) {
-      const result = startServiceAnalysisFromObservation(currentState.current, service)
-      if (result.status === 'started') {
-        started++
-        currentState.current = result.state
-      } else if (result.status === 'insufficient_memory') {
-        insufficientMemory = { requiredMiB: result.requiredMiB, availableMiB: result.availableMiB }
-      }
-    }
-    if (started) setGameState(currentState.current)
-    return { started, ...(insufficientMemory ? { insufficientMemory } : {}) }
-  }, startCredentialAccessAttemptFromObservation(observed) {
-    const result = startCredentialAccessAttemptFromObservation(currentState.current, observed)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, startRackUpdateExploitAttemptFromObservation(observed) {
-    const result = startRackUpdateExploitAttemptFromObservation(currentState.current, observed)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, startRackUpdatePackageSubmission(observed) {
-    const result = startRackUpdatePackageSubmission(currentState.current, observed)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, cancelRackUpdatePackageSubmission(submissionId) {
-    const result = cancelRackUpdatePackageSubmission(currentState.current, submissionId)
-    if (result.status === 'cancelled') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, connectRemoteFromObservation(observed) {
-    const result = connectRemoteFromObservation(currentState.current, observed)
-    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, disconnectRemoteSession() {
-    const result = disconnectRemoteSession(currentState.current)
-    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, startRemoteFileDownload(sourcePath) {
-    const result = startRemoteFileDownload(currentState.current, sourcePath)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, startRemoteFileUpload(sourcePath, destinationPath) {
-    const result = startRemoteFileUpload(currentState.current, sourcePath, destinationPath)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, cancelFileTransfer(transferId) {
-    const result = cancelFileTransfer(currentState.current, transferId)
-    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, purchaseMarketOffer(offerId) {
-    const result = purchaseMarketOffer(currentState.current, offerId)
-    if (result.status === 'purchased') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, startMarketPackageDownload(offerId) {
-    const result = startMarketPackageDownload(currentState.current, offerId)
-    if (result.status === 'started') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, cancelLocalProcess(processId) {
-    const result = cancelLocalProcess(currentState.current, processId)
-    if (result.status === 'cancelled') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, installLocalSoftwarePackage(path) {
-    const result = installLocalSoftwarePackage(currentState.current, path)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, installRemoteSoftwarePackage(path) {
-    const result = installRemoteSoftwarePackage(currentState.current, path)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, startFlipperModuleIntegration(moduleFileId) {
-    const result = startFlipperModuleIntegration(currentState.current, moduleFileId)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, removeInstalledSoftware(productId) {
-    const result = removeInstalledSoftware(currentState.current, productId)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, runNodeMiner(sourceFilePath, payoutAddress) {
-    const result = startNodeMiner(currentState.current, sourceFilePath, payoutAddress)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, stopNodeMiner(processId) {
-    const result = stopNodeMiner(currentState.current, processId)
-    if (result.status === 'stopped') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, runRemoteNodeMiner(sourceFilePath, payoutAddress) {
-    const result = startRemoteNodeMiner(currentState.current, sourceFilePath, payoutAddress)
-    if (result.status === 'started') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, stopRemoteNodeMiner(processId) {
-    const result = stopRemoteNodeMiner(currentState.current, processId)
-    if (result.status === 'stopped') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, retargetLocalNodeMinerPayout(payoutAddress) {
-    const result = retargetLocalNodeMinerPayout(currentState.current, payoutAddress)
-    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, retargetNodeMinerPayout(payoutAddress) {
-    const result = retargetNodeMinerPayout(currentState.current, payoutAddress)
-    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, payoutLocalNodeMiner() {
-    const result = payoutLocalNodeMiner(currentState.current)
-    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, payoutNodeMiner() {
-    const result = payoutNodeMiner(currentState.current)
-    if (result.state !== currentState.current) { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, authenticateDollarAccount(loginIdentifier, password) {
-    const state = currentState.current
-    const result = authenticateDollarAccount(state, state.player.localDevice.id, loginIdentifier, password)
-    if (result.status === 'authenticated') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, authenticateDollarAccountWithSavedSignIn() {
-    const state = currentState.current
-    const result = authenticateDollarAccountWithSavedSignIn(state, state.player.localDevice.id)
-    if (result.status === 'authenticated') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, logoutDollarAccount() {
-    const state = currentState.current
-    const result = logoutDollarAccount(state, state.player.localDevice.id)
-    if (result.status === 'logged_out') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, transferDollars(recipientAccountReference, amountCents) {
-    const state = currentState.current
-    const result = transferDollars(state, state.player.localDevice.id, recipientAccountReference, amountCents)
-    if (result.status === 'transferred') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, transferRemoteDollars(recipientAccountReference, amountCents) {
-    // Deliberately no Device argument: the acting Device is resolved from the active Remote Session inside the domain operation.
-    const result = transferDollarsFromOperatedRemoteDevice(currentState.current, recipientAccountReference, amountCents)
-    if (result.status === 'transferred') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, changeWalletProtectionForOperatedRemoteDevice(pin, enabled) {
-    // Deliberately no Device argument: the acting Device is resolved from the active Remote Session inside the domain operation, exactly as the remote Dollar transfer already does.
-    const result = changeWalletProtectionForOperatedRemoteDevice(currentState.current, pin, enabled)
-    if (result.status === 'changed') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, verifyDevicePinForOperatedRemoteDevice(pin) {
-    // A query only: it commits nothing, so there is no canonical state to advance.
-    return verifyDevicePinForOperatedRemoteDevice(currentState.current, pin)
-  }, createRattlerPayload(targetAddress) {
-    const result = createRattlerPayload(currentState.current, targetAddress)
-    if (result.status === 'created') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, deployRattler() {
-    const result = deployRattler(currentState.current)
-    if (result.status === 'started') { currentState.current = result.state; setGameState(result.state) }
-    return result
-  }, openMailThread(threadId) {
-    const state = currentState.current
-    const nextState = openMailThread(state, threadId)
-    if (nextState === state) return
-    currentState.current = nextState
-    setGameState(nextState)
-  }, sendMailReply(threadId, text) {
-    const result = sendMailReply(currentState.current, threadId, text)
-    if (result.status === 'sent') {
-      currentState.current = result.state
-      setGameState(result.state)
-    }
-    return result
-  }, clearRecentActivity() {
-    const state = currentState.current
-    const nextState = clearRecentActivity(state, state.player.localDevice.id)
-    if (nextState === state) return
-    currentState.current = nextState
-    setGameState(nextState)
-  }, removeRecentActivity(activityId) {
-    const state = currentState.current
-    const nextState = removeRecentActivity(state, activityId, state.player.localDevice.id)
-    if (nextState === state) return
-    currentState.current = nextState
-    setGameState(nextState)
-  } }
+  // Explicit composition: each domain owns its own application adapter; GameProvider only wires them to the shared canonical-state accessor.
+  const actions: GameActions = {
+    pingTarget, scanTarget, inspectTarget, findTargets,
+    ...createServiceAnalysisActions(accessor),
+    ...createCredentialAccessActions(accessor),
+    ...createRackUpdateActions(accessor),
+    ...createRemoteSessionActions(accessor),
+    ...createFileTransferActions(accessor),
+    ...createMarketActions(accessor),
+    ...createProcessActions(accessor),
+    ...createSoftwareActions(accessor),
+    ...createFlipperActions(accessor),
+    ...createNodeMinerActions(accessor),
+    ...createDollarFinanceActions(accessor),
+    ...createDeviceSecurityActions(accessor),
+    ...createRattlerActions(accessor),
+    ...createMailActions(accessor),
+    ...createRecentActivityActions(accessor),
+  }
   return <GameActionsContext.Provider value={actions}><GameContext.Provider value={gameState}>{children}</GameContext.Provider></GameActionsContext.Provider>
 }
 

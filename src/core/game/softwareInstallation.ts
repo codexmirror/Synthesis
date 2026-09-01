@@ -5,7 +5,7 @@ import { startProcess } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
-import type { ExecutableFile, FilesystemState, FlipperInstallation, GameState, HardwareState, InstalledSoftware, NetworkHost, ProcessState, RuntimeState, SoftwareInstallationProcess, SoftwareInstallationResult } from './types'
+import type { ExecutableFile, FilesystemState, FlipperInstallation, GameProcess, GameState, HardwareState, InstalledSoftware, NetworkHost, ProcessState, RuntimeState, SoftwareInstallationProcess, SoftwareInstallationResult } from './types'
 import { FLIPPER_EXECUTABLE_SIZE_BYTES, FLIPPER_INSTALLED_EXECUTABLE_PATH, FLIPPER_PRODUCT_ID } from './flipper'
 import { RATTLER_EXECUTABLE_SIZE_BYTES, RATTLER_INSTALLED_EXECUTABLE_PATH, RATTLER_PRODUCT_ID, RATTLER_PROGRAM_ID } from './rattler'
 
@@ -362,4 +362,37 @@ function applyInstallationCompletion(device: InstallationOwnedState, process: So
 function applyInstalledSoftwareRelease(installedSoftware: readonly InstalledSoftware[], installation: InstalledSoftware): readonly InstalledSoftware[] {
   const index = installedSoftware.findIndex(({ id }) => id === installation.id)
   return index === -1 ? [...installedSoftware, installation] : installedSoftware.map((software, i) => i === index ? installation : software)
+}
+
+/**
+ * Remote Software Installation is the one concrete operation that currently
+ * finishes on an executor Device other than the player's own, so this
+ * lifecycle rule belongs to that mechanic and is deliberately scoped to it.
+ * It is not a general policy for every future non-local Process kind: what a
+ * hypothetical remote Service Analysis, Credential Access or generic Process
+ * should do when it ends is that mechanic's decision to make, not this one's.
+ */
+export function isRemoteSoftwareInstallationCompletion(process: GameProcess, localDeviceId: string): boolean {
+  return process.kind === 'software_installation' && process.status === 'completed' && process.executorDeviceId !== localDeviceId
+}
+
+/**
+ * A remote software installation has already applied its concrete consequence
+ * to the Device that performed it (`resolveCompletedSoftwareInstallations`
+ * runs earlier at this same boundary), and Recent Activity is deliberately the
+ * local Device's own runtime observation: the NODE-OS Activity Monitor observes
+ * only `player.localDevice`, and both its CLEAR and REMOVE controls are scoped
+ * to that executor.
+ *
+ * Retaining that finished Process would therefore be canonical history no
+ * interface can present or clear — and it would consume a bounded local Recent
+ * Activity slot invisibly. It instead leaves the scheduler at the same boundary
+ * local work is archived at. A running remote installation stays canonical for
+ * exactly as long as it is actually running.
+ */
+export function releaseRemoteSoftwareInstallationCompletions(state: GameState): GameState {
+  const localDeviceId = state.player.localDevice.id
+  const processes = state.process.processes.filter((process) => !isRemoteSoftwareInstallationCompletion(process, localDeviceId))
+  if (processes.length === state.process.processes.length) return state
+  return { ...state, process: { ...state.process, processes } }
 }

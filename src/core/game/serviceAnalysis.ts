@@ -70,6 +70,35 @@ export function startServiceAnalysisFromObservation(state: GameState, observed: 
   return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId)
 }
 
+/**
+ * Owned by Service Analysis: resolves every completed, unresolved Service
+ * Analysis Process against current world truth exactly once, merging any
+ * newly observed vulnerabilities into canonical Knowledge with the same
+ * dedup rule a single resolution already applies. The canonical advancement
+ * boundary calls this rather than aggregating discoveries itself.
+ */
+export function resolveCompletedServiceAnalyses(state: GameState): GameState {
+  let discoveries = state.knowledge.discoveredVulnerabilities
+  let changed = false
+  const processes = state.process.processes.map((process) => {
+    if (process.kind !== 'service_analysis' || process.status !== 'completed' || process.result) return process
+    changed = true
+    const resolved = resolveCompletedServiceAnalysis(state, process)
+    for (const discovery of resolved.discoveries) {
+      if (!discoveries.some((known) => known.vulnerabilityId === discovery.vulnerabilityId && known.targetDeviceId === discovery.targetDeviceId && known.serviceId === discovery.serviceId)) {
+        discoveries = [...discoveries, discovery]
+      }
+    }
+    return resolved.process
+  })
+  if (!changed) return state
+  return {
+    ...state,
+    process: { ...state.process, processes },
+    knowledge: discoveries === state.knowledge.discoveredVulnerabilities ? state.knowledge : { ...state.knowledge, discoveredVulnerabilities: discoveries },
+  }
+}
+
 /** Owned by Service Analysis: resolves finished work against current world truth exactly once. */
 export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
