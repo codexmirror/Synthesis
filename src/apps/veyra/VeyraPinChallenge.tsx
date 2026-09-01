@@ -18,15 +18,18 @@ const KEYPAD_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
  * attempt; a caller decides what a successful attempt actually authorizes
  * inside `onSuccess`.
  */
-export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, onSuccess, onCancel }: {
+export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, onSuccess, onCancel, observedCandidate }: {
   title?: string
   note?: string
   verify: (pin: string) => boolean
   onSuccess: () => void
   onCancel: () => void
+  observedCandidate?: string
 }) {
   const [digits, setDigits] = useState('')
   const [refusal, setRefusal] = useState<string>()
+
+  const presentedDigits = observedCandidate ?? digits
 
   function press(digit: string) {
     if (digits.length >= PIN_LENGTH) return
@@ -50,9 +53,9 @@ export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, on
     <h1 className="veyra-title">{title}</h1>
     {note && <p className="veyra-note">{note}</p>}
     <div className="veyra-pin__dots" aria-hidden="true">
-      {Array.from({ length: PIN_LENGTH }, (_, index) => <span className="veyra-pin__dot" key={index} data-filled={index < digits.length || undefined} />)}
+      {Array.from({ length: PIN_LENGTH }, (_, index) => <span className="veyra-pin__dot" key={index} data-filled={index < presentedDigits.length || undefined} />)}
     </div>
-    <output className="veyra-hidden" aria-live="polite">{`${digits.length} of ${PIN_LENGTH} digits entered`}</output>
+    <output className="veyra-hidden" aria-live="polite">{observedCandidate ? `RATTLER testing ${observedCandidate}` : `${digits.length} of ${PIN_LENGTH} digits entered`}</output>
     <p className="veyra-pin__refusal" role={refusal ? 'alert' : undefined}>{refusal || ' '}</p>
     <div className="veyra-keypad">
       {KEYPAD_DIGITS.map((digit) => <button key={digit} type="button" className="veyra-key" onClick={() => press(digit)}>{digit}</button>)}

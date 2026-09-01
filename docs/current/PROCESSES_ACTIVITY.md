@@ -33,6 +33,13 @@ Current production Process consumers are:
   Completion transforms that installation into a different build of the same
   release exactly once; what the transformation is, and why the artifact
   survives it, is owned by `docs/current/FILES_SOFTWARE.md`.
+- RATTLER PIN Search (`rattler_pin_search`) — one finite remote Process owned
+  by its target Device. It retains exact payload/release/build provenance and
+  canonical elapsed time, attempt count, current candidate, and terminal
+  Wallet-PIN result. Its authored 120/minute candidate rate is elapsed-time
+  runtime within the canonical advancement boundary; no interface owns a
+  parallel timer or attempt stream. Payload loss interrupts it, and completed
+  RATTLER state is retained so the dedicated program can present its result.
 - NODE Miner, the one continuous Process kind: it never reaches `completed`
   from elapsed work
 

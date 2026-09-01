@@ -39,7 +39,7 @@ describe('createInitialGameState', () => {
 
   it('separates identities and seeds canonical local-device state in schema version 56', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(57)
+    expect(GAME_STATE_VERSION).toBe(58)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })

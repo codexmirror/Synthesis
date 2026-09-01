@@ -301,7 +301,27 @@ export interface FlipperModuleIntegrationProcess extends ProcessBase {
   readonly result?: FlipperModuleIntegrationResult
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess | FlipperModuleIntegrationProcess
+export type RattlerPinSearchResult =
+  | { readonly status: 'pin_found'; readonly pin: string }
+  | { readonly status: 'search_exhausted' }
+  | { readonly status: 'payload_interrupted' }
+
+/** One concrete RATTLER 1.0 deployment against VEYRA Wallet's PIN challenge. */
+export interface RattlerPinSearchProcess extends ProcessBase {
+  readonly kind: 'rattler_pin_search'
+  readonly targetDeviceId: string
+  readonly attackedSurface: 'veyra_wallet_device_pin'
+  readonly rattlerReleaseId: string
+  readonly rattlerBuildId: string
+  readonly payloadFileId: string
+  readonly payloadPathSnapshot: string
+  readonly attemptsCompleted: number
+  readonly elapsedMs: number
+  readonly currentCandidate?: string
+  readonly result?: RattlerPinSearchResult
+}
+
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess | FlipperModuleIntegrationProcess | RattlerPinSearchProcess
 
 export interface ProcessState {
   readonly nextId: number
@@ -847,7 +867,11 @@ export interface DiscoveredVulnerability {
   readonly observedLabel: string
 }
 
-export interface KnowledgeState { readonly discoveredVulnerabilities: readonly DiscoveredVulnerability[] }
+export interface KnownDevicePin { readonly deviceId: string; readonly pin: string }
+export interface KnowledgeState {
+  readonly discoveredVulnerabilities: readonly DiscoveredVulnerability[]
+  readonly knownDevicePins?: readonly KnownDevicePin[]
+}
 
 export interface DiscoveredNetworkSnapshot {
   readonly id: string

@@ -8,6 +8,7 @@ import { VeyraCommunication } from './VeyraCommunication'
 import { VeyraPinChallenge } from './VeyraPinChallenge'
 import { VeyraSettings, type VeyraSettingsDetail } from './VeyraSettings'
 import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
+import { deriveRattlerProcessForDevice } from '../../core/game/rattler'
 
 /**
  * Where the player is inside the phone. The grammar is exactly two levels:
@@ -53,6 +54,18 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
   const [location, setLocation] = useState<VeyraLocation>({ app: 'home' })
   const [requested, setRequested] = useState<VeyraLocation>()
   const entries = deriveVeyraHomeEntries(state, target)
+  const rattler = deriveRattlerProcessForDevice(state, target.id)
+  const [observedRattlerId, setObservedRattlerId] = useState<string>()
+
+  useEffect(() => {
+    if (location.app === 'wallet-locked' && rattler?.status === 'running') setObservedRattlerId(rattler.id)
+  }, [location.app, rattler?.id, rattler?.status])
+
+  useEffect(() => {
+    if (location.app !== 'wallet-locked' || observedRattlerId !== rattler?.id || rattler?.result?.status !== 'pin_found') return
+    setObservedRattlerId(undefined)
+    go({ app: 'wallet' })
+  }, [location.app, observedRattlerId, rattler?.id, rattler?.result?.status])
 
   useEffect(() => {
     if (requested === undefined || !editingRecoveryReady) return
@@ -116,6 +129,7 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
         verify={(pin) => verifyDevicePinForOperatedRemoteDevice(pin).status === 'verified'}
         onSuccess={() => go({ app: 'wallet' })}
         onCancel={() => go({ app: 'home' })}
+        observedCandidate={rattler?.status === 'running' ? rattler.currentCandidate : undefined}
       />}
       {location.app === 'wallet' && <VeyraWallet
         detail={location.detail}

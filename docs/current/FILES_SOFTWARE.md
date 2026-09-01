@@ -606,7 +606,26 @@ filesystem. Copying allocates a destination-filesystem ID and destination path
 while preserving all RATTLER and target metadata. Completion places only the
 file: it installs or executes nothing, starts no Process, attempts or reveals
 no PIN, and mutates no security, Discovery, Knowledge, or DeviceAccess state.
-Remote activation and PIN cracking remain explicitly unimplemented.
+Upload completion remains strictly distinct from execution: it starts no
+Process and performs no PIN attempt. Once an exact target-bound payload copy is
+present on the Device currently resolved through an active Remote Session and
+DeviceAccess, RATTLER offers a separate explicit **DEPLOY** action. Admission
+starts exactly one target-Device-owned `rattler_pin_search` Process for VEYRA
+Wallet's Device-PIN challenge; a Session authorizes admission only and is not a
+continuing dependency. A second running deployment for that Device and surface
+is refused.
+
+The Process remains bound to the admitted payload's target Device, filesystem
+copy ID, release, and build. Removing or replacing that exact copy interrupts
+the Process before further candidates are tested. RATTLER 1.0 tests the unique
+authored sequence `6000` through `8499` at 120 attempts per minute: 2,500 real
+candidates over at most 20 minutes 50 seconds, never a probability roll. Each
+candidate is compared with the Device-owned secret; success or exhaustion is
+terminal and idempotent. Success records the matching PIN as narrow Player
+Knowledge associated with stable Device identity. It changes no PIN, Wallet
+protection, access, Session, or financial truth. This concrete release attacks
+only VEYRA Wallet authentication; Settings remains an ordinary manual consumer
+of the same Device-owned PIN, not another RATTLER surface.
 
 
 ## Flipper acquisition and module integration

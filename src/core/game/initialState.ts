@@ -8,7 +8,7 @@ import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 57
+export const GAME_STATE_VERSION = 58
 
 export function createInitialGameState(): GameState {
   return {
@@ -77,7 +77,7 @@ export function createInitialGameState(): GameState {
     // The represented broad/open software Market the local Device can reach. NODE-OS supplies only the client that presents it.
     market: createInitialMarketState(),
     process: { nextId: 1, processes: [] },
-    knowledge: { discoveredVulnerabilities: [] },
+    knowledge: { discoveredVulnerabilities: [], knownDevicePins: [] },
     discovery: { networks: [], devices: [], networkDeviceRelations: [] },
     deviceAccess: { nextId: 1, established: [] },
     // The local Device's explicit legitimate management authority over home-net; not derived from its Network membership.
