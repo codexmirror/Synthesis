@@ -17,16 +17,47 @@ import { RATTLER_1_0 } from '../../core/game/softwareReleaseContent'
 import { RATTLER_PROGRAM_ID } from '../../core/game/rattler'
 import type { ExecutableAppId } from '../../shell/appRegistry'
 
-const INITIAL_PATH = '/home/user'
+const HOME_PATH = '/home/user'
 
 type PackageState = 'INSTALLED' | 'INSTALLABLE' | 'INSTALLING' | 'REMOVING' | 'PROTECTED' | 'UNRECOGNIZED' | 'NOT COMPATIBLE'
+
+interface Breadcrumb {
+  readonly label: string
+  readonly path: string
+}
+
+/**
+ * The ancestor trail shown in the masthead. `/home/user` is the player-facing
+ * Files home, so it collapses to one `Home` crumb rather than three raw
+ * segments; a path outside that tree falls back to its raw segments from
+ * root. This is presentation only — it never touches the canonical path.
+ */
+function buildBreadcrumbs(path: string): Breadcrumb[] {
+  if (path === HOME_PATH) return [{ label: 'Home', path: HOME_PATH }]
+  if (path.startsWith(`${HOME_PATH}/`)) {
+    const crumbs: Breadcrumb[] = [{ label: 'Home', path: HOME_PATH }]
+    let cumulative = HOME_PATH
+    for (const segment of path.slice(HOME_PATH.length + 1).split('/')) {
+      cumulative = `${cumulative}/${segment}`
+      crumbs.push({ label: segment, path: cumulative })
+    }
+    return crumbs
+  }
+  const crumbs: Breadcrumb[] = [{ label: '/', path: '/' }]
+  let cumulative = ''
+  for (const segment of path.split('/').filter(Boolean)) {
+    cumulative = `${cumulative}/${segment}`
+    crumbs.push({ label: segment, path: cumulative })
+  }
+  return crumbs
+}
 
 export function Files({ openApp }: { openApp?: (app: ExecutableAppId) => void } = {}) {
   const state = useGameState()
   const localDevice = state.player.localDevice
   const filesystem = localDevice.filesystem
   const actions = useGameActions()
-  const [path, setPath] = useState(INITIAL_PATH)
+  const [path, setPath] = useState(HOME_PATH)
   const [selectedFile, setSelectedFile] = useState<string>()
   /** Install Review is a temporary presentation substate of the selected package, never GameState. */
   const [reviewingInstall, setReviewingInstall] = useState(false)
@@ -73,9 +104,40 @@ export function Files({ openApp }: { openApp?: (app: ExecutableAppId) => void } 
     </section>
   }
 
+  const breadcrumbs = buildBreadcrumbs(path)
+  // Directories read before files; each group keeps listDirectory's own
+  // deterministic alphabetical order, so this is presentation ordering only.
+  const orderedEntries = listing.status === 'ok'
+    ? [...listing.entries].sort((a, b) => (a.type === b.type ? 0 : a.type === 'directory' ? -1 : 1))
+    : []
+
   return <section className="app-content files-app">
     <header className="node-masthead">
-      <span className="node-masthead-subject">{path}</span>
+      <div className="files-location">
+        <nav className="files-breadcrumbs" aria-label="Current directory location">
+          <button
+            type="button"
+            className="files-up"
+            onClick={() => setPath(parentPath(path))}
+            disabled={path === '/'}
+            aria-label="Up to parent directory"
+          >
+            <span aria-hidden="true">▲</span>
+          </button>
+          <ol className="files-crumb-list">
+            {breadcrumbs.map((crumb, index) => {
+              const isCurrent = index === breadcrumbs.length - 1
+              return <li className="files-crumb-item" key={crumb.path}>
+                {isCurrent
+                  ? <span className="files-crumb files-crumb--current" aria-current="location">{crumb.label}</span>
+                  : <button className="files-crumb" type="button" onClick={() => setPath(crumb.path)}>{crumb.label}</button>}
+                {!isCurrent && <span className="files-crumb-sep" aria-hidden="true">/</span>}
+              </li>
+            })}
+          </ol>
+        </nav>
+        <span className="files-raw-path">{path}</span>
+      </div>
       <span className="node-masthead-meta">LOCAL · {localDevice.displayName}</span>
     </header>
 
@@ -86,11 +148,7 @@ export function Files({ openApp }: { openApp?: (app: ExecutableAppId) => void } 
 
     {listing.status === 'ok' ? <>
       <div className="node-list">
-        {path !== '/' && <button className="node-row" type="button" onClick={() => setPath(parentPath(path))}>
-          <span className="node-row-glyph" aria-hidden="true">▲</span>
-          <span className="node-row-copy"><strong>../</strong><small>DIRECTORY</small></span>
-        </button>}
-        {listing.entries.map((entry) => {
+        {orderedEntries.map((entry) => {
           const entryPath = joinPath(path, entry.name)
           const result = entry.type === 'file' ? getFilesystemFile(filesystem, entryPath) : undefined
           const file = result?.status === 'ok' ? result.file : undefined
@@ -102,8 +160,8 @@ export function Files({ openApp }: { openApp?: (app: ExecutableAppId) => void } 
               <small>{entry.type === 'directory' ? 'DIRECTORY' : file ? `${typeLabel(file)} · ${formatBytes(getFilesystemFileSizeBytes(file))}` : 'FILE'}</small>
             </span>
             {packageState && <span className={packageState === 'INSTALLED' ? 'node-chip' : 'node-chip node-chip--quiet'}>{packageState}</span>}
-            {/* Both kinds open a further surface with a back control, so both
-                carry the arrow. `../` keeps its own upward glyph instead. */}
+            {/* Both a directory and a file open a further surface with a back
+                control, so both carry the arrow. */}
             <span className="node-row-arrow" aria-hidden="true">→</span>
           </button>
         })}

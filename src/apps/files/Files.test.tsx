@@ -68,7 +68,6 @@ describe('Files', () => {
      * A file entry opens its own surface with a back control exactly as a
      * directory does, so it carries the same arrow. Only directories were
      * marked, which left the listing saying that a file row did nothing.
-     * `../` keeps its own upward glyph rather than a forward arrow.
      */
     const state = createInitialGameState()
     const files = [{ kind: 'text' as const, id: 'file-text', path: '/home/user/docs/note.txt', content: 'hi' }]
@@ -76,7 +75,6 @@ describe('Files', () => {
 
     const arrowed = (name: RegExp) => !!screen.getByRole('button', { name }).querySelector('.node-row-arrow')
     expect(arrowed(/docs.*DIRECTORY/)).toBe(true)
-    expect(arrowed(/\.\.\/.*DIRECTORY/)).toBe(false)
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /docs.*DIRECTORY/ }))
@@ -88,6 +86,37 @@ describe('Files', () => {
     expect(container.querySelector('.node-back')).toBeInTheDocument()
   })
 
+  it('never renders a synthetic ../ row and instead offers parent navigation from the header', async () => {
+    const state = createInitialGameState()
+    const files = [{ kind: 'text' as const, id: 'file-text', path: '/home/user/docs/note.txt', content: 'hi' }]
+    render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 2, files } } } }}><Files /></GameProvider>)
+
+    expect(screen.queryByRole('button', { name: /\.\.\// })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Up to parent directory' })).toBeEnabled()
+    expect(screen.getByText('Home')).toBeInTheDocument()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /docs.*DIRECTORY/ }))
+    expect(screen.queryByRole('button', { name: /\.\.\// })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Up to parent directory' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
+    expect(screen.getByText('docs')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Up to parent directory' }))
+    expect(screen.getByText('/home/user')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /docs.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: 'Home' }))
+    expect(screen.getByText('/home/user')).toBeInTheDocument()
+
+    // The up control keeps working past Home to the real filesystem root, where it disables.
+    await user.click(screen.getByRole('button', { name: 'Up to parent directory' }))
+    expect(screen.getByText('/home')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Up to parent directory' }))
+    expect(document.querySelector('.files-raw-path')).toHaveTextContent('/')
+    expect(screen.getByRole('button', { name: 'Up to parent directory' })).toBeDisabled()
+  })
+
   it('navigates canonical directories and presents file kinds, sizes, and executable details without future actions', async () => {
     const state = createInitialGameState()
     const files = [
@@ -97,14 +126,14 @@ describe('Files', () => {
     ]
     render(<GameProvider initialState={{ ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 4, files } } } }}><Files /></GameProvider>)
     expect(screen.getByText('/home/user')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /\.\.\// })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /nodescan\.pkg.*SOFTWARE PACKAGE.*18\.4 MB/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /tool\.bin.*EXECUTABLE.*4\.1 KB/ })).toBeInTheDocument()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /docs.*DIRECTORY/ }))
     expect(screen.getByText('/home/user/docs')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /café\.txt.*TEXT.*10 B/ })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: 'Up to parent directory' }))
     await user.click(screen.getByRole('button', { name: /tool\.bin/ }))
     expect(screen.getByText('Diagnostic Tool (diagnostic-tool)')).toBeInTheDocument()
     expect(screen.getByText('diagnostic-tool-2')).toBeInTheDocument()
@@ -289,9 +318,10 @@ describe('Files NODE Miner installation', () => {
     expect(screen.queryByRole('button', { name: 'REMOVE' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    const up = () => screen.getByRole('button', { name: 'Up to parent directory' })
+    await user.click(up())
+    await user.click(up())
+    await user.click(up())
     await user.click(screen.getByRole('button', { name: /^usr.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /^local.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /^bin.*DIRECTORY/ }))

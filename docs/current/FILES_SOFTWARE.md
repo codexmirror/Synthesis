@@ -31,11 +31,21 @@ require both Device ID and file ID. The local Device's initial contents consist
 of the text file `/home/user/welcome.txt`, the NODE Miner 1.0 package, and the
 standalone Credential Access Module artifact under `/home/user/modules`.
 
-The Files application begins at `/home/user`, states the current path and the
-local Device in its masthead, shows an explicit parent row, derives its
-directory listing from that filesystem, and presents type and byte size plus
-coherent text, software-package, software-module, executable, or RATTLER payload details
-according to the file's explicit kind. A software-package row also carries its derived state —
+The Files application begins at `/home/user`, states the local Device in its
+masthead, and derives its directory listing from that filesystem. Rather than
+an explicit `../` row among real entries, the masthead presents an ancestor
+breadcrumb trail — `/home/user` collapsing to one player-facing `Home` crumb,
+with the raw canonical path kept visible underneath as secondary technical
+information — plus an explicit up control to the parent directory; both are
+presentation over the same canonical path state and change no filesystem
+truth. Within a resolved directory, entries present directories ahead of
+files while keeping each group in `listDirectory`'s own deterministic order;
+this is a Files presentation concern; `listDirectory` itself still returns one
+alphabetically ordered list. Files presents type and byte size plus coherent
+text, software-package, software-module, executable, or RATTLER payload
+details according to the file's explicit kind. Opening a file preserves the
+directory it was opened from, and its own back control returns there. A
+software-package row also carries its derived state —
 INSTALLED, INSTALLABLE, INSTALLING, REMOVING, PROTECTED or UNRECOGNIZED — from the same
 canonical installed software, running local software-installation Process
 state, and normal package recognition of the artifact's current path. INSTALLING

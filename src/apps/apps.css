@@ -69,6 +69,80 @@
 .files-app,
 .system-app { max-width: 720px; }
 
+/*
+ * Directory location: an ancestor breadcrumb trail plus an explicit up
+ * control, replacing the old synthetic `../` row inside the entry list.
+ * `/home/user` collapses to one `Home` crumb; the raw canonical path stays
+ * visible underneath as secondary technical information.
+ */
+.files-location { min-width: 0; flex: 1 1 auto; display: grid; gap: 4px; }
+
+.files-breadcrumbs { display: flex; align-items: center; gap: 6px; min-width: 0; }
+
+.files-up {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--accent);
+  font-size: .7rem;
+  cursor: pointer;
+}
+
+.files-up:disabled { color: var(--text-muted); border-color: var(--line-quiet); cursor: default; }
+
+@media (hover: hover) {
+  .files-up:hover:not(:disabled) { border-color: var(--line-accent); color: var(--accent-strong); }
+}
+
+.files-up:focus-visible:not(:disabled) { outline: 0; border-color: var(--line-accent); }
+
+.files-crumb-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.files-crumb-list::-webkit-scrollbar { display: none; }
+
+.files-crumb-item { display: inline-flex; align-items: baseline; gap: 4px; flex: none; }
+
+.files-crumb {
+  min-height: 34px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-quiet);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+}
+
+.files-crumb:hover,
+.files-crumb:focus-visible { color: var(--accent-strong); outline: 0; }
+
+.files-crumb--current { color: var(--text-strong); cursor: default; }
+
+.files-crumb-sep { flex: none; color: var(--text-faint); font-size: .7rem; }
+
+.files-raw-path {
+  color: var(--text-faint);
+  font-size: .58rem;
+  letter-spacing: .05em;
+  overflow-wrap: anywhere;
+}
+
 .file-details { min-width: 0; }
 
 .file-content {
