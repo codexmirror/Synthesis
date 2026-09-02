@@ -471,7 +471,7 @@ After the player has remembered:
 - the represented SSH service
 - positive Weak Authentication Knowledge
 
-and SELF owns the standalone Credential Access Module or a Flipper build that integrates it, the
+and SELF owns a concrete Credential Access provider, the
 player may initiate a credential attempt through:
 
 ```text
@@ -479,15 +479,36 @@ attack <ipv4:port>
 ```
 
 or through NodeScan's Credential Access ACTION, which uses the concrete context
-derived from the player's own Knowledge and owned provider. The initial local
-Device carries the standalone module artifact, so the first `AUTH-017`
-opportunity needs no Flipper acquisition or integration step.
+derived from the player's own Knowledge and selected owned provider. The initial
+local Device owns both the specialized standalone Credential Access Module and
+the ordinary installed KeyProbe 1.0 provider. NodeScan lists both as separate
+Credential Access choices, without ranking or preselecting either one.
 
 Starting the attempt creates a Credential Access Process.
 
 It does not establish access immediately.
 
-Completion resolves against current World Truth and validates the represented target, service, endpoint relationship, service availability, current weakness, and represented credential-access context. Success creates persistent USER `DeviceAccess`; failure creates no access and does not rewrite historical Discovery or Knowledge.
+Completion resolves against current World Truth and validates the represented
+target, current Device network usability, selected endpoint relationship, open
+Service, current weakness, concrete Service implementation, and represented
+credential-access context before any probability decision. Against the current
+`AUTH-017` / GateSSH 1.3.2 case, the specialized module succeeds
+deterministically while KeyProbe makes exactly one canonical 75% decision per
+attempt. A completed result is terminal and is never rerolled. Success creates
+persistent USER `DeviceAccess`; a reached probabilistic failure creates FAILURE
+authentication and Network evidence but no access. If the endpoint no longer
+reaches the intended current Device and open Service, completion creates no
+reached-attempt evidence and makes no probability decision. If the attempt
+reaches that Service but `AUTH-017`, its supported GateSSH 1.3.2 implementation,
+or its Credential Access condition is no longer valid, completion records the
+reached FAILURE through the existing evidence owners but still makes no
+probability decision. Neither outcome rewrites historical Discovery or Knowledge.
+
+Services remain concrete Device-owned network surfaces with no arbitrary
+canonical count cap: a Device may expose zero, one, or many. Device availability
+and Service availability are distinct; a running, connected Device does not
+make every Service open, and one unavailable Service does not make its Device
+offline. A Service is not automatically vulnerable or an offensive target.
 
 RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release. Knowledge alone is informative rather than submission authority: exploiting it requires the exact standalone Rollback Module or a Flipper build integrating that module. Credential Access follows the same rule for its own module and `AUTH-017`; each module's role stays equally narrow. The distributable canonical Flipper build integrates no modules, so a fresh Device supports no `UPD-001` until the Rollback Module is acquired, but integrating it into Flipper is optional. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and Flipper integration is finite represented work owned by `docs/current/FILES_SOFTWARE.md`.
 

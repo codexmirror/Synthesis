@@ -189,7 +189,9 @@ describe('software installation completion: NodeScan', () => {
     const started = installLocalSoftwarePackage(state, path)
     if (started.status !== 'started') throw new Error(started.status)
     const done = completeInstallation(started.state)
-    expect(done.player.localDevice.installedSoftware).toEqual([expect.objectContaining({ id: 'nodescan', releaseId: 'build-a91f7' })])
+    expect(done.player.localDevice.installedSoftware).toContainEqual(expect.objectContaining({ id: 'nodescan', releaseId: 'build-a91f7' }))
+    expect(done.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan')).toEqual(state.player.localDevice.installedSoftware)
+    expect(done.player.localDevice.installedSoftware).toHaveLength(state.player.localDevice.installedSoftware.length + 1)
   })
 
   it('a local installation on the player Device does not imply installation on a remote Device', () => {

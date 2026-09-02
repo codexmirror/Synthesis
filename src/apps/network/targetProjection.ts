@@ -1,6 +1,6 @@
 import { formatByteProgress } from '../byteFormat'
 import { findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
-import { CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
+import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
   CredentialAccessProcess,
   GameState,
@@ -10,6 +10,7 @@ import type {
   RackUpdatePackageSubmission,
   ServiceAnalysisProcess,
 } from '../../core/game/types'
+import { ownedCredentialAccessProviders, type CredentialAccessProviderId } from '../../core/game/credentialAccess'
 
 /**
  * NodeScan presents one target at a time as a single decision, not as a
@@ -251,6 +252,7 @@ export interface Target extends TargetSummary {
 export interface TargetOffensiveAction {
   readonly technique: 'Credential Access' | 'Rollback'
   readonly provider: string
+  readonly providerId?: CredentialAccessProviderId
   readonly route?: TargetRoute | PackageSubmissionRoute
   /** This Technique's own attempt is currently running against this target. */
   readonly running: boolean
@@ -470,20 +472,18 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    // Canonical local capability resolution chooses an integrated Flipper when
-    // available or the exact standalone module otherwise. Presentation does
-    // not choose a tool, and Knowledge remains independently required.
-    const supported = weaknesses.find(({ id }) => findLocalTechniqueTool(information.player.localDevice, id))
+    const supported = weaknesses.find(({ id }) => ownedCredentialAccessProviders(information, id).length > 0)
+    const supportedProviders = supported ? ownedCredentialAccessProviders(information, supported.id) : []
     const techniqueTool = supported ? findLocalTechniqueTool(information.player.localDevice, supported.id) : undefined
-    if (techniqueTool && supported && !viaAccess) {
+    if (supported && supportedProviders.length > 0 && !viaAccess) {
       routes.push({
         serviceId: service.id,
         serviceName: service.name,
         endpoint: service.endpoint,
         vulnerabilityId: supported.id,
         vulnerabilityLabel: supported.label,
-        toolName: techniqueTool.toolName,
-        ...(moduleNameFor(supported.id) ? { moduleName: moduleNameFor(supported.id)! } : {}),
+        toolName: techniqueTool?.toolName ?? supportedProviders[0].name,
+        ...(techniqueTool && moduleNameFor(supported.id) ? { moduleName: moduleNameFor(supported.id)! } : {}),
         ...(observed ? { implementation: observed.implementation } : {}),
       })
     }
@@ -515,11 +515,11 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     const artifact = localArtifacts.find((file) => file.moduleId === moduleId)
     return artifact?.path
   }
-  const credentialProvider = providerFor('credential-access', CREDENTIAL_ACCESS_MODULE_1_0.name)
   const rollbackProvider = providerFor('rollback', ROLLBACK_MODULE_1_0.name)
   const credentialRoute = routes.find(({ vulnerabilityId }) => vulnerabilityId === 'AUTH-017')
+  const credentialProviders = ownedCredentialAccessProviders(information, 'AUTH-017')
   const offensiveActions: TargetOffensiveAction[] = [
-    ...(credentialProvider ? [{ technique: 'Credential Access' as const, provider: credentialProvider, running: hacking.length > 0, ...(credentialRoute ? { route: credentialRoute } : {}) }] : []),
+    ...credentialProviders.map((provider) => ({ technique: 'Credential Access' as const, provider: provider.name, providerId: provider.id, running: hacking.length > 0, ...(credentialRoute ? { route: credentialRoute } : {}) })),
     ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, running: Boolean(packageSubmission?.attacking), ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
   ]
   const stage = stageOf({
@@ -611,8 +611,10 @@ function selectOperation(input: {
 }): TargetOperation | undefined {
   const serviceOf = (serviceId: string) => input.services.find(({ id }) => id === serviceId)
   // The provider the canonical resolver actually selected when the attempt started, not whatever is currently owned.
-  const providerOf = (process: { toolId: string; moduleId: 'credential-access' | 'rollback' }) =>
-    process.toolId === 'flipper' ? `${input.flipperName ?? 'Flipper'} · ${FLIPPER_MODULE_NAME[process.moduleId]}` : FLIPPER_MODULE_NAME[process.moduleId]
+  const providerOf = (process: { toolId: string; moduleId?: 'credential-access' | 'rollback' }) =>
+    process.toolId === 'keyprobe' ? 'KeyProbe'
+      : process.toolId === 'flipper' && process.moduleId ? `${input.flipperName ?? 'Flipper'} · ${FLIPPER_MODULE_NAME[process.moduleId]}`
+        : process.moduleId ? FLIPPER_MODULE_NAME[process.moduleId] : process.toolId
   const attemptFacts = (process: CredentialAccessProcess | RackUpdateExploitProcess): TargetOperationFact[] => {
     const label = input.weaknessLabel(process.serviceId, process.vulnerabilityId)
     return [

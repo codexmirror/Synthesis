@@ -8,7 +8,7 @@ import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
-export const GAME_STATE_VERSION = 58
+export const GAME_STATE_VERSION = 59
 
 export function createInitialGameState(): GameState {
   return {
@@ -39,6 +39,7 @@ export function createInitialGameState(): GameState {
         operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
         installedSoftware: [
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
+          { id: 'keyprobe', releaseId: 'keyprobe-1.0', buildId: 'build-keyprobe-1.0-v0', name: 'KeyProbe', version: '1.0', publisher: 'Neutral Systems' },
           // Flipper is acquired later. The initial standalone Credential Access Module in Files supplies the first AUTH-017 opportunity directly.
         ],
         // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.

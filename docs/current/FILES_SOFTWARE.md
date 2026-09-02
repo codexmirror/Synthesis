@@ -644,6 +644,12 @@ Credential Access Module 1.0 `software_module` artifact under
 `AUTH-017` technique. Module possession is filesystem truth, not
 InstalledSoftware, and does not depend on Flipper.
 
+The authored local Device also starts with KeyProbe 1.0 as ordinary installed
+software. KeyProbe is a second concrete provider of the same Credential Access
+Technique, not a Flipper module and not an ownership flag. Its provider identity
+is retained by the Credential Access Process; its narrow AUTH-017 behavior is
+owned by `docs/current/NETWORK_ACCESS.md`.
+
 The current code and state schema name both represented artifacts
 `SoftwareModuleFile` and associate them with the Flipper host. In current
 behavior, however, each exact supported artifact is also a standalone provider

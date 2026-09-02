@@ -113,9 +113,9 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly startedEndpoint: string
   readonly vulnerabilityId: string
   /** The concrete execution source snapshotted when the attempt started. */
-  readonly toolId: 'flipper' | 'credential-access-module'
-  /** The concrete module that actually supports the technique. */
-  readonly moduleId: 'credential-access'
+  readonly toolId: 'flipper' | 'credential-access-module' | 'keyprobe'
+  /** Present when the concrete provider is the specialized module, standalone or integrated. */
+  readonly moduleId?: 'credential-access'
   readonly result?: CredentialAccessResult
 }
 
@@ -464,6 +464,10 @@ export interface FlipperInstallation extends InstalledSoftware {
 
 export interface NodeMinerInstallation extends InstalledSoftware {
   readonly id: 'node-miner'
+}
+
+export interface KeyProbeInstallation extends InstalledSoftware {
+  readonly id: 'keyprobe'
 }
 
 export interface LocalDeviceState {
