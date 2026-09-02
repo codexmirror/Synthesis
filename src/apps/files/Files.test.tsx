@@ -8,7 +8,9 @@ import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 import { Processes } from '../processes/Processes'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
-import { CREDENTIAL_ACCESS_MODULE_1_0, ROLLBACK_MODULE_1_0 } from '../../core/game/flipper'
+import { CREDENTIAL_ACCESS_MODULE_1_0, ROLLBACK_MODULE_1_0, FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_INSTALLED_EXECUTABLE_PATH } from '../../core/game/flipper'
+import { RATTLER_PROGRAM_ID, RATTLER_INSTALLED_EXECUTABLE_PATH } from '../../core/game/rattler'
+import { RATTLER_1_0 } from '../../core/game/softwareReleaseContent'
 
 afterEach(() => vi.useRealTimers())
 
@@ -57,10 +59,14 @@ describe('Files', () => {
     expect(screen.getByRole('heading', { name })).toBeInTheDocument()
     expect(screen.queryByText('STATUS')).not.toBeInTheDocument()
     expect(screen.getByText('INTEGRATION').parentElement).toHaveTextContent('HOST NOT INSTALLED')
+    expect(screen.getByText(new RegExp(`Supplies ${technique} standalone`))).toBeInTheDocument()
+    expect(screen.getByText(/Flipper is an optional integration host/)).toBeInTheDocument()
+
+    // Deeper technical facts stay behind MODULE INFORMATION rather than dominating the primary surface.
+    expect(screen.queryByText('STANDALONE USE')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /MODULE INFORMATION/ }))
     expect(screen.getByText('STANDALONE USE').parentElement).toHaveTextContent('AVAILABLE')
     expect(screen.getByText('OPTIONAL HOST').parentElement).toHaveTextContent('flipper')
-    expect(screen.getByText(new RegExp(`can supply ${technique} standalone`))).toBeInTheDocument()
-    expect(screen.getByText(/Flipper is an optional integration host/)).toBeInTheDocument()
   })
 
   it('marks every entry that opens a further surface, not only directories', async () => {
@@ -84,7 +90,7 @@ describe('Files', () => {
 
     // And the arrow is decoration: it never becomes part of a row's name.
     await user.click(screen.getByRole('button', { name: /note\.txt.*TEXT/ }))
-    expect(screen.getByText('/home/user/docs/note.txt')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'note.txt' })).toBeInTheDocument()
     expect(container.querySelector('.node-back')).toBeInTheDocument()
   })
 
@@ -106,10 +112,15 @@ describe('Files', () => {
     expect(screen.getByRole('button', { name: /café\.txt.*TEXT.*10 B/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /tool\.bin/ }))
-    expect(screen.getByText('Diagnostic Tool (diagnostic-tool)')).toBeInTheDocument()
-    expect(screen.getByText('diagnostic-tool-2')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Diagnostic Tool' })).toBeInTheDocument()
+    expect(screen.getByText('UNSUPPORTED')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'RUN' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'UPLOAD' })).not.toBeInTheDocument()
+
+    // Program identity is still available, just behind FILE INFORMATION rather than dominating the primary surface.
+    await user.click(screen.getByRole('button', { name: /FILE INFORMATION/ }))
+    expect(screen.getByText('diagnostic-tool')).toBeInTheDocument()
+    expect(screen.getByText('diagnostic-tool-2')).toBeInTheDocument()
   })
 
   it('presents one supplied canonical filesystem through both Files and Terminal', async () => {
@@ -223,7 +234,7 @@ describe('Files', () => {
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByRole('button', { name: /release-4\.2\.pkg/ }))
-    expect(screen.getByText('SOFTWARE PACKAGE')).toBeInTheDocument()
+    expect(screen.getByText(/SOFTWARE PACKAGE/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Canonical Scanner' })).toBeInTheDocument()
     expect(screen.getByText('4.2 · TESTING')).toBeInTheDocument()
     expect(screen.getByText('CURRENT')).toBeInTheDocument()
@@ -296,7 +307,7 @@ describe('Files NODE Miner installation', () => {
     await user.click(screen.getByRole('button', { name: /^local.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /^bin.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /^node-miner.*EXECUTABLE/ }))
-    expect(screen.getByText('NODE Miner (node-miner)')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'RUN' }))
     expect(within(document.querySelector('.files-app') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
     expect(within(screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
@@ -316,7 +327,7 @@ describe('Files NODE Miner RUN', () => {
     render(<GameProvider initialState={state}><Files /><Processes /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.bin/ }))
-    expect(screen.getByText('NODE Miner (node-miner)')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
     const addressInput = screen.getByLabelText('NODE payout address') as HTMLInputElement
     expect(addressInput.value).toBe(state.nodeWallet.address)
     await user.click(screen.getByRole('button', { name: 'RUN' }))
@@ -510,16 +521,19 @@ describe('Files software package details', () => {
   })
 
   it('states the compact facts and the one available action without scrolling past a release document', async () => {
-    await openMinerPackage()
+    const user = await openMinerPackage()
     expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
     expect(screen.getByText('1.0 · UNOFFICIAL')).toBeInTheDocument()
-    expect(screen.getByText('SOFTWARE PACKAGE')).toBeInTheDocument()
-    expect(screen.getByText(MINER_PACKAGE)).toBeInTheDocument()
-    expect(screen.getByText('3.4 MB')).toBeInTheDocument()
+    expect(screen.getByText(/SOFTWARE PACKAGE · 3\.4 MB/)).toBeInTheDocument()
     expect(screen.getByText('STATUS')).toBeInTheDocument()
     expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
     expect(screen.getByText('NOT INSTALLED')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+
+    // PATH does not dominate the default view: it is available, not primary.
+    expect(screen.queryByText(MINER_PACKAGE)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /FILE INFORMATION/ }))
+    expect(screen.getByText(MINER_PACKAGE)).toBeInTheDocument()
   })
 
   it('opens the represented release information on demand and closes it again', async () => {
@@ -678,5 +692,116 @@ describe('Files unrecognized package extension', () => {
     expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
     expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
+  })
+})
+
+describe('Files deauth.ext extension', () => {
+  async function openDeauthExtension(initialState = createInitialGameState()) {
+    render(<GameProvider initialState={initialState}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /extensions.*DIRECTORY/ }))
+    expect(screen.getByRole('button', { name: /deauth\.ext.*FLIPPER EXTENSION/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /deauth\.ext/ }))
+    return user
+  }
+
+  it('states NOT AVAILABLE truthfully rather than an invented integration state when Flipper is not installed', async () => {
+    const user = await openDeauthExtension()
+    expect(screen.getByRole('heading', { name: 'deauth.ext' })).toBeInTheDocument()
+    // It has no integration mechanic of its own: only availability, never INTEGRATION.
+    expect(screen.queryByText('INTEGRATION')).not.toBeInTheDocument()
+    expect(screen.getByText('AVAILABILITY').parentElement).toHaveTextContent('NOT AVAILABLE')
+    expect(screen.getByText(/Requires Flipper to be installed/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /EXTENSION INFORMATION/ }))
+    expect(screen.getByText('HOST').parentElement).toHaveTextContent('NOT INSTALLED')
+    expect(screen.getByText('COMPATIBILITY').parentElement).toHaveTextContent('Flipper 1.0')
+  })
+
+  it('states AVAILABLE once a compatible installed Flipper coexists with the extension', async () => {
+    const base = createInitialGameState()
+    const state: GameState = { ...base, player: { ...base.player, localDevice: {
+      ...base.player.localDevice,
+      installedSoftware: [...base.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION],
+    } } }
+    await openDeauthExtension(state)
+    const status = screen.getByText('AVAILABILITY').parentElement as HTMLElement
+    expect(within(status).getByText('AVAILABLE')).toBeInTheDocument()
+    expect(screen.getByText(/DEAUTH is available from Flipper NETWORK/)).toBeInTheDocument()
+  })
+})
+
+describe('Files RATTLER payload', () => {
+  it('presents target/payload facts as an artifact, keeping opaque release/build identity out of the primary surface', async () => {
+    const base = createInitialGameState()
+    const payload = { kind: 'rattler_payload' as const, id: 'file-payload', path: '/opt/rattler/payload-host-lan-001.rpl', sizeBytes: 6_400, rattlerReleaseId: RATTLER_1_0.releaseId, rattlerBuildId: RATTLER_1_0.buildId, targetDeviceId: 'host-lan-001', targetAddressSnapshot: '203.0.113.10' }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, payload] } } } }
+    render(<GameProvider initialState={state}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^opt.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^rattler.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /payload-host-lan-001\.rpl.*RATTLER PAYLOAD/ }))
+
+    expect(screen.getByText('TARGET BOUND')).toBeInTheDocument()
+    expect(screen.getByText('ADDRESS').parentElement).toHaveTextContent('203.0.113.10')
+    expect(screen.getByText('DEVICE').parentElement).toHaveTextContent('host-lan-001')
+    expect(screen.queryByRole('button', { name: 'DEPLOY' })).not.toBeInTheDocument()
+    expect(screen.queryByText(RATTLER_1_0.releaseId)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /FILE INFORMATION/ }))
+    expect(screen.getByText(RATTLER_1_0.releaseId)).toBeInTheDocument()
+    expect(screen.getByText(RATTLER_1_0.buildId)).toBeInTheDocument()
+  })
+})
+
+describe('Files application executable OPEN', () => {
+  it('opens Flipper as a launcher, with no RELEASE INFORMATION or application UI duplicated into Files', async () => {
+    const base = createInitialGameState()
+    const flipperExe = { kind: 'executable' as const, id: 'file-flipper', path: FLIPPER_INSTALLED_EXECUTABLE_PATH, programId: 'flipper', releaseId: FLIPPER_1_0_CANONICAL_INSTALLATION.releaseId, buildId: FLIPPER_1_0_CANONICAL_INSTALLATION.buildId, name: 'Flipper', version: '1.0', sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, flipperExe] } } } }
+    const openApp = vi.fn()
+    render(<GameProvider initialState={state}><Files openApp={openApp} /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^apps.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /flipper.*EXECUTABLE/ }))
+
+    expect(screen.getByRole('heading', { name: 'Flipper' })).toBeInTheDocument()
+    expect(screen.queryByText('RELEASE INFORMATION')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'RUN' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'OPEN' }))
+    expect(openApp).toHaveBeenCalledWith('flipper')
+  })
+
+  it('opens RATTLER as a launcher the same way', async () => {
+    const base = createInitialGameState()
+    const rattlerExe = { kind: 'executable' as const, id: 'file-rattler', path: RATTLER_INSTALLED_EXECUTABLE_PATH, programId: RATTLER_PROGRAM_ID, releaseId: RATTLER_1_0.releaseId, buildId: RATTLER_1_0.buildId, name: 'RATTLER', version: '1.0', sizeBytes: 2_400_000 }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, rattlerExe] } } } }
+    const openApp = vi.fn()
+    render(<GameProvider initialState={state}><Files openApp={openApp} /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^opt.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^rattler.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /rattler\.exe.*EXECUTABLE/ }))
+
+    expect(screen.getByRole('heading', { name: 'RATTLER' })).toBeInTheDocument()
+    expect(screen.queryByText('RELEASE INFORMATION')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'OPEN' }))
+    expect(openApp).toHaveBeenCalledWith('rattler')
+  })
+
+  it('does not offer OPEN when no launcher is wired in, without falling back to UNSUPPORTED', async () => {
+    const base = createInitialGameState()
+    const flipperExe = { kind: 'executable' as const, id: 'file-flipper', path: FLIPPER_INSTALLED_EXECUTABLE_PATH, programId: 'flipper', releaseId: FLIPPER_1_0_CANONICAL_INSTALLATION.releaseId, buildId: FLIPPER_1_0_CANONICAL_INSTALLATION.buildId, name: 'Flipper', version: '1.0', sizeBytes: FLIPPER_1_0_CANONICAL_INSTALLATION.sizeBytes }
+    const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, flipperExe] } } } }
+    render(<GameProvider initialState={state}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^apps.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /flipper.*EXECUTABLE/ }))
+    expect(screen.queryByRole('button', { name: 'OPEN' })).not.toBeInTheDocument()
+    expect(screen.queryByText('UNSUPPORTED')).not.toBeInTheDocument()
   })
 })
