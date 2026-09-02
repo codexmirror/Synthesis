@@ -370,24 +370,50 @@ describe('NodeScan information boundary', () => {
     expect(screen.queryByText('GateSSH 1.3.2')).not.toBeInTheDocument()
   })
 
-  it('presents inspected security software by product name without discarding remembered release identity', async () => {
+  it('presents legitimately observed AuthGuard with GateSSH in the affected Service software list', async () => {
     const observed = withNodeScan11(createInitialGameState())
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
     let discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
     discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), observed.player.localDevice.id)
-    const state = { ...observed, discovery }
+    const state = {
+      ...observed,
+      discovery,
+      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-031', observedLabel: 'Pre-authentication challenge state reuse', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002' }] },
+    }
     const remembered = discovery.devices.find(({ id }) => id === 'host-lan-002')!.inspect!.enhanced!.authGuard!
 
     expect(remembered).toMatchObject({ name: 'AuthGuard', version: '1.0', compatibility: 'SUPPORTED' })
-    expect(selectTarget(state, 'host-lan-002')?.observed?.authGuard?.name).toBe('AuthGuard')
+    expect(selectTarget(state, 'host-lan-002')?.services.find(({ id }) => id === 'service-ssh-002')?.software).toEqual(['GateSSH 1.3.3', 'AuthGuard'])
 
     const user = userEvent.setup()
     render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
     await openDetails(user)
-    const securityFacts = screen.getByText('SECURITY SOFTWARE').closest('.node-section')!.nextElementSibling!
-    expect(securityFacts).toHaveTextContent('AuthGuard')
-    expect(securityFacts).not.toHaveTextContent('AuthGuard 1.0')
+    const ssh = screen.getByText('SSH').closest('.ns-service') as HTMLElement
+    const software = within(ssh).getByText('SOFTWARE').closest('div')!
+    expect(software).toHaveTextContent('GateSSH 1.3.3')
+    expect(software).toHaveTextContent('AuthGuard')
+    expect(software).not.toHaveTextContent('AuthGuard 1.0')
+    expect(ssh).toHaveTextContent('Analysis found relevant information.')
+    expect(ssh).not.toHaveTextContent('AUTH-031')
+    expect(ssh).not.toHaveTextContent('Pre-authentication challenge state reuse')
+    expect(screen.queryByText('SECURITY SOFTWARE')).not.toBeInTheDocument()
+    expect(ssh).not.toHaveTextContent('5%')
+    expect(ssh).not.toHaveTextContent('Rollback')
+  })
+
+  it('does not reveal AuthGuard without remembered enhanced Inspect evidence', async () => {
+    const state = createInitialGameState()
+    const targets = { localDevice: state.player.localDevice, network: state.world.network }
+    const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={{ ...state, discovery }}><Network /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    await openDetails(user)
+
+    const ssh = screen.getByText('SSH').closest('.ns-service') as HTMLElement
+    expect(ssh).not.toHaveTextContent('AuthGuard')
+    expect(screen.queryByText('SECURITY SOFTWARE')).not.toBeInTheDocument()
   })
 
   it('never observes or changes anything by opening technical details', async () => {
@@ -396,7 +422,8 @@ describe('NodeScan information boundary', () => {
     scanTargetSpy.mockClear()
 
     await openDetails(user)
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
+    expect(screen.getByText('Analysis found relevant information.')).toBeInTheDocument()
+    expect(screen.queryByText('AUTH-017')).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
     expect(screen.getByTestId('game-state').textContent).toBe(before)
   })
@@ -541,8 +568,11 @@ describe('NodeScan technical details', () => {
     const details = screen.getByText('SERVICES').closest('.ns-detail-panel')!
     expect(details).not.toHaveTextContent('Standalone Module')
     expect(details).toHaveTextContent('GateSSH 1.3.2')
-    expect(details).toHaveTextContent('Weak authentication configuration')
-    expect(details).toHaveTextContent('AUTH-017')
+    expect(details).toHaveTextContent('Analysis found relevant information.')
+    expect(details).not.toHaveTextContent('Weak authentication configuration')
+    expect(details).not.toHaveTextContent('AUTH-017')
+    expect(details).not.toHaveTextContent('AUTHENTICATION')
+    expect(details).not.toHaveTextContent('Credential')
   })
 
   it('keeps single-Service investigation available as advanced depth', async () => {
@@ -575,9 +605,9 @@ describe('NodeScan technical details', () => {
     const http = serviceOf('HTTP')
     expect(precedesItsAction(http, within(http).getByText('Last analysis found no weakness.'))).toBeTruthy()
 
-    // The same ordering a Service with a weakness already had.
+    // The same ordering a Service with learned relevant information already had.
     const ssh = serviceOf('SSH')
-    expect(precedesItsAction(ssh, within(ssh).getByText('Weak authentication configuration'))).toBeTruthy()
+    expect(precedesItsAction(ssh, within(ssh).getByText('Analysis found relevant information.'))).toBeTruthy()
   })
 
   it('states remembered evidence with its capability note under a release that cannot Inspect', async () => {

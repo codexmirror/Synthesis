@@ -188,8 +188,16 @@ TECHNICAL INTELLIGENCE is one disclosure on the target card carrying the
 copyable address, remembered Inspect evidence (including the observed display
 NAME where one was observed) and its capability note, the manual INSPECT
 action, the provenance of established Access, and the remembered Services with
-their endpoints, fingerprints, weaknesses and per-Service
-Analyze action, and RackUpdate's package-submission lifecycle. Opening it
+their endpoints, relevant observed software and per-Service Analyze action,
+and RackUpdate's package-submission lifecycle. A Service's SOFTWARE list leads
+with its remembered implementation fingerprint and may include remembered
+software materially affecting that exact implementation: enhanced Inspect's
+historical AuthGuard evidence therefore appears with the GateSSH Service it
+names, rather than in a Device-level security-software category. The ordinary
+Service card does not repeat the generic credential-access condition or expose
+canonical vulnerability IDs and weakness labels; where analysis has produced
+Knowledge, it gives only a restrained acknowledgement while ACTIONS continues
+to derive executable Techniques from that unchanged Knowledge. Opening it
 browses remembered information: it performs no observation and starts no
 gameplay. Unobserved depth is stated explicitly there and never rendered as an
 observed empty result.
