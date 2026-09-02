@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameActions, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
-import type { FilesystemFile, GameState } from '../../core/game/types'
+import type { DeauthExtensionFile, FilesystemFile, GameState } from '../../core/game/types'
 import { Files } from './Files'
 import { Terminal } from '../terminal/Terminal'
 import { Processes } from '../processes/Processes'
@@ -728,6 +728,45 @@ describe('Files deauth.ext extension', () => {
     const status = screen.getByText('AVAILABILITY').parentElement as HTMLElement
     expect(within(status).getByText('AVAILABLE')).toBeInTheDocument()
     expect(screen.getByText(/DEAUTH is available from Flipper NETWORK/)).toBeInTheDocument()
+  })
+
+  it('presents AVAILABLE for the viewed copy regardless of filesystem order, when a second equivalent copy exists at another path', async () => {
+    const base = createInitialGameState()
+    const seeded = base.player.localDevice.filesystem.files.find((file): file is DeauthExtensionFile => file.kind === 'deauth_extension')!
+    // A second concrete copy, appended after the seeded one, so a first-match
+    // lookup over filesystem order would resolve to the seeded copy alone.
+    const secondCopy: DeauthExtensionFile = { ...seeded, id: 'file-deauth-second-copy', path: '/home/user/extensions/deauth-second-copy.ext' }
+    const state: GameState = { ...base, player: { ...base.player, localDevice: {
+      ...base.player.localDevice,
+      installedSoftware: [...base.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION],
+      filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, secondCopy] },
+    } } }
+
+    // Opening the seeded (first-in-array) copy shows AVAILABLE.
+    const userA = await openDeauthExtension(state)
+    expect(within(screen.getByText('AVAILABILITY').parentElement as HTMLElement).getByText('AVAILABLE')).toBeInTheDocument()
+
+    // Opening the second (later-in-array) copy must show the same truthful AVAILABLE state,
+    // not NOT AVAILABLE merely because it is not the first match `findCompatibleDeauthExtension` would return.
+    await userA.click(screen.getByRole('button', { name: 'Back to /home/user/extensions' }))
+    await userA.click(screen.getByRole('button', { name: /deauth-second-copy\.ext.*FLIPPER EXTENSION/ }))
+    expect(within(screen.getByText('AVAILABILITY').parentElement as HTMLElement).getByText('AVAILABLE')).toBeInTheDocument()
+  })
+
+  it('keeps NOT AVAILABLE truthful for an incompatible/unsupported extension artifact even when a compatible Flipper is installed', async () => {
+    const base = createInitialGameState()
+    const seeded = base.player.localDevice.filesystem.files.find((file): file is DeauthExtensionFile => file.kind === 'deauth_extension')!
+    const foreignBuild: DeauthExtensionFile = { ...seeded, id: 'file-deauth-foreign', path: '/home/user/extensions/deauth-foreign.ext', buildId: 'build-deauth-extension-9.9-foreign' }
+    const state: GameState = { ...base, player: { ...base.player, localDevice: {
+      ...base.player.localDevice,
+      installedSoftware: [...base.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION],
+      filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, foreignBuild] },
+    } } }
+    render(<GameProvider initialState={state}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /extensions.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /deauth-foreign\.ext/ }))
+    expect(within(screen.getByText('AVAILABILITY').parentElement as HTMLElement).getByText('NOT AVAILABLE')).toBeInTheDocument()
   })
 })
 

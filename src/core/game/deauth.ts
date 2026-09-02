@@ -11,14 +11,29 @@ export const DEAUTH_EXTENSION = {
 export const DEAUTH_WORK_REQUIRED = 1000
 export const DEAUTH_RAM_REQUIRED_MIB = 640
 
-export function findCompatibleDeauthExtension(device: Pick<LocalDeviceState, 'installedSoftware' | 'filesystem'>): DeauthExtensionFile | undefined {
-  const flipper = findInstalledFlipper(device)
-  if (!flipper || !isSupportedFlipperBuild(flipper) || flipper.releaseId !== DEAUTH_EXTENSION.compatibleHostReleaseId) return undefined
-  return device.filesystem.files.find((file): file is DeauthExtensionFile => file.kind === 'deauth_extension'
-    && file.extensionId === DEAUTH_EXTENSION.extensionId && file.hostProductId === DEAUTH_EXTENSION.hostProductId
+/**
+ * Whether one concrete artifact is the exact currently represented `deauth.ext`
+ * build — the same exact-match recognition `findCompatibleDeauthExtension`
+ * uses, extracted so a caller holding one specific artifact (rather than a
+ * whole Device to search) can ask the same question about that exact copy,
+ * independent of filesystem order or any other copy's ID.
+ */
+export function isSupportedDeauthExtensionArtifact(file: Pick<DeauthExtensionFile, 'extensionId' | 'hostProductId' | 'compatibleHostReleaseId' | 'releaseId' | 'buildId' | 'name' | 'version' | 'sizeBytes'>): boolean {
+  return file.extensionId === DEAUTH_EXTENSION.extensionId && file.hostProductId === DEAUTH_EXTENSION.hostProductId
     && file.compatibleHostReleaseId === DEAUTH_EXTENSION.compatibleHostReleaseId
     && file.releaseId === DEAUTH_EXTENSION.releaseId && file.buildId === DEAUTH_EXTENSION.buildId
-    && file.name === DEAUTH_EXTENSION.name && file.version === DEAUTH_EXTENSION.version && file.sizeBytes === DEAUTH_EXTENSION.sizeBytes)
+    && file.name === DEAUTH_EXTENSION.name && file.version === DEAUTH_EXTENSION.version && file.sizeBytes === DEAUTH_EXTENSION.sizeBytes
+}
+
+/** Whether this Device currently installs a Flipper build compatible with `deauth.ext` at all, independent of any one artifact. */
+function hasDeauthCompatibleFlipper(device: Pick<LocalDeviceState, 'installedSoftware'>): boolean {
+  const flipper = findInstalledFlipper(device)
+  return !!flipper && isSupportedFlipperBuild(flipper) && flipper.releaseId === DEAUTH_EXTENSION.compatibleHostReleaseId
+}
+
+export function findCompatibleDeauthExtension(device: Pick<LocalDeviceState, 'installedSoftware' | 'filesystem'>): DeauthExtensionFile | undefined {
+  if (!hasDeauthCompatibleFlipper(device)) return undefined
+  return device.filesystem.files.find((file): file is DeauthExtensionFile => file.kind === 'deauth_extension' && isSupportedDeauthExtensionArtifact(file))
 }
 
 export interface DeauthObservation { readonly networkId: string; readonly networkName: string; readonly contextDeviceId: string }

@@ -4,7 +4,7 @@ import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '..
 import { findRunningLocalNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
 import { FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper } from '../../core/game/flipper'
-import { findCompatibleDeauthExtension } from '../../core/game/deauth'
+import { findCompatibleDeauthExtension, isSupportedDeauthExtensionArtifact } from '../../core/game/deauth'
 import { deriveSoftwarePackageEligibility, type InstallLocalSoftwarePackageResult } from '../../core/game/softwareInstallation'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
@@ -496,7 +496,12 @@ function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; 
  */
 function DeauthExtensionDetails({ file, device }: { file: DeauthExtensionFile; device: LocalDeviceState }) {
   const flipper = findInstalledFlipper(device)
-  const available = findCompatibleDeauthExtension(device)?.id === file.id
+  // The viewed artifact's own availability, not whichever compatible copy
+  // `findCompatibleDeauthExtension` happens to find first: this exact file
+  // must be the recognized build, and a compatible Flipper must exist at all
+  // (that existence check is what a non-undefined find result proves here,
+  // regardless of which copy it actually returns).
+  const available = isSupportedDeauthExtensionArtifact(file) && findCompatibleDeauthExtension(device) !== undefined
   return <section className="file-kind-details">
     <div className="node-section"><span>AVAILABILITY</span><span>{available ? 'AVAILABLE' : 'NOT AVAILABLE'}</span></div>
     <p className="node-note">{available
