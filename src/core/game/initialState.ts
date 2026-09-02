@@ -7,8 +7,9 @@ import { NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from
 import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
+import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
 
-export const GAME_STATE_VERSION = 59
+export const GAME_STATE_VERSION = 60
 
 export function createInitialGameState(): GameState {
   return {
@@ -137,9 +138,10 @@ export function createInitialGameState(): GameState {
             firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
-            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }],
-            filesystem: { nextFileId: 2, files: [
+            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, AUTH_GUARD_1_0_INSTALLATION],
+            filesystem: { nextFileId: 3, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
+              { kind: 'software_package', id: 'file-0002', path: '/opt/packages/authguard-1.0.pkg', releaseId: AUTH_GUARD_1_0_RELEASE_ID, buildId: AUTH_GUARD_1_0_BUILD_ID, productId: AUTH_GUARD_PRODUCT_ID, name: 'AuthGuard', version: '1.0', publisher: 'rack-systems', sizeBytes: 4_800_000 },
             ] },
             services: [
               { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, credentialAccess: { privilege: 'USER' } },

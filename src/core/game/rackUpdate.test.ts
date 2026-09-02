@@ -251,7 +251,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(target.pendingGateSshActivation).toEqual({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' })
     expect(managed.implementation).toMatchObject({ releaseId: 'gate-ssh-1.3.3', version: '1.3.3' })
     expect(target.installedSoftware!.find(({ id }) => id === 'gate-ssh')).toMatchObject({ releaseId: 'gate-ssh-1.3.3', version: '1.3.3' })
-    expect(vulnerabilitiesForService(managed)).toEqual([])
+    expect(vulnerabilitiesForService(managed).map(({ id }) => id)).toEqual(['AUTH-031'])
     expect(state.rackUpdate.submission.outcome).toEqual({ targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', result: 'package_accepted_reboot_required' })
     // No access, session, or filesystem consequence anywhere.
     expect(state.deviceAccess.established).toEqual([])
@@ -373,7 +373,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     const srv02 = () => state.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
     const ssh = () => srv02().services!.find(({ id }) => id === 'service-ssh-002')!
     expect(ssh().implementation.releaseId).toBe('gate-ssh-1.3.3')
-    expect(vulnerabilitiesForService(ssh())).toEqual([])
+    expect(vulnerabilitiesForService(ssh()).map(({ id }) => id)).toEqual(['AUTH-031'])
 
     const updateAnalysis = startServiceAnalysisFromObservation(state, { endpoint: '203.0.113.42:8443', targetDeviceId: srv02().id, serviceId: 'service-rack-update-002' })
     expect(updateAnalysis.status).toBe('started'); state = advanceGameState(updateAnalysis.state, 20_000)
@@ -390,7 +390,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
     expect(srv02().pendingGateSshActivation).toMatchObject({ releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, version: '1.3.2' })
     expect(ssh().implementation.releaseId).toBe('gate-ssh-1.3.3')
     expect(srv02().installedSoftware!.find(({ id }) => id === 'gate-ssh')!.releaseId).toBe('gate-ssh-1.3.3')
-    expect(vulnerabilitiesForService(ssh())).toEqual([])
+    expect(vulnerabilitiesForService(ssh()).map(({ id }) => id)).toEqual(['AUTH-031'])
     expect(state.knowledge.discoveredVulnerabilities).not.toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: srv02().id, serviceId: ssh().id }))
 
     const discoveryBeforeBoot = state.discovery

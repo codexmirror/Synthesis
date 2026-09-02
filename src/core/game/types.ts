@@ -913,6 +913,8 @@ export interface ServiceInspectSnapshot {
 export interface EnhancedInspectEvidence {
   readonly firmware: { readonly name: string; readonly version: string }
   readonly computeClass: 'LOW' | 'STANDARD' | 'HIGH'
+  /** Historical observation of the one concrete AuthGuard protection relationship. */
+  readonly authGuard?: { readonly name: 'AuthGuard'; readonly version: '1.0'; readonly protectedImplementation: string; readonly compatibility: 'SUPPORTED' | 'UNSUPPORTED' }
 }
 
 /** A Device-to-Network relationship observed at Inspect depth. */

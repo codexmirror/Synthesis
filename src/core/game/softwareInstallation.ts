@@ -1,5 +1,6 @@
 import { checkDestinationPlacement, getFilesystemFile } from './filesystem'
-import { NODE_OS_FIRMWARE_ID } from './firmwareIdentity'
+import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID } from './firmwareIdentity'
+import { AUTH_GUARD_PRODUCT_ID } from './authGuard'
 import { NODE_MINER_EXECUTABLE_SIZE_BYTES, NODE_MINER_INSTALLED_EXECUTABLE_PATH, NODE_MINER_PROGRAM_ID } from './nodeMiner'
 import { startProcess } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
@@ -86,7 +87,7 @@ interface SoftwareInstallationTarget {
 export type SoftwarePackageEligibility =
   | { readonly status: 'installable' }
   | { readonly status: 'installed' | 'installing' | 'unrecognized' }
-  | { readonly status: 'incompatible'; readonly requiredFirmware: 'NODE-OS' }
+  | { readonly status: 'incompatible'; readonly requiredFirmware: 'NODE-OS' | 'RACK-OS' }
 
 /** Products whose ordinary installation currently requires NODE-OS specifically. Not a requirements framework — a narrow named list of the concrete products that carry this one rule. */
 const NODE_OS_ONLY_PRODUCT_IDS: readonly string[] = ['nodescan', FLIPPER_PRODUCT_ID, RATTLER_PRODUCT_ID]
@@ -106,6 +107,7 @@ export function deriveSoftwarePackageEligibility(
   if (target.installedSoftware.find(({ id }) => id === file.productId)?.buildId === file.buildId) return { status: 'installed' }
   if (process.processes.some((candidate) => candidate.kind === 'software_installation' && candidate.status === 'running' && candidate.executorDeviceId === target.id && candidate.productId === file.productId)) return { status: 'installing' }
   if (NODE_OS_ONLY_PRODUCT_IDS.includes(file.productId) && target.firmware.id !== NODE_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'NODE-OS' }
+  if (file.productId === AUTH_GUARD_PRODUCT_ID && target.firmware.id !== RACK_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'RACK-OS' }
   return { status: 'installable' }
 }
 
