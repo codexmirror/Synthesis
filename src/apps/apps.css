@@ -81,8 +81,8 @@
 
 .files-up {
   flex: none;
-  width: 34px;
-  height: 34px;
+  min-width: 44px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -106,7 +106,7 @@
   padding: 0;
   list-style: none;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 4px;
   min-width: 0;
   overflow-x: auto;
@@ -116,21 +116,30 @@
 
 .files-crumb-list::-webkit-scrollbar { display: none; }
 
-.files-crumb-item { display: inline-flex; align-items: baseline; gap: 4px; flex: none; }
+.files-crumb-item { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 
+/* Shared crumb text treatment; the touch-safe box only applies to the
+   interactive ancestor crumb below, not the non-interactive current one. */
 .files-crumb {
-  min-height: 34px;
-  padding: 4px 2px;
   border: 0;
   background: transparent;
   color: var(--text-quiet);
   font: inherit;
   font-size: .78rem;
+}
+
+button.files-crumb {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
-.files-crumb:hover,
-.files-crumb:focus-visible { color: var(--accent-strong); outline: 0; }
+button.files-crumb:hover,
+button.files-crumb:focus-visible { color: var(--accent-strong); outline: 0; }
 
 .files-crumb--current { color: var(--text-strong); cursor: default; }
 
