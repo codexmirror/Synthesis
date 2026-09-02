@@ -345,7 +345,8 @@ function findManagedFlipperExecutable(device: Pick<LocalDeviceState, 'filesystem
     && file.releaseId === flipper.releaseId && file.buildId === flipper.buildId && file.sizeBytes === flipper.sizeBytes)
 }
 
-function isSupportedFlipperBuild(flipper: FlipperInstallation): boolean {
+/** Exact represented Flipper 1.0 builds, shared by host transformations and concrete extension compatibility. */
+export function isSupportedFlipperBuild(flipper: FlipperInstallation): boolean {
   const modules = flipper.integratedModules
   if (flipper.releaseId !== FLIPPER_1_0.releaseId) return false
   if (modules.length === 0) return flipper.buildId === FLIPPER_1_0.buildId && flipper.sizeBytes === FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES

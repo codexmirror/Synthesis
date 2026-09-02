@@ -173,7 +173,7 @@ describe('Market purchase', () => {
     expect(probe()).toMatchObject({
       balanceNodeUnits: 2 * PRICE,
       entitlements: [NODESCAN_OFFER],
-      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg', '/home/user/modules/credential-access-1.0.mod'],
+      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg', '/home/user/modules/credential-access-1.0.mod', '/home/user/extensions/deauth.ext'],
       transfer: null,
       processes: [],
     })

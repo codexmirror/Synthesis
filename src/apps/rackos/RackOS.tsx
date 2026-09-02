@@ -194,6 +194,8 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
           ? <RemotePackage key={selected} file={result.file} target={context.target} process={state.process} targetDisplayName={targetDisplayName!} installedSoftware={context.target.installedSoftware} installable={targetInstallable} installingProductIds={targetInstallingProductIds} install={installRemoteSoftwarePackage} />
           : result.file.kind === 'software_module'
             ? <RemoteModule key={selected} file={result.file} />
+            : result.file.kind === 'deauth_extension'
+              ? <dl className="rack-facts"><div><dt>FLIPPER EXTENSION</dt><dd>{result.file.name} {result.file.version}</dd></div><div><dt>BUILD</dt><dd>{result.file.buildId}</dd></div></dl>
             : result.file.kind === 'rattler_payload'
               ? <dl className="rack-facts"><div><dt>RATTLER TARGET</dt><dd>{result.file.targetAddressSnapshot}</dd></div><div><dt>DEVICE</dt><dd>{result.file.targetDeviceId}</dd></div></dl>
               : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}

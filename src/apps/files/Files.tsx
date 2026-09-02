@@ -177,6 +177,7 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
     </section>
         : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
         : file.kind === 'software_module' ? <ModuleDetails file={file} installedSoftware={installedSoftware} />
+        : file.kind === 'deauth_extension' ? <section><div className="node-section"><span>FLIPPER EXTENSION</span></div><dl className="node-facts"><div><dt>RELEASE</dt><dd>{file.version}</dd></div><div><dt>BUILD</dt><dd>{file.buildId}</dd></div><div><dt>COMPATIBILITY</dt><dd>Flipper {file.compatibleHostReleaseId.replace('flipper-', '')}</dd></div></dl></section>
         : file.kind === 'rattler_payload' ? <RattlerPayloadDetails file={file} />
           : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} openExecutableApp={openExecutableApp} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}

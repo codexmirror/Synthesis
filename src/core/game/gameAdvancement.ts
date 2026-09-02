@@ -12,6 +12,7 @@ import { resolveCompletedFlipperModuleIntegrations } from './flipper'
 import type { GameState } from './types'
 import { archiveProcess } from './recentActivity'
 import { advanceRattlerPinSearches } from './rattler'
+import { resolveCompletedDeauthAttempts } from './deauth'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -38,6 +39,7 @@ export function advanceGameState(state: GameState, elapsedMs: number, credential
     nextState = { ...nextState, process: processState }
     nextState = resolveCompletedCredentialAccessAttempts(nextState, credentialAccessRandom)
     nextState = resolveCompletedRackUpdateExploits(nextState)
+    nextState = resolveCompletedDeauthAttempts(nextState)
     nextState = resolveCompletedServiceAnalyses(nextState)
     // Continuous NODE Miner production, payout routing, and the Miner's own payout artifact are resolved every advancement step, not only at completion.
     nextState = resolveNodeMinerProduction(nextState)

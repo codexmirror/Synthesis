@@ -1,6 +1,6 @@
 # DEAUTH / NETWORK DISRUPTION V1
 
-Status: Accepted
+Status: Accepted — V1 implemented
 Scope: Design authority for the first planned offensive network-disruption
 effect ("DEAUTH") and the srv-02 multi-step composition it is intended to
 prove. Defines DEAUTH's own effect narrowly, and how it relates to the
@@ -253,14 +253,23 @@ requires them.
 
 ## Deferred
 
-Everything needed to actually implement DEAUTH itself — its concrete provider
-and acquisition, requirements, resource cost, elapsed work, success model,
-contextual HACK UI wiring, and the exact represented cause that performs the
-Network-scoped connectivity mutation — remains unimplemented and outside this
-contract. The neutral connectivity-mutation
+DEAUTH's concrete V1 provider, acquisition, requirements, elapsed work, deterministic success model, contextual NodeScan wiring, and Network-scoped connectivity mutation are now implemented as described below. The neutral connectivity-mutation
 operation it would call
 (`interruptLocalNetworkConnectivity`, `docs/current/DEVICE_SYSTEM.md`) and
 the concrete Device/RACK-OS reaction it would trigger (Petra's Phone
 reconnect, `srv-02` reboot through the real boot boundary) are already
-implemented, independently of DEAUTH, so a future DEAUTH implementation
+implemented, independently of DEAUTH, so the implemented DEAUTH operation
 composes with existing Current Truth rather than designing it anew.
+
+
+## Implemented V1 provider and execution
+
+The accepted proof is now implemented with `deauth.ext` 1.0 as the sole concrete
+Flipper Extension provider. The seeded filesystem artifact plus an exact
+compatible installed Flipper derives capability; neither possession alone does.
+NodeScan uses remembered topology to form a Network-scoped attempt, and finite
+canonical Process work deterministically invokes only the existing neutral
+Network connectivity interruption after current-cause revalidation. Device
+recovery and boot activation remain separately owned. Generic extension and
+distribution architecture, and a new Network Activity evidence kind, remain
+deliberately deferred.

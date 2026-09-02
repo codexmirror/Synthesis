@@ -797,3 +797,21 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   granted Access relationship). A Service- or submission-specific outcome —
   RackUpdate's `PACKAGE ACCEPTED` / `REBOOT REQUIRED` chief among them — stays
   presented inside the subsystem that owns it and never becomes that headline.
+
+## DEAUTH Network disruption
+
+DEAUTH is implemented as a deterministic finite offensive `GameProcess` whose
+canonical target is a stable Network identity. NodeScan forms its contextual
+offer from remembered Device→Network Discovery only: the selected Device is
+formation context, while the action explicitly states `NETWORK`, the remembered
+Network name, and `deauth.ext`. Completion revalidates the represented provider,
+compatible Flipper host, Network, and contextual membership; stale or removed
+causes fail without mutation.
+
+A successful completion invokes the neutral Network connectivity interruption
+once and owns no other consequence. Petra's Phone reconnects and srv-02 reboots
+through their existing Device-owned recovery behavior. The ordinary srv-02 boot
+boundary, independently, applies an already-pending GateSSH activation. DEAUTH
+creates no pending activation, Access, Session, or Network management authority.
+Network Activity has no suitable connectivity-event record in the current
+model, so V1 deliberately adds none.

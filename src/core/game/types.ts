@@ -143,6 +143,23 @@ export interface RackUpdateExploitProcess extends ProcessBase {
   readonly result?: RackUpdateExploitResult
 }
 
+export type DeauthResult =
+  | { readonly status: 'connectivity_interrupted' }
+  | { readonly status: 'attempt_failed'; readonly message: 'DEAUTH prerequisites no longer valid.' }
+
+/** Finite Flipper-hosted work whose sole successful effect is one Network connectivity interruption. */
+export interface DeauthProcess extends ProcessBase {
+  readonly kind: 'deauth'
+  /** Canonical target. The selected Device is retained only as remembered formation context. */
+  readonly targetNetworkId: string
+  readonly targetNetworkName: string
+  readonly contextDeviceId: string
+  readonly providerFileId: string
+  readonly providerReleaseId: string
+  readonly providerBuildId: string
+  readonly result?: DeauthResult
+}
+
 /**
  * Continuous Device-owned executable runtime. Unlike the finite GameProcess
  * kinds above, it never reaches `completed` from elapsed work: STOP removes
@@ -321,7 +338,7 @@ export interface RattlerPinSearchProcess extends ProcessBase {
   readonly result?: RattlerPinSearchResult
 }
 
-export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess | FlipperModuleIntegrationProcess | RattlerPinSearchProcess
+export type GameProcess = GenericProcess | ServiceAnalysisProcess | CredentialAccessProcess | RackUpdateExploitProcess | DeauthProcess | NodeMinerProcess | SoftwareInstallationProcess | SoftwareRemovalProcess | FlipperModuleIntegrationProcess | RattlerPinSearchProcess
 
 export interface ProcessState {
   readonly nextId: number
@@ -424,7 +441,22 @@ export interface SoftwareModuleFile {
   readonly sizeBytes: number
 }
 
-export type FilesystemFile = TextFile | SoftwarePackageFile | SoftwareModuleFile | ExecutableFile | RattlerPayloadFile
+/** The one concrete Flipper Extension represented in V1; not standalone software or a generic plugin category. */
+export interface DeauthExtensionFile {
+  readonly kind: 'deauth_extension'
+  readonly id: string
+  readonly path: string
+  readonly extensionId: 'deauth'
+  readonly hostProductId: 'flipper'
+  readonly compatibleHostReleaseId: string
+  readonly releaseId: string
+  readonly buildId: string
+  readonly name: 'deauth.ext'
+  readonly version: string
+  readonly sizeBytes: number
+}
+
+export type FilesystemFile = TextFile | SoftwarePackageFile | SoftwareModuleFile | DeauthExtensionFile | ExecutableFile | RattlerPayloadFile
 
 export interface FilesystemState {
   /** Next filesystem-local concrete copy identity. Cross-device references also require the Device ID. */

@@ -289,7 +289,7 @@ describe('Rollback Module acquisition path', () => {
     // Completion creates one ordinary local module artifact, and only one.
     const modules = downloaded.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_module' && file.moduleId === 'rollback')
     expect(modules).toEqual([{
-      kind: 'software_module', id: 'file-0004', path: '/home/user/downloads/flipper-rollback-module-1.0.mod',
+      kind: 'software_module', id: 'file-0005', path: '/home/user/downloads/flipper-rollback-module-1.0.mod',
       hostProductId: FLIPPER_PRODUCT_ID, moduleId: ROLLBACK_MODULE_1_0.moduleId,
       releaseId: ROLLBACK_MODULE_1_0.releaseId, buildId: ROLLBACK_MODULE_1_0.buildId,
       name: ROLLBACK_MODULE_1_0.name, version: ROLLBACK_MODULE_1_0.version, sizeBytes: ROLLBACK_MODULE_1_0.sizeBytes,

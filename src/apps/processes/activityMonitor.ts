@@ -135,6 +135,7 @@ function toOperationSubject(process: Exclude<GameProcess, NodeMinerProcess>, dis
   // product this work is snapshotted against, from the Process's own recorded identity.
   if (process.kind === 'flipper_module_integration') return { titleLabel: 'MODULE', title: `${process.moduleName} ${process.moduleVersion}`, route: process.hostProductId.toUpperCase() }
   if (process.kind === 'rattler_pin_search') return { titleLabel: 'TARGET', title: process.targetDeviceId, route: 'VEYRA WALLET PIN' }
+  if (process.kind === 'deauth') return { titleLabel: 'NETWORK', title: process.targetNetworkName, route: process.targetNetworkId }
   const remembered = discovery.devices
     .find(({ id }) => id === process.targetDeviceId)?.services
     .find(({ id }) => id === process.serviceId)?.name

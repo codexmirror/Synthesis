@@ -969,3 +969,19 @@ reuse one product command integration, but their explicit local and
 Session-authorized remote adapters keep filesystem, installation, Process, and
 resource consequences Device-owned. This adds no release dependency,
 compatibility, capability, or plugin metadata.
+
+## deauth.ext Flipper Extension
+
+`deauth.ext` 1.0 is one concrete Device-filesystem artifact with stable file,
+extension, release, and build identity, represented size, and exact Flipper 1.0
+compatibility. The V1 proof seeds the artifact at
+`/home/user/extensions/deauth.ext`; Flipper itself retains its existing Market
+acquisition and ordinary installation route. The extension is neither
+InstalledSoftware nor a Software Module and has no standalone execution path.
+DEAUTH exists only while the exact artifact and a compatible installed Flipper
+coexist on the local Device.
+
+Flipper ARSENAL derives `NETWORK → DEAUTH → deauth.ext` from those local causes.
+It stores no unlock and owns neither the Technique nor its Network effect. V1
+deliberately introduces no generic extension framework, integration catalog, or
+broader distribution system.

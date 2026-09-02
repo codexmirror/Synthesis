@@ -22,6 +22,8 @@ import { createDeviceSecurityActions } from './deviceSecurityOperations'
 import { createRattlerActions } from './rattlerOperations'
 import { createMailActions } from './mailOperations'
 import { createRecentActivityActions } from './recentActivityOperations'
+import { createDeauthActions } from './deauthOperations'
+import type { DeauthObservation, StartDeauthResult } from '../core/game/deauth'
 import type { ObservedServiceTarget } from '../core/game/serviceAnalysis'
 import type { CredentialAccessObservation, StartCredentialAccessResult } from '../core/game/credentialAccess'
 import type { RackUpdateExploitObservation, RackUpdateSubmissionObservation, StartRackUpdateExploitResult, StartRackUpdatePackageSubmissionResult, CancelRackUpdatePackageSubmissionResult } from '../core/game/rackUpdate'
@@ -51,6 +53,7 @@ export interface GameActions {
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
   startObservedServiceAnalyses(observed: readonly ObservedServiceTarget[]): ObservedServiceAnalysisBatchResult
   startCredentialAccessAttemptFromObservation(observed: CredentialAccessObservation): StartCredentialAccessResult
+  startDeauthAttempt(observed: DeauthObservation): StartDeauthResult
   startRackUpdateExploitAttemptFromObservation(observed: RackUpdateExploitObservation): StartRackUpdateExploitResult
   startRackUpdatePackageSubmission(observed: RackUpdateSubmissionObservation): StartRackUpdatePackageSubmissionResult
   cancelRackUpdatePackageSubmission(submissionId: string): CancelRackUpdatePackageSubmissionResult
@@ -121,6 +124,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     pingTarget, scanTarget, inspectTarget, findTargets,
     ...createServiceAnalysisActions(accessor),
     ...createCredentialAccessActions(accessor),
+    ...createDeauthActions(accessor),
     ...createRackUpdateActions(accessor),
     ...createRemoteSessionActions(accessor),
     ...createFileTransferActions(accessor),

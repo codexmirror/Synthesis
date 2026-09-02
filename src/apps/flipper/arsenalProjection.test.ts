@@ -17,14 +17,14 @@ describe('Flipper arsenal projection', () => {
         { id: 'credential-access-module', name: 'Credential Access Module', version: '1.0', form: 'SOFTWARE MODULE', integration: 'AVAILABLE TO INTEGRATE' },
         { id: 'keyprobe', name: 'KeyProbe', version: '1.0', form: 'INSTALLED SOFTWARE', integration: 'COMPATIBLE' },
       ],
-    }])
+    }, { area: 'NETWORK', family: 'DEAUTH', providers: [{ id: 'deauth-extension', name: 'deauth.ext', version: '1.0', form: 'FLIPPER EXTENSION', integration: 'AVAILABLE' }] }])
   })
 
   it('removes providers with their represented causes and fabricates no empty future branch', () => {
     const state = withFlipper()
     const device = { ...state.player.localDevice,
       installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== 'keyprobe'),
-      filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') },
+      filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module' && kind !== 'deauth_extension') },
     }
     expect(deriveFlipperArsenal(device)).toEqual([])
   })
@@ -34,5 +34,11 @@ describe('Flipper arsenal projection', () => {
     const device = { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) =>
       software.id === 'keyprobe' ? { ...software, buildId: 'unrepresented-build' } : software) }
     expect(deriveFlipperArsenal(device)[0].providers.map(({ id }) => id)).toEqual(['credential-access-module'])
+  })
+
+  it('does not derive NETWORK from a fabricated Flipper build claiming the supported release', () => {
+    const state = withFlipper()
+    const device = { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'flipper' ? { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'fabricated-flipper-1.0-build' } : software) }
+    expect(deriveFlipperArsenal(device).some(({ area }) => area === 'NETWORK')).toBe(false)
   })
 })

@@ -67,6 +67,7 @@ type CopyState = { value: string; status: 'copied' | 'failed' } | null
 const RUNNING_STAGE = {
   analyzing: { status: 'ANALYZING', progressLabel: 'Analysis progress' },
   hacking: { status: 'HACKING', progressLabel: 'Hack progress' },
+  disrupting: { status: 'DEAUTH NETWORK', progressLabel: 'DEAUTH progress' },
   attacking: { status: 'ATTACKING RACKUPDATE', progressLabel: 'Attack progress' },
   submitting: { status: 'SUBMITTING PACKAGE', progressLabel: 'Submission progress' },
 } as const satisfies Partial<Record<TargetStage, { status: string; progressLabel: string }>>
@@ -83,6 +84,7 @@ const STAGE_MARK: Record<TargetStage, string> = {
   no_route: 'OBSERVED',
   route: 'ACTIONS AVAILABLE',
   hacking: 'HACKING',
+  disrupting: 'DEAUTH',
   attack: 'ACTIONS AVAILABLE',
   attacking: 'ATTACKING',
   submission_ready: 'SUBMISSION READY',
@@ -335,7 +337,8 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
         onInspect={() => inspect(target)}
         onExecuteAction={(action) => action.technique === 'Credential Access'
           ? action.route && action.providerId && hack(action.route as TargetRoute, target.id, action.providerId)
-          : action.route && attackPackageSubmission(target)}
+          : action.technique === 'Rollback' ? action.route && attackPackageSubmission(target)
+            : action.route && actions.startDeauthAttempt(action.route as { networkId: string; networkName: string; contextDeviceId: string })}
         onConnect={() => connect(target)}
         onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
         onAnalyze={(service) => analyze(target, service)}
@@ -705,6 +708,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       </>}
 
       {target.stage === 'hacking' && <Operation target={target} {...RUNNING_STAGE.hacking} />}
+      {target.stage === 'disrupting' && <Operation target={target} {...RUNNING_STAGE.disrupting} />}
 
       {target.stage === 'attack' && <>
         <strong className="ns-stage-headline">TARGET OBSERVED</strong>
@@ -739,7 +743,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       {target.offensiveActions.length === 0
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
         : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={`${action.technique}:${action.provider}`}>
-          <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
+          <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}{action.provider}</span></div>
           {/*
             * A Technique whose own attempt is already running says so where
             * EXECUTE was, rather than offering a control that can only answer

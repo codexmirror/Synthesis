@@ -255,9 +255,8 @@ runtime, network transfer capacity, System application.
 - DESIGN → [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
   (target Device ownership and boot activation of pending GateSSH only),
   [`design/DEAUTH_NETWORK_DISRUPTION_V1.md`](design/DEAUTH_NETWORK_DISRUPTION_V1.md)
-  (DEAUTH's own connectivity-disruption effect only; DEAUTH itself remains
-  unimplemented — the Device lifecycle/connectivity model and the Petra's
-  Phone / srv-02 recovery precedent it named are now Current Truth here)
+  (DEAUTH's Network-only connectivity-disruption effect and its composition
+  with the Device-owned Petra's Phone / srv-02 recovery precedent)
 - CODE → `src/core/game/types.ts`, `src/core/game/initialState.ts`,
   `src/core/game/deviceOperationalState.ts`, `src/core/game/networkConnectivity.ts`,
   `src/core/game/deviceConnectivityRecovery.ts`, `src/core/game/deviceBootBoundary.ts`,

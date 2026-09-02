@@ -279,8 +279,7 @@ outage state, and a Device already `DISCONNECTED` or `RECONNECTING` is left
 untouched, so calling it again mid-recovery is a no-op rather than a
 restart. It knows nothing about which Devices those are or why the Network
 lost connectivity — no offensive technique, Device, or Firmware identity
-appears anywhere in it. No current mechanic calls it yet; it exists as the
-seam a future connectivity-loss cause (DEAUTH among them, `docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`) composes with.
+appears anywhere in it. DEAUTH now calls it on successful completion; the neutral operation remains the seam that keeps the Technique independent from every Device reaction (`docs/design/DEAUTH_NETWORK_DISRUPTION_V1.md`).
 
 ### Device-owned connectivity recovery
 

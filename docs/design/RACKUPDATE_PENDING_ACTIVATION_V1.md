@@ -190,5 +190,4 @@ now implemented too (`docs/current/DEVICE_SYSTEM.md`), through the narrow
 `runRealDeviceBootConsequences` composition boundary that calls this
 activation operation without telling it why the Device booted. The
 activation operation itself still does not know, and must not come to know,
-why the Device booted. DEAUTH itself remains the one deferred cause of that
-chain.
+why the Device booted. DEAUTH is now the first implemented offensive cause of that independently owned chain.
