@@ -634,6 +634,111 @@ describe('NodeScan technical details', () => {
   })
 })
 
+/* ------------------------------------------------------- target topology */
+
+describe('NodeScan target topology', () => {
+  const SRV_02_ADDRESS = '203.0.113.42'
+
+  function knownRemote(state: GameState = createInitialGameState()): GameState {
+    const withFlipper = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION] } } }
+    const discovery = rememberScan(withFlipper.discovery, scanNetworkTarget({ localDevice: withFlipper.player.localDevice, network: withFlipper.world.network }, 'remote-segment-01'), withFlipper.player.localDevice.id)
+    return { ...withFlipper, discovery }
+  }
+
+  it('presents a compact Network -> Device -> Service hierarchy above ACTIONS, from observed identity alone', async () => {
+    await openTarget(scannedTarget(withNodeScan11(createInitialGameState())))
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    const actions = screen.getByRole('region', { name: 'ACTIONS' })
+
+    // The topology sits above ACTIONS in document order.
+    expect(topology.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    expect(topology).toHaveTextContent('home-net')
+    // Enhanced Inspect legitimately observed the display name, so it leads over the bare address.
+    expect(topology).toHaveTextContent('srv-01')
+    expect(topology).toHaveTextContent('SSH')
+    expect(topology).toHaveTextContent('22/TCP')
+    expect(topology).toHaveTextContent('GateSSH 1.3.2')
+    expect(topology).toHaveTextContent('HTTP')
+    expect(topology).toHaveTextContent('80/TCP')
+    expect(topology).toHaveTextContent('Basic HTTP 1.0')
+  })
+
+  it('never claims a live ONLINE state from historical observation alone, on the Device or on a Service', async () => {
+    // servicesObserved only proves a past Scan succeeded, not that the Device
+    // is online now: the Device line states the weaker OBSERVED fact, and
+    // every remembered Service carries the same neutral mark in its own slot.
+    await openTarget(scannedTarget(withNodeScan11(createInitialGameState())))
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    expect(topology).not.toHaveTextContent('ONLINE')
+
+    // Enhanced Inspect legitimately observed the display name here, so the Device row states it, not the bare address.
+    const deviceRow = within(topology).getByText('srv-01').closest('.ns-topo-row')!
+    expect(within(deviceRow as HTMLElement).getByText('OBSERVED')).toBeInTheDocument()
+
+    const sshRow = within(topology).getByText('SSH · 22/TCP').closest('.ns-topo-row') as HTMLElement
+    expect(within(sshRow).getByText('OBSERVED')).toBeInTheDocument()
+    const httpRow = within(topology).getByText('HTTP · 80/TCP').closest('.ns-topo-row') as HTMLElement
+    expect(within(httpRow).getByText('OBSERVED')).toBeInTheDocument()
+  })
+
+  it('never states Service software identity beyond what was legitimately observed', async () => {
+    // No NodeScan 1.1 Experimental installed: Scan alone remembers open Services, never their software.
+    await openTarget(scannedTarget())
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    expect(topology).toHaveTextContent('SSH')
+    expect(topology).not.toHaveTextContent('GateSSH')
+  })
+
+  it('states unobserved topology explicitly rather than fabricating Services', async () => {
+    await openTarget(foundTargets())
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    expect(topology).toHaveTextContent('Services not observed')
+    expect(topology).not.toHaveTextContent('OBSERVED')
+    expect(topology).not.toHaveTextContent('NO RESPONSE')
+  })
+
+  it('reflects a real unreachable Scan result truthfully, without inventing a stronger runtime claim', async () => {
+    const known = foundTargets()
+    const offline: GameState = { ...known, world: { ...known.world, network: { ...known.world.network, hosts: known.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, operational: { ...host.operational, connectivity: 'DISCONNECTED' } } : host) } } }
+    const user = await openTarget(offline)
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('NOT SCANNED')
+
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
+    expect(screen.getByRole('status')).toHaveTextContent('NO RESPONSE')
+
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    expect(topology).toHaveTextContent('NO RESPONSE')
+    // Never REBOOTING or RECONNECTING: NodeScan has no legitimate route to that fact.
+    expect(topology).not.toHaveTextContent('REBOOTING')
+    expect(topology).not.toHaveTextContent('RECONNECTING')
+
+    // Transient: leaving and reopening the target starts a fresh read, not a remembered outage.
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
+    expect(screen.getByRole('region', { name: 'Target topology' })).not.toHaveTextContent('NO RESPONSE')
+  })
+
+  it('marks a running DEAUTH as Network-scoped on the topology, never Device- or Service-scoped', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={knownRemote()}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: `Open target ${SRV_02_ADDRESS}` }))
+    await user.click(screen.getByRole('button', { name: 'Execute DEAUTH' }))
+
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('DEAUTH NETWORK')
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    expect(topology).toHaveTextContent('DISRUPTING')
+    // Exactly one mark, scoped to the Network row - never repeated per Device or Service.
+    expect(screen.getAllByText('DISRUPTING')).toHaveLength(1)
+    expect(within(topology).getByText('DISRUPTING').closest('.ns-topo-row--network')).toBeTruthy()
+
+    // Device and Service rows carry no DEAUTH-scoped mark of their own.
+    // Only Scan was remembered here, no Inspect, so the Device row states the bare address.
+    const deviceRow = within(topology).getByText(SRV_02_ADDRESS).closest('.ns-topo-row') as HTMLElement
+    expect(within(deviceRow).queryByText('DISRUPTING')).not.toBeInTheDocument()
+  })
+})
+
 /* ------------------------------------------------ RackUpdate as depth only */
 
 describe('RackUpdate exploit and package submission', () => {

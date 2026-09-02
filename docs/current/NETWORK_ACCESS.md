@@ -191,6 +191,48 @@ and module without moving capability selection into presentation. Availability n
 still produce a legitimately failed attempt, which is reported coarsely while
 the same route stays available.
 
+Above ACTIONS, the target card also draws a compact Network → Device →
+Service topology: a restrained connector tree carried by CSS rail-and-elbow
+lines rather than literal glyph characters, read as a deeper continuation of
+Known Space's own tree (the same technique that tree already uses for
+Network → Device, generalized one level deeper) rather than another stack of
+cards. The Network row states the remembered Network name (or that
+membership was not observed, exactly as Known Space's own `ELSEWHERE`
+grouping states it); the Device row states the target's identity exactly as
+the rest of the card does — its observed display name where Inspect
+legitimately remembered one, its address otherwise; each remembered Service
+row states its name, port and protocol, with a further row for its
+remembered software identity only where Scan or Inspect actually observed
+one. An unscanned target states that Services were not observed rather than
+presenting an empty result, and this view fabricates no Service or software
+identity beyond what TECHNICAL INTELLIGENCE already carries: every fact it
+draws is the same `Target` projection, read a second time for compact
+legibility.
+
+Every status mark this view draws is deliberately weak, because
+`servicesObserved` proves only that a past Scan or Inspect found the Device
+and its Services — a historical fact, never a live guarantee. The Device row
+therefore states `OBSERVED` in a neutral tone once Services have ever been
+legitimately observed, `NO RESPONSE` where the current visit's own most
+recent Scan or Inspect against this exact target failed to reach it, and no
+mark at all where neither applies; that mark is derived from the concrete
+request's own outcome, never from hidden current connectivity truth, and it
+is not remembered — leaving and reopening the target starts the read over.
+NodeScan has no legitimate route to a narrower runtime state such as
+RECONNECTING or REBOOTING, or to live per-Service availability, so this view
+never claims either: every remembered Service row carries the same neutral
+`OBSERVED` mark in the same compact status slot, established now so a later
+mechanic that legitimately knows a Service's own ONLINE / OFFLINE / STARTING
+/ DISABLED / NO RESPONSE state can occupy that slot without reshaping the
+hierarchy around it. A DEAUTH attempt currently running against this
+Device's Network marks the Network row itself, never the Device or a Service
+row, keeping DEAUTH visibly Network-scoped. Only that Network-row mark uses
+the shared animated live indicator, because it is the one mark here that
+describes a genuinely running canonical Process; every other mark is a
+static fact. The former separate STATUS field under TECHNICAL
+INTELLIGENCE's OBSERVED facts is retired as redundant with the Device row's
+own mark; NAME, TYPE, FIRMWARE and COMPUTE remain there unchanged.
+
 TECHNICAL INTELLIGENCE is one disclosure on the target card carrying the
 copyable address, remembered Inspect evidence (including the observed display
 NAME where one was observed) and its capability note, the manual INSPECT
