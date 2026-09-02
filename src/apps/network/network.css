@@ -529,32 +529,74 @@
 
 /*
  * Target topology: a compact Network → Device → Service technical hierarchy,
- * read as a deeper continuation of Known Space's own restrained tree rather
- * than another stack of cards. Connectors are literal monospace glyphs, not
- * measured geometry, because this view never expands or reorders — it is a
- * fixed depth read top to bottom.
+ * read as a deeper continuation of Known Space's own restrained tree — the
+ * same rail-and-elbow technique Known Space uses for Network → Device
+ * (`.ns-branch` / `.ns-limbs` / `.ns-limb` below), generalized one level
+ * deeper via plain recursive nesting rather than literal glyph characters.
+ *
+ * Each `.ns-topo-limb` draws its own vertical rail and elbow relative to
+ * itself, so nesting a branch inside a limb inside a branch just works: no
+ * coordinates are measured, and the visual line is the union of consecutive
+ * siblings' own rails meeting with no gap between them. A row that genuinely
+ * owns a branch below it (Network → Device always; a Service only where it
+ * has a remembered software line) continues that same rail down into its own
+ * children via `.ns-topo-row--branched`; a leaf row draws none of its own.
  */
-.ns-topo { margin: 18px 0 4px; display: grid; gap: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ns-topo {
+  margin: 18px 0 4px;
+  --topo-indent: 18px;
+  --topo-elbow: 16px;
+  --topo-rail: 1px solid var(--line-strong);
+}
 
-.ns-topo-line { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; }
-.ns-topo-glyph { flex: none; color: var(--text-faint); font-size: .72rem; white-space: pre; }
+.ns-topo-row { position: relative; min-width: 0; min-height: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; padding: 3px 0; }
 .ns-topo-eyebrow { flex: none; color: var(--accent-mark); font-size: var(--label-size); letter-spacing: var(--label-tracking); }
-.ns-topo-text { min-width: 0; color: var(--text-secondary); font-size: .68rem; overflow-wrap: anywhere; }
+.ns-topo-text { min-width: 0; color: var(--text-secondary); font-size: .68rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 .ns-topo-text--strong { color: var(--text-strong); font-weight: 600; }
 .ns-topo-text--muted { color: var(--text-quiet); }
 
-.ns-topo-line--network { padding-top: 0; }
-.ns-topo-line--device { padding-left: 2px; }
-.ns-topo-line--note { padding-left: 2px; }
-.ns-topo-group { display: grid; }
+/* The trunk: a row that owns a branch below it continues its own rail down
+ * into that branch's first limb, so the line reads unbroken from the row to
+ * its last child. A leaf row (a Service with no remembered software, the
+ * unobserved-services note) carries no trunk of its own. */
+.ns-topo-row--network,
+.ns-topo-row--branched { position: relative; }
 
+.ns-topo-row--network::after,
+.ns-topo-row--branched::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  bottom: 0;
+  left: 0;
+  border-left: var(--topo-rail);
+}
+
+.ns-topo-branch { margin: 0; }
+.ns-topo-limbs { display: block; }
+
+.ns-topo-limb { position: relative; padding-left: var(--topo-indent); }
+
+/* Rail: full height of the limb, so it passes an expanded child cleanly. */
+.ns-topo-limb::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; border-left: var(--topo-rail); }
+
+/* Elbow: runs up to this limb's own row and stops there. */
+.ns-topo-limb::after { content: ""; position: absolute; top: var(--topo-elbow); left: 0; width: calc(var(--topo-indent) - 4px); border-top: var(--topo-rail); }
+
+/* The rail terminates at the final child; nothing continues below it. */
+.ns-topo-limb:last-child::before { bottom: auto; height: var(--topo-elbow); }
+
+/* A neutral static dot on every status mark except a genuinely running one,
+ * which uses the shared animated `.ns-live-dot` instead — so a historical
+ * OBSERVED or a concrete NO RESPONSE never reads as an ongoing process. */
 .ns-topo-status { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: .52rem; letter-spacing: .12em; }
-.ns-topo-status--up { color: var(--green); }
+.ns-topo-status::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.ns-topo-status--live::before { display: none; }
+.ns-topo-status--neutral { color: var(--text-muted); }
 .ns-topo-status--down,
 .ns-topo-status--live { color: var(--caution); }
 
 @media (max-width: 420px) {
-  .ns-topo-line { flex-wrap: wrap; }
   .ns-topo-status { margin-left: 22px; }
 }
 

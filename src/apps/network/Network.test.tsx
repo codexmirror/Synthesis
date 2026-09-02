@@ -662,7 +662,24 @@ describe('NodeScan target topology', () => {
     expect(topology).toHaveTextContent('HTTP')
     expect(topology).toHaveTextContent('80/TCP')
     expect(topology).toHaveTextContent('Basic HTTP 1.0')
-    expect(topology).toHaveTextContent('ONLINE')
+  })
+
+  it('never claims a live ONLINE state from historical observation alone, on the Device or on a Service', async () => {
+    // servicesObserved only proves a past Scan succeeded, not that the Device
+    // is online now: the Device line states the weaker OBSERVED fact, and
+    // every remembered Service carries the same neutral mark in its own slot.
+    await openTarget(scannedTarget(withNodeScan11(createInitialGameState())))
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    expect(topology).not.toHaveTextContent('ONLINE')
+
+    // Enhanced Inspect legitimately observed the display name here, so the Device row states it, not the bare address.
+    const deviceRow = within(topology).getByText('srv-01').closest('.ns-topo-row')!
+    expect(within(deviceRow as HTMLElement).getByText('OBSERVED')).toBeInTheDocument()
+
+    const sshRow = within(topology).getByText('SSH · 22/TCP').closest('.ns-topo-row') as HTMLElement
+    expect(within(sshRow).getByText('OBSERVED')).toBeInTheDocument()
+    const httpRow = within(topology).getByText('HTTP · 80/TCP').closest('.ns-topo-row') as HTMLElement
+    expect(within(httpRow).getByText('OBSERVED')).toBeInTheDocument()
   })
 
   it('never states Service software identity beyond what was legitimately observed', async () => {
@@ -677,7 +694,7 @@ describe('NodeScan target topology', () => {
     await openTarget(foundTargets())
     const topology = screen.getByRole('region', { name: 'Target topology' })
     expect(topology).toHaveTextContent('Services not observed')
-    expect(topology).not.toHaveTextContent('ONLINE')
+    expect(topology).not.toHaveTextContent('OBSERVED')
     expect(topology).not.toHaveTextContent('NO RESPONSE')
   })
 
@@ -711,9 +728,14 @@ describe('NodeScan target topology', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('DEAUTH NETWORK')
     const topology = screen.getByRole('region', { name: 'Target topology' })
     expect(topology).toHaveTextContent('DISRUPTING')
-    // Exactly one mark, scoped to the Network line - never repeated per Device or Service.
+    // Exactly one mark, scoped to the Network row - never repeated per Device or Service.
     expect(screen.getAllByText('DISRUPTING')).toHaveLength(1)
-    expect(within(topology).getByText('DISRUPTING').closest('.ns-topo-line--network')).toBeTruthy()
+    expect(within(topology).getByText('DISRUPTING').closest('.ns-topo-row--network')).toBeTruthy()
+
+    // Device and Service rows carry no DEAUTH-scoped mark of their own.
+    // Only Scan was remembered here, no Inspect, so the Device row states the bare address.
+    const deviceRow = within(topology).getByText(SRV_02_ADDRESS).closest('.ns-topo-row') as HTMLElement
+    expect(within(deviceRow).queryByText('DISRUPTING')).not.toBeInTheDocument()
   })
 })
 

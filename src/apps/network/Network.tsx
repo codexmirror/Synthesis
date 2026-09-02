@@ -854,73 +854,90 @@ function Operation({ target, status, progressLabel }: { target: Target; status: 
 
 /**
  * The compact Network → Device → Service technical hierarchy, drawn as a
- * deeper continuation of Known Space's own restrained tree rather than
- * another stack of cards. It carries no interaction and performs no
- * observation of its own: every fact is read straight from the same `Target`
- * TECHNICAL INTELLIGENCE already derives, so opening or reading it can never
- * diverge from what that disclosure states.
+ * deeper continuation of Known Space's own restrained tree — the same rail
+ * and elbow CSS treatment, generalized one level deeper — rather than
+ * another stack of cards or literal box-drawing glyph text. It carries no
+ * interaction and performs no observation of its own: every fact is read
+ * straight from the same `Target` TECHNICAL INTELLIGENCE already derives, so
+ * opening or reading it can never diverge from what that disclosure states.
  *
  * Network, Device and Service stay visually distinct scopes on purpose —
  * DEAUTH's own Network-scoped effect is legible here as a mark on the
- * Network line, never on a Service, because that is the scope it actually
- * changes.
+ * Network line only, never on a Device or a Service, because that is the
+ * scope it actually changes.
  *
- * `unreachable` is the one piece of state this view adds on top of `Target`:
- * whether the most recent concrete Scan or Inspect issued against this exact
- * target, this visit, came back with no response. It is derived from the
- * same real request outcome the page's own notice line already states, never
- * from a timer or from hidden current connectivity truth, and it resets the
- * moment the player leaves or re-scans. Where it does not apply, the
- * strongest truthful signal NodeScan retains is the historical fact that a
- * Scan or Inspect once found this Device responsive — not a live guarantee
- * that it still is.
+ * Every status mark this view draws is deliberately weak. `servicesObserved`
+ * proves only that Scan or Inspect once found this Device and its Services —
+ * a historical fact, not a live guarantee — so it produces `OBSERVED` in a
+ * neutral tone, never a green `ONLINE` claim. `unreachable` is the one piece
+ * of state this view adds on top of `Target`: whether the most recent
+ * concrete Scan or Inspect issued against this exact target, this visit,
+ * came back with no response. It is derived from the same real request
+ * outcome the page's own notice line already states, never from a timer or
+ * from hidden current connectivity truth, and it resets the moment the
+ * player leaves or re-scans. Every remembered Service carries the same
+ * neutral `OBSERVED` mark in the same slot for the same reason — this slice
+ * has no route to live per-Service availability — so a later mechanic that
+ * legitimately knows ONLINE / OFFLINE / STARTING / DISABLED / NO RESPONSE for
+ * a Service can occupy this exact slot without reshaping the hierarchy
+ * around it. Only DISRUPTING, a genuinely running canonical Process, uses the
+ * animated live dot; every other mark is a static fact, not an ongoing one.
  */
 function TargetTopology({ target, unreachable }: { target: Target; unreachable: boolean }) {
   const networkLabel = locationOf(target)
   const deviceLabel = target.displayName ?? target.address
   const deviceStatus = unreachable ? { mark: 'NO RESPONSE', tone: 'down' as const }
-    : target.servicesObserved ? { mark: 'ONLINE', tone: 'up' as const }
+    : target.servicesObserved ? { mark: 'OBSERVED', tone: 'neutral' as const }
       : null
   const disrupting = target.stage === 'disrupting'
+  const hasServiceRows = target.servicesObserved && target.services.length > 0
 
   return <section className="ns-topo" aria-label="Target topology">
-    <div className="ns-topo-line ns-topo-line--network">
-      <span className="ns-topo-glyph" aria-hidden="true" />
+    <div className="ns-topo-row ns-topo-row--network">
       <span className="ns-topo-eyebrow">NETWORK</span>
       <span className="ns-topo-text">{networkLabel}</span>
       {disrupting && <span className="ns-topo-status ns-topo-status--live"><i className="ns-live-dot" aria-hidden="true" />DISRUPTING</span>}
     </div>
 
-    <div className="ns-topo-line ns-topo-line--device">
-      <span className="ns-topo-glyph" aria-hidden="true">└──</span>
-      <span className="ns-topo-text ns-topo-text--strong">{deviceLabel}</span>
-      {deviceStatus && <span className={`ns-topo-status ns-topo-status--${deviceStatus.tone}`}>
-        <i className="ns-live-dot" aria-hidden="true" />{deviceStatus.mark}
-      </span>}
-    </div>
+    <div className="ns-topo-branch">
+      <div className="ns-topo-limbs">
+        <div className="ns-topo-limb">
+          <div className="ns-topo-row ns-topo-row--device ns-topo-row--branched">
+            <span className="ns-topo-text ns-topo-text--strong">{deviceLabel}</span>
+            {deviceStatus && <span className={`ns-topo-status ns-topo-status--${deviceStatus.tone}`}>{deviceStatus.mark}</span>}
+          </div>
 
-    {!target.servicesObserved && <div className="ns-topo-line ns-topo-line--note">
-      <span className="ns-topo-glyph" aria-hidden="true">    └──</span>
-      <span className="ns-topo-text ns-topo-text--muted">Services not observed</span>
-    </div>}
-    {target.servicesObserved && target.services.length === 0 && <div className="ns-topo-line ns-topo-line--note">
-      <span className="ns-topo-glyph" aria-hidden="true">    └──</span>
-      <span className="ns-topo-text ns-topo-text--muted">No open services observed</span>
-    </div>}
+          <div className="ns-topo-branch">
+            <div className="ns-topo-limbs">
+              {!hasServiceRows && <div className="ns-topo-limb">
+                <div className="ns-topo-row ns-topo-row--note">
+                  <span className="ns-topo-text ns-topo-text--muted">{target.servicesObserved ? 'No open services observed' : 'Services not observed'}</span>
+                </div>
+              </div>}
 
-    {target.services.map((service, index) => {
-      const last = index === target.services.length - 1
-      return <div className="ns-topo-group" key={service.id}>
-        <div className="ns-topo-line ns-topo-line--service">
-          <span className="ns-topo-glyph" aria-hidden="true">{`    ${last ? '└──' : '├──'}`}</span>
-          <span className="ns-topo-text">{service.name} · {service.port}/{service.protocol}</span>
+              {hasServiceRows && target.services.map((service) => {
+                const hasSoftware = service.software.length > 0
+                return <div className="ns-topo-limb" key={service.id}>
+                  <div className={`ns-topo-row ns-topo-row--service${hasSoftware ? ' ns-topo-row--branched' : ''}`}>
+                    <span className="ns-topo-text">{service.name} · {service.port}/{service.protocol}</span>
+                    <span className="ns-topo-status ns-topo-status--neutral">OBSERVED</span>
+                  </div>
+                  {hasSoftware && <div className="ns-topo-branch">
+                    <div className="ns-topo-limbs">
+                      <div className="ns-topo-limb">
+                        <div className="ns-topo-row ns-topo-row--software">
+                          <span className="ns-topo-text ns-topo-text--muted">{service.software.join(' · ')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>}
+                </div>
+              })}
+            </div>
+          </div>
         </div>
-        {service.software.length > 0 && <div className="ns-topo-line ns-topo-line--software">
-          <span className="ns-topo-glyph" aria-hidden="true">{`    ${last ? ' ' : '│'}   └──`}</span>
-          <span className="ns-topo-text ns-topo-text--muted">{service.software.join(' · ')}</span>
-        </div>}
       </div>
-    })}
+    </div>
   </section>
 }
 
