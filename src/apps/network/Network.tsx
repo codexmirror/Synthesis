@@ -899,6 +899,15 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
         {target.observed.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
+    {target.observed?.authGuard && <>
+      <div className="node-section"><span>SECURITY SOFTWARE</span></div>
+      <dl className="node-facts">
+        <div><dt>SOFTWARE</dt><dd>{target.observed.authGuard.name}</dd></div>
+        <div><dt>STATUS</dt><dd>INSTALLED</dd></div>
+        <div><dt>PROTECTION</dt><dd>{target.observed.authGuard.protectedImplementation} authentication</dd></div>
+        <div><dt>COMPATIBILITY</dt><dd>{target.observed.authGuard.compatibility}</dd></div>
+      </dl>
+    </>}
     {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
     {/*
       * Inspect explains itself where it is offered: Scan found the attack

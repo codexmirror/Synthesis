@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 59', () => {
+  it('separates identities and seeds canonical local-device state in schema version 60', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(59)
+    expect(GAME_STATE_VERSION).toBe(60)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(59)
+    expect(state.version).toBe(60)
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
@@ -149,14 +149,18 @@ describe('createInitialGameState', () => {
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')
 
     expect(server).toMatchObject({ id: 'host-lan-002', ip: '203.0.113.42', role: 'server', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' }, connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT' })
-    expect(server).toMatchObject({ displayName: 'srv-02', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 2, files: [{ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' }] } })
+    expect(server).toMatchObject({ displayName: 'srv-02', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 3 } })
+    expect(server?.filesystem?.files).toContainEqual({ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' })
+    expect(server?.filesystem?.files).toContainEqual({ kind: 'software_package', id: 'file-0002', path: '/opt/packages/authguard-1.0.pkg', releaseId: 'auth-guard-1.0', buildId: 'build-auth-guard-1.0-v0', productId: 'auth-guard', name: 'AuthGuard', version: '1.0', publisher: 'rack-systems', sizeBytes: 4_800_000 })
     expect(state.world.network.localNetworks[0].memberDeviceIds).not.toContain(server?.id)
     expect(server?.services).toEqual([
       { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' }, credentialAccess: { privilege: 'USER' } },
       { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', buildId: 'build-rack-update-1.0-v0', name: 'RackUpdate', version: '1.0' } },
     ])
     expect(server?.id).not.toBe('host-lan-001')
-    expect(server?.installedSoftware).toEqual([{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' }])
+    expect(server?.installedSoftware).toContainEqual({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' })
+    expect(server?.installedSoftware).toContainEqual({ id: 'auth-guard', releaseId: 'auth-guard-1.0', buildId: 'build-auth-guard-1.0-v0', name: 'AuthGuard', version: '1.0', publisher: 'rack-systems' })
+    expect(server?.installedSoftware).toHaveLength(2)
     expect(server?.installedSoftware).not.toBe(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.installedSoftware)
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })

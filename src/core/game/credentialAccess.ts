@@ -6,6 +6,7 @@ import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
+import { authGuard10SupportsGateSshAuthentication } from './authGuard'
 
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
 const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
@@ -27,10 +28,10 @@ function ownsStandardProvider(state: Pick<GameState, 'player'>): boolean {
 }
 
 export function ownedCredentialAccessProviders(state: Pick<GameState, 'player'>, vulnerabilityId: string): readonly { readonly id: CredentialAccessProviderId; readonly name: string }[] {
-  if (vulnerabilityId !== 'AUTH-017') return []
+  if (vulnerabilityId !== 'AUTH-017' && vulnerabilityId !== 'AUTH-031') return []
   const providers: { id: CredentialAccessProviderId; name: string }[] = []
   if (ownsStandardProvider(state)) providers.push({ id: STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, name: 'KeyProbe' })
-  const tool = findLocalTechniqueTool(state.player.localDevice, vulnerabilityId)
+  const tool = vulnerabilityId === 'AUTH-017' ? findLocalTechniqueTool(state.player.localDevice, vulnerabilityId) : undefined
   const flipper = findInstalledFlipper(state.player.localDevice)
   if (tool) {
     const integrated = Boolean(flipper && flipperSupportsTechnique(flipper, vulnerabilityId))
@@ -128,7 +129,13 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
   // KeyProbe makes this one decision only after the current represented surface
   // is valid. The specialized module remains deterministic for AUTH-017.
-  const succeeds = validSurface && (process.toolId !== STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID || random() < 0.75)
+  let succeeds = validSurface
+  if (validSurface && process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
+    const chance = process.vulnerabilityId === 'AUTH-017' ? 0.75
+      : process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host?.installedSoftware, service) ? 0.05
+        : process.vulnerabilityId === 'AUTH-031' ? 0.5 : 0
+    succeeds = random() < chance
+  }
   const result = succeeds ? 'SUCCESS' as const : 'FAILURE' as const
   const world = sourceAddress
     ? appendNetworkConnectionAttemptEvidence(

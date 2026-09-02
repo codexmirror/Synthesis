@@ -238,6 +238,7 @@ export interface Target extends TargetSummary {
     readonly networkStatus: 'ONLINE'
     readonly firmware?: string
     readonly computeClass?: string
+    readonly authGuard?: { readonly name: string; readonly protectedImplementation: string; readonly compatibility: 'SUPPORTED' | 'UNSUPPORTED' }
   }
   readonly services: readonly TargetService[]
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
@@ -567,7 +568,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
         observed: {
           deviceKind: device.inspect.deviceKind,
           networkStatus: device.inspect.networkStatus,
-          ...(device.inspect.enhanced ? { firmware: `${device.inspect.enhanced.firmware.name} ${device.inspect.enhanced.firmware.version}`, computeClass: device.inspect.enhanced.computeClass } : {}),
+          ...(device.inspect.enhanced ? { firmware: `${device.inspect.enhanced.firmware.name} ${device.inspect.enhanced.firmware.version}`, computeClass: device.inspect.enhanced.computeClass, ...(device.inspect.enhanced.authGuard ? { authGuard: { name: device.inspect.enhanced.authGuard.name, protectedImplementation: device.inspect.enhanced.authGuard.protectedImplementation, compatibility: device.inspect.enhanced.authGuard.compatibility } } : {}) } : {}),
         },
       }
       : {}),

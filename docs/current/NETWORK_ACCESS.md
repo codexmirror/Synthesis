@@ -159,7 +159,25 @@ Credential Access Module supports `AUTH-017` directly; a later installed
 Flipper build supports it after integrating that same module. Without either
 concrete source no action is formed, the Knowledge that produced it is
 untouched, and the started attempt still carries its `toolId`, `moduleId` and
-`vulnerabilityId`. The canonical resolver selects the actual local source —
+`vulnerabilityId`. GateSSH 1.3.2 derives `AUTH-017`; GateSSH 1.3.3 instead derives `AUTH-031`
+(pre-authentication challenge state reuse). KeyProbe 1.0 supports both exact
+surfaces: its canonical success profiles are 75% for 1.3.2/`AUTH-017`, 50% for
+1.3.3/`AUTH-031`, and 5% for that same 1.3.3 composition when the target has
+the exact compatible AuthGuard 1.0 installation. AuthGuard is the product;
+its represented 1.0 release explicitly supports the GateSSH 1.3.3 and 1.4.0
+authentication pipelines, while 1.3.2 is unsupported. Compatibility alone
+does not create a weakness or attack route: GateSSH 1.4.0 currently derives
+neither `AUTH-017` nor `AUTH-031`. These are authored
+combinations, not additive difficulty modifiers. The specialized Credential
+Access Module remains deterministic for `AUTH-017` and does not support
+`AUTH-031`. Resolution validates the current causal surface before KeyProbe
+consumes exactly one random decision. AuthGuard does not remove `AUTH-031`;
+Service Analysis still discovers it. Enhanced Inspect may remember AuthGuard,
+the protected GateSSH release, and supported or unsupported compatibility.
+NodeScan presents the product as AuthGuard from only that historical Discovery,
+which a later release change does not silently refresh.
+
+The canonical resolver selects the actual local source —
 preferring an integrated Flipper build when it supports the technique and
 otherwise using the exact standalone module — and NodeScan names that source
 and module without moving capability selection into presentation. Availability never predicts success; stale Player Information can

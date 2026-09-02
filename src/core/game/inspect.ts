@@ -1,6 +1,7 @@
 import { isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DiscoveryState, EnhancedInspectEvidence, InspectedNetworkRelationship, NetworkHost, ServiceInspectSnapshot } from './types'
+import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID, authGuard10SupportsGateSshAuthentication } from './authGuard'
 
 export type InspectTargets = NetworkTargets
 
@@ -55,9 +56,12 @@ function classifyComputeCapacity(computeCapacity: number): 'LOW' | 'STANDARD' | 
 /** Enhanced evidence exists only when the target's own Firmware and hardware are concretely represented. */
 function enhancedEvidenceFor(host: Readonly<NetworkHost>): EnhancedInspectEvidence | undefined {
   if (!host.firmware || !host.hardware) return undefined
+  const authGuard = host.installedSoftware?.some(({ id, releaseId, buildId }) => id === AUTH_GUARD_PRODUCT_ID && releaseId === AUTH_GUARD_1_0_RELEASE_ID && buildId === AUTH_GUARD_1_0_BUILD_ID)
+  const gateSsh = host.services?.find(({ implementation }) => implementation.productId === 'gate-ssh')
   return {
     firmware: { name: host.firmware.name, version: host.firmware.version },
     computeClass: classifyComputeCapacity(host.hardware.cpu.computeCapacity),
+    ...(authGuard && gateSsh ? { authGuard: { name: 'AuthGuard' as const, version: '1.0' as const, protectedImplementation: `${gateSsh.implementation.name} ${gateSsh.implementation.version}`, compatibility: authGuard10SupportsGateSshAuthentication(host.installedSoftware, gateSsh) ? 'SUPPORTED' as const : 'UNSUPPORTED' as const } } : {}),
   }
 }
 
