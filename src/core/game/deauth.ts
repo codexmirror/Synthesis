@@ -1,4 +1,4 @@
-import { findInstalledFlipper } from './flipper'
+import { findInstalledFlipper, isSupportedFlipperBuild } from './flipper'
 import { interruptLocalNetworkConnectivity } from './networkConnectivity'
 import { startProcess } from './processes'
 import type { DeauthExtensionFile, DeauthProcess, GameState, LocalDeviceState } from './types'
@@ -13,7 +13,7 @@ export const DEAUTH_RAM_REQUIRED_MIB = 640
 
 export function findCompatibleDeauthExtension(device: Pick<LocalDeviceState, 'installedSoftware' | 'filesystem'>): DeauthExtensionFile | undefined {
   const flipper = findInstalledFlipper(device)
-  if (!flipper || flipper.releaseId !== DEAUTH_EXTENSION.compatibleHostReleaseId) return undefined
+  if (!flipper || !isSupportedFlipperBuild(flipper) || flipper.releaseId !== DEAUTH_EXTENSION.compatibleHostReleaseId) return undefined
   return device.filesystem.files.find((file): file is DeauthExtensionFile => file.kind === 'deauth_extension'
     && file.extensionId === DEAUTH_EXTENSION.extensionId && file.hostProductId === DEAUTH_EXTENSION.hostProductId
     && file.compatibleHostReleaseId === DEAUTH_EXTENSION.compatibleHostReleaseId

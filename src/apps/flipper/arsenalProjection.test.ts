@@ -35,4 +35,10 @@ describe('Flipper arsenal projection', () => {
       software.id === 'keyprobe' ? { ...software, buildId: 'unrepresented-build' } : software) }
     expect(deriveFlipperArsenal(device)[0].providers.map(({ id }) => id)).toEqual(['credential-access-module'])
   })
+
+  it('does not derive NETWORK from a fabricated Flipper build claiming the supported release', () => {
+    const state = withFlipper()
+    const device = { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'flipper' ? { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'fabricated-flipper-1.0-build' } : software) }
+    expect(deriveFlipperArsenal(device).some(({ area }) => area === 'NETWORK')).toBe(false)
+  })
 })

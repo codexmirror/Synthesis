@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { advanceGameState } from './gameAdvancement'
 import { DEAUTH_EXTENSION, findCompatibleDeauthExtension, startDeauthAttempt } from './deauth'
-import { FLIPPER_1_0_CANONICAL_INSTALLATION } from './flipper'
+import { CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES, FLIPPER_1_0_CANONICAL_INSTALLATION, ROLLBACK_MODULE_1_0 } from './flipper'
+import { FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
 import { GATE_SSH_1_3_2_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 
@@ -12,6 +13,25 @@ function host(state: GameState, id: string) { return state.world.network.hosts.f
 function run(state: GameState) { let next = state; for (let i = 0; i < 100 && (host(next, SRV).operational.connectivity !== 'CONNECTED' || next.process.processes.some((p) => p.kind === 'deauth' && p.status === 'running')); i++) next = advanceGameState(next, 1000); return next }
 
 describe('DEAUTH Flipper Extension', () => {
+  it('accepts only concretely represented canonical or integrated Flipper 1.0 builds', () => {
+    const canonical = withFlipper()
+    expect(findCompatibleDeauthExtension(canonical.player.localDevice)).toBeDefined()
+
+    const supportedIntegrated = [
+      { buildId: FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID, integratedModules: ['credential-access'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES + CREDENTIAL_ACCESS_MODULE_1_0.sizeBytes },
+      { buildId: FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID, integratedModules: ['rollback'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES + ROLLBACK_MODULE_1_0.sizeBytes },
+      { buildId: FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, integratedModules: ['credential-access', 'rollback'] as const, sizeBytes: FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES + CREDENTIAL_ACCESS_MODULE_1_0.sizeBytes + ROLLBACK_MODULE_1_0.sizeBytes },
+    ]
+    for (const build of supportedIntegrated) {
+      const integrated = { ...FLIPPER_1_0_CANONICAL_INSTALLATION, ...build }
+      const integratedState = { ...canonical, player: { ...canonical.player, localDevice: { ...canonical.player.localDevice, installedSoftware: canonical.player.localDevice.installedSoftware.map((software) => software.id === 'flipper' ? integrated : software) } } }
+      expect(findCompatibleDeauthExtension(integratedState.player.localDevice)).toBeDefined()
+    }
+
+    const fabricated = { ...canonical, player: { ...canonical.player, localDevice: { ...canonical.player.localDevice, installedSoftware: canonical.player.localDevice.installedSoftware.map((software) => software.id === 'flipper' ? { ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: 'fabricated-flipper-1.0-build' } : software) } } }
+    expect(findCompatibleDeauthExtension(fabricated.player.localDevice)).toBeUndefined()
+  })
+
   it('is a concrete artifact but supplies no capability without a compatible installed Flipper', () => {
     const state = createInitialGameState(); const file = state.player.localDevice.filesystem.files.find((f) => f.kind === 'deauth_extension')
     expect(file).toMatchObject({ ...DEAUTH_EXTENSION, kind: 'deauth_extension', path: '/home/user/extensions/deauth.ext' })
