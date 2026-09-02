@@ -403,11 +403,13 @@ explicit concrete mechanics: current NODE Miner installation additionally
 re-checks its managed destination and creates its one represented executable,
 while NodeScan uses the ordinary installed-release replacement path and keeps
 its capability and removal rules elsewhere. Installing the represented experimental package
-therefore makes the NodeScan GUI and Help derive NodeScan 1.1 Experimental
-from installed software, only once installation completes. Which player-facing
+therefore makes the NodeScan GUI and Help derive the installed NodeScan release
+from installed software, only once installation completes. The Market supplies
+ordinary packages for both the retained NodeScan 1.1 Experimental release and
+NodeScan 1.2 Standard; installing either uses the same replacement path. Which player-facing
 operations that release supplies is owned by `docs/current/NETWORK_ACCESS.md`:
 Scan and Analyze exist under every current NodeScan release, and Inspect is
-supplied by NodeScan 1.1 Experimental and absent under 1.0 Standard
+supplied by NodeScan 1.1 Experimental and NodeScan 1.2 Standard, and absent under 1.0 Standard
 (`nodeScanSupportsInspect`).
 
 

@@ -33,6 +33,10 @@ function withNodeScan11(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.1-experimental', version: '1.1', channel: 'experimental' } : software) } } }
 }
 
+function withNodeScan12(state: GameState): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId: 'nodescan-1.2-standard', buildId: 'build-nodescan-1.2-standard-v0', version: '1.2', channel: 'standard' } : software) } } }
+}
+
 function withoutSoftware(state: GameState, productId: string): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
     installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== productId && !(productId === 'flipper' && id === 'keyprobe')),
@@ -680,6 +684,56 @@ describe('NodeScan target topology', () => {
     expect(within(sshRow).getByText('OBSERVED')).toBeInTheDocument()
     const httpRow = within(topology).getByText('HTTP · 80/TCP').closest('.ns-topo-row') as HTMLElement
     expect(within(httpRow).getByText('OBSERVED')).toBeInTheDocument()
+  })
+
+  it('projects NodeScan 1.2 Device lifecycle and Service availability live, and withdraws it immediately on downgrade', () => {
+    const monitored = withNodeScan12(scannedTarget())
+    expect(selectTarget(monitored, SRV_01, monitored)).toMatchObject({
+      liveStatus: { label: 'ONLINE' },
+      services: [{ liveStatus: { label: 'ONLINE' } }, { liveStatus: { label: 'ONLINE' } }],
+    })
+    for (const [lifecycle, connectivity, label] of [
+      ['SHUTTING_DOWN', 'DISCONNECTED', 'SHUTTING DOWN'],
+      ['BOOTING', 'DISCONNECTED', 'BOOTING'],
+      ['RUNNING', 'RECONNECTING', 'RECONNECTING'],
+      ['RUNNING', 'DISCONNECTED', 'OFFLINE'],
+    ] as const) {
+      const changed = { ...monitored, world: { network: { ...monitored.world.network, hosts: monitored.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, operational: { lifecycle, connectivity } } : host) } } }
+      expect(selectTarget(changed, SRV_01, changed)?.liveStatus?.label).toBe(label)
+      expect(selectTarget(changed, SRV_01, changed)?.services.every(({ liveStatus }) => liveStatus?.label === 'OFFLINE')).toBe(true)
+    }
+    const downgraded = withNodeScan11(monitored)
+    expect(selectTarget(downgraded, SRV_01, downgraded)?.liveStatus).toBeUndefined()
+  })
+
+  it('uses currently usable access as a narrow live path and never leaks it to another Service', () => {
+    const accessed = withAccess(scannedTarget())
+    const live = selectTarget(accessed, SRV_01, accessed)!
+    expect(live.liveStatus?.label).toBe('ONLINE')
+    expect(live.services.find(({ id }) => id === 'service-ssh-001')?.liveStatus?.label).toBe('ONLINE')
+    expect(live.services.find(({ id }) => id === 'service-http-001')?.liveStatus).toBeUndefined()
+
+    const unreachable = { ...accessed, world: { network: { ...accessed.world.network, hosts: accessed.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } } : host) } } }
+    const historical = selectTarget(unreachable, SRV_01, unreachable)!
+    expect(historical.access).toBeDefined()
+    expect(historical.liveStatus).toBeUndefined()
+    expect(historical.services.every(({ liveStatus }) => liveStatus === undefined)).toBe(true)
+  })
+
+  it('opens only learned integrated intelligence without changing GameState', async () => {
+    const state = withNodeScan12(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
+    const user = await openTarget(state)
+    const before = currentState()
+    await user.click(screen.getByText('KNOWN INFO'))
+    expect(screen.getByText('KNOWN INFORMATION')).toBeInTheDocument()
+    expect(screen.getByText(/pre-authentication flaw that can permit Credential Access/)).toBeInTheDocument()
+    expect(screen.queryByText('AUTH-017')).not.toBeInTheDocument()
+    expect(currentState()).toEqual(before)
+  })
+
+  it('does not expose hidden weakness intelligence without learned Knowledge', async () => {
+    await openTarget(withNodeScan12(scannedTarget(withNodeScan11(createInitialGameState()))))
+    expect(screen.queryByText('KNOWN INFO')).not.toBeInTheDocument()
   })
 
   it('never states Service software identity beyond what was legitimately observed', async () => {

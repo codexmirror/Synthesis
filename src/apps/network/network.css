@@ -593,8 +593,21 @@
 .ns-topo-status::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .ns-topo-status--live::before { display: none; }
 .ns-topo-status--neutral { color: var(--text-muted); }
+.ns-topo-status--available { color: var(--green); }
+.ns-topo-status--transition { color: var(--accent); }
 .ns-topo-status--down,
 .ns-topo-status--live { color: var(--caution); }
+
+.ns-topo-intelligence { width: 100%; min-width: 0; }
+.ns-topo-intelligence > summary { display: flex; align-items: center; gap: 8px; min-height: 30px; cursor: pointer; list-style: none; }
+.ns-topo-intelligence > summary::-webkit-details-marker { display: none; }
+.ns-topo-intelligence > summary > :last-child { margin-left: auto; color: var(--accent); font-size: .5rem; letter-spacing: .1em; white-space: nowrap; }
+.ns-topo-intelligence > summary > :last-child::after { content: " >"; }
+.ns-topo-intelligence[open] > summary > :last-child::after { content: " −"; }
+.ns-topo-intelligence-detail { margin: 4px 0 8px; padding: 10px 12px; border-left: 1px solid var(--accent-mark); background: var(--surface-hover); display: grid; gap: 5px; }
+.ns-topo-intelligence-detail strong { color: var(--text-strong); font-size: .66rem; }
+.ns-topo-intelligence-detail span { color: var(--accent-mark); font-size: .5rem; letter-spacing: .12em; }
+.ns-topo-intelligence-detail p { margin: 0; color: var(--text-secondary); font-size: .62rem; line-height: 1.55; }
 
 @media (max-width: 420px) {
   .ns-topo-status { margin-left: 22px; }

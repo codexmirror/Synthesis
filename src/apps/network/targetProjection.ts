@@ -1,5 +1,6 @@
 import { formatByteProgress } from '../byteFormat'
-import { findInstalledNodeScan, nodeScanSupportsInspect } from '../../core/game/software'
+import { findInstalledNodeScan, nodeScanSupportsInspect, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from '../../core/game/software'
+import { isDeviceNetworkUsable } from '../../core/game/deviceOperationalState'
 import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
   CredentialAccessProcess,
@@ -17,13 +18,15 @@ import type { DeauthProcess } from '../../core/game/types'
 /**
  * NodeScan presents one target at a time as a single decision, not as a
  * dashboard of the subsystems that decision touches. Every reconnaissance
- * fact the interface renders is derived here, from this deliberately narrow
- * slice of canonical state: remembered Discovery, earned Knowledge, the
+ * historical fact the interface renders is derived here, from this deliberately narrow
+ * player-information slice: remembered Discovery, earned Knowledge, the
  * player's own Processes, the player's own installed software and the
- * player's current relationships. `world` is intentionally absent from the
- * slice, so hidden Device names, unobserved Service implementations,
+ * player's current relationships. Hidden Device names, unobserved Service implementations,
  * unobserved authentication conditions, vulnerability presence and attack
- * feasibility cannot reach the interface even by accident. A remembered
+ * feasibility cannot reach the interface even by accident. The separate
+ * `LiveTopologyTruth` input admits only operational state and Service openness,
+ * and only while NodeScan monitoring or usable exact-Service access supplies
+ * current observation authority. A remembered
  * Device's display name is here only because a legitimate Inspect stored it
  * in Discovery, never because presentation resolved it.
  *
@@ -34,6 +37,7 @@ import type { DeauthProcess } from '../../core/game/types'
  * allowed to fill in observation, so nothing here consults it.
  */
 export type PlayerInformation = Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'process' | 'deviceAccess' | 'remoteSession' | 'rackUpdate'>
+export type LiveTopologyTruth = Pick<GameState, 'world'>
 
 /** Currently installed NodeScan release and the capability it actually supplies. */
 export interface NodeScanRelease {
@@ -46,6 +50,8 @@ export interface NodeScanRelease {
    * running, because the override release remains installed until completion.
    */
   readonly canInspect: boolean
+  readonly canMonitorLiveTopology: boolean
+  readonly canIntegrateIntelligence: boolean
 }
 
 export function resolveNodeScanRelease(device: LocalDeviceState): NodeScanRelease | undefined {
@@ -56,6 +62,8 @@ export function resolveNodeScanRelease(device: LocalDeviceState): NodeScanReleas
     version: installation.version,
     channel: installation.channel,
     canInspect: nodeScanSupportsInspect(installation),
+    canMonitorLiveTopology: nodeScanSupportsLiveTopology(installation),
+    canIntegrateIntelligence: nodeScanSupportsIntegratedIntelligence(installation),
   }
 }
 
@@ -124,7 +132,12 @@ export interface TargetService {
   /** Whether the latest remembered evidence still justifies a canonical Analyze attempt. */
   readonly analysisRequired: boolean
   readonly accessPrivilege?: 'USER'
+  readonly liveStatus?: TopologyStatus
+  readonly intelligence: readonly SoftwareIntelligence[]
 }
+
+export interface TopologyStatus { readonly label: 'ONLINE' | 'OFFLINE' | 'SHUTTING DOWN' | 'BOOTING' | 'RECONNECTING' | 'CLOSED'; readonly tone: 'available' | 'transition' | 'down' }
+export interface SoftwareIntelligence { readonly software: string; readonly details: readonly string[] }
 
 export interface LocalPackage {
   readonly id: string
@@ -245,6 +258,7 @@ export interface Target extends TargetSummary {
     readonly computeClass?: string
   }
   readonly services: readonly TargetService[]
+  readonly liveStatus?: TopologyStatus
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
   readonly session?: { readonly privilege: 'USER'; readonly connectedAddress: string; readonly viaServiceName?: string }
   /**
@@ -450,7 +464,25 @@ function moduleNameFor(vulnerabilityId: string): string | undefined {
   return moduleId ? FLIPPER_MODULE_NAME[moduleId] : undefined
 }
 
-export function selectTarget(information: PlayerInformation, deviceId: string): Target | undefined {
+function deviceLiveStatus(operational: import('../../core/game/types').DeviceOperationalState): TopologyStatus {
+  if (operational.lifecycle === 'SHUTTING_DOWN') return { label: 'SHUTTING DOWN', tone: 'transition' }
+  if (operational.lifecycle === 'BOOTING') return { label: 'BOOTING', tone: 'transition' }
+  if (operational.connectivity === 'RECONNECTING') return { label: 'RECONNECTING', tone: 'transition' }
+  return isDeviceNetworkUsable(operational) ? { label: 'ONLINE', tone: 'available' } : { label: 'OFFLINE', tone: 'down' }
+}
+
+function knownSoftwareIntelligence(software: readonly string[], weaknesses: readonly KnownWeakness[], authGuard: import('../../core/game/types').EnhancedInspectEvidence['authGuard']): readonly SoftwareIntelligence[] {
+  return software.flatMap((name) => {
+    if (name.startsWith('GateSSH ') && weaknesses.length) return [{ software: name, details: weaknesses.map(({ id, label }) => id === 'AUTH-017'
+      ? `Analysis identified ${label.toLowerCase()}, a pre-authentication flaw that can permit Credential Access through compatible offensive tooling.`
+      : id === 'AUTH-031' ? `Analysis identified ${label.toLowerCase()}, a pre-authentication flaw that can permit Credential Access through compatible offensive tooling.`
+        : `Analysis identified ${label.toLowerCase()}.`) }]
+    if (name.startsWith('AuthGuard ') && authGuard) return [{ software: name, details: [`Inspect observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`] }]
+    return []
+  })
+}
+
+export function selectTarget(information: PlayerInformation, deviceId: string, liveTruth?: LiveTopologyTruth): Target | undefined {
   const device = information.discovery.devices.find(({ id }) => id === deviceId)
   if (!device) return undefined
 
@@ -462,6 +494,15 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const activeAccess = established.find(({ id }) => id === information.remoteSession.active?.accessId)
   const serviceName = (serviceId: string) => device.services.find(({ id }) => id === serviceId)?.name
   const flipper = findInstalledFlipper(information.player.localDevice)
+  const nodeScan = findInstalledNodeScan(information.player.localDevice)
+  const monitorAll = Boolean(nodeScan && nodeScanSupportsLiveTopology(nodeScan))
+  const currentHost = liveTruth?.world.network.hosts.find(({ id }) => id === device.id)
+  const sourceUsable = isDeviceNetworkUsable(information.player.localDevice.operational)
+  const usableAccessServiceIds = new Set(established.filter((access) => {
+    const service = currentHost?.services?.find(({ id }) => id === access.viaServiceId)
+    return sourceUsable && Boolean(currentHost && isDeviceNetworkUsable(currentHost.operational) && service?.open)
+  }).map(({ viaServiceId }) => viaServiceId))
+  const deviceHasLiveAuthority = Boolean(currentHost && (monitorAll || usableAccessServiceIds.size > 0))
 
   const routes: TargetRoute[] = []
   const services = device.services.map((service): TargetService => {
@@ -472,6 +513,9 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       ...(observed && observedAuthGuard?.protectedImplementation === observed.implementation ? [`${observedAuthGuard.name} ${observedAuthGuard.version}`] : []),
     ]
     const weaknesses = knowledgeFor(information, device.id, service.id)
+    const intelligence = nodeScan && nodeScanSupportsIntegratedIntelligence(nodeScan)
+      ? knownSoftwareIntelligence(software, weaknesses, observedAuthGuard)
+      : []
     const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
     const running = analysis.find(({ status }) => status === 'running')
     const currentFingerprint = service.inspect?.implementation
@@ -514,6 +558,10 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       ...(running ? { analysisPercent: percentOf(running) } : {}),
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),
+      intelligence,
+      ...(currentHost && (monitorAll || usableAccessServiceIds.has(service.id))
+        ? { liveStatus: !isDeviceNetworkUsable(currentHost.operational) ? { label: 'OFFLINE', tone: 'down' } : currentHost.services?.find(({ id }) => id === service.id)?.open ? { label: 'ONLINE', tone: 'available' } : { label: 'CLOSED', tone: 'down' } }
+        : {}),
     }
   })
 
@@ -595,6 +643,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       : {}),
     servicesObserved: device.servicesObserved,
     services,
+    ...(deviceHasLiveAuthority ? { liveStatus: deviceLiveStatus(currentHost!.operational) } : {}),
     ...(passive ? { access: { privilege: passive.privilege, ...(serviceName(passive.viaServiceId) ? { viaServiceName: serviceName(passive.viaServiceId) } : {}) } } : {}),
     ...(activeAccess && information.remoteSession.active
       ? {

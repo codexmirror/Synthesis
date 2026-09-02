@@ -56,22 +56,23 @@ function stateRow() { return screen.getByText('STATE').parentElement! }
 
 async function open(name: RegExp) {
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name }))
+  await user.click(screen.getAllByRole('button', { name })[0])
   return user
 }
 
 describe('Market catalog presentation', () => {
   it('lists every represented offering once with its own release, size and price', () => {
     renderMarket(createInitialGameState())
-    expect(screen.getByText('7 OFFERINGS')).toBeInTheDocument()
+    expect(screen.getByText('8 OFFERINGS')).toBeInTheDocument()
     const rows = screen.getAllByRole('button').filter((button) => button.className === 'node-row')
     expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual([
-      'RATTLER', 'Flipper', 'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
+      'RATTLER', 'Flipper', 'NodeScan', 'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
     ])
     expect(rows.map((row) => row.querySelector('small')?.textContent)).toEqual([
       '1.0 · UNOFFICIAL · 2.8 MB · 0.01 NODE',
       '1.0 · STANDARD · 4 MB · 0.01 NODE',
       '1.1 · EXPERIMENTAL · 18.4 MB · 0.01 NODE',
+      '1.2 · STANDARD · 19.2 MB · 0.01 NODE',
       '1.0 · UNOFFICIAL · 3.4 MB · 0.01 NODE',
       '1.3.2 · STABLE · 6.4 MB · 0.01 NODE',
       // GateSSH 1.3.3 states no channel: no accepted current truth represents one for this
@@ -113,7 +114,7 @@ describe('Market catalog presentation', () => {
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Back to the Market catalog/ }))
-    await user.click(screen.getByRole('button', { name: /NodeScan/ }))
+    await user.click(screen.getAllByRole('button', { name: /NodeScan/ })[0])
     // No publisher is represented for this release, so none is invented.
     expect(screen.getByText('NOT STATED')).toBeInTheDocument()
     expect(screen.queryByText('nm-dev')).not.toBeInTheDocument()

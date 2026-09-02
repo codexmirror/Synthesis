@@ -1,5 +1,5 @@
 import type { InstalledSoftware, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation } from './types'
-import { NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID } from './softwareReleaseContent'
+import { NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID, NODESCAN_1_2_STANDARD_RELEASE_ID } from './softwareReleaseContent'
 
 export { NODESCAN_1_0_STANDARD_RELEASE_ID } from './softwareReleaseContent'
 
@@ -19,7 +19,15 @@ export function findInstalledNodeScan(device: LocalDeviceState): NodeScanInstall
 
 /** Whether the installed NodeScan release supplies the player-facing Inspect capability. */
 export function nodeScanSupportsInspect(installation: NodeScanInstallation): boolean {
-  return installation.releaseId === NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID
+  return installation.releaseId === NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID || installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
+}
+
+export function nodeScanSupportsLiveTopology(installation: NodeScanInstallation): boolean {
+  return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
+}
+
+export function nodeScanSupportsIntegratedIntelligence(installation: NodeScanInstallation): boolean {
+  return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
 }
 
 export function findInstalledNodeMiner(device: { readonly installedSoftware?: readonly InstalledSoftware[] }): NodeMinerInstallation | undefined {

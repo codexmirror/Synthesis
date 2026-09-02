@@ -29,12 +29,14 @@ export interface SoftwareReleaseContent {
 
 export const NODESCAN_1_0_STANDARD_RELEASE_ID = 'nodescan-1.0-standard' as const
 export const NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID = 'nodescan-1.1-experimental' as const
+export const NODESCAN_1_2_STANDARD_RELEASE_ID = 'nodescan-1.2-standard' as const
 export const FLIPPER_1_0_RELEASE_ID = 'flipper-1.0' as const
 export const NODE_MINER_1_0_RELEASE_ID = 'node-miner-1.0' as const
 export const RATTLER_1_0_RELEASE_ID = 'release-rattler-1.0-v0' as const
 
 export const NODESCAN_1_0_STANDARD_BUILD_ID = 'build-nodescan-1.0-standard-v0' as const
 export const NODESCAN_1_1_EXPERIMENTAL_BUILD_ID = 'build-nodescan-1.1-experimental-v0' as const
+export const NODESCAN_1_2_STANDARD_BUILD_ID = 'build-nodescan-1.2-standard-v0' as const
 /** The distributable Flipper 1.0 host before any standalone modules are integrated. */
 export const FLIPPER_1_0_CANONICAL_BUILD_ID = 'build-flipper-1.0-base' as const
 export const FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID = 'build-flipper-1.0-credential-access' as const
@@ -74,6 +76,22 @@ export const NODESCAN_1_1_EXPERIMENTAL = {
       { label: 'SERVICE ANALYSIS', description: 'Investigate known Service endpoints for represented weaknesses.' },
     ],
     changes: ['Target Inspect', 'Firmware fingerprinting', 'Compute classification', 'Service implementation fingerprinting', 'Authentication observation'],
+  },
+} as const satisfies SoftwareReleaseContent
+
+export const NODESCAN_1_2_STANDARD = {
+  productId: 'nodescan', releaseId: NODESCAN_1_2_STANDARD_RELEASE_ID, buildId: NODESCAN_1_2_STANDARD_BUILD_ID,
+  name: 'NodeScan', version: '1.2', channel: 'standard',
+  documentation: {
+    about: 'Standard NODE-OS reconnaissance software with live topology monitoring and integrated technical intelligence.',
+    capabilities: [
+      { label: 'NETWORK SCAN', description: 'Discover represented networks, devices, relationships and exposed Services.' },
+      { label: 'TARGET INSPECT', description: 'Observe represented Device and already-known Service fingerprints.' },
+      { label: 'SERVICE ANALYSIS', description: 'Investigate known Service endpoints for represented weaknesses.' },
+      { label: 'LIVE TOPOLOGY MONITORING', description: 'Project current Device and Service availability through represented monitoring authority.' },
+      { label: 'INTEGRATED INTELLIGENCE', description: 'Open legitimately learned technical information from observed software entries.' },
+    ],
+    changes: ['Target Inspect promoted from Experimental', 'Live topology monitoring', 'Integrated technical intelligence'],
   },
 } as const satisfies SoftwareReleaseContent
 
@@ -119,6 +137,7 @@ export const RATTLER_1_0 = {
 export const AUTHORED_SOFTWARE_RELEASES: readonly SoftwareReleaseContent[] = [
   NODESCAN_1_0_STANDARD,
   NODESCAN_1_1_EXPERIMENTAL,
+  NODESCAN_1_2_STANDARD,
   FLIPPER_1_0,
   NODE_MINER_1_0,
   RATTLER_1_0,
