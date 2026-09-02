@@ -166,6 +166,7 @@ describe('Market purchase', () => {
 
   it('debits the Wallet, credits the represented seller, and establishes exactly one entitlement', async () => {
     renderMarket(funded(3 * PRICE))
+    const softwareBeforePurchase = probe().software
     await open(/NodeScan/)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'BUY · 0.01 NODE' }))
@@ -178,7 +179,8 @@ describe('Market purchase', () => {
     })
     expect(probe().accounts).toContain('node-account-opx-v0:10000')
     expect(probe().accounts).toContain('node-account-nm-dev-v0:0')
-    expect(probe().software).toEqual(['nodescan-1.0-standard'])
+    // Purchase establishes an entitlement; it neither installs nor removes software.
+    expect(probe().software).toEqual(softwareBeforePurchase)
     // The lifecycle moves on, and DOWNLOAD is what becomes available — not INSTALL.
     expect(stateRow()).toHaveTextContent('PURCHASED')
     expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeInTheDocument()

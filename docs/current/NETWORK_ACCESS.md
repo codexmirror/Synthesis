@@ -496,9 +496,13 @@ credential-access context before any probability decision. Against the current
 deterministically while KeyProbe makes exactly one canonical 75% decision per
 attempt. A completed result is terminal and is never rerolled. Success creates
 persistent USER `DeviceAccess`; a reached probabilistic failure creates FAILURE
-authentication and Network evidence but no access. An unreachable or invalid
-surface creates neither reached-attempt evidence nor a probability decision.
-Neither outcome rewrites historical Discovery or Knowledge.
+authentication and Network evidence but no access. If the endpoint no longer
+reaches the intended current Device and open Service, completion creates no
+reached-attempt evidence and makes no probability decision. If the attempt
+reaches that Service but `AUTH-017`, its supported GateSSH 1.3.2 implementation,
+or its Credential Access condition is no longer valid, completion records the
+reached FAILURE through the existing evidence owners but still makes no
+probability decision. Neither outcome rewrites historical Discovery or Knowledge.
 
 Services remain concrete Device-owned network surfaces with no arbitrary
 canonical count cap: a Device may expose zero, one, or many. Device availability

@@ -134,13 +134,16 @@ describe('Initial credential access', () => {
   })
 
   it('appends a FAILURE record, and creates no DeviceAccess, when the Service is reached but its weakness is gone', () => {
-    const running = start(); const discovery = running.discovery; const knowledge = running.knowledge
-    const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000)
+    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    if (started.status !== 'started') throw Error(started.status)
+    const running = started.state; const discovery = running.discovery; const knowledge = running.knowledge
+    const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000, () => { throw Error('must validate the weakness before probability') })
     expect(done.deviceAccess.established).toEqual([])
     expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.' }, startedEndpoint: observation.endpoint })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
     const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
     expect(target?.authenticationHistory?.records).toEqual([{ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: done.player.localDevice.network.ip, result: 'FAILURE' }])
+    expect(done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')?.activityHistory.records).toContainEqual(expect.objectContaining({ kind: 'connection_attempt', serviceId: observation.serviceId, result: 'FAILURE' }))
   })
 
   it.each([

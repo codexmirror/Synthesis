@@ -260,7 +260,7 @@ describe('Terminal credential access', () => {
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
     expect(startCredentialAccessAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
       endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001',
-      vulnerabilityId: 'AUTH-017',
+      vulnerabilityId: 'AUTH-017', providerId: 'credential-access-module',
     })
     expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
   })
@@ -355,7 +355,8 @@ describe('Terminal local installation', () => {
     await user.type(input, `install ${packageFile.path}{enter}`)
     expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
     const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
-    expect(installed).toMatchObject([{ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }])
+    expect(installed).toContainEqual(expect.objectContaining({ id: 'nodescan', releaseId: 'nodescan-1.1-experimental' }))
+    expect(installed).toContainEqual(expect.objectContaining({ id: 'keyprobe', releaseId: 'keyprobe-1.0' }))
     vi.useRealTimers()
   })
 })

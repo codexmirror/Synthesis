@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 58', () => {
+  it('separates identities and seeds canonical local-device state in schema version 59', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(58)
+    expect(GAME_STATE_VERSION).toBe(59)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(58)
+    expect(state.version).toBe(59)
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
@@ -81,6 +81,7 @@ describe('createInitialGameState', () => {
     })
     expect(state.player.localDevice.installedSoftware).toEqual([
       { id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', name: 'NodeScan', version: '1.0', channel: 'standard' },
+      { id: 'keyprobe', releaseId: 'keyprobe-1.0', buildId: 'build-keyprobe-1.0-v0', name: 'KeyProbe', version: '1.0', publisher: 'Neutral Systems' },
     ])
     // The standalone offensive toolkits no longer exist as installed software at all.
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'basic-credential-toolkit' }))
