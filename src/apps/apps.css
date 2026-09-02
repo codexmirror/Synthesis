@@ -71,6 +71,47 @@
 
 .file-details { min-width: 0; }
 
+/*
+ * Shared opened-file identity: the one subject rhythm every artifact kind
+ * establishes before any kind-specific state or action. Path and internal
+ * identifiers deliberately stay out of it — they live in FILE INFORMATION.
+ */
+.file-identity {
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+}
+
+.file-identity-name {
+  margin: 0;
+  color: var(--text-strong);
+  font: 600 .95rem Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.file-identity-filename {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .66rem;
+  overflow-wrap: anywhere;
+}
+
+.file-identity-meta {
+  margin: 4px 0 0;
+  color: var(--text-quiet);
+  font-size: .6rem;
+  letter-spacing: .08em;
+}
+
+.file-identity-device {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
 .file-content {
   margin: 12px 0 0;
   padding: 12px 13px;
@@ -82,13 +123,6 @@
   font: inherit;
   font-size: .74rem;
   line-height: 1.6;
-}
-
-.file-kind-details h2 {
-  margin: 14px 0 0;
-  color: var(--text-strong);
-  font: 600 .95rem Inter, system-ui, sans-serif;
-  overflow-wrap: anywhere;
 }
 
 .package-release {

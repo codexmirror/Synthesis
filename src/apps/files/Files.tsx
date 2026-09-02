@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { getFilesystemFile, getFilesystemFileSizeBytes, listDirectory } from '../../core/game/filesystem'
 import { findRunningLocalNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartNodeMinerResult } from '../../core/game/nodeMiner'
 import { NODESCAN_1_0_STANDARD_RELEASE_ID } from '../../core/game/software'
-import { FLIPPER_MODULE_TECHNIQUE } from '../../core/game/flipper'
+import { FLIPPER_MODULE_TECHNIQUE, findInstalledFlipper } from '../../core/game/flipper'
+import { findCompatibleDeauthExtension, isSupportedDeauthExtensionArtifact } from '../../core/game/deauth'
 import { deriveSoftwarePackageEligibility, type InstallLocalSoftwarePackageResult } from '../../core/game/softwareInstallation'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
@@ -12,7 +13,7 @@ import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '.
 import { describeUploadFailure } from '../uploadFailure'
 import { describeInstallFailure } from '../installFailure'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
-import type { DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile, SoftwareModuleFile, FlipperInstallation, RattlerPayloadFile } from '../../core/game/types'
+import type { DeauthExtensionFile, DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile, SoftwareModuleFile, FlipperInstallation, RattlerPayloadFile, TextFile } from '../../core/game/types'
 import { RATTLER_1_0 } from '../../core/game/softwareReleaseContent'
 import { RATTLER_PROGRAM_ID } from '../../core/game/rattler'
 import type { ExecutableAppId } from '../../shell/appRegistry'
@@ -146,6 +147,69 @@ function deriveIncomingArtifact(transfer: FileTransfer | null, deviceId: string,
   }
 }
 
+/**
+ * The human-readable identity a kind actually carries, distinct from the
+ * concrete filename. Kinds with no represented name of their own (text,
+ * RATTLER payload) have no separate identity to state — the filename already
+ * is the identity, and a second, invented line would only repeat it.
+ */
+function identityName(file: FilesystemFile): string | undefined {
+  switch (file.kind) {
+    case 'software_package':
+    case 'software_module':
+    case 'deauth_extension':
+    case 'executable':
+      return file.name
+    default:
+      return undefined
+  }
+}
+
+/**
+ * The shared opened-file subject: the strongest represented human-readable
+ * name, the concrete filename beneath it when that differs, then the compact
+ * TYPE · SIZE and LOCAL · Device context lines every kind carries. Path and
+ * internal identifiers are deliberately not here — they belong to the FILE
+ * INFORMATION disclosure below, not the identity a player reads first.
+ */
+function FileIdentity({ file, device }: { file: FilesystemFile; device: LocalDeviceState }) {
+  const filename = basename(file.path)
+  const name = identityName(file)
+  return <header className="file-identity">
+    <h1 className="file-identity-name">{name ?? filename}</h1>
+    {name && name !== filename && <p className="file-identity-filename">{filename}</p>}
+    <p className="file-identity-meta">{typeLabel(file)} · {formatBytes(getFilesystemFileSizeBytes(file))}</p>
+    <p className="file-identity-device">LOCAL · {device.displayName}</p>
+  </header>
+}
+
+/** One collapsed technical-detail panel, closed by default and reopenable. */
+function Disclosure({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return <section className="release-disclosure">
+    <button className="node-disclosure" type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <span>{label}</span>
+      <span className="node-disclosure-mark" aria-hidden="true">{open ? '−' : '+'}</span>
+    </button>
+    {open && <div className="release-disclosure-panel">{children}</div>}
+  </section>
+}
+
+/**
+ * The one shared home for file-level technical truth every kind carries:
+ * canonical path, plus whatever further genuinely file-level facts a kind
+ * supplies through `children`. Size and type are already stated in the
+ * identity area, so they are deliberately not repeated here.
+ */
+function FileInformation({ file, children }: { file: FilesystemFile; children?: ReactNode }) {
+  return <Disclosure label="FILE INFORMATION">
+    <dl className="node-facts">
+      <div><dt>PATH</dt><dd>{file.path}</dd></div>
+      {children}
+    </dl>
+  </Disclosure>
+}
+
 function FileDetails({ file, device, process, installedSoftware, installingProductIds, removingProductIds, reviewInstall, nodeWalletAddress, runNodeMiner, runningProcess, upload, connectedAddress, activeUpload, openExecutableApp }: {
   file: FilesystemFile
   device: LocalDeviceState
@@ -163,21 +227,11 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
   openExecutableApp?: (app: ExecutableAppId) => void
 }) {
   return <div className="file-details">
-    <header className="node-masthead">
-      <span className="node-masthead-subject">{basename(file.path)}</span>
-      <span className="node-masthead-meta">{typeLabel(file)}</span>
-    </header>
-    <dl className="node-facts">
-      <div><dt>PATH</dt><dd>{file.path}</dd></div>
-      <div><dt>SIZE</dt><dd>{formatBytes(getFilesystemFileSizeBytes(file))}</dd></div>
-    </dl>
-    {file.kind === 'text' ? <section>
-      <div className="node-section"><span>CONTENT</span></div>
-      <pre className="file-content">{file.content}</pre>
-    </section>
+    <FileIdentity file={file} device={device} />
+    {file.kind === 'text' ? <TextDetails file={file} />
         : file.kind === 'software_package' ? <PackageDetails file={file} device={device} process={process} installedSoftware={installedSoftware} installingProductIds={installingProductIds} removingProductIds={removingProductIds} reviewInstall={reviewInstall} />
         : file.kind === 'software_module' ? <ModuleDetails file={file} installedSoftware={installedSoftware} />
-        : file.kind === 'deauth_extension' ? <section><div className="node-section"><span>FLIPPER EXTENSION</span></div><dl className="node-facts"><div><dt>RELEASE</dt><dd>{file.version}</dd></div><div><dt>BUILD</dt><dd>{file.buildId}</dd></div><div><dt>COMPATIBILITY</dt><dd>Flipper {file.compatibleHostReleaseId.replace('flipper-', '')}</dd></div></dl></section>
+        : file.kind === 'deauth_extension' ? <DeauthExtensionDetails file={file} device={device} />
         : file.kind === 'rattler_payload' ? <RattlerPayloadDetails file={file} />
           : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} openExecutableApp={openExecutableApp} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
@@ -205,6 +259,15 @@ function RemoteTransfer({ file, connectedAddress, upload, activeUpload }: { file
   </section>
 }
 
+/** Text stays the simplest kind: identity, content, and file-level facts. No status or action is invented for uniformity. */
+function TextDetails({ file }: { file: TextFile }) {
+  return <section className="file-kind-details">
+    <div className="node-section"><span>CONTENT</span></div>
+    <pre className="file-content">{file.content}</pre>
+    <FileInformation file={file} />
+  </section>
+}
+
 /**
  * The compact package surface: what this software is, whether it is installed,
  * and the one action available. Verbose release documentation and the release
@@ -224,15 +287,18 @@ function PackageDetails({ file, device, process, installedSoftware, installingPr
   const eligibility = deriveSoftwarePackageEligibility(file, device, process)
   const packageState = derivePackageState(file, device, process, removingProductIds)
   return <section className="file-kind-details">
-    <header className="node-masthead"><h2 className="node-masthead-subject">{file.name}</h2><span className="node-masthead-meta">{describePackageRelease(file)}</span></header>
     <div className="node-section"><span>STATUS</span><span>{packageState}</span></div>
-    <dl className="node-facts"><div><dt>CURRENT</dt><dd>{current ? describeInstalledSoftware(current) : 'NOT INSTALLED'}</dd></div></dl>
-    {eligibility.status === 'incompatible' && <dl className="node-facts"><div><dt>REQUIRES</dt><dd>{eligibility.requiredFirmware}</dd></div></dl>}
+    <dl className="node-facts">
+      <div><dt>VERSION</dt><dd>{describePackageRelease(file)}</dd></div>
+      <div><dt>CURRENT</dt><dd>{current ? describeInstalledSoftware(current) : 'NOT INSTALLED'}</dd></div>
+      {eligibility.status === 'incompatible' && <div><dt>REQUIRES</dt><dd>{eligibility.requiredFirmware}</dd></div>}
+    </dl>
     {packageState === 'INSTALLABLE' ? <div className="file-kind-actions"><button className="node-action" type="button" onClick={reviewInstall}>INSTALL</button></div>
       : packageState === 'INSTALLING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>INSTALLING…</button></div>
       : packageState === 'REMOVING' ? <div className="file-kind-actions"><button className="node-action" type="button" disabled>REMOVING…</button></div>
       : packageState === 'UNRECOGNIZED' ? <div className="file-kind-actions"><p className="node-note node-note--caution">UNRECOGNIZED PACKAGE EXTENSION · NOT INSTALLABLE</p></div>
       : <div className="file-kind-actions"><p className="node-note">{packageState === 'PROTECTED' ? 'PROTECTED · SYSTEM BASELINE' : packageState}</p></div>}
+    <FileInformation file={file} />
     <SoftwareReleaseDisclosure releaseId={file.releaseId} summary facts={<dl className="node-facts">
       {file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
@@ -286,16 +352,22 @@ function InstallReview({ file, device, install, close }: {
   </div>
 }
 
-function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess, openExecutableApp }: {
+/** An application executable: identity, then OPEN. The application explains itself after that. */
+function ApplicationLaunch({ label, appId, openExecutableApp }: { label: string; appId: ExecutableAppId; openExecutableApp?: (app: ExecutableAppId) => void }) {
+  return <>
+    <div className="node-section"><span>APPLICATION</span></div>
+    <p className="node-note">Opens the {label} application. Files inspects this executable only.</p>
+    {openExecutableApp && <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => openExecutableApp(appId)}>OPEN</button></div>}
+  </>
+}
+
+/** NODE Miner: not an application, so Files remains its launcher/runner rather than a dashboard of its own. */
+function NodeMinerRunner({ file, nodeWalletAddress, runNodeMiner, runningProcess }: {
   file: ExecutableFile
   nodeWalletAddress: string
   runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
   runningProcess: NodeMinerProcess | undefined
-  openExecutableApp?: (app: ExecutableAppId) => void
 }) {
-  const flipper = file.programId === 'flipper' && file.releaseId === 'flipper-1.0'
-  const rattler = file.programId === RATTLER_PROGRAM_ID && file.releaseId === RATTLER_1_0.releaseId && file.buildId === RATTLER_1_0.buildId
-  const supported = file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID
   const [payoutAddress, setPayoutAddress] = useState(nodeWalletAddress)
   const [feedback, setFeedback] = useState<string>()
 
@@ -304,16 +376,9 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProce
     setFeedback(result.status === 'started' ? undefined : describeRunFailure(result))
   }
 
-  return <section className="file-kind-details">
-    <div className="node-section"><span>PROGRAM</span>{!supported && !flipper && !rattler && <span className="node-chip node-chip--quiet">UNSUPPORTED</span>}</div>
-    <dl className="node-facts">
-      <div><dt>PROGRAM</dt><dd>{file.name} ({file.programId})</dd></div>
-      <div><dt>VERSION</dt><dd>{file.version}</dd></div>
-      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
-    </dl>
-    {flipper && openExecutableApp && <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => openExecutableApp('flipper')}>OPEN</button></div>}
-    {rattler && openExecutableApp && <div className="file-kind-actions"><button className="node-action" type="button" onClick={() => openExecutableApp('rattler')}>OPEN</button></div>}
-    {supported && (runningProcess
+  return <>
+    <div className="node-section"><span>RUN</span></div>
+    {runningProcess
       ? <div className="file-kind-actions">
           <p className="node-note"><strong>RUNNING</strong><br />PROCESS {runningProcess.id}</p>
           <dl className="node-facts">
@@ -337,7 +402,44 @@ function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProce
           </label>
           <button className="node-action" type="button" onClick={run}>RUN</button>
           {feedback && <p className="node-note node-note--caution">{feedback}</p>}
-        </div>)}
+        </div>}
+  </>
+}
+
+function UnsupportedExecutable() {
+  return <>
+    <div className="node-section"><span>PROGRAM</span><span className="node-chip node-chip--quiet">UNSUPPORTED</span></div>
+    <p className="node-note">Files does not currently support opening or running this executable.</p>
+  </>
+}
+
+/**
+ * Files is a launcher plus file inspector for application executables (Flipper,
+ * RATTLER): OPEN hands off to the application, which explains itself from
+ * there. NODE Miner is not an application — it keeps its current RUN-style
+ * launcher/runner presentation. Anything else stays explicitly unsupported.
+ */
+function ExecutableDetails({ file, nodeWalletAddress, runNodeMiner, runningProcess, openExecutableApp }: {
+  file: ExecutableFile
+  nodeWalletAddress: string
+  runNodeMiner: (sourceFilePath: string, payoutAddress: string) => StartNodeMinerResult
+  runningProcess: NodeMinerProcess | undefined
+  openExecutableApp?: (app: ExecutableAppId) => void
+}) {
+  const flipper = file.programId === 'flipper' && file.releaseId === 'flipper-1.0'
+  const rattler = file.programId === RATTLER_PROGRAM_ID && file.releaseId === RATTLER_1_0.releaseId && file.buildId === RATTLER_1_0.buildId
+  const supported = file.programId === NODE_MINER_PROGRAM_ID && file.releaseId === NODE_MINER_RELEASE_ID
+
+  return <section className="file-kind-details">
+    {flipper ? <ApplicationLaunch label="Flipper" appId="flipper" openExecutableApp={openExecutableApp} />
+      : rattler ? <ApplicationLaunch label="RATTLER" appId="rattler" openExecutableApp={openExecutableApp} />
+      : supported ? <NodeMinerRunner file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} />
+      : <UnsupportedExecutable />}
+    <FileInformation file={file}>
+      <div><dt>PROGRAM ID</dt><dd>{file.programId}</dd></div>
+      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+      <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
+    </FileInformation>
   </section>
 }
 
@@ -358,35 +460,84 @@ function describeRunFailure(result: Exclude<StartNodeMinerResult, { status: 'sta
  * A module artifact is a directly usable technique source and an optional
  * input Flipper can integrate. It is never installable software, so Files
  * deliberately offers no INSTALL; Flipper owns only the optional integration.
+ * Deeper release/build identity and the technique/host facts stay behind
+ * MODULE INFORMATION rather than dominating the primary surface merely
+ * because `hostProductId` exists.
  */
 function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; installedSoftware: readonly InstalledSoftware[] }) {
   const host = installedSoftware.find((software): software is FlipperInstallation => software.id === file.hostProductId)
   const integrated = host?.integratedModules.includes(file.moduleId)
+  const technique = FLIPPER_MODULE_TECHNIQUE[file.moduleId]
   return <section className="file-kind-details">
-    <header className="node-masthead"><h2 className="node-masthead-subject">{file.name}</h2><span className="node-masthead-meta">{file.version} · MODULE</span></header>
     <div className="node-section"><span>INTEGRATION</span><span>{!host ? 'HOST NOT INSTALLED' : integrated ? 'INTEGRATED' : 'NOT INTEGRATED'}</span></div>
-    <dl className="node-facts">
-      <div><dt>STANDALONE USE</dt><dd>AVAILABLE</dd></div>
-      <div><dt>OPTIONAL HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
-      <div><dt>TECHNIQUE</dt><dd>{FLIPPER_MODULE_TECHNIQUE[file.moduleId]}</dd></div>
-      <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
-      <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
-    </dl>
-    <p className="node-note">This module can supply {FLIPPER_MODULE_TECHNIQUE[file.moduleId]} standalone. {integrated
+    <p className="node-note">Supplies {technique} standalone. {integrated
       ? 'It is also integrated into the installed Flipper build; the artifact remains an ordinary file.'
       : 'Flipper is an optional integration host, and integration is performed from that application.'}</p>
+    <FileInformation file={file} />
+    <Disclosure label="MODULE INFORMATION">
+      <dl className="node-facts">
+        <div><dt>STANDALONE USE</dt><dd>AVAILABLE</dd></div>
+        <div><dt>OPTIONAL HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
+        <div><dt>TECHNIQUE</dt><dd>{technique}</dd></div>
+        <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+        <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
+      </dl>
+    </Disclosure>
   </section>
 }
 
+/**
+ * `deauth.ext` is the concrete Flipper Extension, not standalone software and
+ * not a Software Module: it has no integration mechanic of its own, only a
+ * co-presence condition with a compatible installed Flipper. Only that
+ * genuinely represented availability is stated on the primary surface;
+ * detailed host/release/build compatibility stays behind EXTENSION
+ * INFORMATION.
+ */
+function DeauthExtensionDetails({ file, device }: { file: DeauthExtensionFile; device: LocalDeviceState }) {
+  const flipper = findInstalledFlipper(device)
+  // The viewed artifact's own availability, not whichever compatible copy
+  // `findCompatibleDeauthExtension` happens to find first: this exact file
+  // must be the recognized build, and a compatible Flipper must exist at all
+  // (that existence check is what a non-undefined find result proves here,
+  // regardless of which copy it actually returns).
+  const available = isSupportedDeauthExtensionArtifact(file) && findCompatibleDeauthExtension(device) !== undefined
+  return <section className="file-kind-details">
+    <div className="node-section"><span>AVAILABILITY</span><span>{available ? 'AVAILABLE' : 'NOT AVAILABLE'}</span></div>
+    <p className="node-note">{available
+      ? 'DEAUTH is available from Flipper NETWORK while this extension and a compatible Flipper remain on this Device.'
+      : flipper
+        ? 'The installed Flipper build does not support this extension.'
+        : 'Requires Flipper to be installed.'}</p>
+    <FileInformation file={file} />
+    <Disclosure label="EXTENSION INFORMATION">
+      <dl className="node-facts">
+        <div><dt>HOST</dt><dd>{flipper ? `${flipper.name} ${flipper.version}` : 'NOT INSTALLED'}</dd></div>
+        <div><dt>COMPATIBILITY</dt><dd>Flipper {file.compatibleHostReleaseId.replace('flipper-', '')}</dd></div>
+        <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
+        <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
+      </dl>
+    </Disclosure>
+  </section>
+}
+
+/**
+ * A RATTLER payload stays an artifact, not RATTLER's own application UI:
+ * Files states the target/payload facts it legitimately reads from the
+ * artifact, with opaque release/build identity moved into FILE INFORMATION
+ * since it is not what identifies this payload to a player.
+ */
 function RattlerPayloadDetails({ file }: { file: RattlerPayloadFile }) {
   return <section className="file-kind-details">
-    <header className="node-masthead"><h2 className="node-masthead-subject">RATTLER PAYLOAD</h2><span className="node-masthead-meta">TARGET BOUND</span></header>
+    <div className="node-section"><span>TARGET</span><span>TARGET BOUND</span></div>
     <dl className="node-facts">
-      <div><dt>TARGET</dt><dd>{file.targetAddressSnapshot}</dd></div>
+      <div><dt>ADDRESS</dt><dd>{file.targetAddressSnapshot}</dd></div>
       <div><dt>DEVICE</dt><dd>{file.targetDeviceId}</dd></div>
+    </dl>
+    <FileInformation file={file}>
       <div><dt>RELEASE</dt><dd>{file.rattlerReleaseId}</dd></div>
       <div><dt>BUILD</dt><dd>{file.rattlerBuildId}</dd></div>
-    </dl>
+    </FileInformation>
   </section>
 }
 
@@ -411,5 +562,14 @@ function derivePackageState(file: SoftwarePackageFile, device: LocalDeviceState,
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
-function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : file.kind === 'rattler_payload' ? 'RATTLER PAYLOAD' : 'EXECUTABLE' }
+function typeLabel(file: FilesystemFile): string {
+  switch (file.kind) {
+    case 'text': return 'TEXT'
+    case 'software_package': return 'SOFTWARE PACKAGE'
+    case 'software_module': return 'SOFTWARE MODULE'
+    case 'deauth_extension': return 'FLIPPER EXTENSION'
+    case 'rattler_payload': return 'RATTLER PAYLOAD'
+    case 'executable': return 'EXECUTABLE'
+  }
+}
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

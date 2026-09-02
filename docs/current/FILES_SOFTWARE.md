@@ -21,46 +21,119 @@ products, releases, and their player-facing documentation belong to
 ## Filesystem and the Files application
 
 The player's local Device owns a canonical filesystem. It represents exactly
-five explicit filesystem file kinds: text files, software-package files,
-software-module files, executable files, and the narrow RATTLER payload file.
-Each concrete copy has an `id` that is unique and stable
-within its filesystem; `path` is its current location rather than identity. A
-filesystem-owned monotonic counter allocates deterministic IDs using destination
-state alone. Raw IDs may coincide across Devices, so cross-Device references
-require both Device ID and file ID. The local Device's initial contents consist
-of the text file `/home/user/welcome.txt`, the NODE Miner 1.0 package, and the
-standalone Credential Access Module artifact under `/home/user/modules`.
+six explicit filesystem file kinds: text files, software-package files,
+software-module files, the one concrete `deauth.ext` Flipper Extension file,
+executable files, and the narrow RATTLER payload file. Each concrete copy has
+an `id` that is unique and stable within its filesystem; `path` is its current
+location rather than identity. A filesystem-owned monotonic counter allocates
+deterministic IDs using destination state alone. Raw IDs may coincide across
+Devices, so cross-Device references require both Device ID and file ID. The
+local Device's initial contents consist of the text file
+`/home/user/welcome.txt`, the NODE Miner 1.0 package, the standalone
+Credential Access Module artifact under `/home/user/modules`, and the
+`deauth.ext` artifact under `/home/user/extensions`.
 
 The Files application begins at `/home/user`, states the current path and the
-local Device in its masthead, shows an explicit parent row, derives its
-directory listing from that filesystem, and presents type and byte size plus
-coherent text, software-package, software-module, executable, or RATTLER payload details
-according to the file's explicit kind. A software-package row also carries its derived state —
-INSTALLED, INSTALLABLE, INSTALLING, REMOVING, PROTECTED or UNRECOGNIZED — from the same
+local Device in its masthead, shows an explicit parent row, and derives its
+directory listing from that filesystem, presenting each entry's type and byte
+size. A software-package row also carries its derived state — INSTALLED,
+INSTALLABLE, INSTALLING, REMOVING, PROTECTED or UNRECOGNIZED — from the same
 canonical installed software, running local software-installation Process
 state, and normal package recognition of the artifact's current path. INSTALLING
 disables duplicate admission for that same product until the running
-installation Process ends.
+installation Process ends. A path that does not resolve is stated explicitly
+rather than rendered as nothing. Terminal provides local `ls` and type-aware
+`cat` commands over the same filesystem truth; `cat` rejects software packages
+rather than fabricating text.
 
-Software-package details are compact and action-oriented. By default they state
-the software name, the release as `version · CHANNEL`, the package's current
-status, the currently installed release for that product (or NOT INSTALLED),
-and the one action available — alongside the path and size every file detail
-already carries. Verbose release documentation (about, capabilities, changes)
-and the opaque release ID stay behind a RELEASE INFORMATION disclosure that is
-closed by default and can be reopened and closed again: information is
-available without being permanently expanded.
-A path that does not resolve is stated explicitly rather than rendered as
-nothing. A software-module row and detail state what the artifact is, the
-technique it can supply standalone, its optional Flipper host, and the separate
-current integration state — and deliberately offer no INSTALL, because a
-module is not installable software. Optional integration is admitted from
-Flipper, the application that owns that operation. Text byte size is derived from
-its UTF-8 content. Package, module and executable byte sizes are explicit
-represented artifact data because their actual payloads are not modeled. Storage capacity,
-usage, and disk-full behavior are intentionally not represented. Terminal
-provides local `ls` and type-aware `cat` commands over the same filesystem
-truth; `cat` rejects software packages rather than fabricating text.
+### The opened-file viewer
+
+Selecting any filesystem entry opens one coherent opened-file viewer shared by
+every kind rather than six unrelated layouts. Every kind establishes the same
+identity rhythm first — the strongest represented human-readable name (falling
+back to the concrete filename for the two kinds with no name of their own:
+text and the RATTLER payload), the concrete filename beneath it when that
+differs, a compact `TYPE · SIZE` line, and the secondary `LOCAL · <Device>`
+line — before any kind-specific state, action, or technical detail. Canonical
+`path` and other internal identifiers are deliberately kept out of that
+identity area; they live in a closed-by-default `FILE INFORMATION` disclosure
+that every kind shares, reopenable on demand, holding at minimum the canonical
+path plus whatever further genuinely file-level facts that kind's artifact
+carries (for example an executable's `programId`/release/build, or a RATTLER
+payload's release/build provenance). A second, kind-specific disclosure — also
+closed by default — holds deeper technical documentation where a kind actually
+has any: `RELEASE INFORMATION` for software packages (about, capabilities,
+changes, publisher, and the opaque release ID — unchanged from the behavior
+described below), `MODULE INFORMATION` for software modules (standalone-use
+statement, optional host, technique, release and build), and `EXTENSION
+INFORMATION` for `deauth.ext` (host, compatibility, release and build).
+Application executables (Flipper, RATTLER) and the RATTLER payload have no
+second disclosure — there is no package-style release documentation to give
+them merely because they carry release/build identity — and text files have
+neither a state/action section nor a second disclosure, since none would be
+true of them.
+
+Each kind's "relevant current state" and "primary action" remain genuinely its
+own rather than a shared schema mechanically forced onto every artifact:
+
+- **Text** — identity, then `CONTENT` with the file's own text, then `FILE
+  INFORMATION`. No status or action section is invented for uniformity.
+- **Software package** — a `STATUS` line with the derived package state, a
+  compact `VERSION`/`CURRENT` (and, when incompatible, `REQUIRES`) fact list,
+  the one available action (INSTALL, INSTALLING…, REMOVING…, or the truthful
+  UNRECOGNIZED/PROTECTED/NOT COMPATIBLE state), `FILE INFORMATION`, then
+  `RELEASE INFORMATION`. Installation admission and Install Review are
+  unchanged from the description below.
+- **Software module** — an `INTEGRATION` line (HOST NOT INSTALLED / NOT
+  INTEGRATED / INTEGRATED) and one concise note stating the technique it
+  supplies standalone and Flipper's optional role, `FILE INFORMATION`, then
+  `MODULE INFORMATION` for the deeper host/technique/release/build facts. No
+  INSTALL action, ever — a module is not installable software.
+- **`deauth.ext`** — an `AVAILABILITY` line (AVAILABLE / NOT AVAILABLE) and one
+  note stating the reason, both derived from the same co-presence condition
+  `findCompatibleDeauthExtension` already decides (an exact artifact plus a
+  compatible installed Flipper). It has no INTEGRATION state and no
+  integration action of its own — that mechanic belongs to modules, not to
+  this extension — then `FILE INFORMATION`, then `EXTENSION INFORMATION`.
+- **Application executable (Flipper, RATTLER)** — an `APPLICATION` note and one
+  visible `OPEN` action (present only when a launcher is wired in), then `FILE
+  INFORMATION` alone. Files never shows a package-style `RELEASE INFORMATION`
+  disclosure for these, and never renders any of the application's own product
+  UI: OPEN hands off to that application, which explains itself from there.
+- **NODE Miner executable** — not an application: a `RUN` line, the existing
+  payout-address input and RUN action when nothing is running, or the existing
+  RUNNING presentation (Process ID, payout, produced NODE) when it is, then
+  `FILE INFORMATION`. This is a recomposition of NODE Miner's existing
+  RUN-style launcher/runner behavior into the shared hierarchy, not a new
+  product; its canonical RUN admission is unchanged.
+- **Unsupported executable** — an explicit `UNSUPPORTED` state and no action,
+  then `FILE INFORMATION`.
+- **RATTLER payload** — the concrete `TARGET`/`ADDRESS`/`DEVICE` facts Files
+  legitimately reads from the artifact, no action (DEPLOY remains RATTLER's
+  own action, reachable only from RATTLER after OPEN), then `FILE INFORMATION`
+  carrying the payload's opaque release/build provenance.
+
+Software-package details remain compact and action-oriented in the sense
+described above: they state the software name, the release as
+`version · CHANNEL`, the package's current status, the currently installed
+release for that product (or NOT INSTALLED), and the one action available.
+Verbose release documentation (about, capabilities, changes) and the opaque
+release ID stay behind the `RELEASE INFORMATION` disclosure, closed by default
+and reopenable: information is available without being permanently expanded.
+A software-module detail states what the artifact is, the technique it can
+supply standalone, its optional Flipper host, and the separate current
+integration state — and deliberately offers no INSTALL, because a module is
+not installable software. Optional integration is admitted from Flipper, the
+application that owns that operation. Text byte size is derived from its UTF-8
+content. Package, module, `deauth.ext`, executable and RATTLER payload byte
+sizes are explicit represented artifact data because their actual payloads are
+not modeled. Storage capacity, usage, and disk-full behavior are intentionally
+not represented.
+
+Remote upload from a selected local artifact (`REMOTE TRANSFER`) is unchanged
+by this presentation and is described in full below; it renders after every
+kind's own sections, and its transfer state is never presented as intrinsic
+file state.
 
 
 ## FileTransfer runtime
