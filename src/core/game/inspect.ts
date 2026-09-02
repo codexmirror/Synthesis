@@ -1,7 +1,7 @@
 import { isValidIpv4, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DiscoveryState, EnhancedInspectEvidence, InspectedNetworkRelationship, NetworkHost, ServiceInspectSnapshot } from './types'
-import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID, authGuard10ProtectsGateSsh133 } from './authGuard'
+import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID, authGuard10SupportsGateSshAuthentication } from './authGuard'
 
 export type InspectTargets = NetworkTargets
 
@@ -61,7 +61,7 @@ function enhancedEvidenceFor(host: Readonly<NetworkHost>): EnhancedInspectEviden
   return {
     firmware: { name: host.firmware.name, version: host.firmware.version },
     computeClass: classifyComputeCapacity(host.hardware.cpu.computeCapacity),
-    ...(authGuard && gateSsh ? { authGuard: { name: 'AuthGuard' as const, version: '1.0' as const, protectedImplementation: `${gateSsh.implementation.name} ${gateSsh.implementation.version}`, compatibility: authGuard10ProtectsGateSsh133(host.installedSoftware, gateSsh) ? 'SUPPORTED' as const : 'UNSUPPORTED' as const } } : {}),
+    ...(authGuard && gateSsh ? { authGuard: { name: 'AuthGuard' as const, version: '1.0' as const, protectedImplementation: `${gateSsh.implementation.name} ${gateSsh.implementation.version}`, compatibility: authGuard10SupportsGateSshAuthentication(host.installedSoftware, gateSsh) ? 'SUPPORTED' as const : 'UNSUPPORTED' as const } } : {}),
   }
 }
 

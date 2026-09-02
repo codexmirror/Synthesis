@@ -370,6 +370,26 @@ describe('NodeScan information boundary', () => {
     expect(screen.queryByText('GateSSH 1.3.2')).not.toBeInTheDocument()
   })
 
+  it('presents inspected security software by product name without discarding remembered release identity', async () => {
+    const observed = withNodeScan11(createInitialGameState())
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    let discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
+    discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), observed.player.localDevice.id)
+    const state = { ...observed, discovery }
+    const remembered = discovery.devices.find(({ id }) => id === 'host-lan-002')!.inspect!.enhanced!.authGuard!
+
+    expect(remembered).toMatchObject({ name: 'AuthGuard', version: '1.0', compatibility: 'SUPPORTED' })
+    expect(selectTarget(state, 'host-lan-002')?.observed?.authGuard?.name).toBe('AuthGuard')
+
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    await openDetails(user)
+    const securityFacts = screen.getByText('SECURITY SOFTWARE').closest('.node-section')!.nextElementSibling!
+    expect(securityFacts).toHaveTextContent('AuthGuard')
+    expect(securityFacts).not.toHaveTextContent('AuthGuard 1.0')
+  })
+
   it('never observes or changes anything by opening technical details', async () => {
     const user = await openTarget(knownWeakness())
     const before = screen.getByTestId('game-state').textContent

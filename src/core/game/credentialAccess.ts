@@ -6,7 +6,7 @@ import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
-import { authGuard10ProtectsGateSsh133 } from './authGuard'
+import { authGuard10SupportsGateSshAuthentication } from './authGuard'
 
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
 const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
@@ -132,7 +132,7 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   let succeeds = validSurface
   if (validSurface && process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
     const chance = process.vulnerabilityId === 'AUTH-017' ? 0.75
-      : process.vulnerabilityId === 'AUTH-031' && authGuard10ProtectsGateSsh133(host?.installedSoftware, service) ? 0.05
+      : process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host?.installedSoftware, service) ? 0.05
         : process.vulnerabilityId === 'AUTH-031' ? 0.5 : 0
     succeeds = random() < chance
   }

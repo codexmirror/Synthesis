@@ -234,11 +234,14 @@ RackUpdate public package submission is not FileTransfer Upload. It takes one co
 
 AuthGuard 1.0 is ordinary installed software and a separate lootable package on
 srv-02. Its narrow installation compatibility is RACK-OS; NODE-OS rejects it.
-Installation alone changes no Service, Knowledge, or authority. Its one current
-product semantic is compatibility with GateSSH 1.3.3. A GateSSH release change
-changes the underlying vulnerable implementation and weakness while preserving
-AuthGuard as an unsupported installation; a mitigation instead leaves the
-underlying weakness in place while changing how a concrete exploit exercises it.
+Installation alone changes no Service, Knowledge, or authority. AuthGuard is the
+product identity; its concrete represented 1.0 release explicitly supports the
+GateSSH 1.3.3 and 1.4.0 authentication pipelines, while GateSSH 1.3.2 is
+unsupported. Compatibility is independent of weakness presence: GateSSH 1.4.0
+currently exposes neither authored Credential Access weakness. A GateSSH release
+change changes the underlying vulnerable implementation and weakness while
+preserving the AuthGuard installation; a mitigation instead leaves the underlying
+weakness in place while changing how a concrete exploit exercises it.
 
 A software-package file is an artifact on a Device-owned filesystem, not an
 installation or a running Process. Downloading the experimental package alone

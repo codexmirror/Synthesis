@@ -568,7 +568,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
         observed: {
           deviceKind: device.inspect.deviceKind,
           networkStatus: device.inspect.networkStatus,
-          ...(device.inspect.enhanced ? { firmware: `${device.inspect.enhanced.firmware.name} ${device.inspect.enhanced.firmware.version}`, computeClass: device.inspect.enhanced.computeClass, ...(device.inspect.enhanced.authGuard ? { authGuard: { name: `${device.inspect.enhanced.authGuard.name} ${device.inspect.enhanced.authGuard.version}`, protectedImplementation: device.inspect.enhanced.authGuard.protectedImplementation, compatibility: device.inspect.enhanced.authGuard.compatibility } } : {}) } : {}),
+          ...(device.inspect.enhanced ? { firmware: `${device.inspect.enhanced.firmware.name} ${device.inspect.enhanced.firmware.version}`, computeClass: device.inspect.enhanced.computeClass, ...(device.inspect.enhanced.authGuard ? { authGuard: { name: device.inspect.enhanced.authGuard.name, protectedImplementation: device.inspect.enhanced.authGuard.protectedImplementation, compatibility: device.inspect.enhanced.authGuard.compatibility } } : {}) } : {}),
         },
       }
       : {}),
