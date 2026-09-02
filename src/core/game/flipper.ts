@@ -3,8 +3,9 @@ import { FLIPPER_1_0, FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID, FLIPPER
 import type { ExecutableFile, FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProcess, GameState, InstalledSoftware, LocalDeviceState, SoftwareModuleFile } from './types'
 
 /**
- * Flipper is the player's one extensible offensive/access tool, and the only
- * installed software product that supplies offensive technique support.
+ * Flipper is the extensible offensive/access host for its concrete integrated
+ * modules and richer arsenal experience. It does not own offensive Techniques:
+ * independent providers such as KeyProbe may supply them without Flipper.
  *
  * A module is a concrete technique Flipper can integrate and then execute. It
  * is deliberately not a plugin framework, not a capability engine and not
