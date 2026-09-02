@@ -383,7 +383,7 @@ describe('NodeScan information boundary', () => {
     const remembered = discovery.devices.find(({ id }) => id === 'host-lan-002')!.inspect!.enhanced!.authGuard!
 
     expect(remembered).toMatchObject({ name: 'AuthGuard', version: '1.0', compatibility: 'SUPPORTED' })
-    expect(selectTarget(state, 'host-lan-002')?.services.find(({ id }) => id === 'service-ssh-002')?.software).toEqual(['GateSSH 1.3.3', 'AuthGuard'])
+    expect(selectTarget(state, 'host-lan-002')?.services.find(({ id }) => id === 'service-ssh-002')?.software).toEqual(['GateSSH 1.3.3', 'AuthGuard 1.0'])
 
     const user = userEvent.setup()
     render(<GameProvider initialState={state}><Network /><StateSnapshot /></GameProvider>)
@@ -392,8 +392,7 @@ describe('NodeScan information boundary', () => {
     const ssh = screen.getByText('SSH').closest('.ns-service') as HTMLElement
     const software = within(ssh).getByText('SOFTWARE').closest('div')!
     expect(software).toHaveTextContent('GateSSH 1.3.3')
-    expect(software).toHaveTextContent('AuthGuard')
-    expect(software).not.toHaveTextContent('AuthGuard 1.0')
+    expect(software).toHaveTextContent('AuthGuard 1.0')
     expect(ssh).toHaveTextContent('Analysis found relevant information.')
     expect(ssh).not.toHaveTextContent('AUTH-031')
     expect(ssh).not.toHaveTextContent('Pre-authentication challenge state reuse')

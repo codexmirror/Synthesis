@@ -462,7 +462,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     const observedAuthGuard = device.inspect?.enhanced?.authGuard
     const software = [
       ...(observed ? [observed.implementation] : []),
-      ...(observed && observedAuthGuard?.protectedImplementation === observed.implementation ? [observedAuthGuard.name] : []),
+      ...(observed && observedAuthGuard?.protectedImplementation === observed.implementation ? [`${observedAuthGuard.name} ${observedAuthGuard.version}`] : []),
     ]
     const weaknesses = knowledgeFor(information, device.id, service.id)
     const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
