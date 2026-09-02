@@ -899,15 +899,6 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
         {target.observed.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
-    {target.observed?.authGuard && <>
-      <div className="node-section"><span>SECURITY SOFTWARE</span></div>
-      <dl className="node-facts">
-        <div><dt>SOFTWARE</dt><dd>{target.observed.authGuard.name}</dd></div>
-        <div><dt>STATUS</dt><dd>INSTALLED</dd></div>
-        <div><dt>PROTECTION</dt><dd>{target.observed.authGuard.protectedImplementation} authentication</dd></div>
-        <div><dt>COMPATIBILITY</dt><dd>{target.observed.authGuard.compatibility}</dd></div>
-      </dl>
-    </>}
     {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
     {/*
       * Inspect explains itself where it is offered: Scan found the attack
@@ -942,8 +933,7 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
           </header>
           <CopyReference value={service.endpoint} copyState={copyState} onCopy={onCopy} />
           {service.observed && <dl className="node-facts">
-            <div><dt>SOFTWARE</dt><dd>{service.observed.implementation}</dd></div>
-            {service.observed.authentication && <div><dt>AUTHENTICATION</dt><dd>{service.observed.authentication}</dd></div>}
+            {service.software.length > 0 && <div><dt>SOFTWARE</dt><dd className="ns-software-list">{service.software.map((software) => <span key={software}>{software}</span>)}</dd></div>}
             {service.observed.interface && <div><dt>INTERFACE</dt><dd>{service.observed.interface}</dd></div>}
           </dl>}
           {/*
@@ -952,7 +942,7 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
             * found reads as a result rather than as a description of what
             * ANALYZE is about to do.
             */}
-          {service.weaknesses.map((weakness) => <p className="ns-weakness" key={weakness.id}><strong>{weakness.label}</strong><span>{weakness.id}</span></p>)}
+          {service.weaknesses.length > 0 && <p className="ns-quiet-note">Analysis found relevant information.</p>}
           {service.analysisPercent === undefined && service.analysisOutcome === 'no_weakness_detected' && <p className="ns-quiet-note">Last analysis found no weakness.</p>}
           {service.analysisPercent === undefined && service.analysisOutcome === 'service_unavailable' && <p className="ns-quiet-note">Last analysis did not complete against the service.</p>}
           {service.accessPrivilege && <p className="ns-quiet-note">{service.accessPrivilege} access was established through this service.</p>}

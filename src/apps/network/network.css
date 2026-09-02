@@ -614,9 +614,7 @@
 .ns-service-head strong { color: var(--text-strong); font: 600 .8rem Inter, system-ui, sans-serif; }
 .ns-service-head span { color: var(--text-muted); font-size: .58rem; letter-spacing: .1em; }
 
-.ns-weakness { margin: 0; display: grid; gap: 2px; }
-.ns-weakness strong { color: var(--accent); font-size: .7rem; font-weight: 500; }
-.ns-weakness span { color: var(--text-muted); font-size: .56rem; letter-spacing: .12em; }
+.ns-software-list { display: grid; gap: 4px; }
 
 .ns-quiet-note { margin: 0; color: var(--text-quiet); font-size: .64rem; line-height: 1.5; }
 

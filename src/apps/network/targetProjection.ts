@@ -111,6 +111,8 @@ export interface TargetService {
   readonly port: number
   readonly protocol: 'TCP' | 'UDP'
   readonly endpoint: string
+  /** Concrete Service-relevant software from remembered observation only. */
+  readonly software: readonly string[]
   readonly observed?: { readonly implementation: string; readonly authentication?: string; readonly interface?: string }
   readonly weaknesses: readonly KnownWeakness[]
   readonly analysisPercent?: number
@@ -238,7 +240,6 @@ export interface Target extends TargetSummary {
     readonly networkStatus: 'ONLINE'
     readonly firmware?: string
     readonly computeClass?: string
-    readonly authGuard?: { readonly name: string; readonly protectedImplementation: string; readonly compatibility: 'SUPPORTED' | 'UNSUPPORTED' }
   }
   readonly services: readonly TargetService[]
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
@@ -458,6 +459,11 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const routes: TargetRoute[] = []
   const services = device.services.map((service): TargetService => {
     const observed = describeImplementation(service.inspect)
+    const observedAuthGuard = device.inspect?.enhanced?.authGuard
+    const software = [
+      ...(observed ? [observed.implementation] : []),
+      ...(observed && observedAuthGuard?.protectedImplementation === observed.implementation ? [`${observedAuthGuard.name} ${observedAuthGuard.version}`] : []),
+    ]
     const weaknesses = knowledgeFor(information, device.id, service.id)
     const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
     const running = analysis.find(({ status }) => status === 'running')
@@ -494,6 +500,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
       port: service.port,
       protocol: service.protocol,
       endpoint: service.endpoint,
+      software,
       ...(observed ? { observed } : {}),
       weaknesses,
       analysisRequired: weaknesses.length === 0 && outcome !== 'no_weakness_detected' && outcome !== 'weaknesses_detected',
@@ -568,7 +575,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
         observed: {
           deviceKind: device.inspect.deviceKind,
           networkStatus: device.inspect.networkStatus,
-          ...(device.inspect.enhanced ? { firmware: `${device.inspect.enhanced.firmware.name} ${device.inspect.enhanced.firmware.version}`, computeClass: device.inspect.enhanced.computeClass, ...(device.inspect.enhanced.authGuard ? { authGuard: { name: device.inspect.enhanced.authGuard.name, protectedImplementation: device.inspect.enhanced.authGuard.protectedImplementation, compatibility: device.inspect.enhanced.authGuard.compatibility } } : {}) } : {}),
+          ...(device.inspect.enhanced ? { firmware: `${device.inspect.enhanced.firmware.name} ${device.inspect.enhanced.firmware.version}`, computeClass: device.inspect.enhanced.computeClass } : {}),
         },
       }
       : {}),
