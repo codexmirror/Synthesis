@@ -72,7 +72,11 @@ function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess;
   return <section className="process-projection" aria-label={`${process.label} ${process.status}`}>
     <strong>{process.label}</strong>
     <div><TargetToken value={process.startedEndpoint} scope="external" /></div>
-    {(process.kind === 'credential_access' || process.kind === 'rack_update_exploit') && process.status === 'running' && <div className="muted">{process.toolId !== 'flipper' ? FLIPPER_MODULE_NAME[process.moduleId] : `Flipper · ${FLIPPER_MODULE_NAME[process.moduleId]}`}</div>}
+    {(process.kind === 'credential_access' || process.kind === 'rack_update_exploit') && process.status === 'running' && <div className="muted">{
+      process.kind === 'credential_access' && process.toolId === 'keyprobe' ? 'KeyProbe'
+        : process.toolId === 'flipper' ? `Flipper · ${FLIPPER_MODULE_NAME[process.moduleId!]}`
+          : FLIPPER_MODULE_NAME[process.moduleId!]
+    }</div>}
     <div className="process-state">{process.status.toUpperCase()}</div>
     {process.status === 'running' ? <>
       <div aria-label={`${progress}% complete`}><span aria-hidden="true">{'█'.repeat(filled)}{'░'.repeat(10 - filled)}</span> {progress}%</div>

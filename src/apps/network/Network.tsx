@@ -220,10 +220,11 @@ export function Network() {
           : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
   }
 
-  function hack(route: TargetRoute, targetDeviceId: string) {
+  function hack(route: TargetRoute, targetDeviceId: string, providerId: NonNullable<TargetOffensiveAction['providerId']>) {
     const result = actions.startCredentialAccessAttemptFromObservation({
       endpoint: route.endpoint, targetDeviceId, serviceId: route.serviceId,
       vulnerabilityId: route.vulnerabilityId,
+      providerId,
     })
     if (result.status === 'started') setNotice(null)
     else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
@@ -332,7 +333,7 @@ export function Network() {
         onScan={() => scan(target)}
         onInspect={() => inspect(target)}
         onExecuteAction={(action) => action.technique === 'Credential Access'
-          ? action.route && hack(action.route as TargetRoute, target.id)
+          ? action.route && action.providerId && hack(action.route as TargetRoute, target.id, action.providerId)
           : action.route && attackPackageSubmission(target)}
         onConnect={() => connect(target)}
         onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
@@ -731,7 +732,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
       {target.offensiveActions.length === 0
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
-        : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={action.technique}>
+        : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={`${action.technique}:${action.provider}`}>
           <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.provider}</span></div>
           {/*
             * A Technique whose own attempt is already running says so where
@@ -739,10 +740,10 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
             * ALREADY RUNNING.
             */}
           {action.running
-            ? <span className="node-chip node-chip--running" aria-label={`${action.technique} running`}><i className="ns-live-dot" aria-hidden="true" />RUNNING</span>
+            ? <span className="node-chip node-chip--running" aria-label={`${action.technique} with ${action.provider} running`}><i className="ns-live-dot" aria-hidden="true" />RUNNING</span>
             : action.route
-              ? <button type="button" className="node-action" aria-label={`Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>EXECUTE</button>
-              : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} unavailable`}>UNAVAILABLE</span>}
+              ? <button type="button" className="node-action" aria-label={action.technique === 'Credential Access' ? `Execute ${action.technique} with ${action.provider}` : `Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>EXECUTE</button>
+              : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} with ${action.provider} unavailable`}>UNAVAILABLE</span>}
         </article>)}</div>}
     </section>
 

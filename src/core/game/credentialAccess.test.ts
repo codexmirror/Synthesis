@@ -32,6 +32,30 @@ function changeService(state: GameState, change: (service: NonNullable<GameState
 }
 
 describe('Initial credential access', () => {
+  it.each([
+    [0.749999, 'access_established', 'SUCCESS'],
+    [0.75, 'attempt_failed', 'FAILURE'],
+  ] as const)('gives KeyProbe its one canonical 75%% boundary decision (%s)', (roll, status, evidence) => {
+    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    if (started.status !== 'started') throw Error(started.status)
+    let rolls = 0
+    const done = advanceGameState(started.state, 30_000, () => { rolls += 1; return roll })
+    expect(rolls).toBe(1)
+    expect(done.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.result?.status).toBe(status)
+    expect(done.deviceAccess.established).toHaveLength(status === 'access_established' ? 1 : 0)
+    expect(done.world.network.hosts[0].authenticationHistory?.records.at(-1)?.result).toBe(evidence)
+    expect(advanceGameState(done, 30_000, () => { throw Error('must not reroll') })).toBe(done)
+  })
+
+  it('does not roll KeyProbe when current World Truth no longer supplies a reachable valid surface', () => {
+    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    if (started.status !== 'started') throw Error(started.status)
+    const closed = changeService(started.state, (service) => ({ ...service, open: false }))
+    const done = advanceGameState(closed, 30_000, () => { throw Error('must validate reachability before probability') })
+    expect(done.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.result?.status).toBe('attempt_failed')
+    expect(done.deviceAccess.established).toEqual([])
+    expect(done.world.network.hosts[0].authenticationHistory?.records).toEqual([])
+  })
   it('cancels a partial attempt without access, authentication trace, or later resolution', () => {
     const partial = advanceGameState(start(), 3000)
     const process = partial.process.processes.find(({ kind }) => kind === 'credential_access')!
@@ -56,6 +80,10 @@ describe('Initial credential access', () => {
     const unrelated = { ...observation, vulnerabilityId: 'UNRELATED-001' }
     const unrelatedKnown = { ...state, knowledge: { discoveredVulnerabilities: [{ ...state.knowledge.discoveredVulnerabilities[0], vulnerabilityId: unrelated.vulnerabilityId }] } }
     expect(canFormCredentialAccessAttempt(unrelatedKnown, unrelated)).toBe(false)
+
+    const standardOnly = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
+    expect(canFormCredentialAccessAttempt(standardOnly, { ...observation, providerId: 'keyprobe' })).toBe(true)
+    expect(canFormCredentialAccessAttempt(standardOnly, observation)).toBe(false)
   })
 
   it('does not consult secretly changed weakness truth for known feasibility or start admission', () => {

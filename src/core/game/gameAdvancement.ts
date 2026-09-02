@@ -29,14 +29,14 @@ import { advanceRattlerPinSearches } from './rattler'
  * `nextState.process.processes` is equivalent to resolving them positionally
  * in one pass, and is exactly what happens here.
  */
-export function advanceGameState(state: GameState, elapsedMs: number): GameState {
+export function advanceGameState(state: GameState, elapsedMs: number, credentialAccessRandom: () => number = Math.random): GameState {
   let nextState = advanceRattlerPinSearches(state, elapsedMs)
 
   const executors = [nextState.player.localDevice, ...nextState.world.network.hosts.filter((host) => host.hardware && host.runtime).map((host) => ({ id: host.id, hardware: host.hardware!, runtime: host.runtime! }))]
   const processState = advanceProcesses(nextState.process, executors, elapsedMs)
   if (processState !== nextState.process) {
     nextState = { ...nextState, process: processState }
-    nextState = resolveCompletedCredentialAccessAttempts(nextState)
+    nextState = resolveCompletedCredentialAccessAttempts(nextState, credentialAccessRandom)
     nextState = resolveCompletedRackUpdateExploits(nextState)
     nextState = resolveCompletedServiceAnalyses(nextState)
     // Continuous NODE Miner production, payout routing, and the Miner's own payout artifact are resolved every advancement step, not only at completion.

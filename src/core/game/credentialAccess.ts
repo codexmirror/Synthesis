@@ -1,7 +1,7 @@
 import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
-import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalTechniqueTool, flipperSupportsTechnique } from './flipper'
+import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from './flipper'
 import { vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
@@ -9,6 +9,8 @@ import { isDeviceNetworkUsable } from './deviceOperationalState'
 
 /** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
 const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
+export const STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID = 'keyprobe' as const
+export type CredentialAccessProviderId = CredentialAccessProcess['toolId']
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
 export const CREDENTIAL_ACCESS_RAM_REQUIRED_MIB = 896
 
@@ -17,13 +19,33 @@ export interface CredentialAccessObservation {
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly vulnerabilityId: string
+  readonly providerId?: CredentialAccessProviderId
+}
+
+function ownsStandardProvider(state: Pick<GameState, 'player'>): boolean {
+  return state.player.localDevice.installedSoftware.some(({ id, releaseId, buildId }) => id === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID && releaseId === 'keyprobe-1.0' && buildId === 'build-keyprobe-1.0-v0')
+}
+
+export function ownedCredentialAccessProviders(state: Pick<GameState, 'player'>, vulnerabilityId: string): readonly { readonly id: CredentialAccessProviderId; readonly name: string }[] {
+  if (vulnerabilityId !== 'AUTH-017') return []
+  const providers: { id: CredentialAccessProviderId; name: string }[] = []
+  if (ownsStandardProvider(state)) providers.push({ id: STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, name: 'KeyProbe' })
+  const tool = findLocalTechniqueTool(state.player.localDevice, vulnerabilityId)
+  const flipper = findInstalledFlipper(state.player.localDevice)
+  if (tool) {
+    const integrated = Boolean(flipper && flipperSupportsTechnique(flipper, vulnerabilityId))
+    const standalone = findLocalFlipperModuleArtifacts(state.player.localDevice).find((file) => file.moduleId === CREDENTIAL_ACCESS_MODULE_ID && isSupportedFlipperModuleArtifact(file))
+    providers.push({ id: integrated ? FLIPPER_PRODUCT_ID : 'credential-access-module', name: integrated ? `${tool.toolName} · ${tool.moduleName}` : standalone?.path ?? tool.moduleName })
+  }
+  return providers
 }
 
 export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'deviceAccess'>, observed: CredentialAccessObservation): boolean {
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const tool = findLocalTechniqueTool(state.player.localDevice, observed.vulnerabilityId)
+  const requestedProvider = observed.providerId ?? 'credential-access-module'
+  const tool = ownedCredentialAccessProviders(state, observed.vulnerabilityId).some(({ id }) => id === requestedProvider)
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   return Boolean(service && known && tool && !accessed)
 }
@@ -46,10 +68,12 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   })
   if (started.status === 'insufficient_memory') return { ...started, state }
   const installedHost = findInstalledFlipper(state.player.localDevice)
-  const executionToolId = installedHost && flipperSupportsTechnique(installedHost, observed.vulnerabilityId) ? FLIPPER_PRODUCT_ID : 'credential-access-module' as const
+  const executionToolId = observed.providerId ?? 'credential-access-module'
+  if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && flipperSupportsTechnique(installedHost, observed.vulnerabilityId))) return { status: 'not_available', state }
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
-    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: executionToolId, moduleId: CREDENTIAL_ACCESS_MODULE_ID,
+    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: executionToolId,
+    ...(executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID ? {} : { moduleId: CREDENTIAL_ACCESS_MODULE_ID }),
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }
@@ -72,14 +96,14 @@ function resolveExecutorAddress(state: GameState, executorDeviceId: string): str
  * aggregating the resulting DeviceAccess and World mutations itself so the
  * canonical advancement boundary never has to thread them by hand.
  */
-export function resolveCompletedCredentialAccessAttempts(state: GameState): GameState {
+export function resolveCompletedCredentialAccessAttempts(state: GameState, random: () => number = Math.random): GameState {
   let deviceAccess = state.deviceAccess
   let world = state.world
   let changed = false
   const processes = state.process.processes.map((process) => {
     if (process.kind !== 'credential_access' || process.status !== 'completed' || process.result) return process
     changed = true
-    const resolved = resolveCompletedCredentialAccess({ ...state, deviceAccess, world }, process)
+    const resolved = resolveCompletedCredentialAccess({ ...state, deviceAccess, world }, process, random)
     deviceAccess = resolved.deviceAccess
     world = resolved.world
     return resolved.process
@@ -88,7 +112,7 @@ export function resolveCompletedCredentialAccessAttempts(state: GameState): Game
   return { ...state, process: { ...state.process, processes }, deviceAccess, world }
 }
 
-export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess']; world: GameState['world'] } {
+export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess, random: () => number = Math.random): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess']; world: GameState['world'] } {
   const resolved = resolveServiceEndpoint(state, process.startedEndpoint)
   const host = state.world.network.hosts.find(({ id }) => id === process.targetDeviceId)
   const service = host?.services?.find(({ id }) => id === process.serviceId)
@@ -98,10 +122,13 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
   if (!reached || !service) return failedResult
 
-  const succeeds = Boolean(vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess)
+  const validSurface = Boolean(vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess)
   // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
   // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
   const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
+  // KeyProbe makes this one decision only after the current represented surface
+  // is valid. The specialized module remains deterministic for AUTH-017.
+  const succeeds = validSurface && (process.toolId !== STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID || random() < 0.75)
   const result = succeeds ? 'SUCCESS' as const : 'FAILURE' as const
   const world = sourceAddress
     ? appendNetworkConnectionAttemptEvidence(

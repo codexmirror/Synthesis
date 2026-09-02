@@ -91,6 +91,7 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
             targetDeviceId: device.id,
             serviceId: service.id,
             vulnerabilityId: known.vulnerabilityId,
+            providerId: 'credential-access-module',
           })
 
         return result
