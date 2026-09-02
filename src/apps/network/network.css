@@ -27,6 +27,14 @@
 /* Zero-specificity reset: every rule below may still set its own type scale. */
 :where(.scan-app) button { font: inherit; }
 
+.ns-masthead-tools { display: flex; align-items: flex-end; gap: 8px; flex-direction: column; }
+.ns-arsenal-link { padding: 5px 7px; border: 1px solid var(--line); color: var(--accent); background: transparent; font-size: .56rem; letter-spacing: .08em; }
+
+@media (max-width: 420px) {
+  .ns-masthead-tools { gap: 5px; }
+  .ns-arsenal-link { max-width: 92px; line-height: 1.25; }
+}
+
 .ns-view { max-width: 640px; }
 
 /* Subject ------------------------------------------------------------- */
