@@ -6,7 +6,14 @@ describe('GateSSH release vulnerability truth', () => {
   it('derives each authored weakness from its owning GateSSH release', () => {
     const services = createInitialGameState().world.network.hosts.flatMap((host) => host.services ?? []).filter((service) => service.implementation.productId === 'gate-ssh')
     expect(services).toHaveLength(3)
-    expect(services.map(vulnerabilitiesForService)).toEqual([[AUTH_017], [AUTH_031], [AUTH_017]])
+
+    const gateSsh132Services = services.filter((service) => service.implementation.releaseId === 'gate-ssh-1.3.2')
+    const gateSsh133Services = services.filter((service) => service.implementation.releaseId === 'gate-ssh-1.3.3')
+
+    expect(gateSsh132Services).toHaveLength(2)
+    expect(gateSsh132Services.map(vulnerabilitiesForService)).toEqual([[AUTH_017], [AUTH_017]])
+    expect(gateSsh133Services).toHaveLength(1)
+    expect(vulnerabilitiesForService(gateSsh133Services[0])).toEqual([AUTH_031])
   })
 
   it('does not expose either authored weakness from a GateSSH 1.4.0 fixture', () => {
