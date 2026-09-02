@@ -527,6 +527,37 @@
 
 @keyframes ns-caret-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 
+/*
+ * Target topology: a compact Network → Device → Service technical hierarchy,
+ * read as a deeper continuation of Known Space's own restrained tree rather
+ * than another stack of cards. Connectors are literal monospace glyphs, not
+ * measured geometry, because this view never expands or reorders — it is a
+ * fixed depth read top to bottom.
+ */
+.ns-topo { margin: 18px 0 4px; display: grid; gap: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.ns-topo-line { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; }
+.ns-topo-glyph { flex: none; color: var(--text-faint); font-size: .72rem; white-space: pre; }
+.ns-topo-eyebrow { flex: none; color: var(--accent-mark); font-size: var(--label-size); letter-spacing: var(--label-tracking); }
+.ns-topo-text { min-width: 0; color: var(--text-secondary); font-size: .68rem; overflow-wrap: anywhere; }
+.ns-topo-text--strong { color: var(--text-strong); font-weight: 600; }
+.ns-topo-text--muted { color: var(--text-quiet); }
+
+.ns-topo-line--network { padding-top: 0; }
+.ns-topo-line--device { padding-left: 2px; }
+.ns-topo-line--note { padding-left: 2px; }
+.ns-topo-group { display: grid; }
+
+.ns-topo-status { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: .52rem; letter-spacing: .12em; }
+.ns-topo-status--up { color: var(--green); }
+.ns-topo-status--down,
+.ns-topo-status--live { color: var(--caution); }
+
+@media (max-width: 420px) {
+  .ns-topo-line { flex-wrap: wrap; }
+  .ns-topo-status { margin-left: 22px; }
+}
+
 /* The primary action. One per screen, always touch-sized and full width. */
 .ns-primary {
   min-height: 52px;

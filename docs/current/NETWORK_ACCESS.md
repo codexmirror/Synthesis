@@ -191,6 +191,34 @@ and module without moving capability selection into presentation. Availability n
 still produce a legitimately failed attempt, which is reported coarsely while
 the same route stays available.
 
+Above ACTIONS, the target card also draws a compact Network → Device →
+Service topology: a restrained connector tree, read as a deeper continuation
+of Known Space's own tree rather than another stack of cards. The Network
+line states the remembered Network name (or that membership was not
+observed, exactly as Known Space's own `ELSEWHERE` grouping states it); the
+Device line states the target's identity exactly as the rest of the card
+does — its observed display name where Inspect legitimately remembered one,
+its address otherwise; each remembered Service line states its name, port
+and protocol, with a further line for its remembered software identity only
+where Scan or Inspect actually observed one. An unscanned target states that
+Services were not observed rather than presenting an empty result, and this
+view fabricates no Service or software identity beyond what TECHNICAL
+INTELLIGENCE already carries: every fact it draws is the same `Target`
+projection, read a second time for compact legibility. The Device line
+carries the strongest truthful availability mark this projection can support
+— `ONLINE` once Services have ever been legitimately observed, `NO RESPONSE`
+where the current visit's own most recent Scan or Inspect against this exact
+target failed to reach it, and no mark at all where neither applies. That
+mark is derived from the concrete request's own outcome, never from hidden
+current connectivity truth, and it is not remembered: leaving and reopening
+the target starts the read over. NodeScan has no legitimate route to a
+narrower runtime state such as RECONNECTING or REBOOTING, so this view never
+claims one. A DEAUTH attempt currently running against this Device's Network
+marks the Network line itself, never the Device or a Service line, keeping
+DEAUTH visibly Network-scoped. The former separate STATUS field under
+TECHNICAL INTELLIGENCE's OBSERVED facts is retired as redundant with this
+mark; NAME, TYPE, FIRMWARE and COMPUTE remain there unchanged.
+
 TECHNICAL INTELLIGENCE is one disclosure on the target card carrying the
 copyable address, remembered Inspect evidence (including the observed display
 NAME where one was observed) and its capability note, the manual INSPECT

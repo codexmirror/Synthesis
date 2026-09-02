@@ -738,6 +738,8 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
     </StageSection>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
+    <TargetTopology target={target} unreachable={notice === 'NO RESPONSE'} />
+
     <section className="ns-actions" aria-labelledby="nodescan-actions-heading">
       <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
       {target.offensiveActions.length === 0
@@ -850,6 +852,78 @@ function Operation({ target, status, progressLabel }: { target: Target; status: 
   </div>
 }
 
+/**
+ * The compact Network → Device → Service technical hierarchy, drawn as a
+ * deeper continuation of Known Space's own restrained tree rather than
+ * another stack of cards. It carries no interaction and performs no
+ * observation of its own: every fact is read straight from the same `Target`
+ * TECHNICAL INTELLIGENCE already derives, so opening or reading it can never
+ * diverge from what that disclosure states.
+ *
+ * Network, Device and Service stay visually distinct scopes on purpose —
+ * DEAUTH's own Network-scoped effect is legible here as a mark on the
+ * Network line, never on a Service, because that is the scope it actually
+ * changes.
+ *
+ * `unreachable` is the one piece of state this view adds on top of `Target`:
+ * whether the most recent concrete Scan or Inspect issued against this exact
+ * target, this visit, came back with no response. It is derived from the
+ * same real request outcome the page's own notice line already states, never
+ * from a timer or from hidden current connectivity truth, and it resets the
+ * moment the player leaves or re-scans. Where it does not apply, the
+ * strongest truthful signal NodeScan retains is the historical fact that a
+ * Scan or Inspect once found this Device responsive — not a live guarantee
+ * that it still is.
+ */
+function TargetTopology({ target, unreachable }: { target: Target; unreachable: boolean }) {
+  const networkLabel = locationOf(target)
+  const deviceLabel = target.displayName ?? target.address
+  const deviceStatus = unreachable ? { mark: 'NO RESPONSE', tone: 'down' as const }
+    : target.servicesObserved ? { mark: 'ONLINE', tone: 'up' as const }
+      : null
+  const disrupting = target.stage === 'disrupting'
+
+  return <section className="ns-topo" aria-label="Target topology">
+    <div className="ns-topo-line ns-topo-line--network">
+      <span className="ns-topo-glyph" aria-hidden="true" />
+      <span className="ns-topo-eyebrow">NETWORK</span>
+      <span className="ns-topo-text">{networkLabel}</span>
+      {disrupting && <span className="ns-topo-status ns-topo-status--live"><i className="ns-live-dot" aria-hidden="true" />DISRUPTING</span>}
+    </div>
+
+    <div className="ns-topo-line ns-topo-line--device">
+      <span className="ns-topo-glyph" aria-hidden="true">└──</span>
+      <span className="ns-topo-text ns-topo-text--strong">{deviceLabel}</span>
+      {deviceStatus && <span className={`ns-topo-status ns-topo-status--${deviceStatus.tone}`}>
+        <i className="ns-live-dot" aria-hidden="true" />{deviceStatus.mark}
+      </span>}
+    </div>
+
+    {!target.servicesObserved && <div className="ns-topo-line ns-topo-line--note">
+      <span className="ns-topo-glyph" aria-hidden="true">    └──</span>
+      <span className="ns-topo-text ns-topo-text--muted">Services not observed</span>
+    </div>}
+    {target.servicesObserved && target.services.length === 0 && <div className="ns-topo-line ns-topo-line--note">
+      <span className="ns-topo-glyph" aria-hidden="true">    └──</span>
+      <span className="ns-topo-text ns-topo-text--muted">No open services observed</span>
+    </div>}
+
+    {target.services.map((service, index) => {
+      const last = index === target.services.length - 1
+      return <div className="ns-topo-group" key={service.id}>
+        <div className="ns-topo-line ns-topo-line--service">
+          <span className="ns-topo-glyph" aria-hidden="true">{`    ${last ? '└──' : '├──'}`}</span>
+          <span className="ns-topo-text">{service.name} · {service.port}/{service.protocol}</span>
+        </div>
+        {service.software.length > 0 && <div className="ns-topo-line ns-topo-line--software">
+          <span className="ns-topo-glyph" aria-hidden="true">{`    ${last ? ' ' : '│'}   └──`}</span>
+          <span className="ns-topo-text ns-topo-text--muted">{service.software.join(' · ')}</span>
+        </div>}
+      </div>
+    })}
+  </section>
+}
+
 function Primary({ label, disabled, onClick }: { label: string; disabled?: boolean; onClick(): void }) {
   return <button type="button" className="ns-primary" disabled={disabled} onClick={onClick}>{label}</button>
 }
@@ -902,9 +976,9 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
     {target.observed
       ? <dl className="node-facts">
         {/* Present only where an Inspect actually observed the represented name. */}
+        {/* STATUS is compacted out of this list: the topology view above ACTIONS already states this target's runtime status once, and this dl does not repeat it. */}
         {target.displayName && <div><dt>NAME</dt><dd>{target.displayName}</dd></div>}
         <div><dt>TYPE</dt><dd>{target.observed.deviceKind.toUpperCase()}</dd></div>
-        <div><dt>STATUS</dt><dd>{target.observed.networkStatus}</dd></div>
         {target.observed.firmware && <div><dt>FIRMWARE</dt><dd>{target.observed.firmware}</dd></div>}
         {target.observed.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
       </dl>
