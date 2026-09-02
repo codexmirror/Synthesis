@@ -11,6 +11,8 @@ import type {
   ServiceAnalysisProcess,
 } from '../../core/game/types'
 import { ownedCredentialAccessProviders, type CredentialAccessProviderId } from '../../core/game/credentialAccess'
+import { DEAUTH_EXTENSION, findCompatibleDeauthExtension } from '../../core/game/deauth'
+import type { DeauthProcess } from '../../core/game/types'
 
 /**
  * NodeScan presents one target at a time as a single decision, not as a
@@ -76,6 +78,7 @@ export type TargetStage =
   | 'no_route'
   | 'route'
   | 'hacking'
+  | 'disrupting'
   | 'attack'
   | 'attacking'
   | 'submission_ready'
@@ -252,10 +255,10 @@ export interface Target extends TargetSummary {
 }
 
 export interface TargetOffensiveAction {
-  readonly technique: 'Credential Access' | 'Rollback'
+  readonly technique: 'Credential Access' | 'Rollback' | 'DEAUTH'
   readonly provider: string
   readonly providerId?: CredentialAccessProviderId
-  readonly route?: TargetRoute | PackageSubmissionRoute
+  readonly route?: TargetRoute | PackageSubmissionRoute | { readonly networkId: string; readonly networkName: string; readonly contextDeviceId: string }
   /** This Technique's own attempt is currently running against this target. */
   readonly running: boolean
 }
@@ -276,7 +279,7 @@ export interface TargetOperationFact { readonly label: string; readonly value: s
  * execution surface: this projects real state, it does not narrate it.
  */
 export interface TargetOperation {
-  readonly kind: 'service_analysis' | 'credential_access' | 'rack_update_exploit' | 'package_submission'
+  readonly kind: 'service_analysis' | 'credential_access' | 'rack_update_exploit' | 'package_submission' | 'deauth'
   readonly title: string
   readonly percent: number
   readonly facts: readonly TargetOperationFact[]
@@ -289,6 +292,7 @@ function percentOf(process: { workCompleted: number; workRequired: number }): nu
 function isServiceAnalysis(process: GameProcess): process is ServiceAnalysisProcess { return process.kind === 'service_analysis' }
 function isCredentialAccess(process: GameProcess): process is CredentialAccessProcess { return process.kind === 'credential_access' }
 function isRackUpdateExploit(process: GameProcess): process is RackUpdateExploitProcess { return process.kind === 'rack_update_exploit' }
+function isDeauth(process: GameProcess): process is DeauthProcess { return process.kind === 'deauth' }
 
 /** Aggregate canonical progress of one kind of work currently running against one target. */
 function runningPercent(processes: readonly { workCompleted: number; workRequired: number }[]): number {
@@ -351,6 +355,7 @@ function stageOf(input: {
   connected: boolean
   hasAccess: boolean
   hacking: boolean
+  disrupting: boolean
   analyzing: boolean
   routes: number
   servicesObserved: boolean
@@ -359,6 +364,7 @@ function stageOf(input: {
 }): TargetStage {
   if (input.connected) return 'connected'
   if (input.hacking) return 'hacking'
+  if (input.disrupting) return 'disrupting'
   if (input.analyzing) return 'analyzing'
   if (input.packageSubmission?.attacking) return 'attacking'
   if (input.packageSubmission?.submitting) return 'submitting'
@@ -451,6 +457,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const analyses = information.process.processes.filter(isServiceAnalysis)
   const attempts = information.process.processes.filter(isCredentialAccess)
   const exploits = information.process.processes.filter(isRackUpdateExploit)
+  const deauth = information.process.processes.filter(isDeauth)
   const established = accessFor(information, device.id)
   const activeAccess = established.find(({ id }) => id === information.remoteSession.active?.accessId)
   const serviceName = (serviceId: string) => device.services.find(({ id }) => id === serviceId)?.name
@@ -529,18 +536,24 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
   const offensiveActions: TargetOffensiveAction[] = [
     ...credentialProviders.map((provider) => ({ technique: 'Credential Access' as const, provider: provider.name, providerId: provider.id, running: hacking.length > 0, ...(credentialRoute ? { route: credentialRoute } : {}) })),
     ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, running: Boolean(packageSubmission?.attacking), ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
+    ...(findCompatibleDeauthExtension(information.player.localDevice) ? information.discovery.networkDeviceRelations
+      .filter(({ deviceId }) => deviceId === device.id)
+      .flatMap(({ networkId }) => information.discovery.networks.filter(({ id }) => id === networkId).map((network) => ({ technique: 'DEAUTH' as const, provider: DEAUTH_EXTENSION.name, route: { networkId: network.id, networkName: network.name, contextDeviceId: device.id }, running: deauth.some((process) => process.status === 'running' && process.targetNetworkId === network.id) }))) : []),
   ]
   const stage = stageOf({
     connected: Boolean(activeAccess && information.remoteSession.active),
     hasAccess: Boolean(passive),
     hacking: hacking.length > 0,
+    disrupting: deauth.some((process) => process.status === 'running' && process.contextDeviceId === device.id),
     analyzing: analyzing.length > 0,
     routes: routes.length,
     servicesObserved: device.servicesObserved,
     services,
     packageSubmission,
   })
+  const contextualDeauth = deauth.filter((process) => process.contextDeviceId === device.id && process.status === 'running')
   const percent = stage === 'hacking' ? runningPercent(hacking)
+    : stage === 'disrupting' ? runningPercent(contextualDeauth)
     : stage === 'analyzing' ? runningPercent(analyzing)
       : stage === 'attacking' ? packageSubmission?.attackPercent ?? 0
         : stage === 'submitting' ? packageSubmission?.submitPercent ?? 0 : 0
@@ -555,6 +568,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string): 
     services,
     weaknessLabel: (serviceId, vulnerabilityId) => knowledgeFor(information, device.id, serviceId).find(({ id }) => id === vulnerabilityId)?.label,
     flipperName: flipper?.name,
+    deauth: contextualDeauth,
   })
 
   return {
@@ -616,6 +630,7 @@ function selectOperation(input: {
   services: readonly TargetService[]
   weaknessLabel(serviceId: string, vulnerabilityId: string): string | undefined
   flipperName?: string
+  deauth: readonly DeauthProcess[]
 }): TargetOperation | undefined {
   const serviceOf = (serviceId: string) => input.services.find(({ id }) => id === serviceId)
   // The provider the canonical resolver actually selected when the attempt started, not whatever is currently owned.
@@ -651,6 +666,10 @@ function selectOperation(input: {
   }
   if (input.stage === 'hacking' && input.hacking.length) {
     return { kind: 'credential_access', title: 'CREDENTIAL ACCESS', percent: input.percent, facts: attemptFacts(input.hacking[0]) }
+  }
+  if (input.stage === 'disrupting' && input.deauth.length) {
+    const process = input.deauth[0]
+    return { kind: 'deauth', title: 'DEAUTH', percent: input.percent, facts: [{ label: 'SCOPE', value: 'NETWORK' }, { label: 'NETWORK', value: process.targetNetworkName }, { label: 'PROVIDER', value: DEAUTH_EXTENSION.name }] }
   }
   if (input.stage === 'attacking' && input.exploiting.length) {
     return { kind: 'rack_update_exploit', title: 'ROLLBACK', percent: input.percent, facts: attemptFacts(input.exploiting[0]) }

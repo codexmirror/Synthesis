@@ -1858,9 +1858,7 @@ or exact InstalledSoftware identity supports that statement. This projection
 adds no canonical collection/unlock state, owns no Technique, performs no
 execution, and reads no target truth. The existing NodeScan ACTIONS surface
 continues to execute the same providers with unchanged resolution semantics.
-Rollback is intentionally not forced into a collection category before its
-technical-area grouping is resolved. NETWORK remains absent until a concrete
-Network provider exists; DEAUTH is not implemented by this precedent.
+Rollback remains outside a collection category pending its technical-area grouping. The later implemented DEAUTH slice now adds `NETWORK → DEAUTH → deauth.ext` only when the concrete Flipper Extension and compatible installed Flipper coexist; this does not alter this precedent's ownership rules.
 
 ⸻
 

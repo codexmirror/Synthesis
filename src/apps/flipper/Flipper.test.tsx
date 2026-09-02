@@ -52,14 +52,16 @@ describe('Flipper application', () => {
     expect(value('SIZE')).toBe('5.6 MB')
   })
 
-  it('presents the derived ACCESS branch with both concrete Credential Access providers and no speculative NETWORK branch', () => {
+  it('presents derived ACCESS and concrete NETWORK branches', () => {
     render(<GameProvider initialState={withInstalledHost()}><Flipper /></GameProvider>)
     const arsenal = screen.getByRole('region', { name: 'Offensive arsenal' })
     expect(arsenal).toHaveTextContent('ACCESS')
     expect(arsenal).toHaveTextContent('CREDENTIAL ACCESS')
     expect(arsenal).toHaveTextContent('Credential Access Module 1.0')
     expect(arsenal).toHaveTextContent('KeyProbe 1.0')
-    expect(arsenal).not.toHaveTextContent('NETWORK')
+    expect(arsenal).toHaveTextContent('NETWORK')
+    expect(arsenal).toHaveTextContent('DEAUTH')
+    expect(arsenal).toHaveTextContent('deauth.ext 1.0')
     expect(within(arsenal).queryByRole('button')).not.toBeInTheDocument()
   })
 

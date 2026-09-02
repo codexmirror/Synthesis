@@ -1,18 +1,19 @@
 import { CREDENTIAL_ACCESS_MODULE_1_0, findCompatibleLocalFlipperModuleArtifacts, findInstalledFlipper, isKeyProbeCompatibleWithFlipper } from '../../core/game/flipper'
 import type { LocalDeviceState } from '../../core/game/types'
+import { DEAUTH_EXTENSION, findCompatibleDeauthExtension } from '../../core/game/deauth'
 
 /** A derived view of one represented provider, never progression state. */
 export interface FlipperArsenalProvider {
-  readonly id: 'credential-access-module' | 'keyprobe'
+  readonly id: 'credential-access-module' | 'keyprobe' | 'deauth-extension'
   readonly name: string
   readonly version: string
-  readonly form: 'SOFTWARE MODULE' | 'INSTALLED SOFTWARE'
-  readonly integration: 'INTEGRATED' | 'AVAILABLE TO INTEGRATE' | 'COMPATIBLE'
+  readonly form: 'SOFTWARE MODULE' | 'INSTALLED SOFTWARE' | 'FLIPPER EXTENSION'
+  readonly integration: 'INTEGRATED' | 'AVAILABLE TO INTEGRATE' | 'COMPATIBLE' | 'AVAILABLE'
 }
 
 export interface FlipperArsenalBranch {
-  readonly area: 'ACCESS'
-  readonly family: 'CREDENTIAL ACCESS'
+  readonly area: 'ACCESS' | 'NETWORK'
+  readonly family: 'CREDENTIAL ACCESS' | 'DEAUTH'
   readonly providers: readonly FlipperArsenalProvider[]
 }
 
@@ -42,5 +43,7 @@ export function deriveFlipperArsenal(device: Pick<LocalDeviceState, 'installedSo
     form: 'INSTALLED SOFTWARE', integration: 'COMPATIBLE',
   })
 
-  return providers.length ? [{ area: 'ACCESS', family: 'CREDENTIAL ACCESS', providers }] : []
+  const branches: FlipperArsenalBranch[] = providers.length ? [{ area: 'ACCESS', family: 'CREDENTIAL ACCESS', providers }] : []
+  if (findCompatibleDeauthExtension(device)) branches.push({ area: 'NETWORK', family: 'DEAUTH', providers: [{ id: 'deauth-extension', name: DEAUTH_EXTENSION.name, version: DEAUTH_EXTENSION.version, form: 'FLIPPER EXTENSION', integration: 'AVAILABLE' }] })
+  return branches
 }

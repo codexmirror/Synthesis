@@ -5,11 +5,12 @@ import { MARKET_OPERATOR_SETTLEMENT_ADDRESS, createInitialMarketState } from './
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from './nodeMiner'
 import { NODESCAN_1_0_STANDARD, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0 } from './softwareReleaseContent'
 import { CREDENTIAL_ACCESS_MODULE_1_0 } from './flipper'
+import { DEAUTH_EXTENSION } from './deauth'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
 
-export const GAME_STATE_VERSION = 60
+export const GAME_STATE_VERSION = 61
 
 export function createInitialGameState(): GameState {
   return {
@@ -21,11 +22,12 @@ export function createInitialGameState(): GameState {
         displayName: 'node-01',
         firmware: { id: NODE_OS_FIRMWARE_ID, name: 'NODE-OS', version: '1.0' },
         filesystem: {
-          nextFileId: 4,
+          nextFileId: 5,
           files: [
             { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
             { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: NODE_MINER_1_0.releaseId, buildId: NODE_MINER_1_0.buildId, productId: NODE_MINER_1_0.productId, name: NODE_MINER_1_0.name, version: NODE_MINER_1_0.version, channel: NODE_MINER_1_0.channel, publisher: NODE_MINER_1_0.publisher, sizeBytes: 3_400_000 },
             { kind: 'software_module', id: 'file-0003', path: '/home/user/modules/credential-access-1.0.mod', ...CREDENTIAL_ACCESS_MODULE_1_0 },
+            { kind: 'deauth_extension', id: 'file-0004', path: '/home/user/extensions/deauth.ext', ...DEAUTH_EXTENSION },
           ],
         },
         network: { ip: '198.51.100.23', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
