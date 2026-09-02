@@ -847,6 +847,17 @@ describe('NodeScan software and request lifecycle', () => {
     expect(appRegistry.network.label).toBe('NodeScan')
   })
 
+  it('opens the installed Flipper arsenal from NodeScan without moving execution out of target ACTIONS', async () => {
+    const state = createInitialGameState()
+    const withFlipper = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice,
+      installedSoftware: [...state.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION],
+    } } }
+    const openApp = vi.fn()
+    render(<GameProvider initialState={withFlipper}><Network openApp={openApp} /></GameProvider>)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'FLIPPER ARSENAL' }))
+    expect(openApp).toHaveBeenCalledWith('flipper')
+  })
+
   it('issues an immediate observation with no presentation timer in front of it', async () => {
     // Real timers deliberately: a presentation timer in front of the canonical
     // operation would leave this assertion waiting on it, since nothing here

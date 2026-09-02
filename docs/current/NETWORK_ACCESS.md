@@ -112,6 +112,13 @@ recommendation, compatibility score, or hidden target-truth filtering. If
 neither provider is owned, ACTIONS states that no offensive Techniques are
 available.
 
+When Flipper is installed, NodeScan's Known Space masthead provides a route to
+Flipper ARSENAL for collection and orientation. That route does not change the
+operation boundary: ARSENAL has no execute controls, does not select or rank
+targets, and does not inspect Discovery, Knowledge, or hidden World Truth.
+Concrete Credential Access attempts continue to begin here in target-contextual
+ACTIONS through the same provider selection and canonical operation below.
+
 An owned Technique with no currently formed execution context (no remembered
 Knowledge/route yet, or Rollback already spent on this target) stays listed —
 its name and provider provenance remain legible — rather than being hidden.

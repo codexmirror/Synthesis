@@ -11,6 +11,7 @@ import {
 import type { FlipperModuleIntegrationProcess } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
 import { SoftwareReleaseCapabilities, SoftwareReleaseDisclosure } from '../SoftwareReleaseDocumentation'
+import { deriveFlipperArsenal, type FlipperArsenalBranch } from './arsenalProjection'
 
 /**
  * The NODE-OS Flipper client.
@@ -42,6 +43,7 @@ export function Flipper() {
   }
 
   const rows = deriveFlipperModuleDisclosure(flipper, device, integrating)
+  const arsenal = deriveFlipperArsenal(device)
 
   function integrate(fileId: string) {
     const result = actions.startFlipperModuleIntegration(fileId)
@@ -60,6 +62,7 @@ export function Flipper() {
       <div><dt>SIZE</dt><dd>{formatBytes(flipper.sizeBytes)}</dd></div>
     </dl>
 
+    <Arsenal branches={arsenal} />
     <Modules rows={rows} integrating={integrating} integrate={integrate} />
     {feedback && <p className="node-note node-note--caution">{feedback}</p>}
     <SoftwareReleaseCapabilities releaseId={flipper.releaseId} />
@@ -67,6 +70,27 @@ export function Flipper() {
       <div><dt>RELEASE ID</dt><dd>{flipper.releaseId}</dd></div>
     </dl>} />
   </section>
+}
+
+/** Collection and orientation only. Contextual execution remains in NodeScan ACTIONS. */
+function Arsenal({ branches }: { branches: readonly FlipperArsenalBranch[] }) {
+  const providerCount = branches.reduce((count, branch) => count + branch.providers.length, 0)
+  return <>
+    <div className="node-section"><span>ARSENAL</span><span>{providerCount} {providerCount === 1 ? 'PROVIDER' : 'PROVIDERS'}</span></div>
+    {branches.length ? <div className="flipper-tree" role="region" aria-label="Offensive arsenal">
+      {branches.map((branch) => <section className="flipper-branch" key={branch.area}>
+        <div className="flipper-branch-area"><span aria-hidden="true">◆</span><strong>{branch.area}</strong></div>
+        <div className="flipper-family">
+          <div className="flipper-family-label"><span aria-hidden="true">◇</span><strong>{branch.family}</strong></div>
+          <div className="flipper-providers">{branch.providers.map((provider) => <article className="flipper-provider" key={provider.id}>
+            <span className="flipper-provider-node" aria-hidden="true" />
+            <div><strong>{provider.name} {provider.version}</strong><small>{provider.form} · {provider.integration}</small></div>
+          </article>)}</div>
+        </div>
+      </section>)}
+    </div> : <div className="node-empty"><strong>ARSENAL EMPTY</strong><span>No compatible offensive provider is represented on this Device.</span></div>}
+    <p className="node-note">Collected providers are organized here. Execute their Techniques against a selected target in NodeScan ACTIONS.</p>
+  </>
 }
 
 /**

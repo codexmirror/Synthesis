@@ -5,7 +5,7 @@ import {
   CREDENTIAL_ACCESS_MODULE_1_0, FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES, FLIPPER_1_0_CANONICAL_INSTALLATION,
   FLIPPER_INSTALLED_EXECUTABLE_PATH, ROLLBACK_MODULE_1_0, deriveFlipperModuleDisclosure, findCompatibleLocalFlipperModuleArtifacts,
   findInstalledFlipper, findLocalTechniqueTool, findRunningFlipperModuleIntegration,
-  flipperSupportsTechnique, startFlipperModuleIntegration,
+  flipperSupportsTechnique, isKeyProbeCompatibleWithFlipper, startFlipperModuleIntegration,
 } from './flipper'
 import {
   FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID,
@@ -63,6 +63,13 @@ describe('standalone offensive module capability', () => {
 })
 
 describe('concrete Flipper host integration', () => {
+  it('owns the exact KeyProbe 1.0 compatibility relationship without inferring future builds', () => {
+    const keyProbe = createInitialGameState().player.localDevice.installedSoftware.find(({ id }) => id === 'keyprobe')!
+    expect(isKeyProbeCompatibleWithFlipper(keyProbe)).toBe(true)
+    expect(isKeyProbeCompatibleWithFlipper({ ...keyProbe, releaseId: 'keyprobe-1.1' })).toBe(false)
+    expect(isKeyProbeCompatibleWithFlipper({ ...keyProbe, buildId: 'unrepresented-build' })).toBe(false)
+  })
+
   it('keeps integratedModules as capability authority rather than inferring from build identity', () => {
     expect(flipperSupportsTechnique({ ...FLIPPER_1_0_CANONICAL_INSTALLATION, buildId: FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID }, 'AUTH-017')).toBe(false)
     expect(flipperSupportsTechnique({ ...FLIPPER_1_0_CANONICAL_INSTALLATION, integratedModules: ['credential-access'] }, 'AUTH-017')).toBe(true)

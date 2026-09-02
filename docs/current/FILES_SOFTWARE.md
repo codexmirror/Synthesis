@@ -743,6 +743,32 @@ integrated module set, compatible local artifacts, and running integration
 work from canonical Device and Process truth. It performs no reconnaissance,
 discovers nothing, and reads no hidden World Truth.
 
+Flipper now also presents an **ARSENAL** collection above its existing module
+workflow. NodeScan links to that surface when Flipper is installed, while
+target execution remains exclusively contextual under NodeScan ACTIONS. The
+first implemented hierarchy is `ACCESS → CREDENTIAL ACCESS`: it shows the
+exact supported Credential Access Module 1.0 when its artifact is locally
+possessed or its module is integrated, and the exact installed KeyProbe 1.0
+release/build as a second compatible provider. KeyProbe remains ordinary
+InstalledSoftware and the module remains a standalone filesystem provider;
+the collection neither owns nor changes their Credential Access Technique or
+resolution behavior.
+
+`deriveFlipperArsenal` is a presentation projection over the local Device's
+represented filesystem, InstalledSoftware, and concrete Flipper build. The
+Flipper domain owns the narrow exact KeyProbe 1.0 release/build compatibility
+rule consumed by that projection; presentation does not establish technical
+compatibility. The projection stores no unlock or collection state, reads no
+target/World Truth, and omits a provider as soon as its represented cause is
+absent (except where completed
+Flipper integration is itself the represented cause). It deliberately names
+only this concrete compatibility precedent rather than introducing Technique,
+provider, capability, or plugin registries. No speculative empty branch is
+rendered. In particular, NETWORK and DEAUTH remain unimplemented and absent.
+Rollback remains available through its unchanged standalone and optional
+integration mechanics, but is deliberately deferred from ARSENAL V1 because
+current semantics do not yet justify a durable collection category for it.
+
 ## Software Removal
 
 REMOVE admits removal of the currently installed release of one product into

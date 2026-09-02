@@ -1850,6 +1850,18 @@ integration inputs. That is accurate implementation truth intentionally left
 unchanged by this design-only pass; it is not authority to extend "module" to
 future Techniques.
 
+The first implemented collection precedent now gives the installed Flipper
+surface a derived ARSENAL reached from NodeScan. Its only current hierarchy is
+`ACCESS → CREDENTIAL ACCESS → [Credential Access Module 1.0, KeyProbe 1.0]`,
+with each leaf present only when its concrete local artifact, integrated build,
+or exact InstalledSoftware identity supports that statement. This projection
+adds no canonical collection/unlock state, owns no Technique, performs no
+execution, and reads no target truth. The existing NodeScan ACTIONS surface
+continues to execute the same providers with unchanged resolution semantics.
+Rollback is intentionally not forced into a collection category before its
+technical-area grouping is resolved. NETWORK remains absent until a concrete
+Network provider exists; DEAUTH is not implemented by this precedent.
+
 ⸻
 
 Capability is derived, not unlocked

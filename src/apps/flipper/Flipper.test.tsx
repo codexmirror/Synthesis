@@ -52,6 +52,17 @@ describe('Flipper application', () => {
     expect(value('SIZE')).toBe('5.6 MB')
   })
 
+  it('presents the derived ACCESS branch with both concrete Credential Access providers and no speculative NETWORK branch', () => {
+    render(<GameProvider initialState={withInstalledHost()}><Flipper /></GameProvider>)
+    const arsenal = screen.getByRole('region', { name: 'Offensive arsenal' })
+    expect(arsenal).toHaveTextContent('ACCESS')
+    expect(arsenal).toHaveTextContent('CREDENTIAL ACCESS')
+    expect(arsenal).toHaveTextContent('Credential Access Module 1.0')
+    expect(arsenal).toHaveTextContent('KeyProbe 1.0')
+    expect(arsenal).not.toHaveTextContent('NETWORK')
+    expect(within(arsenal).queryByRole('button')).not.toBeInTheDocument()
+  })
+
   it('shows only Credential Access as INTEGRATED and discloses no other module or the authored catalog size', () => {
     render(<GameProvider initialState={withInstalledHost()}><Flipper /></GameProvider>)
     const modules = screen.getAllByText(/Module$/).map((strong) => strong.closest('.node-row') as HTMLElement)

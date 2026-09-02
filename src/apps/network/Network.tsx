@@ -112,7 +112,7 @@ function kindOf(target: Target): string {
   return target.observed ? target.observed.deviceKind.toUpperCase() : 'UNKNOWN DEVICE'
 }
 
-export function Network() {
+export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') => void }) {
   const gameState = useGameState()
   const actions = useGameActions()
   const release = resolveNodeScanRelease(gameState.player.localDevice)
@@ -311,6 +311,7 @@ export function Network() {
    */
   const information: PlayerInformation = gameState
   const managedNetworks = selectManagedNetworks(gameState)
+  const canOpenArsenal = Boolean(openApp && gameState.player.localDevice.installedSoftware.some(({ id }) => id === 'flipper'))
 
   if (focus.kind === 'network') {
     const network = managedNetworks.find(({ id }) => id === focus.networkId)
@@ -362,11 +363,12 @@ export function Network() {
       onDirectScan={pingDirectAddress}
       onOpen={(deviceId) => open({ kind: 'target', deviceId })}
       onOpenNetwork={(networkId) => open({ kind: 'network', networkId })}
+      onOpenArsenal={canOpenArsenal ? () => openApp?.('flipper') : undefined}
     />
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, onToggleNetwork, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork }: {
+function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, onToggleNetwork, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork, onOpenArsenal }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
@@ -381,6 +383,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   onDirectScan(): void
   onOpen(deviceId: string): void
   onOpenNetwork(networkId: string): void
+  onOpenArsenal?: () => void
 }) {
   const selfPlaced = space.networks.some(({ includesSelf }) => includesSelf)
   const allTargetIds = [...space.networks.flatMap(({ targets }) => targets.map(({ id }) => id)), ...space.elsewhere.map(({ id }) => id)]
@@ -388,7 +391,10 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   return <div className="ns-view">
     <header className="ns-masthead">
       <div><span className="ns-eyebrow">{release.name.toUpperCase()}</span><h2>KNOWN SPACE</h2></div>
-      <span className="ns-release">{release.version}{release.channel ? ` ${release.channel.toUpperCase()}` : ''}</span>
+      <div className="ns-masthead-tools">
+        <span className="ns-release">{release.version}{release.channel ? ` ${release.channel.toUpperCase()}` : ''}</span>
+        {onOpenArsenal && <button className="ns-arsenal-link" type="button" onClick={onOpenArsenal}>FLIPPER ARSENAL</button>}
+      </div>
     </header>
 
     <form className="ns-direct-scan" onSubmit={(event) => { event.preventDefault(); onDirectScan() }} noValidate>
