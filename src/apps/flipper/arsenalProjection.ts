@@ -1,4 +1,4 @@
-import { CREDENTIAL_ACCESS_MODULE_1_0, findCompatibleLocalFlipperModuleArtifacts, findInstalledFlipper } from '../../core/game/flipper'
+import { CREDENTIAL_ACCESS_MODULE_1_0, findCompatibleLocalFlipperModuleArtifacts, findInstalledFlipper, isKeyProbeCompatibleWithFlipper } from '../../core/game/flipper'
 import type { LocalDeviceState } from '../../core/game/types'
 
 /** A derived view of one represented provider, never progression state. */
@@ -17,9 +17,9 @@ export interface FlipperArsenalBranch {
 }
 
 /**
- * Project the first concrete arsenal branch from local possession. These two
- * checks intentionally describe only today's exact providers; this is not a
- * registry and reads no target, Discovery, Knowledge, or World Truth.
+ * Project the first concrete arsenal branch from local possession. Provider
+ * compatibility comes from Flipper's domain rules; this presentation stores
+ * none of it and reads no target, Discovery, Knowledge, or World Truth.
  */
 export function deriveFlipperArsenal(device: Pick<LocalDeviceState, 'installedSoftware' | 'filesystem'>): readonly FlipperArsenalBranch[] {
   const flipper = findInstalledFlipper(device)
@@ -36,8 +36,7 @@ export function deriveFlipperArsenal(device: Pick<LocalDeviceState, 'installedSo
     })
   }
 
-  const keyProbe = device.installedSoftware.find(({ id, releaseId, buildId }) =>
-    id === 'keyprobe' && releaseId === 'keyprobe-1.0' && buildId === 'build-keyprobe-1.0-v0')
+  const keyProbe = device.installedSoftware.find(isKeyProbeCompatibleWithFlipper)
   if (keyProbe) providers.push({
     id: 'keyprobe', name: keyProbe.name, version: keyProbe.version,
     form: 'INSTALLED SOFTWARE', integration: 'COMPATIBLE',

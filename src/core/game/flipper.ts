@@ -1,6 +1,6 @@
 import { startProcess } from './processes'
 import { FLIPPER_1_0, FLIPPER_1_0_CREDENTIAL_ACCESS_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID, FLIPPER_1_0_ROLLBACK_ONLY_INTEGRATED_BUILD_ID } from './softwareReleaseContent'
-import type { ExecutableFile, FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProcess, GameState, LocalDeviceState, SoftwareModuleFile } from './types'
+import type { ExecutableFile, FlipperInstallation, FlipperModuleId, FlipperModuleIntegrationProcess, GameState, InstalledSoftware, LocalDeviceState, SoftwareModuleFile } from './types'
 
 /**
  * Flipper is the player's one extensible offensive/access tool, and the only
@@ -76,6 +76,21 @@ export const FLIPPER_1_0_CANONICAL_INSTALLATION: FlipperInstallation = {
 
 export function findInstalledFlipper(device: Pick<LocalDeviceState, 'installedSoftware'>): FlipperInstallation | undefined {
   return device.installedSoftware.find((software): software is FlipperInstallation => software.id === FLIPPER_PRODUCT_ID)
+}
+
+/**
+ * The one concrete ordinary-software compatibility relationship represented
+ * by the current Flipper experience. Exact release/build identity matters: a
+ * future or altered KeyProbe build is not silently treated as compatible.
+ *
+ * This is deliberately one product rule, not a compatibility registry or a
+ * plugin framework. It changes no Credential Access provider or resolution
+ * semantics; consumers use it only to organize represented software.
+ */
+export function isKeyProbeCompatibleWithFlipper(software: Pick<InstalledSoftware, 'id' | 'releaseId' | 'buildId'>): boolean {
+  return software.id === 'keyprobe'
+    && software.releaseId === 'keyprobe-1.0'
+    && software.buildId === 'build-keyprobe-1.0-v0'
 }
 
 /**

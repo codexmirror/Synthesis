@@ -755,9 +755,12 @@ the collection neither owns nor changes their Credential Access Technique or
 resolution behavior.
 
 `deriveFlipperArsenal` is a presentation projection over the local Device's
-represented filesystem, InstalledSoftware, and concrete Flipper build. It
-stores no unlock or collection state, reads no target/World Truth, and omits a
-provider as soon as its represented cause is absent (except where completed
+represented filesystem, InstalledSoftware, and concrete Flipper build. The
+Flipper domain owns the narrow exact KeyProbe 1.0 release/build compatibility
+rule consumed by that projection; presentation does not establish technical
+compatibility. The projection stores no unlock or collection state, reads no
+target/World Truth, and omits a provider as soon as its represented cause is
+absent (except where completed
 Flipper integration is itself the represented cause). It deliberately names
 only this concrete compatibility precedent rather than introducing Technique,
 provider, capability, or plugin registries. No speculative empty branch is
