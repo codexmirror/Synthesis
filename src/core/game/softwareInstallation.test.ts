@@ -7,7 +7,8 @@ import { installLocalSoftwarePackage, installRemoteSoftwarePackage, isRecognized
 import { advanceFileTransfer, startRemoteFileDownload } from './fileTransfer'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { clearRecentActivity } from './recentActivity'
-import { FLIPPER_1_0, NODESCAN_1_0_STANDARD, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { FLIPPER_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_2_STANDARD, NODE_MINER_1_0 } from './softwareReleaseContent'
+import { findInstalledNodeScan, nodeScanSupportsInspect, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from './software'
 import type { ExecutableFile, GameState, NetworkHost, SoftwareInstallationProcess, SoftwarePackageFile } from './types'
 
 const path = '/home/user/downloads/nodescan-build.pkg'
@@ -172,6 +173,32 @@ describe('software installation completion: ordinary products', () => {
 })
 
 describe('software installation completion: NodeScan', () => {
+  it('installs the initial local NodeScan 1.2 package through ordinary replacement and withdraws capabilities after replacement', () => {
+    const initial = createInitialGameState()
+    expect(findInstalledNodeScan(initial.player.localDevice)?.releaseId).toBe(NODESCAN_1_0_STANDARD.releaseId)
+    const packages = initial.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_package' && file.releaseId === NODESCAN_1_2_STANDARD.releaseId)
+    expect(packages).toEqual([expect.objectContaining({ path: '/home/user/downloads/nodescan-1.2.pkg', buildId: NODESCAN_1_2_STANDARD.buildId })])
+
+    const started = installLocalSoftwarePackage(initial, packages[0].path)
+    if (started.status !== 'started') throw new Error(started.status)
+    const installed = completeInstallation(started.state)
+    const nodeScan12 = findInstalledNodeScan(installed.player.localDevice)!
+    expect(nodeScan12).toEqual(expect.objectContaining({ releaseId: NODESCAN_1_2_STANDARD.releaseId, buildId: NODESCAN_1_2_STANDARD.buildId, version: '1.2', channel: 'standard' }))
+    expect(nodeScanSupportsInspect(nodeScan12)).toBe(true)
+    expect(nodeScanSupportsLiveTopology(nodeScan12)).toBe(true)
+    expect(nodeScanSupportsIntegratedIntelligence(nodeScan12)).toBe(true)
+
+    const baselinePackage: SoftwarePackageFile = { kind: 'software_package', id: 'file-baseline', path: '/home/user/downloads/nodescan-1.0.pkg', productId: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel, sizeBytes: 18_000_000 }
+    const withBaseline = { ...installed, player: { ...installed.player, localDevice: { ...installed.player.localDevice, filesystem: { ...installed.player.localDevice.filesystem, files: [...installed.player.localDevice.filesystem.files, baselinePackage] } } } }
+    const replacement = installLocalSoftwarePackage(withBaseline, baselinePackage.path)
+    if (replacement.status !== 'started') throw new Error(replacement.status)
+    const downgraded = completeInstallation(replacement.state)
+    const baseline = findInstalledNodeScan(downgraded.player.localDevice)!
+    expect(nodeScanSupportsInspect(baseline)).toBe(false)
+    expect(nodeScanSupportsLiveTopology(baseline)).toBe(false)
+    expect(nodeScanSupportsIntegratedIntelligence(baseline)).toBe(false)
+  })
+
   it('applies the InstalledSoftware consequence only once the Process completes', () => {
     const state = withFiles([packageFile])
     const started = installLocalSoftwarePackage(state, path)

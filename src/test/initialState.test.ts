@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 61', () => {
+  it('separates identities and seeds canonical local-device state in schema version 62', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(61)
+    expect(GAME_STATE_VERSION).toBe(62)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(61)
+    expect(state.version).toBe(62)
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)
@@ -72,18 +72,20 @@ describe('createInitialGameState', () => {
       operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
     })
     expect(state.player.localDevice.filesystem).toEqual({
-      nextFileId: 5,
+      nextFileId: 6,
       files: [
         { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
         { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', buildId: 'build-node-miner-1.0-v0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 },
         { kind: 'software_module', id: 'file-0003', path: '/home/user/modules/credential-access-1.0.mod', hostProductId: 'flipper', moduleId: 'credential-access', releaseId: 'flipper-credential-access-module-1.0', buildId: 'build-flipper-credential-access-module-1.0-v0', name: 'Credential Access Module', version: '1.0', sizeBytes: 1_600_000 },
         { kind: 'deauth_extension', id: 'file-0004', path: '/home/user/extensions/deauth.ext', extensionId: 'deauth', hostProductId: 'flipper', compatibleHostReleaseId: 'flipper-1.0', releaseId: 'deauth-extension-1.0', buildId: 'build-deauth-extension-1.0-v0', name: 'deauth.ext', version: '1.0', sizeBytes: 1_250_000 },
+        { kind: 'software_package', id: 'file-0005', path: '/home/user/downloads/nodescan-1.2.pkg', releaseId: 'nodescan-1.2-standard', buildId: 'build-nodescan-1.2-standard-v0', productId: 'nodescan', name: 'NodeScan', version: '1.2', channel: 'standard', sizeBytes: 19_200_000 },
       ],
     })
     expect(state.player.localDevice.installedSoftware).toEqual([
       { id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', name: 'NodeScan', version: '1.0', channel: 'standard' },
       { id: 'keyprobe', releaseId: 'keyprobe-1.0', buildId: 'build-keyprobe-1.0-v0', name: 'KeyProbe', version: '1.0', publisher: 'Neutral Systems' },
     ])
+    expect(state.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_package' && file.releaseId === 'nodescan-1.2-standard')).toHaveLength(1)
     // The standalone offensive toolkits no longer exist as installed software at all.
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'basic-credential-toolkit' }))
     expect(state.player.localDevice.installedSoftware).not.toContainEqual(expect.objectContaining({ id: 'node-miner' }))

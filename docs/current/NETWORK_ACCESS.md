@@ -343,7 +343,7 @@ ANALYZE known Service
 → canonical elapsed Service Analysis Process; may earn weakness Knowledge
 ```
 
-A foreign Device Scan does not reveal Network membership. NodeScan 1.0 Standard supplies PING, SCAN, and Service Analysis but no target Inspect. NodeScan 1.1 Experimental supplies the same roles plus Enhanced Inspect through concrete release capability logic.
+A foreign Device Scan does not reveal Network membership. NodeScan 1.0 Standard supplies PING, SCAN, and Service Analysis but no target Inspect. NodeScan 1.1 Experimental remains represented and supplies the same roles plus Enhanced Inspect. NodeScan 1.2 Standard (`nodescan-1.2-standard`, canonical build `build-nodescan-1.2-standard-v0`) preserves those capabilities and adds Live Topology Monitoring and Integrated Intelligence. All three are selected through concrete release identity capability logic, never presentation version parsing.
 
 The opening Scan sequence is therefore:
 
@@ -390,7 +390,15 @@ player must first Scan intrinsic SELF to remember its Network relationship. With
 `software_unavailable`; where SELF is offline it reports `no_response` and
 remembers nothing.
 
-Target SCAN invokes only the canonical Device Scan and refreshes the currently exposed Service snapshot. It never invokes Inspect or starts Service Analysis. NodeScan 1.1 Experimental presents INSPECT as an explicit target action; NodeScan 1.0 Standard does not. Each Service retains its own explicit ANALYZE action. The guided ANALYZE action may also start one independent canonical Service Analysis Process for each observed Service still requiring investigation; normal per-Process RAM admission applies and partial admission is reported.
+Target SCAN invokes only the canonical Device Scan and refreshes the currently exposed Service snapshot. It never invokes Inspect or starts Service Analysis. NodeScan 1.1 Experimental and 1.2 Standard present INSPECT as an explicit target action; NodeScan 1.0 Standard does not. Each Service retains its own explicit ANALYZE action. The guided ANALYZE action may also start one independent canonical Service Analysis Process for each observed Service still requiring investigation; normal per-Process RAM admission applies and partial admission is reported.
+
+## Live topology monitoring and integrated intelligence
+
+NodeScan 1.2's topology status is an ephemeral projection, never Discovery or Knowledge. Its represented monitoring capability may read only the current target Device operational state and the current open state of that Device's already-observed Services. Device status maps canonical `RUNNING` + `CONNECTED` to `ONLINE`, `SHUTTING_DOWN` to `SHUTTING DOWN`, `BOOTING` to `BOOTING`, `RECONNECTING` to `RECONNECTING`, and other unavailable combinations to `OFFLINE`. Service V1 status is only `ONLINE`, `OFFLINE`, or `CLOSED`, derived from Device usability and the Service's represented `open` field; there is no independent Service lifecycle, recovery phase, or timer.
+
+A currently usable `DeviceAccess` is a separate, narrower live-observation cause. It authorizes Device status and only the exact `viaServiceId` status while SELF and the target are network-usable and that Service remains open. The historical relationship remains when those conditions disappear, but its telemetry authority disappears immediately and presentation falls back to neutral `OBSERVED` unless NodeScan 1.2 independently monitors the target. Access through SSH never exposes an unrelated Service. DEAUTH still authors only Network connectivity interruption; Device-owned lifecycle changes are what the live projection subsequently reports.
+
+Integrated Intelligence makes a remembered software row interactive only when NodeScan 1.2 is installed and existing evidence supplies details. GateSSH weakness explanations come only from target- and Service-scoped analyzed Knowledge; AuthGuard compatibility comes only from remembered Enhanced Inspect evidence. Opening the local disclosure performs no observation, starts no Analyze, and mutates no state. Internal weakness IDs are not its player-facing title. SCAN / INSPECT still establish observations and ANALYZE remains the action that earns weakness Knowledge.
 
 ## Inspect
 

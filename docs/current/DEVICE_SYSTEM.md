@@ -28,6 +28,7 @@ GameState
 │       ├── installed software
 │       │   └── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
 │       ├── filesystem
+│       │   ├── local installable NodeScan 1.2 Standard test package
 │       │   └── standalone Credential Access Module artifact
 │       └── saved Dollar sign-in
 ├── dollarFinance

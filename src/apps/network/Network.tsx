@@ -323,7 +323,10 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
   }
 
   if (focus.kind === 'target') {
-    const target = selectTarget(information, focus.deviceId)
+    // Current World Truth crosses this boundary only through the target
+    // selector's narrow live-observation projection. That selector admits it
+    // through NodeScan monitoring or a currently usable Service access path.
+    const target = selectTarget(information, focus.deviceId, gameState)
     if (target) return <section className="app-content scan-app" aria-label="NodeScan">
       <TargetCard
         target={target}
@@ -886,7 +889,8 @@ function Operation({ target, status, progressLabel }: { target: Target; status: 
 function TargetTopology({ target, unreachable }: { target: Target; unreachable: boolean }) {
   const networkLabel = locationOf(target)
   const deviceLabel = target.displayName ?? target.address
-  const deviceStatus = unreachable ? { mark: 'NO RESPONSE', tone: 'down' as const }
+  const deviceStatus = target.liveStatus ? { mark: target.liveStatus.label, tone: target.liveStatus.tone }
+    : unreachable ? { mark: 'NO RESPONSE', tone: 'down' as const }
     : target.servicesObserved ? { mark: 'OBSERVED', tone: 'neutral' as const }
       : null
   const disrupting = target.stage === 'disrupting'
@@ -920,13 +924,23 @@ function TargetTopology({ target, unreachable }: { target: Target; unreachable: 
                 return <div className="ns-topo-limb" key={service.id}>
                   <div className={`ns-topo-row ns-topo-row--service${hasSoftware ? ' ns-topo-row--branched' : ''}`}>
                     <span className="ns-topo-text">{service.name} · {service.port}/{service.protocol}</span>
-                    <span className="ns-topo-status ns-topo-status--neutral">OBSERVED</span>
+                    <span className={`ns-topo-status ns-topo-status--${service.liveStatus?.tone ?? 'neutral'}`}>{service.liveStatus?.label ?? 'OBSERVED'}</span>
                   </div>
                   {hasSoftware && <div className="ns-topo-branch">
                     <div className="ns-topo-limbs">
                       <div className="ns-topo-limb">
                         <div className="ns-topo-row ns-topo-row--software">
-                          <span className="ns-topo-text ns-topo-text--muted">{service.software.join(' · ')}</span>
+                          {service.intelligence.length === 0
+                            ? <span className="ns-topo-text ns-topo-text--muted">{service.software.join(' · ')}</span>
+                            : service.software.map((software) => {
+                            const intelligence = service.intelligence.find((entry) => entry.software === software)
+                            return intelligence
+                              ? <details className="ns-topo-intelligence" key={software}>
+                                <summary><span className="ns-topo-text ns-topo-text--muted">{software}</span><span>KNOWN INFO</span></summary>
+                                <div className="ns-topo-intelligence-detail"><strong>{software}</strong><span>KNOWN INFORMATION</span>{intelligence.details.map((detail) => <p key={detail}>{detail}</p>)}</div>
+                              </details>
+                              : <span className="ns-topo-text ns-topo-text--muted" key={software}>{software}</span>
+                            })}
                         </div>
                       </div>
                     </div>
