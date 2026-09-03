@@ -157,5 +157,9 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const existing = state.deviceAccess.established.find((access) => access.sourceDeviceId === process.executorDeviceId && access.targetDeviceId === process.targetDeviceId && access.viaServiceId === process.serviceId)
   if (existing) return { process: { ...process, result: { status: 'access_established', accessId: existing.id } }, deviceAccess: state.deviceAccess, world }
   const id = `access-${String(state.deviceAccess.nextId).padStart(4, '0')}`
-  return { process: { ...process, result: { status: 'access_established', accessId: id } }, deviceAccess: { nextId: state.deviceAccess.nextId + 1, established: [...state.deviceAccess.established, { id, sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, viaServiceId: process.serviceId, privilege: service.credentialAccess!.privilege }] }, world }
+  return { process: { ...process, result: { status: 'access_established', accessId: id } }, deviceAccess: { nextId: state.deviceAccess.nextId + 1, established: [...state.deviceAccess.established, {
+    id, sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId,
+    viaServiceId: process.serviceId, viaServiceBuildId: service.implementation.buildId,
+    viaVulnerabilityId: process.vulnerabilityId, privilege: service.credentialAccess!.privilege,
+  }] }, world }
 }

@@ -25,7 +25,9 @@ function phoneConnectedState(state = createInitialGameState()): GameState {
     ...state,
     deviceAccess: { nextId: 2, established: [{
       id: 'access-phone', sourceDeviceId: state.player.localDevice.id,
-      targetDeviceId: PHONE_ID, viaServiceId: 'service-ssh-003', privilege: 'USER',
+      targetDeviceId: PHONE_ID, viaServiceId: 'service-ssh-003',
+      viaServiceBuildId: phoneSsh(state).implementation.buildId,
+      viaVulnerabilityId: 'AUTH-017', privilege: 'USER',
     }] },
   }
   return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_ID, address: '198.51.100.61' }).state
@@ -37,7 +39,7 @@ const phoneSsh = (state: GameState) => phoneOf(state).services!.find(({ id }) =>
 /** Runs the whole represented installation the way the game does: canonical advancement only. */
 function installFully(state: GameState, stepMs = 500): GameState {
   let next = state
-  for (let elapsed = 0; elapsed <= VEYRA_FIRMWARE_UPDATE_DURATION_MS + stepMs; elapsed += stepMs) next = advanceGameState(next, stepMs)
+  for (let elapsed = 0; elapsed <= VEYRA_FIRMWARE_UPDATE_DURATION_MS + 10_000; elapsed += stepMs) next = advanceGameState(next, stepMs)
   return next
 }
 
@@ -102,10 +104,10 @@ describe('starting a firmware update', () => {
     expect(again.state).toBe(running)
   })
 
-  it('refuses once the Device already owns the newest represented release', () => {
+  it('cannot be started again after reboot because the obsolete access and Session are gone', () => {
     const installed = installFully(startVeyraFirmwareUpdateForOperatedRemoteDevice(phoneConnectedState(), PHONE_PIN).state)
     const again = startVeyraFirmwareUpdateForOperatedRemoteDevice(installed, PHONE_PIN)
-    expect(again.status).toBe('update_unavailable')
+    expect(again.status).toBe('session_unavailable')
     expect(phoneOf(again.state).firmware?.id).toBe(VEYRA_OS_4_2_FIRMWARE_ID)
     expect(phoneOf(again.state).firmwareUpdate).toBeUndefined()
   })
@@ -123,21 +125,22 @@ describe('the represented installation', () => {
     expect(phases).toEqual(['DOWNLOADING', 'PREPARING', 'INSTALLING', 'FINALIZING'])
   })
 
-  it('never moves the Device’s operational lifecycle/connectivity or ends the active Remote Session, at any stage', () => {
-    // This hardening pass deliberately does not implement a real Device
-    // reboot: the installation must not silently invalidate the Session or
-    // touch operational truth a real boot boundary would own.
+  it('enters the real reboot lifecycle and loses the Session through reachability', () => {
     const before = phoneConnectedState()
     let state = startVeyraFirmwareUpdateForOperatedRemoteDevice(before, PHONE_PIN).state
-    for (let step = 0; step < 12; step += 1) {
+    for (let step = 0; step < 10; step += 1) {
       state = advanceGameState(state, 2_000)
       expect(phoneOf(state).operational).toEqual(phoneOf(before).operational)
       expect(state.remoteSession.active).toEqual(before.remoteSession.active)
     }
-    // Completion crosses no boot boundary either.
+    state = advanceGameState(state, 2_000)
     expect(phoneOf(state).firmwareUpdate).toBeUndefined()
-    expect(phoneOf(state).operational).toEqual(phoneOf(before).operational)
-    expect(state.remoteSession.active).toEqual(before.remoteSession.active)
+    expect(phoneOf(state).operational).toEqual({ lifecycle: 'SHUTTING_DOWN', connectivity: 'DISCONNECTED' })
+    expect(state.remoteSession.active).toBeNull()
+    state = advanceGameState(state, 4_000)
+    expect(phoneOf(state).operational).toEqual({ lifecycle: 'BOOTING', connectivity: 'DISCONNECTED' })
+    state = advanceGameState(state, 6_000)
+    expect(phoneOf(state).operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
   })
 
   it('is not finished, and has not changed the Firmware, part way through', () => {
@@ -157,6 +160,7 @@ describe('the represented installation', () => {
     expect(phoneOf(oneStep).firmware).toEqual(phoneOf(manySteps).firmware)
     expect(phoneOf(oneStep).firmwareUpdate).toBeUndefined()
     expect(phoneOf(manySteps).firmwareUpdate).toBeUndefined()
+    expect(phoneOf(oneStep).operational).toEqual(phoneOf(manySteps).operational)
   })
 
   it('advances without any operating surface presenting it, and is terminal once finished', () => {
@@ -215,14 +219,23 @@ describe('what the completed release actually changes', () => {
     expect(phoneOf(after).filesystem?.files).toEqual([])
   })
 
-  it('leaves Device security, Wallet protection, Knowledge and Dollar state untouched', () => {
-    const before = phoneConnectedState()
+  it('leaves Device security, Wallet protection, Knowledge and Dollar state untouched while invalidating only obsolete Access', () => {
+    const connected = phoneConnectedState()
+    const unrelated = { id: 'access-server', sourceDeviceId: connected.player.localDevice.id, targetDeviceId: SRV_02_ID, viaServiceId: 'service-ssh-002', viaServiceBuildId: 'build-gate-ssh-1.3.3-v0', viaVulnerabilityId: 'AUTH-031', privilege: 'USER' as const }
+    const before = { ...connected, deviceAccess: { ...connected.deviceAccess, established: [...connected.deviceAccess.established, unrelated] } }
     const after = installed()
     expect(phoneOf(after).security).toEqual({ devicePin: PHONE_PIN, walletProtectionEnabled: false })
     expect(after.knowledge).toEqual(before.knowledge)
     expect(after.dollarFinance).toEqual(before.dollarFinance)
-    expect(after.deviceAccess).toEqual(before.deviceAccess)
+    const afterWithUnrelated = installFully(startVeyraFirmwareUpdateForOperatedRemoteDevice(before, PHONE_PIN).state)
+    expect(afterWithUnrelated.deviceAccess.established).toEqual([unrelated])
+    expect(after.deviceAccess.nextId).toBe(before.deviceAccess.nextId)
     expect(phoneOf(after).operational).toEqual(phoneOf(before).operational)
+  })
+
+  it('requires newly established Access before reconnecting after the reboot', () => {
+    const after = installed()
+    expect(connectRemoteFromObservation(after, { targetDeviceId: PHONE_ID, address: '198.51.100.61' }).status).toBe('access_required')
   })
 
   it('lets an existing Credential Access attempt observe the resulting real surface', () => {

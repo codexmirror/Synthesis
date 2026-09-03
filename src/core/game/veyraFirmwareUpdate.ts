@@ -157,7 +157,7 @@ function replaceHost(state: GameState, next: NetworkHost): GameState {
  * meant; the Firmware transition itself still completes, because that is what
  * was installed.
  */
-function applyVeyraFirmwareRelease(host: NetworkHost, release: VeyraFirmwareRelease): NetworkHost {
+function applyVeyraFirmwareRelease(state: GameState, host: NetworkHost, release: VeyraFirmwareRelease): GameState {
   const { firmwareUpdate: _finished, ...updated } = host
   const gateSshServices = (host.services ?? []).filter((service) => service.implementation.productId === GATE_SSH_PRODUCT_ID)
   const services = gateSshServices.length === 1 && host.services
@@ -165,7 +165,23 @@ function applyVeyraFirmwareRelease(host: NetworkHost, release: VeyraFirmwareRele
       ? { ...service, implementation: { ...release.bundledSshImplementation } }
       : service)
     : host.services
-  return { ...updated, firmware: { ...release.firmware }, ...(services ? { services } : {}) }
+  const activated = {
+    ...updated,
+    firmware: { ...release.firmware },
+    ...(services ? { services } : {}),
+    operational: { lifecycle: 'SHUTTING_DOWN' as const, connectivity: 'DISCONNECTED' as const },
+    connectivityRecovery: { phase: 'SHUTTING_DOWN' as const, elapsedMs: 0 },
+  }
+  const replacedServiceIds = new Set(gateSshServices.length === 1 ? [gateSshServices[0].id] : [])
+  const established = state.deviceAccess.established.filter((access) =>
+    access.targetDeviceId !== host.id
+    || !replacedServiceIds.has(access.viaServiceId)
+    || access.viaServiceBuildId === undefined
+    || access.viaServiceBuildId === release.bundledSshImplementation.buildId)
+  return {
+    ...replaceHost(state, activated),
+    deviceAccess: { ...state.deviceAccess, established },
+  }
 }
 
 /**
@@ -179,13 +195,12 @@ function applyVeyraFirmwareRelease(host: NetworkHost, release: VeyraFirmwareRele
  * whether or not anybody is looking at the phone's Settings screen, and
  * completing the final `FINALIZING` stage is what applies the new release.
  *
- * This deliberately never touches the Device's own `operational` lifecycle or
- * connectivity, and never crosses `runRealDeviceBootConsequences`
- * (`deviceBootBoundary.ts`): the update completes without the Device actually
- * rebooting, reconnecting, or invalidating the active Remote Session. A real
- * firmware-triggered Device reboot — crossing that same boot boundary other
- * Device transitions already use — is a deliberately deferred future slice,
- * not represented here.
+ * Completing `FINALIZING` activates the represented release and starts the
+ * Device's existing `SHUTTING_DOWN` recovery path. Session loss is then derived
+ * by canonical reachability, and the recovery owner alone crosses the real boot
+ * boundary when `BOOTING` completes. Access whose represented credential
+ * provenance names the replaced Service build is removed; unrelated Access and
+ * historical Player Information remain untouched.
  *
  * An installation naming a release the world does not represent is dropped
  * without applying anything, so an incoherent update can never install
@@ -210,9 +225,11 @@ export function advanceVeyraFirmwareUpdates(state: GameState, elapsedMs: number)
       phaseIndex += 1
     }
 
-    nextState = replaceHost(nextState, phaseIndex >= PHASE_SEQUENCE.length
-      ? applyVeyraFirmwareRelease(host, VEYRA_OS_4_2_RELEASE)
-      : { ...host, firmwareUpdate: { ...progress, phase: PHASE_SEQUENCE[phaseIndex], elapsedMs: elapsed } })
+    if (phaseIndex >= PHASE_SEQUENCE.length) {
+      nextState = applyVeyraFirmwareRelease(nextState, host, VEYRA_OS_4_2_RELEASE)
+    } else {
+      nextState = replaceHost(nextState, { ...host, firmwareUpdate: { ...progress, phase: PHASE_SEQUENCE[phaseIndex], elapsedMs: elapsed } })
+    }
   }
   return nextState
 }

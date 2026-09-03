@@ -190,33 +190,11 @@ therefore progresses whether or not any operating surface is presenting it, and
 browser timers remain triggers rather than truth (A10). An installation naming a
 release the world does not represent is dropped without installing anything.
 
-Completing the final `FINALIZING` stage is what applies the release: the
-Device's `firmware` becomes the new release's own stable identity, and the
-release's bundled SSH implementation replaces the implementation of that
-Device's single GateSSH Service. Nothing else changes — `installedSoftware`,
-`filesystem`, `security`, `operational`, Knowledge, Discovery, DeviceAccess,
-Sessions and every other Device are untouched, and the resulting weakness,
-fingerprint and exploit behavior follow from the changed Service implementation
-on their own, with no update-specific rule anywhere. For Petra's phone that
-means `service-ssh-003` moves from GateSSH 1.3.2 to the already represented
-GateSSH 1.3.3 build, so it stops deriving `AUTH-017` and starts deriving
-`AUTH-031` — while GateSSH on that phone stays firmware-owned Service
-implementation and never becomes `InstalledSoftware`.
+Completing the final `FINALIZING` stage atomically activates the release and enters the Device’s existing real reboot lifecycle. The Device’s `firmware` becomes the new release identity, its one firmware-owned GateSSH Service receives the release’s bundled implementation, and its operational state becomes `SHUTTING_DOWN` / `DISCONNECTED` with the ordinary recovery progress that continues through `BOOTING` to `RUNNING` / `CONNECTED`. Completion of that real boot crosses `runRealDeviceBootConsequences` exactly once; the update never invokes an individual boot consequence.
 
-This stage sequence is the update's own represented transition. It
-deliberately does not move the Device's `operational` lifecycle or
-connectivity, and does not cross the real boot boundary below at any stage,
-including `FINALIZING` and completion: the phone is not represented as leaving
-the network while it installs, no boot consequence runs, and the active Remote
-Session is never invalidated by this update. This is an intentional scope
-boundary, not an oversight — a real firmware-triggered Device reboot (crossing
-the boot boundary below, reacting through Device connectivity/reachability,
-and potentially ending the active Remote Session, the same way srv-02's
-`REBOOT_ON_DISCONNECT` recovery already does for a different cause) is a
-distinct, currently unimplemented future consequence. The player-facing
-installation surface for the current, non-rebooting transition belongs to
-`docs/current/VEYRA_OS.md`, which likewise never claims a restart it does not
-represent.
+Replacing the credential-access surface invalidates only established `DeviceAccess` whose represented provenance names that Service’s replaced concrete build. Unrelated Access, and legacy relationships without represented build provenance, remain intact. The active Remote Session is not disconnected by the update: ordinary Remote Session reachability observes the now network-unusable Device and ends it. Discovery and Knowledge remain historical, so remembered GateSSH 1.3.2 / `AUTH-017` facts can become stale; Credential Access still validates them against current World Truth and fails.
+
+For Petra’s phone this moves `service-ssh-003` from GateSSH 1.3.2 to 1.3.3, so `AUTH-017` no longer derives and `AUTH-031` does. GateSSH remains firmware-owned Service implementation and never becomes `InstalledSoftware`. NodeScan’s existing live-topology projection observes the same operational truth only where NodeScan 1.2 monitoring or exact usable Service access supplies current observation authority; historical-only views receive no hidden reboot state.
 
 The Wallet-protection setting is persistent Device state with no timer, temporary-unlock duration,
 or automatic reset. Player-requested changes continue to require successful PIN

@@ -734,8 +734,7 @@ describe('VEYRA System Update', () => {
     const finalizing = screen.getByRole('region', { name: 'Installing system update' })
     expect(finalizing).toHaveTextContent('Finishing update')
     expect(within(finalizing).queryByRole('progressbar')).not.toBeInTheDocument()
-    // The Device never actually restarts for this update: nothing on screen
-    // may claim a reboot that World Truth does not represent.
+    // FINALIZING is still installation work, not a fabricated boot screen.
     expect(finalizing.textContent).not.toMatch(/restart|reboot/i)
     expect(phoneHost(canonical()).operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
     expect(canonical().remoteSession.active).not.toBeNull()
@@ -752,25 +751,9 @@ describe('VEYRA System Update', () => {
     const phone = phoneHost(canonical())
     expect(phone.firmware).toEqual({ id: VEYRA_OS_4_2_FIRMWARE_ID, name: 'VEYRA OS', version: '4.2' })
     expect(phone.firmwareUpdate).toBeUndefined()
-    const welcome = screen.getByRole('region', { name: 'VEYRA OS 4.2 installed' })
-    expect(welcome).toHaveTextContent('4.2')
-
-    await user.click(within(welcome).getByRole('button', { name: 'Continue' }))
-    expect(phoneSurface()).toHaveAttribute('data-release', 'v4-2')
-    // The refined release, and no new application: the same three derived
-    // Home entries, presented under the new release's own system header.
-    const home = screen.getByRole('region', { name: 'Home' })
-    expect(within(home).getAllByRole('button').map((entry) => entry.textContent)).toEqual(['Communication', 'Wallet', 'Settings'])
-    expect(home).toHaveTextContent('Petra’s Phone')
-
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    const settings = screen.getByRole('region', { name: 'Settings' })
-    expect(settings).not.toHaveTextContent('is available')
-    expect(settings).toHaveTextContent('VEYRA OS 4.2 · up to date')
-    await user.click(within(settings).getByRole('button', { name: /System Update/ }))
-    const installed = screen.getByRole('region', { name: 'System Update' })
-    expect(installed).toHaveTextContent('This phone is running the latest VEYRA OS release.')
-    expect(within(installed).queryByRole('button', { name: /Install/ })).not.toBeInTheDocument()
+    expect(phone.operational).toEqual({ lifecycle: 'SHUTTING_DOWN', connectivity: 'DISCONNECTED' })
+    expect(canonical().remoteSession.active).toBeNull()
+    expect(screen.queryByLabelText(/personal device environment/)).not.toBeInTheDocument()
   })
 
   it('moves the phone’s firmware-owned SSH implementation without representing it as installed software', async () => {
@@ -790,12 +773,7 @@ describe('VEYRA System Update', () => {
     expect(phone.installedSoftware).toEqual([])
     expect(phone.filesystem?.files).toEqual([])
 
-    // The release states its own bundled component honestly, and the phone
-    // still presents no application, package or file for it anywhere.
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
-    const home = screen.getByRole('region', { name: 'Home' })
-    expect(within(home).getAllByRole('button').map((entry) => entry.textContent)).toEqual(['Communication', 'Wallet', 'Settings'])
-    expect(home.textContent).not.toMatch(/GateSSH|SSH/)
+    expect(canonical().remoteSession.active).toBeNull()
   })
 
   it('leaves Wallet protection and the Device PIN behaving exactly as before', async () => {
@@ -807,13 +785,7 @@ describe('VEYRA System Update', () => {
     await user.click(within(update).getByRole('button', { name: 'Install 4.2' }))
     await enterPin(user, PHONE_PIN)
     await runInstallation()
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
-
     expect(phoneHost(canonical()).security).toEqual({ devicePin: PHONE_PIN, walletProtectionEnabled: true })
-    await user.click(screen.getByRole('button', { name: 'Wallet' }))
-    expect(screen.getByRole('region', { name: 'Enter Device PIN' })).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Wallet' })).not.toBeInTheDocument()
-    await enterPin(user, PHONE_PIN)
-    expect(screen.getByRole('region', { name: 'Wallet' })).toBeInTheDocument()
+    expect(canonical().remoteSession.active).toBeNull()
   })
 })

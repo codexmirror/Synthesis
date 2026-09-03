@@ -82,7 +82,9 @@ export function disconnectRemoteSession(state: GameState): DisconnectRemoteResul
  */
 export function advanceRemoteSessionReachability(state: GameState): GameState {
   const resolved = resolveActiveRemoteTarget(state)
-  if (!resolved) return state
+  if (!resolved) return state.remoteSession.active
+    ? { ...state, remoteSession: { ...state.remoteSession, active: null } }
+    : state
   if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational)) return state
   return { ...state, remoteSession: { ...state.remoteSession, active: null } }
 }

@@ -117,7 +117,7 @@ describe('Initial credential access', () => {
   it('resolves success once, derives USER from current auth context, and prevents duplicate access', () => {
     const before = start(); const discovery = before.discovery; const knowledge = before.knowledge
     const done = advanceGameState(before, 30_000)
-    expect(done.deviceAccess.established).toEqual([{ id: 'access-0001', sourceDeviceId: 'device-local-v0', targetDeviceId: observation.targetDeviceId, viaServiceId: observation.serviceId, privilege: 'USER' }])
+    expect(done.deviceAccess.established).toEqual([{ id: 'access-0001', sourceDeviceId: 'device-local-v0', targetDeviceId: observation.targetDeviceId, viaServiceId: observation.serviceId, viaServiceBuildId: 'build-gate-ssh-1.3.2-v0', viaVulnerabilityId: 'AUTH-017', privilege: 'USER' }])
     expect(done.process.processes.at(-1)).toMatchObject({ status: 'completed', result: { status: 'access_established', accessId: 'access-0001' } })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
 
