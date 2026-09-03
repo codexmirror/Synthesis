@@ -53,6 +53,9 @@ reaction owned by the communication domain. Finance does not own the message,
 and a refusal creates neither a Transaction nor a reaction. The qualifying
 rule uses the Transaction's stable source and destination Account IDs; see
 `docs/current/COMMUNICATION.md` for the authored and idempotent communication.
+That complaint also starts the separate delayed Technician response; the
+Transaction remains finance-owned evidence and neither the response timing nor
+its Device-security consequence belongs to finance.
 
 A Transaction carries a stable monotonic ID (`dollar-transaction-0001`, following the Authentication History pattern), the source and destination stable Account IDs, the integer `amountCents`, and a snapshot of each side's account reference as it was at the moment of the transfer. The snapshots exist because an account reference is a mutable attribute: renaming an Account afterwards changes nothing about historical activity. Transactions carry no timestamp, no Device, no Session and no Credential material; ordering is canonical insertion order, and records are retained without eviction.
 

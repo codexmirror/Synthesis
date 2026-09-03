@@ -1,4 +1,5 @@
 import type { DollarTransaction, GameState, PetraCompanyChatState } from './types'
+import { schedulePetraTechnicianReaction } from './petraTechnician'
 
 export const PETRA_PHONE_ACCOUNT_ID = 'dollar-account-veyra-phone-v0'
 export const PLAYER_DOLLAR_ACCOUNT_ID = 'dollar-account-local-v0'
@@ -26,7 +27,7 @@ export function resolvePetraTransactionReaction(state: GameState, transaction: D
     || !state.dollarFinance.transactions.records.some(({ id }) => id === transaction.id)
     || state.petraCompanyChat.messages.some(({ id }) => id === PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID)) return state
 
-  return {
+  const complainedState: GameState = {
     ...state,
     petraCompanyChat: {
       ...state.petraCompanyChat,
@@ -39,4 +40,5 @@ export function resolvePetraTransactionReaction(state: GameState, transaction: D
       }],
     },
   }
+  return schedulePetraTechnicianReaction(complainedState, transaction.id)
 }

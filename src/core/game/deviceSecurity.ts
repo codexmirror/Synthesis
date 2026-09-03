@@ -26,6 +26,27 @@ export function changeDeviceWalletProtection(state: GameState, deviceId: string,
   return { status: 'changed', state: { ...state, world: { ...state.world, network: { ...state.world.network, hosts } } } }
 }
 
+export type EnableWalletProtectionForDefensiveMaintenanceResult =
+  | { readonly status: 'changed'; readonly state: GameState }
+  | { readonly status: 'already_enabled' | 'device_not_found'; readonly state: GameState }
+
+/**
+ * Enables Wallet protection as the narrow defensive-maintenance cause used by
+ * Petra's authored Technician response. This is deliberately separate from
+ * the ordinary player operation above: it never reads or submits the Device's
+ * secret PIN, and it cannot disable protection or mutate another setting.
+ */
+export function enableWalletProtectionForDefensiveMaintenance(state: GameState, deviceId: string): EnableWalletProtectionForDefensiveMaintenanceResult {
+  const host = state.world.network.hosts.find((candidate) => candidate.id === deviceId)
+  if (!host?.security) return { status: 'device_not_found', state }
+  if (host.security.walletProtectionEnabled) return { status: 'already_enabled', state }
+
+  const hosts = state.world.network.hosts.map((candidate) => candidate.id === deviceId
+    ? { ...candidate, security: { ...candidate.security!, walletProtectionEnabled: true } }
+    : candidate)
+  return { status: 'changed', state: { ...state, world: { ...state.world, network: { ...state.world.network, hosts } } } }
+}
+
 export type ChangeWalletProtectionForOperatedRemoteDeviceResult =
   | ChangeDeviceWalletProtectionResult
   | { readonly status: 'session_unavailable'; readonly state: GameState }

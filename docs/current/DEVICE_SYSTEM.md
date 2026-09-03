@@ -130,9 +130,21 @@ The phone is signed in to its own Civic Dollar Account through its own Device-bo
 
 The phone's `security` seeds `{ devicePin: '7042', walletProtectionEnabled: false }`. The PIN is secret World Truth: it is never returned, logged, or otherwise exposed by ordinary operations or presentation, and the player never comes to know it merely by discovering the Device, gaining DeviceAccess, establishing a Remote Session, entering VEYRA OS, or opening Settings. A successful actual RATTLER Wallet-PIN candidate is the one implemented exception: it appends narrow `knownDevicePins` Player Knowledge keyed by stable Device identity and the discovered value, exactly once. That Knowledge is not access or authority, but the player may subsequently submit the value manually wherever that Device PIN is legitimately accepted.
 
-`changeDeviceWalletProtection` (`src/core/game/deviceSecurity.ts`) is the one canonical mutation: given a target Device id, a submitted PIN, and a requested enabled state, it verifies the PIN against that Device's own `security.devicePin` and, only on an exact match, commits the requested `walletProtectionEnabled` value. A Device with no represented `security` refuses rather than inventing one; a wrong PIN leaves canonical state exactly as it was. `changeWalletProtectionForOperatedRemoteDevice` is the same mutation resolved against whichever Device the player currently operates through a Remote Session (`resolveActiveRemoteTarget`), following the same "Session decides *which* Device acts, and grants no authority of its own" precedent `transferDollarsFromOperatedRemoteDevice` already established: DeviceAccess and an active Remote Session alone never satisfy the PIN check.
+`changeDeviceWalletProtection` (`src/core/game/deviceSecurity.ts`) is the ordinary player-facing canonical mutation: given a target Device id, a submitted PIN, and a requested enabled state, it verifies the PIN against that Device's own `security.devicePin` and, only on an exact match, commits the requested `walletProtectionEnabled` value. A Device with no represented `security` refuses rather than inventing one; a wrong PIN leaves canonical state exactly as it was. `changeWalletProtectionForOperatedRemoteDevice` is the same mutation resolved against whichever Device the player currently operates through a Remote Session (`resolveActiveRemoteTarget`), following the same "Session decides *which* Device acts, and grants no authority of its own" precedent `transferDollarsFromOperatedRemoteDevice` already established: DeviceAccess and an active Remote Session alone never satisfy the PIN check.
 
-The setting is persistent Device state with no timer, temporary-unlock duration, or automatic reset: once successfully changed it remains canonical until successfully changed again through the same PIN verification.
+The authored Petra Technician response has one separate, narrower maintenance
+cause: `enableWalletProtectionForDefensiveMaintenance` can only change Petra's
+resolved Device setting from OFF to ON. It accepts no PIN, never reads or
+submits `devicePin`, cannot disable protection, and reports `already_enabled`
+rather than manufacturing a change. This concrete cause does not weaken or
+bypass the player operation's PIN requirement and is not an administrator,
+permission, role, or RBAC framework. Communication reports its successful
+consequence but does not own this Device security truth.
+
+The setting is persistent Device state with no timer, temporary-unlock duration,
+or automatic reset. Player-requested changes continue to require successful PIN
+verification; the only other current cause is the one-way Technician defensive
+maintenance transition above.
 
 `verifyDevicePinForOperatedRemoteDevice` is the query counterpart used to enforce `walletProtectionEnabled` at Wallet-open time (`docs/current/VEYRA_OS.md`): it checks a submitted PIN against the same operated Device's `security.devicePin` and commits nothing, because authorizing one Wallet opening has no canonical fact to change. VEYRA reads `walletProtectionEnabled` fresh every time Wallet is opened from Home; a successful verification authorizes only that opening as presentation-local state in `VeyraOS`, never a canonical unlock, trusted session, or timer.
 

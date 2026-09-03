@@ -89,6 +89,13 @@ using each resource-capable executor's own hardware and baseline runtime.
 
 Browser timers trigger advancement but are not themselves simulation truth.
 
+The same canonical game-advancement boundary advances the one concrete pending
+Petra Technician response from represented remaining milliseconds. That authored
+delay is independent of `GameProcess` and consumes no Device runtime resources;
+it is not evidence for a generic scheduler or autonomous-actor framework. One
+large elapsed step and equivalent smaller steps reach the same terminal response,
+and terminal no-op or successful branches clear the pending state exactly once.
+
 
 ## Continuous Processes
 

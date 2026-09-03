@@ -52,11 +52,29 @@ transfers, and transfers with any other source or destination Account, add
 nothing. Opening or navigating Communication is read-only and never causes the
 reaction.
 
-This reaction is immediate but represents no time, delay, probability,
-schedule, Process, routine, technician response, security consequence, or
-generic actor/reaction system. It changes no Discovery, Knowledge,
-DeviceAccess, credentials, Wallet protection, server state, or other World
-Truth.
+Petra's complaint is immediate and changes no security truth itself. It also
+starts one concrete pending Technician response with 5,000 ms remaining. That
+delay advances only through the canonical game-advancement boundary; it is not
+a Process, browser timer, scheduler, calendar, routine, or generic actor/reaction
+system.
+
+When due, the response owned by `src/core/game/petraTechnician.ts` requires
+Petra's complaint and its retained canonical Dollar Transaction, then reads
+only Petra's represented phone and that Device's current Wallet Protection
+setting. If protection is OFF, the Technician makes the limited local
+assessment that someone may have had access to the phone, enables protection
+through a narrow defensive-maintenance operation, and only after that real
+change posts: “Maybe someone had access to your phone? I changed your Wallet
+security settings.” If protection is already ON, or the complaint/evidence no
+longer resolves, the pending response ends without changing or reporting
+anything and never retries.
+
+The Technician is a distinct Company Chat correspondent (`Technician`), not a
+Device, IP address, Account, DeviceAccess, RemoteSession, or generic NPC entity.
+No Technician hardware, network presence, awareness state, beliefs, goals, or
+general incident-response framework is represented. The current case does not
+inspect attacker identity, RATTLER, Authentication History, GateSSH, Firmware,
+or any server; broader investigation and Firmware response remain unimplemented.
 
 
 ## The mailbox
@@ -213,5 +231,6 @@ Reading, copying, or believing a communicated address grants nothing.
   mood or "already told them" flag beside it.
 - Unread is derived from canonical read state. Never store a count, preview, or
   latest-sender field.
-- There is no represented time here. Do not add timestamps, delivery delays,
-  polling, or `Date.now()`-derived anything.
+- The one represented communication delay is Petra's concrete pending
+  Technician response. Do not infer timestamps, general delivery timing,
+  polling, or a scheduler from that authored case.
