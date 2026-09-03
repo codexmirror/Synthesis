@@ -1,5 +1,5 @@
 import './veyra.css'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { deriveVeyraHomeEntries, type VeyraAppId, type VeyraHomeEntry } from './veyraHome'
@@ -8,7 +8,10 @@ import { VeyraCommunication } from './VeyraCommunication'
 import { VeyraPinChallenge } from './VeyraPinChallenge'
 import { VeyraSettings, type VeyraSettingsDetail } from './VeyraSettings'
 import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
+import { VeyraFirmwareInstall, VeyraFirmwareWelcome } from './VeyraFirmwareInstall'
 import { deriveRattlerProcessForDevice } from '../../core/game/rattler'
+import { resolveInstallingVeyraFirmwareRelease, type VeyraFirmwareRelease } from '../../core/game/veyraFirmwareUpdate'
+import { selectVeyraReleasePresentation, type VeyraReleasePresentation } from './veyraRelease'
 
 /**
  * Where the player is inside the phone. The grammar is exactly two levels:
@@ -56,6 +59,34 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
   const entries = deriveVeyraHomeEntries(state, target)
   const rattler = deriveRattlerProcessForDevice(state, target.id)
   const [observedRattlerId, setObservedRattlerId] = useState<string>()
+  const release = selectVeyraReleasePresentation(target.firmware)
+
+  /*
+   * A firmware installation is canonical Device state, so the phone presents
+   * whatever the Device is really doing: while `firmwareUpdate` exists this
+   * surface is the installation and nothing else, and it reappears exactly as
+   * far along as the real installation has got if the player leaves the phone
+   * and comes back. The one presentation-local piece is the finished release's
+   * welcome screen below, which authorizes nothing and states only what the
+   * Device already owns.
+   */
+  const installing = target.firmwareUpdate
+  const installingRelease = installing ? resolveInstallingVeyraFirmwareRelease(installing) : undefined
+  const [installed, setInstalled] = useState<VeyraFirmwareRelease>()
+  const observedInstall = useRef<VeyraFirmwareRelease>()
+
+  useEffect(() => {
+    if (installingRelease) {
+      observedInstall.current = installingRelease
+      return
+    }
+    const finished = observedInstall.current
+    observedInstall.current = undefined
+    // Only a Device that actually owns the new release gets the new release's
+    // welcome; presentation never announces an installation the world did not
+    // complete.
+    if (finished && target.firmware?.id === finished.firmware.id) setInstalled(finished)
+  }, [installingRelease, target.firmware?.id])
 
   useEffect(() => {
     if (location.app === 'wallet-locked' && rattler?.status === 'running') setObservedRattlerId(rattler.id)
@@ -104,7 +135,9 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
     go({ app })
   }
 
-  return <section className="veyra" hidden={hidden} aria-label={`${target.firmware!.name} personal device environment`}>
+  const systemBusy = Boolean(installing) || Boolean(installed)
+
+  return <section className="veyra" hidden={hidden} data-release={release} aria-label={`${target.firmware!.name} personal device environment`}>
     {/*
       * The Shell's operating-context control, deliberately drawn as the
       * technical frame around the phone rather than as part of it. Nothing
@@ -122,9 +155,11 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
     </header>
 
     <main className="veyra-viewport">
-      {location.app === 'home' && <VeyraHome entries={entries} onOpen={openHomeEntry} />}
-      {location.app === 'communication' && <VeyraCommunication />}
-      {location.app === 'wallet-locked' && <VeyraPinChallenge
+      {installing && <VeyraFirmwareInstall progress={installing} release={installingRelease} />}
+      {!installing && installed && <VeyraFirmwareWelcome release={installed} onContinue={() => { setInstalled(undefined); go({ app: 'home' }) }} />}
+      {!systemBusy && location.app === 'home' && <VeyraHome entries={entries} onOpen={openHomeEntry} deviceName={target.displayName!} release={release} />}
+      {!systemBusy && location.app === 'communication' && <VeyraCommunication />}
+      {!systemBusy && location.app === 'wallet-locked' && <VeyraPinChallenge
         note="Enter this Device's PIN to open Wallet."
         verify={(pin) => verifyDevicePinForOperatedRemoteDevice(pin).status === 'verified'}
         onSuccess={() => go({ app: 'wallet' })}
@@ -132,13 +167,13 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
         observedCandidate={rattler?.status === 'running' ? rattler.currentCandidate : undefined}
         observedAttemptNumber={rattler?.status === 'running' ? rattler.attemptsCompleted : undefined}
       />}
-      {location.app === 'wallet' && <VeyraWallet
+      {!systemBusy && location.app === 'wallet' && <VeyraWallet
         detail={location.detail}
         onDetail={(detail) => go(detail ? { app: 'wallet', detail } : { app: 'wallet' })}
         editingRecoveryReady={editingRecoveryReady}
         onEndEditing={onEndEditing}
       />}
-      {location.app === 'settings' && <VeyraSettings device={target} detail={location.detail} onDetail={(detail) => go(detail ? { app: 'settings', detail } : { app: 'settings' })} />}
+      {!systemBusy && location.app === 'settings' && <VeyraSettings device={target} detail={location.detail} release={release} onDetail={(detail) => go(detail ? { app: 'settings', detail } : { app: 'settings' })} />}
     </main>
 
     {/*
@@ -147,7 +182,8 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
       * phone — returning to NODE-OS and ending the Session are the frame's
       * actions above, and they stay separate.
       */}
-    <nav className="veyra-nav" aria-label="VEYRA navigation">
+    {/* A phone installing its own operating system offers no navigation at all. */}
+    {!systemBusy && <nav className="veyra-nav" aria-label="VEYRA navigation">
       {location.app === 'home'
         ? <span aria-hidden="true" />
         : <button className="veyra-nav__back" type="button" onClick={back}><VeyraIcon name="back" />Back</button>}
@@ -155,7 +191,7 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
         <VeyraIcon name="home" />Home
       </button>
       <span aria-hidden="true" />
-    </nav>
+    </nav>}
   </section>
 }
 
@@ -165,9 +201,23 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
  *
  * The grid is fixed at four columns and sized for touch, so the concrete entries
  * sit exactly where they would sit on a fuller phone. Empty cells stay empty.
+ *
+ * Which entries exist never depends on the release: 4.2 refines how Home is
+ * presented and adds no application, because the newer firmware ships none.
  */
-function VeyraHome({ entries, onOpen }: { entries: readonly VeyraHomeEntry[]; onOpen: (app: VeyraAppId) => void }) {
+function VeyraHome({ entries, onOpen, deviceName, release }: {
+  entries: readonly VeyraHomeEntry[]
+  onOpen: (app: VeyraAppId) => void
+  deviceName: string
+  release: VeyraReleasePresentation
+}) {
   return <section className="veyra-screen veyra-home" aria-label="Home">
+    {/*
+      * 4.2 gives Home a quiet header naming the phone itself. It is the
+      * Device's own represented display name and nothing else: no greeting,
+      * no time, no weather, no status and no invented state.
+      */}
+    {release === 'v4-2' && <header className="veyra-home__head"><h1 className="veyra-home__device">{deviceName}</h1></header>}
     <div className="veyra-launcher">
       {entries.map((entry) => <button className="veyra-app" key={entry.id} type="button" onClick={() => onOpen(entry.id)}>
         <span className="veyra-app__tile"><VeyraIcon name={entry.icon} /></span>

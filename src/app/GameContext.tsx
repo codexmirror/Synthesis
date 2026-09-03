@@ -37,6 +37,7 @@ import type { StartFlipperModuleIntegrationResult } from '../core/game/flipper'
 import type { PayoutNodeMinerResult, RetargetLocalNodeMinerPayoutResult, RetargetNodeMinerPayoutResult, StartNodeMinerResult, StartRemoteNodeMinerResult, StopNodeMinerResult, StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
 import type { AuthenticateDollarAccountResult, AuthenticateWithSavedDollarSignInResult, LogoutDollarAccountResult, TransferDollarsResult, TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 import type { ChangeWalletProtectionForOperatedRemoteDeviceResult, VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
+import type { StartVeyraFirmwareUpdateResult } from '../core/game/veyraFirmwareUpdate'
 import type { CreateRattlerPayloadResult, DeployRattlerResult } from '../core/game/rattler'
 import type { SendMailReplyResult } from '../core/game/mail'
 import type { InstalledSoftware } from '../core/game/types'
@@ -85,6 +86,8 @@ export interface GameActions {
   transferRemoteDollars(recipientAccountReference: string, amountCents: number): TransferRemoteDollarsResult
   /** Changes the operated remote Device's own Wallet-protection setting; verified solely against that Device's own PIN. */
   changeWalletProtectionForOperatedRemoteDevice(pin: string, enabled: boolean): ChangeWalletProtectionForOperatedRemoteDeviceResult
+  /** Starts the operated remote Device's own firmware update; verified solely against that Device's own PIN. */
+  startVeyraFirmwareUpdateForOperatedRemoteDevice(pin: string): StartVeyraFirmwareUpdateResult
   /** Checks a submitted PIN against the operated remote Device's own PIN without committing anything. */
   verifyDevicePinForOperatedRemoteDevice(pin: string): VerifyDevicePinForOperatedRemoteDeviceResult
   createRattlerPayload(targetAddress: string): CreateRattlerPayloadResult

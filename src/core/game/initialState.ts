@@ -1,4 +1,4 @@
-import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID, VEYRA_OS_FIRMWARE_ID } from './firmwareIdentity'
+import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID, VEYRA_OS_4_1_FIRMWARE_ID } from './firmwareIdentity'
 import { createInitialMailState } from './mail'
 import { createInitialPetraCompanyChatState } from './petraCompanyChat'
 import { MARKET_OPERATOR_SETTLEMENT_ADDRESS, createInitialMarketState } from './market'
@@ -162,7 +162,7 @@ export function createInitialGameState(): GameState {
             connectivityRecoveryBehavior: 'RECONNECT',
             // Concretely represented like the other operable Devices, so an existing transfer to it is refused on real grounds rather than for want of a represented capability.
             transferCapacity: { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 4_194_304 },
-            firmware: { id: VEYRA_OS_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
+            firmware: { id: VEYRA_OS_4_1_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
             hardware: { cpu: { name: 'Mobile CPU', computeCapacity: 70 }, ram: { name: '6 GB', capacityMiB: 6144 } },
             runtime: { baselineCpuLoad: 6, baselineRamUsage: 34 },
             // Represented like any other concretely operable Device: it owns a software inventory and a filesystem, both of which are simply empty rather than filled with invented personal content.

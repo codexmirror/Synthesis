@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useGameActions } from '../../app/GameContext'
+import { resolveAvailableVeyraFirmwareUpdate } from '../../core/game/veyraFirmwareUpdate'
 import type { NetworkHost } from '../../core/game/types'
 import { VeyraIcon } from './VeyraIcon'
 import { VeyraPinChallenge } from './VeyraPinChallenge'
+import { VeyraSystemUpdate } from './VeyraSystemUpdate'
+import type { VeyraReleasePresentation } from './veyraRelease'
 
 /** Which Settings surface is open. Presentation only; it never reaches `GameState`. */
-export type VeyraSettingsDetail = 'this-device' | 'security'
+export type VeyraSettingsDetail = 'this-device' | 'system-update' | 'security'
 
 /**
  * Settings is a Firmware-owned system surface, not a Device model.
@@ -17,15 +20,25 @@ export type VeyraSettingsDetail = 'this-device' | 'security'
  * represents none of it and inventing a plausible row would be the whole
  * failure this product is meant to avoid.
  *
+ * System Update is the one exception to that emptiness, and it is not an
+ * invented row: it presents the Device's own Firmware and the one official
+ * newer release VEYRA actually offers it, both resolved from represented
+ * truth. It is a Firmware capability, never an application, package or file.
+ *
  * There is no Connection entry either. This phone represents no owner-facing
  * connection state worth showing, and the player's Remote Session is emphatically
  * not it: a Session makes this surface operable without ever becoming something
  * the phone's owner would see.
+ *
+ * `release` is which VEYRA OS release's presentation this Device runs. 4.2
+ * groups the same rows under captioned sections; the rows, their truth and
+ * their behavior are identical in both.
  */
-export function VeyraSettings({ device, detail, onDetail }: {
+export function VeyraSettings({ device, detail, onDetail, release }: {
   device: NetworkHost
   detail?: VeyraSettingsDetail
   onDetail: (detail?: VeyraSettingsDetail) => void
+  release: VeyraReleasePresentation
 }) {
   if (detail === 'this-device') {
     return <section className="veyra-screen" aria-label="This Device">
@@ -44,20 +57,55 @@ export function VeyraSettings({ device, detail, onDetail }: {
     </section>
   }
 
+  if (detail === 'system-update') return <VeyraSystemUpdate device={device} />
+
   if (detail === 'security') return <VeyraSecurity device={device} />
+
+  const available = resolveAvailableVeyraFirmwareUpdate(device)
+  const systemRows = <>
+    <button className="veyra-row" type="button" onClick={() => onDetail('this-device')}>
+      <span className="veyra-row__label">This Device</span>
+      <VeyraIcon name="chevron" />
+    </button>
+    <button className="veyra-row" type="button" onClick={() => onDetail('system-update')}>
+      <span className="veyra-row__copy">
+        <strong>System Update</strong>
+        <small>{available ? `${available.firmware.name} ${available.firmware.version} available` : `${device.firmware?.name} ${device.firmware?.version} · up to date`}</small>
+      </span>
+      <span className="veyra-row__trail">
+        {available && <span className="veyra-badge" aria-hidden="true" />}
+        <VeyraIcon name="chevron" />
+      </span>
+    </button>
+  </>
+  const securityRow = <button className="veyra-row" type="button" onClick={() => onDetail('security')}>
+    <span className="veyra-row__label">Security</span>
+    <VeyraIcon name="chevron" />
+  </button>
 
   return <section className="veyra-screen" aria-label="Settings">
     <h1 className="veyra-title">Settings</h1>
-    <div className="veyra-card veyra-card--rows">
-      <button className="veyra-row" type="button" onClick={() => onDetail('this-device')}>
-        <span className="veyra-row__label">This Device</span>
-        <VeyraIcon name="chevron" />
-      </button>
-      <button className="veyra-row" type="button" onClick={() => onDetail('security')}>
-        <span className="veyra-row__label">Security</span>
-        <VeyraIcon name="chevron" />
-      </button>
-    </div>
+
+    {/*
+      * The one event on this screen, stated once and only while it is true.
+      * It carries no state of its own: it is the same derived availability the
+      * System Update row below reads.
+      */}
+    {available && <article className="veyra-card veyra-update-banner">
+      <p className="veyra-update-banner__label">System Update</p>
+      <p className="veyra-update-banner__release">{available.firmware.name} {available.firmware.version} is available</p>
+      <p className="veyra-update-banner__note">Installing requires this Device's PIN.</p>
+      <button className="veyra-update-banner__action" type="button" onClick={() => onDetail('system-update')}>View update</button>
+    </article>}
+
+    {release === 'v4-2'
+      ? <>
+        <p className="veyra-section">System</p>
+        <div className="veyra-card veyra-card--rows">{systemRows}</div>
+        <p className="veyra-section">Privacy &amp; Security</p>
+        <div className="veyra-card veyra-card--rows">{securityRow}</div>
+      </>
+      : <div className="veyra-card veyra-card--rows">{systemRows}{securityRow}</div>}
   </section>
 }
 

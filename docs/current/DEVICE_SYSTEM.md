@@ -43,7 +43,9 @@ GameState
 │       └── one foreign personal phone
 │           ├── display identity and VEYRA OS Firmware
 │           ├── canonical Device-owned filesystem (represented and empty)
-│           └── canonical Device-owned installed software (represented and empty)
+│           ├── canonical Device-owned installed software (represented and empty)
+│           ├── Device-owned security (secret PIN, Wallet protection)
+│           └── Device-owned firmware-update progress, while one is installing
 ├── process
 ├── knowledge
 ├── discovery
@@ -118,9 +120,9 @@ Successful RackUpdate submission stores one exact pending GateSSH activation on 
 
 Its filesystem and installed-software inventory are both represented and empty. That is the truthful minimum for this slice: a Device that owns those concerns but currently holds nothing, rather than one filled with invented personal content. It owns an empty Authentication History like the other resource-capable Devices.
 
-It exposes one open Service, `service-ssh-003`, whose implementation is the same GateSSH 1.3.2 the world already represents, with `credentialAccess` at `USER`. It therefore derives the same `AUTH-017` and is reached by the same Credential Access loop as `srv-01`; no phone-specific weakness, tool, operation or shortcut exists. What that loop is belongs to `docs/current/NETWORK_ACCESS.md`.
+It exposes one open Service, `service-ssh-003`, whose implementation is the same GateSSH 1.3.2 the world already represents, with `credentialAccess` at `USER`. It therefore derives the same `AUTH-017` and is reached by the same Credential Access loop as `srv-01`; no phone-specific weakness, tool, operation or shortcut exists. That implementation is firmware-owned rather than installed: it is the SSH implementation VEYRA OS 4.1 ships, and a completed firmware update replaces it with the one the installed release ships (below). What that loop is belongs to `docs/current/NETWORK_ACCESS.md`.
 
-The three represented Firmware release identities — NODE-OS, RACK-OS and VEYRA OS — are named once in `src/core/game/firmwareIdentity.ts` so that code deciding *which* environment a Device runs resolves stable identity rather than a mutable display name. The Firmware a Device owns is still ordinary Device state; the constants are identity, not a Firmware registry or family model.
+The four represented Firmware release identities — NODE-OS, RACK-OS, VEYRA OS 4.1 and VEYRA OS 4.2 — are named once in `src/core/game/firmwareIdentity.ts` so that code deciding *which* environment a Device runs resolves stable identity rather than a mutable display name. VEYRA OS 4.1 and 4.2 are two distinct releases of one operating system, each with its own stable identity: a Device owns one of them, and installing the newer one replaces which release it owns rather than rewriting the older identity. The Firmware a Device owns is still ordinary Device state; the constants are identity, not a Firmware registry, family model, or release catalogue.
 
 The phone is signed in to its own Civic Dollar Account through its own Device-bound Financial Session (`docs/current/DOLLAR_FINANCE.md`), and the operating surface it presents belongs to `docs/current/VEYRA_OS.md`.
 
@@ -143,7 +145,80 @@ requirement and is not an administrator, permission, role, or RBAC framework.
 Communication reports its successful consequence but does not own this Device
 security truth.
 
-The setting is persistent Device state with no timer, temporary-unlock duration,
+### Device-owned firmware updates
+
+A Device may be installing a Firmware release, and that installation is its own
+canonical Device state: `NetworkHost.firmwareUpdate`
+(`DeviceFirmwareUpdateProgress`, `src/core/game/types.ts`) is the release
+identity being installed, the current represented stage
+(`DOWNLOADING` → `PREPARING` → `INSTALLING` → `FINALIZING`) and the elapsed time
+inside that stage. It is present only while an installation is actually
+running. Petra's phone seeds with none. `FINALIZING` is this update's own last
+represented stage of applying the release — deliberately not a Device
+reboot; see below.
+
+The whole represented update source is one authored release constant,
+`VEYRA_OS_4_2_RELEASE`, and the single step it defines
+(`src/core/game/veyraFirmwareUpdate.ts`). `resolveAvailableVeyraFirmwareUpdate`
+derives availability from a Device's own current Firmware identity — VEYRA OS
+4.1 is offered 4.2, anything else is offered nothing — and stores nothing. There
+is deliberately no update server, firmware marketplace, OTA protocol, package
+manager, release channel, version-ordering rule or generic Firmware registry
+(A16); a future release adds one more constant and one more concrete step.
+
+A Firmware release is not `InstalledSoftware` and not a package (A07): the
+release carries no size, publisher, distribution endpoint or acquisition step,
+and it is never a filesystem artifact. What it does carry is the concrete SSH
+implementation it ships, which is Device-owned Service implementation truth.
+
+`startVeyraFirmwareUpdateForOperatedRemoteDevice` is the only way an
+installation begins. It accepts no Device argument: the acting Device is
+resolved from the active Remote Session, the same "Session decides *which*
+Device acts, and grants no authority of its own" precedent
+`transferDollarsFromOperatedRemoteDevice` and
+`changeWalletProtectionForOperatedRemoteDevice` established, so no caller can
+name a target. It verifies through the same `verifyDevicePinForOperatedRemoteDevice`
+and refuses `invalid_pin`, `update_in_progress` or `update_unavailable` without
+touching canonical state at all. DeviceAccess and an active Session never
+satisfy the PIN check.
+
+`advanceVeyraFirmwareUpdates` advances every running installation on every
+`advanceGameState(elapsedMs)` tick, consuming elapsed time across stage
+boundaries exactly as Device connectivity recovery does: one large step produces
+the same outcome an equivalent sequence of small steps would. The installation
+therefore progresses whether or not any operating surface is presenting it, and
+browser timers remain triggers rather than truth (A10). An installation naming a
+release the world does not represent is dropped without installing anything.
+
+Completing the final `FINALIZING` stage is what applies the release: the
+Device's `firmware` becomes the new release's own stable identity, and the
+release's bundled SSH implementation replaces the implementation of that
+Device's single GateSSH Service. Nothing else changes — `installedSoftware`,
+`filesystem`, `security`, `operational`, Knowledge, Discovery, DeviceAccess,
+Sessions and every other Device are untouched, and the resulting weakness,
+fingerprint and exploit behavior follow from the changed Service implementation
+on their own, with no update-specific rule anywhere. For Petra's phone that
+means `service-ssh-003` moves from GateSSH 1.3.2 to the already represented
+GateSSH 1.3.3 build, so it stops deriving `AUTH-017` and starts deriving
+`AUTH-031` — while GateSSH on that phone stays firmware-owned Service
+implementation and never becomes `InstalledSoftware`.
+
+This stage sequence is the update's own represented transition. It
+deliberately does not move the Device's `operational` lifecycle or
+connectivity, and does not cross the real boot boundary below at any stage,
+including `FINALIZING` and completion: the phone is not represented as leaving
+the network while it installs, no boot consequence runs, and the active Remote
+Session is never invalidated by this update. This is an intentional scope
+boundary, not an oversight — a real firmware-triggered Device reboot (crossing
+the boot boundary below, reacting through Device connectivity/reachability,
+and potentially ending the active Remote Session, the same way srv-02's
+`REBOOT_ON_DISCONNECT` recovery already does for a different cause) is a
+distinct, currently unimplemented future consequence. The player-facing
+installation surface for the current, non-rebooting transition belongs to
+`docs/current/VEYRA_OS.md`, which likewise never claims a restart it does not
+represent.
+
+The Wallet-protection setting is persistent Device state with no timer, temporary-unlock duration,
 or automatic reset. Player-requested changes continue to require successful PIN
 verification; the only other current cause is the one-way Technician defensive
 maintenance transition above.
