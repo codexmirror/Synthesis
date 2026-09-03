@@ -8,7 +8,7 @@ import type { FilesystemState, TextFile } from './types'
  * (ARCHITECTURE.md A13). It is not a generic event log, trace registry, or
  * evidence store, and nothing else writes to it.
  */
-export const NODE_MINER_PAYOUT_LOG_PATH = '/var/log/node-miner/payout.log'
+export const NODE_MINER_PAYOUT_LOG_PATH = '/home/user/apps/node-miner/logs/payout.log'
 export const NODE_MINER_PAYOUT_LOG_HEADER = 'NODE MINER PAYOUT LOG'
 /**
  * Bounded retention: one running total line per payout routing segment,

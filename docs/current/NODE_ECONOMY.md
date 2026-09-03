@@ -82,7 +82,9 @@ Terminal integration's deeper control path, not a graphical convenience.
 
 Those same real payouts maintain one concrete Miner-owned artifact on the
 executing Device's canonical filesystem: the text file
-`/var/log/node-miner/payout.log`. "Executing Device" is literal — a Miner
+`/home/user/apps/node-miner/logs/payout.log`. The `logs` directory is derived
+from that represented file only after the first payout; installation creates no
+empty directory or log. "Executing Device" is literal — a Miner
 running on `srv-01` maintains `srv-01`'s artifact and never node-01's, and a
 local Miner still maintains node-01's; two Miners mining at once each record
 only their own run, on their own Device.
