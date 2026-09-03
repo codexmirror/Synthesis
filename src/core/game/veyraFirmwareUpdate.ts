@@ -82,10 +82,10 @@ export const VEYRA_FIRMWARE_UPDATE_PHASE_DURATIONS_MS: Readonly<Record<FirmwareU
   DOWNLOADING: 7_000,
   PREPARING: 3_000,
   INSTALLING: 8_000,
-  RESTARTING: 4_000,
+  FINALIZING: 4_000,
 }
 
-const PHASE_SEQUENCE: readonly FirmwareUpdatePhase[] = ['DOWNLOADING', 'PREPARING', 'INSTALLING', 'RESTARTING']
+const PHASE_SEQUENCE: readonly FirmwareUpdatePhase[] = ['DOWNLOADING', 'PREPARING', 'INSTALLING', 'FINALIZING']
 
 export const VEYRA_FIRMWARE_UPDATE_DURATION_MS = PHASE_SEQUENCE
   .reduce((total, phase) => total + VEYRA_FIRMWARE_UPDATE_PHASE_DURATIONS_MS[phase], 0)
@@ -177,9 +177,15 @@ function applyVeyraFirmwareRelease(host: NetworkHost, release: VeyraFirmwareRele
  * final outcome an equivalent sequence of small steps would, rather than
  * needing an extra tick per stage. The installation therefore progresses
  * whether or not anybody is looking at the phone's Settings screen, and
- * completing the final `RESTARTING` stage — the update's own represented
- * restart of the operating surface, not a Device reboot — is what applies the
- * new release.
+ * completing the final `FINALIZING` stage is what applies the new release.
+ *
+ * This deliberately never touches the Device's own `operational` lifecycle or
+ * connectivity, and never crosses `runRealDeviceBootConsequences`
+ * (`deviceBootBoundary.ts`): the update completes without the Device actually
+ * rebooting, reconnecting, or invalidating the active Remote Session. A real
+ * firmware-triggered Device reboot — crossing that same boot boundary other
+ * Device transitions already use — is a deliberately deferred future slice,
+ * not represented here.
  *
  * An installation naming a release the world does not represent is dropped
  * without applying anything, so an incoherent update can never install

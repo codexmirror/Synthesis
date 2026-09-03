@@ -587,21 +587,22 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
   background: var(--veyra-accent);
   opacity: .9;
 }
-.veyra-install__mark[data-restarting] { animation-duration: 2s; }
+.veyra-install__mark[data-finalizing] { animation-duration: 2s; }
 
 /*
- * The restart is the one moment the phone stops looking like a phone in use:
- * the ground goes dark around the system mark, the way a device looks while it
- * comes back up. It is still the represented `RESTARTING` stage and nothing
- * else — no fabricated boot log, no invented hardware or system messages.
+ * FINALIZING is styled as one last quiet, settled moment before the update
+ * completes: the ground darkens around the system mark. This is deliberately
+ * atmospheric only — it is still the represented `FINALIZING` stage and
+ * nothing else, never a claim that the Device is rebooting. No fabricated
+ * boot log, hardware message or invented system output.
  */
-.veyra-install[data-phase='RESTARTING'] {
+.veyra-install[data-phase='FINALIZING'] {
   background: #1c1a18;
   color: #efeae3;
 }
-.veyra-install[data-phase='RESTARTING'] .veyra-install__brand { color: #8d857a; }
-.veyra-install[data-phase='RESTARTING'] .veyra-install__note { color: #a49b8f; }
-.veyra-install[data-phase='RESTARTING'] .veyra-install__mark {
+.veyra-install[data-phase='FINALIZING'] .veyra-install__brand { color: #8d857a; }
+.veyra-install[data-phase='FINALIZING'] .veyra-install__note { color: #a49b8f; }
+.veyra-install[data-phase='FINALIZING'] .veyra-install__mark {
   background: #262320;
   box-shadow: none;
 }

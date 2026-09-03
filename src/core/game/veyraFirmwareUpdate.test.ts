@@ -120,7 +120,24 @@ describe('the represented installation', () => {
       const progress = phoneOf(state).firmwareUpdate
       if (progress && phases[phases.length - 1] !== progress.phase) phases.push(progress.phase)
     }
-    expect(phases).toEqual(['DOWNLOADING', 'PREPARING', 'INSTALLING', 'RESTARTING'])
+    expect(phases).toEqual(['DOWNLOADING', 'PREPARING', 'INSTALLING', 'FINALIZING'])
+  })
+
+  it('never moves the Device’s operational lifecycle/connectivity or ends the active Remote Session, at any stage', () => {
+    // This hardening pass deliberately does not implement a real Device
+    // reboot: the installation must not silently invalidate the Session or
+    // touch operational truth a real boot boundary would own.
+    const before = phoneConnectedState()
+    let state = startVeyraFirmwareUpdateForOperatedRemoteDevice(before, PHONE_PIN).state
+    for (let step = 0; step < 12; step += 1) {
+      state = advanceGameState(state, 2_000)
+      expect(phoneOf(state).operational).toEqual(phoneOf(before).operational)
+      expect(state.remoteSession.active).toEqual(before.remoteSession.active)
+    }
+    // Completion crosses no boot boundary either.
+    expect(phoneOf(state).firmwareUpdate).toBeUndefined()
+    expect(phoneOf(state).operational).toEqual(phoneOf(before).operational)
+    expect(state.remoteSession.active).toEqual(before.remoteSession.active)
   })
 
   it('is not finished, and has not changed the Firmware, part way through', () => {

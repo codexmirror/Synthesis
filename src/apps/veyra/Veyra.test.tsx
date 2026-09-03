@@ -673,6 +673,9 @@ describe('VEYRA System Update', () => {
     // Firmware is not software: nothing here is bought, downloaded to a
     // filesystem, installed as a package or acquired from a Market.
     expect(update.textContent).not.toMatch(/download|market|package|purchase|price|filesystem/i)
+    // This update never crosses the real boot boundary, so nothing may claim
+    // the Device restarts or reboots to install it.
+    expect(update.textContent).not.toMatch(/restart|reboot/i)
     expect(canonical()).toEqual(before)
   })
 
@@ -728,9 +731,14 @@ describe('VEYRA System Update', () => {
     expect(phoneHost(canonical()).firmware?.version).toBe('4.1')
 
     await runInstallation(9_000)
-    const restarting = screen.getByRole('region', { name: 'Installing system update' })
-    expect(restarting).toHaveTextContent('Restarting')
-    expect(within(restarting).queryByRole('progressbar')).not.toBeInTheDocument()
+    const finalizing = screen.getByRole('region', { name: 'Installing system update' })
+    expect(finalizing).toHaveTextContent('Finishing update')
+    expect(within(finalizing).queryByRole('progressbar')).not.toBeInTheDocument()
+    // The Device never actually restarts for this update: nothing on screen
+    // may claim a reboot that World Truth does not represent.
+    expect(finalizing.textContent).not.toMatch(/restart|reboot/i)
+    expect(phoneHost(canonical()).operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
+    expect(canonical().remoteSession.active).not.toBeNull()
   })
 
   it('completes into the new release and resolves it from real Device truth', async () => {

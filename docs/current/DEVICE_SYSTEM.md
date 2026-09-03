@@ -151,9 +151,11 @@ A Device may be installing a Firmware release, and that installation is its own
 canonical Device state: `NetworkHost.firmwareUpdate`
 (`DeviceFirmwareUpdateProgress`, `src/core/game/types.ts`) is the release
 identity being installed, the current represented stage
-(`DOWNLOADING` → `PREPARING` → `INSTALLING` → `RESTARTING`) and the elapsed time
+(`DOWNLOADING` → `PREPARING` → `INSTALLING` → `FINALIZING`) and the elapsed time
 inside that stage. It is present only while an installation is actually
-running. Petra's phone seeds with none.
+running. Petra's phone seeds with none. `FINALIZING` is this update's own last
+represented stage of applying the release — deliberately not a Device
+reboot; see below.
 
 The whole represented update source is one authored release constant,
 `VEYRA_OS_4_2_RELEASE`, and the single step it defines
@@ -188,7 +190,7 @@ therefore progresses whether or not any operating surface is presenting it, and
 browser timers remain triggers rather than truth (A10). An installation naming a
 release the world does not represent is dropped without installing anything.
 
-Completing the final `RESTARTING` stage is what applies the release: the
+Completing the final `FINALIZING` stage is what applies the release: the
 Device's `firmware` becomes the new release's own stable identity, and the
 release's bundled SSH implementation replaces the implementation of that
 Device's single GateSSH Service. Nothing else changes — `installedSoftware`,
@@ -201,11 +203,20 @@ GateSSH 1.3.3 build, so it stops deriving `AUTH-017` and starts deriving
 `AUTH-031` — while GateSSH on that phone stays firmware-owned Service
 implementation and never becomes `InstalledSoftware`.
 
-This stage sequence is the update's own represented transition. It deliberately
-does not move the Device's `operational` lifecycle or connectivity and does not
-cross the real boot boundary below: the phone is not represented as leaving the
-network while it installs, and no boot consequence runs. The player-facing
-installation surface for it belongs to `docs/current/VEYRA_OS.md`.
+This stage sequence is the update's own represented transition. It
+deliberately does not move the Device's `operational` lifecycle or
+connectivity, and does not cross the real boot boundary below at any stage,
+including `FINALIZING` and completion: the phone is not represented as leaving
+the network while it installs, no boot consequence runs, and the active Remote
+Session is never invalidated by this update. This is an intentional scope
+boundary, not an oversight — a real firmware-triggered Device reboot (crossing
+the boot boundary below, reacting through Device connectivity/reachability,
+and potentially ending the active Remote Session, the same way srv-02's
+`REBOOT_ON_DISCONNECT` recovery already does for a different cause) is a
+distinct, currently unimplemented future consequence. The player-facing
+installation surface for the current, non-rebooting transition belongs to
+`docs/current/VEYRA_OS.md`, which likewise never claims a restart it does not
+represent.
 
 The Wallet-protection setting is persistent Device state with no timer, temporary-unlock duration,
 or automatic reset. Player-requested changes continue to require successful PIN

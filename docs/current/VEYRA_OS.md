@@ -231,7 +231,7 @@ It presents, from represented truth alone:
 - the one concrete official newer release VEYRA offers it, when there is one,
   with that release's own headline and release notes;
 - that installing requires this Device's PIN, and that the phone stays on its
-  current release until it restarts;
+  current release until the update finishes;
 - an **Install** action.
 
 Availability is `resolveAvailableVeyraFirmwareUpdate`
@@ -265,19 +265,26 @@ duration. The Shell's operating-context frame stays, because it was never part
 of the phone.
 
 The surface states the release being installed, the represented stage
-(`Downloading update`, `Preparing update`, `Installing update`, `Restarting`)
-and a real progress percentage derived from canonical phase and elapsed time by
-`deriveVeyraFirmwareUpdateProgress`. It runs no timer of its own, animates no
-invented progress, and can neither advance, pause, cancel nor complete the
-installation: the canonical transition owned by
+(`Downloading update`, `Preparing update`, `Installing update`, `Finishing
+update`) and a real progress percentage derived from canonical phase and
+elapsed time by `deriveVeyraFirmwareUpdateProgress`. It runs no timer of its
+own, animates no invented progress, and can neither advance, pause, cancel nor
+complete the installation: the canonical transition owned by
 `docs/current/DEVICE_SYSTEM.md` is the only thing that moves. Leaving the phone
 and coming back shows exactly how far the real installation has got, and the
 installation does not depend on Settings — or any VEYRA surface — staying open.
 
-`RESTARTING` is presented as the one moment the phone stops looking like a
-phone in use: the ground goes dark around the VEYRA system mark. It is still
-only the represented stage — there is no fabricated boot log, hardware message
-or invented system output.
+`FINALIZING`, the last represented stage, is presented as the update settling
+into place: the ground goes dark around the VEYRA system mark, a deliberately
+atmospheric moment rather than a literal one. This is presentation over the
+represented `FINALIZING` stage and nothing else — there is no fabricated boot
+log, hardware message or invented system output, and crucially no claim that
+the Device is restarting or rebooting, because it is not: this update never
+moves the Device's `operational` lifecycle or connectivity, and never crosses
+the real boot boundary (`docs/current/DEVICE_SYSTEM.md`). A real
+firmware-triggered Device reboot — one that actually crosses that boundary,
+reacts through Device connectivity/reachability, and may end the active
+Remote Session — is a deliberately deferred future slice, not this one.
 
 When the installation completes, the Device owns the new release and a short
 `VeyraFirmwareWelcome` states what is now running, from the release that was
@@ -400,6 +407,11 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
   NODE-OS, or never looking at the phone again changes nothing about it.
 - A newer release is offered, never pre-applied. Petra's phone starts on 4.1
   with nothing installing, and only a correct Device PIN starts anything.
+- Finishing an installation is not rebooting the Device. `FINALIZING` looks
+  boot-like on purpose, but the Device's `operational` lifecycle, its
+  connectivity, and the active Remote Session are all untouched by this
+  update, at every stage including completion. A real firmware-triggered
+  Device reboot is unimplemented future work, not this slice.
 - A Home icon is not authority. Presence is derived from represented truth on
   every render; there is no stored launcher state to disagree with the world.
 - Client presence, represented data and emptiness are different. Communication

@@ -54,7 +54,7 @@ export function VeyraSystemUpdate({ device }: { device: NetworkHost }) {
             {available.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}
           </ul>
         </article>
-        <p className="veyra-note">Installing requires this Device's PIN. Your phone restarts to finish the update, and stays on {device.firmware?.name} {device.firmware?.version} until it does.</p>
+        <p className="veyra-note">Installing requires this Device's PIN. Your phone stays on {device.firmware?.name} {device.firmware?.version} until the update finishes.</p>
         <button className="veyra-submit" type="button" onClick={() => setInstalling(true)}>Install {available.firmware.version}</button>
       </>
       : <>

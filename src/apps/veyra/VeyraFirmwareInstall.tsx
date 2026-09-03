@@ -9,7 +9,7 @@ const PHASE_LABEL: Readonly<Record<FirmwareUpdatePhase, string>> = {
   DOWNLOADING: 'Downloading update',
   PREPARING: 'Preparing update',
   INSTALLING: 'Installing update',
-  RESTARTING: 'Restarting',
+  FINALIZING: 'Finishing update',
 }
 
 /**
@@ -24,22 +24,29 @@ const PHASE_LABEL: Readonly<Record<FirmwareUpdatePhase, string>> = {
  * cannot advance, pause, cancel or complete the installation. Leaving the
  * phone entirely and coming back simply shows wherever the real installation
  * has got to.
+ *
+ * `FINALIZING`, the last stage, is presented as the update settling into
+ * place — never as the Device restarting. World Truth never moves the
+ * Device's operational lifecycle or connectivity for this update (see
+ * `docs/current/DEVICE_SYSTEM.md`), so nothing here may claim a reboot that
+ * does not happen; a real firmware-triggered Device reboot is a deliberately
+ * deferred future slice.
  */
 export function VeyraFirmwareInstall({ progress, release }: {
   progress: DeviceFirmwareUpdateProgress
   release: VeyraFirmwareRelease | undefined
 }) {
-  const restarting = progress.phase === 'RESTARTING'
+  const finalizing = progress.phase === 'FINALIZING'
   const completion = Math.round(deriveVeyraFirmwareUpdateProgress(progress) * 100)
 
   return <section className="veyra-screen veyra-install" aria-label="Installing system update" data-phase={progress.phase}>
     <p className="veyra-install__brand">VEYRA</p>
-    <span className="veyra-install__mark" aria-hidden="true" data-restarting={restarting || undefined} />
+    <span className="veyra-install__mark" aria-hidden="true" data-finalizing={finalizing || undefined} />
     <h1 className="veyra-install__release">{release ? `${release.firmware.name} ${release.firmware.version}` : 'System update'}</h1>
     <p className="veyra-install__phase" role="status">{PHASE_LABEL[progress.phase]}</p>
 
-    {restarting
-      ? <p className="veyra-note veyra-install__note">Your phone is restarting to finish the update.</p>
+    {finalizing
+      ? <p className="veyra-note veyra-install__note">Finishing up. This will only take a moment.</p>
       : <>
         <div
           className="veyra-install__track"
@@ -52,7 +59,7 @@ export function VeyraFirmwareInstall({ progress, release }: {
           <span className="veyra-install__fill" style={{ width: `${completion}%` }} />
         </div>
         <p className="veyra-install__completion">{completion}%</p>
-        <p className="veyra-note veyra-install__note">Your phone will restart to finish the update.</p>
+        <p className="veyra-note veyra-install__note">Please wait while the update finishes.</p>
       </>}
   </section>
 }
