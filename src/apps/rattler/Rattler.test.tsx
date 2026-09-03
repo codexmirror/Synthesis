@@ -44,7 +44,7 @@ it('presents only the target input and CREATE PAYLOAD action, then reports the c
   expect(screen.getByRole('heading', { name: 'RATTLER' })).toBeInTheDocument()
   await user.type(screen.getByLabelText('IP address'), '198.51.100.47')
   await user.click(screen.getByRole('button', { name: 'CREATE PAYLOAD' }))
-  expect(screen.getByText(/CREATED · \/opt\/rattler\/payload-target-stable-id\.rpl/)).toBeInTheDocument()
+  expect(screen.getByText(/CREATED · \/home\/user\/apps\/rattler\/payloads\/payload-target-stable-id\.rpl/)).toBeInTheDocument()
 })
 
 it('monitors the latest running deployment after its Remote Session is gone', () => {

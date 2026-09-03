@@ -11,7 +11,13 @@ const executable: ExecutableFile = { kind: 'executable', id: 'file-executable', 
 describe('filesystem reads and identity', () => {
   it('derives only direct directory children from canonical paths', () => {
     expect(listDirectory(filesystem, '/')).toEqual({ status: 'ok', entries: [{ name: 'home', type: 'directory' }] })
-    expect(listDirectory(filesystem, '/home/user')).toEqual({ status: 'ok', entries: [{ name: 'downloads', type: 'directory' }, { name: 'extensions', type: 'directory' }, { name: 'modules', type: 'directory' }, { name: 'welcome.txt', type: 'file' }] })
+    expect(listDirectory(filesystem, '/home/user')).toEqual({ status: 'ok', entries: [{ name: 'downloads', type: 'directory' }, { name: 'welcome.txt', type: 'file' }] })
+    expect(listDirectory(filesystem, '/home/user/downloads')).toEqual({ status: 'ok', entries: [
+      { name: 'credential-access-1.0.mod', type: 'file' },
+      { name: 'deauth.ext', type: 'file' },
+      { name: 'node-miner-1.0.pkg', type: 'file' },
+      { name: 'nodescan-1.2.pkg', type: 'file' },
+    ] })
   })
 
   it('initializes deterministic, stable filesystem-local IDs', () => {

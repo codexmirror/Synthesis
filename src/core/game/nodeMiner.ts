@@ -17,7 +17,7 @@ export const NODE_MINER_COMPUTE_SECONDS_PER_UNIT = 1
 /** `1 NODE = 1,000,000 atomic NODE units`. Canonical economic truth is always the integer atomic unit. */
 export const NODE_UNITS_PER_NODE = 1_000_000
 /** Deterministic Device-local installed-program path created by installing the NODE Miner package. */
-export const NODE_MINER_INSTALLED_EXECUTABLE_PATH = '/usr/local/bin/node-miner'
+export const NODE_MINER_INSTALLED_EXECUTABLE_PATH = '/home/user/apps/node-miner/node-miner'
 export const NODE_MINER_EXECUTABLE_SIZE_BYTES = 2_100_000
 
 /**

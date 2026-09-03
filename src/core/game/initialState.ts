@@ -26,8 +26,8 @@ export function createInitialGameState(): GameState {
           files: [
             { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
             { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: NODE_MINER_1_0.releaseId, buildId: NODE_MINER_1_0.buildId, productId: NODE_MINER_1_0.productId, name: NODE_MINER_1_0.name, version: NODE_MINER_1_0.version, channel: NODE_MINER_1_0.channel, publisher: NODE_MINER_1_0.publisher, sizeBytes: 3_400_000 },
-            { kind: 'software_module', id: 'file-0003', path: '/home/user/modules/credential-access-1.0.mod', ...CREDENTIAL_ACCESS_MODULE_1_0 },
-            { kind: 'deauth_extension', id: 'file-0004', path: '/home/user/extensions/deauth.ext', ...DEAUTH_EXTENSION },
+            { kind: 'software_module', id: 'file-0003', path: '/home/user/downloads/credential-access-1.0.mod', ...CREDENTIAL_ACCESS_MODULE_1_0 },
+            { kind: 'deauth_extension', id: 'file-0004', path: '/home/user/downloads/deauth.ext', ...DEAUTH_EXTENSION },
             { kind: 'software_package', id: 'file-0005', path: '/home/user/downloads/nodescan-1.2.pkg', releaseId: NODESCAN_1_2_STANDARD.releaseId, buildId: NODESCAN_1_2_STANDARD.buildId, productId: NODESCAN_1_2_STANDARD.productId, name: NODESCAN_1_2_STANDARD.name, version: NODESCAN_1_2_STANDARD.version, channel: NODESCAN_1_2_STANDARD.channel, sizeBytes: 19_200_000 },
           ],
         },

@@ -77,8 +77,8 @@ describe('createInitialGameState', () => {
       files: [
         { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
         { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: 'node-miner-1.0', buildId: 'build-node-miner-1.0-v0', productId: 'node-miner', name: 'NODE Miner', version: '1.0', channel: 'unofficial', publisher: 'nm-dev', sizeBytes: 3_400_000 },
-        { kind: 'software_module', id: 'file-0003', path: '/home/user/modules/credential-access-1.0.mod', hostProductId: 'flipper', moduleId: 'credential-access', releaseId: 'flipper-credential-access-module-1.0', buildId: 'build-flipper-credential-access-module-1.0-v0', name: 'Credential Access Module', version: '1.0', sizeBytes: 1_600_000 },
-        { kind: 'deauth_extension', id: 'file-0004', path: '/home/user/extensions/deauth.ext', extensionId: 'deauth', hostProductId: 'flipper', compatibleHostReleaseId: 'flipper-1.0', releaseId: 'deauth-extension-1.0', buildId: 'build-deauth-extension-1.0-v0', name: 'deauth.ext', version: '1.0', sizeBytes: 1_250_000 },
+        { kind: 'software_module', id: 'file-0003', path: '/home/user/downloads/credential-access-1.0.mod', hostProductId: 'flipper', moduleId: 'credential-access', releaseId: 'flipper-credential-access-module-1.0', buildId: 'build-flipper-credential-access-module-1.0-v0', name: 'Credential Access Module', version: '1.0', sizeBytes: 1_600_000 },
+        { kind: 'deauth_extension', id: 'file-0004', path: '/home/user/downloads/deauth.ext', extensionId: 'deauth', hostProductId: 'flipper', compatibleHostReleaseId: 'flipper-1.0', releaseId: 'deauth-extension-1.0', buildId: 'build-deauth-extension-1.0-v0', name: 'deauth.ext', version: '1.0', sizeBytes: 1_250_000 },
         { kind: 'software_package', id: 'file-0005', path: '/home/user/downloads/nodescan-1.2.pkg', releaseId: 'nodescan-1.2-standard', buildId: 'build-nodescan-1.2-standard-v0', productId: 'nodescan', name: 'NodeScan', version: '1.2', channel: 'standard', sizeBytes: 19_200_000 },
       ],
     })

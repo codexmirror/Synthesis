@@ -56,7 +56,7 @@ export const ROLLBACK_MODULE_1_0 = {
 
 /** Represented size of the distributable module-free Flipper host. */
 export const FLIPPER_1_0_CANONICAL_BUILD_SIZE_BYTES = 4_000_000
-export const FLIPPER_INSTALLED_EXECUTABLE_PATH = '/home/user/apps/flipper'
+export const FLIPPER_INSTALLED_EXECUTABLE_PATH = '/home/user/apps/flipper/flipper'
 export const FLIPPER_EXECUTABLE_SIZE_BYTES = 4_000_000
 
 export const FLIPPER_MODULE_INTEGRATION_WORK_REQUIRED = 900

@@ -158,7 +158,7 @@ describe('NodeScan first hack', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
     expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' }))
     expect(screen.getByLabelText('Target status')).toHaveTextContent('HACKING')
     expect(screen.getByRole('group', { name: 'Hack progress' })).toBeInTheDocument()
 
@@ -175,7 +175,7 @@ describe('NodeScan first hack', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={knownWeakness()}><Network /><StateSnapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
 
     const afterHack = currentState()
@@ -238,8 +238,8 @@ describe('NodeScan first hack', () => {
 
     const actions = screen.getByRole('region', { name: 'ACTIONS' })
     expect(actions).toHaveTextContent('CREDENTIAL ACCESS')
-    expect(actions).toHaveTextContent('/home/user/modules/credential-access-1.0.mod')
-    await user.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' }))
+    expect(actions).toHaveTextContent('/home/user/downloads/credential-access-1.0.mod')
+    await user.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' }))
     // The tool and the technique are still real: the started attempt carries both.
     expect(currentState().process.processes).toEqual([expect.objectContaining({
       kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'credential-access-module', moduleId: 'credential-access', status: 'running',
@@ -314,13 +314,13 @@ describe('NodeScan information boundary', () => {
     const user = await openTarget(upgraded)
     const status = screen.getByLabelText('Target status')
     expect(within(status).queryByRole('button', { name: 'BYPASS' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
     expect(within(status).queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
 
     await openDetails(user)
     await user.click(screen.getByRole('button', { name: 'INSPECT' }))
     expect(selectTarget(currentState(), SRV_01)?.stage).toBe('route')
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
   })
 
   it('treats service-unavailable analysis as inconclusive and offers a canonical retry', async () => {
@@ -352,11 +352,11 @@ describe('NodeScan information boundary', () => {
 
   it('withdraws the hack from the interface when the represented tool is gone', async () => {
     await openTarget(knownWeakness())
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
     cleanup()
 
     await openTarget(withoutSoftware(knownWeakness(), 'flipper'))
-    expect(screen.queryByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
   })
 
@@ -473,7 +473,7 @@ describe('NodeScan progress', () => {
     await openTarget(failed)
     const status = screen.getByLabelText('Target status')
     expect(status).toHaveTextContent('TARGET OBSERVED')
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
   })
 
   it('states the running attempt from its own canonical facts, and never from World Truth', async () => {
@@ -509,8 +509,8 @@ describe('NodeScan progress', () => {
     await openTarget(withProcesses(knownWeakness(), [credentialProcess(300)]))
     const actions = screen.getByRole('region', { name: 'ACTIONS' })
 
-    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).not.toBeInTheDocument()
-    expect(within(actions).getByLabelText('Credential Access with /home/user/modules/credential-access-1.0.mod running')).toHaveTextContent('RUNNING')
+    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).not.toBeInTheDocument()
+    expect(within(actions).getByLabelText('Credential Access with /home/user/downloads/credential-access-1.0.mod running')).toHaveTextContent('RUNNING')
   })
 
   it('describes running analyses per Service, at the endpoints they were started against', async () => {
@@ -916,7 +916,7 @@ describe('RackUpdate exploit and package submission', () => {
     // Credential Access has no currently formed execution context (AUTH-017
     // is not yet Knowledge here), so it stays visible with its provider but
     // presents a quiet unavailable mark instead of a disabled EXECUTE control.
-    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).not.toBeInTheDocument()
+    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).not.toBeInTheDocument()
     expect(within(actions).getAllByLabelText(/Credential Access with .* unavailable/)).toHaveLength(2)
     // Rollback's context is formed, so it stays a real EXECUTE control.
     expect(within(actions).getByRole('button', { name: 'Execute Rollback' })).toBeInTheDocument()
@@ -1310,7 +1310,7 @@ describe('Known Space topology', () => {
 
     // One tap, straight to the decision: no Network page and no Device page between.
     expect(screen.getByRole('region', { name: 'ACTIONS' })).toHaveTextContent('CREDENTIAL ACCESS')
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/modules/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
   })
 
   it('observes nothing by presenting topology', async () => {
