@@ -4,7 +4,8 @@ import { createInitialGameState } from './initialState'
 import { inspectKnownTarget } from './inspect'
 import { rememberInspect, rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
-import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, findRunningLocalNodeMiner, startNodeMiner, stopNodeMiner } from './nodeMiner'
+import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, findRunningLocalNodeMiner, payoutLocalNodeMiner, startNodeMiner, stopNodeMiner } from './nodeMiner'
+import { NODE_MINER_PAYOUT_LOG_PATH } from './nodeMinerPayoutLog'
 import { cancelLocalProcess, deriveResourceUsage } from './processes'
 import { findInstalledNodeScan, nodeScanSupportsInspect } from './software'
 import { installLocalSoftwarePackage } from './softwareInstallation'
@@ -255,6 +256,22 @@ describe('software removal completion: NODE Miner', () => {
     expect(done.player.localDevice.installedSoftware.find(({ id }) => id === 'node-miner')).toBeUndefined()
     expect(done.player.localDevice.filesystem.files.some((file) => file.path === NODE_MINER_INSTALLED_EXECUTABLE_PATH)).toBe(false)
     expect(done.player.localDevice.filesystem.files.some((file) => file.path === packagePath)).toBe(true)
+  })
+
+  it('does not treat application-owned payout data as part of executable removal', () => {
+    const state = withInstalledMiner()
+    const run = startNodeMiner(state, NODE_MINER_INSTALLED_EXECUTABLE_PATH, state.nodeWallet.address)
+    if (run.status !== 'started') throw new Error(run.status)
+    const paid = payoutLocalNodeMiner(advanceGameState(run.state, 1_000))
+    if (paid.status !== 'paid') throw new Error(paid.status)
+    const logBeforeRemoval = paid.state.player.localDevice.filesystem.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)
+
+    const started = removeInstalledSoftware(paid.state, 'node-miner')
+    if (started.status !== 'started') throw new Error(started.status)
+    const done = completeRemoval(started.state)
+
+    expect(done.player.localDevice.filesystem.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)).toEqual(logBeforeRemoval)
+    expect(done.player.localDevice.filesystem.files.some(({ path }) => path === NODE_MINER_INSTALLED_EXECUTABLE_PATH)).toBe(false)
   })
 
   it('never deletes an unrelated or replaced artifact occupying the canonical installed path', () => {

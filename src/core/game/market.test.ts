@@ -321,6 +321,6 @@ describe('Flipper acquisition path', () => {
     if (installation.status !== 'started') throw new Error(installation.status)
     const installed = advanceGameState(installation.state, 60_000)
     expect(findInstalledFlipper(installed.player.localDevice)).toMatchObject({ buildId: 'build-flipper-1.0-base', integratedModules: [] })
-    expect(installed.player.localDevice.filesystem.files).toContainEqual(expect.objectContaining({ kind: 'executable', path: '/home/user/apps/flipper', programId: 'flipper', releaseId: 'flipper-1.0' }))
+    expect(installed.player.localDevice.filesystem.files).toContainEqual(expect.objectContaining({ kind: 'executable', path: '/home/user/apps/flipper/flipper', programId: 'flipper', releaseId: 'flipper-1.0' }))
   })
 })

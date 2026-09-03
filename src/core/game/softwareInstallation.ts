@@ -1,7 +1,7 @@
 import { checkDestinationPlacement, getFilesystemFile } from './filesystem'
 import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID } from './firmwareIdentity'
 import { AUTH_GUARD_PRODUCT_ID } from './authGuard'
-import { NODE_MINER_EXECUTABLE_SIZE_BYTES, NODE_MINER_INSTALLED_EXECUTABLE_PATH, NODE_MINER_PROGRAM_ID } from './nodeMiner'
+import { NODE_MINER_EXECUTABLE_SIZE_BYTES, NODE_MINER_PROGRAM_ID, nodeMinerInstalledExecutablePathForFirmware } from './nodeMiner'
 import { startProcess } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { GATE_SSH_PRODUCT_ID } from './serviceImplementations'
@@ -115,6 +115,7 @@ export function deriveSoftwarePackageEligibility(
 interface InstallationOwnedState {
   readonly filesystem: FilesystemState
   readonly installedSoftware: readonly InstalledSoftware[]
+  readonly firmware: { readonly id: string }
 }
 
 type AdmitInstallationResult =
@@ -146,7 +147,7 @@ function admitSoftwareInstallation(process: ProcessState, target: SoftwareInstal
   if (eligibility.status === 'installing') return { status: 'already_installing' }
   if (eligibility.status === 'incompatible') return { status: 'incompatible_firmware' }
 
-  if (packageFile.productId === NODE_MINER_PROGRAM_ID && checkDestinationPlacement(target.filesystem, NODE_MINER_INSTALLED_EXECUTABLE_PATH) !== 'ok') {
+  if (packageFile.productId === NODE_MINER_PROGRAM_ID && checkDestinationPlacement(target.filesystem, nodeMinerInstalledExecutablePathForFirmware(target.firmware.id)) !== 'ok') {
     return { status: 'install_path_occupied' }
   }
   if (packageFile.productId === RATTLER_PRODUCT_ID && checkDestinationPlacement(target.filesystem, RATTLER_INSTALLED_EXECUTABLE_PATH) !== 'ok') {
@@ -290,7 +291,8 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
     // GateSSH installation owns a paired consequence on represented servers.
     // If that concrete Service disappeared, apply neither half.
     if (process.productId === GATE_SSH_PRODUCT_ID && !managedGateSsh) return { ...process, result: { status: 'target_unavailable' as const } }
-    const applied = applyInstallationCompletion({ filesystem: host.filesystem, installedSoftware: host.installedSoftware }, process)
+    if (!host.firmware) return { ...process, result: { status: 'target_unavailable' as const } }
+    const applied = applyInstallationCompletion({ filesystem: host.filesystem, installedSoftware: host.installedSoftware, firmware: host.firmware }, process)
     const services = managedGateSsh ? host.services!.map((service) => service.id === managedGateSsh.id
       ? { ...service, implementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: process.releaseId, buildId: process.buildId, name: process.name, version: process.version } }
       : service) : host.services
@@ -319,7 +321,7 @@ export function resolveCompletedSoftwareInstallations(state: GameState): GameSta
  * that became occupied after admission is re-checked here too, so it is never
  * partially installed or overwritten.
  */
-function applyInstallationCompletion(device: InstallationOwnedState, process: SoftwareInstallationProcess): InstallationOwnedState & { readonly result: SoftwareInstallationResult } {
+function applyInstallationCompletion(device: InstallationOwnedState, process: SoftwareInstallationProcess): Pick<InstallationOwnedState, 'filesystem' | 'installedSoftware'> & { readonly result: SoftwareInstallationResult } {
   const installation = (process.productId === FLIPPER_PRODUCT_ID ? ({
     id: FLIPPER_PRODUCT_ID, releaseId: process.releaseId, buildId: process.buildId, name: process.name, version: process.version,
     ...(process.channel ? { channel: process.channel } : {}), ...(process.publisher ? { publisher: process.publisher } : {}),
@@ -336,7 +338,7 @@ function applyInstallationCompletion(device: InstallationOwnedState, process: So
 
   const executablePath = process.productId === FLIPPER_PRODUCT_ID
     ? FLIPPER_INSTALLED_EXECUTABLE_PATH
-    : process.productId === RATTLER_PRODUCT_ID ? RATTLER_INSTALLED_EXECUTABLE_PATH : NODE_MINER_INSTALLED_EXECUTABLE_PATH
+    : process.productId === RATTLER_PRODUCT_ID ? RATTLER_INSTALLED_EXECUTABLE_PATH : nodeMinerInstalledExecutablePathForFirmware(device.firmware.id)
   if (checkDestinationPlacement(device.filesystem, executablePath) !== 'ok') {
     return { ...device, result: { status: 'install_path_occupied' } }
   }

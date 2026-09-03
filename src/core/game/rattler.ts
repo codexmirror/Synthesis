@@ -6,7 +6,7 @@ import type { ExecutableFile, GameState, NetworkHost, RattlerPayloadFile, Rattle
 
 export const RATTLER_PRODUCT_ID = RATTLER_1_0.productId
 export const RATTLER_PROGRAM_ID = 'program-rattler-v0' as const
-export const RATTLER_INSTALLED_EXECUTABLE_PATH = '/opt/rattler/rattler.exe'
+export const RATTLER_INSTALLED_EXECUTABLE_PATH = '/home/user/apps/rattler/rattler'
 export const RATTLER_EXECUTABLE_SIZE_BYTES = 1_900_000
 export const RATTLER_PAYLOAD_SIZE_BYTES = 65_536
 export const RATTLER_CANDIDATE_BUDGET = 10_000
@@ -20,7 +20,7 @@ export function rattlerCandidateAt(index: number): string | undefined {
 }
 
 export function deriveRattlerPayloadPath(targetDeviceId: string): string {
-  return `/opt/rattler/payload-${targetDeviceId}.rpl`
+  return `/home/user/apps/rattler/payloads/payload-${targetDeviceId}.rpl`
 }
 
 export type DeployRattlerResult =

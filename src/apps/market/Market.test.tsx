@@ -173,7 +173,7 @@ describe('Market purchase', () => {
     expect(probe()).toMatchObject({
       balanceNodeUnits: 2 * PRICE,
       entitlements: [NODESCAN_OFFER],
-      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg', '/home/user/modules/credential-access-1.0.mod', '/home/user/extensions/deauth.ext', '/home/user/downloads/nodescan-1.2.pkg'],
+      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg', '/home/user/downloads/credential-access-1.0.mod', '/home/user/downloads/deauth.ext', '/home/user/downloads/nodescan-1.2.pkg'],
       transfer: null,
       processes: [],
     })
@@ -252,8 +252,8 @@ describe('Market download', () => {
     render(<GameProvider initialState={advanceGameState(started.state, 2_000)}><Files /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /downloads/ }))
-    // Only the two existing packages count as entries: the incoming artifact is not written yet.
-    expect(screen.getByText('2 ENTRIES')).toBeInTheDocument()
+    // Only the four existing loose artifacts count as entries: the incoming artifact is not written yet.
+    expect(screen.getByText('4 ENTRIES')).toBeInTheDocument()
     expect(screen.getByText(/INCOMING/)).toBeInTheDocument()
     expect(screen.getByText(/An incoming transfer is not written to this filesystem until it completes\./)).toBeInTheDocument()
   })

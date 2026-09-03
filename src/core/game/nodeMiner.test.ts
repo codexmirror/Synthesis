@@ -9,7 +9,7 @@ import {
   NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
   NODE_MINER_RAM_REQUIRED_MIB, NODE_UNITS_PER_NODE, payoutLocalNodeMiner, payoutNodeMiner, retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner,
 } from './nodeMiner'
-import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_HEADER, NODE_MINER_PAYOUT_LOG_PATH } from './nodeMinerPayoutLog'
+import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_HEADER, NODE_MINER_PAYOUT_LOG_PATH, RACK_OS_NODE_MINER_PAYOUT_LOG_PATH, recordNodeMinerPayout } from './nodeMinerPayoutLog'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { findNodeAccountByAddress } from './nodeEconomy'
 import type { DiscoveredDeviceSnapshot, ExecutableFile, GameState, NetworkHost, NodeMinerProcess, TextFile } from './types'
@@ -24,14 +24,14 @@ const LOCAL_MINER_PATH = '/home/user/downloads/node-miner-1.0.bin'
  */
 function readyState(): GameState {
   const base = createInitialGameState()
-  const minerFile: ExecutableFile = { kind: 'executable', id: 'file-0003', path: LOCAL_MINER_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
+  const minerFile: ExecutableFile = { kind: 'executable', id: 'file-0006', path: LOCAL_MINER_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
   return {
     ...base,
     player: {
       ...base.player,
       localDevice: {
         ...base.player.localDevice,
-        filesystem: { nextFileId: 4, files: [...base.player.localDevice.filesystem.files, minerFile] },
+        filesystem: { nextFileId: 7, files: [...base.player.localDevice.filesystem.files, minerFile] },
         runtime: { ...base.player.localDevice.runtime, baselineCpuLoad: 0 },
       },
     },
@@ -348,6 +348,16 @@ describe('NODE Miner CLI availability', () => {
 })
 
 describe('NODE Miner 1.0 manual settlement', () => {
+  it('creates no payout artifact before a real settlement, then creates it at the application-owned path', () => {
+    const accrued = advanceGameState(run(readyState()).state, 1_000)
+    expect(payoutLog(accrued)).toBeUndefined()
+    expect(listDirectory(accrued.player.localDevice.filesystem, '/home/user/apps/node-miner/logs')).toEqual({ status: 'not_found' })
+
+    const paid = payoutLocalNodeMiner(accrued)
+    expect(NODE_MINER_PAYOUT_LOG_PATH).toBe('/home/user/apps/node-miner/logs/payout.log')
+    expect(payoutLog(paid.state)).toMatchObject({ kind: 'text', path: NODE_MINER_PAYOUT_LOG_PATH })
+  })
+
   it('settles all accrued units, leaves the Process running, and no-ops when nothing is unpaid', () => {
     const accrued = advanceGameState(run(readyState()).state, 24_300)
     const paid = payoutLocalNodeMiner(accrued)
@@ -377,6 +387,48 @@ describe('NODE Miner 1.0 manual settlement', () => {
     expect(second.nodeWallet.balanceNodeUnits).toBe(oldBalance)
     expect(miner(second)).toMatchObject({ producedNodeUnits: 2000, payoutNodeUnits: 1340, developerFeeNodeUnits: 660 })
     expect(payoutLog(second)?.content).toContain('payout-address=node-addr-foreign')
+  })
+
+  it('rewrites one segment under the same file identity and retains only the newest bounded segments', () => {
+    const initial = readyState().player.localDevice.filesystem
+    const record = (payoutSegment: number, grossNodeUnits = payoutSegment) => ({
+      processId: 'process-log-test', payoutSegment, grossNodeUnits,
+      payoutAddress: `node-address-${payoutSegment}`, payoutNodeUnits: grossNodeUnits,
+    })
+    const first = recordNodeMinerPayout(initial, record(1))
+    const rewritten = recordNodeMinerPayout(first, record(1, 99))
+    expect(rewritten.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)?.id)
+      .toBe(first.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)?.id)
+    expect((rewritten.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH) as TextFile).content).toContain('gross=99')
+
+    let retained = rewritten
+    for (let segment = 2; segment <= NODE_MINER_PAYOUT_LOG_CAPACITY + 2; segment += 1) {
+      retained = recordNodeMinerPayout(retained, record(segment))
+    }
+    const lines = (retained.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH) as TextFile).content.split('\n')
+    expect(lines[0]).toBe(NODE_MINER_PAYOUT_LOG_HEADER)
+    expect(lines.slice(1)).toHaveLength(NODE_MINER_PAYOUT_LOG_CAPACITY)
+    expect(lines.join('\n')).not.toContain('process-log-test#1 ')
+    expect(lines.join('\n')).toContain(`process-log-test#${NODE_MINER_PAYOUT_LOG_CAPACITY + 2} `)
+  })
+
+  it('does not overwrite an unrelated artifact occupying the application-owned log path', () => {
+    const base = readyState()
+    const occupant: TextFile = { kind: 'text', id: 'file-log-occupant', path: NODE_MINER_PAYOUT_LOG_PATH, content: 'unrelated truth' }
+    const occupied: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice,
+      filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, occupant] },
+    } } }
+    const paid = payoutLocalNodeMiner(advanceGameState(run(occupied).state, 1_000))
+    expect(paid.status).toBe('paid')
+    expect(paid.state.player.localDevice.filesystem.files.find(({ id }) => id === occupant.id)).toEqual(occupant)
+  })
+
+  it('keeps the payout artifact after STOP removes the completed Miner Process', () => {
+    const running = run(readyState())
+    const stopped = stopNodeMiner(advanceGameState(running.state, 1_000), running.processId)
+    expect(stopped.status).toBe('stopped')
+    expect(payoutLog(stopped.state)).toMatchObject({ path: NODE_MINER_PAYOUT_LOG_PATH })
+    expect(findRunningLocalNodeMiner(stopped.state)).toBeUndefined()
   })
 })
 
@@ -422,7 +474,7 @@ function remoteHost(state: GameState): NetworkHost {
 }
 
 function remotePayoutLog(state: GameState): TextFile | undefined {
-  return remoteHost(state).filesystem!.files.find((file): file is TextFile => file.kind === 'text' && file.path === NODE_MINER_PAYOUT_LOG_PATH)
+  return remoteHost(state).filesystem!.files.find((file): file is TextFile => file.kind === 'text' && file.path === RACK_OS_NODE_MINER_PAYOUT_LOG_PATH)
 }
 
 
@@ -586,6 +638,8 @@ describe('remote NODE Miner manual settlement', () => {
     expect(paid).toMatchObject({ status: 'paid', settledGrossNodeUnits: 1000, payoutNodeUnits: 670 })
     expect(paid.state.nodeWallet.balanceNodeUnits).toBe(670)
     expect(remotePayoutLog(paid.state)?.content).toContain('gross=1000 payout=670')
+    expect(remotePayoutLog(paid.state)?.path).toBe(RACK_OS_NODE_MINER_PAYOUT_LOG_PATH)
+    expect(remoteHost(paid.state).filesystem!.files.some(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)).toBe(false)
     expect(payoutLog(paid.state)).toBeUndefined()
   })
 })

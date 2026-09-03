@@ -31,8 +31,12 @@ Devices, so cross-Device references require both Device ID and file ID. The
 local Device's initial contents consist of the text file
 `/home/user/welcome.txt`, the NODE Miner 1.0 package, the local test-world
 NodeScan 1.2 Standard package at `/home/user/downloads/nodescan-1.2.pkg`, the standalone
-Credential Access Module artifact under `/home/user/modules`, and the
-`deauth.ext` artifact under `/home/user/extensions`.
+Credential Access Module artifact and `deauth.ext` artifact at
+`/home/user/downloads/credential-access-1.0.mod` and
+`/home/user/downloads/deauth.ext`. Loose acquired artifacts use the Downloads
+area; installed launchable applications use product-owned directories beneath
+`/home/user/apps`, with application-generated artifacts nested beneath their
+owner where represented.
 
 The Files application begins at `/home/user`, states the current path and the
 local Device in its masthead, shows an explicit parent row, and derives its
@@ -455,7 +459,7 @@ the still-valid DeviceAccess derives whatever is true by then — still
 INSTALLING, or INSTALLED.
 
 Completion ordinarily makes the target Device's `installedSoftware` gain or replace that exact product release, and product-specific consequences occur on that same Device. The authored RACK-OS servers concretely carry GateSSH InstalledSoftware matching their managed Service (srv-01 at 1.3.2 and srv-02 at 1.3.3). Installing another GateSSH release through Files atomically replaces both that installed release and the existing Service whose implementation has stable `gate-ssh` product identity; it creates no Service and changes no unrelated Service. If that managed Service is absent at completion, neither half is applied. Older and newer represented releases use the same lifecycle with no version ordering. Remote NODE Miner installation therefore creates its one
-managed executable at `/usr/local/bin/node-miner` **in the target
+managed executable at `/usr/local/bin/node-miner` **in the RACK-OS target
 filesystem**, leaving the local Device's filesystem and inventory untouched.
 Installation is still not execution: completion creates the artifact, and RUN
 remains a separate later admission step (see **Remote executable RUN and
@@ -531,7 +535,7 @@ program remain four distinct things. Only once that Process completes does
 it record NODE Miner 1.0 — with the package's own stated channel and
 publisher — as installed software on that Device and create exactly one
 concrete NODE Miner `ExecutableFile` at the deterministic path
-`/usr/local/bin/node-miner`, leaving the package artifact in place and
+`/home/user/apps/node-miner/node-miner`, leaving the package artifact in place and
 starting no Process of its own (RUN remains a distinct, later admission
 step). Reinstalling the same already-installed concrete build is a no-op that
 creates no duplicate executable, and an unrelated artifact already occupying
@@ -668,7 +672,7 @@ RATTLER 1.0 is the first concrete standalone underground offensive software
 product. Its ordinary package installation follows the shared finite
 `software_installation` Process and, only at successful completion, atomically
 creates InstalledSoftware plus the one executable at
-`/opt/rattler/rattler.exe`. Admission and completion both refuse an occupied
+`/home/user/apps/rattler/rattler`. Admission and completion both refuse an occupied
 managed destination; neither half of installation is applied in that case.
 RATTLER requires NODE-OS through the same narrow concrete-product eligibility
 rule used by NodeScan and Flipper, not through a generic requirements system.
@@ -683,7 +687,7 @@ metadata alone grants no authority and never recreates the file.
 The player supplies an address. Resolution reads only remembered
 `Discovery.devices`, requires exactly one matching observation, and never
 searches hidden World hosts. Success writes one `rattler_payload` artifact at
-`/opt/rattler/payload-<stable-device-id>.rpl`. The artifact owns its
+`/home/user/apps/rattler/payloads/payload-<stable-device-id>.rpl`. The artifact owns its
 filesystem-local copy ID, represented size, RATTLER release/build provenance,
 stable target Device ID, and creation-time address snapshot. Stable Device ID
 is target binding; the address is presentation/provenance only. Existing
@@ -728,8 +732,8 @@ Device-owned PIN, not another RATTLER surface.
 ## Flipper acquisition and module integration
 
 A fresh game has no installed Flipper. It instead starts with one concrete
-Credential Access Module 1.0 `software_module` artifact under
-`/home/user/modules`; that standalone artifact directly supplies the existing
+Credential Access Module 1.0 `software_module` artifact at
+`/home/user/downloads/credential-access-1.0.mod`; that standalone artifact directly supplies the existing
 `AUTH-017` technique. Module possession is filesystem truth, not
 InstalledSoftware, and does not depend on Flipper.
 
@@ -765,7 +769,7 @@ Open Package Exchange lists the ordinary Flipper 1.0 software package for
 0.01 NODE. Buying establishes entitlement, downloading creates the package
 artifact, and ordinary Software Installation creates both a module-free
 `FlipperInstallation` and its concrete executable at
-`/home/user/apps/flipper`. Flipper is not a Home launcher: selecting that
+`/home/user/apps/flipper/flipper`. Flipper is not a Home launcher: selecting that
 installed executable in Files and choosing OPEN enters the Flipper surface.
 
 The installed canonical host is `build-flipper-1.0-base`, contains no modules,
@@ -879,7 +883,7 @@ stored Enhanced Inspect snapshots remain exactly as observed, while a *new*
 Inspect cannot be performed after restoration. NODE Miner is ordinary
 removable software: completion removes its InstalledSoftware entry and, only
 when the artifact at the deterministic installed path
-(`/usr/local/bin/node-miner`) still represents the exact release and build removal was
+(`/home/user/apps/node-miner/node-miner`) still represents the exact release and build removal was
 admitted against, deletes that executable — an unrelated or already-replaced
 artifact occupying that path is left untouched, and the downloaded package
 artifact is never touched either way. Flipper is ordinary Market-acquired
@@ -1053,7 +1057,7 @@ compatibility, capability, or plugin metadata.
 `deauth.ext` 1.0 is one concrete Device-filesystem artifact with stable file,
 extension, release, and build identity, represented size, and exact Flipper 1.0
 compatibility. The V1 proof seeds the artifact at
-`/home/user/extensions/deauth.ext`; Flipper itself retains its existing Market
+`/home/user/downloads/deauth.ext`; Flipper itself retains its existing Market
 acquisition and ordinary installation route. The extension is neither
 InstalledSoftware nor a Software Module and has no standalone execution path.
 DEAUTH exists only while the exact artifact and a compatible installed Flipper

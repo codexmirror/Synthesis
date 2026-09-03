@@ -34,7 +34,7 @@ describe('DEAUTH Flipper Extension', () => {
 
   it('is a concrete artifact but supplies no capability without a compatible installed Flipper', () => {
     const state = createInitialGameState(); const file = state.player.localDevice.filesystem.files.find((f) => f.kind === 'deauth_extension')
-    expect(file).toMatchObject({ ...DEAUTH_EXTENSION, kind: 'deauth_extension', path: '/home/user/extensions/deauth.ext' })
+    expect(file).toMatchObject({ ...DEAUTH_EXTENSION, kind: 'deauth_extension', path: '/home/user/downloads/deauth.ext' })
     expect(findCompatibleDeauthExtension(state.player.localDevice)).toBeUndefined()
     expect(startDeauthAttempt(state, { networkId: NETWORK, networkName: 'remote-segment-01', contextDeviceId: SRV }).status).toBe('provider_unavailable')
   })

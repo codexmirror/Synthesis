@@ -301,11 +301,8 @@ describe('Files NODE Miner installation', () => {
 
     await user.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
     await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /^usr.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /^local.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /^bin.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^apps.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^node-miner.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /^node-miner.*EXECUTABLE/ }))
     expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'RUN' }))
@@ -649,7 +646,7 @@ describe('Files install review', () => {
 
   it('presents a canonical admission failure truthfully instead of fabricating installation state', async () => {
     const base = createInitialGameState()
-    const occupied = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, { kind: 'text' as const, id: 'file-occupant', path: '/usr/local/bin/node-miner', content: 'not NODE Miner' }] } } } }
+    const occupied = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, { kind: 'text' as const, id: 'file-occupant', path: '/home/user/apps/node-miner/node-miner', content: 'not NODE Miner' }] } } } }
     const user = await openReview(occupied)
     await user.click(review().getByRole('button', { name: 'INSTALL' }))
 
@@ -699,7 +696,7 @@ describe('Files deauth.ext extension', () => {
   async function openDeauthExtension(initialState = createInitialGameState()) {
     render(<GameProvider initialState={initialState}><Files /></GameProvider>)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /extensions.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
     expect(screen.getByRole('button', { name: /deauth\.ext.*FLIPPER EXTENSION/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /deauth\.ext/ }))
     return user
@@ -748,7 +745,9 @@ describe('Files deauth.ext extension', () => {
 
     // Opening the second (later-in-array) copy must show the same truthful AVAILABLE state,
     // not NOT AVAILABLE merely because it is not the first match `findCompatibleDeauthExtension` would return.
-    await userA.click(screen.getByRole('button', { name: 'Back to /home/user/extensions' }))
+    await userA.click(screen.getByRole('button', { name: 'Back to /home/user/downloads' }))
+    await userA.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
+    await userA.click(screen.getByRole('button', { name: /extensions.*DIRECTORY/ }))
     await userA.click(screen.getByRole('button', { name: /deauth-second-copy\.ext.*FLIPPER EXTENSION/ }))
     expect(within(screen.getByText('AVAILABILITY').parentElement as HTMLElement).getByText('AVAILABLE')).toBeInTheDocument()
   })
@@ -773,14 +772,13 @@ describe('Files deauth.ext extension', () => {
 describe('Files RATTLER payload', () => {
   it('presents target/payload facts as an artifact, keeping opaque release/build identity out of the primary surface', async () => {
     const base = createInitialGameState()
-    const payload = { kind: 'rattler_payload' as const, id: 'file-payload', path: '/opt/rattler/payload-host-lan-001.rpl', sizeBytes: 6_400, rattlerReleaseId: RATTLER_1_0.releaseId, rattlerBuildId: RATTLER_1_0.buildId, targetDeviceId: 'host-lan-001', targetAddressSnapshot: '203.0.113.10' }
+    const payload = { kind: 'rattler_payload' as const, id: 'file-payload', path: '/home/user/apps/rattler/payloads/payload-host-lan-001.rpl', sizeBytes: 6_400, rattlerReleaseId: RATTLER_1_0.releaseId, rattlerBuildId: RATTLER_1_0.buildId, targetDeviceId: 'host-lan-001', targetAddressSnapshot: '203.0.113.10' }
     const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, payload] } } } }
     render(<GameProvider initialState={state}><Files /></GameProvider>)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /^opt.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^apps.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /^rattler.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^payloads.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /payload-host-lan-001\.rpl.*RATTLER PAYLOAD/ }))
 
     expect(screen.getByText('TARGET BOUND')).toBeInTheDocument()
@@ -804,6 +802,7 @@ describe('Files application executable OPEN', () => {
     render(<GameProvider initialState={state}><Files openApp={openApp} /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^apps.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^flipper.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /flipper.*EXECUTABLE/ }))
 
     expect(screen.getByRole('heading', { name: 'Flipper' })).toBeInTheDocument()
@@ -820,11 +819,9 @@ describe('Files application executable OPEN', () => {
     const openApp = vi.fn()
     render(<GameProvider initialState={state}><Files openApp={openApp} /></GameProvider>)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /\.\.\/.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /^opt.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^apps.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /^rattler.*DIRECTORY/ }))
-    await user.click(screen.getByRole('button', { name: /rattler\.exe.*EXECUTABLE/ }))
+    await user.click(screen.getByRole('button', { name: /^rattler.*EXECUTABLE/ }))
 
     expect(screen.getByRole('heading', { name: 'RATTLER' })).toBeInTheDocument()
     expect(screen.queryByText('RELEASE INFORMATION')).not.toBeInTheDocument()
@@ -839,6 +836,7 @@ describe('Files application executable OPEN', () => {
     render(<GameProvider initialState={state}><Files /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^apps.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /^flipper.*DIRECTORY/ }))
     await user.click(screen.getByRole('button', { name: /flipper.*EXECUTABLE/ }))
     expect(screen.queryByRole('button', { name: 'OPEN' })).not.toBeInTheDocument()
     expect(screen.queryByText('UNSUPPORTED')).not.toBeInTheDocument()
