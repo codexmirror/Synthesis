@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
@@ -7,6 +7,8 @@ import { createInitialGameState } from '../../core/game/initialState'
 import { transferDollars } from '../../core/game/dollarFinance'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { PETRA_TECHNICIAN_MESSAGE, PETRA_TECHNICIAN_RESPONSE_DELAY_MS } from '../../core/game/technician'
+import { VEYRA_FIRMWARE_UPDATE_DURATION_MS } from '../../core/game/veyraFirmwareUpdate'
+import { VEYRA_OS_4_1_FIRMWARE_ID, VEYRA_OS_4_2_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
 import { Shell } from '../../shell/Shell'
 import { Wallet } from '../wallet/Wallet'
 import type { GameState } from '../../core/game/types'
@@ -60,14 +62,21 @@ async function enableWalletProtection(user: ReturnType<typeof userEvent.setup>) 
   await user.click(screen.getByRole('button', { name: 'Home' }))
 }
 
-async function enterPhone(state = phoneConnectedState()) {
-  const user = userEvent.setup()
+async function enterPhone(state = phoneConnectedState(), user = userEvent.setup()) {
   render(<GameProvider initialState={state}><Shell /><State /></GameProvider>)
   await user.click(screen.getByRole('button', { name: 'ENTER VEYRA OS →' }))
   return user
 }
 
+const phoneHost = (state: GameState) => state.world.network.hosts.find(({ id }) => id === PHONE_DEVICE_ID)!
+
+/** Runs the represented installation forward through the running application's own canonical advancement. */
+async function runInstallation(ms = VEYRA_FIRMWARE_UPDATE_DURATION_MS + 1_000) {
+  await act(async () => { vi.advanceTimersByTime(ms) })
+}
+
 beforeEach(() => {
+  vi.useRealTimers()
   endEditing.mockClear()
   viewport = {
     hostHeight: 780, editTop: 0, editHeight: 780, editing: false,
@@ -348,7 +357,10 @@ describe('VEYRA Settings', () => {
     await user.click(screen.getByRole('button', { name: 'Settings' }))
 
     const settings = screen.getByRole('region', { name: 'Settings' })
-    expect(within(settings).getAllByRole('button').map((row) => row.textContent)).toEqual(['This Device', 'Security'])
+    // The System Update row states the same represented Firmware facts: this
+    // renamed release is still stable identity 4.1, so 4.2 is still offered.
+    expect(within(settings).getAllByRole('button').map((row) => row.textContent))
+      .toEqual(['View update', 'This Device', 'System UpdateVEYRA OS 4.2 available', 'Security'])
 
     await user.click(within(settings).getByRole('button', { name: 'This Device' }))
     const device = screen.getByRole('region', { name: 'This Device' })
@@ -634,5 +646,166 @@ describe('local NODE-OS finance is unaffected by an operated foreign phone', () 
     expect(screen.getByLabelText('Dollar account')).toHaveTextContent(PLAYER_REFERENCE)
     expect(screen.getByLabelText('Dollar account')).not.toHaveTextContent(PHONE_REFERENCE)
     expect(screen.getByLabelText('Dollar account')).not.toHaveTextContent('$342.50')
+  })
+})
+
+describe('VEYRA System Update', () => {
+  /** Settings -> System Update, exactly the way a player reaches it. */
+  async function openSystemUpdate(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.click(screen.getByRole('button', { name: /System Update/ }))
+    return screen.getByRole('region', { name: 'System Update' })
+  }
+
+  it('presents the one concrete newer release as a system capability, not an app or a package', async () => {
+    const user = await enterPhone()
+    const before = canonical()
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(screen.getByRole('region', { name: 'Settings' })).toHaveTextContent('VEYRA OS 4.2 is available')
+
+    await user.click(screen.getByRole('button', { name: /System Update/ }))
+    const update = screen.getByRole('region', { name: 'System Update' })
+    expect(update).toHaveTextContent('VEYRA OS 4.2')
+    expect(update).toHaveTextContent('Updated secure shell service to GateSSH 1.3.3.')
+    expect(update).toHaveTextContent("Installing requires this Device's PIN.")
+    expect(within(update).getByRole('button', { name: 'Install 4.2' })).toBeInTheDocument()
+    // Firmware is not software: nothing here is bought, downloaded to a
+    // filesystem, installed as a package or acquired from a Market.
+    expect(update.textContent).not.toMatch(/download|market|package|purchase|price|filesystem/i)
+    expect(canonical()).toEqual(before)
+  })
+
+  it('changes no firmware state from browsing the update or entering a wrong PIN', async () => {
+    const user = await enterPhone()
+    const update = await openSystemUpdate(user)
+    const before = canonical()
+
+    await user.click(within(update).getByRole('button', { name: 'Install 4.2' }))
+    await enterPin(user, '1234')
+    expect(screen.getByRole('alert')).toHaveTextContent('Incorrect PIN.')
+    expect(canonical()).toEqual(before)
+    expect(pinDots()).toEqual([false, false, false, false])
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('region', { name: 'System Update' })).toBeInTheDocument()
+    expect(canonical()).toEqual(before)
+    expect(phoneHost(canonical()).firmware?.id).toBe(VEYRA_OS_4_1_FIRMWARE_ID)
+    expect(phoneHost(canonical()).firmwareUpdate).toBeUndefined()
+  })
+
+  it('starts a represented installation on the correct Device PIN and gives the whole phone over to it', async () => {
+    const user = await enterPhone()
+    const update = await openSystemUpdate(user)
+    await user.click(within(update).getByRole('button', { name: 'Install 4.2' }))
+    await enterPin(user, PHONE_PIN)
+
+    expect(phoneHost(canonical()).firmwareUpdate).toMatchObject({ releaseId: VEYRA_OS_4_2_FIRMWARE_ID })
+    const installing = screen.getByRole('region', { name: 'Installing system update' })
+    expect(installing).toHaveTextContent('VEYRA OS 4.2')
+    expect(installing).toHaveTextContent('Downloading update')
+    // Real elapsed time keeps running under the surface, so this states only
+    // that the installation has genuinely just begun.
+    expect(Number(within(installing).getByRole('progressbar').getAttribute('aria-valuenow'))).toBeLessThan(30)
+    // The phone is installing its operating system: no launcher, no
+    // navigation, no Settings, and the Firmware it still owns is 4.1.
+    expect(screen.queryByRole('region', { name: 'System Update' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'VEYRA navigation' })).not.toBeInTheDocument()
+    expect(phoneHost(canonical()).firmware?.version).toBe('4.1')
+  })
+
+  it('progresses from canonical advancement rather than from the surface presenting it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = await enterPhone(phoneConnectedState(), userEvent.setup({ advanceTimers: vi.advanceTimersByTime }))
+    const update = await openSystemUpdate(user)
+    await user.click(within(update).getByRole('button', { name: 'Install 4.2' }))
+    await enterPin(user, PHONE_PIN)
+
+    await runInstallation(9_000)
+    const midway = screen.getByRole('region', { name: 'Installing system update' })
+    expect(midway).toHaveTextContent(/Preparing update|Installing update/)
+    expect(Number(within(midway).getByRole('progressbar').getAttribute('aria-valuenow'))).toBeGreaterThan(20)
+    expect(phoneHost(canonical()).firmware?.version).toBe('4.1')
+
+    await runInstallation(9_000)
+    const restarting = screen.getByRole('region', { name: 'Installing system update' })
+    expect(restarting).toHaveTextContent('Restarting')
+    expect(within(restarting).queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
+  it('completes into the new release and resolves it from real Device truth', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = await enterPhone(phoneConnectedState(), userEvent.setup({ advanceTimers: vi.advanceTimersByTime }))
+    const update = await openSystemUpdate(user)
+    await user.click(within(update).getByRole('button', { name: 'Install 4.2' }))
+    await enterPin(user, PHONE_PIN)
+    await runInstallation()
+
+    const phone = phoneHost(canonical())
+    expect(phone.firmware).toEqual({ id: VEYRA_OS_4_2_FIRMWARE_ID, name: 'VEYRA OS', version: '4.2' })
+    expect(phone.firmwareUpdate).toBeUndefined()
+    const welcome = screen.getByRole('region', { name: 'VEYRA OS 4.2 installed' })
+    expect(welcome).toHaveTextContent('4.2')
+
+    await user.click(within(welcome).getByRole('button', { name: 'Continue' }))
+    expect(phoneSurface()).toHaveAttribute('data-release', 'v4-2')
+    // The refined release, and no new application: the same three derived
+    // Home entries, presented under the new release's own system header.
+    const home = screen.getByRole('region', { name: 'Home' })
+    expect(within(home).getAllByRole('button').map((entry) => entry.textContent)).toEqual(['Communication', 'Wallet', 'Settings'])
+    expect(home).toHaveTextContent('Petra’s Phone')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const settings = screen.getByRole('region', { name: 'Settings' })
+    expect(settings).not.toHaveTextContent('is available')
+    expect(settings).toHaveTextContent('VEYRA OS 4.2 · up to date')
+    await user.click(within(settings).getByRole('button', { name: /System Update/ }))
+    const installed = screen.getByRole('region', { name: 'System Update' })
+    expect(installed).toHaveTextContent('This phone is running the latest VEYRA OS release.')
+    expect(within(installed).queryByRole('button', { name: /Install/ })).not.toBeInTheDocument()
+  })
+
+  it('moves the phone’s firmware-owned SSH implementation without representing it as installed software', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = await enterPhone(phoneConnectedState(), userEvent.setup({ advanceTimers: vi.advanceTimersByTime }))
+    expect(phoneHost(canonical()).services!.find(({ id }) => id === 'service-ssh-003')!.implementation.version).toBe('1.3.2')
+
+    const update = await openSystemUpdate(user)
+    await user.click(within(update).getByRole('button', { name: 'Install 4.2' }))
+    await enterPin(user, PHONE_PIN)
+    await runInstallation()
+
+    const phone = phoneHost(canonical())
+    expect(phone.services!.find(({ id }) => id === 'service-ssh-003')!.implementation).toEqual({
+      productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3',
+    })
+    expect(phone.installedSoftware).toEqual([])
+    expect(phone.filesystem?.files).toEqual([])
+
+    // The release states its own bundled component honestly, and the phone
+    // still presents no application, package or file for it anywhere.
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    const home = screen.getByRole('region', { name: 'Home' })
+    expect(within(home).getAllByRole('button').map((entry) => entry.textContent)).toEqual(['Communication', 'Wallet', 'Settings'])
+    expect(home.textContent).not.toMatch(/GateSSH|SSH/)
+  })
+
+  it('leaves Wallet protection and the Device PIN behaving exactly as before', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = await enterPhone(phoneConnectedState(), userEvent.setup({ advanceTimers: vi.advanceTimersByTime }))
+    await enableWalletProtection(user)
+
+    const update = await openSystemUpdate(user)
+    await user.click(within(update).getByRole('button', { name: 'Install 4.2' }))
+    await enterPin(user, PHONE_PIN)
+    await runInstallation()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+
+    expect(phoneHost(canonical()).security).toEqual({ devicePin: PHONE_PIN, walletProtectionEnabled: true })
+    await user.click(screen.getByRole('button', { name: 'Wallet' }))
+    expect(screen.getByRole('region', { name: 'Enter Device PIN' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Wallet' })).not.toBeInTheDocument()
+    await enterPin(user, PHONE_PIN)
+    expect(screen.getByRole('region', { name: 'Wallet' })).toBeInTheDocument()
   })
 })

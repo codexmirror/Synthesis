@@ -14,6 +14,7 @@ import { archiveProcess } from './recentActivity'
 import { advanceRattlerPinSearches } from './rattler'
 import { resolveCompletedDeauthAttempts } from './deauth'
 import { advanceTechnicianReaction } from './technician'
+import { advanceVeyraFirmwareUpdates } from './veyraFirmwareUpdate'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -65,5 +66,9 @@ export function advanceGameState(state: GameState, elapsedMs: number, credential
   // it never saw the intervening disconnected state.
   nextState = advanceRemoteSessionReachability(nextState)
   nextState = advanceDeviceConnectivityRecovery(nextState, elapsedMs)
+  // A running firmware installation is canonical Device state, so it advances
+  // here like every other represented Device transition — never from a timer
+  // inside the operating surface presenting it.
+  nextState = advanceVeyraFirmwareUpdates(nextState, elapsedMs)
   return advanceTechnicianReaction(nextState, elapsedMs)
 }

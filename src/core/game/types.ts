@@ -845,6 +845,32 @@ export interface NetworkHost {
    * authority, and is never itself Player Knowledge.
    */
   readonly security?: DeviceSecurityState
+  /**
+   * Canonical progress of this Device's own running Firmware update, present
+   * only while one is actually installing. It is Device-owned Firmware truth,
+   * not InstalledSoftware, not a filesystem artifact, not a package, and not
+   * presentation state: the operating surface reads it, and canonical
+   * advancement — never a browser timer — moves it forward and applies the
+   * installed release when it finishes.
+   */
+  readonly firmwareUpdate?: DeviceFirmwareUpdateProgress
+}
+
+/**
+ * The represented stages of one firmware installation, in order. They exist
+ * because the install genuinely takes represented time and passes through
+ * work the Device's owner would recognize; nothing outside the update itself
+ * derives meaning from which stage is current.
+ */
+export type FirmwareUpdatePhase = 'DOWNLOADING' | 'PREPARING' | 'INSTALLING' | 'RESTARTING'
+
+/** Canonical progress of one Device's own running Firmware update. */
+export interface DeviceFirmwareUpdateProgress {
+  /** Stable identity of the Firmware release being installed; never its mutable name or version. */
+  readonly releaseId: string
+  readonly phase: FirmwareUpdatePhase
+  /** Elapsed time inside the current phase only. */
+  readonly elapsedMs: number
 }
 
 export interface DeviceSecurityState {

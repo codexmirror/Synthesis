@@ -483,3 +483,246 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
   .veyra-screen { gap: 12px; padding-inline: 16px; }
   .veyra-terms dd { font-size: .95rem; }
 }
+
+/* ---- System Update: release notes, the availability banner and its badge ---- */
+
+.veyra-update-banner {
+  padding: 18px 20px 20px;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  background: var(--veyra-accent-sunk);
+}
+.veyra-update-banner__label {
+  margin: 0;
+  color: var(--veyra-accent);
+  font: 600 .72rem/1 var(--veyra-sans);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.veyra-update-banner__release { margin: 6px 0 0; font: 500 1.2rem/1.25 var(--veyra-sans); letter-spacing: -.01em; }
+.veyra-update-banner__note { margin: 0; color: var(--veyra-ink-soft); font-size: .86rem; line-height: 1.45; }
+.veyra-update-banner__action {
+  margin-top: 12px;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--veyra-accent);
+  color: #fdf8f4;
+  font: 500 .95rem var(--veyra-sans);
+  cursor: pointer;
+}
+.veyra-update-banner__action:focus-visible { outline: 2px solid var(--veyra-ink); outline-offset: 2px; }
+
+.veyra-row__trail { display: inline-flex; align-items: center; gap: 10px; }
+.veyra-badge { width: 9px; height: 9px; border-radius: 999px; background: var(--veyra-accent); }
+
+.veyra-release { padding: 20px; display: grid; gap: 6px; }
+.veyra-release__badge {
+  margin: 0;
+  color: var(--veyra-accent);
+  font: 600 .72rem/1 var(--veyra-sans);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.veyra-release__name { margin: 4px 0 0; font: 600 clamp(1.5rem, 6.5vw, 1.8rem)/1.15 var(--veyra-sans); letter-spacing: -.02em; }
+.veyra-release__headline { margin: 0; color: var(--veyra-ink-soft); font-size: .95rem; line-height: 1.5; }
+.veyra-release__notes { margin: 10px 0 0; padding: 0; display: grid; gap: 10px; list-style: none; }
+.veyra-release__notes li {
+  position: relative;
+  padding-left: 18px;
+  color: var(--veyra-ink-soft);
+  font-size: .92rem;
+  line-height: 1.5;
+}
+.veyra-release__notes li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: .55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--veyra-accent);
+}
+.veyra-release--current .veyra-release__name { color: var(--veyra-ink); }
+
+/* ---- the dedicated system-installation surface ---- */
+
+.veyra-install, .veyra-welcome {
+  /* Full-bleed: a system surface owns the whole screen, not a centred column. */
+  width: 100%;
+  min-height: 100%;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.veyra-install__brand {
+  margin: 0;
+  color: var(--veyra-ink-mute);
+  font: 600 .8rem/1 var(--veyra-sans);
+  letter-spacing: .42em;
+  text-indent: .42em;
+}
+
+/* The system mark: one calm VEYRA form, breathing rather than spinning. */
+.veyra-install__mark {
+  width: 58px;
+  height: 58px;
+  margin: 14px 0 6px;
+  border-radius: 30%;
+  background: var(--veyra-surface);
+  box-shadow: 0 1px 2px rgba(33, 31, 28, .07), 0 10px 24px rgba(33, 31, 28, .07);
+  position: relative;
+  animation: veyra-breathe 3.2s ease-in-out infinite;
+}
+.veyra-install__mark::after {
+  content: '';
+  position: absolute;
+  inset: 34%;
+  border-radius: 999px;
+  background: var(--veyra-accent);
+  opacity: .9;
+}
+.veyra-install__mark[data-restarting] { animation-duration: 2s; }
+
+/*
+ * The restart is the one moment the phone stops looking like a phone in use:
+ * the ground goes dark around the system mark, the way a device looks while it
+ * comes back up. It is still the represented `RESTARTING` stage and nothing
+ * else — no fabricated boot log, no invented hardware or system messages.
+ */
+.veyra-install[data-phase='RESTARTING'] {
+  background: #1c1a18;
+  color: #efeae3;
+}
+.veyra-install[data-phase='RESTARTING'] .veyra-install__brand { color: #8d857a; }
+.veyra-install[data-phase='RESTARTING'] .veyra-install__note { color: #a49b8f; }
+.veyra-install[data-phase='RESTARTING'] .veyra-install__mark {
+  background: #262320;
+  box-shadow: none;
+}
+
+@keyframes veyra-breathe {
+  0%, 100% { transform: scale(1); box-shadow: 0 1px 2px rgba(33, 31, 28, .07), 0 10px 24px rgba(33, 31, 28, .07); }
+  50% { transform: scale(1.045); box-shadow: 0 1px 2px rgba(33, 31, 28, .07), 0 14px 30px rgba(33, 31, 28, .1); }
+}
+
+.veyra-install__release { margin: 0; font: 600 clamp(1.5rem, 6.5vw, 1.85rem)/1.2 var(--veyra-sans); letter-spacing: -.02em; }
+.veyra-install__phase { margin: 0; color: var(--veyra-ink-soft); font-size: .95rem; }
+
+.veyra-install__track {
+  width: min(280px, 100%);
+  height: 6px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--veyra-surface-sunk);
+  overflow: hidden;
+}
+.veyra-install__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--veyra-accent);
+  transition: width .25s linear;
+}
+.veyra-install__completion {
+  margin: 0;
+  color: var(--veyra-ink-mute);
+  font-size: .82rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+.veyra-install__note { max-width: 290px; }
+
+.veyra-welcome__release { margin: 12px 0 0; display: grid; gap: 2px; font: 600 clamp(1.9rem, 9vw, 2.4rem)/1.05 var(--veyra-sans); letter-spacing: -.03em; }
+.veyra-welcome__release span { color: var(--veyra-accent); }
+.veyra-welcome__headline { max-width: 300px; }
+.veyra-welcome__notes { text-align: left; max-width: 320px; margin-top: 14px; }
+.veyra-welcome .veyra-submit { margin-top: 18px; min-width: min(280px, 100%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .veyra-install__mark { animation: none; }
+  .veyra-install__fill { transition: none; }
+}
+
+/* ================================================================
+ * VEYRA OS 4.2
+ *
+ * The same operating system, one release on: the palette is cooler and
+ * cleaner, the corners are rounder, the shadows are lighter, headings are
+ * tighter, and surfaces settle in rather than appearing. Nothing here changes
+ * what any screen says or what any control does — every fact on the phone is
+ * still the Device's own, presented by the same components.
+ * ================================================================ */
+
+.veyra[data-release='v4-2'] {
+  --veyra-ground: #f4f2ee;
+  --veyra-surface: #fffefc;
+  --veyra-surface-sunk: #ecebe6;
+  --veyra-ink: #1b1a19;
+  --veyra-ink-soft: #52504b;
+  --veyra-ink-mute: #8b8880;
+  --veyra-line: rgba(27, 26, 25, .07);
+  --veyra-line-strong: rgba(27, 26, 25, .13);
+  --veyra-accent: #9c5a30;
+  --veyra-accent-sunk: #f2e8df;
+  --veyra-radius: 24px;
+  --veyra-radius-tile: 22px;
+}
+
+.veyra[data-release='v4-2'] .veyra-screen { gap: 16px; padding-top: 26px; }
+.veyra[data-release='v4-2'] .veyra-title { font-weight: 650; letter-spacing: -.03em; }
+.veyra[data-release='v4-2'] .veyra-section { margin: 16px 0 -4px; letter-spacing: .1em; text-transform: none; font-size: .8rem; }
+.veyra[data-release='v4-2'] .veyra-card { box-shadow: 0 1px 1px rgba(27, 26, 25, .04), 0 8px 20px rgba(27, 26, 25, .05); }
+.veyra[data-release='v4-2'] .veyra-row { min-height: 60px; padding-inline: 20px; }
+/* Row dividers start where the row's own text starts, so a group reads as one card. */
+.veyra[data-release='v4-2'] .veyra-row { position: relative; }
+.veyra[data-release='v4-2'] .veyra-row + .veyra-row { box-shadow: none; }
+.veyra[data-release='v4-2'] .veyra-row + .veyra-row::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: var(--veyra-line-strong);
+}
+.veyra[data-release='v4-2'] .veyra-app__tile {
+  border-radius: 30%;
+  box-shadow: 0 1px 1px rgba(27, 26, 25, .05), 0 8px 18px rgba(27, 26, 25, .06);
+}
+/* One line per label at the reference width: 4.1 breaks "Communication" mid-word. */
+.veyra[data-release='v4-2'] .veyra-app__label { color: var(--veyra-ink); font-size: .72rem; letter-spacing: -.012em; overflow-wrap: normal; }
+.veyra[data-release='v4-2'] .veyra-launcher { gap: 24px 12px; }
+
+.veyra-home__head { width: 100%; padding: 2px 2px 10px; }
+.veyra-home__device {
+  margin: 0;
+  font: 600 clamp(1.45rem, 6vw, 1.7rem)/1.2 var(--veyra-sans);
+  letter-spacing: -.03em;
+  overflow-wrap: anywhere;
+}
+.veyra[data-release='v4-2'] .veyra-home { padding-top: 26px; }
+
+/* The navigation band becomes quieter chrome: no rule, a settled Home pill. */
+.veyra[data-release='v4-2'] .veyra-nav { border-top: 0; background: transparent; }
+.veyra[data-release='v4-2'] .veyra-nav__home { border-radius: 999px; background: var(--veyra-surface); box-shadow: 0 1px 1px rgba(27, 26, 25, .05), 0 6px 14px rgba(27, 26, 25, .06); }
+.veyra[data-release='v4-2'] .veyra-nav button:disabled { color: var(--veyra-ink-soft); }
+
+.veyra[data-release='v4-2'] .veyra-action,
+.veyra[data-release='v4-2'] .veyra-submit,
+.veyra[data-release='v4-2'] .veyra-update-banner__action { border-radius: 17px; }
+
+/* One restrained arrival, so moving between surfaces feels settled rather than cut. */
+.veyra[data-release='v4-2'] .veyra-screen { animation: veyra-settle .22s ease-out both; }
+@keyframes veyra-settle {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .veyra[data-release='v4-2'] .veyra-screen { animation: none; }
+}

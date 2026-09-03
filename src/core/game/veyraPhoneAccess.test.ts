@@ -6,7 +6,7 @@ import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation, resolveActiveRemoteTarget } from './remoteSession'
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
-import { VEYRA_OS_FIRMWARE_ID } from './firmwareIdentity'
+import { VEYRA_OS_4_1_FIRMWARE_ID } from './firmwareIdentity'
 import type { GameState } from './types'
 
 const PHONE = 'host-phone-001'
@@ -59,7 +59,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     // The entered target resolves to the phone and to its own Firmware.
     const entered = resolveActiveRemoteTarget(connected.state)
     expect(entered?.target.id).toBe(PHONE)
-    expect(entered?.target.firmware?.id).toBe(VEYRA_OS_FIRMWARE_ID)
+    expect(entered?.target.firmware?.id).toBe(VEYRA_OS_4_1_FIRMWARE_ID)
   })
 
   it('requires the credential tool the player already owns, and no phone-specific one', () => {

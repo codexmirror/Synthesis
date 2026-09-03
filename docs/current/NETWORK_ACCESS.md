@@ -177,7 +177,12 @@ does not create a weakness or attack route: GateSSH 1.4.0 currently derives
 neither `AUTH-017` nor `AUTH-031`. These are authored
 combinations, not additive difficulty modifiers. The specialized Credential
 Access Module remains deterministic for `AUTH-017` and does not support
-`AUTH-031`. Resolution validates the current causal surface before KeyProbe
+`AUTH-031`. A Service's implementation is Device-owned World Truth and may
+change under the player: Petra's phone runs firmware-owned GateSSH, so a
+completed VEYRA firmware update moves `service-ssh-003` from 1.3.2 to 1.3.3 and
+the weakness, provider profile and remembered-intelligence behavior above then
+follow that real implementation with no update-specific rule (owned by
+`docs/current/DEVICE_SYSTEM.md` and `docs/current/VEYRA_OS.md`). Resolution validates the current causal surface before KeyProbe
 consumes exactly one random decision. AuthGuard does not remove `AUTH-031`;
 Service Analysis still discovers it. Enhanced Inspect may remember AuthGuard,
 the protected GateSSH release, and supported or unsupported compatibility.

@@ -31,6 +31,8 @@ import rackosSource from '../apps/rackos/RackOS.tsx?raw'
 import veyraSource from '../apps/veyra/VeyraOS.tsx?raw'
 import veyraWalletSource from '../apps/veyra/VeyraWallet.tsx?raw'
 import veyraSettingsSource from '../apps/veyra/VeyraSettings.tsx?raw'
+import veyraSystemUpdateSource from '../apps/veyra/VeyraSystemUpdate.tsx?raw'
+import veyraFirmwareInstallSource from '../apps/veyra/VeyraFirmwareInstall.tsx?raw'
 
 /**
  * The NODE-OS presentation language is shared, so a class or custom property
@@ -209,7 +211,7 @@ describe('NODE-OS presentation language', () => {
     // palette and structure; unlike RACK-OS it is a light consumer product, so
     // it must also not inherit NODE-OS's monospace product typography.
     expect(veyraCss).not.toMatch(/var\(--green\)|var\(--accent(?!-)/)
-    for (const source of [veyraSource, veyraWalletSource, veyraSettingsSource]) {
+    for (const source of [veyraSource, veyraWalletSource, veyraSettingsSource, veyraSystemUpdateSource, veyraFirmwareInstallSource]) {
       expect(referencedSharedClasses(source)).toEqual([])
     }
     expect(ruleBody(veyraCss, '.veyra')).toMatch(/--veyra-sans:[^;]*-apple-system/)
@@ -220,7 +222,7 @@ describe('NODE-OS presentation language', () => {
     const viewport = ruleBody(veyraCss, '.veyra-viewport')
     expect(viewport).toMatch(/overflow-y:\s*auto/)
     expect(viewport).toMatch(/overscroll-behavior-y:\s*contain/)
-    for (const source of [veyraSource, veyraWalletSource, veyraSettingsSource]) {
+    for (const source of [veyraSource, veyraWalletSource, veyraSettingsSource, veyraSystemUpdateSource, veyraFirmwareInstallSource]) {
       expect(source).not.toMatch(/visualViewport|scrollIntoView|window\.scrollTo|innerHeight/)
     }
 
