@@ -75,6 +75,15 @@ function analysisProcess(id: string, serviceId: string, workCompleted: number): 
   return { kind: 'service_analysis', id, label: 'SERVICE ANALYSIS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 768, workRequired: 1000, workCompleted, targetDeviceId: SRV_01, serviceId, startedEndpoint: `${SRV_01_ADDRESS}:${serviceId === 'service-ssh-001' ? 22 : 80}` }
 }
 
+function completedGateSshAnalysis(version: '1.3.2' | '1.3.3', vulnerabilityId: 'AUTH-017' | 'AUTH-031'): ServiceAnalysisProcess {
+  return {
+    ...analysisProcess(`analysis-${vulnerabilityId}`, 'service-ssh-001', 1000),
+    status: 'completed',
+    analyzedImplementation: { name: 'GateSSH', version },
+    result: { status: 'weaknesses_detected', vulnerabilities: [{ vulnerabilityId, observedLabel: vulnerabilityId === 'AUTH-017' ? 'Weak authentication configuration' : 'Pre-authentication challenge state reuse' }] },
+  }
+}
+
 function credentialProcess(workCompleted: number): CredentialAccessProcess {
   return { kind: 'credential_access', id: 'process-0009', label: 'CREDENTIAL ACCESS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 896, workRequired: 1200, workCompleted, targetDeviceId: SRV_01, serviceId: 'service-ssh-001', startedEndpoint: `${SRV_01_ADDRESS}:22`, vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access' }
 }
@@ -721,14 +730,65 @@ describe('NodeScan target topology', () => {
   })
 
   it('opens only learned integrated intelligence without changing GameState', async () => {
-    const state = withNodeScan12(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
+    const state = withProcesses(withNodeScan12(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState())))), [completedGateSshAnalysis('1.3.2', 'AUTH-017')])
     const user = await openTarget(state)
     const before = currentState()
     await user.click(screen.getByText('KNOWN INFO'))
     expect(screen.getByText('KNOWN INFORMATION')).toBeInTheDocument()
-    expect(screen.getByText(/pre-authentication flaw that can permit Credential Access/)).toBeInTheDocument()
-    expect(screen.queryByText('AUTH-017')).not.toBeInTheDocument()
+    expect(screen.getByText(/AUTH-017 is a known pre-authentication Credential Access weakness/)).toBeInTheDocument()
+    expect(screen.queryByText(/AUTH-031/)).not.toBeInTheDocument()
     expect(currentState()).toEqual(before)
+  })
+
+  it('keeps GateSSH intelligence release-aware and scopes provider success to the exploited weakness', () => {
+    const observed132 = scannedTarget(withNodeScan11(createInitialGameState()))
+    const learned132 = withProcesses(withNodeScan12(knownWeakness(observed132)), [
+      completedGateSshAnalysis('1.3.2', 'AUTH-017'),
+      { ...credentialProcess(1200), status: 'completed', toolId: 'credential-access-module', result: { status: 'access_established', accessId: 'access-0001' } },
+    ])
+    expect(selectTarget(learned132, SRV_01)?.services[0].intelligence).toEqual([expect.objectContaining({
+      software: 'GateSSH 1.3.2',
+      details: expect.arrayContaining(['AUTH-017 is a known pre-authentication Credential Access weakness.', 'Credential Access Module successfully exploited AUTH-017.']),
+    })])
+
+    const device = learned132.discovery.devices.find(({ id }) => id === SRV_01)!
+    const discovery = { ...learned132.discovery, devices: learned132.discovery.devices.map((candidate) => candidate.id !== SRV_01 ? candidate : { ...device, services: device.services.map((service) => service.id !== 'service-ssh-001' ? service : { ...service, inspect: { ...service.inspect!, implementation: { ...service.inspect!.implementation!, version: '1.3.3' } } }) }) }
+    const observed133 = { ...learned132, discovery }
+    const history = selectTarget(observed133, SRV_01)!.services[0].intelligence[0]
+    expect(history.details).toContain('This release patched the previously known AUTH-017 weakness from GateSSH 1.3.2.')
+    expect(history.details).not.toContain(expect.stringMatching(/successfully exploited/))
+    expect(history.details).not.toContain(expect.stringMatching(/AUTH-031/))
+
+    const learned133 = withProcesses(observed133, [...observed133.process.processes, completedGateSshAnalysis('1.3.3', 'AUTH-031')])
+    expect(selectTarget(learned133, SRV_01)!.services[0].intelligence[0].details).toContain('Analysis identified AUTH-031, a separate pre-authentication Credential Access weakness.')
+  })
+
+  it('draws no provider conclusion from a failed Credential Access attempt', () => {
+    const state = withProcesses(withNodeScan12(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState())))), [
+      completedGateSshAnalysis('1.3.2', 'AUTH-017'),
+      { ...credentialProcess(1200), status: 'completed', toolId: 'keyprobe', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } },
+    ])
+    expect(selectTarget(state, SRV_01)!.services[0].intelligence[0].details).toEqual(['AUTH-017 is a known pre-authentication Credential Access weakness.'])
+  })
+
+  it('keeps represented AuthGuard protection intelligence on AuthGuard alone', () => {
+    let state = withNodeScan12(createInitialGameState())
+    const targets = { localDevice: state.player.localDevice, network: state.world.network }
+    let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
+    discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), state.player.localDevice.id)
+    const failed: CredentialAccessProcess = {
+      ...credentialProcess(1200), id: 'protected-attempt', status: 'completed', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002',
+      startedEndpoint: '203.0.113.42:22', vulnerabilityId: 'AUTH-031', toolId: 'keyprobe', moduleId: undefined,
+      authGuardProtectionObserved: true,
+      result: { status: 'attempt_failed', message: 'Authentication attempt failed.' },
+    }
+    state = { ...state, discovery, process: { nextId: 2, processes: [failed] } }
+    const intelligence = selectTarget(state, 'host-lan-002')!.services[0].intelligence
+    expect(intelligence.find(({ software }) => software === 'AuthGuard 1.0')?.details).toContain('Protects SSH authentication traffic against Credential Access attempts.')
+    expect(intelligence.find(({ software }) => software === 'GateSSH 1.3.3')).toBeUndefined()
+
+    const unrelated = { ...state, process: { ...state.process, processes: [{ ...failed, serviceId: 'service-rack-update-002' }] } }
+    expect(selectTarget(unrelated, 'host-lan-002')!.services[0].intelligence.find(({ software }) => software === 'AuthGuard 1.0')?.details).not.toContain('Protects SSH authentication traffic against Credential Access attempts.')
   })
 
   it('does not expose hidden weakness intelligence without learned Knowledge', async () => {

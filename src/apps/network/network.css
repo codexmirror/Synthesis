@@ -607,7 +607,8 @@
 .ns-topo-intelligence-detail { margin: 4px 0 8px; padding: 10px 12px; border-left: 1px solid var(--accent-mark); background: var(--surface-hover); display: grid; gap: 5px; }
 .ns-topo-intelligence-detail strong { color: var(--text-strong); font-size: .66rem; }
 .ns-topo-intelligence-detail span { color: var(--accent-mark); font-size: .5rem; letter-spacing: .12em; }
-.ns-topo-intelligence-detail p { margin: 0; color: var(--text-secondary); font-size: .62rem; line-height: 1.55; }
+.ns-topo-intelligence-detail ul { margin: 0; padding-left: 16px; color: var(--text-secondary); font-size: .62rem; line-height: 1.55; }
+.ns-topo-intelligence-detail li + li { margin-top: 3px; }
 
 @media (max-width: 420px) {
   .ns-topo-status { margin-left: 22px; }

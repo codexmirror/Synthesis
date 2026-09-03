@@ -116,6 +116,8 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly toolId: 'flipper' | 'credential-access-module' | 'keyprobe'
   /** Present when the concrete provider is the specialized module, standalone or integrated. */
   readonly moduleId?: 'credential-access'
+  /** Resolution evidence that the attempted AUTH-031 surface had supported AuthGuard 1.0 protection. */
+  readonly authGuardProtectionObserved?: true
   readonly result?: CredentialAccessResult
 }
 

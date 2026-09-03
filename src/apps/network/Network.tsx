@@ -937,7 +937,7 @@ function TargetTopology({ target, unreachable }: { target: Target; unreachable: 
                             return intelligence
                               ? <details className="ns-topo-intelligence" key={software}>
                                 <summary><span className="ns-topo-text ns-topo-text--muted">{software}</span><span>KNOWN INFO</span></summary>
-                                <div className="ns-topo-intelligence-detail"><strong>{software}</strong><span>KNOWN INFORMATION</span>{intelligence.details.map((detail) => <p key={detail}>{detail}</p>)}</div>
+                                <div className="ns-topo-intelligence-detail"><strong>{software}</strong><span>KNOWN INFORMATION</span><ul>{intelligence.details.map((detail) => <li key={detail}>{detail}</li>)}</ul></div>
                               </details>
                               : <span className="ns-topo-text ns-topo-text--muted" key={software}>{software}</span>
                             })}
