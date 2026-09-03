@@ -1,5 +1,5 @@
 import type { DollarTransaction, GameState, PetraCompanyChatState } from './types'
-import { schedulePetraTechnicianReaction } from './petraTechnician'
+import { scheduleTechnicianPetraWalletReaction } from './technician'
 
 export const PETRA_PHONE_ACCOUNT_ID = 'dollar-account-veyra-phone-v0'
 export const PLAYER_DOLLAR_ACCOUNT_ID = 'dollar-account-local-v0'
@@ -40,5 +40,5 @@ export function resolvePetraTransactionReaction(state: GameState, transaction: D
       }],
     },
   }
-  return schedulePetraTechnicianReaction(complainedState, transaction.id)
+  return scheduleTechnicianPetraWalletReaction(complainedState, transaction.id)
 }

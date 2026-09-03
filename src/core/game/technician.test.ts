@@ -8,7 +8,7 @@ import {
   PETRA_TECHNICIAN_MESSAGE_ID,
   PETRA_TECHNICIAN_RESPONSE_DELAY_MS,
   TECHNICIAN_CORRESPONDENT_ID,
-} from './petraTechnician'
+} from './technician'
 import type { GameState } from './types'
 
 const PHONE_ID = 'host-phone-001'
@@ -26,7 +26,7 @@ describe('Petra Technician response', () => {
     const state = qualifyingTransfer()
     expect(state.petraCompanyChat.messages).toHaveLength(1)
     expect(state.petraCompanyChat.messages[0]).toMatchObject({ authorName: 'Petra', causedByTransactionId: 'dollar-transaction-0001' })
-    expect(state.petraTechnicianReaction.pending).toEqual({
+    expect(state.technicianReaction.pending).toEqual({
       transactionId: 'dollar-transaction-0001', remainingMs: PETRA_TECHNICIAN_RESPONSE_DELAY_MS,
     })
     expect(walletProtection(state)).toBe(false)
@@ -34,7 +34,7 @@ describe('Petra Technician response', () => {
 
     const second = qualifyingTransfer(state)
     expect(second.petraCompanyChat.messages).toHaveLength(1)
-    expect(second.petraTechnicianReaction).toEqual(state.petraTechnicianReaction)
+    expect(second.technicianReaction).toEqual(state.technicianReaction)
   })
 
   it('waits for represented elapsed time, then hardens and truthfully reports exactly once', () => {
@@ -42,11 +42,11 @@ describe('Petra Technician response', () => {
     const early = advanceGameState(pending, PETRA_TECHNICIAN_RESPONSE_DELAY_MS - 1)
     expect(walletProtection(early)).toBe(false)
     expect(early.petraCompanyChat.messages).toHaveLength(1)
-    expect(early.petraTechnicianReaction.pending?.remainingMs).toBe(1)
+    expect(early.technicianReaction.pending?.remainingMs).toBe(1)
 
     const resolved = advanceGameState(early, 1)
     expect(walletProtection(resolved)).toBe(true)
-    expect(resolved.petraTechnicianReaction.pending).toBeNull()
+    expect(resolved.technicianReaction.pending).toBeNull()
     expect(resolved.petraCompanyChat.messages[1]).toEqual({
       id: PETRA_TECHNICIAN_MESSAGE_ID,
       authorId: TECHNICIAN_CORRESPONDENT_ID,
@@ -74,7 +74,7 @@ describe('Petra Technician response', () => {
     if (hardened.status !== 'changed') throw new Error(hardened.status)
     const resolved = advanceGameState(hardened.state, PETRA_TECHNICIAN_RESPONSE_DELAY_MS)
     expect(walletProtection(resolved)).toBe(true)
-    expect(resolved.petraTechnicianReaction.pending).toBeNull()
+    expect(resolved.technicianReaction.pending).toBeNull()
     expect(resolved.petraCompanyChat.messages).toHaveLength(1)
     expect(advanceGameState(resolved, 60_000).petraCompanyChat.messages).toHaveLength(1)
   })
@@ -85,7 +85,7 @@ describe('Petra Technician response', () => {
       ...pending, petraCompanyChat: { ...pending.petraCompanyChat, messages: [] },
     }
     const resolved = advanceGameState(withoutComplaint, PETRA_TECHNICIAN_RESPONSE_DELAY_MS)
-    expect(resolved.petraTechnicianReaction.pending).toBeNull()
+    expect(resolved.technicianReaction.pending).toBeNull()
     expect(walletProtection(resolved)).toBe(false)
     expect(resolved.petraCompanyChat.messages).toEqual([])
   })

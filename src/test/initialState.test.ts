@@ -37,14 +37,14 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 63', () => {
+  it('separates identities and seeds canonical local-device state in schema version 64', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(63)
+    expect(GAME_STATE_VERSION).toBe(64)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(63)
-    expect(state.petraTechnicianReaction).toEqual({ pending: null })
+    expect(state.version).toBe(64)
+    expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
     expect(state.dollarFinance.accounts[0].balanceCents).toBe(125_000)

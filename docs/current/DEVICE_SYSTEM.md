@@ -132,8 +132,8 @@ The phone's `security` seeds `{ devicePin: '7042', walletProtectionEnabled: fals
 
 `changeDeviceWalletProtection` (`src/core/game/deviceSecurity.ts`) is the ordinary player-facing canonical mutation: given a target Device id, a submitted PIN, and a requested enabled state, it verifies the PIN against that Device's own `security.devicePin` and, only on an exact match, commits the requested `walletProtectionEnabled` value. A Device with no represented `security` refuses rather than inventing one; a wrong PIN leaves canonical state exactly as it was. `changeWalletProtectionForOperatedRemoteDevice` is the same mutation resolved against whichever Device the player currently operates through a Remote Session (`resolveActiveRemoteTarget`), following the same "Session decides *which* Device acts, and grants no authority of its own" precedent `transferDollarsFromOperatedRemoteDevice` already established: DeviceAccess and an active Remote Session alone never satisfy the PIN check.
 
-The authored Petra Technician response has one separate, narrower maintenance
-cause. `enablePetraPhoneWalletProtectionForTechnicianResponse` can only change
+The Technician's first authored case, Petra's Wallet incident, has one separate,
+narrower maintenance cause. `enablePetraPhoneWalletProtectionForTechnicianResponse` can only change
 Petra's work phone's setting from OFF to ON; it accepts neither a
 target Device nor a PIN, resolves only stable `host-phone-001`, never reads or
 submits `devicePin`, cannot disable protection, and reports `already_enabled`

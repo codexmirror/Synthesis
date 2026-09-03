@@ -13,7 +13,7 @@ import type { GameState } from './types'
 import { archiveProcess } from './recentActivity'
 import { advanceRattlerPinSearches } from './rattler'
 import { resolveCompletedDeauthAttempts } from './deauth'
-import { advancePetraTechnicianReaction } from './petraTechnician'
+import { advanceTechnicianReaction } from './technician'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -65,5 +65,5 @@ export function advanceGameState(state: GameState, elapsedMs: number, credential
   // it never saw the intervening disconnected state.
   nextState = advanceRemoteSessionReachability(nextState)
   nextState = advanceDeviceConnectivityRecovery(nextState, elapsedMs)
-  return advancePetraTechnicianReaction(nextState, elapsedMs)
+  return advanceTechnicianReaction(nextState, elapsedMs)
 }

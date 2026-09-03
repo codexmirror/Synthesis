@@ -58,7 +58,9 @@ delay advances only through the canonical game-advancement boundary; it is not
 a Process, browser timer, scheduler, calendar, routine, or generic actor/reaction
 system.
 
-When due, the response owned by `src/core/game/petraTechnician.ts` requires
+The Technician owns this reaction; Petra is the subject of his first concrete
+implemented case, not the owner of a Petra-specific Technician abstraction.
+When due, the response owned by `src/core/game/technician.ts` requires
 Petra's complaint and its retained canonical Dollar Transaction, then reads
 only Petra's represented phone and that Device's current Wallet Protection
 setting. If protection is OFF, the Technician makes the limited local
