@@ -29,7 +29,8 @@ location rather than identity. A filesystem-owned monotonic counter allocates
 deterministic IDs using destination state alone. Raw IDs may coincide across
 Devices, so cross-Device references require both Device ID and file ID. The
 local Device's initial contents consist of the text file
-`/home/user/welcome.txt`, the NODE Miner 1.0 package, the standalone
+`/home/user/welcome.txt`, the NODE Miner 1.0 package, the local test-world
+NodeScan 1.2 Standard package at `/home/user/downloads/nodescan-1.2.pkg`, the standalone
 Credential Access Module artifact under `/home/user/modules`, and the
 `deauth.ext` artifact under `/home/user/extensions`.
 
@@ -404,9 +405,11 @@ re-checks its managed destination and creates its one represented executable,
 while NodeScan uses the ordinary installed-release replacement path and keeps
 its capability and removal rules elsewhere. Installing the represented experimental package
 therefore makes the NodeScan GUI and Help derive the installed NodeScan release
-from installed software, only once installation completes. The Market supplies
-ordinary packages for both the retained NodeScan 1.1 Experimental release and
-NodeScan 1.2 Standard; installing either uses the same replacement path. Which player-facing
+from installed software, only once installation completes. The test world starts
+with one ordinary `/home/user/downloads/nodescan-1.2.pkg` artifact carrying the
+canonical NodeScan 1.2 Standard release and build identity. It is not preinstalled
+and is not a Market offering; its eventual official distribution route remains
+unsettled. Installing it uses the same ordinary replacement path. Which player-facing
 operations that release supplies is owned by `docs/current/NETWORK_ACCESS.md`:
 Scan and Analyze exist under every current NodeScan release, and Inspect is
 supplied by NodeScan 1.1 Experimental and NodeScan 1.2 Standard, and absent under 1.0 Standard

@@ -689,7 +689,7 @@ describe('Files unrecognized package extension', () => {
     render(<GameProvider initialState={createInitialGameState()}><Files /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
-    expect(screen.getByText('INSTALLABLE')).toBeInTheDocument()
+    expect(screen.getAllByText('INSTALLABLE')).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: /node-miner-1\.0\.pkg/ }))
     expect(screen.getByRole('button', { name: 'INSTALL' })).toBeInTheDocument()
   })

@@ -84,9 +84,9 @@ MARKET OFFER / DISTRIBUTION TRUTH
      filesystem (software_package, or software_module)
 ```
 
-The V1 catalog lists eight offerings, each represented once at exactly
+The V1 catalog lists seven offerings, each represented once at exactly
 `0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
-every other NODE amount: NodeScan 1.1 Experimental, NodeScan 1.2 Standard, NODE Miner 1.0 Unofficial,
+every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
 GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0, RATTLER 1.0, and the Flipper Rollback Module 1.0 — the
 one module offering. That
 price is a current tuning of what this operator charges, not a rule of the
@@ -112,7 +112,7 @@ never an empty string or an inherited value.
 Provenance and channel are stated exactly as each release represents them and
 are deliberately mixed. NODE Miner states the `nm-dev` publisher and GateSSH
 1.3.2 states `stable`/`rack-systems`, because those are what their own
-represented package artifacts claim. NodeScan 1.1 and NodeScan 1.2 state no publisher.
+represented package artifacts claim. NodeScan 1.1 states no publisher.
 GateSSH 1.3.3 states neither a channel nor a publisher: no accepted current
 truth represents either for it (not even the Service implementation it patches
 — only the *distinct* 1.3.2 package artifact states `stable`/`rack-systems`).

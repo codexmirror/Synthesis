@@ -56,23 +56,22 @@ function stateRow() { return screen.getByText('STATE').parentElement! }
 
 async function open(name: RegExp) {
   const user = userEvent.setup()
-  await user.click(screen.getAllByRole('button', { name })[0])
+  await user.click(screen.getByRole('button', { name }))
   return user
 }
 
 describe('Market catalog presentation', () => {
   it('lists every represented offering once with its own release, size and price', () => {
     renderMarket(createInitialGameState())
-    expect(screen.getByText('8 OFFERINGS')).toBeInTheDocument()
+    expect(screen.getByText('7 OFFERINGS')).toBeInTheDocument()
     const rows = screen.getAllByRole('button').filter((button) => button.className === 'node-row')
     expect(rows.map((row) => row.querySelector('strong')?.textContent)).toEqual([
-      'RATTLER', 'Flipper', 'NodeScan', 'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
+      'RATTLER', 'Flipper', 'NodeScan', 'NODE Miner', 'GateSSH', 'GateSSH', 'Rollback Module',
     ])
     expect(rows.map((row) => row.querySelector('small')?.textContent)).toEqual([
       '1.0 · UNOFFICIAL · 2.8 MB · 0.01 NODE',
       '1.0 · STANDARD · 4 MB · 0.01 NODE',
       '1.1 · EXPERIMENTAL · 18.4 MB · 0.01 NODE',
-      '1.2 · STANDARD · 19.2 MB · 0.01 NODE',
       '1.0 · UNOFFICIAL · 3.4 MB · 0.01 NODE',
       '1.3.2 · STABLE · 6.4 MB · 0.01 NODE',
       // GateSSH 1.3.3 states no channel: no accepted current truth represents one for this
@@ -114,7 +113,7 @@ describe('Market catalog presentation', () => {
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Back to the Market catalog/ }))
-    await user.click(screen.getAllByRole('button', { name: /NodeScan/ })[0])
+    await user.click(screen.getByRole('button', { name: /NodeScan/ }))
     // No publisher is represented for this release, so none is invented.
     expect(screen.getByText('NOT STATED')).toBeInTheDocument()
     expect(screen.queryByText('nm-dev')).not.toBeInTheDocument()
@@ -174,7 +173,7 @@ describe('Market purchase', () => {
     expect(probe()).toMatchObject({
       balanceNodeUnits: 2 * PRICE,
       entitlements: [NODESCAN_OFFER],
-      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg', '/home/user/modules/credential-access-1.0.mod', '/home/user/extensions/deauth.ext'],
+      files: ['/home/user/welcome.txt', '/home/user/downloads/node-miner-1.0.pkg', '/home/user/modules/credential-access-1.0.mod', '/home/user/extensions/deauth.ext', '/home/user/downloads/nodescan-1.2.pkg'],
       transfer: null,
       processes: [],
     })
@@ -253,8 +252,8 @@ describe('Market download', () => {
     render(<GameProvider initialState={advanceGameState(started.state, 2_000)}><Files /></GameProvider>)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /downloads/ }))
-    // Only the existing package counts as an entry: nothing is written yet.
-    expect(screen.getByText('1 ENTRY')).toBeInTheDocument()
+    // Only the two existing packages count as entries: the incoming artifact is not written yet.
+    expect(screen.getByText('2 ENTRIES')).toBeInTheDocument()
     expect(screen.getByText(/INCOMING/)).toBeInTheDocument()
     expect(screen.getByText(/An incoming transfer is not written to this filesystem until it completes\./)).toBeInTheDocument()
   })

@@ -1,5 +1,5 @@
 import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
-import { FLIPPER_1_0, NODESCAN_1_1_EXPERIMENTAL, NODESCAN_1_2_STANDARD, NODE_MINER_1_0, RATTLER_1_0 } from './softwareReleaseContent'
+import { FLIPPER_1_0, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0, RATTLER_1_0 } from './softwareReleaseContent'
 import { ROLLBACK_MODULE_1_0 } from './flipper'
 import type { FilesystemFile, FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState } from './types'
 import { debitNodeWalletMarketPurchase } from './nodeEconomy'
@@ -72,16 +72,6 @@ export function createInitialMarketState(): MarketState {
           releaseId: NODESCAN_1_1_EXPERIMENTAL.releaseId, buildId: NODESCAN_1_1_EXPERIMENTAL.buildId, productId: NODESCAN_1_1_EXPERIMENTAL.productId,
           name: NODESCAN_1_1_EXPERIMENTAL.name, version: NODESCAN_1_1_EXPERIMENTAL.version, channel: NODESCAN_1_1_EXPERIMENTAL.channel,
           sizeBytes: 18_400_000,
-        },
-      },
-      {
-        id: 'market-offer-nodescan-1.2-standard',
-        priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
-        distribution: {
-          artifact: 'software_package', filename: 'nodescan-1.2.pkg',
-          releaseId: NODESCAN_1_2_STANDARD.releaseId, buildId: NODESCAN_1_2_STANDARD.buildId, productId: NODESCAN_1_2_STANDARD.productId,
-          name: NODESCAN_1_2_STANDARD.name, version: NODESCAN_1_2_STANDARD.version, channel: NODESCAN_1_2_STANDARD.channel,
-          sizeBytes: 19_200_000,
         },
       },
       {

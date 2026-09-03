@@ -9,7 +9,6 @@ import { FLIPPER_PRODUCT_ID, ROLLBACK_MODULE_1_0, findInstalledFlipper, flipperS
 import type { GameState, SoftwarePackageFile } from './types'
 
 const NODESCAN_OFFER = 'market-offer-nodescan-1.1-experimental'
-const NODESCAN_12_OFFER = 'market-offer-nodescan-1.2-standard'
 const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
 const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
 const ROLLBACK_OFFER = 'market-offer-flipper-rollback-module-1.0'
@@ -30,7 +29,7 @@ describe('Market catalog', () => {
   it('represents each required release exactly once, under stable offer identity', () => {
     const { offers } = createInitialGameState().market
     expect(offers.map(({ id }) => id)).toEqual([
-      RATTLER_OFFER, FLIPPER_OFFER, NODESCAN_OFFER, NODESCAN_12_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
+      RATTLER_OFFER, FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
     ])
     expect(new Set(offers.map(({ id }) => id)).size).toBe(offers.length)
     expect(new Set(offers.map(({ distribution }) => distribution.releaseId)).size).toBe(offers.length)
@@ -47,11 +46,11 @@ describe('Market catalog', () => {
 
   it('adds RATTLER to the intended catalog exactly once', () => {
     const { offers } = createInitialGameState().market
-    expect(offers).toHaveLength(8)
+    expect(offers).toHaveLength(7)
     // Six package offerings and one module offering: a module is distributed as a
     // module artifact, never as an installable package with a product identity.
     expect(offers.map(({ distribution }) => distribution.artifact === 'software_package' ? distribution.productId : `module:${distribution.moduleId}`)).toEqual([
-      'product-rattler-v0', 'flipper', 'nodescan', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
+      'product-rattler-v0', 'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
     ])
     expect(findMarketOffer(createInitialGameState().market, RATTLER_OFFER)?.distribution).toMatchObject({
       artifact: 'software_package', filename: 'rattler-1.0.pkg', productId: 'product-rattler-v0',
@@ -290,7 +289,7 @@ describe('Rollback Module acquisition path', () => {
     // Completion creates one ordinary local module artifact, and only one.
     const modules = downloaded.player.localDevice.filesystem.files.filter((file) => file.kind === 'software_module' && file.moduleId === 'rollback')
     expect(modules).toEqual([{
-      kind: 'software_module', id: 'file-0005', path: '/home/user/downloads/flipper-rollback-module-1.0.mod',
+      kind: 'software_module', id: 'file-0006', path: '/home/user/downloads/flipper-rollback-module-1.0.mod',
       hostProductId: FLIPPER_PRODUCT_ID, moduleId: ROLLBACK_MODULE_1_0.moduleId,
       releaseId: ROLLBACK_MODULE_1_0.releaseId, buildId: ROLLBACK_MODULE_1_0.buildId,
       name: ROLLBACK_MODULE_1_0.name, version: ROLLBACK_MODULE_1_0.version, sizeBytes: ROLLBACK_MODULE_1_0.sizeBytes,
