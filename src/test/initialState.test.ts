@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import { NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS } from '../core/game/nodeMiner'
 import { MARKET_OPERATOR_SETTLEMENT_ADDRESS } from '../core/game/market'
-import { VEYRA_OS_FIRMWARE_ID } from '../core/game/firmwareIdentity'
+import { VEYRA_OS_4_1_FIRMWARE_ID } from '../core/game/firmwareIdentity'
 import { resolveDollarAccountForDevice } from '../core/game/dollarFinance'
 import { AUTH_017, vulnerabilitiesForService } from '../core/game/serviceImplementations'
 import { isValidNetworkTransferCapacity } from '../core/game/networkTransferCapacity'
@@ -195,7 +195,7 @@ describe('createInitialGameState', () => {
       ip: '198.51.100.61',
       operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
       connectivityRecoveryBehavior: 'RECONNECT',
-      firmware: { id: VEYRA_OS_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
+      firmware: { id: VEYRA_OS_4_1_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
       hardware: { cpu: { name: 'Mobile CPU', computeCapacity: 70 }, ram: { name: '6 GB', capacityMiB: 6144 } },
       runtime: { baselineCpuLoad: 6, baselineRamUsage: 34 },
       transferCapacity: { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 4_194_304 },
@@ -213,6 +213,9 @@ describe('createInitialGameState', () => {
     // Directly discoverable by the existing Scan grammar, but not leaked by SELF's temporary Network topology.
     expect(state.world.network.localNetworks[0].memberDeviceIds).not.toContain('host-phone-001')
     expect(phone?.authenticationHistory).toEqual({ nextId: 1, records: [] })
+    // The phone starts on its current firmware with nothing installing: a
+    // newer release is offered, never pre-applied.
+    expect(phone?.firmwareUpdate).toBeUndefined()
   })
 
   it('gives the VEYRA phone its own Civic Dollar Account through its own Device-bound Financial Session', () => {

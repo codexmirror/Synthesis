@@ -186,6 +186,12 @@ represented weakness.
 This direction does not assert any release, defect, exploit, patch, cadence, or
 updater. Simulation should express it only through future concrete mechanics.
 
+One such concrete mechanic now exists: the implemented VEYRA OS 4.1 → 4.2
+firmware update. What it actually represents is current truth owned by
+`docs/current/VEYRA_OS.md` and `docs/current/DEVICE_SYSTEM.md`, not by this
+contract, which still asserts no cadence, updater, catalogue or further
+release.
+
 
 ## 14. Terminology
 

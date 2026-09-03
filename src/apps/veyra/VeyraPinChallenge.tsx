@@ -19,8 +19,13 @@ interface Sample { readonly candidate: string; readonly attempt: number; readonl
  *
  * `verify` performs the actual Device-owner security action this challenge
  * is authorizing — a canonical mutation for Settings, a plain check for
- * Wallet-open — against the represented Device PIN, and reports only
- * whether it succeeded. This component never sees the correct PIN and holds
+ * Wallet-open, the start of a firmware installation for System Update —
+ * against the represented Device PIN, and reports only whether it succeeded.
+ * It may return a refusal sentence instead of `false` where the operation it
+ * calls can refuse for a truthful reason that is not a wrong PIN; a bare
+ * `false` always means exactly "wrong PIN" and is stated as such.
+ *
+ * This component never sees the correct PIN and holds
  * only the digits currently being entered, which are cleared after every
  * attempt; a caller decides what a successful attempt actually authorizes
  * inside `onSuccess`.
@@ -28,7 +33,7 @@ interface Sample { readonly candidate: string; readonly attempt: number; readonl
 export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, onSuccess, onCancel, observedCandidate, observedAttemptNumber }: {
   title?: string
   note?: string
-  verify: (pin: string) => boolean
+  verify: (pin: string) => boolean | string
   onSuccess: () => void
   onCancel: () => void
   observedCandidate?: string
@@ -86,12 +91,13 @@ export function VeyraPinChallenge({ title = 'Enter Device PIN', note, verify, on
     setDigits(next)
     setRefusal(undefined)
     if (next.length < PIN_LENGTH) return
-    if (verify(next)) {
+    const outcome = verify(next)
+    if (outcome === true) {
       onSuccess()
       return
     }
     setDigits('')
-    setRefusal('Incorrect PIN.')
+    setRefusal(typeof outcome === 'string' ? outcome : 'Incorrect PIN.')
   }
 
   function backspace() {

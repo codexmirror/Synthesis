@@ -329,10 +329,11 @@ VEYRA Device presentation direction.
   Account, Session and transfers →
   [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md)
 - CODE → `src/apps/veyra/`, `src/shell/remoteOperatingSurface.ts`,
-  `src/core/game/firmwareIdentity.ts`
+  `src/core/game/firmwareIdentity.ts`, `src/core/game/veyraFirmwareUpdate.ts`
 - TESTS → `src/apps/veyra/Veyra.test.tsx`,
   `src/shell/remoteOperatingSurface.test.ts`,
-  `src/core/game/veyraPhoneAccess.test.ts`
+  `src/core/game/veyraPhoneAccess.test.ts`,
+  `src/core/game/veyraFirmwareUpdate.test.ts`
 - DOCUMENTATION IMPACT OWNER →
   [`current/VEYRA_OS.md`](current/VEYRA_OS.md) for implemented VEYRA behavior,
   or the design authority owning the changed VEYRA product direction above

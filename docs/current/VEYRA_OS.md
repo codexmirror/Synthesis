@@ -2,9 +2,9 @@
 
 Status: Accepted
 Scope: The implemented VEYRA OS operating surface — Firmware-driven selection
-of it, its Home launcher, its Communication, Wallet and Settings surfaces, its internal
-navigation, and its presentation ownership — as currently implemented on
-`main`.
+of it, its Home launcher, its Communication, Wallet, Settings and System Update
+surfaces, its firmware-installation surface, its internal navigation, and its
+release-specific presentation ownership — as currently implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
 scope. It owns what VEYRA *presents* and how it is reached; it owns none of the
@@ -28,16 +28,24 @@ mutable attributes (A01): a renamed RACK-OS release still mounts RACK-OS, and a
 Firmware merely *named* `VEYRA OS` mounts nothing.
 
 ```text
-firmware-rack-os-v1   -> RACK-OS
+firmware-rack-os-v1    -> RACK-OS
 firmware-veyra-os-v4-1 -> VEYRA OS
+firmware-veyra-os-v4-2 -> VEYRA OS
 anything else          -> no operating surface
 ```
 
-The three represented Firmware release identities are named once, in
+The four represented Firmware release identities are named once, in
 `src/core/game/firmwareIdentity.ts`. This is a two-branch concrete dispatch, not
 a Firmware plugin system, foreign-OS registry, capability negotiation or
-generic operating-surface framework (A16); a third represented Firmware adds a
+generic operating-surface framework (A16); a further represented Firmware adds a
 constant and a branch.
+
+VEYRA OS 4.1 and VEYRA OS 4.2 are two distinct Firmware release identities and
+both mount VEYRA, because both really are that operating system. Which of them
+a Device runs is never collapsed into one mutable version attribute: installing
+the newer release replaces which release the Device owns, and 4.1's identity is
+never rewritten into pretending it was always 4.2. What differs between them is
+VEYRA's own presentation (below), not which surface is selected.
 
 Firmware the Shell cannot present fails visibly rather than silently receiving
 somebody else's surface. The Remote Session handoff still states the
@@ -191,21 +199,99 @@ never reaches `GameState`.
 
 ## Settings
 
-Settings is a Firmware-owned system surface. Its root currently has two
+Settings is a Firmware-owned system surface. Its root currently has three
 entries: **This Device**, which presents the Device display name and the
 represented Firmware name and version as large, calmly spaced labelled rows;
-and **Security**.
+**System Update**, the Firmware capability described below; and **Security**.
 
 Nothing else is presented. There is no Connection entry, because this phone
 represents no owner-facing connection state worth showing — and the player's
-Remote Session is emphatically not it. There is no battery, storage, update,
+Remote Session is emphatically not it. There is no battery, storage,
 permission, network or telemetry state, no internal Device ID, no CPU, RAM,
 port, address, privilege, DeviceAccess, Session or exploit state: none of it
-is either represented as owner-facing truth or appropriate to it.
+is either represented as owner-facing truth or appropriate to it. System Update
+is not an exception to that rule but an application of it: every fact it states
+is the Device's own Firmware truth or the represented release VEYRA offers it.
 
 ```text
 VEYRA CONNECTION != PLAYER REMOTE SESSION
 ```
+
+### System Update
+
+System Update is a Firmware capability presented as a system surface. It is not
+an application, a package, a download, a Market item, a filesystem artifact or
+`InstalledSoftware`, and nothing about it is acquired by the player: the
+release comes from VEYRA's own update path, and the only thing this surface can
+do is ask the Device to install it.
+
+It presents, from represented truth alone:
+
+- the release the Device currently owns;
+- the one concrete official newer release VEYRA offers it, when there is one,
+  with that release's own headline and release notes;
+- that installing requires this Device's PIN, and that the phone stays on its
+  current release until the update finishes;
+- an **Install** action.
+
+Availability is `resolveAvailableVeyraFirmwareUpdate`
+(`src/core/game/veyraFirmwareUpdate.ts`), read on every render from the
+Device's own stable Firmware identity — a phone on 4.1 is offered VEYRA OS 4.2,
+a phone already on 4.2 truthfully states that it is up to date, and a renamed
+4.1 release is still offered 4.2 because identity, not the display version,
+decides. Nothing about availability is stored, and no update server, firmware
+catalogue, channel model or release registry is represented. The Settings root
+additionally states the same derived availability twice, deliberately: once as
+an update card while it is true, and once as the steady-state System Update row.
+
+Opening, reading, leaving or re-entering System Update changes no canonical
+state at all. **Install** opens the same `VeyraPinChallenge` Security and
+Wallet-open use, which submits the entered PIN to
+`startVeyraFirmwareUpdateForOperatedRemoteDevice`. That operation accepts no
+Device argument — the phone being updated is the one the active Remote Session
+already operates — and verifies against that Device's own PIN through the same
+`verifyDevicePinForOperatedRemoteDevice` the rest of VEYRA uses. A wrong PIN is
+stated as `Incorrect PIN.` and changes nothing whatever; Cancel changes nothing
+whatever. A Remote Session and DeviceAccess make this screen reachable and
+grant no firmware authority of their own.
+
+### The installation
+
+A successful start creates the Device's own canonical update progress, and from
+that moment the phone presents the installation and nothing else:
+`VeyraFirmwareInstall` (`src/apps/veyra/VeyraFirmwareInstall.tsx`) replaces
+Home, every application, Settings and VEYRA's own navigation band for the
+duration. The Shell's operating-context frame stays, because it was never part
+of the phone.
+
+The surface states the release being installed, the represented stage
+(`Downloading update`, `Preparing update`, `Installing update`, `Finishing
+update`) and a real progress percentage derived from canonical phase and
+elapsed time by `deriveVeyraFirmwareUpdateProgress`. It runs no timer of its
+own, animates no invented progress, and can neither advance, pause, cancel nor
+complete the installation: the canonical transition owned by
+`docs/current/DEVICE_SYSTEM.md` is the only thing that moves. Leaving the phone
+and coming back shows exactly how far the real installation has got, and the
+installation does not depend on Settings — or any VEYRA surface — staying open.
+
+`FINALIZING`, the last represented stage, is presented as the update settling
+into place: the ground goes dark around the VEYRA system mark, a deliberately
+atmospheric moment rather than a literal one. This is presentation over the
+represented `FINALIZING` stage and nothing else — there is no fabricated boot
+log, hardware message or invented system output, and crucially no claim that
+the Device is restarting or rebooting, because it is not: this update never
+moves the Device's `operational` lifecycle or connectivity, and never crosses
+the real boot boundary (`docs/current/DEVICE_SYSTEM.md`). A real
+firmware-triggered Device reboot — one that actually crosses that boundary,
+reacts through Device connectivity/reachability, and may end the active
+Remote Session — is a deliberately deferred future slice, not this one.
+
+When the installation completes, the Device owns the new release and a short
+`VeyraFirmwareWelcome` states what is now running, from the release that was
+actually installed. That welcome is presentation-local, appears only when the
+Device really owns the finished release, authorizes nothing and is discarded by
+Continue, which simply goes Home — where the whole surface is already the new
+release's own.
 
 ### Security
 
@@ -278,6 +364,27 @@ text label, and none marks a capability the world does not represent. Familiar
 smartphone grammar is used; no other platform's geometry, icon set, dock,
 status bar or gestures are copied.
 
+### Release-specific presentation
+
+VEYRA OS 4.2 is the same product one release on, not a redesign into a
+different one. `selectVeyraReleasePresentation` (`src/apps/veyra/veyraRelease.ts`)
+resolves which release's presentation a phone gets from its own stable Firmware
+identity on every render — never from stored presentation state and never from
+the display version — and `VeyraOS` expresses it as one `data-release`
+attribute the stylesheet refines under. A phone looks like the release it
+really runs the moment it runs it, and losing or changing that Firmware changes
+the look with it.
+
+4.2 refines only presentation: a cooler, cleaner palette, larger radii and
+lighter shadows, tighter heading tracking, captioned Settings groups with
+inset row dividers, a quiet Home header naming the Device, launcher labels that
+fit on one line, a settled Home pill instead of a ruled navigation band, and
+one restrained arrival transition (disabled under `prefers-reduced-motion`).
+It adds no application, changes no derived Home entry, and changes nothing any
+screen states or any control does. The Home header is the Device's own
+represented display name and nothing else: no greeting, time, weather, or
+status.
+
 The surface is mobile-first at a 390px reference and usable at 320, 430 and
 834; content is capped and centred rather than stretched at tablet width.
 VEYRA's scrolling region owns its own scrolling, and VEYRA reads no viewport
@@ -290,6 +397,21 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
 
 ## Gotchas
 
+- A firmware update is not software. VEYRA OS is closed Device-owned Firmware:
+  the release is never downloaded to a filesystem, purchased, installed as a
+  package or represented as `InstalledSoftware`, and the GateSSH implementation
+  it ships stays the Device's own Service implementation for the same reason.
+- Update progress is canonical, not animation. The install surface reads the
+  Device's own update state and states real progress; it owns no timer and
+  cannot finish the installation. Closing Settings, going Home, returning to
+  NODE-OS, or never looking at the phone again changes nothing about it.
+- A newer release is offered, never pre-applied. Petra's phone starts on 4.1
+  with nothing installing, and only a correct Device PIN starts anything.
+- Finishing an installation is not rebooting the Device. `FINALIZING` looks
+  boot-like on purpose, but the Device's `operational` lifecycle, its
+  connectivity, and the active Remote Session are all untouched by this
+  update, at every stage including completion. A real firmware-triggered
+  Device reboot is unimplemented future work, not this slice.
 - A Home icon is not authority. Presence is derived from represented truth on
   every render; there is no stored launcher state to disagree with the world.
 - Client presence, represented data and emptiness are different. Communication
