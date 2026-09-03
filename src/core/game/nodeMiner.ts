@@ -1,6 +1,6 @@
 import { getFilesystemFile } from './filesystem'
 import { creditNodeAddress, type NodeRecipients } from './nodeEconomy'
-import { recordNodeMinerPayout } from './nodeMinerPayoutLog'
+import { nodeMinerPayoutLogPathForFirmware, recordNodeMinerPayout } from './nodeMinerPayoutLog'
 import { deriveResourceUsage } from './processes'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { findInstalledNodeMiner } from './software'
@@ -8,6 +8,7 @@ import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { ExecutableFile, FilesystemState, GameState, HardwareState, LocalDeviceState, NetworkHost, NodeMinerProcess, ProcessState, RuntimeState } from './types'
 import { archiveProcess } from './recentActivity'
 import { NODE_MINER_1_0_RELEASE_ID } from './softwareReleaseContent'
+import { NODE_OS_FIRMWARE_ID } from './firmwareIdentity'
 
 export const NODE_MINER_PROGRAM_ID = 'node-miner' as const
 export const NODE_MINER_RELEASE_ID = NODE_MINER_1_0_RELEASE_ID
@@ -18,6 +19,11 @@ export const NODE_MINER_COMPUTE_SECONDS_PER_UNIT = 1
 export const NODE_UNITS_PER_NODE = 1_000_000
 /** Deterministic Device-local installed-program path created by installing the NODE Miner package. */
 export const NODE_MINER_INSTALLED_EXECUTABLE_PATH = '/home/user/apps/node-miner/node-miner'
+export const RACK_OS_NODE_MINER_INSTALLED_EXECUTABLE_PATH = '/usr/local/bin/node-miner'
+/** NODE Miner's concrete managed destination differs across the two represented installation environments. */
+export function nodeMinerInstalledExecutablePathForFirmware(firmwareId: string): string {
+  return firmwareId === NODE_OS_FIRMWARE_ID ? NODE_MINER_INSTALLED_EXECUTABLE_PATH : RACK_OS_NODE_MINER_INSTALLED_EXECUTABLE_PATH
+}
 export const NODE_MINER_EXECUTABLE_SIZE_BYTES = 2_100_000
 
 /**
@@ -268,10 +274,10 @@ function settleNodeMinerOnExecutor(state: GameState, executorDeviceId: string): 
   }
   let player = state.player
   let world = state.world
-  if (executorDeviceId === state.player.localDevice.id) player = { ...player, localDevice: { ...player.localDevice, filesystem: recordNodeMinerPayout(player.localDevice.filesystem, record) } }
+  if (executorDeviceId === state.player.localDevice.id) player = { ...player, localDevice: { ...player.localDevice, filesystem: recordNodeMinerPayout(player.localDevice.filesystem, record, nodeMinerPayoutLogPathForFirmware(player.localDevice.firmware.id)) } }
   else {
     const host = state.world.network.hosts.find(({ id }) => id === executorDeviceId)
-    if (host?.filesystem) world = { ...world, network: { ...world.network, hosts: world.network.hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem: recordNodeMinerPayout(host.filesystem!, record) } : candidate) } }
+    if (host?.filesystem && host.firmware) world = { ...world, network: { ...world.network, hosts: world.network.hosts.map((candidate) => candidate.id === host.id ? { ...candidate, filesystem: recordNodeMinerPayout(host.filesystem!, record, nodeMinerPayoutLogPathForFirmware(host.firmware!.id)) } : candidate) } }
   }
   return { status: 'paid', processId: process.id, settledGrossNodeUnits, payoutNodeUnits, state: { ...state, nodeWallet: recipients.nodeWallet, nodeEconomy: recipients.nodeEconomy, player, world, process: { ...state.process, processes: state.process.processes.map((candidate) => candidate.id === process.id ? settled : candidate) } } }
 }

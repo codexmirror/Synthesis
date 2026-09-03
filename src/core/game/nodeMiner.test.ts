@@ -9,7 +9,7 @@ import {
   NODE_MINER_1_0_DEVELOPER_SHARE_PERCENT, NODE_MINER_INSTALLED_EXECUTABLE_PATH,
   NODE_MINER_RAM_REQUIRED_MIB, NODE_UNITS_PER_NODE, payoutLocalNodeMiner, payoutNodeMiner, retargetLocalNodeMinerPayout, retargetNodeMinerPayout, startNodeMiner, startRemoteNodeMiner, stopNodeMiner, stopRemoteNodeMiner,
 } from './nodeMiner'
-import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_HEADER, NODE_MINER_PAYOUT_LOG_PATH, recordNodeMinerPayout } from './nodeMinerPayoutLog'
+import { NODE_MINER_PAYOUT_LOG_CAPACITY, NODE_MINER_PAYOUT_LOG_HEADER, NODE_MINER_PAYOUT_LOG_PATH, RACK_OS_NODE_MINER_PAYOUT_LOG_PATH, recordNodeMinerPayout } from './nodeMinerPayoutLog'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { findNodeAccountByAddress } from './nodeEconomy'
 import type { DiscoveredDeviceSnapshot, ExecutableFile, GameState, NetworkHost, NodeMinerProcess, TextFile } from './types'
@@ -474,7 +474,7 @@ function remoteHost(state: GameState): NetworkHost {
 }
 
 function remotePayoutLog(state: GameState): TextFile | undefined {
-  return remoteHost(state).filesystem!.files.find((file): file is TextFile => file.kind === 'text' && file.path === NODE_MINER_PAYOUT_LOG_PATH)
+  return remoteHost(state).filesystem!.files.find((file): file is TextFile => file.kind === 'text' && file.path === RACK_OS_NODE_MINER_PAYOUT_LOG_PATH)
 }
 
 
@@ -638,6 +638,8 @@ describe('remote NODE Miner manual settlement', () => {
     expect(paid).toMatchObject({ status: 'paid', settledGrossNodeUnits: 1000, payoutNodeUnits: 670 })
     expect(paid.state.nodeWallet.balanceNodeUnits).toBe(670)
     expect(remotePayoutLog(paid.state)?.content).toContain('gross=1000 payout=670')
+    expect(remotePayoutLog(paid.state)?.path).toBe(RACK_OS_NODE_MINER_PAYOUT_LOG_PATH)
+    expect(remoteHost(paid.state).filesystem!.files.some(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)).toBe(false)
     expect(payoutLog(paid.state)).toBeUndefined()
   })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
-import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, startNodeMiner } from './nodeMiner'
+import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, RACK_OS_NODE_MINER_INSTALLED_EXECUTABLE_PATH, startNodeMiner } from './nodeMiner'
 import { cancelLocalProcess, deriveResourceUsage } from './processes'
 import { installLocalSoftwarePackage, installRemoteSoftwarePackage, isRecognizedSoftwarePackagePath, resolveCompletedSoftwareInstallations, SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB } from './softwareInstallation'
 import { advanceFileTransfer, startRemoteFileDownload } from './fileTransfer'
@@ -536,7 +536,7 @@ describe('installRemoteSoftwarePackage', () => {
   })
 
   it('checks the NODE Miner installation path against the target filesystem', () => {
-    const occupied = operating((host) => ({ ...host, filesystem: { nextFileId: 90, files: [...host.filesystem!.files, remoteMinerPackage, { kind: 'text', id: 'file-remote-occupant', path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, content: 'not NODE Miner' }] } }))
+    const occupied = operating((host) => ({ ...host, filesystem: { nextFileId: 90, files: [...host.filesystem!.files, remoteMinerPackage, { kind: 'text', id: 'file-remote-occupant', path: RACK_OS_NODE_MINER_INSTALLED_EXECUTABLE_PATH, content: 'not NODE Miner' }] } }))
     expect(installRemoteSoftwarePackage(occupied, REMOTE_MINER_PATH)).toEqual({ status: 'install_path_occupied', state: occupied })
 
     // The same path being free on srv-01 while occupied on node-01 must not block the remote install.
@@ -587,7 +587,7 @@ describe('installRemoteSoftwarePackage', () => {
     ])
     const remoteExecutables = target(done).filesystem!.files.filter((file): file is ExecutableFile => file.kind === 'executable')
     expect(remoteExecutables).toHaveLength(1)
-    expect(remoteExecutables[0]).toMatchObject({ path: NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0' })
+    expect(remoteExecutables[0]).toMatchObject({ path: RACK_OS_NODE_MINER_INSTALLED_EXECUTABLE_PATH, programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0' })
     expect(target(done).filesystem!.files).toContainEqual(remoteMinerPackage)
 
     // node-01 gains no installed software, no executable, and no filesystem identity.

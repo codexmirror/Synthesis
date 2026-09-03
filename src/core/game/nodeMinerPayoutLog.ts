@@ -1,5 +1,6 @@
 import { checkDestinationPlacement } from './filesystem'
 import type { FilesystemState, TextFile } from './types'
+import { NODE_OS_FIRMWARE_ID } from './firmwareIdentity'
 
 /**
  * One concrete artifact owned by one concrete software product: the local
@@ -9,6 +10,11 @@ import type { FilesystemState, TextFile } from './types'
  * evidence store, and nothing else writes to it.
  */
 export const NODE_MINER_PAYOUT_LOG_PATH = '/home/user/apps/node-miner/logs/payout.log'
+export const RACK_OS_NODE_MINER_PAYOUT_LOG_PATH = '/var/log/node-miner/payout.log'
+/** NODE Miner's concrete data path follows the Firmware of the Device that earned the payout. */
+export function nodeMinerPayoutLogPathForFirmware(firmwareId: string): string {
+  return firmwareId === NODE_OS_FIRMWARE_ID ? NODE_MINER_PAYOUT_LOG_PATH : RACK_OS_NODE_MINER_PAYOUT_LOG_PATH
+}
 export const NODE_MINER_PAYOUT_LOG_HEADER = 'NODE MINER PAYOUT LOG'
 /**
  * Bounded retention: one running total line per payout routing segment,
@@ -63,16 +69,16 @@ function lineIdentity(record: Pick<NodeMinerPayoutRecord, 'processId' | 'payoutS
  * the payout simply goes unrecorded there rather than destroying Device
  * state the Miner does not own.
  */
-export function recordNodeMinerPayout(filesystem: FilesystemState, record: NodeMinerPayoutRecord): FilesystemState {
+export function recordNodeMinerPayout(filesystem: FilesystemState, record: NodeMinerPayoutRecord, path = NODE_MINER_PAYOUT_LOG_PATH): FilesystemState {
   const line = formatLine(record)
-  const existing = filesystem.files.find(({ path }) => path === NODE_MINER_PAYOUT_LOG_PATH)
+  const existing = filesystem.files.find((file) => file.path === path)
 
   if (!existing) {
-    if (checkDestinationPlacement(filesystem, NODE_MINER_PAYOUT_LOG_PATH) !== 'ok') return filesystem
+    if (checkDestinationPlacement(filesystem, path) !== 'ok') return filesystem
     const file: TextFile = {
       kind: 'text',
       id: `file-${String(filesystem.nextFileId).padStart(4, '0')}`,
-      path: NODE_MINER_PAYOUT_LOG_PATH,
+      path,
       content: [NODE_MINER_PAYOUT_LOG_HEADER, line].join('\n'),
     }
     return { nextFileId: filesystem.nextFileId + 1, files: [...filesystem.files, file] }
@@ -84,5 +90,5 @@ export function recordNodeMinerPayout(filesystem: FilesystemState, record: NodeM
   const withoutSegment = previous.filter((entry) => !entry.startsWith(segmentPrefix))
   const content = [NODE_MINER_PAYOUT_LOG_HEADER, ...[...withoutSegment, line].slice(-NODE_MINER_PAYOUT_LOG_CAPACITY)].join('\n')
   if (content === existing.content) return filesystem
-  return { ...filesystem, files: filesystem.files.map((file) => file.path === NODE_MINER_PAYOUT_LOG_PATH ? { ...existing, content } : file) }
+  return { ...filesystem, files: filesystem.files.map((file) => file.path === path ? { ...existing, content } : file) }
 }

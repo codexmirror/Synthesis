@@ -459,7 +459,7 @@ the still-valid DeviceAccess derives whatever is true by then — still
 INSTALLING, or INSTALLED.
 
 Completion ordinarily makes the target Device's `installedSoftware` gain or replace that exact product release, and product-specific consequences occur on that same Device. The authored RACK-OS servers concretely carry GateSSH InstalledSoftware matching their managed Service (srv-01 at 1.3.2 and srv-02 at 1.3.3). Installing another GateSSH release through Files atomically replaces both that installed release and the existing Service whose implementation has stable `gate-ssh` product identity; it creates no Service and changes no unrelated Service. If that managed Service is absent at completion, neither half is applied. Older and newer represented releases use the same lifecycle with no version ordering. Remote NODE Miner installation therefore creates its one
-managed executable at `/home/user/apps/node-miner/node-miner` **in the target
+managed executable at `/usr/local/bin/node-miner` **in the RACK-OS target
 filesystem**, leaving the local Device's filesystem and inventory untouched.
 Installation is still not execution: completion creates the artifact, and RUN
 remains a separate later admission step (see **Remote executable RUN and
