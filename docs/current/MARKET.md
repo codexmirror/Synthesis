@@ -249,28 +249,96 @@ represented operator.
 ## The Market application
 
 `Market` is an ordinary NODE-OS application, registered between Files and
-Wallet. It composes the shared NODE-OS presentation language rather than a
-second UI system, and it owns no gameplay truth: the selected offering and one
-transient feedback string are its only local state. Balance, price,
-entitlement, local possession, transfer progress and installation state are all
-derived from their canonical owners on every render, so none of them can
-diverge.
+Wallet. It is product-first: the catalog presents the software **products**
+this Market distributes, and one product surface then presents the concrete
+releases it actually offers of that product. Two offerings of one product are
+two releases of it, not two unrelated rows.
 
-The catalog states the operator it is presenting and the client Device, the
-canonical NODE balance, and one row per offering: product name, then
-`version · CHANNEL · size · price` — with the `· CHANNEL` segment omitted
-entirely for a release that represents none, rather than shown empty or
-inherited — then the derived acquisition state, then the arrow that opens the
-offering. One quiet note states that NODE-OS provides the client while the
+It owns no gameplay truth. Its only local state is presentation state — the
+selected destination, the selected catalog entry, the selected release, and one
+transient feedback string. Balance, price, entitlement, local possession,
+transfer progress and installation state are all derived from their canonical
+owners on every render, so none of them can diverge. Browsing, opening a
+product and switching release mutate nothing.
+
+It composes the shared NODE-OS presentation language and owns
+`src/apps/market/market.css` for the hierarchy that language has no primitive
+for — the destination strip, the balance line, the hairline catalog entry, the
+release option, the acquisition block, and the unrepresented-destination
+statement — exactly as Wallet owns its own stylesheet
+(`docs/current/INTERFACE_SHELL.md`). It is not a second design system.
+
+
+### Two top-level distribution destinations
+
+The client presents two destinations, and exactly one of them is a represented
+Market:
+
+- the **open exchange** — the operator held in canonical `GameState.market`,
+  currently Open Package Exchange, with the whole catalog behind it;
+- **publisher distribution** — a stated absence. No publisher-operated source
+  and no NODE first-party channel is represented, so this destination lists
+  nothing, has no operator, no settlement address and no offerings, and no
+  transactional action anywhere in the client is bound to it. Selecting it
+  states that absence and points back at the one Market that exists.
+
+This is presentation only. No source, channel, storefront or catalog framework
+exists in the domain, and none is created here: the represented destination is
+read from the canonical operator, and the unrepresented one is a view constant
+carrying no economic identity. A second real source would need canonical
+operator/source truth first, which this slice deliberately does not add.
+
+
+### Catalog
+
+The catalog states the operator it is presenting and the client Device, the two
+destinations, and the canonical NODE balance as one line rather than a module.
+Its entries are grouped: `SOFTWARE` lists one entry per represented product,
+`MODULES` lists the module offerings. Grouping reads nothing but the offerings
+themselves — `software_package` offerings group by their represented
+`productId` **and** the display name they state, so two releases claiming
+different names for one product stay visibly separate rather than one speaking
+for the other; a module groups by its own module identity, because it has no
+`productId` at all.
+
+An entry states the product name, then either the single release's
+`version · CHANNEL · size` — with the `· CHANNEL` segment omitted entirely for
+a release that represents none — or, for several releases, how many there are
+and which versions. Beside it: the product-level acquisition summary, the price
+or the price range its releases actually span, and the arrow that opens it. The
+summary states how many of the product's releases it covers (`ON DEVICE 1/2`),
+because one of two releases being on the Device is not the product being on the
+Device. One quiet note states that NODE-OS provides the client while the
 operator lists, sells and is paid, and that each release states its own
 publisher where one is represented.
 
-An offering states its acquisition state — `AVAILABLE`, `PURCHASED`,
-`DOWNLOADING` or `ON DEVICE` — then publisher, seller, package filename, size,
-price, purchase state and local copy as separate facts, then the one primary
-action available, then release documentation behind the existing
-RELEASE INFORMATION disclosure. `DOWNLOADING` derives its progress from the
-canonical transfer and states that nothing is written until it completes.
+
+### Product surface
+
+A product surface states the product, whether it is a software product or a
+module offering, and how many releases this Market offers of it. With more than
+one release it presents a release selector — the versions wrap as a set of
+options, so two releases and twelve are the same control — and each option
+carries its own acquisition state, or the channel it represents where nothing
+has been acquired. The release the operator lists first opens selected; no
+version ordering is invented.
+
+Selecting a release changes the whole surface to that exact offering. Nothing
+is merged across releases: channel, publisher, filename, size, price,
+entitlement, possession, transfer and action all belong to the selected
+offering alone, and a release representing no channel or publisher keeps that
+absence rather than inheriting a sibling's.
+
+The selected release states its version, channel where represented, and
+acquisition state — `AVAILABLE`, `PURCHASED`, `DOWNLOADING` or `ON DEVICE` —
+then one acquisition block holding the price against the canonical balance, the
+one action available, and whatever that action is currently blocked or running
+behind. BUY settles NODE and is the filled action; DOWNLOAD moves bytes already
+paid for and stays outlined. Publisher, seller, package or module filename,
+size, purchase state and local copy follow as separate facts, and release
+documentation stays behind the existing RELEASE INFORMATION disclosure.
+`DOWNLOADING` derives its progress from the canonical transfer and states that
+nothing is written until it completes.
 
 The acquisition state is derived, in this order: a Market transfer active for
 this offering is `DOWNLOADING`; a local copy of the release is `ON DEVICE`; an
@@ -280,6 +348,38 @@ no local copy and a free destination, and nothing while downloading, while a
 copy is present, or while an unrelated artifact occupies the destination —
 which is stated rather than hidden. A canonical admission failure is reported
 as-is; the operation remains the only authority.
+
+
+### Offerings versus what the Device already holds
+
+Only a represented `MarketOffer` is ever a purchasable release. An authored
+release, an InstalledSoftware entry, or a package already sitting on the Device
+is never promoted into one, and no offering is fabricated to fill a selector.
+
+A product surface may additionally state what the **local** Device already
+holds of that product, under `ON THIS DEVICE`: the release of it installed
+there, and local package copies of releases this Market does not offer. It is
+Device truth, explicitly not a catalog, carries no price and no action, and is
+stated as such. Package copies of releases the Market *does* offer are left out,
+because those already read as `ON DEVICE` on the offering itself. Only the local
+Device is read: software installed on a represented remote Device is
+observation truth owned by NodeScan, Service Analysis and Knowledge, and the
+Market never discloses it.
+
+NodeScan is the current proof: node-01 has 1.0 installed and a 1.2 package in
+downloads, this Market offers only 1.1, and the surface says exactly that.
+
+
+### Modules
+
+A module offering is listed in its own `MODULES` catalog group, and its entry
+states the host product it belongs to, taken from the name that product's own
+offerings state where this Market lists them. A product surface cross-references
+the module offerings for that product and says that a module extends it, is not
+a release of it, is acquired separately and never installs as one — the module
+stays a separate entry rather than being folded into the product's releases.
+Its own surface states `MODULE` rather than `PACKAGE`, and that acquiring it
+places one module artifact on the Device and never becomes installed software.
 
 The Market ends at acquisition. It offers no INSTALL, no execution and no
 remote-Device installation, and says so where a local copy exists:
@@ -328,3 +428,19 @@ Market -> BUY -> DOWNLOAD -> package in Files -> Files INSTALL -> InstalledSoftw
   InstalledSoftware; installing it is not an available operation at all. Do not
   give a module distribution a fabricated product, channel or publisher to
   reuse package code.
+- The client's two top-level destinations are presentation. Exactly one Market
+  is represented; the second destination is a stated absence with no operator,
+  no offerings and no settlement, and nothing transactional may ever be bound
+  to it. Do not turn it into a second catalog, a source registry, or a
+  represented operator without canonical operator/source truth to read.
+- A product entry in the catalog is a grouping of represented offerings, not a
+  represented Product entity. It is derived per render from the offerings'
+  own `productId` and stated name; there is no product registry, no product
+  record, and no product-level channel, publisher, price or state of its own.
+- Only a represented `MarketOffer` is a purchasable release. An authored
+  release, an InstalledSoftware entry, or a package already on the Device is
+  never promoted into an offering to populate a release selector.
+- `ON THIS DEVICE` is local Device truth beside the catalog, never part of it:
+  no price, no action, and never presented as something for sale. It reads the
+  local Device only — installed software on a represented remote Device is
+  observation truth the Market must not disclose.

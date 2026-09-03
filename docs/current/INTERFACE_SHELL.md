@@ -82,7 +82,15 @@ stack of repeated objects; a Wallet modifier of a shared primitive is written as
 `.node-x.dollar-y`, since an application stylesheet is emitted before
 `nodeui.css` and an equally specific rule would lose the tie. What that Wallet
 presentation is meant to achieve is owned by
-`docs/design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`. This primitive set is
+`docs/design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`. Market owns
+`src/apps/market/market.css` on the same terms: a product market needs a
+destination → product → release hierarchy the shared primitives have no
+control for, so it owns the destination strip, the balance line, the hairline
+catalog entry, the release option, the acquisition block and the
+unrepresented-destination statement, while composing the shared masthead,
+section heading, facts list, chip, note, disclosure, progress rail, empty state
+and back control for everything else. What that Market presentation is meant to
+achieve is owned by `docs/current/MARKET.md`. This primitive set is
 NODE-OS Firmware presentation and is not a universal Firmware framework:
 RACK-OS and VEYRA OS each remain deliberately foreign and own their own palette
 and structure (`docs/current/VEYRA_OS.md`).

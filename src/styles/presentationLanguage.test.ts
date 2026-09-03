@@ -9,6 +9,7 @@ import processesCss from '../apps/processes/processes.css?raw'
 import mailCss from '../apps/mail/mail.css?raw'
 import terminalCss from '../apps/terminal/terminal.css?raw'
 import walletCss from '../apps/wallet/wallet.css?raw'
+import marketCss from '../apps/market/market.css?raw'
 import shellCss from '../shell/shell.css?raw'
 import rackosCss from '../apps/rackos/rackos.css?raw'
 import veyraCss from '../apps/veyra/veyra.css?raw'
@@ -41,7 +42,7 @@ import veyraFirmwareInstallSource from '../apps/veyra/VeyraFirmwareInstall.tsx?r
  * styled by none, and Terminal referenced an undefined `--muted`.
  */
 
-const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, flipperCss, shellCss]
+const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, marketCss, flipperCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss, veyraCss]
 const applicationSources = [filesSource, flipperSource, marketSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
 
@@ -115,6 +116,7 @@ describe('NODE-OS presentation language', () => {
       [appsCss, 'system-app'],
       [walletCss, 'wallet-app'],
       [mailCss, 'mail-app'],
+      [marketCss, 'market-app'],
     ]
     for (const [css, className] of surfaces) {
       const rules = rulesTouching(css, className)
