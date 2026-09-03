@@ -1,4 +1,4 @@
-import { enableWalletProtectionForDefensiveMaintenance } from './deviceSecurity'
+import { enablePetraPhoneWalletProtectionForTechnicianResponse } from './deviceSecurity'
 import type { GameState } from './types'
 
 export const PETRA_TECHNICIAN_RESPONSE_DELAY_MS = 5_000
@@ -42,7 +42,7 @@ export function advancePetraTechnicianReaction(state: GameState, elapsedMs: numb
     || transaction.sourceAccountId !== 'dollar-account-veyra-phone-v0'
     || transaction.destinationAccountId !== 'dollar-account-local-v0') return resolved
 
-  const maintenance = enableWalletProtectionForDefensiveMaintenance(resolved, PETRA_PHONE_DEVICE_ID)
+  const maintenance = enablePetraPhoneWalletProtectionForTechnicianResponse(resolved)
   if (maintenance.status !== 'changed') return resolved
   resolved = maintenance.state
   return {
