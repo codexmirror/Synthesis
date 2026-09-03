@@ -27,7 +27,8 @@ function resolve(state: GameState, roll: number) {
   if (started.status !== 'started') throw Error(started.status)
   let draws = 0
   const done = advanceGameState(started.state, 30_000, () => { draws++; return roll })
-  return { draws, result: (done.process.processes.at(-1) as CredentialAccessProcess).result?.status }
+  const process = done.process.processes.at(-1) as CredentialAccessProcess
+  return { draws, result: process.result?.status, protected: process.authGuardProtectionObserved }
 }
 
 describe('AuthGuard 1.0 concrete credential composition', () => {
@@ -58,16 +59,16 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
   it('forms AUTH-031 only through KeyProbe and resolves protected 5% with one draw', () => {
     const state = learned()
     expect(ownedCredentialAccessProviders(state, 'AUTH-031')).toEqual([{ id: 'keyprobe', name: 'KeyProbe' }])
-    expect(resolve(state, 0.049999)).toEqual({ draws: 1, result: 'access_established' })
-    expect(resolve(state, 0.05)).toEqual({ draws: 1, result: 'attempt_failed' })
+    expect(resolve(state, 0.049999)).toEqual({ draws: 1, result: 'access_established', protected: undefined })
+    expect(resolve(state, 0.05)).toEqual({ draws: 1, result: 'attempt_failed', protected: true })
   })
 
   it('resolves the unprotected exact composition at 50%', () => {
     const state = learned()
     const hosts = state.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, installedSoftware: host.installedSoftware?.filter(({ id }) => id !== AUTH_GUARD_PRODUCT_ID) } : host)
     const unprotected = { ...state, world: { network: { ...state.world.network, hosts } } }
-    expect(resolve(unprotected, 0.499999).result).toBe('access_established')
-    expect(resolve(unprotected, 0.5).result).toBe('attempt_failed')
+    expect(resolve(unprotected, 0.499999)).toMatchObject({ result: 'access_established', protected: undefined })
+    expect(resolve(unprotected, 0.5)).toMatchObject({ result: 'attempt_failed', protected: undefined })
   })
 
   it('stores Inspect evidence as a stale snapshot and refreshes compatibility', () => {

@@ -471,13 +471,59 @@ function deviceLiveStatus(operational: import('../../core/game/types').DeviceOpe
   return isDeviceNetworkUsable(operational) ? { label: 'ONLINE', tone: 'available' } : { label: 'OFFLINE', tone: 'down' }
 }
 
-function knownSoftwareIntelligence(software: readonly string[], weaknesses: readonly KnownWeakness[], authGuard: import('../../core/game/types').EnhancedInspectEvidence['authGuard']): readonly SoftwareIntelligence[] {
+function credentialAccessProviderName(process: CredentialAccessProcess): string {
+  if (process.toolId === 'keyprobe') return 'KeyProbe'
+  if (process.toolId === 'flipper') return 'Flipper · Credential Access Module'
+  return 'Credential Access Module'
+}
+
+/**
+ * Projects only evidence already represented by observation and completed
+ * security work. The two GateSSH release facts are deliberately authored
+ * here; version strings are never treated as a generic release lineage.
+ */
+function knownSoftwareIntelligence(
+  software: readonly string[],
+  analyses: readonly ServiceAnalysisProcess[],
+  attempts: readonly CredentialAccessProcess[],
+  authGuard: import('../../core/game/types').EnhancedInspectEvidence['authGuard'],
+): readonly SoftwareIntelligence[] {
+  const learnedFor = (implementation: string, vulnerabilityId: string) => analyses.some((process) =>
+    process.status === 'completed'
+    && process.result?.status === 'weaknesses_detected'
+    && `${process.analyzedImplementation?.name} ${process.analyzedImplementation?.version}` === implementation
+    && process.result.vulnerabilities.some(({ vulnerabilityId: id }) => id === vulnerabilityId))
+  const successfulProviders = (vulnerabilityId: string) => attempts.filter((process) =>
+    process.status === 'completed'
+    && process.vulnerabilityId === vulnerabilityId
+    && process.result?.status === 'access_established')
+
   return software.flatMap((name) => {
-    if (name.startsWith('GateSSH ') && weaknesses.length) return [{ software: name, details: weaknesses.map(({ id, label }) => id === 'AUTH-017'
-      ? `Analysis identified ${label.toLowerCase()}, a pre-authentication flaw that can permit Credential Access through compatible offensive tooling.`
-      : id === 'AUTH-031' ? `Analysis identified ${label.toLowerCase()}, a pre-authentication flaw that can permit Credential Access through compatible offensive tooling.`
-        : `Analysis identified ${label.toLowerCase()}.`) }]
-    if (name.startsWith('AuthGuard ') && authGuard) return [{ software: name, details: [`Inspect observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`] }]
+    if (name === 'GateSSH 1.3.2' && learnedFor(name, 'AUTH-017')) return [{ software: name, details: [
+      'AUTH-017 is a known pre-authentication Credential Access weakness.',
+      ...successfulProviders('AUTH-017').map((process) => `${credentialAccessProviderName(process)} successfully exploited AUTH-017.`),
+    ] }]
+    if (name === 'GateSSH 1.3.3') {
+      const details = [
+        ...(learnedFor('GateSSH 1.3.2', 'AUTH-017') ? ['This release patched the previously known AUTH-017 weakness from GateSSH 1.3.2.'] : []),
+        ...(learnedFor(name, 'AUTH-031') ? [
+          'Analysis identified AUTH-031, a separate pre-authentication Credential Access weakness.',
+          ...successfulProviders('AUTH-031').map((process) => `${credentialAccessProviderName(process)} successfully exploited AUTH-031.`),
+        ] : []),
+      ]
+      return details.length ? [{ software: name, details }] : []
+    }
+    if (name.startsWith('AuthGuard ') && authGuard) {
+      const protectedFailure = authGuard.compatibility === 'SUPPORTED' && attempts.some((process) =>
+        process.status === 'completed'
+        && process.result?.status === 'attempt_failed'
+        && process.vulnerabilityId === 'AUTH-031'
+        && process.authGuardProtectionObserved)
+      return [{ software: name, details: [
+        `Inspect observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`,
+        ...(protectedFailure ? ['Protects SSH authentication traffic against Credential Access attempts.'] : []),
+      ] }]
+    }
     return []
   })
 }
@@ -513,8 +559,10 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       ...(observed && observedAuthGuard?.protectedImplementation === observed.implementation ? [`${observedAuthGuard.name} ${observedAuthGuard.version}`] : []),
     ]
     const weaknesses = knowledgeFor(information, device.id, service.id)
+    const serviceAnalyses = analyses.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
+    const serviceAttempts = attempts.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
     const intelligence = nodeScan && nodeScanSupportsIntegratedIntelligence(nodeScan)
-      ? knownSoftwareIntelligence(software, weaknesses, observedAuthGuard)
+      ? knownSoftwareIntelligence(software, serviceAnalyses, serviceAttempts, observedAuthGuard)
       : []
     const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
     const running = analysis.find(({ status }) => status === 'running')

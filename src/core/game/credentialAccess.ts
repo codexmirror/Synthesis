@@ -143,7 +143,16 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
         { sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, sourceAddress, targetAddress: host!.ip, serviceId: service.id, serviceName: service.name, result },
       )
     : state.world
-  if (!succeeds) return { ...failedResult, world }
+  if (!succeeds) return {
+    ...failedResult,
+    process: {
+      ...failedResult.process,
+      ...(process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host!.installedSoftware, service)
+        ? { authGuardProtectionObserved: true as const }
+        : {}),
+    },
+    world,
+  }
 
   const existing = state.deviceAccess.established.find((access) => access.sourceDeviceId === process.executorDeviceId && access.targetDeviceId === process.targetDeviceId && access.viaServiceId === process.serviceId)
   if (existing) return { process: { ...process, result: { status: 'access_established', accessId: existing.id } }, deviceAccess: state.deviceAccess, world }
