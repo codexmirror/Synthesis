@@ -1274,8 +1274,18 @@ export interface GameState {
   readonly mail: MailState
   /** Petra's represented work communication, separate from the player's mailbox. */
   readonly petraCompanyChat: PetraCompanyChatState
+  /** Technician-owned reaction state; currently only Petra's Wallet incident is represented. */
+  readonly technicianReaction: TechnicianReactionState
   /** Bounded Device-runtime observations; not a world event history. */
   readonly recentActivity: RecentActivityState
+}
+
+export interface TechnicianReactionState {
+  readonly pending: {
+    /** The suspicious Dollar Transaction Petra's complaint names as its evidence. */
+    readonly transactionId: string
+    readonly remainingMs: number
+  } | null
 }
 
 /** The one concrete represented Company Chat available on Petra's phone. */

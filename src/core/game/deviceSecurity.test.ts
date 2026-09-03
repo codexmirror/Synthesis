@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { changeDeviceWalletProtection, changeWalletProtectionForOperatedRemoteDevice, verifyDevicePinForOperatedRemoteDevice } from './deviceSecurity'
+import { changeDeviceWalletProtection, changeWalletProtectionForOperatedRemoteDevice, enablePetraPhoneWalletProtectionForTechnicianResponse, verifyDevicePinForOperatedRemoteDevice } from './deviceSecurity'
 import { connectRemoteFromObservation } from './remoteSession'
 import type { GameState } from './types'
 
@@ -48,6 +48,23 @@ describe('Device-owned Wallet protection', () => {
     const before = createInitialGameState()
     const result = changeDeviceWalletProtection(before, 'host-lan-001', 'anything', true)
     expect(result).toEqual({ status: 'device_not_found', state: before })
+  })
+
+  it('keeps the PIN-less Petra Technician action fixed to Petra’s phone rather than redirecting it to another secured Device', () => {
+    const before = createInitialGameState()
+    const unrelated = {
+      ...before.world.network.hosts[0],
+      security: { devicePin: '1111', walletProtectionEnabled: false },
+    }
+    const hosts = before.world.network.hosts.map((host) => host.id === PHONE_ID
+      ? { ...host, security: undefined }
+      : host.id === unrelated.id ? unrelated : host)
+    const state: GameState = { ...before, world: { ...before.world, network: { ...before.world.network, hosts } } }
+
+    const result = enablePetraPhoneWalletProtectionForTechnicianResponse(state)
+
+    expect(result).toEqual({ status: 'device_not_found', state })
+    expect(result.state.world.network.hosts.find(({ id }) => id === unrelated.id)?.security?.walletProtectionEnabled).toBe(false)
   })
 
   it('persists through repeated verified changes rather than resetting or expiring', () => {

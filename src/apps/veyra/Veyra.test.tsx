@@ -5,6 +5,8 @@ import { GameProvider, useGameState } from '../../app/GameContext'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 import { createInitialGameState } from '../../core/game/initialState'
 import { transferDollars } from '../../core/game/dollarFinance'
+import { advanceGameState } from '../../core/game/gameAdvancement'
+import { PETRA_TECHNICIAN_MESSAGE, PETRA_TECHNICIAN_RESPONSE_DELAY_MS } from '../../core/game/technician'
 import { Shell } from '../../shell/Shell'
 import { Wallet } from '../wallet/Wallet'
 import type { GameState } from '../../core/game/types'
@@ -119,6 +121,18 @@ describe('VEYRA Communication', () => {
     expect(communication).toHaveTextContent('There’s a transaction from the work phone that I don’t recognize. Can someone take a look?')
     expect(communication.textContent).not.toMatch(/exploit|credential|attacker|technician|timestamp/i)
     expect(canonical()).toEqual(before)
+  })
+
+  it('presents the delayed Technician as a distinct Company Chat correspondent', async () => {
+    const transferred = transferDollars(createInitialGameState(), PHONE_DEVICE_ID, PLAYER_REFERENCE, 2_000)
+    if (transferred.status !== 'transferred') throw new Error(transferred.status)
+    const responded = advanceGameState(transferred.state, PETRA_TECHNICIAN_RESPONSE_DELAY_MS)
+    const user = await enterPhone(phoneConnectedState(responded))
+    await user.click(screen.getByRole('button', { name: 'Communication' }))
+
+    const chat = screen.getByLabelText('Company Chat')
+    expect(within(chat).getByText('Technician')).toBeInTheDocument()
+    expect(chat).toHaveTextContent(PETRA_TECHNICIAN_MESSAGE)
   })
 
   it('uses Back and Home without changing canonical state or the Remote Session', async () => {

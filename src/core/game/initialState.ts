@@ -10,7 +10,7 @@ import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_
 import type { GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
 
-export const GAME_STATE_VERSION = 62
+export const GAME_STATE_VERSION = 64
 
 export function createInitialGameState(): GameState {
   return {
@@ -96,6 +96,7 @@ export function createInitialGameState(): GameState {
     mail: createInitialMailState(),
     // Foreign work communication belongs to Petra's represented Company Chat, never the player's NodeMail account.
     petraCompanyChat: createInitialPetraCompanyChatState(),
+    technicianReaction: { pending: null },
     recentActivity: { entries: [] },
     world: {
       network: {
