@@ -9,6 +9,21 @@ export interface HardwareState {
   readonly ram: { readonly name: string; readonly capacityMiB: number }
 }
 
+/** The narrow physical categories represented by concrete Devices today. */
+export type DeviceType = 'NODE' | 'SERVER' | 'PHONE'
+
+/**
+ * Stable physical product identity and its descriptive V1 capability ceilings.
+ * These limits do not replace a Device's installed Hardware or current network
+ * transfer capacity, and no current runtime behavior consumes them.
+ */
+export interface DeviceModel {
+  readonly id: string
+  readonly name: string
+  readonly maximumComputeCapacity: number
+  readonly maximumNetworkCapacity: NetworkTransferCapacity
+}
+
 export interface RuntimeState {
   readonly baselineCpuLoad: number
   readonly baselineRamUsage: number
@@ -509,6 +524,10 @@ export interface LocalDeviceState {
   readonly id: string
   /** Mutable presentation name; never canonical device identity. */
   readonly displayName: string
+  /** Physical category, independent of model, Firmware, and presentation name. */
+  readonly deviceType: DeviceType
+  /** Stable physical product/model class; distinct from this Device instance. */
+  readonly deviceModel: DeviceModel
   readonly firmware: FirmwareState
   readonly filesystem: FilesystemState
   readonly network: DeviceNetworkState
@@ -796,6 +815,10 @@ export interface NetworkHost {
   readonly ip: string
   /** Canonical lifecycle/connectivity truth for this Device, independent of hardware/runtime representation. */
   readonly operational: DeviceOperationalState
+  /** Physical category when this host is represented as a concrete Device. */
+  readonly deviceType?: DeviceType
+  /** Authored physical product/model class; absent when no model truth exists. */
+  readonly deviceModel?: DeviceModel
   /**
    * This Device's own represented reaction to losing connectivity, when it
    * has one. Device-owned configuration, not derived from Firmware name or a

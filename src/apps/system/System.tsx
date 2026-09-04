@@ -13,7 +13,7 @@ export function System() {
   const state = useGameState()
   const actions = useGameActions()
   const { localDevice } = state.player
-  const { firmware, hardware, network, installedSoftware } = localDevice
+  const { deviceModel, deviceType, firmware, hardware, network, installedSoftware } = localDevice
   const usage = deriveResourceUsage(localDevice, state.process)
   /** Which installed-software row is currently expanded. Presentation only, and only ever one. */
   const [expandedProductId, setExpandedProductId] = useState<string>()
@@ -24,7 +24,7 @@ export function System() {
   return <section className="app-content system-app">
     <header className="node-masthead"><span className="node-masthead-subject">{localDevice.displayName}</span><span className="node-masthead-meta">LOCAL DEVICE</span></header>
     <div className="node-section"><span>IDENTITY</span></div>
-    <dl className="node-facts"><div><dt>DEVICE</dt><dd>{localDevice.displayName}</dd></div><div><dt>FIRMWARE</dt><dd>{firmware.name}</dd></div><div><dt>VERSION</dt><dd>{firmware.version}</dd></div></dl>
+    <dl className="node-facts"><div><dt>DEVICE</dt><dd>{localDevice.displayName}</dd></div><div><dt>TYPE</dt><dd>{deviceType}</dd></div><div><dt>MODEL</dt><dd>{deviceModel.name}</dd></div><div><dt>FIRMWARE</dt><dd>{firmware.name} {firmware.version}</dd></div></dl>
     <div className="node-section"><span>HARDWARE</span></div>
     <dl className="node-facts"><div><dt>CPU</dt><dd>{hardware.cpu.name}</dd></div><div><dt>CPU LOAD</dt><dd>{Math.round(usage.totalCpuLoad)}%</dd></div><div><dt>RAM</dt><dd>{hardware.ram.name} · {hardware.ram.capacityMiB} MiB</dd></div><div><dt>RAM USED</dt><dd>{Math.round(usage.totalRamUsage)}%</dd></div></dl>
     <div className="node-section"><span>NETWORK</span></div>
