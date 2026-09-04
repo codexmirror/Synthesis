@@ -1,0 +1,467 @@
+/*
+ * Market: a software product market, not a list of files for sale.
+ *
+ * The shared NODE-OS primitives carry a catalog of independent objects well.
+ * They do not carry a hierarchy — destination, then product, then the concrete
+ * releases of that product — because every one of those levels came out as
+ * another bordered rectangle stacked on the last. So this application owns the
+ * few primitives that hierarchy needs, and composes the shared section
+ * heading, facts list, chip, note, disclosure, progress rail, empty state and
+ * back control for everything else.
+ *
+ * The Market-owned pieces are: the destination strip, the balance line, the
+ * hairline catalog entry, the release option, the acquisition block, and the
+ * unrepresented-destination statement.
+ *
+ * SEPARATION IS SPATIAL. Depth is a hairline and a small step in value, never
+ * a card inside a card: a catalog is one ruled column, and only the block that
+ * moves NODE — the acquisition block — is lifted off the page at all. Green is
+ * spent on exactly three things: the selected destination, the selected
+ * release, and the primary action.
+ *
+ * `.app-content` still owns the scrolling gutter; nothing here redeclares it.
+ */
+
+/*
+ * Market owns no local palette. Every color below composes the shared tokens
+ * in `styles/tokens.css`: the hairline is `--line-quiet`, the lifted surface
+ * is `--surface-raised`, and the translucent accent washes and top highlight
+ * are the shared `--accent-veil` / `--accent-line` / `--edge-lit` — the same
+ * three Wallet already needed for its own layered module and selected state.
+ */
+.market-app { max-width: 660px; }
+
+/* Zero-specificity reset: every rule below may still set its own type scale. */
+:where(.market-app) button { font: inherit; }
+
+/* ── Destination ─────────────────────────────────────────────────────────── */
+
+/*
+ * The two top-level destinations. They are deliberately quiet strips rather
+ * than a tab bar: one of them is a represented Market, and the other is the
+ * client saying out loud that no publisher-operated distribution exists.
+ */
+.mk-sources {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 1px;
+  background: var(--line-quiet);
+  border: 1px solid var(--line-quiet);
+}
+
+.mk-source {
+  min-width: 0;
+  min-height: 58px;
+  padding: 11px 12px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  border: 0;
+  border-top: 2px solid transparent;
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms linear, border-color 120ms linear;
+}
+
+.mk-source-title {
+  color: var(--text-secondary);
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  overflow-wrap: anywhere;
+}
+
+.mk-source-meta {
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+.mk-source[aria-pressed="true"] {
+  border-top-color: var(--accent-rule);
+  background: linear-gradient(180deg, var(--accent-veil), var(--surface-raised) 62%);
+}
+
+.mk-source[aria-pressed="true"] .mk-source-title { color: var(--accent-strong); }
+
+.mk-source:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -1px; }
+
+/*
+ * The destination with no represented operator reads as an absence, not as a
+ * second storefront waiting to be opened: it is selectable and clearly
+ * selected, but green is reserved for the Market that actually exists.
+ */
+.mk-source--unrepresented .mk-source-title { color: var(--text-muted); }
+.mk-source--unrepresented[aria-pressed="true"] { border-top-color: var(--text-faint); background: var(--surface-raised); }
+.mk-source--unrepresented[aria-pressed="true"] .mk-source-title { color: var(--text-secondary); }
+
+@media (hover: hover) {
+  .mk-source:hover { background: var(--surface-hover); }
+  .mk-source[aria-pressed="true"]:hover { background: linear-gradient(180deg, var(--accent-veil), var(--surface-hover) 62%); }
+  .mk-source--unrepresented:hover,
+  .mk-source--unrepresented[aria-pressed="true"]:hover { background: var(--surface-hover); }
+}
+
+/* ── Balance ─────────────────────────────────────────────────────────────── */
+
+/*
+ * The balance is context for a price, not the subject of the screen, so it is
+ * one line rather than a module of its own.
+ */
+.mk-balance {
+  margin: 16px 0 0;
+  padding-bottom: 9px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line-quiet);
+}
+
+.mk-balance dt {
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+.mk-balance dd {
+  margin: 0;
+  color: var(--accent);
+  font-size: .76rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Catalog ─────────────────────────────────────────────────────────────── */
+
+/*
+ * One ruled column. A product is separated from the next by a hairline rather
+ * than closed inside its own rectangle, which is what made seven offerings
+ * read as seven unrelated objects.
+ */
+.mk-list {
+  display: grid;
+  gap: 1px;
+  background: var(--line-quiet);
+  border-bottom: 1px solid var(--line-quiet);
+}
+
+.mk-entry {
+  width: 100%;
+  min-width: 0;
+  min-height: 62px;
+  padding: 12px 2px;
+  display: grid;
+  grid-template-areas:
+    "name  state arrow"
+    "meta  price arrow";
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px 12px;
+  border: 0;
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms linear;
+}
+
+.mk-entry:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -1px; }
+
+@media (hover: hover) {
+  .mk-entry:hover { background: var(--surface-hover); }
+}
+
+.mk-entry-name {
+  grid-area: name;
+  min-width: 0;
+  color: var(--text-strong);
+  font: 600 .84rem Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.mk-entry-meta {
+  grid-area: meta;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: .58rem;
+  letter-spacing: .1em;
+  overflow-wrap: anywhere;
+}
+
+.mk-entry-state { grid-area: state; justify-self: end; }
+
+.mk-entry-available {
+  color: var(--text-faint);
+  font-size: .52rem;
+  letter-spacing: .12em;
+  white-space: nowrap;
+}
+
+.mk-entry-price {
+  grid-area: price;
+  justify-self: end;
+  color: var(--text-quiet);
+  font-size: .58rem;
+  letter-spacing: .06em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mk-entry-arrow {
+  grid-area: arrow;
+  align-self: center;
+  color: var(--accent-mark);
+  font-size: .9rem;
+}
+
+/* ── Product surface ─────────────────────────────────────────────────────── */
+
+.mk-product { min-width: 0; }
+
+.mk-subject {
+  margin: 0 0 4px;
+  padding-bottom: 13px;
+  display: grid;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mk-subject-name {
+  margin: 0;
+  color: var(--text-strong);
+  font: 600 1.15rem Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.mk-subject-meta {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+/*
+ * The release selector. Versions of one product wrap as a set of options, so
+ * two releases and twelve are the same control; each option states its own
+ * acquisition state, because what the player already holds is the reason a
+ * multi-release selector exists at all.
+ */
+.mk-releases {
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mk-release-option {
+  min-height: 48px;
+  min-width: 74px;
+  padding: 7px 12px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms linear, background 120ms linear;
+}
+
+.mk-release-option strong {
+  color: var(--text-secondary);
+  font: 600 .76rem Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-release-option small {
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: .1em;
+  white-space: nowrap;
+}
+
+.mk-release-option:focus-visible { border-color: var(--line-accent); outline: 0; }
+
+@media (hover: hover) {
+  .mk-release-option:hover { border-color: var(--line-accent); background: var(--surface-hover); }
+}
+
+.mk-release-option[aria-pressed="true"] {
+  border-color: var(--accent-line);
+  background: linear-gradient(180deg, var(--accent-veil), var(--surface-raised) 70%);
+  box-shadow: inset 0 -2px 0 var(--accent-rule);
+}
+
+.mk-release-option[aria-pressed="true"] strong { color: var(--accent-strong); }
+.mk-release-option[aria-pressed="true"] small { color: var(--accent); }
+
+/* ── Selected release ────────────────────────────────────────────────────── */
+
+.mk-release { min-width: 0; animation: mk-release-in 150ms ease-out both; }
+
+.mk-release-head {
+  margin-top: 18px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.mk-release-version {
+  color: var(--text-strong);
+  font: 600 1.05rem Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-release-channel {
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+.mk-release-state { margin-left: auto; }
+
+/*
+ * The acquisition block: the one place on the surface where NODE actually
+ * moves. It is the only lifted surface in the application, and it holds the
+ * terms of the decision, the single action, and whatever that action is
+ * currently blocked or running behind.
+ */
+.mk-acquire {
+  margin-top: 13px;
+  padding: 14px 15px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface) 60%);
+  box-shadow: inset 0 1px 0 var(--edge-lit);
+}
+
+.mk-terms {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+}
+
+.mk-terms > div { display: grid; gap: 4px; }
+
+.mk-terms dt {
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+}
+
+.mk-terms dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: .82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-acquire .node-note { margin: 0; }
+
+/*
+ * Action hierarchy. BUY settles NODE, so it is the filled action; DOWNLOAD
+ * moves bytes the player has already paid for, so it stays outlined and
+ * tinted. They are never the same control, and neither ever becomes the other.
+ */
+.mk-act {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: .63rem;
+  letter-spacing: .14em;
+  cursor: pointer;
+  transition: background 90ms linear, border-color 90ms linear, transform 90ms ease-out;
+}
+
+.mk-act:active { transform: translateY(1px); }
+
+.mk-act--buy {
+  border: 1px solid var(--accent-rule);
+  background: linear-gradient(180deg, var(--accent-fill-light), var(--accent-fill));
+  color: var(--on-accent-fill);
+  font-weight: 600;
+}
+
+.mk-act--buy:focus-visible { background: var(--accent-strong); outline: 2px solid var(--green); outline-offset: 2px; }
+
+.mk-act--download {
+  border: 1px solid var(--line-accent);
+  background: var(--accent-outline-wash);
+  color: var(--accent-strong);
+}
+
+.mk-act--download:focus-visible { border-color: var(--accent-rule); outline: 0; }
+
+@media (hover: hover) {
+  .mk-act--buy:hover { background: linear-gradient(180deg, var(--accent-fill-light-hover), var(--accent-strong)); }
+  .mk-act--download:hover { border-color: var(--accent-rule); background: var(--accent-outline-wash-hover); }
+}
+
+.mk-transfer { display: grid; gap: 8px; }
+.mk-transfer .node-progress { width: 100%; }
+.mk-transfer .node-note { margin: 0; }
+
+/* ── Unrepresented destination ───────────────────────────────────────────── */
+
+.mk-void {
+  margin-top: 18px;
+  padding: 16px 15px;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  border: 1px dashed var(--line-strong);
+  background: var(--surface);
+}
+
+.mk-void-title {
+  margin: 0;
+  color: var(--text-quiet-heading);
+  font-size: .6rem;
+  letter-spacing: var(--label-tracking);
+}
+
+.mk-void-copy {
+  margin: 0;
+  color: var(--text-quiet);
+  font-size: .68rem;
+  line-height: 1.55;
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+
+.mk-catalog { animation: mk-release-in 150ms ease-out both; }
+
+@keyframes mk-release-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-catalog,
+  .mk-release { animation: none; }
+
+  .mk-source,
+  .mk-entry,
+  .mk-release-option,
+  .mk-act { transition: none; }
+
+  .mk-act:active { transform: none; }
+}
+
+/* ── Density ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 420px) {
+  .mk-entry { gap: 5px 10px; }
+  .mk-terms { gap: 10px 20px; }
+  .mk-release-option { min-width: 68px; }
+}

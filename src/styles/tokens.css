@@ -35,6 +35,17 @@
   --text-quiet: #66736b;
   --text-faint: #5a665f;
 
+  /*
+   * The quiet heading paired with `--text-quiet` body copy in an empty or
+   * absence state — one step brighter than `--text-quiet` so a small heading
+   * still reads above its own body text. Not a general tier: it names a value
+   * `.node-empty strong` and Wallet's `.dollar-activity-empty strong` already
+   * used identically before this token existed, so an application composing
+   * that same pairing (Market's unrepresented-destination heading) reaches it
+   * by name instead of retyping the literal.
+   */
+  --text-quiet-heading: #8b9990;
+
   /* Accent — restrained mint green */
   --green: #8cffb2;
   --accent: #8fc6a3;
@@ -42,6 +53,36 @@
   --accent-mark: #73bd8e;
   --accent-fill: #6ac58a;
   --accent-rule: #64b881;
+
+  /*
+   * Consequential filled action: the one control on a surface that moves
+   * money or otherwise settles something real (Wallet's confirm-transfer
+   * action, Market's BUY), filled rather than outlined the way every other
+   * action is. Shared here because two independent applications already
+   * needed the identical gradient and foreground.
+   */
+  --accent-fill-light: #83d9a4;
+  --accent-fill-light-hover: #93e2b1;
+  --on-accent-fill: #05130b;
+
+  /*
+   * Translucent accent washes and the raised-surface top highlight. Shared by
+   * any application layering a lifted module or a selected surface over the
+   * base near-black surfaces above (Wallet, Market) — a light source in the
+   * corner, a mint veil behind a selected state, the thin line under it.
+   */
+  --accent-veil: rgb(140 255 178 / 7%);
+  --accent-line: rgb(140 255 178 / 22%);
+  --edge-lit: rgb(190 255 214 / 5%);
+
+  /*
+   * The outlined-but-tinted secondary action — Wallet's SUBMIT-style continue
+   * action, Market's DOWNLOAD — filled just enough to read as active without
+   * taking BUY's filled emphasis. Stored as whole gradients, the same way
+   * `--wallet-tile-active` already does, because both stops are shared.
+   */
+  --accent-outline-wash: linear-gradient(180deg, rgb(140 255 178 / 8%), rgb(140 255 178 / 2%));
+  --accent-outline-wash-hover: linear-gradient(180deg, rgb(140 255 178 / 12%), rgb(140 255 178 / 4%));
 
   /* Caution — reserved for cancel, failure and unavailable state */
   --caution: #cf9c6e;

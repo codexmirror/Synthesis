@@ -1,7 +1,9 @@
 /*
  * Application surface and the per-application layout that is genuinely
  * specific to one NODE-OS application. Anything shared between applications
- * belongs to `styles/nodeui.css`.
+ * belongs to `styles/nodeui.css`, and an application that needs a hierarchy the
+ * shared primitives cannot carry owns its own stylesheet beside it — Wallet's
+ * `wallet.css` and Market's `market.css`.
  *
  * `.app-content` owns the gutter for every scrolling NODE-OS application
  * surface, so no individual application redeclares it. Terminal is the one
@@ -133,17 +135,6 @@
 
 .file-kind-actions { margin-top: 14px; display: grid; gap: 4px; justify-items: start; }
 .file-kind-actions .node-note { width: 100%; }
-
-/* Market: a catalog and one offering, composed from the shared primitives. */
-.market-app { max-width: 720px; }
-
-.market-detail { min-width: 0; }
-
-.market-transfer { margin-top: 14px; display: grid; gap: 8px; }
-.market-transfer .node-progress { width: 100%; }
-
-.market-actions { margin-top: 14px; display: grid; gap: 8px; justify-items: start; }
-.market-actions .node-note { width: 100%; }
 
 /* Install Review: a focused decision surface, not a modal or card. */
 .install-review { min-width: 0; }
