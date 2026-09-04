@@ -21,6 +21,8 @@ GameState
 │   └── localDevice
 │       ├── stable Device identity
 │       ├── mutable display name
+│       ├── physical Device type
+│       ├── stable Device model identity and capability ceilings
 │       ├── installed Firmware identity
 │       ├── network address
 │       ├── hardware
@@ -86,7 +88,9 @@ Service implementation are separate Device-owned truths even where installation
 and RackUpdate deliberately keep their release and concrete build coherent.
 
 The player's local Device has stable identity separate from its mutable display
-name and network address. It owns concrete NODE-OS Firmware identity (including
+name and network address. Its physical type is `NODE`, and it references the
+stable `NODE 1` model (`device-model-node-1-v0`) independently of both its
+instance identity and its Firmware. It owns concrete NODE-OS Firmware identity (including
 its stable Firmware ID, visible name, and version), and local OS presentation
 derives that identity from Device state rather than a universal Shell constant.
 The Device also owns the sole canonical installed-software inventory. Installed
@@ -102,6 +106,36 @@ Financial Account ID that material was saved for. It is Device state and
 deliberately not the Provider's Credential, it grants no authority, and a Device
 that represents none simply has none. Its semantics belong to
 `docs/current/DOLLAR_FINANCE.md`.
+
+### Physical Device identity and model ceilings
+
+`DeviceType` is the narrow physical classification represented today: `NODE`,
+`SERVER`, or `PHONE`. It is authored on concrete Devices and is never derived
+from an instance/display name, server role, Firmware, or Hardware. The local
+`device-local-v0` is `NODE`; srv-01 and srv-02 are `SERVER`; Petra's Phone is
+`PHONE`. Shallow training hosts remain shallow and receive no fabricated type.
+
+`DeviceModel` is a reusable physical product identity, distinct from the Device
+instance, its type, its installed Hardware, and its Firmware. V1 defines one
+maximum compute capacity and an upload/download maximum network capacity. These
+are descriptive model ceilings only: current Hardware and current
+`NetworkTransferCapacity` remain the inputs to all process and transfer behavior.
+No installation, upgrade, purchase, pricing, compatibility, or slot mechanic is
+implemented.
+
+The three authored models deliberately set their ceilings equal to their
+current represented capabilities rather than inventing upgrade headroom:
+
+| Device instance | Type | Model | Maximum compute | Maximum network (upload / download) |
+| — | — | — | —: | —: |
+| node-01 (`device-local-v0`) | NODE | NODE 1 (`device-model-node-1-v0`) | 100 | 1 MiB/s / 2 MiB/s |
+| srv-01 (`host-lan-001`) | SERVER | RACK Core 160 (`device-model-rack-core-160-v0`) | 160 | 8 MiB/s / 8 MiB/s |
+| srv-02 (`host-lan-002`) | SERVER | RACK Core 120 (`device-model-rack-core-120-v0`) | 120 | 1 MiB/s / 1 MiB/s |
+
+Petra's Phone has no authored consumer product model, so its `deviceModel` is
+honestly absent. VEYRA OS remains its Firmware and supplies no physical model
+identity. Model/type World Truth is not added to Scan, Inspect, Discovery, or
+NodeScan presentation.
 
 
 ## Represented World
@@ -205,11 +239,13 @@ maintenance transition above.
 
 ## Network transfer capacity
 
-Three distinct concerns make up represented transfer throughput, and V1
-represents only the first two:
+Four distinct concerns frame represented transfer throughput. Current transfer
+behavior consumes Device and Network transfer capacity; Device Model V1 also
+represents its separate descriptive ceiling:
 
 ```text
-DEVICE TRANSFER CAPACITY = the maximum transfer capability of that Device endpoint
+DEVICE TRANSFER CAPACITY = the current represented transfer capability of that Device endpoint
+DEVICE MODEL MAXIMUM NETWORK CAPACITY = the physical model ceiling; descriptive only in V1
 NETWORK TRANSFER CAPACITY = the represented external connectivity capacity of that LocalNetwork
 CURRENT USAGE / CONGESTION = not represented yet
 ```
@@ -222,8 +258,9 @@ srv-02 is a symmetric 1 MiB/s, deliberately slower than srv-01; the personal
 phone is 2 MiB/s upload and 4 MiB/s download. The shallow training hosts are
 deliberately given none. Upload and
 download are always interpreted from the perspective of the Device that owns
-the capacity. This capacity is a pure maximum-capability value, not runtime
-usage, and remains distinct from canonical Device operational truth
+the capacity. This capacity is the endpoint's current maximum throughput, not
+runtime usage or its model's physical ceiling, and remains distinct from
+canonical Device operational truth
 (`LocalDeviceState.operational` / `NetworkHost.operational`, below): a
 Device that is not currently network-usable still carries its normal
 capacity rather than a zeroed one. The shallow training hosts are not given
@@ -543,8 +580,8 @@ System is the local Device's machine-level sheet. It presents represented
 Device state grouped as IDENTITY, HARDWARE, NETWORK and INSTALLED SOFTWARE:
 
 - Device display name
-- Firmware name
-- Firmware version
+- physical Device type and model name
+- Firmware name and version
 - CPU and RAM hardware, including represented RAM capacity
 - derived CPU load and RAM usage
 - local address
@@ -604,6 +641,9 @@ is observed through RACK-OS, never listed here.
   Device-owned World Truth, not `InstalledSoftware` and not a package.
 - Two Devices may share one Firmware product identity without sharing Device
   identity.
+- Device instance identity, Device type, Device model, current Hardware,
+  current transfer capacity, and Firmware remain separate. Model ceilings are
+  descriptive in V1 and must not drive current process or transfer behavior.
 - `NetworkTransferCapacity` is capability, not usage, and not availability. A
   Device that is not currently network-usable still carries its normal
   capacity.

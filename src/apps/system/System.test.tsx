@@ -26,6 +26,8 @@ describe('System', () => {
   it('derives machine identity, hardware and network from canonical Device state', () => {
     render(<GameProvider initialState={withDevice({
       displayName: 'field-node',
+      deviceType: 'NODE',
+      deviceModel: { id: 'device-model-test', name: 'FIELD NODE', maximumComputeCapacity: 300, maximumNetworkCapacity: { uploadBytesPerSecond: 2_097_152, downloadBytesPerSecond: 4_194_304 } },
       firmware: { id: 'firmware-test', name: 'TEST-OS', version: '7.4' },
       hardware: { cpu: { name: 'Altered CPU', computeCapacity: 250 }, ram: { name: '16 GB', capacityMiB: 16_384 } },
       network: { ip: '203.0.113.77', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
@@ -34,8 +36,9 @@ describe('System', () => {
     })}><System /></GameProvider>)
 
     expect(value('DEVICE')).toBe('field-node')
-    expect(value('FIRMWARE')).toBe('TEST-OS')
-    expect(value('VERSION')).toBe('7.4')
+    expect(value('TYPE')).toBe('NODE')
+    expect(value('MODEL')).toBe('FIELD NODE')
+    expect(value('FIRMWARE')).toBe('TEST-OS 7.4')
     expect(value('CPU')).toBe('Altered CPU')
     expect(value('RAM')).toBe('16 GB · 16384 MiB')
     expect(value('CPU LOAD')).toBe('41%')

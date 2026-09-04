@@ -9,8 +9,9 @@ import { DEAUTH_EXTENSION } from './deauth'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
+import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
 
-export const GAME_STATE_VERSION = 65
+export const GAME_STATE_VERSION = 66
 
 export function createInitialGameState(): GameState {
   return {
@@ -20,6 +21,8 @@ export function createInitialGameState(): GameState {
       localDevice: {
         id: 'device-local-v0',
         displayName: 'node-01',
+        deviceType: 'NODE',
+        deviceModel: NODE_1_DEVICE_MODEL,
         firmware: { id: NODE_OS_FIRMWARE_ID, name: 'NODE-OS', version: '1.0' },
         filesystem: {
           nextFileId: 6,
@@ -110,6 +113,8 @@ export function createInitialGameState(): GameState {
           {
             id: 'host-lan-001',
             displayName: 'srv-01',
+            deviceType: 'SERVER',
+            deviceModel: RACK_CORE_160_DEVICE_MODEL,
             ip: '198.51.100.47',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             role: 'server',
@@ -133,6 +138,8 @@ export function createInitialGameState(): GameState {
           {
             id: 'host-lan-002',
             displayName: 'srv-02',
+            deviceType: 'SERVER',
+            deviceModel: RACK_CORE_120_DEVICE_MODEL,
             ip: '203.0.113.42',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             // This concrete srv-02's own represented recovery behavior for this precedent: it reboots on connectivity loss. Device-owned configuration, not a universal "every RACK-OS reboots" rule.
@@ -156,6 +163,7 @@ export function createInitialGameState(): GameState {
           {
             id: 'host-phone-001',
             displayName: 'Petra’s Phone',
+            deviceType: 'PHONE',
             ip: '198.51.100.61',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             // This concrete phone's own represented recovery behavior for this precedent: it reconnects on connectivity loss without ever rebooting. Device-owned configuration, not a universal "every VEYRA OS Device reconnects" rule.

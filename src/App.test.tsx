@@ -2045,8 +2045,9 @@ describe('NODE-OS shell and applications', () => {
     await user.click(screen.getByRole('button', { name: /open system/i }))
 
     expect(screen.getByText('DEVICE').parentElement).toHaveTextContent('test-device')
-    expect(screen.getByText('FIRMWARE').parentElement).toHaveTextContent('TEST-OS')
-    expect(screen.getByText('VERSION').parentElement).toHaveTextContent('7.4')
+    expect(screen.getByText('TYPE').parentElement).toHaveTextContent('NODE')
+    expect(screen.getByText('MODEL').parentElement).toHaveTextContent('NODE 1')
+    expect(screen.getByText('FIRMWARE').parentElement).toHaveTextContent('TEST-OS 7.4')
   })
 })
 

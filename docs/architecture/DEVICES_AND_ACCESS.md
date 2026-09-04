@@ -15,8 +15,10 @@ Preserve these concepts:
 
 | Concern | Responsibility |
 | — | — |
-| Device | Machine identity and represented machine state |
-| Hardware | Compute and memory capacity |
+| Device | Individual machine identity and represented machine state |
+| Device type | Narrow physical category, independent of names and Firmware |
+| Device model | Stable physical product identity and maximum supported physical capabilities |
+| Hardware | Currently installed compute and memory capacity |
 | Runtime | Current resource use and execution state |
 | Firmware | Operating-system identity, interaction model, and presentation |
 | Software / Tools | Installed functionality |
@@ -25,6 +27,14 @@ Preserve these concepts:
 
 Firmware must not duplicate or grant Device-owned hardware, runtime, networking,
 filesystem, or other simulation truth.
+
+A Device instance, its physical type, and its model are separate identities.
+The model's capability ceilings do not become installed Hardware or current
+network transfer capacity, and they do not affect runtime behavior until a
+concrete mechanic explicitly uses them. A Device may truthfully have an
+authored physical type while its product model remains unauthored. Neither type
+nor model may be inferred from Firmware, instance name, role, or another
+presentation string.
 
 Installed software is not Firmware.
 
@@ -133,6 +143,8 @@ Conceptually:
 ```text
 DEVICE
 ├── identity
+├── physical type
+├── physical model, when authored
 ├── machine state
 ├── hardware
 ├── runtime

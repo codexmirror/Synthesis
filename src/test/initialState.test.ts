@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 65', () => {
+  it('separates identities and seeds canonical local-device state in schema version 66', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(65)
+    expect(GAME_STATE_VERSION).toBe(66)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(65)
+    expect(state.version).toBe(66)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -66,6 +66,13 @@ describe('createInitialGameState', () => {
     expect(state.player.id).not.toBe(state.player.localDevice.id)
     expect(state.player.localDevice).toMatchObject({
       displayName: 'node-01',
+      deviceType: 'NODE',
+      deviceModel: {
+        id: 'device-model-node-1-v0',
+        name: 'NODE 1',
+        maximumComputeCapacity: 100,
+        maximumNetworkCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 },
+      },
       firmware: { id: 'firmware-node-os-v1', name: 'NODE-OS', version: '1.0' },
       network: { ip: '198.51.100.23', transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 2_097_152 } },
       hardware: { cpu: { name: 'Basic CPU', computeCapacity: 100 }, ram: { name: '4 GB', capacityMiB: 4096 } },
@@ -112,6 +119,17 @@ describe('createInitialGameState', () => {
     }
     expect(state.world.network.localNetworks[0].id).not.toBe(state.world.network.localNetworks[0].name)
     expect(state.player.localDevice).not.toHaveProperty('networkId')
+    const modeledDevices = [
+      { model: state.player.localDevice.deviceModel, hardware: state.player.localDevice.hardware, capacity: state.player.localDevice.network.transferCapacity },
+      ...state.world.network.hosts.flatMap((host) => host.deviceModel && host.hardware && host.transferCapacity
+        ? [{ model: host.deviceModel, hardware: host.hardware, capacity: host.transferCapacity }]
+        : []),
+    ]
+    for (const { model, hardware, capacity } of modeledDevices) {
+      expect(hardware.cpu.computeCapacity).toBeLessThanOrEqual(model.maximumComputeCapacity)
+      expect(capacity.uploadBytesPerSecond).toBeLessThanOrEqual(model.maximumNetworkCapacity.uploadBytesPerSecond)
+      expect(capacity.downloadBytesPerSecond).toBeLessThanOrEqual(model.maximumNetworkCapacity.downloadBytesPerSecond)
+    }
     // The local Device's explicit management authority over home-net, and nowhere else.
     expect(state.networkManagement).toEqual({ nextId: 2, established: [
       { id: 'network-management-0001', deviceId: state.player.localDevice.id, networkId: 'network-local-001' },
@@ -123,7 +141,7 @@ describe('createInitialGameState', () => {
     const state = createInitialGameState()
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')
 
-    expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' } })
+    expect(server).toMatchObject({ id: 'host-lan-001', ip: '198.51.100.47', role: 'server', deviceType: 'SERVER', deviceModel: { id: 'device-model-rack-core-160-v0', name: 'RACK Core 160', maximumComputeCapacity: 160, maximumNetworkCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 } }, operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' } })
     // srv-01 is not part of the remote-segment-01 connectivity/recovery precedent and is given no configured reaction of its own.
     expect(server?.connectivityRecoveryBehavior).toBeUndefined()
     expect(server).toMatchObject({ displayName: 'srv-01', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 4, files: [
@@ -152,7 +170,7 @@ describe('createInitialGameState', () => {
     const state = createInitialGameState()
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')
 
-    expect(server).toMatchObject({ id: 'host-lan-002', ip: '203.0.113.42', role: 'server', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' }, connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT' })
+    expect(server).toMatchObject({ id: 'host-lan-002', ip: '203.0.113.42', role: 'server', deviceType: 'SERVER', deviceModel: { id: 'device-model-rack-core-120-v0', name: 'RACK Core 120', maximumComputeCapacity: 120, maximumNetworkCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 } }, operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' }, connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT' })
     expect(server).toMatchObject({ displayName: 'srv-02', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 3 } })
     expect(server?.filesystem?.files).toContainEqual({ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' })
     expect(server?.filesystem?.files).toContainEqual({ kind: 'software_package', id: 'file-0002', path: '/opt/packages/authguard-1.0.pkg', releaseId: 'auth-guard-1.0', buildId: 'build-auth-guard-1.0-v0', productId: 'auth-guard', name: 'AuthGuard', version: '1.0', publisher: 'rack-systems', sizeBytes: 4_800_000 })
@@ -192,6 +210,7 @@ describe('createInitialGameState', () => {
     expect(phone).toMatchObject({
       id: 'host-phone-001',
       displayName: 'Petra\u2019s Phone',
+      deviceType: 'PHONE',
       ip: '198.51.100.61',
       operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
       connectivityRecoveryBehavior: 'RECONNECT',
@@ -202,6 +221,7 @@ describe('createInitialGameState', () => {
     })
     // An ordinary personal Device, not a server: it carries no server role.
     expect(phone?.role).toBeUndefined()
+    expect(phone?.deviceModel).toBeUndefined()
     // Represented like any other concretely operable Device, and empty rather than filled with invented personal content.
     expect(phone?.installedSoftware).toEqual([])
     expect(phone?.filesystem).toEqual({ nextFileId: 1, files: [] })
