@@ -70,5 +70,9 @@ export function advanceGameState(state: GameState, elapsedMs: number, credential
   // here like every other represented Device transition — never from a timer
   // inside the operating surface presenting it.
   nextState = advanceVeyraFirmwareUpdates(nextState, elapsedMs)
+  // Firmware activation may itself make a Device unreachable after the first
+  // reachability pass. Let the same canonical Session owner observe that new
+  // operational truth; the update never disconnects a Session directly.
+  nextState = advanceRemoteSessionReachability(nextState)
   return advanceTechnicianReaction(nextState, elapsedMs)
 }

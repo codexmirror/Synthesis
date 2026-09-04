@@ -862,12 +862,9 @@ export interface NetworkHost {
  * work the Device's owner would recognize; nothing outside the update itself
  * derives meaning from which stage is current.
  *
- * `FINALIZING` is this update's own last represented stage of applying the new
- * release to the Device — it is deliberately not a Device reboot. Completing
- * it never moves the Device's own `operational` lifecycle or connectivity, and
- * never crosses the real boot boundary (`deviceBootBoundary.ts`): a real
- * firmware-triggered Device reboot remains a distinct, currently unimplemented
- * future consequence.
+ * `FINALIZING` is the update's last installation stage. Completing it activates
+ * the release and enters the existing real Device reboot lifecycle; shutdown
+ * and boot remain Device operational truth rather than additional update phases.
  */
 export type FirmwareUpdatePhase = 'DOWNLOADING' | 'PREPARING' | 'INSTALLING' | 'FINALIZING'
 
@@ -1141,6 +1138,10 @@ export interface DeviceAccess {
   readonly sourceDeviceId: string
   readonly targetDeviceId: string
   readonly viaServiceId: string
+  /** Concrete Service build whose credential surface established this authority. */
+  readonly viaServiceBuildId?: string
+  /** Concrete weakness successfully used on that Service build. */
+  readonly viaVulnerabilityId?: string
   readonly privilege: 'USER'
 }
 

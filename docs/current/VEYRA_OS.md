@@ -274,24 +274,18 @@ complete the installation: the canonical transition owned by
 and coming back shows exactly how far the real installation has got, and the
 installation does not depend on Settings — or any VEYRA surface — staying open.
 
-`FINALIZING`, the last represented stage, is presented as the update settling
-into place: the ground goes dark around the VEYRA system mark, a deliberately
-atmospheric moment rather than a literal one. This is presentation over the
-represented `FINALIZING` stage and nothing else — there is no fabricated boot
-log, hardware message or invented system output, and crucially no claim that
-the Device is restarting or rebooting, because it is not: this update never
-moves the Device's `operational` lifecycle or connectivity, and never crosses
-the real boot boundary (`docs/current/DEVICE_SYSTEM.md`). A real
-firmware-triggered Device reboot — one that actually crosses that boundary,
-reacts through Device connectivity/reachability, and may end the active
-Remote Session — is a deliberately deferred future slice, not this one.
+`FINALIZING`, the last represented installation stage, presents the update
+settling into place without fabricating boot logs or hardware output. When it
+completes, the canonical Device activates the release and enters its real
+`SHUTTING_DOWN` / `DISCONNECTED` lifecycle. Ordinary Remote Session
+reachability therefore removes this operating surface; VEYRA does not manually
+disconnect it or present a local reboot simulation. The Device continues through
+`BOOTING` and returns `RUNNING` / `CONNECTED` through the shared lifecycle.
 
-When the installation completes, the Device owns the new release and a short
-`VeyraFirmwareWelcome` states what is now running, from the release that was
-actually installed. That welcome is presentation-local, appears only when the
-Device really owns the finished release, authorizes nothing and is discarded by
-Continue, which simply goes Home — where the whole surface is already the new
-release's own.
+Because the Session has ended and the obsolete GateSSH-derived Access has been
+invalidated, the former in-session `VeyraFirmwareWelcome` is no longer reachable
+for this flow. Reaching the updated phone again requires new legitimate Access
+to its current GateSSH surface.
 
 ### Security
 
@@ -407,11 +401,9 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
   NODE-OS, or never looking at the phone again changes nothing about it.
 - A newer release is offered, never pre-applied. Petra's phone starts on 4.1
   with nothing installing, and only a correct Device PIN starts anything.
-- Finishing an installation is not rebooting the Device. `FINALIZING` looks
-  boot-like on purpose, but the Device's `operational` lifecycle, its
-  connectivity, and the active Remote Session are all untouched by this
-  update, at every stage including completion. A real firmware-triggered
-  Device reboot is unimplemented future work, not this slice.
+- Finishing an installation activates the release and begins a real Device
+  reboot. Session loss follows from shared reachability, obsolete Access follows
+  from the replaced credential surface, and VEYRA owns neither consequence.
 - A Home icon is not authority. Presence is derived from represented truth on
   every render; there is no stored launcher state to disagree with the world.
 - Client presence, represented data and emptiness are different. Communication
