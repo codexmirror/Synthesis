@@ -84,6 +84,11 @@ function advanceOneHostRecovery(state: GameState, hostId: string, elapsedMs: num
   return runRealDeviceBootConsequences(restarted, hostId)
 }
 
+/** Advance one already-started recovery with elapsed time supplied by its cause. */
+export function advanceDeviceConnectivityRecoveryForDevice(state: GameState, deviceId: string, elapsedMs: number): GameState {
+  return advanceOneHostRecovery(state, deviceId, elapsedMs)
+}
+
 /**
  * Canonical advancement for every Device's own connectivity-recovery
  * reaction, called from `advanceGameState` alongside FileTransfer and

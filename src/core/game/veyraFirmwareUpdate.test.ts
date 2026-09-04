@@ -163,6 +163,40 @@ describe('the represented installation', () => {
     expect(phoneOf(oneStep).operational).toEqual(phoneOf(manySteps).operational)
   })
 
+  it.each([
+    { label: 'partway through SHUTTING_DOWN', elapsedMs: 2_500, lifecycle: 'SHUTTING_DOWN', recoveryElapsedMs: 2_000 },
+    { label: 'partway through BOOTING', elapsedMs: 5_000, lifecycle: 'BOOTING', recoveryElapsedMs: 500 },
+    { label: 'after the complete reboot', elapsedMs: 10_500, lifecycle: 'RUNNING', recoveryElapsedMs: undefined },
+  ] as const)('is partition invariant across firmware activation and the real reboot boundary $label', ({ elapsedMs, lifecycle, recoveryElapsedMs }) => {
+    const connected = phoneConnectedState()
+    const unrelated = {
+      id: 'access-server', sourceDeviceId: connected.player.localDevice.id,
+      targetDeviceId: SRV_02_ID, viaServiceId: 'service-ssh-002',
+      viaServiceBuildId: 'build-gate-ssh-1.3.3-v0', viaVulnerabilityId: 'AUTH-031', privilege: 'USER' as const,
+    }
+    const started = startVeyraFirmwareUpdateForOperatedRemoteDevice({
+      ...connected,
+      deviceAccess: { ...connected.deviceAccess, established: [...connected.deviceAccess.established, unrelated] },
+    }, PHONE_PIN).state
+    const shortlyBeforeCompletion = advanceGameState(started, VEYRA_FIRMWARE_UPDATE_DURATION_MS - 500)
+
+    const oneStep = advanceGameState(shortlyBeforeCompletion, elapsedMs)
+    const partitioned = advanceGameState(advanceGameState(shortlyBeforeCompletion, 500), elapsedMs - 500)
+
+    expect(oneStep).toEqual(partitioned)
+    expect(phoneOf(oneStep)).toMatchObject({
+      firmware: VEYRA_OS_4_2_RELEASE.firmware,
+      operational: { lifecycle, connectivity: lifecycle === 'RUNNING' ? 'CONNECTED' : 'DISCONNECTED' },
+    })
+    expect(phoneSsh(oneStep).implementation.releaseId).toBe('gate-ssh-1.3.3')
+    expect(phoneOf(oneStep).firmwareUpdate).toBeUndefined()
+    expect(phoneOf(oneStep).connectivityRecovery?.elapsedMs).toBe(recoveryElapsedMs)
+    expect(oneStep.remoteSession.active).toBeNull()
+    expect(oneStep.deviceAccess.established).toEqual([unrelated])
+    expect(oneStep.knowledge).toEqual(shortlyBeforeCompletion.knowledge)
+    expect(vulnerabilitiesForService(phoneSsh(oneStep)).map(({ id }) => id)).toEqual(['AUTH-031'])
+  })
+
   it('advances without any operating surface presenting it, and is terminal once finished', () => {
     const started = startVeyraFirmwareUpdateForOperatedRemoteDevice(phoneConnectedState(), PHONE_PIN).state
     const installed = installFully(started)
