@@ -170,6 +170,22 @@ describe('top-level distribution destinations', () => {
     expect(entryNames()).toContain('GateSSH')
   })
 
+  it('never claims the represented Market is the only way software can reach the Device', async () => {
+    renderMarket(createInitialGameState())
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /PUBLISHER DISTRIBUTION/ }))
+    const copy = document.querySelector('.mk-void')?.textContent ?? ''
+    // The absence surface may state that Open Package Exchange is the one Market
+    // operator this client can reach, but must not claim it is the only source of
+    // software in the world — concrete artifacts can exist or move independently
+    // of any Market entitlement (docs/current/FILES_SOFTWARE.md).
+    expect(copy).not.toContain('Everything this Device can currently acquire')
+    expect(copy).not.toMatch(/is listed and sold by/)
+    expect(copy).toContain('the one represented Market operator this client can currently reach')
+    // The scoped claim is explicitly narrowed, not merely omitted.
+    expect(copy).toMatch(/not about every way software could ever reach/)
+  })
+
   it('changes no canonical state by switching destination', async () => {
     renderMarket(createInitialGameState())
     const before = wholeState()
@@ -240,6 +256,21 @@ describe('product to release navigation', () => {
     await user.click(screen.getByRole('button', { name: /^1\.3\.3/ }))
     await user.click(screen.getByRole('button', { name: /Back to the Market catalog/ }))
     expect(wholeState()).toBe(before)
+  })
+
+  it('keeps two releases of one productId as a single catalog entry even when their stated names differ', async () => {
+    const base = createInitialGameState()
+    const renamed: GameState = { ...base, market: { ...base.market, offers: base.market.offers.map((offer) => offer.id === GATE_SSH_1_3_3_OFFER && offer.distribution.artifact === 'software_package'
+      ? { ...offer, distribution: { ...offer.distribution, name: 'GateSSH Pro' } } : offer) } }
+    renderMarket(renamed)
+    // Still exactly one GateSSH catalog entry — a display name never creates a second Product.
+    expect(entryNames().filter((name) => name === 'GateSSH' || name === 'GateSSH Pro')).toEqual(['GateSSH'])
+
+    await openEntry(/GateSSH/)
+    expect(screen.getByText('SOFTWARE PRODUCT · 2 RELEASES OFFERED')).toBeInTheDocument()
+    // The surface says out loud that the releases disagree, rather than silently
+    // presenting one release's stated name as the whole product's truth.
+    expect(screen.getByText('RELEASES STATE DIFFERENT NAMES · GateSSH, GateSSH Pro')).toBeInTheDocument()
   })
 })
 

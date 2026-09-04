@@ -104,7 +104,13 @@ export interface MarketCatalogEntry {
   /** Presentation grouping key. Not domain identity, and never an entitlement identity. */
   readonly key: string
   readonly kind: 'product' | 'module'
-  /** The display name every offering grouped here states for itself. */
+  /**
+   * The entry's presentation label: the name the first-listed offering states.
+   * A deterministic UI choice, never domain identity — grouping itself is
+   * driven by stable `productId`/`moduleId`, not by this name, so releases
+   * stating different names stay one entry. Each release's own actually
+   * represented name remains on its own `MarketReleaseView.name`.
+   */
   readonly name: string
   /** Represented product identity; product entries only. */
   readonly productId?: string
@@ -243,22 +249,31 @@ function deriveLocalPresence(state: GameState, productId: string, offeredRelease
  * Group the represented offerings into the products and modules a player
  * actually thinks in, without merging anything the domain keeps separate.
  *
- * Packages group by represented `productId`; the group also requires one
- * agreed display name, so two releases claiming different names for one
- * product stay visibly separate rather than one silently speaking for the
- * other. Every release keeps its own price, size, channel, publisher,
- * entitlement, possession and action: nothing is inherited from a sibling.
+ * Packages group strictly by represented `productId` — stable Product
+ * identity, never derived from or split by a release's display name, version,
+ * channel, publisher or filename (`docs/design/SOFTWARE_AUTHORING.md`). Two
+ * releases of one product may legitimately state different names; the entry's
+ * own presentation label is the name the first-listed offering states, chosen
+ * deterministically rather than invented, while every release keeps stating
+ * its own name, price, size, channel, publisher, entitlement, possession and
+ * action independently — nothing is inherited from a sibling, and picking one
+ * label for the group never rewrites what a sibling release actually states.
+ * A module carries no `productId` at all, so it groups by its own equally
+ * stable `moduleId` on the same terms.
  */
 function deriveCatalogEntries(state: GameState): readonly MarketCatalogEntry[] {
   const grouped = new Map<string, { kind: 'product' | 'module'; name: string; productId?: string; hostProductId?: string; offers: MarketOffer[] }>()
   for (const offer of state.market.offers) {
     const { distribution } = offer
     const key = distribution.artifact === 'software_package'
-      ? `product:${distribution.productId}:${distribution.name}`
+      ? `product:${distribution.productId}`
       // A module has no product identity at all, so it groups by its own stable module identity.
-      : `module:${distribution.moduleId}:${distribution.name}`
+      : `module:${distribution.moduleId}`
     const existing = grouped.get(key)
     if (existing) { existing.offers.push(offer); continue }
+    // The first-listed offering's own stated name becomes this entry's presentation
+    // label. It is a deterministic UI choice, not a claim that a later sibling
+    // release shares it — each release's own `name` is preserved untouched below.
     grouped.set(key, distribution.artifact === 'software_package'
       ? { kind: 'product', name: distribution.name, productId: distribution.productId, offers: [offer] }
       : { kind: 'module', name: distribution.name, hostProductId: distribution.hostProductId, offers: [offer] })

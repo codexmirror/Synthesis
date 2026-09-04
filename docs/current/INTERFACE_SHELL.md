@@ -89,8 +89,16 @@ control for, so it owns the destination strip, the balance line, the hairline
 catalog entry, the release option, the acquisition block and the
 unrepresented-destination statement, while composing the shared masthead,
 section heading, facts list, chip, note, disclosure, progress rail, empty state
-and back control for everything else. What that Market presentation is meant to
-achieve is owned by `docs/current/MARKET.md`. This primitive set is
+and back control for everything else. It owns none of the palette: every color
+it uses composes `styles/tokens.css`, including the shared translucent accent
+washes and raised-surface top highlight (`--accent-veil`, `--accent-line`,
+`--edge-lit`), the shared consequential-filled-action gradient
+(`--accent-fill-light`, `--accent-fill-light-hover`, `--on-accent-fill`), and
+the shared outlined-but-tinted secondary-action wash (`--accent-outline-wash`,
+`--accent-outline-wash-hover`) — all of them already needed by Wallet's own
+layered module, primary action and SUBMIT-style continue action. What that
+Market presentation is meant to achieve is owned by `docs/current/MARKET.md`.
+This primitive set is
 NODE-OS Firmware presentation and is not a universal Firmware framework:
 RACK-OS and VEYRA OS each remain deliberately foreign and own their own palette
 and structure (`docs/current/VEYRA_OS.md`).

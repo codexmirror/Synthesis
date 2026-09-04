@@ -22,17 +22,14 @@
  * `.app-content` still owns the scrolling gutter; nothing here redeclares it.
  */
 
-.market-app {
-  max-width: 660px;
-
-  /* Market-local layering, derived from the shared palette. Only the layering
-     is local; every hue below is the shared near-black and mint. */
-  --mk-hairline: #171f1a;
-  --mk-lift: #0c110e;
-  --mk-edge-lit: rgb(190 255 214 / 5%);
-  --mk-mint-veil: rgb(140 255 178 / 7%);
-  --mk-mint-line: rgb(140 255 178 / 22%);
-}
+/*
+ * Market owns no local palette. Every color below composes the shared tokens
+ * in `styles/tokens.css`: the hairline is `--line-quiet`, the lifted surface
+ * is `--surface-raised`, and the translucent accent washes and top highlight
+ * are the shared `--accent-veil` / `--accent-line` / `--edge-lit` — the same
+ * three Wallet already needed for its own layered module and selected state.
+ */
+.market-app { max-width: 660px; }
 
 /* Zero-specificity reset: every rule below may still set its own type scale. */
 :where(.market-app) button { font: inherit; }
@@ -48,8 +45,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
   gap: 1px;
-  background: var(--mk-hairline);
-  border: 1px solid var(--mk-hairline);
+  background: var(--line-quiet);
+  border: 1px solid var(--line-quiet);
 }
 
 .mk-source {
@@ -84,7 +81,7 @@
 
 .mk-source[aria-pressed="true"] {
   border-top-color: var(--accent-rule);
-  background: linear-gradient(180deg, var(--mk-mint-veil), var(--mk-lift) 62%);
+  background: linear-gradient(180deg, var(--accent-veil), var(--surface-raised) 62%);
 }
 
 .mk-source[aria-pressed="true"] .mk-source-title { color: var(--accent-strong); }
@@ -102,7 +99,7 @@
 
 @media (hover: hover) {
   .mk-source:hover { background: var(--surface-hover); }
-  .mk-source[aria-pressed="true"]:hover { background: linear-gradient(180deg, var(--mk-mint-veil), var(--surface-hover) 62%); }
+  .mk-source[aria-pressed="true"]:hover { background: linear-gradient(180deg, var(--accent-veil), var(--surface-hover) 62%); }
   .mk-source--unrepresented:hover,
   .mk-source--unrepresented[aria-pressed="true"]:hover { background: var(--surface-hover); }
 }
@@ -120,7 +117,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid var(--mk-hairline);
+  border-bottom: 1px solid var(--line-quiet);
 }
 
 .mk-balance dt {
@@ -146,8 +143,8 @@
 .mk-list {
   display: grid;
   gap: 1px;
-  background: var(--mk-hairline);
-  border-bottom: 1px solid var(--mk-hairline);
+  background: var(--line-quiet);
+  border-bottom: 1px solid var(--line-quiet);
 }
 
 .mk-entry {
@@ -293,8 +290,8 @@
 }
 
 .mk-release-option[aria-pressed="true"] {
-  border-color: var(--mk-mint-line);
-  background: linear-gradient(180deg, var(--mk-mint-veil), var(--surface-raised) 70%);
+  border-color: var(--accent-line);
+  background: linear-gradient(180deg, var(--accent-veil), var(--surface-raised) 70%);
   box-shadow: inset 0 -2px 0 var(--accent-rule);
 }
 
@@ -339,8 +336,8 @@
   display: grid;
   gap: 12px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--mk-lift), var(--surface) 60%);
-  box-shadow: inset 0 1px 0 var(--mk-edge-lit);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface) 60%);
+  box-shadow: inset 0 1px 0 var(--edge-lit);
 }
 
 .mk-terms {
@@ -390,8 +387,8 @@
 
 .mk-act--buy {
   border: 1px solid var(--accent-rule);
-  background: linear-gradient(180deg, #83d9a4, var(--accent-fill));
-  color: #05130b;
+  background: linear-gradient(180deg, var(--accent-fill-light), var(--accent-fill));
+  color: var(--on-accent-fill);
   font-weight: 600;
 }
 
@@ -399,15 +396,15 @@
 
 .mk-act--download {
   border: 1px solid var(--line-accent);
-  background: linear-gradient(180deg, rgb(140 255 178 / 8%), rgb(140 255 178 / 2%));
+  background: var(--accent-outline-wash);
   color: var(--accent-strong);
 }
 
 .mk-act--download:focus-visible { border-color: var(--accent-rule); outline: 0; }
 
 @media (hover: hover) {
-  .mk-act--buy:hover { background: linear-gradient(180deg, #93e2b1, var(--accent-strong)); }
-  .mk-act--download:hover { border-color: var(--accent-rule); background: linear-gradient(180deg, rgb(140 255 178 / 12%), rgb(140 255 178 / 4%)); }
+  .mk-act--buy:hover { background: linear-gradient(180deg, var(--accent-fill-light-hover), var(--accent-strong)); }
+  .mk-act--download:hover { border-color: var(--accent-rule); background: var(--accent-outline-wash-hover); }
 }
 
 .mk-transfer { display: grid; gap: 8px; }

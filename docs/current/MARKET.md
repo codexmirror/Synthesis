@@ -280,7 +280,10 @@ Market:
   and no NODE first-party channel is represented, so this destination lists
   nothing, has no operator, no settlement address and no offerings, and no
   transactional action anywhere in the client is bound to it. Selecting it
-  states that absence and points back at the one Market that exists.
+  states that absence — that Open Package Exchange is the one represented
+  Market operator this client can currently reach, not a claim that it is
+  every way software could ever reach the local Device — and points back at
+  the represented Market.
 
 This is presentation only. No source, channel, storefront or catalog framework
 exists in the domain, and none is created here: the represented destination is
@@ -294,12 +297,17 @@ operator/source truth first, which this slice deliberately does not add.
 The catalog states the operator it is presenting and the client Device, the two
 destinations, and the canonical NODE balance as one line rather than a module.
 Its entries are grouped: `SOFTWARE` lists one entry per represented product,
-`MODULES` lists the module offerings. Grouping reads nothing but the offerings
-themselves — `software_package` offerings group by their represented
-`productId` **and** the display name they state, so two releases claiming
-different names for one product stay visibly separate rather than one speaking
-for the other; a module groups by its own module identity, because it has no
-`productId` at all.
+`MODULES` lists the module offerings. Grouping reads only stable identity —
+`software_package` offerings group strictly by their represented `productId`
+(`docs/design/SOFTWARE_AUTHORING.md`), never by name, version, channel,
+publisher or filename, so two releases of one product stay one entry even when
+they state different names; a module groups by its own equally stable
+`moduleId`, because it has no `productId` at all. The entry's own presentation
+label is a deterministic UI choice — the name the first-listed offering states
+— never domain identity, and never rewritten onto a sibling release: each
+release keeps stating its own actual name, and a product surface whose
+releases disagree says so rather than silently presenting one release's name
+as the whole product's truth.
 
 An entry states the product name, then either the single release's
 `version · CHANNEL · size` — with the `· CHANNEL` segment omitted entirely for
@@ -434,9 +442,19 @@ Market -> BUY -> DOWNLOAD -> package in Files -> Files INSTALL -> InstalledSoftw
   to it. Do not turn it into a second catalog, a source registry, or a
   represented operator without canonical operator/source truth to read.
 - A product entry in the catalog is a grouping of represented offerings, not a
-  represented Product entity. It is derived per render from the offerings'
-  own `productId` and stated name; there is no product registry, no product
+  represented Product entity. It is derived per render strictly from the
+  offerings' own stable `productId`, never their display name, version,
+  channel, publisher or filename; there is no product registry, no product
   record, and no product-level channel, publisher, price or state of its own.
+  A release's display name never splits or creates Product identity, and the
+  entry's own presentation label never overwrites what a sibling release
+  actually states about itself.
+- The client's two destinations state what this Market client can currently
+  reach, never a claim about every way software could ever exist on or reach a
+  Device. Concrete artifacts move through ordinary filesystem/FileTransfer
+  mechanics independently of Market entitlement (`docs/current/FILES_SOFTWARE.md`);
+  the unrepresented destination must not be worded as if this Market were the
+  only source of software in the world.
 - Only a represented `MarketOffer` is a purchasable release. An authored
   release, an InstalledSoftware entry, or a package already on the Device is
   never promoted into an offering to populate a release selector.

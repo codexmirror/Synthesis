@@ -31,6 +31,12 @@ function entry(state: GameState, name: string) {
   return found
 }
 
+function entryByProductId(state: GameState, productId: string) {
+  const found = deriveMarketView(state).entries.find((candidate) => candidate.productId === productId)
+  if (!found) throw new Error(`no catalog entry for product ${productId}`)
+  return found
+}
+
 describe('product grouping', () => {
   it('groups the offerings of one product into a single entry, in the order the operator lists them', () => {
     const view = deriveMarketView(createInitialGameState())
@@ -54,11 +60,40 @@ describe('product grouping', () => {
     expect(unstated).toMatchObject({ version: '1.3.3', filename: 'gatessh-1.3.3.pkg', sizeBytes: 6_600_000 })
   })
 
-  it('keeps releases that state different display names for one product identity separate', () => {
+  it('keeps stable productId as the only grouping key: a divergent release name never splits the product', () => {
     const renamed = withOffers((offer) => offer.id === GATE_SSH_1_3_3_OFFER && offer.distribution.artifact === 'software_package'
       ? { ...offer, distribution: { ...offer.distribution, name: 'GateSSH Pro' } } : offer)
-    const names = deriveMarketView(renamed).entries.filter(({ productId }) => productId === 'gate-ssh').map(({ name }) => name)
-    expect(names).toEqual(['GateSSH', 'GateSSH Pro'])
+    // Same productId, still exactly one catalog entry — a display name is
+    // release presentation metadata, never Product identity.
+    const entries = deriveMarketView(renamed).entries.filter(({ productId }) => productId === 'gate-ssh')
+    expect(entries).toHaveLength(1)
+    const [gateSsh] = entries
+    expect(gateSsh.releases.map(({ offerId, version }) => [offerId, version])).toEqual([
+      [GATE_SSH_1_3_2_OFFER, '1.3.2'],
+      [GATE_SSH_1_3_3_OFFER, '1.3.3'],
+    ])
+  })
+
+  it('labels the entry from the first-listed release without inheriting that label onto its sibling', () => {
+    const renamed = withOffers((offer) => offer.id === GATE_SSH_1_3_3_OFFER && offer.distribution.artifact === 'software_package'
+      ? { ...offer, distribution: { ...offer.distribution, name: 'GateSSH Pro' } } : offer)
+    const gateSsh = entryByProductId(renamed, 'gate-ssh')
+    // The catalog/subject label is a deterministic UI choice: the first-listed offering's name.
+    expect(gateSsh.name).toBe('GateSSH')
+    // Each release still states its own actual name — the label is never written back onto it.
+    expect(gateSsh.releases.map(({ name }) => name)).toEqual(['GateSSH', 'GateSSH Pro'])
+  })
+
+  it('never inherits any other metadata between releases sharing one productId either', () => {
+    const renamed = withOffers((offer) => offer.id === GATE_SSH_1_3_3_OFFER && offer.distribution.artifact === 'software_package'
+      ? { ...offer, distribution: { ...offer.distribution, name: 'GateSSH Pro' } } : offer)
+    const [stable, unstated] = entryByProductId(renamed, 'gate-ssh').releases
+    expect(stable).toMatchObject({ name: 'GateSSH', channel: 'stable', publisher: 'rack-systems' })
+    // 1.3.3 still represents neither channel nor publisher, and its renamed
+    // sibling contributes no metadata to it.
+    expect(unstated.channel).toBeUndefined()
+    expect(unstated.publisher).toBeUndefined()
+    expect(unstated.name).toBe('GateSSH Pro')
   })
 
   it('states the price range a product spans rather than one price for all of it', () => {
@@ -96,6 +131,18 @@ describe('modules stay distinct from products', () => {
 
     const flipper = entry(createInitialGameState(), 'Flipper')
     expect(flipper.releases.map(({ artifact }) => artifact)).toEqual(['software_package'])
+    expect(flipper.moduleKeys).toEqual([module.key])
+  })
+
+  it('groups a module by its own stable moduleId rather than its stated name, on the same terms as a product', () => {
+    const base = createInitialGameState()
+    const renamed: GameState = { ...base, market: { ...base.market, offers: base.market.offers.map((offer) => offer.distribution.artifact === 'software_module'
+      ? { ...offer, distribution: { ...offer.distribution, name: 'Rollback Module Pro' } } : offer) } }
+    const module = deriveMarketView(renamed).entries.find(({ kind }) => kind === 'module')!
+    // Still resolves correctly as the same module entry and host cross-reference.
+    expect(module.hostProductId).toBe('flipper')
+    expect(module.hostName).toBe('Flipper')
+    const flipper = entry(renamed, 'Flipper')
     expect(flipper.moduleKeys).toEqual([module.key])
   })
 

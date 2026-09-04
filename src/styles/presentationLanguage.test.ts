@@ -92,6 +92,31 @@ describe('NODE-OS presentation language', () => {
     expect([...new Set(missing)]).toEqual([])
   })
 
+  it('keeps NODE-OS palette ownership in tokens.css rather than letting an application fork it', () => {
+    /*
+     * `tokens.css` is the one owner of the shared near-black/mint/text palette.
+     * An application-owned stylesheet may still declare genuinely local,
+     * non-color values (geometry, a shadow shape) the way NodeScan's
+     * `--elbow`/`--rail` do — that stays covered by the property-definition
+     * test above. A *color* literal is different: a new `--app-color: #hex` or
+     * `rgb(...)` custom property is exactly how Market previously reinvented a
+     * slightly different near-black/mint hierarchy under a private name
+     * instead of composing `tokens.css`. Wallet's own `--wallet-*` layering
+     * predates this rule and stays the one accepted, explicitly named
+     * exception; nothing else may quietly add a second one.
+     */
+    const palette = definedCustomProperties(tokensCss)
+    const colorLiteral = /^\s*(#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\()/
+    const surfaces: readonly [string, string][] = [
+      ['apps', appsCss], ['network', networkCss], ['processes', processesCss], ['mail', mailCss],
+      ['terminal', terminalCss], ['wallet', walletCss], ['market', marketCss], ['flipper', flipperCss], ['shell', shellCss],
+    ]
+    const offenders = surfaces.flatMap(([name, css]) => [...stripComments(css).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)]
+      .filter(([, prop, value]) => !palette.has(prop) && !prop.startsWith('--wallet-') && colorLiteral.test(value))
+      .map(([, prop]) => `${name}: ${prop}`))
+    expect(offenders).toEqual([])
+  })
+
   it('styles every shared primitive the applications reference', () => {
     const styled = allStylesheets.join('\n')
     const missing = applicationSources.flatMap(referencedSharedClasses)

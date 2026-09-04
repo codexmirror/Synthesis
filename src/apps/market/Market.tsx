@@ -188,12 +188,17 @@ function EntrySurface({ entry, view, selected, feedback, selectRelease, openEntr
   download: (offerId: string) => void
 }) {
   const modules = view.entries.filter((candidate) => entry.moduleKeys.includes(candidate.key))
+  // The heading names the first-listed release; if a sibling states a different
+  // name this says so, rather than silently making one release's name stand
+  // for the whole stable product.
+  const statedNames = [...new Set(entry.releases.map((release) => release.name))]
   return <div className="mk-product">
     <div className="mk-subject">
       <h2 className="mk-subject-name">{entry.name}</h2>
       <p className="mk-subject-meta">{entry.kind === 'module'
         ? `MODULE FOR ${(entry.hostName ?? entry.hostProductId ?? '').toUpperCase()}`
         : 'SOFTWARE PRODUCT'} · {entry.releases.length} {entry.releases.length === 1 ? 'RELEASE' : 'RELEASES'} OFFERED</p>
+      {statedNames.length > 1 && <p className="mk-subject-meta">RELEASES STATE DIFFERENT NAMES · {statedNames.join(', ')}</p>}
     </div>
 
     {entry.releases.length > 1 && <>
@@ -326,8 +331,9 @@ function UnrepresentedDestination({ view, open }: { view: MarketView; open: () =
       that is the release's own provenance — not a source {view.clientDeviceName} can buy from.
     </p>
     <p className="mk-void-copy">
-      Everything this Device can currently acquire is listed and sold by {view.operatorName}, an independent
-      operator that applies no curation, certification or support of its own.
+      {view.operatorName} is the one represented Market operator this client can currently reach, and it applies
+      no curation, certification or support of its own. That is a statement about this Market client, not about
+      every way software could ever reach {view.clientDeviceName}.
     </p>
     <button className="node-action" type="button" onClick={open}>VIEW OPEN EXCHANGE</button>
   </div>
