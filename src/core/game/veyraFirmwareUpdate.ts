@@ -207,8 +207,22 @@ function applyVeyraFirmwareRelease(state: GameState, host: NetworkHost, release:
  * something that does not exist.
  */
 export function advanceVeyraFirmwareUpdates(state: GameState, elapsedMs: number): GameState {
+  return advanceVeyraFirmwareUpdatesWithRemainder(state, elapsedMs).state
+}
+
+/**
+ * Advances installations while retaining only the per-Device elapsed time
+ * left after activation. `advanceGameState` gives that causal remainder to
+ * the Device recovery owner; callers interested only in firmware state use
+ * `advanceVeyraFirmwareUpdates` above.
+ */
+export function advanceVeyraFirmwareUpdatesWithRemainder(state: GameState, elapsedMs: number): {
+  readonly state: GameState
+  readonly recoveryRemainders: readonly { readonly deviceId: string; readonly elapsedMs: number }[]
+} {
   const step = Math.max(0, elapsedMs)
   let nextState = state
+  const recoveryRemainders: { deviceId: string; elapsedMs: number }[] = []
   for (const host of state.world.network.hosts) {
     const progress = host.firmwareUpdate
     if (!progress) continue
@@ -227,9 +241,10 @@ export function advanceVeyraFirmwareUpdates(state: GameState, elapsedMs: number)
 
     if (phaseIndex >= PHASE_SEQUENCE.length) {
       nextState = applyVeyraFirmwareRelease(nextState, host, VEYRA_OS_4_2_RELEASE)
+      recoveryRemainders.push({ deviceId: host.id, elapsedMs: elapsed })
     } else {
       nextState = replaceHost(nextState, { ...host, firmwareUpdate: { ...progress, phase: PHASE_SEQUENCE[phaseIndex], elapsedMs: elapsed } })
     }
   }
-  return nextState
+  return { state: nextState, recoveryRemainders }
 }

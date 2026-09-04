@@ -3,7 +3,7 @@ import { resolveCompletedServiceAnalyses } from './serviceAnalysis'
 import { resolveCompletedCredentialAccessAttempts } from './credentialAccess'
 import { advanceFileTransfer } from './fileTransfer'
 import { advanceRackUpdatePackageSubmission, resolveCompletedRackUpdateExploits } from './rackUpdate'
-import { advanceDeviceConnectivityRecovery } from './deviceConnectivityRecovery'
+import { advanceDeviceConnectivityRecovery, advanceDeviceConnectivityRecoveryForDevice } from './deviceConnectivityRecovery'
 import { advanceRemoteSessionReachability } from './remoteSession'
 import { resolveNodeMinerProduction } from './nodeMiner'
 import { isRemoteSoftwareInstallationCompletion, releaseRemoteSoftwareInstallationCompletions, resolveCompletedSoftwareInstallations } from './softwareInstallation'
@@ -14,7 +14,7 @@ import { archiveProcess } from './recentActivity'
 import { advanceRattlerPinSearches } from './rattler'
 import { resolveCompletedDeauthAttempts } from './deauth'
 import { advanceTechnicianReaction } from './technician'
-import { advanceVeyraFirmwareUpdates } from './veyraFirmwareUpdate'
+import { advanceVeyraFirmwareUpdatesWithRemainder } from './veyraFirmwareUpdate'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -69,10 +69,16 @@ export function advanceGameState(state: GameState, elapsedMs: number, credential
   // A running firmware installation is canonical Device state, so it advances
   // here like every other represented Device transition — never from a timer
   // inside the operating surface presenting it.
-  nextState = advanceVeyraFirmwareUpdates(nextState, elapsedMs)
+  const firmwareAdvancement = advanceVeyraFirmwareUpdatesWithRemainder(nextState, elapsedMs)
+  nextState = firmwareAdvancement.state
   // Firmware activation may itself make a Device unreachable after the first
   // reachability pass. Let the same canonical Session owner observe that new
   // operational truth; the update never disconnects a Session directly.
   nextState = advanceRemoteSessionReachability(nextState)
+  // Only time left after a firmware activation belongs to the reboot it
+  // created. Existing recovery cycles already consumed the full step above.
+  for (const remainder of firmwareAdvancement.recoveryRemainders) {
+    nextState = advanceDeviceConnectivityRecoveryForDevice(nextState, remainder.deviceId, remainder.elapsedMs)
+  }
   return advanceTechnicianReaction(nextState, elapsedMs)
 }
