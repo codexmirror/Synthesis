@@ -425,7 +425,7 @@
 
 .mk-void-title {
   margin: 0;
-  color: #8b9990;
+  color: var(--text-quiet-heading);
   font-size: .6rem;
   letter-spacing: var(--label-tracking);
 }

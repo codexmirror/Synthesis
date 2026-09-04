@@ -35,6 +35,17 @@
   --text-quiet: #66736b;
   --text-faint: #5a665f;
 
+  /*
+   * The quiet heading paired with `--text-quiet` body copy in an empty or
+   * absence state — one step brighter than `--text-quiet` so a small heading
+   * still reads above its own body text. Not a general tier: it names a value
+   * `.node-empty strong` and Wallet's `.dollar-activity-empty strong` already
+   * used identically before this token existed, so an application composing
+   * that same pairing (Market's unrepresented-destination heading) reaches it
+   * by name instead of retyping the literal.
+   */
+  --text-quiet-heading: #8b9990;
+
   /* Accent — restrained mint green */
   --green: #8cffb2;
   --accent: #8fc6a3;

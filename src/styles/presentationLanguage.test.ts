@@ -98,12 +98,24 @@ describe('NODE-OS presentation language', () => {
      * An application-owned stylesheet may still declare genuinely local,
      * non-color values (geometry, a shadow shape) the way NodeScan's
      * `--elbow`/`--rail` do — that stays covered by the property-definition
-     * test above. A *color* literal is different: a new `--app-color: #hex` or
-     * `rgb(...)` custom property is exactly how Market previously reinvented a
-     * slightly different near-black/mint hierarchy under a private name
-     * instead of composing `tokens.css`. Wallet's own `--wallet-*` layering
-     * predates this rule and stays the one accepted, explicitly named
-     * exception; nothing else may quietly add a second one.
+     * test above. A color literal is different, in either of two shapes: a new
+     * `--app-color: #hex`/`rgb(...)` custom property (how Market first
+     * reinvented a slightly different near-black/mint hierarchy under a
+     * private name), or a raw literal dropped straight into an ordinary
+     * color-bearing declaration with no custom property to hide behind at all
+     * (Market's own `.mk-void-title { color: #8b9990; }`, before it composed
+     * the shared `--text-quiet-heading`). Wallet's own `--wallet-*` layering
+     * predates this rule and is the one accepted, explicitly named exception
+     * on both axes; nothing else may quietly add a second one.
+     *
+     * This check is scoped to the application stylesheets that are currently
+     * clean of raw color literals in ordinary declarations — apps, network,
+     * mail, flipper and market. Processes (Activity Monitor), Terminal and
+     * Shell each carry a large amount of pre-existing literal-color styling
+     * that predates this invariant; migrating that legacy styling is a
+     * separate, much larger effort and out of scope here, so those three are
+     * deliberately not covered by the ordinary-declaration axis below (they
+     * remain covered by the custom-property axis, which they do not violate).
      */
     const palette = definedCustomProperties(tokensCss)
     const colorLiteral = /^\s*(#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\()/
@@ -111,10 +123,27 @@ describe('NODE-OS presentation language', () => {
       ['apps', appsCss], ['network', networkCss], ['processes', processesCss], ['mail', mailCss],
       ['terminal', terminalCss], ['wallet', walletCss], ['market', marketCss], ['flipper', flipperCss], ['shell', shellCss],
     ]
-    const offenders = surfaces.flatMap(([name, css]) => [...stripComments(css).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)]
+
+    // Axis 1: a new custom property forking the palette under a private name.
+    const forkedProperties = surfaces.flatMap(([name, css]) => [...stripComments(css).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)]
       .filter(([, prop, value]) => !palette.has(prop) && !prop.startsWith('--wallet-') && colorLiteral.test(value))
       .map(([, prop]) => `${name}: ${prop}`))
-    expect(offenders).toEqual([])
+
+    // Axis 2: a raw literal used directly in an ordinary color-bearing
+    // declaration. Only scans stylesheets currently free of this pattern (see
+    // above); `var(...)` references are stripped first so a legitimate
+    // `border: 1px solid var(--line-accent)` never counts as a literal.
+    const colorProperty = /^(color|background(-color)?|border(-(top|right|bottom|left))?(-color)?|outline(-color)?|box-shadow|text-shadow|fill|stroke|accent-color|text-decoration-color)$/
+    const rawColorLiteral = /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/
+    const literalDeclarations = (['apps', 'network', 'mail', 'flipper', 'market'] as const)
+      .flatMap((name) => {
+        const css = surfaces.find(([surfaceName]) => surfaceName === name)![1]
+        return [...stripComments(css).matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)]
+          .filter(([, prop, value]) => colorProperty.test(prop) && rawColorLiteral.test(value.replace(/var\([^)]*\)/g, '')))
+          .map(([, prop, value]) => `${name}: ${prop}: ${value.trim()}`)
+      })
+
+    expect([...forkedProperties, ...literalDeclarations]).toEqual([])
   })
 
   it('styles every shared primitive the applications reference', () => {
