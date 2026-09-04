@@ -2,7 +2,7 @@ import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
 import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from './flipper'
-import { vulnerabilitiesForService } from './serviceImplementations'
+import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
@@ -14,6 +14,45 @@ export const STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID = 'keyprobe' as const
 export type CredentialAccessProviderId = CredentialAccessProcess['toolId']
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
 export const CREDENTIAL_ACCESS_RAM_REQUIRED_MIB = 896
+
+interface KeyProbeAttackProfile {
+  readonly vulnerabilityId: 'AUTH-017' | 'AUTH-031'
+  readonly serviceProductId: typeof GATE_SSH_PRODUCT_ID
+  readonly serviceReleaseId: string
+  readonly serviceBuildId: string
+  readonly workRequired: number
+  readonly chanceAtCompute100: number
+  readonly minimumChance: number
+  readonly maximumChance: number
+}
+
+/** Authored KeyProbe 1.0 profiles for the concrete authentication surfaces represented in V1. */
+export const KEYPROBE_ATTACK_PROFILES: Readonly<Record<KeyProbeAttackProfile['vulnerabilityId'], KeyProbeAttackProfile>> = {
+  'AUTH-017': {
+    vulnerabilityId: 'AUTH-017', serviceProductId: GATE_SSH_PRODUCT_ID,
+    serviceReleaseId: GATE_SSH_1_3_2_RELEASE_ID, serviceBuildId: GATE_SSH_1_3_2_BUILD_ID,
+    workRequired: 1200, chanceAtCompute100: 0.48, minimumChance: 0.15, maximumChance: 0.78,
+  },
+  'AUTH-031': {
+    vulnerabilityId: 'AUTH-031', serviceProductId: GATE_SSH_PRODUCT_ID,
+    serviceReleaseId: GATE_SSH_1_3_3_RELEASE_ID, serviceBuildId: GATE_SSH_1_3_3_BUILD_ID,
+    workRequired: 1800, chanceAtCompute100: 0.30, minimumChance: 0.08, maximumChance: 0.65,
+  },
+}
+
+const KEYPROBE_CHANCE_PER_COMPUTE = 0.0025
+const AUTH_GUARD_KEYPROBE_CHANCE_MULTIPLIER = 1 / 6
+
+/** Deterministic KeyProbe-specific threshold; the caller owns the one random decision. */
+export function keyProbeSuccessChance(profile: KeyProbeAttackProfile, computeCapacity: number, authGuardProtected = false): number {
+  const computeChance = profile.chanceAtCompute100 + (computeCapacity - 100) * KEYPROBE_CHANCE_PER_COMPUTE
+  const boundedChance = Math.min(profile.maximumChance, Math.max(profile.minimumChance, computeChance))
+  return authGuardProtected ? boundedChance * AUTH_GUARD_KEYPROBE_CHANCE_MULTIPLIER : boundedChance
+}
+
+function keyProbeProfile(vulnerabilityId: string): KeyProbeAttackProfile | undefined {
+  return vulnerabilityId === 'AUTH-017' || vulnerabilityId === 'AUTH-031' ? KEYPROBE_ATTACK_PROFILES[vulnerabilityId] : undefined
+}
 
 export interface CredentialAccessObservation {
   readonly endpoint: string
@@ -71,8 +110,10 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   const installedHost = findInstalledFlipper(state.player.localDevice)
   const executionToolId = observed.providerId ?? 'credential-access-module'
   if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && flipperSupportsTechnique(installedHost, observed.vulnerabilityId))) return { status: 'not_available', state }
+  const keyProbe = executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID ? keyProbeProfile(observed.vulnerabilityId) : undefined
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
+    workRequired: keyProbe?.workRequired ?? CREDENTIAL_ACCESS_WORK_REQUIRED,
     startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: executionToolId,
     ...(executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID ? {} : { moduleId: CREDENTIAL_ACCESS_MODULE_ID }),
   } : process)
@@ -123,7 +164,14 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
   if (!reached || !service) return failedResult
 
-  const validSurface = Boolean(vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId) && service.credentialAccess)
+  const profile = process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID ? keyProbeProfile(process.vulnerabilityId) : undefined
+  const validKeyProbeSurface = Boolean(profile
+    && service.implementation.productId === profile.serviceProductId
+    && service.implementation.releaseId === profile.serviceReleaseId
+    && service.implementation.buildId === profile.serviceBuildId)
+  const validSurface = Boolean(vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId)
+    && service.credentialAccess
+    && (process.toolId !== STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID || validKeyProbeSurface))
   // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
   // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
   const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
@@ -131,10 +179,14 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   // is valid. The specialized module remains deterministic for AUTH-017.
   let succeeds = validSurface
   if (validSurface && process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
-    const chance = process.vulnerabilityId === 'AUTH-017' ? 0.75
-      : process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host?.installedSoftware, service) ? 0.05
-        : process.vulnerabilityId === 'AUTH-031' ? 0.5 : 0
-    succeeds = random() < chance
+    const executor = process.executorDeviceId === state.player.localDevice.id
+      ? state.player.localDevice
+      : state.world.network.hosts.find(({ id }) => id === process.executorDeviceId)
+    if (!executor?.hardware || !profile) succeeds = false
+    else {
+      const protectedByAuthGuard = process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host?.installedSoftware, service)
+      succeeds = random() < keyProbeSuccessChance(profile, executor.hardware.cpu.computeCapacity, protectedByAuthGuard)
+    }
   }
   const result = succeeds ? 'SUCCESS' as const : 'FAILURE' as const
   const world = sourceAddress

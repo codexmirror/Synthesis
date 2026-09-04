@@ -5,7 +5,7 @@ import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, remov
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, KEYPROBE_ATTACK_PROFILES, keyProbeSuccessChance, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import type { CredentialAccessProcess, GameState } from './types'
 
@@ -33,9 +33,9 @@ function changeService(state: GameState, change: (service: NonNullable<GameState
 
 describe('Initial credential access', () => {
   it.each([
-    [0.749999, 'access_established', 'SUCCESS'],
-    [0.75, 'attempt_failed', 'FAILURE'],
-  ] as const)('gives KeyProbe its one canonical 75%% boundary decision (%s)', (roll, status, evidence) => {
+    [0.479999, 'access_established', 'SUCCESS'],
+    [0.48, 'attempt_failed', 'FAILURE'],
+  ] as const)('gives compute-100 KeyProbe its one canonical 48%% boundary decision (%s)', (roll, status, evidence) => {
     const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
     if (started.status !== 'started') throw Error(started.status)
     let rolls = 0
@@ -45,6 +45,14 @@ describe('Initial credential access', () => {
     expect(done.deviceAccess.established).toHaveLength(status === 'access_established' ? 1 : 0)
     expect(done.world.network.hosts[0].authenticationHistory?.records.at(-1)?.result).toBe(evidence)
     expect(advanceGameState(done, 30_000, () => { throw Error('must not reroll') })).toBe(done)
+  })
+
+  it('keeps KeyProbe probability bounded for unusually weak and strong compute', () => {
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-017'], -1000)).toBe(0.15)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], -1000)).toBe(0.08)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-017'], 100_000)).toBe(0.78)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], 100_000)).toBe(0.65)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], 100_000, true)).toBeCloseTo(0.108333)
   })
 
   it('does not roll KeyProbe when current World Truth no longer supplies a reachable valid surface', () => {
@@ -98,6 +106,14 @@ describe('Initial credential access', () => {
     expect(running.deviceAccess.established).toEqual([])
     expect(deriveResourceUsage(running.player.localDevice, running.process).processRamMiB).toBe(CREDENTIAL_ACCESS_RAM_REQUIRED_MIB)
     expect(startCredentialAccessAttemptFromObservation(running, observation).status).toBe('already_running')
+  })
+
+  it('finishes the easier AUTH-017 KeyProbe work sooner on the same compute-100 Hardware', () => {
+    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    if (started.status !== 'started') throw Error(started.status)
+    const process = started.state.process.processes.at(-1) as CredentialAccessProcess
+    expect(process.workRequired).toBe(KEYPROBE_ATTACK_PROFILES['AUTH-017'].workRequired)
+    expect(advanceGameState(started.state, 15_000, () => 1).process.processes.at(-1)?.status).toBe('completed')
   })
 
   it('uses RAM admission and shares scheduler CPU with Service Analysis', () => {

@@ -6,7 +6,7 @@ import { scanNetworkTarget } from './scan'
 import { inspectKnownTarget } from './inspect'
 import { advanceGameState } from './gameAdvancement'
 import { startServiceAnalysis } from './serviceAnalysis'
-import { ownedCredentialAccessProviders, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { KEYPROBE_ATTACK_PROFILES, keyProbeSuccessChance, ownedCredentialAccessProviders, startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import type { CredentialAccessProcess, GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID, authGuard10SupportsGateSshAuthentication } from './authGuard'
 import { deriveSoftwarePackageEligibility } from './softwareInstallation'
@@ -63,12 +63,47 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
     expect(resolve(state, 0.05)).toEqual({ draws: 1, result: 'attempt_failed', protected: true })
   })
 
-  it('resolves the unprotected exact composition at 50%', () => {
+  it('resolves the unprotected compute-100 exact composition at 30%', () => {
     const state = learned()
     const hosts = state.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, installedSoftware: host.installedSoftware?.filter(({ id }) => id !== AUTH_GUARD_PRODUCT_ID) } : host)
     const unprotected = { ...state, world: { network: { ...state.world.network, hosts } } }
-    expect(resolve(unprotected, 0.499999)).toMatchObject({ result: 'access_established', protected: undefined })
-    expect(resolve(unprotected, 0.5)).toMatchObject({ result: 'attempt_failed', protected: undefined })
+    expect(resolve(unprotected, 0.299999)).toMatchObject({ result: 'access_established', protected: undefined })
+    expect(resolve(unprotected, 0.3)).toMatchObject({ result: 'attempt_failed', protected: undefined })
+  })
+
+  it('snapshots harder AUTH-031 work and lets stronger current Hardware finish it sooner', () => {
+    const base = learned()
+    const started = startCredentialAccessAttemptFromObservation(base, observation)
+    if (started.status !== 'started') throw Error(started.status)
+    const process = started.state.process.processes.at(-1) as CredentialAccessProcess
+    expect(process.workRequired).toBe(KEYPROBE_ATTACK_PROFILES['AUTH-031'].workRequired)
+    expect(process.workRequired).toBeGreaterThan(KEYPROBE_ATTACK_PROFILES['AUTH-017'].workRequired)
+
+    const baseAfter15Seconds = advanceGameState(started.state, 15_000, () => 1)
+    expect(baseAfter15Seconds.process.processes.at(-1)?.status).toBe('running')
+
+    const stronger = {
+      ...started.state,
+      player: { ...started.state.player, localDevice: {
+        ...started.state.player.localDevice,
+        hardware: { ...started.state.player.localDevice.hardware, cpu: { ...started.state.player.localDevice.hardware.cpu, computeCapacity: 160 } },
+      } },
+    }
+    const strongerAfter15Seconds = advanceGameState(stronger, 15_000, () => 1)
+    expect(strongerAfter15Seconds.process.processes.at(-1)?.status).toBe('completed')
+  })
+
+  it('uses current executor compute, not the Device Model ceiling, for the AUTH-031 roll', () => {
+    const state = learned()
+    const hosts = state.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, installedSoftware: host.installedSoftware?.filter(({ id }) => id !== AUTH_GUARD_PRODUCT_ID) } : host)
+    const stronger = { ...state, world: { network: { ...state.world.network, hosts } }, player: { ...state.player, localDevice: {
+      ...state.player.localDevice,
+      hardware: { ...state.player.localDevice.hardware, cpu: { ...state.player.localDevice.hardware.cpu, computeCapacity: 160 } },
+    } } }
+    expect(stronger.player.localDevice.deviceModel.maximumComputeCapacity).toBe(100)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], 160)).toBeCloseTo(0.45)
+    expect(resolve(stronger, 0.449999)).toMatchObject({ result: 'access_established' })
+    expect(resolve(stronger, 0.45)).toMatchObject({ result: 'attempt_failed' })
   })
 
   it('stores Inspect evidence as a stale snapshot and refreshes compatibility', () => {

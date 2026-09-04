@@ -290,7 +290,7 @@ describe('what the completed release actually changes', () => {
 
     // The weakness GateSSH 1.3.3 really derives is exploitable at its own
     // represented profile, with no AuthGuard on this phone to blunt it.
-    const current = resolveCompletedCredentialAccess(after, attempt('AUTH-031'), () => 0.4)
+    const current = resolveCompletedCredentialAccess(after, attempt('AUTH-031'), () => 0.299999)
     expect(current.process.result?.status).toBe('access_established')
     expect(current.process.authGuardProtectionObserved).toBeUndefined()
   })
