@@ -168,9 +168,16 @@ concrete source no action is formed, the Knowledge that produced it is
 untouched, and the started attempt still carries its `toolId`, `moduleId` and
 `vulnerabilityId`. GateSSH 1.3.2 derives `AUTH-017`; GateSSH 1.3.3 instead derives `AUTH-031`
 (pre-authentication challenge state reuse). KeyProbe 1.0 supports both exact
-surfaces: its canonical success profiles are 75% for 1.3.2/`AUTH-017`, 50% for
-1.3.3/`AUTH-031`, and 5% for that same 1.3.3 composition when the target has
-the exact compatible AuthGuard 1.0 installation. AuthGuard is the product;
+surfaces through authored attack profiles. GateSSH 1.3.2/`AUTH-017` requires
+1,200 work and GateSSH 1.3.3/`AUTH-031` requires 1,800 work, so the latter
+takes longer on equal Hardware while both continue to advance through the
+ordinary CPU scheduler. KeyProbe's success threshold starts from 48% and 30%,
+respectively, at compute capacity 100; each point of current executor CPU
+compute above or below 100 changes the applicable threshold by 0.25 percentage
+points before the profile-specific bounds are applied (15–78% for `AUTH-017`,
+8–65% for `AUTH-031`). The exact compatible AuthGuard 1.0 installation reduces
+the bounded `AUTH-031` threshold to one sixth, producing 5% at compute 100.
+AuthGuard is the product;
 its represented 1.0 release explicitly supports the GateSSH 1.3.3 and 1.4.0
 authentication pipelines, while 1.3.2 is unsupported. Compatibility alone
 does not create a weakness or attack route: GateSSH 1.4.0 currently derives
@@ -581,8 +588,9 @@ target, current Device network usability, selected endpoint relationship, open
 Service, current weakness, concrete Service implementation, and represented
 credential-access context before any probability decision. Against the current
 `AUTH-017` / GateSSH 1.3.2 case, the specialized module succeeds
-deterministically while KeyProbe makes exactly one canonical 75% decision per
-attempt. A completed result is terminal and is never rerolled. Success creates
+deterministically while KeyProbe makes exactly one canonical, current-executor
+compute-dependent decision per attempt using the concrete profile above. A
+completed result is terminal and is never rerolled. Success creates
 persistent USER `DeviceAccess`; a reached probabilistic failure creates FAILURE
 authentication and Network evidence but no access. If the endpoint no longer
 reaches the intended current Device and open Service, completion creates no
