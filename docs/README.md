@@ -248,8 +248,8 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 
 ### Branch commerce
 
-Concrete bookstore-branch identity, operations host, completed-sale meaning,
-and settlement configuration.
+Concrete Company and Business Branch identity, the Branch's explicit Network
+relationship, completed-sale meaning, and settlement configuration.
 
 - CURRENT TRUTH → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - ARCHITECTURE → A01–A04 in
@@ -260,8 +260,8 @@ and settlement configuration.
 - RELATED CURRENT TRUTH → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md),
   [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md),
   [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
-- CODE → `src/core/game/bookstoreBranch.ts`, `src/apps/rackos/`
-- TESTS → `src/core/game/bookstoreBranch.test.ts`, `src/apps/rackos/RackOS.test.tsx`
+- CODE → `src/core/game/business.ts`, `src/apps/rackos/`
+- TESTS → `src/core/game/business.test.ts`, `src/apps/rackos/RackOS.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
 

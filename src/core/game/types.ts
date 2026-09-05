@@ -670,8 +670,8 @@ export interface DollarFinanceState {
   readonly transactions: { readonly nextId: number; readonly records: readonly DollarTransaction[] }
 }
 
-/** Business-owned meaning for the one completed sale represented in V1. */
-export interface BookstoreBranchSale {
+/** Business-owned meaning for one completed sale. */
+export interface BusinessBranchSale {
   readonly id: string
   readonly kind: 'book_sale'
   /** The Provider-owned money movement that settled this sale. */
@@ -679,16 +679,38 @@ export interface BookstoreBranchSale {
 }
 
 /**
- * The one concrete bookstore branch. Its identity and configuration remain
- * independent from its operations Device, installed software, and settlement
- * Account; the referenced Dollar Transaction remains finance-owned truth.
+ * A persistent Company World Entity. Its identity is independent from any
+ * Business Branch, LocalNetwork, Device, Firmware, InstalledSoftware, Civic
+ * Dollar Account, or Player. A Company may later be legitimately acquired by
+ * the Player (`docs/FUTURE.md`); ownership is not represented in V1.
  */
-export interface BookstoreBranchState {
+export interface CompanyState {
   readonly id: string
   readonly displayName: string
-  readonly operationsDeviceId: string
+}
+
+/**
+ * A concrete Business Branch belonging to one Company by stable identity. Its
+ * technical-site relationship is an explicit reference to the LocalNetwork it
+ * operates through — never derived from Device/Network membership, and never
+ * owned by `LocalNetwork` itself. A Network may have zero, one, or multiple
+ * associated Branches, and a Company may own multiple Branches. Settlement
+ * configuration and sale history remain Branch-owned; the referenced Dollar
+ * Transaction remains finance-owned truth.
+ */
+export interface BusinessBranchState {
+  readonly id: string
+  readonly displayName: string
+  readonly companyId: string
+  readonly networkId: string
   readonly settlementAccountId: string
-  readonly completedSales: readonly BookstoreBranchSale[]
+  readonly completedSales: readonly BusinessBranchSale[]
+}
+
+/** Canonical Business-domain World Truth: represented Companies and the Business Branches they own. */
+export interface BusinessState {
+  readonly companies: readonly CompanyState[]
+  readonly branches: readonly BusinessBranchState[]
 }
 
 /** One represented balance-changing event in the local NODE Wallet. */
@@ -1426,8 +1448,8 @@ export interface GameState {
   readonly version: number
   readonly player: PlayerState
   readonly dollarFinance: DollarFinanceState
-  /** Concrete branch-commerce truth; not a generic Company or ownership model. */
-  readonly bookstoreBranch: BookstoreBranchState
+  /** Canonical Business-domain truth: represented Companies and Business Branches. Not a generic Organization/Entity framework. */
+  readonly business: BusinessState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
   /** The represented software Market and the player's purchase entitlements in it. */

@@ -285,7 +285,7 @@ describe('RACK-OS', () => {
     const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
     // A changed current destination must not rewrite or hide the completed
     // sale's canonical historical settlement.
-    const withChangedSettlement = { ...connected, bookstoreBranch: { ...connected.bookstoreBranch, settlementAccountId: 'dollar-account-local-v0' } }
+    const withChangedSettlement = { ...connected, business: { ...connected.business, branches: connected.business.branches.map((branch) => branch.id === 'bookstore-branch-01' ? { ...branch, settlementAccountId: 'dollar-account-local-v0' } : branch) } }
     render(<GameProvider initialState={withChangedSettlement}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
 
@@ -300,13 +300,13 @@ describe('RACK-OS', () => {
     expect(rackOs).not.toHaveTextContent('Service workspace.')
 
     /* RACK-OS 1.0 is the old technical environment: Terminal, Files and System
-       and nothing else. srv-02 really does host BranchOps, and this release
-       simply has no application shell to present it in — the business software
-       itself is untouched. */
+       and nothing else. srv-02's Network really does have an associated
+       Business Branch, and this release simply has no application shell to
+       present it in — the represented Business truth itself is untouched. */
     expect(within(screen.getByRole('navigation', { name: 'RACK-OS sections' })).getAllByRole('button').map((button) => button.textContent))
       .toEqual(['TERMINAL', 'FILES', 'SYSTEM'])
     expect(screen.queryByRole('button', { name: 'OPERATIONS' })).toBeNull()
-    expect(screen.queryByRole('region', { name: 'BranchOps' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Business' })).toBeNull()
     expect(rackOs.textContent).not.toContain('Bookstore Branch 01')
 
     await user.type(screen.getByLabelText('Remote command'), 'download /srv/backup-manifest.txt{enter}')
@@ -1163,7 +1163,7 @@ function srv02WithInstallerOffline(): GameState {
   }
 }
 
-/** srv-01 already on RACK-OS 1.1 Business: a compatible Device with no BranchOps relationship at all. */
+/** srv-01 already on RACK-OS 1.1 Business: a compatible Device on home-net, which has no associated Business Branch at all. */
 function srv01OnBusiness(): GameState {
   const base = createInitialGameState()
   const hosts = base.world.network.hosts.map((host) => host.id === 'host-lan-001'
@@ -1201,33 +1201,34 @@ describe('RACK-OS 1.1 Business application shell', () => {
     // The 1.0 technical section bar is gone entirely.
     expect(screen.queryByRole('navigation', { name: /sections/ })).toBeNull()
     expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()
-    // The three built-ins, plus BranchOps because this exact represented relationship exists.
-    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BRANCHOPS'])
-    // Terminal, Files and System are Firmware-owned built-ins, not InstalledSoftware: the
-    // aggregate label must not claim the whole list is "installed", even though BranchOps
-    // — which really is backed by InstalledSoftware — states its own concrete INSTALLED note.
+    // Terminal, Files, System and BUSINESS are all Firmware-owned built-ins of
+    // this release, always listed regardless of whether this Device's Network
+    // context resolves any Business Branch.
+    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BUSINESS'])
     expect(screen.getByText('APPLICATIONS · 4')).toBeInTheDocument()
     expect(screen.queryByText(/INSTALLED APPLICATIONS/)).toBeNull()
-    expect(applicationNotes()).toEqual(['SYSTEM', 'SYSTEM', 'SYSTEM', 'INSTALLED · 1.0'])
+    // None of the four built-ins is InstalledSoftware, so none carries an INSTALLED note.
+    expect(applicationNotes()).toEqual(['SYSTEM', 'SYSTEM', 'SYSTEM', 'SYSTEM'])
   })
 
-  it('opens an application and returns to Applications without touching canonical state', async () => {
+  it('opens BUSINESS and returns to Applications without touching canonical state', async () => {
     const user = userEvent.setup()
     const initial = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
     const before = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
 
-    await user.click(screen.getByRole('button', { name: /^BRANCHOPS/ }))
-    const branchOps = screen.getByRole('region', { name: 'BranchOps' })
-    expect(branchOps).toHaveTextContent('BRANCH OPERATIONS SERVER')
-    expect(branchOps).toHaveTextContent('Bookstore Branch 01')
-    expect(branchOps).toHaveTextContent('BranchOps 1.0')
-    expect(branchOps).toHaveTextContent('BOOK SALE')
-    expect(branchOps).toHaveTextContent('$20.00')
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+    const business = screen.getByRole('region', { name: 'Business' })
+    expect(business).toHaveTextContent('BUSINESS BRANCH')
+    expect(business).toHaveTextContent('Bookstore Branch 01')
+    expect(business).toHaveTextContent('Bookstore')
+    expect(business).toHaveTextContent('remote-segment-01')
+    expect(business).toHaveTextContent('BOOK SALE')
+    expect(business).toHaveTextContent('$20.00')
     // Read-only: no internal identifiers, credentials, or Player identity.
-    expect(branchOps.textContent).not.toContain('dollar-account-veyra-phone-v0')
-    expect(branchOps.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
+    expect(business.textContent).not.toContain('dollar-account-veyra-phone-v0')
+    expect(business.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
 
     await user.click(screen.getByRole('button', { name: /APPLICATIONS$/ }))
     expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()
@@ -1242,25 +1243,33 @@ describe('RACK-OS 1.1 Business application shell', () => {
   it('keeps the current settlement Account distinct from the completed sale historical settlement', async () => {
     const user = userEvent.setup()
     const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
-    const redirected = { ...base, bookstoreBranch: { ...base.bookstoreBranch, settlementAccountId: 'dollar-account-local-v0' } }
+    const redirected = { ...base, business: { ...base.business, branches: base.business.branches.map((branch) => branch.id === 'bookstore-branch-01' ? { ...branch, settlementAccountId: 'dollar-account-local-v0' } : branch) } }
     render(<GameProvider initialState={redirected}><Shell /></GameProvider>)
     await enterRemote(user)
-    await user.click(screen.getByRole('button', { name: /^BRANCHOPS/ }))
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
 
-    const branchOps = screen.getByRole('region', { name: 'BranchOps' })
-    expect(within(branchOps).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-1042-7781')
-    expect(within(branchOps).getByText('SETTLED TO').closest('div')).toHaveTextContent('CD-3318-2204')
+    const business = screen.getByRole('region', { name: 'Business' })
+    expect(within(business).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-1042-7781')
+    expect(within(business).getByText('SETTLED TO').closest('div')).toHaveTextContent('CD-3318-2204')
   })
 
-  it('presents no BranchOps application on a 1.1 Business Device with no represented branch relationship', async () => {
+  it('presents a truthful NO BUSINESS CONFIGURED state on a 1.1 Business Device whose Network has no associated Business Branch', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={srv01OnBusiness()}><Shell /></GameProvider>)
     await enterRemote(user)
 
     expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()
-    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM'])
-    expect(screen.queryByRole('button', { name: /^BRANCHOPS/ })).toBeNull()
-    expect(screen.getByLabelText('RACK-OS remote operating environment').textContent).not.toContain('Bookstore Branch 01')
+    // BUSINESS is still a listed built-in even though this Device's Network has no Business Branch.
+    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BUSINESS'])
+
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+    const business = screen.getByRole('region', { name: 'Business' })
+    expect(business).toHaveTextContent('NETWORK')
+    expect(business).toHaveTextContent('home-net')
+    expect(business).toHaveTextContent('NO BUSINESS CONFIGURED')
+    // Truthfully empty, never an invented Company, error, or missing-installation message.
+    expect(business.textContent).not.toContain('Bookstore Branch 01')
+    expect(business.textContent).not.toMatch(/error|not installed|not found/i)
   })
 })
 
@@ -1413,7 +1422,7 @@ describe('RACK-OS firmware update from a target-owned installer artifact', () =>
     await user.click(screen.getByRole('button', { name: 'test reconnect' }))
     await enterRemote(user)
     expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('RACK-OS 1.1 Business')
-    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BRANCHOPS'])
+    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BUSINESS'])
   })
 })
 

@@ -337,12 +337,12 @@ describe('what a completed RACK-OS installation actually changes', () => {
     expect(after.remoteSession.active).toBeNull()
   })
 
-  it('leaves GateSSH, AuthGuard, BranchOps, the filesystem, branch commerce and finance exactly as they were', () => {
+  it('leaves GateSSH, AuthGuard, the filesystem, Business Branch relationships and finance exactly as they were', () => {
     expect(hostOf(after, SRV_02_ID).services).toEqual(hostOf(before, SRV_02_ID).services)
     expect(hostOf(after, SRV_02_ID).installedSoftware).toEqual(hostOf(before, SRV_02_ID).installedSoftware)
     expect(hostOf(after, SRV_02_ID).filesystem).toEqual(hostOf(before, SRV_02_ID).filesystem)
     expect(hostOf(after, SRV_02_ID).hardware).toEqual(hostOf(before, SRV_02_ID).hardware)
-    expect(after.bookstoreBranch).toEqual(before.bookstoreBranch)
+    expect(after.business).toEqual(before.business)
     expect(after.dollarFinance).toEqual(before.dollarFinance)
     expect(after.nodeWallet).toEqual(before.nodeWallet)
     expect(after.world.network.localNetworks).toEqual(before.world.network.localNetworks)
@@ -358,12 +358,12 @@ describe('what a completed RACK-OS installation actually changes', () => {
     expect(hostOf(reconnected.state, SRV_02_ID).firmware?.id).toBe(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
   })
 
-  it('installs onto a compatible server that has no BranchOps relationship at all', () => {
+  it('installs onto a compatible server on a Network with no associated Business Branch at all', () => {
     const srv01 = withArtifactOn(operating(SRV_01_ID, '198.51.100.47', 'service-ssh-001'), SRV_01_ID)
     const upgraded = installed(srv01)
     expect(hostOf(upgraded, SRV_01_ID).firmware?.id).toBe(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
     expect(hostOf(upgraded, SRV_01_ID).operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
-    expect(upgraded.bookstoreBranch.operationsDeviceId).toBe(SRV_02_ID)
+    expect(upgraded.business.branches.some((branch) => branch.networkId === 'network-local-001')).toBe(false)
     expect(hostOf(upgraded, SRV_01_ID).installedSoftware).toEqual(hostOf(srv01, SRV_01_ID).installedSoftware)
   })
 })
