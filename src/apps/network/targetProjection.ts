@@ -298,6 +298,8 @@ export interface Target extends TargetSummary {
 export interface TargetNetworkMember {
   readonly id: string
   readonly address: string
+  /** Player-relative local identity; never a canonical Device display name. */
+  readonly isSelf?: true
   readonly displayName?: string
   readonly liveStatus?: TopologyStatus
 }
@@ -666,7 +668,13 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       const memberIds = new Set(information.discovery.networkDeviceRelations
         .filter(({ networkId: relatedNetworkId }) => relatedNetworkId === networkId)
         .map(({ deviceId: memberId }) => memberId))
-      const members = information.discovery.devices.filter(({ id }) => memberIds.has(id)).map((member) => {
+      const selfMember: readonly TargetNetworkMember[] = memberIds.has(information.player.localDevice.id) ? [{
+        id: information.player.localDevice.id,
+        address: information.player.localDevice.network.ip,
+        isSelf: true,
+        ...(monitorAll ? { liveStatus: deviceLiveStatus(information.player.localDevice.operational) } : {}),
+      }] : []
+      const foreignMembers = information.discovery.devices.filter(({ id }) => id !== device.id && memberIds.has(id)).map((member) => {
         const liveHost = monitorAll ? liveTruth?.world.network.hosts.find(({ id }) => id === member.id) : undefined
         return {
           id: member.id,
@@ -675,7 +683,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
           ...(liveHost ? { liveStatus: deviceLiveStatus(liveHost.operational) } : {}),
         }
       })
-      return [{ id: network.id, name: network.name, members }]
+      return [{ id: network.id, name: network.name, members: [...selfMember, ...foreignMembers] }]
     })
 
   const routes: TargetRoute[] = []
