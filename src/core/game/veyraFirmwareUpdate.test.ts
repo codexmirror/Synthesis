@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation } from './remoteSession'
 import { advanceGameState } from './gameAdvancement'
-import { vulnerabilitiesForService } from './serviceImplementations'
+import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { resolveCompletedCredentialAccess } from './credentialAccess'
 import { VEYRA_OS_4_1_FIRMWARE_ID, VEYRA_OS_4_2_FIRMWARE_ID } from './firmwareIdentity'
 import {
@@ -275,22 +275,24 @@ describe('what the completed release actually changes', () => {
   it('lets an existing Credential Access attempt observe the resulting real surface', () => {
     // No update-specific rule exists anywhere in Credential Access: the same
     // resolution simply reads the Service implementation the phone now runs.
+    // KeyProbe is kept to its own concrete attacked surface, never a named Vulnerability.
     const after = installed()
-    const attempt = (vulnerabilityId: string): CredentialAccessProcess => ({
+    const attempt = (serviceImplementation: { productId: string; releaseId: string; buildId: string }): CredentialAccessProcess => ({
       kind: 'credential_access', id: 'process-0001', label: 'CREDENTIAL ACCESS', status: 'completed',
       executorDeviceId: after.player.localDevice.id, ramRequiredMiB: 896, workRequired: 1, workCompleted: 1,
       targetDeviceId: PHONE_ID, serviceId: 'service-ssh-003', startedEndpoint: '198.51.100.61:22',
-      vulnerabilityId, toolId: 'keyprobe',
+      serviceImplementation, toolId: 'keyprobe',
     })
 
-    // The weakness the phone had before the update is simply not there now.
-    const stale = resolveCompletedCredentialAccess(after, attempt('AUTH-017'), () => 0)
+    // The remembered pre-update GateSSH 1.3.2 surface is simply not there now.
+    const stale = resolveCompletedCredentialAccess(after, attempt({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID }), () => 0)
     expect(stale.process.result?.status).toBe('attempt_failed')
+    expect(stale.process.result).toMatchObject({ reason: 'surface_mismatch' })
     expect(stale.deviceAccess.established).toEqual(after.deviceAccess.established)
 
-    // The weakness GateSSH 1.3.3 really derives is exploitable at its own
+    // The GateSSH 1.3.3 surface the phone really runs now is exploitable at its own
     // represented profile, with no AuthGuard on this phone to blunt it.
-    const current = resolveCompletedCredentialAccess(after, attempt('AUTH-031'), () => 0.299999)
+    const current = resolveCompletedCredentialAccess(after, attempt({ productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID }), () => 0.299999)
     expect(current.process.result?.status).toBe('access_established')
     expect(current.process.authGuardProtectionObserved).toBeUndefined()
   })

@@ -1233,7 +1233,22 @@ Therefore:
   an attempt the player's legitimate information justifies;
 * removing the required capability removes the offer, without removing the
   Knowledge that produced it;
-* a way in is never a probability, a hint, or a success oracle.
+* a way in's own existence is never a probability, a hint, or a success
+  oracle: forming the route never implies, by itself, that the attempt will
+  succeed.
+
+A concrete provider may separately show its own clearly labelled estimate —
+for example KeyProbe's own `EST. SUCCESS` — when, and only when, that number
+is derived exclusively from legitimate Player Information and the player's
+own represented state (current local Hardware, a remembered implementation
+or protection observation), reusing the mechanic's own canonical calculation
+rather than a presentation-invented one. Such an estimate is not the route's
+truth, not a disclosure of hidden actual feasibility, and not an omniscient
+success oracle: it is the player's own best reckoning from what they already
+legitimately know, stated as an estimate rather than a certainty, and it must
+still obey every rule above — never consulted from or corrected by hidden
+World Truth, never able to suppress or recommend an attempt, and never
+required for a route to remain attemptable.
 
 Where exactly one installed tool satisfies a known avenue, the software may
 select it. Forcing a choice that has only one option is ceremony, not

@@ -8,6 +8,7 @@ import {
   resolveNodeScanRelease,
   selectKnownSpace,
   selectTarget,
+  type KeyProbeRoute,
   type KnownNetwork,
   type KnownSpace,
   type NodeScanRelease,
@@ -66,7 +67,7 @@ type CopyState = { value: string; status: 'copied' | 'failed' } | null
  */
 const RUNNING_STAGE = {
   analyzing: { status: 'ANALYZING', progressLabel: 'Analysis progress' },
-  hacking: { status: 'HACKING', progressLabel: 'Hack progress' },
+  hacking: { status: 'ATTEMPT IN PROGRESS', progressLabel: 'Attempt progress' },
   disrupting: { status: 'DEAUTH NETWORK', progressLabel: 'DEAUTH progress' },
   attacking: { status: 'ATTACKING RACKUPDATE', progressLabel: 'Attack progress' },
   submitting: { status: 'SUBMITTING PACKAGE', progressLabel: 'Submission progress' },
@@ -83,7 +84,7 @@ const STAGE_MARK: Record<TargetStage, string> = {
   analyzing: 'ANALYZING',
   no_route: 'OBSERVED',
   route: 'ACTIONS AVAILABLE',
-  hacking: 'HACKING',
+  hacking: 'CREDENTIAL ACCESS',
   disrupting: 'DEAUTH',
   attack: 'ACTIONS AVAILABLE',
   attacking: 'ATTACKING',
@@ -100,6 +101,18 @@ const ACTIVITY_KIND_LABEL: Record<ManagedNetworkActivityRecordView['kind'], stri
 }
 
 const POSITIVE_RESULT = new Set<ManagedNetworkActivityRecordView['result']>(['SUCCESS', 'COMPLETED'])
+
+/**
+ * Credential Access's own concise meaning for each mechanic-owned failure
+ * reason. Never the hidden random roll, and never a claim the canonical
+ * result does not itself support; `unspecified` (the endpoint was never
+ * reached at all) states only that the attempt failed.
+ */
+const CREDENTIAL_FAILURE_DETAIL: Partial<Record<NonNullable<TargetOffensiveAction['lastFailureReason']>, string>> = {
+  surface_mismatch: 'Surface mismatch detected · previous route may be outdated',
+  authentication_rejected: 'Authentication attempt rejected',
+  protection_observed: 'Protection response detected',
+}
 
 function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): string {
   return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'unknown' ? 'Membership not observed' : target.scope === 'lan' ? 'Local network' : 'Remote'
@@ -222,11 +235,14 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
           : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
   }
 
-  function hack(route: TargetRoute, targetDeviceId: string, providerId: NonNullable<TargetOffensiveAction['providerId']>) {
+  function hack(route: TargetRoute | KeyProbeRoute, targetDeviceId: string, providerId: NonNullable<TargetOffensiveAction['providerId']>) {
     const result = actions.startCredentialAccessAttemptFromObservation({
       endpoint: route.endpoint, targetDeviceId, serviceId: route.serviceId,
-      vulnerabilityId: route.vulnerabilityId,
       providerId,
+      // The specialized module forms from its own required Vulnerability. KeyProbe's attacked surface is never
+      // supplied here: Credential Access derives it canonically from this exact Service's own remembered
+      // Inspect fingerprint, so presentation can never assert an implementation the player has not observed.
+      ...(providerId !== 'keyprobe' ? { vulnerabilityId: (route as TargetRoute).vulnerabilityId } : {}),
     })
     if (result.status === 'started') setNotice(null)
     else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
@@ -339,7 +355,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
         onScan={() => scan(target)}
         onInspect={() => inspect(target)}
         onExecuteAction={(action) => action.technique === 'Credential Access'
-          ? action.route && action.providerId && hack(action.route as TargetRoute, target.id, action.providerId)
+          ? action.route && action.providerId && hack(action.route as TargetRoute | KeyProbeRoute, target.id, action.providerId)
           : action.technique === 'Rollback' ? action.route && attackPackageSubmission(target)
             : action.route && actions.startDeauthAttempt(action.route as { networkId: string; networkName: string; contextDeviceId: string })}
         onConnect={() => connect(target)}
@@ -748,7 +764,31 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       {target.offensiveActions.length === 0
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
         : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={`${action.technique}:${action.provider}`}>
-          <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}{action.provider}</span></div>
+          <div className="ns-action-copy">
+            <strong>{action.technique.toUpperCase()}</strong>
+            <span>{action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}{action.provider}</span>
+            {action.technique === 'Credential Access' && action.route && action.providerId === 'keyprobe' && (() => {
+              // KeyProbe attacks a Service surface directly: it states the known TARGET implementation and its
+              // own estimate, never a SURFACE/Vulnerability line — it has none.
+              const route = action.route as KeyProbeRoute
+              return <dl className="ns-op-facts ns-action-facts">
+                <div><dt>TARGET</dt><dd>{route.implementation}</dd></div>
+                {action.assessment?.kind === 'estimate' && <div><dt>EST. SUCCESS</dt><dd>{action.assessment.percent}%</dd></div>}
+              </dl>
+            })()}
+            {action.technique === 'Credential Access' && action.route && action.providerId !== 'keyprobe' && (() => {
+              const route = action.route as TargetRoute
+              return <dl className="ns-op-facts ns-action-facts">
+                <div><dt>SURFACE</dt><dd>{route.vulnerabilityId}</dd></div>
+                {route.implementation && <div><dt>TARGET</dt><dd>{route.implementation}</dd></div>}
+                {action.assessment?.kind === 'compatibility' && <div><dt>COMPATIBILITY</dt><dd>{action.assessment.status}</dd></div>}
+              </dl>
+            })()}
+            {action.technique === 'Credential Access' && !action.running && action.lastFailureReason && <p className="ns-quiet-note ns-action-note" role="status">
+              <strong>ATTEMPT FAILED</strong>
+              {CREDENTIAL_FAILURE_DETAIL[action.lastFailureReason] && <span>{CREDENTIAL_FAILURE_DETAIL[action.lastFailureReason]}</span>}
+            </p>}
+          </div>
           {/*
             * A Technique whose own attempt is already running says so where
             * EXECUTE was, rather than offering a control that can only answer
@@ -757,7 +797,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
           {action.running
             ? <span className="node-chip node-chip--running" aria-label={`${action.technique} with ${action.provider} running`}><i className="ns-live-dot" aria-hidden="true" />RUNNING</span>
             : action.route
-              ? <button type="button" className="node-action" aria-label={action.technique === 'Credential Access' ? `Execute ${action.technique} with ${action.provider}` : `Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>EXECUTE</button>
+              ? <button type="button" className="node-action" aria-label={action.technique === 'Credential Access' ? `Execute ${action.technique} with ${action.provider}` : `Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>{action.technique === 'Credential Access' ? 'START ATTEMPT' : 'EXECUTE'}</button>
               : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} with ${action.provider} unavailable`}>UNAVAILABLE</span>}
         </article>)}</div>}
     </section>
