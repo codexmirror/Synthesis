@@ -28,7 +28,7 @@ function resolve(state: GameState, roll: number) {
   let draws = 0
   const done = advanceGameState(started.state, 30_000, () => { draws++; return roll })
   const process = done.process.processes.at(-1) as CredentialAccessProcess
-  return { draws, result: process.result?.status, protected: process.authGuardProtectionObserved }
+  return { draws, result: process.result?.status, protected: process.authGuardProtectionObserved, reason: process.result?.status === 'attempt_failed' ? process.result.reason : undefined }
 }
 
 describe('AuthGuard 1.0 concrete credential composition', () => {
@@ -59,8 +59,8 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
   it('forms AUTH-031 only through KeyProbe and resolves protected 5% with one draw', () => {
     const state = learned()
     expect(ownedCredentialAccessProviders(state, 'AUTH-031')).toEqual([{ id: 'keyprobe', name: 'KeyProbe' }])
-    expect(resolve(state, 0.049999)).toEqual({ draws: 1, result: 'access_established', protected: undefined })
-    expect(resolve(state, 0.05)).toEqual({ draws: 1, result: 'attempt_failed', protected: true })
+    expect(resolve(state, 0.049999)).toEqual({ draws: 1, result: 'access_established', protected: undefined, reason: undefined })
+    expect(resolve(state, 0.05)).toEqual({ draws: 1, result: 'attempt_failed', protected: true, reason: 'protection_observed' })
   })
 
   it('resolves the unprotected compute-100 exact composition at 30%', () => {
@@ -68,7 +68,7 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
     const hosts = state.world.network.hosts.map((host) => host.id === observation.targetDeviceId ? { ...host, installedSoftware: host.installedSoftware?.filter(({ id }) => id !== AUTH_GUARD_PRODUCT_ID) } : host)
     const unprotected = { ...state, world: { network: { ...state.world.network, hosts } } }
     expect(resolve(unprotected, 0.299999)).toMatchObject({ result: 'access_established', protected: undefined })
-    expect(resolve(unprotected, 0.3)).toMatchObject({ result: 'attempt_failed', protected: undefined })
+    expect(resolve(unprotected, 0.3)).toMatchObject({ result: 'attempt_failed', protected: undefined, reason: 'authentication_rejected' })
   })
 
   it('snapshots harder AUTH-031 work and lets stronger current Hardware finish it sooner', () => {

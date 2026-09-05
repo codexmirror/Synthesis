@@ -108,10 +108,15 @@
 
 .ns-actions { margin: 22px 0; }
 .ns-action-list { display: grid; gap: 1px; background: var(--line-quiet); }
-.ns-action { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; padding: 14px 0; background: var(--surface); }
+.ns-action { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 16px; padding: 14px 0; background: var(--surface); }
 .ns-action-copy { min-width: 0; display: grid; gap: 5px; }
 .ns-action-copy strong { color: var(--text-strong); font: 600 .72rem Inter, system-ui, sans-serif; letter-spacing: .1em; }
-.ns-action-copy span { color: var(--text-quiet); font: .6rem ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.ns-action-copy > span { color: var(--text-quiet); font: .6rem ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.ns-action .node-action,
+.ns-action .node-chip { margin-top: 2px; }
+.ns-action-facts { margin: 3px 0 0; }
+.ns-action-note { margin: 3px 0 0; }
+.ns-action-note strong { display: block; color: var(--caution); font-size: .6rem; letter-spacing: .08em; }
 @media (max-width: 420px) {
   .ns-action { grid-template-columns: 1fr; }
   .ns-action .node-action,

@@ -81,9 +81,17 @@ export type ServiceAnalysisResult =
   | { readonly status: 'no_weakness_detected' }
   | { readonly status: 'service_unavailable' }
 
+/**
+ * The narrow, mechanic-owned reason a Credential Access attempt failed.
+ * Absent when the endpoint was never reached at all (no reached-attempt
+ * evidence exists to classify). Never inferred by presentation from hidden
+ * World Truth: Credential Access resolution is the only owner that sets it.
+ */
+export type CredentialAccessFailureReason = 'surface_mismatch' | 'authentication_rejected' | 'protection_observed'
+
 export type CredentialAccessResult =
   | { readonly status: 'access_established'; readonly accessId: string }
-  | { readonly status: 'attempt_failed'; readonly message: 'Authentication attempt failed.' }
+  | { readonly status: 'attempt_failed'; readonly message: 'Authentication attempt failed.'; readonly reason?: CredentialAccessFailureReason }
 
 interface ProcessCommon {
   readonly id: string

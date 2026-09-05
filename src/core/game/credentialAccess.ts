@@ -178,6 +178,7 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   // KeyProbe makes this one decision only after the current represented surface
   // is valid. The specialized module remains deterministic for AUTH-017.
   let succeeds = validSurface
+  let rolled = false
   if (validSurface && process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
     const executor = process.executorDeviceId === state.player.localDevice.id
       ? state.player.localDevice
@@ -186,6 +187,7 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
     else {
       const protectedByAuthGuard = process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host?.installedSoftware, service)
       succeeds = random() < keyProbeSuccessChance(profile, executor.hardware.cpu.computeCapacity, protectedByAuthGuard)
+      rolled = true
     }
   }
   const result = succeeds ? 'SUCCESS' as const : 'FAILURE' as const
@@ -195,15 +197,23 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
         { sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, sourceAddress, targetAddress: host!.ip, serviceId: service.id, serviceName: service.name, result },
       )
     : state.world
-  if (!succeeds) return {
-    ...failedResult,
-    process: {
-      ...failedResult.process,
-      ...(process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host!.installedSoftware, service)
-        ? { authGuardProtectionObserved: true as const }
-        : {}),
-    },
-    world,
+  if (!succeeds) {
+    // A narrow, mechanic-owned reason NodeScan can project safely: the
+    // surface itself was no longer valid, a rolled decision was rejected, or
+    // that rolled decision was blunted by legitimately-resolvable AuthGuard
+    // protection. Left absent only for the defensive missing-executor case,
+    // where no decision was actually made.
+    const protectedByAuthGuard = process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host!.installedSoftware, service)
+    const reason = !validSurface ? 'surface_mismatch' as const : rolled ? (protectedByAuthGuard ? 'protection_observed' as const : 'authentication_rejected' as const) : undefined
+    return {
+      ...failedResult,
+      process: {
+        ...failedResult.process,
+        result: { ...failedResult.process.result, ...(reason ? { reason } : {}) },
+        ...(protectedByAuthGuard ? { authGuardProtectionObserved: true as const } : {}),
+      },
+      world,
+    }
   }
 
   const existing = state.deviceAccess.established.find((access) => access.sourceDeviceId === process.executorDeviceId && access.targetDeviceId === process.targetDeviceId && access.viaServiceId === process.serviceId)

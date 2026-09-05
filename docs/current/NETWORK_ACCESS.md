@@ -108,9 +108,52 @@ surface separately lists the offensive Techniques for which SELF owns a
 supported provider. The Technique name is primary and the concrete provider
 path or integrated provider name is visible provenance. Credential Access and
 Rollback are the two concrete entries; there is no module dropdown, ranking,
-recommendation, compatibility score, or hidden target-truth filtering. If
+recommendation between providers, or hidden target-truth filtering. If
 neither provider is owned, ACTIONS states that no offensive Techniques are
 available.
+
+A Credential Access entry with a currently formed route also states the known
+`SURFACE` (the vulnerability ID the route names, e.g. `AUTH-031`) and, where
+Inspect legitimately remembers one, the `TARGET` implementation (e.g.
+`GateSSH 1.3.3`). KeyProbe additionally states an `EST. SUCCESS` percentage:
+the player's own best estimate, reusing the exact canonical
+`keyProbeSuccessChance` profile/chance calculation from Credential Access over
+only the local Device's current executor CPU compute and, where the exact
+compatible AuthGuard release has itself been legitimately observed protecting
+the same remembered implementation, that protection — never Device Model
+ceiling compute, never a hidden AuthGuard installation the player has not
+observed, and never a silently refreshed hidden Service implementation. The
+specialized Credential Access Module is deterministic, not probabilistic, so
+it never earns a percentage of its own; it instead states `COMPATIBILITY` as
+`MATCHED` (the currently remembered implementation still names the module's
+one authored surface, GateSSH 1.3.2), `UNCONFIRMED` (a later legitimate
+observation named a different one instead, which a still-justified stale
+route may still be attempted against), or `EXPECTED` (its ordinary default,
+where nothing observed contradicts it either way). This is a per-provider
+technique read, not the inter-provider ranking or recommendation the previous
+paragraph rules out. START ATTEMPT begins the same canonical Credential
+Access operation EXECUTE always has; the wording is specific to this
+Technique and RackUpdate and DEAUTH keep their own EXECUTE control and
+language unchanged.
+
+Credential Access's own most recent completed attempt against a route is
+projected beside it once running work clears: a reached attempt whose
+weakness or exact implementation was no longer current states `ATTEMPT
+FAILED · Surface mismatch detected · previous route may be outdated`; a
+reached, current KeyProbe attempt whose one canonical decision came back
+negative states `Authentication attempt rejected`; and one whose canonical
+resolution recorded the exact compatible AuthGuard release blunting it states
+`Protection response detected`. These three categories come from
+`CredentialAccessProcess.result`'s own narrow `reason` field
+(`surface_mismatch` / `authentication_rejected` / `protection_observed`),
+set once by Credential Access resolution itself; NodeScan only projects it
+and never infers a reason from hidden World Truth. An attempt that never
+reached the target at all (the endpoint stopped resolving to the same
+network-usable Device and open Service) carries no such reason and is stated
+as a bare `ATTEMPT FAILED`. None of this rewrites the historical Knowledge or
+route that produced the attempt: a stale specialized-module route remains
+attemptable exactly as before, and Credential Access completion remains the
+only owner that resolves it against current World Truth.
 
 When Flipper is installed, NodeScan's Known Space masthead provides a route to
 Flipper ARSENAL for collection and orientation. That route does not change the
@@ -132,7 +175,11 @@ RUNNING; this never hides an owned Technique that is not the one running.
 
 A running stage — Service Analysis, Credential Access, Rollback's attack, or
 package submission — presents that work as an execution surface rather than a
-bare headline and percentage. It states the operation's own name, the facts
+bare headline and percentage. A running Credential Access attempt states
+itself as `ATTEMPT IN PROGRESS` (Known Space and the target card previously
+read `HACKING`; that generic word remains retired only for Credential
+Access — Rollback's `ATTACKING RACKUPDATE` and DEAUTH's own network-scoped
+wording are unaffected). It states the operation's own name, the facts
 the running work itself already carries (the endpoint it was actually started
 against, the provider the canonical resolver actually selected, the remembered
 weakness or package it concerns) and canonical progress, plus a restrained
@@ -200,7 +247,8 @@ The canonical resolver selects the actual local source —
 preferring an integrated Flipper build when it supports the technique and
 otherwise using the exact standalone module — and NodeScan names that source
 and module without moving capability selection into presentation. Availability never predicts success; stale Player Information can
-still produce a legitimately failed attempt, which is reported coarsely while
+still produce a legitimately failed attempt, which is projected through the
+narrow failure `reason` above (or, absent one, a bare failed attempt) while
 the same route stays available.
 
 Above ACTIONS, the target card also draws a compact Network → Device →

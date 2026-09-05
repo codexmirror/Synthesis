@@ -3,6 +3,7 @@ import { findInstalledNodeScan, nodeScanSupportsInspect, nodeScanSupportsIntegra
 import { isDeviceNetworkUsable } from '../../core/game/deviceOperationalState'
 import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
+  CredentialAccessFailureReason,
   CredentialAccessProcess,
   GameState,
   GameProcess,
@@ -11,7 +12,7 @@ import type {
   RackUpdatePackageSubmission,
   ServiceAnalysisProcess,
 } from '../../core/game/types'
-import { ownedCredentialAccessProviders, type CredentialAccessProviderId } from '../../core/game/credentialAccess'
+import { KEYPROBE_ATTACK_PROFILES, STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, keyProbeSuccessChance, ownedCredentialAccessProviders, type CredentialAccessProviderId } from '../../core/game/credentialAccess'
 import { DEAUTH_EXTENSION, findCompatibleDeauthExtension } from '../../core/game/deauth'
 import type { DeauthProcess } from '../../core/game/types'
 
@@ -248,9 +249,8 @@ export interface Target extends TargetSummary {
   /** The work currently running against this target, present exactly while the stage is a running stage. */
   readonly operation?: TargetOperation
   readonly routes: readonly TargetRoute[]
-  /** Concrete owned providers, projected independently of target weaknesses. */
+  /** Concrete owned providers, projected independently of target weaknesses. Credential Access's own recent-attempt feedback lives on its own entry. */
   readonly offensiveActions: readonly TargetOffensiveAction[]
-  readonly lastAttemptFailed: boolean
   readonly observed?: {
     readonly deviceKind: 'device' | 'server'
     readonly networkStatus: 'ONLINE'
@@ -268,6 +268,25 @@ export interface Target extends TargetSummary {
   readonly packageSubmission?: PackageSubmission
 }
 
+/**
+ * Credential Access's own player-facing read of a formed route — never World
+ * Truth, and never a value for Rollback or DEAUTH.
+ *
+ * `estimate` is KeyProbe's own best guess from current Player Information: it
+ * reuses the canonical profile/chance calculation over only the local
+ * Device's current compute and a legitimately observed protection match, so
+ * it can never be higher-fidelity than what the player actually knows.
+ * `compatibility` is the specialized module's own deterministic technique
+ * read instead of a fabricated percentage: `MATCHED` only when the currently
+ * remembered implementation still names the exact surface the module
+ * targets, `UNCONFIRMED` when a later legitimate observation named a
+ * different one, and `EXPECTED` — the technique's ordinary default — when no
+ * observation contradicts it either way.
+ */
+export type CredentialAccessAssessment =
+  | { readonly kind: 'estimate'; readonly percent: number }
+  | { readonly kind: 'compatibility'; readonly status: 'EXPECTED' | 'MATCHED' | 'UNCONFIRMED' }
+
 export interface TargetOffensiveAction {
   readonly technique: 'Credential Access' | 'Rollback' | 'DEAUTH'
   readonly provider: string
@@ -275,6 +294,17 @@ export interface TargetOffensiveAction {
   readonly route?: TargetRoute | PackageSubmissionRoute | { readonly networkId: string; readonly networkName: string; readonly contextDeviceId: string }
   /** This Technique's own attempt is currently running against this target. */
   readonly running: boolean
+  /** Credential Access only: this provider's own current read of the formed route. */
+  readonly assessment?: CredentialAccessAssessment
+  /**
+   * Credential Access only: the outcome Credential Access itself recorded for
+   * the most recent completed attempt this exact provider ran here, while
+   * canonical Process history still remembers it. `undefined` reason means
+   * the endpoint was never reached at all, so no more specific category
+   * applies; this is presentation-level only and is never guessed from
+   * hidden World Truth.
+   */
+  readonly lastFailureReason?: CredentialAccessFailureReason | 'unspecified'
 }
 
 /** One canonical or already-remembered fact the running operation itself supplies. */
@@ -464,6 +494,36 @@ function moduleNameFor(vulnerabilityId: string): string | undefined {
   return moduleId ? FLIPPER_MODULE_NAME[moduleId] : undefined
 }
 
+/**
+ * KeyProbe's own player-facing estimate for a formed route: the same
+ * canonical profile and chance calculation Credential Access resolution
+ * itself uses, given only the local Device's current compute and whether the
+ * player has legitimately observed compatible AuthGuard protection on this
+ * exact remembered implementation. It never reads hidden World Truth, so a
+ * later hidden change to Hardware, GateSSH, or AuthGuard the player has not
+ * legitimately observed cannot move this number.
+ */
+function keyProbeEstimate(vulnerabilityId: string, computeCapacity: number, authGuardProtected: boolean): CredentialAccessAssessment | undefined {
+  const profile = vulnerabilityId === 'AUTH-017' || vulnerabilityId === 'AUTH-031' ? KEYPROBE_ATTACK_PROFILES[vulnerabilityId] : undefined
+  if (!profile) return undefined
+  return { kind: 'estimate', percent: Math.round(keyProbeSuccessChance(profile, computeCapacity, authGuardProtected) * 100) }
+}
+
+/**
+ * The specialized Credential Access Module targets exactly one authored
+ * surface (`AUTH-017` / GateSSH 1.3.2) and is deterministic there, so it
+ * never earns a probability of its own. This states only what the player's
+ * own currently remembered implementation evidence supports, never a
+ * prediction: `MATCHED` when it still names that exact surface, `UNCONFIRMED`
+ * when a later legitimate observation named a different one instead — which
+ * a stale route may still justify attempting — and `EXPECTED` when nothing
+ * observed contradicts the module's ordinary target.
+ */
+function moduleCompatibility(targetImplementation: string | undefined): CredentialAccessAssessment {
+  if (targetImplementation === undefined) return { kind: 'compatibility', status: 'EXPECTED' }
+  return { kind: 'compatibility', status: targetImplementation === 'GateSSH 1.3.2' ? 'MATCHED' : 'UNCONFIRMED' }
+}
+
 function deviceLiveStatus(operational: import('../../core/game/types').DeviceOperationalState): TopologyStatus {
   if (operational.lifecycle === 'SHUTTING_DOWN') return { label: 'SHUTTING DOWN', tone: 'transition' }
   if (operational.lifecycle === 'BOOTING') return { label: 'BOOTING', tone: 'transition' }
@@ -616,9 +676,11 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   const analyzing = analyses.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const hacking = attempts.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const passive = established[0]
-  const lastAttempt = [...attempts]
-    .reverse()
-    .find((process) => process.targetDeviceId === device.id && process.status === 'completed' && process.result)?.result
+  /** The outcome Credential Access itself recorded for this provider's own most recent completed attempt here, while Process history still remembers it. */
+  const lastCredentialFailure = (providerId: CredentialAccessProviderId): CredentialAccessFailureReason | 'unspecified' | undefined => {
+    const last = [...attempts].reverse().find((process) => process.targetDeviceId === device.id && process.toolId === providerId && process.status === 'completed' && process.result)?.result
+    return last?.status === 'attempt_failed' ? (last.reason ?? 'unspecified') : undefined
+  }
   const packageSubmission = selectPackageSubmission(information, device.id, exploits, services)?.packageSubmission
   const localArtifacts = findLocalFlipperModuleArtifacts(information.player.localDevice).filter(isSupportedFlipperModuleArtifact)
   const providerFor = (moduleId: 'credential-access' | 'rollback', artifactName: string) => {
@@ -627,10 +689,37 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     return artifact?.path
   }
   const rollbackProvider = providerFor('rollback', ROLLBACK_MODULE_1_0.name)
-  const credentialRoute = routes.find(({ vulnerabilityId }) => vulnerabilityId === 'AUTH-017')
-  const credentialProviders = ownedCredentialAccessProviders(information, 'AUTH-017')
+  // Exactly one credential-access route is ever formed per target (one relevant Service), so the
+  // player's owned providers are queried against whichever concrete surface that route actually names —
+  // AUTH-017 and AUTH-031 alike — rather than a single hardcoded surface.
+  const credentialRoute = routes[0] as TargetRoute | undefined
+  const credentialProviders = ownedCredentialAccessProviders(information, credentialRoute?.vulnerabilityId ?? 'AUTH-017')
+  const deviceAuthGuard = device.inspect?.enhanced?.authGuard
+  // Only a legitimately observed AuthGuard match may affect the player's own estimate; a hidden or
+  // unobserved installation, or one that names a different remembered implementation, never does.
+  const legitimatelyObservedAuthGuardMatch = Boolean(credentialRoute
+    && credentialRoute.vulnerabilityId === 'AUTH-031'
+    && deviceAuthGuard?.compatibility === 'SUPPORTED'
+    && deviceAuthGuard.protectedImplementation === credentialRoute.implementation)
+  const localComputeCapacity = information.player.localDevice.hardware.cpu.computeCapacity
+  const credentialAction = (provider: { readonly id: CredentialAccessProviderId; readonly name: string }): TargetOffensiveAction => {
+    const lastFailureReason = lastCredentialFailure(provider.id)
+    return {
+      technique: 'Credential Access' as const,
+      provider: provider.name,
+      providerId: provider.id,
+      running: hacking.length > 0,
+      ...(credentialRoute ? { route: credentialRoute } : {}),
+      ...(credentialRoute ? {
+        assessment: provider.id === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
+          ? keyProbeEstimate(credentialRoute.vulnerabilityId, localComputeCapacity, legitimatelyObservedAuthGuardMatch)
+          : moduleCompatibility(credentialRoute.implementation),
+      } : {}),
+      ...(lastFailureReason ? { lastFailureReason } : {}),
+    }
+  }
   const offensiveActions: TargetOffensiveAction[] = [
-    ...credentialProviders.map((provider) => ({ technique: 'Credential Access' as const, provider: provider.name, providerId: provider.id, running: hacking.length > 0, ...(credentialRoute ? { route: credentialRoute } : {}) })),
+    ...credentialProviders.map(credentialAction),
     ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, running: Boolean(packageSubmission?.attacking), ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
     ...(findCompatibleDeauthExtension(information.player.localDevice) ? information.discovery.networkDeviceRelations
       .filter(({ deviceId }) => deviceId === device.id)
@@ -679,7 +768,6 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     ...(operation ? { operation } : {}),
     routes,
     offensiveActions,
-    lastAttemptFailed: lastAttempt?.status === 'attempt_failed',
     ...(device.inspect
       ? {
         observed: {

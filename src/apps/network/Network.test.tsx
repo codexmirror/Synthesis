@@ -159,8 +159,8 @@ describe('NodeScan first hack', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
 
     fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' }))
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('HACKING')
-    expect(screen.getByRole('group', { name: 'Hack progress' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('ATTEMPT IN PROGRESS')
+    expect(screen.getByRole('group', { name: 'Attempt progress' })).toBeInTheDocument()
 
     await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
@@ -435,7 +435,10 @@ describe('NodeScan information boundary', () => {
 
     await openDetails(user)
     expect(screen.getByText('Analysis found relevant information.')).toBeInTheDocument()
-    expect(screen.queryByText('AUTH-017')).not.toBeInTheDocument()
+    // Credential Access's own ACTIONS surface legitimately names its surface (see the dedicated
+    // action-semantics tests below); the ordinary Service card under technical depth still does not.
+    const details = screen.getByText('SERVICES').closest('.ns-detail-panel') as HTMLElement
+    expect(within(details).queryByText('AUTH-017')).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
     expect(screen.getByTestId('game-state').textContent).toBe(before)
   })
@@ -464,8 +467,8 @@ describe('NodeScan progress', () => {
   it('takes hack progress from canonical Process state', async () => {
     await openTarget(withProcesses(knownWeakness(), [credentialProcess(300)]))
     const status = screen.getByLabelText('Target status')
-    expect(status).toHaveTextContent('HACKING')
-    expect(screen.getByRole('group', { name: 'Hack progress' })).toHaveTextContent('25%')
+    expect(status).toHaveTextContent('ATTEMPT IN PROGRESS')
+    expect(screen.getByRole('group', { name: 'Attempt progress' })).toHaveTextContent('25%')
   })
 
   it('reports a failed attempt coarsely while the same route stays available', async () => {
@@ -495,9 +498,9 @@ describe('NodeScan progress', () => {
     const status = screen.getByLabelText('Target status')
     // The operation names itself; the stage keeps the word Known Space marks this target with.
     expect(status).toHaveTextContent('CREDENTIAL ACCESS')
-    expect(status).toHaveTextContent('HACKING')
+    expect(status).toHaveTextContent('ATTEMPT IN PROGRESS')
     expect(status).toHaveTextContent(`${SRV_01_ADDRESS}:22`)
-    expect(screen.getByRole('group', { name: 'Hack progress' })).toHaveTextContent('25%')
+    expect(screen.getByRole('group', { name: 'Attempt progress' })).toHaveTextContent('25%')
   })
 
   it('names the provider the attempt actually ran through, not whatever is currently owned', () => {
@@ -539,6 +542,131 @@ describe('NodeScan progress', () => {
     await openDetails(alongside)
     expect(screen.getByLabelText('Target status')).toHaveTextContent('CONNECTED')
     expect(screen.getByRole('group', { name: 'HTTP analysis progress' })).toHaveTextContent('50%')
+  })
+})
+
+/* -------------------------------------------- Credential Access semantics */
+
+describe('Credential Access domain presentation', () => {
+  const SRV_02 = 'host-lan-002'
+  const SRV_02_ADDRESS = '203.0.113.42'
+
+  function withCompute(state: GameState, computeCapacity: number): GameState {
+    return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, hardware: { ...state.player.localDevice.hardware, cpu: { ...state.player.localDevice.hardware.cpu, computeCapacity } } } } }
+  }
+
+  function withoutWorldRead(state: GameState): GameState {
+    return Object.defineProperty({ ...state }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
+  }
+
+  /** Known AUTH-031 against srv-02, optionally Enhanced-Inspected and optionally with AuthGuard stripped from the represented current World Truth entirely. */
+  function knownAuth031({ inspect = false, authGuardInWorld = true }: { inspect?: boolean; authGuardInWorld?: boolean } = {}): GameState {
+    const base = withNodeScan11(createInitialGameState())
+    const network = authGuardInWorld ? base.world.network : { ...base.world.network, hosts: base.world.network.hosts.map((host) => host.id === SRV_02 ? { ...host, installedSoftware: host.installedSoftware?.filter(({ id }) => id !== 'auth-guard') } : host) }
+    const targets = { localDevice: base.player.localDevice, network }
+    let discovery = rememberScan(base.discovery, scanNetworkTarget(targets, SRV_02_ADDRESS), base.player.localDevice.id)
+    if (inspect) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, SRV_02_ADDRESS, 'enhanced'), base.player.localDevice.id)
+    return {
+      ...base, world: { network }, discovery,
+      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-031', observedLabel: 'Pre-authentication challenge state reuse', targetDeviceId: SRV_02, serviceId: 'service-ssh-002' }] },
+    }
+  }
+
+  function keyProbeAction(state: GameState, deviceId: string) {
+    return selectTarget(state, deviceId)?.offensiveActions.find((action) => action.providerId === 'keyprobe')
+  }
+
+  it('estimates the canonical 30% KeyProbe chance for known AUTH-031 / GateSSH 1.3.3 at compute 100 with no known AuthGuard', () => {
+    const state = knownAuth031({ inspect: true, authGuardInWorld: false })
+    const action = keyProbeAction(withoutWorldRead(state), SRV_02)
+    expect(action?.route).toMatchObject({ vulnerabilityId: 'AUTH-031', implementation: 'GateSSH 1.3.3' })
+    expect(action?.assessment).toEqual({ kind: 'estimate', percent: 30 })
+  })
+
+  it('raises the estimate with stronger current compute, never the Device Model ceiling', () => {
+    const state = withCompute(knownAuth031({ inspect: true, authGuardInWorld: false }), 160)
+    expect(state.player.localDevice.deviceModel.maximumComputeCapacity).toBe(100)
+    expect(keyProbeAction(withoutWorldRead(state), SRV_02)?.assessment).toEqual({ kind: 'estimate', percent: 45 })
+  })
+
+  it('never lets a hidden, unobserved AuthGuard installation affect the estimate', () => {
+    // AuthGuard genuinely protects srv-02 in World Truth here; the player has only Scanned, never Inspected it.
+    const state = knownAuth031({ inspect: false, authGuardInWorld: true })
+    expect(keyProbeAction(withoutWorldRead(state), SRV_02)?.assessment).toEqual({ kind: 'estimate', percent: 30 })
+  })
+
+  it('lets a legitimately observed compatible AuthGuard installation lower the estimate to 5%', () => {
+    const state = knownAuth031({ inspect: true, authGuardInWorld: true })
+    expect(state.discovery.devices.find(({ id }) => id === SRV_02)?.inspect?.enhanced?.authGuard).toMatchObject({ compatibility: 'SUPPORTED' })
+    expect(keyProbeAction(withoutWorldRead(state), SRV_02)?.assessment).toEqual({ kind: 'estimate', percent: 5 })
+  })
+
+  it('does not let a hidden current GateSSH change move the estimate while remembered evidence stays stale', () => {
+    const observed = knownAuth031({ inspect: true, authGuardInWorld: false })
+    const changed = { ...observed, world: { network: { ...observed.world.network, hosts: observed.world.network.hosts.map((host) => host.id === SRV_02 ? { ...host, services: host.services!.map((service) => service.id === 'service-ssh-002' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } } : service) } : host) } } }
+    const action = keyProbeAction(withoutWorldRead(changed), SRV_02)
+    expect(action?.route).toMatchObject({ implementation: 'GateSSH 1.3.3' })
+    expect(action?.assessment).toEqual({ kind: 'estimate', percent: 30 })
+  })
+
+  it('presents the specialized module as MATCHED compatibility, never a fabricated percentage', async () => {
+    const state = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
+    const inspected = { ...state, discovery: rememberInspect(state.discovery, inspectKnownTarget({ localDevice: state.player.localDevice, network: state.world.network }, state.discovery, SRV_01_ADDRESS, 'enhanced'), state.player.localDevice.id) }
+    const action = selectTarget(inspected, SRV_01)?.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')
+    expect(action?.assessment).toEqual({ kind: 'compatibility', status: 'MATCHED' })
+
+    await openTarget(inspected)
+    const moduleAction = screen.getByText('/home/user/downloads/credential-access-1.0.mod').closest('.ns-action') as HTMLElement
+    expect(moduleAction).toHaveTextContent('COMPATIBILITY')
+    expect(moduleAction).toHaveTextContent('MATCHED')
+    expect(moduleAction).not.toHaveTextContent(/\d+%/)
+  })
+
+  it('defaults the specialized module to EXPECTED compatibility without a current fingerprint observation', () => {
+    const action = selectTarget(knownWeakness(), SRV_01)?.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')
+    expect(action?.assessment).toEqual({ kind: 'compatibility', status: 'EXPECTED' })
+  })
+
+  it('marks the specialized module UNCONFIRMED once a later legitimate observation names a different implementation', () => {
+    const state = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
+    const patchedNetwork = { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' } } : service) } : host) }
+    const targets = { localDevice: state.player.localDevice, network: patchedNetwork }
+    const discovery = rememberInspect(state.discovery, inspectKnownTarget(targets, state.discovery, SRV_01_ADDRESS, 'enhanced'), state.player.localDevice.id)
+    // Historical AUTH-017 Knowledge is untouched; the newer observation only informs compatibility.
+    const action = selectTarget({ ...state, discovery }, SRV_01)?.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')
+    expect(action?.assessment).toEqual({ kind: 'compatibility', status: 'UNCONFIRMED' })
+    expect(selectTarget({ ...state, discovery }, SRV_01)?.services.find(({ id }) => id === 'service-ssh-001')?.weaknesses).toEqual([{ id: 'AUTH-017', label: 'Weak authentication configuration' }])
+  })
+
+  it('classifies a stale-surface failure, a probabilistic rejection, and an observed-protection failure distinctly in ACTIONS', async () => {
+    const surfaceMismatch = { ...credentialProcess(1200), toolId: 'credential-access-module' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'surface_mismatch' as const } }
+    await openTarget(withProcesses(knownWeakness(), [surfaceMismatch]))
+    let actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('ATTEMPT FAILED')
+    expect(actions).toHaveTextContent('Surface mismatch detected')
+    cleanup()
+
+    const rejected = { ...credentialProcess(1200), toolId: 'keyprobe' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'authentication_rejected' as const } }
+    await openTarget(withProcesses(knownWeakness(), [rejected]))
+    actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('Authentication attempt rejected')
+    expect(actions).not.toHaveTextContent('Surface mismatch')
+    cleanup()
+
+    const protectedFailure = { ...credentialProcess(1200), toolId: 'keyprobe' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'protection_observed' as const } }
+    await openTarget(withProcesses(knownWeakness(), [protectedFailure]))
+    actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('Protection response detected')
+  })
+
+  it('preserves stale historical AUTH-017 Knowledge and its module route after a surface-mismatch failure', () => {
+    const before = knownWeakness()
+    const mismatched = withProcesses(before, [{ ...credentialProcess(1200), toolId: 'credential-access-module' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'surface_mismatch' as const } }])
+    const target = selectTarget(mismatched, SRV_01)!
+    expect(target.services.find(({ id }) => id === 'service-ssh-001')?.weaknesses).toEqual([{ id: 'AUTH-017', label: 'Weak authentication configuration' }])
+    const action = target.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')!
+    expect(action.route).toMatchObject({ vulnerabilityId: 'AUTH-017' })
+    expect(action.lastFailureReason).toBe('surface_mismatch')
   })
 })
 

@@ -155,11 +155,18 @@ describe('Initial credential access', () => {
     const running = started.state; const discovery = running.discovery; const knowledge = running.knowledge
     const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000, () => { throw Error('must validate the weakness before probability') })
     expect(done.deviceAccess.established).toEqual([])
-    expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.' }, startedEndpoint: observation.endpoint })
+    expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.', reason: 'surface_mismatch' }, startedEndpoint: observation.endpoint })
     expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
     const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
     expect(target?.authenticationHistory?.records).toEqual([{ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: done.player.localDevice.network.ip, result: 'FAILURE' }])
     expect(done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')?.activityHistory.records).toContainEqual(expect.objectContaining({ kind: 'connection_attempt', serviceId: observation.serviceId, result: 'FAILURE' }))
+  })
+
+  it('classifies a valid KeyProbe probabilistic rejection distinctly from a stale-surface failure', () => {
+    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    if (started.status !== 'started') throw Error(started.status)
+    const rejected = advanceGameState(started.state, 30_000, () => 0.48)
+    expect(rejected.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.result).toMatchObject({ status: 'attempt_failed', reason: 'authentication_rejected' })
   })
 
   it.each([
@@ -220,7 +227,7 @@ describe('Initial credential access', () => {
       // srv-02 is patched for AUTH-017, so this reaches the represented target/service and legitimately resolves FAILURE.
       const crossProcess: CredentialAccessProcess = { ...runningProcess, status: 'completed', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', startedEndpoint: '203.0.113.42:22' }
       const resolved = resolveCompletedCredentialAccess(running, crossProcess)
-      expect(resolved.process.result).toEqual({ status: 'attempt_failed', message: 'Authentication attempt failed.' })
+      expect(resolved.process.result).toEqual({ status: 'attempt_failed', message: 'Authentication attempt failed.', reason: 'surface_mismatch' })
       const homeNet = resolved.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
       const foreignNet = resolved.world.network.localNetworks.find(({ id }) => id === 'network-foreign-001')
       expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ perspective: 'outbound', targetDeviceId: 'host-lan-002', sourceDeviceId: running.player.localDevice.id, result: 'FAILURE' })])

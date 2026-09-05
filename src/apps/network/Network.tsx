@@ -66,7 +66,7 @@ type CopyState = { value: string; status: 'copied' | 'failed' } | null
  */
 const RUNNING_STAGE = {
   analyzing: { status: 'ANALYZING', progressLabel: 'Analysis progress' },
-  hacking: { status: 'HACKING', progressLabel: 'Hack progress' },
+  hacking: { status: 'ATTEMPT IN PROGRESS', progressLabel: 'Attempt progress' },
   disrupting: { status: 'DEAUTH NETWORK', progressLabel: 'DEAUTH progress' },
   attacking: { status: 'ATTACKING RACKUPDATE', progressLabel: 'Attack progress' },
   submitting: { status: 'SUBMITTING PACKAGE', progressLabel: 'Submission progress' },
@@ -83,7 +83,7 @@ const STAGE_MARK: Record<TargetStage, string> = {
   analyzing: 'ANALYZING',
   no_route: 'OBSERVED',
   route: 'ACTIONS AVAILABLE',
-  hacking: 'HACKING',
+  hacking: 'CREDENTIAL ACCESS',
   disrupting: 'DEAUTH',
   attack: 'ACTIONS AVAILABLE',
   attacking: 'ATTACKING',
@@ -100,6 +100,18 @@ const ACTIVITY_KIND_LABEL: Record<ManagedNetworkActivityRecordView['kind'], stri
 }
 
 const POSITIVE_RESULT = new Set<ManagedNetworkActivityRecordView['result']>(['SUCCESS', 'COMPLETED'])
+
+/**
+ * Credential Access's own concise meaning for each mechanic-owned failure
+ * reason. Never the hidden random roll, and never a claim the canonical
+ * result does not itself support; `unspecified` (the endpoint was never
+ * reached at all) states only that the attempt failed.
+ */
+const CREDENTIAL_FAILURE_DETAIL: Partial<Record<NonNullable<TargetOffensiveAction['lastFailureReason']>, string>> = {
+  surface_mismatch: 'Surface mismatch detected · previous route may be outdated',
+  authentication_rejected: 'Authentication attempt rejected',
+  protection_observed: 'Protection response detected',
+}
 
 function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): string {
   return target.networkNames.length ? target.networkNames.join(' · ') : target.scope === 'unknown' ? 'Membership not observed' : target.scope === 'lan' ? 'Local network' : 'Remote'
@@ -748,7 +760,23 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       {target.offensiveActions.length === 0
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
         : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={`${action.technique}:${action.provider}`}>
-          <div className="ns-action-copy"><strong>{action.technique.toUpperCase()}</strong><span>{action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}{action.provider}</span></div>
+          <div className="ns-action-copy">
+            <strong>{action.technique.toUpperCase()}</strong>
+            <span>{action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}{action.provider}</span>
+            {action.technique === 'Credential Access' && action.route && (() => {
+              const route = action.route as TargetRoute
+              return <dl className="ns-op-facts ns-action-facts">
+                <div><dt>SURFACE</dt><dd>{route.vulnerabilityId}</dd></div>
+                {route.implementation && <div><dt>TARGET</dt><dd>{route.implementation}</dd></div>}
+                {action.assessment?.kind === 'estimate' && <div><dt>EST. SUCCESS</dt><dd>{action.assessment.percent}%</dd></div>}
+                {action.assessment?.kind === 'compatibility' && <div><dt>COMPATIBILITY</dt><dd>{action.assessment.status}</dd></div>}
+              </dl>
+            })()}
+            {action.technique === 'Credential Access' && !action.running && action.lastFailureReason && <p className="ns-quiet-note ns-action-note" role="status">
+              <strong>ATTEMPT FAILED</strong>
+              {CREDENTIAL_FAILURE_DETAIL[action.lastFailureReason] && <span>{CREDENTIAL_FAILURE_DETAIL[action.lastFailureReason]}</span>}
+            </p>}
+          </div>
           {/*
             * A Technique whose own attempt is already running says so where
             * EXECUTE was, rather than offering a control that can only answer
@@ -757,7 +785,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
           {action.running
             ? <span className="node-chip node-chip--running" aria-label={`${action.technique} with ${action.provider} running`}><i className="ns-live-dot" aria-hidden="true" />RUNNING</span>
             : action.route
-              ? <button type="button" className="node-action" aria-label={action.technique === 'Credential Access' ? `Execute ${action.technique} with ${action.provider}` : `Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>EXECUTE</button>
+              ? <button type="button" className="node-action" aria-label={action.technique === 'Credential Access' ? `Execute ${action.technique} with ${action.provider}` : `Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>{action.technique === 'Credential Access' ? 'START ATTEMPT' : 'EXECUTE'}</button>
               : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} with ${action.provider} unavailable`}>UNAVAILABLE</span>}
         </article>)}</div>}
     </section>
