@@ -28,8 +28,11 @@ balance or shadow ledger. Its Account and Transaction IDs are stable references
 into Provider-owned finance truth.
 
 The authored Transaction moves 2,000 cents from the neutral retail-clearing
-Account (`CD-9000-2000`) to the configured Account (`CD-3318-2204`). The
-clearing Account has no Credential, Financial Session, Device, or represented
+Account (`CD-9000-2000`) to the Account initially configured at that historical
+moment (`CD-3318-2204`). Its destination reference snapshot remains the sale's
+historical settlement truth even if the branch's current `settlementAccountId`
+later changes. The clearing Account has no Credential, Financial Session,
+Device, or represented
 customer. There is exactly one initial sale and no live, scheduled, recurring,
 or autonomous sale mechanic.
 

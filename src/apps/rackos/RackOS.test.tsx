@@ -281,7 +281,10 @@ describe('RACK-OS', () => {
     const access = { id: 'access-b', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
     const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
     const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
-    render(<GameProvider initialState={connected}><Shell /><StateSnapshot /></GameProvider>)
+    // A changed current destination must not rewrite or hide the completed
+    // sale's canonical historical settlement.
+    const withChangedSettlement = { ...connected, bookstoreBranch: { ...connected.bookstoreBranch, settlementAccountId: 'dollar-account-local-v0' } }
+    render(<GameProvider initialState={withChangedSettlement}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
 
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
@@ -302,7 +305,8 @@ describe('RACK-OS', () => {
     expect(operations).toHaveTextContent('BranchOps 1.0')
     expect(operations).toHaveTextContent('BOOK SALE')
     expect(operations).toHaveTextContent('$20.00')
-    expect(operations).toHaveTextContent('CD-3318-2204')
+    expect(within(operations).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-1042-7781')
+    expect(within(operations).getByText('SETTLED TO').closest('div')).toHaveTextContent('CD-3318-2204')
     expect(operations.textContent).not.toContain('dollar-account-veyra-phone-v0')
     expect(operations.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
     expect(JSON.parse(screen.getByTestId('game-state').textContent ?? '')).toEqual(beforeOperations)

@@ -34,6 +34,7 @@ GameState
 │       │   └── standalone Credential Access Module artifact
 │       └── saved Dollar sign-in
 ├── dollarFinance
+├── bookstoreBranch — routed to the dedicated branch-commerce owner
 ├── nodeWallet
 ├── nodeEconomy
 ├── world
@@ -68,6 +69,11 @@ The `mail` slice is the player's mailbox, owned by their represented in-world
 mail account rather than by the local Device or NODE-OS. Its detailed semantics
 belong to `docs/current/COMMUNICATION.md`.
 
+The top-level `bookstoreBranch` slice is canonical branch-owned business truth,
+separate from World Device and Civic Dollar state. Its detailed identity,
+operations-host, sale-history, and settlement-configuration semantics belong to
+`docs/current/BRANCH_COMMERCE.md`.
+
 The concretely represented foreign filesystems are normal Device-owned state.
 A successful Upload may create its normal destination artifact in the remote
 Device filesystem; this does not imply a generic filesystem-write mechanic.
@@ -78,7 +84,9 @@ local Device owns and entirely independent of it: the same product may exist at
 different releases on different Devices, and installing or replacing software on
 one never mutates another's inventory. Both servers start with GateSSH
 InstalledSoftware coherent with their managed Service implementation (srv-01
-at 1.3.2 and srv-02 at 1.3.3), while each inventory remains a distinct
+at 1.3.2 and srv-02 at 1.3.3); srv-02 additionally hosts the ordinary BranchOps
+1.0 InstalledSoftware owned in detail by `docs/current/BRANCH_COMMERCE.md`.
+Each inventory remains a distinct
 collection rather than a shared one. The field is optional precisely so
 the shallow training hosts keep no fabricated inventory; a host that represents
 none simply cannot install software (see

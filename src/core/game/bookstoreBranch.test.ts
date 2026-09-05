@@ -56,6 +56,24 @@ describe('bookstore branch initial truth', () => {
     expect(resolveBookstoreBranchOperations(withoutSoftware, host.id)).toBeUndefined()
   })
 
+  it('keeps completed-sale settlement historical when the current destination changes', () => {
+    const initial = createInitialGameState()
+    const transactionBefore = initial.dollarFinance.transactions.records.find(({ id }) => id === BOOKSTORE_SALE_TRANSACTION_ID)!
+    const changed = {
+      ...initial,
+      bookstoreBranch: { ...initial.bookstoreBranch, settlementAccountId: 'dollar-account-local-v0' },
+    }
+
+    const operations = resolveBookstoreBranchOperations(changed, BOOKSTORE_BRANCH_OPERATIONS_DEVICE_ID)
+    expect(operations?.settlementAccount.accountReference).toBe('CD-1042-7781')
+    expect(operations?.sales).toHaveLength(1)
+    expect(operations?.sales[0].transaction).toBe(transactionBefore)
+    expect(operations?.sales[0].transaction.amountCents).toBe(2_000)
+    expect(operations?.sales[0].transaction.destinationAccountReference).toBe('CD-3318-2204')
+    expect(changed.dollarFinance.transactions.records).toBe(initial.dollarFinance.transactions.records)
+    expect(changed.dollarFinance.transactions.records[0]).toEqual(transactionBefore)
+  })
+
   it('authors no Petra complaint or Technician response for the incoming sale', () => {
     const state = createInitialGameState()
     expect(state.petraCompanyChat.messages).toEqual([])

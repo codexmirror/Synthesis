@@ -9,7 +9,9 @@ This document is the normative owner of current implemented Dollar finance truth
 
 `GameState.dollarFinance` represents exactly one concrete Provider, Civic Dollar. It directly owns Provider identity and display name, Financial Accounts, Credentials, active Financial Sessions, and Transactions; there is no provider registry or generic financial-access layer.
 
-A Financial Account has a stable internal ID, a distinct Provider-scoped account reference, and an integer `balanceCents`. Initial state contains exactly two ordinary Accounts and no Transaction, because no transfer has happened in the represented world: the player's, `dollar-account-local-v0` / `CD-1042-7781` with 125000 cents ($1,250.00), and `dollar-account-veyra-phone-v0` / `CD-3318-2204` with 34250 cents ($342.50), the Account the represented VEYRA phone is signed in to. Both are ordinary Provider Accounts; neither is owned by a Device, by NODE-OS or by VEYRA. An Account ID is distinct from Player, Device, Credential, login, Session, Transaction, and account-reference identity.
+A Financial Account has a stable internal ID, a distinct Provider-scoped account reference, and an integer `balanceCents`. Initial state contains exactly three ordinary Accounts: the player's `dollar-account-local-v0` / `CD-1042-7781` with 125000 cents ($1,250.00); `dollar-account-veyra-phone-v0` / `CD-3318-2204` with 34250 cents ($342.50), which the represented VEYRA phone's Session authorizes and the bookstore branch initially configures as its current settlement destination; and the neutral retail-clearing `dollar-account-retail-clearing-v0` / `CD-9000-2000` with 80000 cents ($800.00). All are ordinary Provider Accounts; none is owned by a Device, by NODE-OS, by VEYRA, or by the branch. An Account ID is distinct from Player, Device, Credential, login, Session, Transaction, and account-reference identity.
+
+Initial state also contains one authored 2,000-cent Transaction, `dollar-transaction-0001`, from the retail-clearing Account into the phone-authorized Account. Allocation continues at `dollar-transaction-0002`. Finance owns this generic historical movement; the branch domain alone owns its book-sale meaning.
 
 One Credential has its own stable ID, references the player's Account by stable Account ID, and carries an exact login identifier and password as Provider World Truth. Credential material is not authority and is not player knowledge. The phone's Account has no represented Credential and the phone stores no saved sign-in: nothing implemented requires either, and neither is implied by the Account or by the Session. Authentication is consequently not currently possible into that Account, which is a statement about what is represented rather than a rule.
 
@@ -65,7 +67,7 @@ A Transaction carries a stable monotonic ID (`dollar-transaction-0001`, followin
 
 ## Initial branch-sale finance truth
 
-The Provider initially owns a third, neutral retail-clearing Account with no
+The Provider's neutral retail-clearing Account has no
 Credential, Session, Device, or customer identity. One authored historical
 Transaction (`dollar-transaction-0001`) moves 2,000 cents from its
 `CD-9000-2000` reference into `dollar-account-veyra-phone-v0` at

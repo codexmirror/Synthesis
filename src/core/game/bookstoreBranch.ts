@@ -46,9 +46,7 @@ export function resolveBookstoreBranchOperations(state: GameState, deviceId: str
   if (!settlementAccount) return undefined
   const sales = branch.completedSales.flatMap((sale) => {
     const transaction = state.dollarFinance.transactions.records.find(({ id }) => id === sale.dollarTransactionId)
-    return transaction?.destinationAccountId === branch.settlementAccountId
-      ? [{ id: sale.id, kind: sale.kind, transaction }]
-      : []
+    return transaction ? [{ id: sale.id, kind: sale.kind, transaction }] : []
   })
   return { branch, software, settlementAccount, sales }
 }
