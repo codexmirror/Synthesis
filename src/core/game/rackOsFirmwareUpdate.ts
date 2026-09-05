@@ -1,5 +1,6 @@
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID } from './firmwareIdentity'
 import { getFilesystemFile } from './filesystem'
+import { isDeviceNetworkUsable } from './deviceOperationalState'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import type {
   DeviceFirmwareUpdateProgress, FirmwarePackageFile, FirmwareState, FirmwareUpdatePhase, FirmwareUpdateStepResult,
@@ -147,7 +148,7 @@ export type StartRackOsFirmwareUpdateResult =
   | { readonly status: 'started'; readonly state: GameState }
   | {
     readonly status:
-      | 'session_unavailable' | 'invalid_path' | 'artifact_not_found' | 'artifact_not_file' | 'not_firmware_artifact'
+      | 'session_unavailable' | 'target_offline' | 'invalid_path' | 'artifact_not_found' | 'artifact_not_file' | 'not_firmware_artifact'
       | Exclude<RackOsFirmwareInstallability, 'installable'>
     readonly state: GameState
   }
@@ -167,6 +168,15 @@ export type StartRackOsFirmwareUpdateResult =
  * DeviceAccess, exactly as remote package installation uses it; V1 represents
  * no finer RACK-OS administrator model and none is invented here.
  *
+ * `resolveActiveRemoteTarget` resolves identity only — it does not itself
+ * verify reachability, and other callers rely on that separation — so this
+ * operation checks the target's current canonical operational usability
+ * itself, exactly as `installRemoteSoftwarePackage` already does, immediately
+ * after resolving the target and before touching its filesystem. A Session
+ * that has not yet been cleared by the next canonical reachability pass must
+ * not be able to admit new firmware work against a target that has already
+ * gone offline.
+ *
  * Every refusal leaves canonical state completely untouched, and a successful
  * start changes exactly one thing: the operated Device's own firmware-update
  * progress. Its Firmware, Services, installed software, filesystem and
@@ -176,6 +186,7 @@ export type StartRackOsFirmwareUpdateResult =
 export function startRackOsFirmwareUpdateForOperatedRemoteDevice(state: GameState, artifactPath: string): StartRackOsFirmwareUpdateResult {
   const remote = resolveActiveRemoteTarget(state)
   if (!remote) return { status: 'session_unavailable', state }
+  if (!isDeviceNetworkUsable(remote.target.operational)) return { status: 'target_offline', state }
 
   const resolved = getFilesystemFile(remote.target.filesystem!, artifactPath)
   if (resolved.status === 'invalid_path') return { status: 'invalid_path', state }

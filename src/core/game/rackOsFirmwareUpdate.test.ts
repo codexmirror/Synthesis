@@ -148,6 +148,29 @@ describe('admitting a RACK-OS firmware installation', () => {
     expect(hostOf(operatingSrv01, SRV_02_ID).firmwareUpdate).toBeUndefined()
   })
 
+  it('refuses admission on a stale Session whose target has already gone offline, without touching anything', () => {
+    // resolveActiveRemoteTarget resolves identity only; it does not itself
+    // observe reachability. Canonical reachability advancement normally clears
+    // a Session like this on the next tick, but nothing here should be able to
+    // admit new firmware work in the gap before that pass runs.
+    const base = operatingSrv02()
+    const wentOffline: GameState = {
+      ...base,
+      world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((host) =>
+        host.id === SRV_02_ID ? { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } } : host) } },
+    }
+    // The Session object itself is untouched — this is exactly the stale-but-not-yet-advanced case.
+    expect(wentOffline.remoteSession.active).toEqual(base.remoteSession.active)
+
+    const result = startRackOsFirmwareUpdateForOperatedRemoteDevice(wentOffline, INSTALLER_PATH)
+    expect(result.status).toBe('target_offline')
+    expect(result.state).toBe(wentOffline)
+    expect(hostOf(result.state, SRV_02_ID).firmwareUpdate).toBeUndefined()
+    expect(hostOf(result.state, SRV_02_ID).firmware).toEqual(hostOf(wentOffline, SRV_02_ID).firmware)
+    expect(result.state.process).toEqual(wentOffline.process)
+    expect(result.state.world.network.hosts).toEqual(wentOffline.world.network.hosts)
+  })
+
   it('refuses anything that is not the exact represented firmware build, without mutating anything', () => {
     const base = operatingSrv02()
     expect(startRackOsFirmwareUpdateForOperatedRemoteDevice(base, '/srv/backup-manifest.txt').status).toBe('not_firmware_artifact')

@@ -1166,6 +1166,11 @@ function applicationNames() {
   return [...document.querySelectorAll('.rack-appitem__name')].map((name) => name.textContent)
 }
 
+/** Each application's own note line, in listed order (SYSTEM for a built-in, INSTALLED · <version> for real InstalledSoftware). */
+function applicationNotes() {
+  return [...document.querySelectorAll('.rack-appitem__note')].map((note) => note.textContent)
+}
+
 describe('RACK-OS 1.1 Business application shell', () => {
   it('opens on an Applications home instead of the 1.0 section bar', async () => {
     const user = userEvent.setup()
@@ -1180,6 +1185,12 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()
     // The three built-ins, plus BranchOps because this exact represented relationship exists.
     expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BRANCHOPS'])
+    // Terminal, Files and System are Firmware-owned built-ins, not InstalledSoftware: the
+    // aggregate label must not claim the whole list is "installed", even though BranchOps
+    // — which really is backed by InstalledSoftware — states its own concrete INSTALLED note.
+    expect(screen.getByText('APPLICATIONS · 4')).toBeInTheDocument()
+    expect(screen.queryByText(/INSTALLED APPLICATIONS/)).toBeNull()
+    expect(applicationNotes()).toEqual(['SYSTEM', 'SYSTEM', 'SYSTEM', 'INSTALLED · 1.0'])
   })
 
   it('opens an application and returns to Applications without touching canonical state', async () => {

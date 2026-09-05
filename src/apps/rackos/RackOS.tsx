@@ -209,7 +209,7 @@ function RackApplications({ deviceName, firmware, branchApplication, open }: {
       <div><dt>DEVICE</dt><dd>{deviceName}</dd></div>
       <div><dt>FIRMWARE</dt><dd>{firmware}</dd></div>
     </dl>
-    <p className="rack-artifact-kind">INSTALLED APPLICATIONS · {applications.length}</p>
+    <p className="rack-artifact-kind">APPLICATIONS · {applications.length}</p>
     <div className="rack-applist">
       {applications.map((application, index) => <button className="rack-appitem" type="button" key={application.location} onClick={() => open(application.location)}>
         <span className="rack-appitem__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
