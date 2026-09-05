@@ -823,26 +823,26 @@ RACK-OS 1.0            technical era
 
 RACK-OS 1.1 Business   primitive application-shell era
                        opens on an APPLICATIONS home
-                       TERMINAL / FILES / SYSTEM as built-in applications
-                       plus a compatible installed business application
+                       TERMINAL / FILES / SYSTEM / BUSINESS as built-in applications
                        an open application returns to APPLICATIONS
 ```
 
 RACK-OS 1.0 has no `OPERATIONS` section and no business surface of any kind:
-srv-02 really does host BranchOps, and 1.0 simply provides no application shell
-to present it in. Removing that section changes no BranchOps InstalledSoftware,
-branch state, sale, settlement configuration, filesystem or finance.
+1.0 simply provides no application shell to present one in. Removing that
+section changes no Business Branch, Company, sale, settlement configuration,
+filesystem or finance.
 
-RACK-OS 1.1 Business lists a BranchOps application only where the exact
-represented relationship actually exists — the Device is the branch's configured
-operations host *and* really hosts the represented BranchOps 1.0 build — which
-is the same `resolveBookstoreBranchOperations` condition
-[`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md) owns. A 1.1 Business Device without
-that relationship (an upgraded srv-01, for instance) has the application shell
-and only the three built-ins; no application is fabricated to fill the launcher,
-and an installed product with no represented application here does not become
-one. There is deliberately no generic installed-application framework,
-application discovery, or per-application permission model.
+RACK-OS 1.1 Business always lists a built-in `BUSINESS` application —
+unconditionally, exactly like Terminal, Files and System, and never as
+InstalledSoftware. Opening it resolves the operated Device's actual
+represented LocalNetwork membership and the Business Branch(es) explicitly
+associated with those Networks (`resolveBusinessOperatingContext`,
+[`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md)). A Device whose Network has no
+associated Branch (an upgraded srv-01, for instance) still lists BUSINESS and
+truthfully states that no Business is configured — that is legitimate
+represented World Truth, not a missing application. There is deliberately no
+generic installed-application framework, application discovery, or
+per-application permission model.
 
 Both releases reach the same canonical mechanics through the same components:
 the shell is presentation, never capability. Its Terminal supports

@@ -86,6 +86,34 @@ the same concrete systems used by hacking rather than becoming a disconnected
 generic tycoon minigame. Company purchase, ownership, valuation, profit,
 management, and upgrades remain future direction, not current truth.
 
+The durable Company → Business Branch → Network foundation this direction
+requires is now current truth (`docs/current/BRANCH_COMMERCE.md`): a Company is
+a persistent World Entity independent from any Network, Device, Firmware,
+InstalledSoftware, Civic Dollar Account, or the Player; it may own multiple
+Business Branches; and a Branch operates through an explicit reference to the
+LocalNetwork it sits on, never the reverse. A Network may legitimately host
+zero, one, or multiple Branches, and one Company may eventually operate across
+several Networks. RACK-OS 1.1 Business always exposes a built-in `BUSINESS`
+read surface over this canonical truth — including on a Network with nothing
+configured on it — so that later acquisition, management, and Business
+upgrades have durable state to attach to rather than requiring their own
+storage model. What remains future direction, not current truth:
+
+- acquisition itself, ownership, valuation, and any owner identity;
+- management or upgrade mechanics of any kind;
+- dedicated concrete Business systems such as operations, distribution,
+  inventory, payments, cameras, storage, and security, and any InstalledSoftware
+  that represents them;
+- a future VEYRA or other management client presenting this same canonical
+  Business truth alongside or instead of RACK-OS;
+- Business upgrades expressed as changes to represented infrastructure,
+  Devices, Software, capacity, contracts, or inventory, rather than as
+  abstract "+revenue" stats — dashboards and management clients should always
+  derive displayed facts from represented state, never from an invented
+  aggregate number;
+- Node Miner / Business workload tradeoffs, hardware reservation, or Business
+  licensing on shared server infrastructure.
+
 
 ## Multiple approaches instead of one hacking pipeline
 

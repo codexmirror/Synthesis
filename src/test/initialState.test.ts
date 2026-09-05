@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 68', () => {
+  it('separates identities and seeds canonical local-device state in schema version 69', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(68)
+    expect(GAME_STATE_VERSION).toBe(69)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(68)
+    expect(state.version).toBe(69)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -182,7 +182,7 @@ describe('createInitialGameState', () => {
     expect(server?.id).not.toBe('host-lan-001')
     expect(server?.installedSoftware).toContainEqual({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' })
     expect(server?.installedSoftware).toContainEqual({ id: 'auth-guard', releaseId: 'auth-guard-1.0', buildId: 'build-auth-guard-1.0-v0', name: 'AuthGuard', version: '1.0', publisher: 'rack-systems' })
-    expect(server?.installedSoftware).toHaveLength(3)
+    expect(server?.installedSoftware).toHaveLength(2)
     expect(server?.installedSoftware).not.toBe(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.installedSoftware)
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })
