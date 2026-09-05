@@ -239,8 +239,10 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     const result = actions.startCredentialAccessAttemptFromObservation({
       endpoint: route.endpoint, targetDeviceId, serviceId: route.serviceId,
       providerId,
-      // KeyProbe forms from its own attacked authentication surface; the specialized module forms from its own required Vulnerability.
-      ...(providerId === 'keyprobe' ? { serviceImplementation: (route as KeyProbeRoute).serviceImplementation } : { vulnerabilityId: (route as TargetRoute).vulnerabilityId }),
+      // The specialized module forms from its own required Vulnerability. KeyProbe's attacked surface is never
+      // supplied here: Credential Access derives it canonically from this exact Service's own remembered
+      // Inspect fingerprint, so presentation can never assert an implementation the player has not observed.
+      ...(providerId !== 'keyprobe' ? { vulnerabilityId: (route as TargetRoute).vulnerabilityId } : {}),
     })
     if (result.status === 'started') setNotice(null)
     else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)

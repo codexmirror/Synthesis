@@ -90,8 +90,20 @@ export interface CredentialAccessObservation {
   readonly providerId?: CredentialAccessProviderId
   /** The specialized module's own required Vulnerability. Required when starting through the module; irrelevant to KeyProbe. */
   readonly vulnerabilityId?: string
-  /** KeyProbe's own attacked authentication surface. Required when starting through KeyProbe; irrelevant to the specialized module. */
-  readonly serviceImplementation?: ServiceImplementationIdentity
+}
+
+/**
+ * The one legitimate route into a KeyProbe profile for a concrete
+ * `CredentialAccessObservation`: derived here, canonically, from the exact
+ * Service's own remembered Enhanced Inspect fingerprint in Discovery — never
+ * accepted as caller-supplied data. A caller can request KeyProbe against
+ * this Service, but it can never assert *which* implementation KeyProbe is
+ * attacking; only what the player has legitimately observed here counts.
+ */
+function keyProbeProfileForRememberedService(state: Pick<GameState, 'discovery'>, observed: Pick<CredentialAccessObservation, 'targetDeviceId' | 'serviceId' | 'endpoint'>): KeyProbeAttackProfile | undefined {
+  const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
+  const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
+  return service?.inspect?.implementation ? keyProbeProfileForObservedImplementation(service.inspect.implementation) : undefined
 }
 
 /** Whether SELF owns the standalone KeyProbe 1.0 installation. Vulnerability-agnostic by design: KeyProbe's own concrete profile governs which authentication surfaces are attackable, never a named weakness. */
@@ -117,8 +129,10 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
   if (!service || accessed) return false
   const requestedProvider = observed.providerId ?? 'credential-access-module'
   if (requestedProvider === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
-    // KeyProbe forms from the player's own legitimately identified authentication surface alone — no Vulnerability Knowledge required.
-    return Boolean(ownsKeyProbe(state) && observed.serviceImplementation && keyProbeProfileForImplementation(observed.serviceImplementation))
+    // KeyProbe forms from the player's own legitimately remembered authentication surface alone — no
+    // Vulnerability Knowledge required, and never from a caller-asserted implementation identity: the
+    // attacked surface is always the one this exact Service's own remembered Inspect fingerprint names.
+    return Boolean(ownsKeyProbe(state) && keyProbeProfileForRememberedService(state, observed))
   }
   const known = observed.vulnerabilityId !== undefined && state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
   const tool = observed.vulnerabilityId !== undefined && ownedCredentialAccessModuleProviders(state, observed.vulnerabilityId).some(({ id }) => id === requestedProvider)
@@ -146,12 +160,17 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   const executionToolId = observed.providerId ?? 'credential-access-module'
   if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && observed.vulnerabilityId !== undefined && flipperSupportsTechnique(installedHost, observed.vulnerabilityId))) return { status: 'not_available', state }
   const isKeyProbe = executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
-  const keyProbe = isKeyProbe && observed.serviceImplementation ? keyProbeProfileForImplementation(observed.serviceImplementation) : undefined
+  // Re-derived here rather than trusted from `observed`: `canFormCredentialAccessAttempt` already proved this
+  // exact Service's own remembered Inspect fingerprint names a supported profile, so the Process snapshots
+  // that same canonically remembered identity, never whatever the caller happened to assert.
+  const keyProbe = isKeyProbe ? keyProbeProfileForRememberedService(state, observed) : undefined
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
     workRequired: keyProbe?.workRequired ?? CREDENTIAL_ACCESS_WORK_REQUIRED,
     startedEndpoint: observed.endpoint, toolId: executionToolId,
-    ...(isKeyProbe ? { serviceImplementation: observed.serviceImplementation! } : { vulnerabilityId: observed.vulnerabilityId!, moduleId: CREDENTIAL_ACCESS_MODULE_ID }),
+    ...(isKeyProbe
+      ? { serviceImplementation: { productId: keyProbe!.serviceProductId, releaseId: keyProbe!.serviceReleaseId, buildId: keyProbe!.serviceBuildId } }
+      : { vulnerabilityId: observed.vulnerabilityId!, moduleId: CREDENTIAL_ACCESS_MODULE_ID }),
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }

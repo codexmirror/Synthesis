@@ -882,9 +882,12 @@ function selectOperation(input: {
       { label: 'ENDPOINT', value: process.startedEndpoint },
     ]
     // KeyProbe attacks a Service surface directly, never a named Vulnerability: its running fact states the
-    // legitimately remembered implementation the attempt started against, not a WEAKNESS line.
+    // implementation this exact Process snapshotted when it started, never whatever the Service's remembered
+    // fingerprint currently reads — a later re-Inspect while KeyProbe is running must not retarget this label.
     if (process.kind === 'credential_access' && process.toolId === 'keyprobe') {
-      return [...base, { label: 'TARGET', value: serviceOf(process.serviceId)?.observed?.implementation ?? '' }]
+      const attackedProfile = process.serviceImplementation ? keyProbeProfileForImplementation(process.serviceImplementation) : undefined
+      const attackedImplementation = attackedProfile ? `${attackedProfile.observedImplementationName} ${attackedProfile.observedImplementationVersion}` : ''
+      return [...base, { label: 'TARGET', value: attackedImplementation }]
     }
     const label = process.vulnerabilityId !== undefined ? input.weaknessLabel(process.serviceId, process.vulnerabilityId) : undefined
     return [...base, { label: 'WEAKNESS', value: process.vulnerabilityId !== undefined ? (label ? `${process.vulnerabilityId} · ${label}` : process.vulnerabilityId) : '' }]

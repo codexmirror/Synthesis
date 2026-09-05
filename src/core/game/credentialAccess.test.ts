@@ -1,27 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { rememberScan } from './discovery'
+import { rememberInspect, rememberScan } from './discovery'
 import { createInitialGameState } from './initialState'
+import { inspectKnownTarget } from './inspect'
 import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess } from './processes'
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
 import { canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, KEYPROBE_ATTACK_PROFILES, keyProbeProfileForImplementation, keyProbeProfileForObservedImplementation, keyProbeSuccessChance, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
-import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
+import { GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_RELEASE_ID } from './serviceImplementations'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import type { CredentialAccessProcess, GameState } from './types'
 
 const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017' } as const
-// KeyProbe's own attacked authentication surface against the same GateSSH 1.3.2 Service — a concrete
-// implementation identity, never a named Vulnerability.
+// KeyProbe's own attacked authentication surface is never supplied by the caller: Credential Access derives
+// it canonically from this exact Service's own remembered Enhanced Inspect fingerprint (see `prepared()`).
 const keyProbeObservation = {
   endpoint: observation.endpoint, targetDeviceId: observation.targetDeviceId, serviceId: observation.serviceId,
-  providerId: 'keyprobe', serviceImplementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: GATE_SSH_1_3_2_BUILD_ID },
+  providerId: 'keyprobe',
 } as const
 
+/** Scanned, Enhanced-Inspected (so KeyProbe's own remembered GateSSH 1.3.2 surface is legitimately known), and Analyzed. */
 function prepared(): GameState {
   let state = createInitialGameState()
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
+  discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '198.51.100.47', 'enhanced'), state.player.localDevice.id)
   const analysis = startServiceAnalysis({ ...state, discovery }, observation.targetDeviceId, observation.serviceId)
   if (analysis.status !== 'started') throw Error(analysis.status)
   return advanceGameState(analysis.state, 20_000)
@@ -99,6 +102,44 @@ describe('Initial credential access', () => {
     const standardOnly = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
     expect(canFormCredentialAccessAttempt(standardOnly, keyProbeObservation)).toBe(true)
     expect(canFormCredentialAccessAttempt(standardOnly, observation)).toBe(false)
+  })
+
+  it('never trusts a caller-supplied KeyProbe implementation identity: only this exact Service\'s own remembered Inspect fingerprint may form or start the attempt', () => {
+    const state = createInitialGameState()
+    const targets = { localDevice: state.player.localDevice, network: state.world.network }
+    // Scanned, but never Enhanced-Inspected: no implementation is legitimately remembered for this Service yet.
+    const scannedOnly = { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id) }
+    expect(canFormCredentialAccessAttempt(scannedOnly, keyProbeObservation)).toBe(false)
+    expect(startCredentialAccessAttemptFromObservation(scannedOnly, keyProbeObservation).status).toBe('not_available')
+
+    // Even a caller that smuggles in a real, authored, KeyProbe-supported implementation identity must not be
+    // trusted: `CredentialAccessObservation` no longer accepts one, and a value forced in past the type system
+    // is still ignored, because the canonical owner derives the attacked surface itself from Discovery alone.
+    const spoofed = { ...keyProbeObservation, serviceImplementation: { productId: 'gate-ssh', releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: 'build-gate-ssh-1.3.2-v0' } } as unknown as typeof keyProbeObservation
+    expect(canFormCredentialAccessAttempt(scannedOnly, spoofed)).toBe(false)
+    expect(startCredentialAccessAttemptFromObservation(scannedOnly, spoofed).status).toBe('not_available')
+
+    // Once the same Service is legitimately Enhanced-Inspected, KeyProbe forms from that remembered evidence
+    // alone — no Vulnerability Knowledge required — and the started Process snapshots exactly that identity.
+    const inspected = { ...scannedOnly, discovery: rememberInspect(scannedOnly.discovery, inspectKnownTarget(targets, scannedOnly.discovery, '198.51.100.47', 'enhanced'), state.player.localDevice.id) }
+    expect(inspected.knowledge.discoveredVulnerabilities).toEqual([])
+    expect(canFormCredentialAccessAttempt(inspected, keyProbeObservation)).toBe(true)
+    const started = startCredentialAccessAttemptFromObservation(inspected, keyProbeObservation)
+    if (started.status !== 'started') throw Error(started.status)
+    const process = started.state.process.processes.at(-1) as CredentialAccessProcess
+    expect(process.serviceImplementation).toEqual({ productId: 'gate-ssh', releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: 'build-gate-ssh-1.3.2-v0' })
+  })
+
+  it('still forms and resolves a legitimately remembered but currently stale KeyProbe surface, even when World Truth has moved to a different authored profile', () => {
+    const running = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
+    if (running.status !== 'started') throw Error(running.status)
+    // The remembered surface is GateSSH 1.3.2; World Truth secretly moves to the differently-profiled GateSSH 1.3.3.
+    const movedOn = changeService(running.state, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' } }))
+    const done = advanceGameState(movedOn, 30_000, () => { throw Error('must validate the remembered surface before probability') })
+    const process = done.process.processes.find((candidate): candidate is CredentialAccessProcess => candidate.kind === 'credential_access')
+    expect(process?.serviceImplementation).toEqual({ productId: 'gate-ssh', releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: 'build-gate-ssh-1.3.2-v0' })
+    expect(process?.result).toMatchObject({ status: 'attempt_failed', reason: 'surface_mismatch' })
+    expect(done.deviceAccess.established).toEqual([])
   })
 
   it('does not consult secretly changed weakness truth for known feasibility or start admission', () => {

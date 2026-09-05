@@ -623,6 +623,27 @@ describe('Credential Access domain presentation', () => {
     expect(action?.assessment).toEqual({ kind: 'estimate', percent: 30 })
   })
 
+  it('keeps a running KeyProbe operation showing the implementation its own Process snapshotted, even after Discovery is refreshed to a different one', () => {
+    const state = knownAuth031({ inspect: true, authGuardInWorld: false })
+    const runningProcess: CredentialAccessProcess = {
+      kind: 'credential_access', id: 'process-0001', label: 'CREDENTIAL ACCESS', executorDeviceId: state.player.localDevice.id,
+      status: 'running', ramRequiredMiB: 896, workRequired: 1800, workCompleted: 300,
+      targetDeviceId: SRV_02, serviceId: 'service-ssh-002', startedEndpoint: `${SRV_02_ADDRESS}:22`,
+      serviceImplementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0' }, toolId: 'keyprobe',
+    }
+    const running = withProcesses(state, [runningProcess])
+    expect(selectTarget(running, SRV_02)?.operation?.facts).toContainEqual({ label: 'TARGET', value: 'GateSSH 1.3.3' })
+
+    // The player legitimately re-Inspects mid-attempt; Discovery now remembers a different implementation.
+    const targets = { localDevice: running.player.localDevice, network: { ...running.world.network, hosts: running.world.network.hosts.map((host) => host.id === SRV_02 ? { ...host, services: host.services!.map((service) => service.id === 'service-ssh-002' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2' } } : service) } : host) } }
+    const refreshedDiscovery = rememberInspect(running.discovery, inspectKnownTarget(targets, running.discovery, SRV_02_ADDRESS, 'enhanced'), running.player.localDevice.id)
+    const refreshed = { ...running, discovery: refreshedDiscovery }
+    const afterTarget = selectTarget(refreshed, SRV_02)!
+    expect(afterTarget.services.find(({ id }) => id === 'service-ssh-002')?.observed?.implementation).toBe('GateSSH 1.3.2')
+    // The running operation still describes what this Process actually started against, not the fresher observation.
+    expect(afterTarget.operation?.facts).toContainEqual({ label: 'TARGET', value: 'GateSSH 1.3.3' })
+  })
+
   it('presents the specialized module as MATCHED compatibility, never a fabricated percentage', async () => {
     const state = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
     const inspected = { ...state, discovery: rememberInspect(state.discovery, inspectKnownTarget({ localDevice: state.player.localDevice, network: state.world.network }, state.discovery, SRV_01_ADDRESS, 'enhanced'), state.player.localDevice.id) }

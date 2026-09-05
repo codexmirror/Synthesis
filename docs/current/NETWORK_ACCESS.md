@@ -673,7 +673,11 @@ attack <ipv4:port>
 or initiate either provider through NodeScan's Credential Access ACTION, which
 uses the concrete context derived from the player's own legitimate information
 (Knowledge for the module, remembered implementation identity for KeyProbe)
-and selected owned provider.
+and selected owned provider. KeyProbe's attacked implementation identity is
+never accepted as caller-supplied data: Credential Access derives it itself,
+canonically, from this exact Service's own remembered Enhanced Inspect
+fingerprint in Discovery, so presentation can request KeyProbe against a
+Service but can never assert which implementation it attacks.
 
 Starting the attempt creates a Credential Access Process.
 

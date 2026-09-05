@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_1_4_0_BUILD_ID, GATE_SSH_PRODUCT_ID, vulnerabilitiesForService } from './serviceImplementations'
+import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_1_4_0_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { rememberInspect, rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { inspectKnownTarget } from './inspect'
@@ -11,17 +11,19 @@ import type { CredentialAccessProcess, GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID, authGuard10SupportsGateSshAuthentication } from './authGuard'
 import { deriveSoftwarePackageEligibility } from './softwareInstallation'
 
-// KeyProbe's own attacked authentication surface: a concrete GateSSH implementation identity, never a named Vulnerability.
+// KeyProbe's own attacked authentication surface is never supplied by the caller: Credential Access derives it
+// canonically from this exact Service's own remembered Enhanced Inspect fingerprint (see `learned()`).
 const observation = {
   endpoint: '203.0.113.42:22', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002',
-  serviceImplementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: GATE_SSH_1_3_3_RELEASE_ID, buildId: GATE_SSH_1_3_3_BUILD_ID },
   providerId: 'keyprobe',
 } as const
 
+/** Scanned, Enhanced-Inspected (so KeyProbe's own remembered GateSSH 1.3.3 surface is legitimately known), and Analyzed. */
 function learned(): GameState {
   let state = createInitialGameState()
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
+  discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), state.player.localDevice.id)
   const analysis = startServiceAnalysis({ ...state, discovery }, observation.targetDeviceId, observation.serviceId)
   if (analysis.status !== 'started') throw Error(analysis.status)
   return advanceGameState(analysis.state, 20_000)
