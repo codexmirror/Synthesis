@@ -34,7 +34,7 @@ GameState
 │       │   └── standalone Credential Access Module artifact
 │       └── saved Dollar sign-in
 ├── dollarFinance
-├── bookstoreBranch — routed to the dedicated branch-commerce owner
+├── business — routed to the dedicated branch-commerce owner
 ├── nodeWallet
 ├── nodeEconomy
 ├── world
@@ -69,10 +69,11 @@ The `mail` slice is the player's mailbox, owned by their represented in-world
 mail account rather than by the local Device or NODE-OS. Its detailed semantics
 belong to `docs/current/COMMUNICATION.md`.
 
-The top-level `bookstoreBranch` slice is canonical branch-owned business truth,
-separate from World Device and Civic Dollar state. Its detailed identity,
-operations-host, sale-history, and settlement-configuration semantics belong to
-`docs/current/BRANCH_COMMERCE.md`.
+The top-level `business` slice is canonical Business-domain World Truth —
+represented Companies and the Business Branches they own — separate from World
+Device and Civic Dollar state. Its detailed Company/Branch identity, explicit
+Branch → Network relationship, sale-history, and settlement-configuration
+semantics belong to `docs/current/BRANCH_COMMERCE.md`.
 
 The concretely represented foreign filesystems are normal Device-owned state.
 A successful Upload may create its normal destination artifact in the remote
@@ -84,9 +85,7 @@ local Device owns and entirely independent of it: the same product may exist at
 different releases on different Devices, and installing or replacing software on
 one never mutates another's inventory. Both servers start with GateSSH
 InstalledSoftware coherent with their managed Service implementation (srv-01
-at 1.3.2 and srv-02 at 1.3.3); srv-02 additionally hosts the ordinary BranchOps
-1.0 InstalledSoftware owned in detail by `docs/current/BRANCH_COMMERCE.md`.
-Each inventory remains a distinct
+at 1.3.2 and srv-02 at 1.3.3). Each inventory remains a distinct
 collection rather than a shared one. The field is optional precisely so
 the shallow training hosts keep no fabricated inventory; a host that represents
 none simply cannot install software (see
@@ -333,7 +332,7 @@ likewise change nothing; only INSTALL starts anything.
 
 Completing the final `FINALIZING` stage atomically activates the release and enters the Device’s existing real reboot lifecycle. The Device’s `firmware` becomes the new release identity, and its operational state becomes `SHUTTING_DOWN` / `DISCONNECTED` with the ordinary recovery progress that continues through `BOOTING` to `RUNNING` / `CONNECTED`. Completion of that real boot crosses `runRealDeviceBootConsequences` exactly once; the update never invokes an individual boot consequence.
 
-What else activation changes is the route’s own truth, and the two differ because the Devices differ. On the phone, GateSSH is firmware, so the VEYRA release’s one firmware-owned GateSSH Service receives the release’s bundled implementation. On a RACK-OS server GateSSH is `InstalledSoftware` and separately managed Service state, so **RACK-OS 1.1 Business changes the Device’s `firmware` and nothing else**: Services, `installedSoftware` (GateSSH, AuthGuard, BranchOps), the filesystem, branch commerce, Civic Dollar state, hardware and Network membership are all untouched, and the installer artifact itself remains an ordinary file. Firmware update, GateSSH update, AuthGuard install/update, BranchOps update and configuration repair stay separate causes.
+What else activation changes is the route’s own truth, and the two differ because the Devices differ. On the phone, GateSSH is firmware, so the VEYRA release’s one firmware-owned GateSSH Service receives the release’s bundled implementation. On a RACK-OS server GateSSH is `InstalledSoftware` and separately managed Service state, so **RACK-OS 1.1 Business changes the Device’s `firmware` and nothing else**: Services, `installedSoftware` (GateSSH, AuthGuard), the filesystem, Civic Dollar state, hardware and Network membership are all untouched, and the installer artifact itself remains an ordinary file. Because a Business Branch's technical-site relationship is an explicit reference to a LocalNetwork rather than to this Device, installing RACK-OS Business also changes no Company, Business Branch, sale, or settlement configuration — installing the Firmware creates no Business state of its own. Firmware update, GateSSH update, AuthGuard install/update and configuration repair stay separate causes.
 
 Replacing the credential-access surface invalidates only established `DeviceAccess` whose represented provenance names that Service’s replaced concrete build. Unrelated Access, and legacy relationships without represented build provenance, remain intact. Because the RACK-OS route replaces no Service build at all, established DeviceAccess to an upgraded server simply survives, and the player reconnects over it after the reboot. The active Remote Session is not disconnected by either update: ordinary Remote Session reachability observes the now network-unusable Device and ends it. Discovery and Knowledge remain historical, so remembered GateSSH 1.3.2 / `AUTH-017` facts can become stale; Credential Access still validates them against current World Truth and fails.
 

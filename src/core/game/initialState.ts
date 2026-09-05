@@ -10,9 +10,9 @@ import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_
 import type { GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
 import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
-import { BRANCH_OPS_INSTALLATION, createInitialBookstoreBranchState } from './bookstoreBranch'
+import { createInitialBusinessState } from './business'
 
-export const GAME_STATE_VERSION = 68
+export const GAME_STATE_VERSION = 69
 
 export function createInitialGameState(): GameState {
   return {
@@ -79,7 +79,7 @@ export function createInitialGameState(): GameState {
         destinationAccountReference: 'CD-3318-2204',
       }] },
     },
-    bookstoreBranch: createInitialBookstoreBranchState(),
+    business: createInitialBusinessState(),
     nodeWallet: {
       id: 'wallet-node-local-v0',
       address: 'node-wallet-addr-0001',
@@ -160,7 +160,7 @@ export function createInitialGameState(): GameState {
             firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
-            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, AUTH_GUARD_1_0_INSTALLATION, BRANCH_OPS_INSTALLATION],
+            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, AUTH_GUARD_1_0_INSTALLATION],
             filesystem: { nextFileId: 3, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
               { kind: 'software_package', id: 'file-0002', path: '/opt/packages/authguard-1.0.pkg', releaseId: AUTH_GUARD_1_0_RELEASE_ID, buildId: AUTH_GUARD_1_0_BUILD_ID, productId: AUTH_GUARD_PRODUCT_ID, name: 'AuthGuard', version: '1.0', publisher: 'rack-systems', sizeBytes: 4_800_000 },

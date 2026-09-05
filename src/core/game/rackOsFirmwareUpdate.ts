@@ -241,9 +241,13 @@ function replaceHost(state: GameState, next: NetworkHost): GameState {
  * that absence is the point: in this server architecture GateSSH is
  * `InstalledSoftware` and a separately managed Service implementation, not
  * firmware-bundled as it is on VEYRA's phone, so this release cannot silently
- * update or replace it. AuthGuard, BranchOps, branch state, completed sales,
- * settlement configuration, filesystem contents, Civic Dollar state, hardware
- * and Network membership are equally untouched.
+ * update or replace it. AuthGuard, other installed software, filesystem
+ * contents, Civic Dollar state, hardware and Network membership are equally
+ * untouched — and because a Business Branch's technical-site relationship is
+ * an explicit reference to a LocalNetwork rather than to this Device, this
+ * update changes no Business Branch, Company, sale, or settlement
+ * configuration either: installing RACK-OS Business creates no Business state
+ * of its own.
  *
  * Because the access Service build is unchanged, established `DeviceAccess`
  * survives the update; the interactive Remote Session ends only because the
