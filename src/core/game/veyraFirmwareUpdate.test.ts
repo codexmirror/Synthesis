@@ -6,13 +6,13 @@ import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, vulnerabilitiesForSer
 import { resolveCompletedCredentialAccess } from './credentialAccess'
 import { VEYRA_OS_4_1_FIRMWARE_ID, VEYRA_OS_4_2_FIRMWARE_ID } from './firmwareIdentity'
 import {
-  advanceVeyraFirmwareUpdates,
   deriveVeyraFirmwareUpdateProgress,
   resolveAvailableVeyraFirmwareUpdate,
   startVeyraFirmwareUpdateForOperatedRemoteDevice,
   VEYRA_FIRMWARE_UPDATE_DURATION_MS,
   VEYRA_OS_4_2_RELEASE,
 } from './veyraFirmwareUpdate'
+import { advanceDeviceFirmwareUpdates } from './deviceFirmwareUpdate'
 import type { CredentialAccessProcess, GameState, NetworkHost } from './types'
 
 const PHONE_ID = 'host-phone-001'
@@ -145,7 +145,7 @@ describe('the represented installation', () => {
 
   it('is not finished, and has not changed the Firmware, part way through', () => {
     const started = startVeyraFirmwareUpdateForOperatedRemoteDevice(phoneConnectedState(), PHONE_PIN).state
-    const midway = advanceVeyraFirmwareUpdates(started, VEYRA_FIRMWARE_UPDATE_DURATION_MS / 2)
+    const midway = advanceDeviceFirmwareUpdates(started, VEYRA_FIRMWARE_UPDATE_DURATION_MS / 2)
     expect(phoneOf(midway).firmwareUpdate).toBeDefined()
     expect(phoneOf(midway).firmware?.id).toBe(VEYRA_OS_4_1_FIRMWARE_ID)
     expect(phoneSsh(midway).implementation.releaseId).toBe('gate-ssh-1.3.2')
@@ -154,9 +154,9 @@ describe('the represented installation', () => {
 
   it('reaches the identical outcome whether elapsed time arrives in one step or many', () => {
     const started = startVeyraFirmwareUpdateForOperatedRemoteDevice(phoneConnectedState(), PHONE_PIN).state
-    const oneStep = advanceVeyraFirmwareUpdates(started, VEYRA_FIRMWARE_UPDATE_DURATION_MS)
+    const oneStep = advanceDeviceFirmwareUpdates(started, VEYRA_FIRMWARE_UPDATE_DURATION_MS)
     let manySteps = started
-    for (let elapsed = 0; elapsed < VEYRA_FIRMWARE_UPDATE_DURATION_MS; elapsed += 100) manySteps = advanceVeyraFirmwareUpdates(manySteps, 100)
+    for (let elapsed = 0; elapsed < VEYRA_FIRMWARE_UPDATE_DURATION_MS; elapsed += 100) manySteps = advanceDeviceFirmwareUpdates(manySteps, 100)
     expect(phoneOf(oneStep).firmware).toEqual(phoneOf(manySteps).firmware)
     expect(phoneOf(oneStep).firmwareUpdate).toBeUndefined()
     expect(phoneOf(manySteps).firmwareUpdate).toBeUndefined()
@@ -208,7 +208,7 @@ describe('the represented installation', () => {
 
   it('drops an installation naming a release the world does not represent, without installing anything', () => {
     const connected = phoneConnectedState()
-    const incoherent = advanceVeyraFirmwareUpdates({
+    const incoherent = advanceDeviceFirmwareUpdates({
       ...connected,
       world: { ...connected.world, network: { ...connected.world.network, hosts: connected.world.network.hosts.map((host) =>
         host.id === PHONE_ID ? { ...host, firmwareUpdate: { releaseId: 'firmware-veyra-os-v9-9', phase: 'INSTALLING' as const, elapsedMs: 0 } } : host) } },

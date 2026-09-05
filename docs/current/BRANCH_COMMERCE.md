@@ -39,12 +39,22 @@ or autonomous sale mechanic.
 ## RACK-OS presentation
 
 An authorized RACK-OS Session operating the actual BranchOps host exposes a
-read-only `OPERATIONS` section. It presents the branch name, BranchOps release,
+read-only BranchOps application. It presents the branch name, BranchOps release,
 recent book sale amount, and settlement Account's Provider-scoped reference.
 It exposes no internal Account IDs, Credentials, Financial Sessions, balances,
 Player identity, or unrelated World Truth. A Device that is not the configured
 operations host, or no longer hosts the represented BranchOps build, gets no
 business surface.
+
+Where that application appears is a property of the operating environment, not
+of the branch. RACK-OS 1.0 is the old technical section environment and provides
+no application shell at all, so it presents no business surface even on the
+actual BranchOps host; RACK-OS 1.1 Business lists BranchOps on its Applications
+home exactly where `resolveBookstoreBranchOperations` resolves
+(`docs/current/NETWORK_ACCESS.md`). Neither release owns any business truth, and
+neither the firmware upgrade nor the removal of the old section changes
+BranchOps InstalledSoftware, branch state, completed sales, or settlement
+configuration.
 
 Browsing changes no GameState, Discovery, Knowledge, finance, access, or
 business state. Settlement editing/redirection and future sales are not

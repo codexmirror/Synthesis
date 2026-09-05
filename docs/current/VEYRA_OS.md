@@ -28,24 +28,30 @@ mutable attributes (A01): a renamed RACK-OS release still mounts RACK-OS, and a
 Firmware merely *named* `VEYRA OS` mounts nothing.
 
 ```text
-firmware-rack-os-v1    -> RACK-OS
-firmware-veyra-os-v4-1 -> VEYRA OS
-firmware-veyra-os-v4-2 -> VEYRA OS
-anything else          -> no operating surface
+firmware-rack-os-v1             -> RACK-OS
+firmware-rack-os-v1-1-business  -> RACK-OS
+firmware-veyra-os-v4-1          -> VEYRA OS
+firmware-veyra-os-v4-2          -> VEYRA OS
+anything else                   -> no operating surface
 ```
 
-The four represented Firmware release identities are named once, in
-`src/core/game/firmwareIdentity.ts`. This is a two-branch concrete dispatch, not
+The five represented Firmware release identities are named once, in
+`src/core/game/firmwareIdentity.ts`, alongside `isRackOsFirmwareId` — the one
+place that answers "is this a RACK-OS Device", from stable identity rather than
+a display name. This is a two-branch concrete dispatch, not
 a Firmware plugin system, foreign-OS registry, capability negotiation or
 generic operating-surface framework (A16); a further represented Firmware adds a
-constant and a branch.
+constant and, where it needs one, a branch.
 
 VEYRA OS 4.1 and VEYRA OS 4.2 are two distinct Firmware release identities and
-both mount VEYRA, because both really are that operating system. Which of them
-a Device runs is never collapsed into one mutable version attribute: installing
-the newer release replaces which release the Device owns, and 4.1's identity is
-never rewritten into pretending it was always 4.2. What differs between them is
-VEYRA's own presentation (below), not which surface is selected.
+both mount VEYRA, because both really are that operating system; RACK-OS 1.0 and
+RACK-OS 1.1 Business are the same relationship for the server operating system.
+Which release a Device runs is never collapsed into one mutable version
+attribute: installing the newer release replaces which release the Device owns,
+and the older identity is never rewritten into pretending it was always the
+newer one. What differs within each pair is that operating system's own
+presentation, not which surface is selected — see below for VEYRA's, and
+`docs/current/NETWORK_ACCESS.md` for the two RACK-OS releases'.
 
 Firmware the Shell cannot present fails visibly rather than silently receiving
 somebody else's surface. The Remote Session handoff still states the

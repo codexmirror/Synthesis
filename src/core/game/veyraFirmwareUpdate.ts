@@ -2,7 +2,7 @@ import { VEYRA_OS_4_1_FIRMWARE_ID, VEYRA_OS_4_2_FIRMWARE_ID } from './firmwareId
 import { verifyDevicePinForOperatedRemoteDevice } from './deviceSecurity'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
-import type { DeviceFirmwareUpdateProgress, FirmwareState, FirmwareUpdatePhase, GameState, NetworkHost, NetworkService } from './types'
+import type { DeviceFirmwareUpdateProgress, FirmwareState, FirmwareUpdatePhase, FirmwareUpdateStepResult, GameState, NetworkHost, NetworkService } from './types'
 
 /**
  * One concrete official VEYRA OS release, exactly as VEYRA publishes it.
@@ -185,8 +185,7 @@ function applyVeyraFirmwareRelease(state: GameState, host: NetworkHost, release:
 }
 
 /**
- * Canonical advancement for every running firmware installation, called from
- * `advanceGameState` alongside the other represented Device transitions.
+ * Advance one running VEYRA installation by an elapsed step.
  *
  * Elapsed time is consumed coherently across stage boundaries, exactly as
  * Device connectivity recovery consumes it: one large step produces the same
@@ -202,49 +201,19 @@ function applyVeyraFirmwareRelease(state: GameState, host: NetworkHost, release:
  * provenance names the replaced Service build is removed; unrelated Access and
  * historical Player Information remain untouched.
  *
- * An installation naming a release the world does not represent is dropped
- * without applying anything, so an incoherent update can never install
- * something that does not exist.
+ * Which running installations reach this function at all — and what happens to
+ * one naming a release the world does not represent — belongs to the shared
+ * advancement owner in `deviceFirmwareUpdate.ts`.
  */
-export function advanceVeyraFirmwareUpdates(state: GameState, elapsedMs: number): GameState {
-  return advanceVeyraFirmwareUpdatesWithRemainder(state, elapsedMs).state
-}
-
-/**
- * Advances installations while retaining only the per-Device elapsed time
- * left after activation. `advanceGameState` gives that causal remainder to
- * the Device recovery owner; callers interested only in firmware state use
- * `advanceVeyraFirmwareUpdates` above.
- */
-export function advanceVeyraFirmwareUpdatesWithRemainder(state: GameState, elapsedMs: number): {
-  readonly state: GameState
-  readonly recoveryRemainders: readonly { readonly deviceId: string; readonly elapsedMs: number }[]
-} {
-  const step = Math.max(0, elapsedMs)
-  let nextState = state
-  const recoveryRemainders: { deviceId: string; elapsedMs: number }[] = []
-  for (const host of state.world.network.hosts) {
-    const progress = host.firmwareUpdate
-    if (!progress) continue
-    if (progress.releaseId !== VEYRA_OS_4_2_RELEASE.firmware.id) {
-      const { firmwareUpdate: _incoherent, ...cleared } = host
-      nextState = replaceHost(nextState, cleared)
-      continue
-    }
-
-    let phaseIndex = Math.max(0, PHASE_SEQUENCE.indexOf(progress.phase))
-    let elapsed = progress.elapsedMs + step
-    while (phaseIndex < PHASE_SEQUENCE.length && elapsed >= VEYRA_FIRMWARE_UPDATE_PHASE_DURATIONS_MS[PHASE_SEQUENCE[phaseIndex]]) {
-      elapsed -= VEYRA_FIRMWARE_UPDATE_PHASE_DURATIONS_MS[PHASE_SEQUENCE[phaseIndex]]
-      phaseIndex += 1
-    }
-
-    if (phaseIndex >= PHASE_SEQUENCE.length) {
-      nextState = applyVeyraFirmwareRelease(nextState, host, VEYRA_OS_4_2_RELEASE)
-      recoveryRemainders.push({ deviceId: host.id, elapsedMs: elapsed })
-    } else {
-      nextState = replaceHost(nextState, { ...host, firmwareUpdate: { ...progress, phase: PHASE_SEQUENCE[phaseIndex], elapsedMs: elapsed } })
-    }
+export function stepVeyraFirmwareUpdate(state: GameState, host: NetworkHost, progress: DeviceFirmwareUpdateProgress, elapsedMs: number): FirmwareUpdateStepResult {
+  let phaseIndex = Math.max(0, PHASE_SEQUENCE.indexOf(progress.phase))
+  let elapsed = progress.elapsedMs + Math.max(0, elapsedMs)
+  while (phaseIndex < PHASE_SEQUENCE.length && elapsed >= VEYRA_FIRMWARE_UPDATE_PHASE_DURATIONS_MS[PHASE_SEQUENCE[phaseIndex]]) {
+    elapsed -= VEYRA_FIRMWARE_UPDATE_PHASE_DURATIONS_MS[PHASE_SEQUENCE[phaseIndex]]
+    phaseIndex += 1
   }
-  return { state: nextState, recoveryRemainders }
+  if (phaseIndex >= PHASE_SEQUENCE.length) {
+    return { state: applyVeyraFirmwareRelease(state, host, VEYRA_OS_4_2_RELEASE), recoveryRemainderMs: elapsed }
+  }
+  return { state: replaceHost(state, { ...host, firmwareUpdate: { ...progress, phase: PHASE_SEQUENCE[phaseIndex], elapsedMs: elapsed } }) }
 }

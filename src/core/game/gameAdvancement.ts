@@ -14,7 +14,7 @@ import { archiveProcess } from './recentActivity'
 import { advanceRattlerPinSearches } from './rattler'
 import { resolveCompletedDeauthAttempts } from './deauth'
 import { advanceTechnicianReaction } from './technician'
-import { advanceVeyraFirmwareUpdatesWithRemainder } from './veyraFirmwareUpdate'
+import { advanceDeviceFirmwareUpdatesWithRemainder } from './deviceFirmwareUpdate'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -69,7 +69,7 @@ export function advanceGameState(state: GameState, elapsedMs: number, credential
   // A running firmware installation is canonical Device state, so it advances
   // here like every other represented Device transition — never from a timer
   // inside the operating surface presenting it.
-  const firmwareAdvancement = advanceVeyraFirmwareUpdatesWithRemainder(nextState, elapsedMs)
+  const firmwareAdvancement = advanceDeviceFirmwareUpdatesWithRemainder(nextState, elapsedMs)
   nextState = firmwareAdvancement.state
   // Firmware activation may itself make a Device unreachable after the first
   // reachability pass. Let the same canonical Session owner observe that new

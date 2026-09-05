@@ -1,6 +1,6 @@
 import { checkDestinationPlacement } from '../../core/game/filesystem'
 import { deriveMarketDownloadDestinationPath } from '../../core/game/fileTransfer'
-import { findLocalMarketArtifactCopy, isMarketOfferPurchased } from '../../core/game/market'
+import { findLocalMarketArtifactCopy, isMarketOfferPurchased, marketDistributionReleaseId } from '../../core/game/market'
 import type { GameState, MarketDistribution, MarketOffer } from '../../core/game/types'
 
 /**
@@ -38,7 +38,7 @@ export interface MarketReleaseView {
   /** Present only where the represented release actually states provenance. */
   readonly publisher?: string
   readonly releaseId: string
-  /** Which concrete artifact kind this offering distributes; a module is never an installable package. */
+  /** Which concrete artifact kind this offering distributes; neither a module nor a firmware installer is ever an installable package. */
   readonly artifact: MarketDistribution['artifact']
   readonly filename: string
   readonly sizeBytes: number
@@ -91,19 +91,21 @@ export interface MarketEntrySummary {
 
 /**
  * One catalog entry: a software product with the releases this Market offers
- * of it, or one module offering.
+ * of it, one module offering, or one firmware offering.
  *
  * `kind` keeps the distinction the domain makes. A `product` entry groups
  * `software_package` offerings by their represented `productId`; a `module`
  * entry is one `software_module` offering, which carries no `productId` at
  * all, can never produce InstalledSoftware, and is never a release of its host
- * product. Grouping is presentation only: it establishes no product registry
- * and reads nothing but the offerings themselves.
+ * product; a `firmware` entry is one `firmware_package` offering, which is a
+ * Firmware installer rather than software of any kind and likewise never
+ * becomes InstalledSoftware. Grouping is presentation only: it establishes no
+ * product registry and reads nothing but the offerings themselves.
  */
 export interface MarketCatalogEntry {
   /** Presentation grouping key. Not domain identity, and never an entitlement identity. */
   readonly key: string
-  readonly kind: 'product' | 'module'
+  readonly kind: 'product' | 'module' | 'firmware'
   /**
    * The entry's presentation label: the name the first-listed offering states.
    * A deterministic UI choice, never domain identity — grouping itself is
@@ -198,8 +200,8 @@ function deriveReleaseView(state: GameState, offer: MarketOffer): MarketReleaseV
     name: offer.distribution.name,
     version: offer.distribution.version,
     ...(offer.distribution.artifact === 'software_package' && offer.distribution.channel ? { channel: offer.distribution.channel } : {}),
-    ...(offer.distribution.artifact === 'software_package' && offer.distribution.publisher ? { publisher: offer.distribution.publisher } : {}),
-    releaseId: offer.distribution.releaseId,
+    ...(offer.distribution.artifact !== 'software_module' && offer.distribution.publisher ? { publisher: offer.distribution.publisher } : {}),
+    releaseId: marketDistributionReleaseId(offer.distribution),
     artifact: offer.distribution.artifact,
     filename: offer.distribution.filename,
     sizeBytes: offer.distribution.sizeBytes,
@@ -262,13 +264,14 @@ function deriveLocalPresence(state: GameState, productId: string, offeredRelease
  * stable `moduleId` on the same terms.
  */
 function deriveCatalogEntries(state: GameState): readonly MarketCatalogEntry[] {
-  const grouped = new Map<string, { kind: 'product' | 'module'; name: string; productId?: string; hostProductId?: string; offers: MarketOffer[] }>()
+  const grouped = new Map<string, { kind: MarketCatalogEntry['kind']; name: string; productId?: string; hostProductId?: string; offers: MarketOffer[] }>()
   for (const offer of state.market.offers) {
     const { distribution } = offer
     const key = distribution.artifact === 'software_package'
       ? `product:${distribution.productId}`
-      // A module has no product identity at all, so it groups by its own stable module identity.
-      : `module:${distribution.moduleId}`
+      // Neither a module nor a firmware installer has a product identity at all, so each
+      // groups by its own equally stable module or Firmware-release identity.
+      : distribution.artifact === 'software_module' ? `module:${distribution.moduleId}` : `firmware:${distribution.firmwareId}`
     const existing = grouped.get(key)
     if (existing) { existing.offers.push(offer); continue }
     // The first-listed offering's own stated name becomes this entry's presentation
@@ -276,7 +279,9 @@ function deriveCatalogEntries(state: GameState): readonly MarketCatalogEntry[] {
     // release shares it — each release's own `name` is preserved untouched below.
     grouped.set(key, distribution.artifact === 'software_package'
       ? { kind: 'product', name: distribution.name, productId: distribution.productId, offers: [offer] }
-      : { kind: 'module', name: distribution.name, hostProductId: distribution.hostProductId, offers: [offer] })
+      : distribution.artifact === 'software_module'
+        ? { kind: 'module', name: distribution.name, hostProductId: distribution.hostProductId, offers: [offer] }
+        : { kind: 'firmware', name: `${distribution.name} ${distribution.version}`, offers: [offer] })
   }
 
   const entries = [...grouped].map(([key, group]) => {

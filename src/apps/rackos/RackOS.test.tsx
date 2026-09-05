@@ -1,17 +1,19 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GameProvider, useGameState } from '../../app/GameContext'
+import { GameProvider, useGameActions, useGameState } from '../../app/GameContext'
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 import { installRemoteSoftwarePackage } from '../../core/game/softwareInstallation'
 import { createInitialGameState } from '../../core/game/initialState'
-import { RACK_OS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
+import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
+import { RACK_OS_1_1_BUSINESS_RELEASE, RACK_OS_FIRMWARE_UPDATE_DURATION_MS } from '../../core/game/rackOsFirmwareUpdate'
 import { Shell } from '../../shell/Shell'
 import type { ExecutableFile, GameProcess, GameState, NetworkHost, NodeMinerProcess } from '../../core/game/types'
 import { rememberScan } from '../../core/game/discovery'
 import { scanNetworkTarget } from '../../core/game/scan'
 import { Terminal } from '../terminal/Terminal'
 import rackSource from './RackOS.tsx?raw'
+import rackUpdateSource from './RackFirmwareUpdate.tsx?raw'
 import rackCss from './rackos.css?raw'
 
 function StateSnapshot() { return <output data-testid="game-state">{JSON.stringify(useGameState())}</output> }
@@ -74,7 +76,7 @@ describe('RACK-OS', () => {
   })
 
   it('keeps viewport correction logic out of the RACK boundary', () => {
-    expect(rackSource + rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView/)
+    expect(rackSource + rackUpdateSource + rackCss).not.toMatch(/visualViewport|window\.scrollTo|scrollIntoView/)
   })
 
   it('keeps its narrow header context actions touch-safe', () => {
@@ -297,21 +299,15 @@ describe('RACK-OS', () => {
     expect(rackOs).toHaveTextContent('Backup manifest for srv-02.')
     expect(rackOs).not.toHaveTextContent('Service workspace.')
 
-    const beforeOperations = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
-    await user.click(screen.getByRole('button', { name: 'OPERATIONS' }))
-    const operations = screen.getByRole('region', { name: 'Branch operations' })
-    expect(operations).toHaveTextContent('BRANCH OPERATIONS SERVER')
-    expect(operations).toHaveTextContent('Bookstore Branch 01')
-    expect(operations).toHaveTextContent('BranchOps 1.0')
-    expect(operations).toHaveTextContent('BOOK SALE')
-    expect(operations).toHaveTextContent('$20.00')
-    expect(within(operations).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-1042-7781')
-    expect(within(operations).getByText('SETTLED TO').closest('div')).toHaveTextContent('CD-3318-2204')
-    expect(operations.textContent).not.toContain('dollar-account-veyra-phone-v0')
-    expect(operations.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
-    expect(JSON.parse(screen.getByTestId('game-state').textContent ?? '')).toEqual(beforeOperations)
-
-    await user.click(screen.getByRole('button', { name: 'TERMINAL' }))
+    /* RACK-OS 1.0 is the old technical environment: Terminal, Files and System
+       and nothing else. srv-02 really does host BranchOps, and this release
+       simply has no application shell to present it in — the business software
+       itself is untouched. */
+    expect(within(screen.getByRole('navigation', { name: 'RACK-OS sections' })).getAllByRole('button').map((button) => button.textContent))
+      .toEqual(['TERMINAL', 'FILES', 'SYSTEM'])
+    expect(screen.queryByRole('button', { name: 'OPERATIONS' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'BranchOps' })).toBeNull()
+    expect(rackOs.textContent).not.toContain('Bookstore Branch 01')
 
     await user.type(screen.getByLabelText('Remote command'), 'download /srv/backup-manifest.txt{enter}')
     expect(rackOs).toHaveTextContent('DOWNLOAD STARTED')
@@ -1123,5 +1119,264 @@ describe('RACK-OS remote NODE Miner execution', () => {
     expect(rackOs).not.toHaveTextContent('node-miner')
     await user.type(input, 'node-miner config payout node-addr-relay-77{enter}')
     expect(rackOs).toHaveTextContent('COMMAND NOT FOUND')
+  })
+})
+
+/** srv-02, authorized and connected, with the exact represented firmware installer already on it. */
+function srv02WithInstaller(firmwareId: string = RACK_OS_FIRMWARE_ID): GameState {
+  const base = createInitialGameState()
+  const installer = {
+    kind: 'firmware_package' as const, id: 'file-firmware', path: INSTALLER_PATH,
+    firmwareId: RACK_OS_1_1_BUSINESS_RELEASE.firmware.id, buildId: RACK_OS_1_1_BUSINESS_RELEASE.buildId,
+    name: RACK_OS_1_1_BUSINESS_RELEASE.firmware.name, version: RACK_OS_1_1_BUSINESS_RELEASE.firmware.version,
+    publisher: RACK_OS_1_1_BUSINESS_RELEASE.publisher, sizeBytes: RACK_OS_1_1_BUSINESS_RELEASE.installerSizeBytes,
+  }
+  const hosts = base.world.network.hosts.map((host) => host.id === 'host-lan-002'
+    ? {
+      ...host,
+      firmware: firmwareId === RACK_OS_FIRMWARE_ID ? host.firmware : { ...RACK_OS_1_1_BUSINESS_RELEASE.firmware },
+      filesystem: { nextFileId: host.filesystem!.nextFileId + 1, files: [...host.filesystem!.files, installer] },
+    }
+    : host)
+  const access = { id: 'access-firmware', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
+  const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] }, world: { ...base.world, network: { ...base.world.network, hosts } } }
+  return connectRemoteFromObservation(authorized, { targetDeviceId: 'host-lan-002', address: '203.0.113.42' }).state
+}
+
+const INSTALLER_PATH = '/opt/rack-os-1.1-business.fwpkg'
+
+/** srv-01 already on RACK-OS 1.1 Business: a compatible Device with no BranchOps relationship at all. */
+function srv01OnBusiness(): GameState {
+  const base = createInitialGameState()
+  const hosts = base.world.network.hosts.map((host) => host.id === 'host-lan-001'
+    ? { ...host, firmware: { ...RACK_OS_1_1_BUSINESS_RELEASE.firmware } }
+    : host)
+  const access = { id: 'access-srv-01', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' as const }
+  const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] }, world: { ...base.world, network: { ...base.world.network, hosts } } }
+  return connectRemoteFromObservation(authorized, { targetDeviceId: 'host-lan-001', address: '198.51.100.47' }).state
+}
+
+function ReconnectControl() {
+  const actions = useGameActions()
+  return <button onClick={() => actions.connectRemoteFromObservation({ targetDeviceId: 'host-lan-002', address: '203.0.113.42' })}>test reconnect</button>
+}
+
+/** The Applications home entries, in listed order, as a player reads them. */
+function applicationNames() {
+  return [...document.querySelectorAll('.rack-appitem__name')].map((name) => name.textContent)
+}
+
+describe('RACK-OS 1.1 Business application shell', () => {
+  it('opens on an Applications home instead of the 1.0 section bar', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)}><Shell /></GameProvider>)
+    await enterRemote(user)
+
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(rackOs).toHaveTextContent('RACK-OS 1.1 Business')
+    expect(rackOs.dataset.release).toBe('business')
+    // The 1.0 technical section bar is gone entirely.
+    expect(screen.queryByRole('navigation', { name: /sections/ })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()
+    // The three built-ins, plus BranchOps because this exact represented relationship exists.
+    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BRANCHOPS'])
+  })
+
+  it('opens an application and returns to Applications without touching canonical state', async () => {
+    const user = userEvent.setup()
+    const initial = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    const before = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+
+    await user.click(screen.getByRole('button', { name: /^BRANCHOPS/ }))
+    const branchOps = screen.getByRole('region', { name: 'BranchOps' })
+    expect(branchOps).toHaveTextContent('BRANCH OPERATIONS SERVER')
+    expect(branchOps).toHaveTextContent('Bookstore Branch 01')
+    expect(branchOps).toHaveTextContent('BranchOps 1.0')
+    expect(branchOps).toHaveTextContent('BOOK SALE')
+    expect(branchOps).toHaveTextContent('$20.00')
+    // Read-only: no internal identifiers, credentials, or Player identity.
+    expect(branchOps.textContent).not.toContain('dollar-account-veyra-phone-v0')
+    expect(branchOps.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
+
+    await user.click(screen.getByRole('button', { name: /APPLICATIONS$/ }))
+    expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()
+
+    // Terminal reaches exactly the same canonical mechanics through the new shell.
+    await user.click(screen.getByRole('button', { name: /^TERMINAL/ }))
+    await user.type(screen.getByLabelText('Remote command'), 'cat /srv/backup-manifest.txt{enter}')
+    expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('Backup manifest for srv-02.')
+    expect(JSON.parse(screen.getByTestId('game-state').textContent ?? '')).toEqual(before)
+  })
+
+  it('keeps the current settlement Account distinct from the completed sale historical settlement', async () => {
+    const user = userEvent.setup()
+    const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
+    const redirected = { ...base, bookstoreBranch: { ...base.bookstoreBranch, settlementAccountId: 'dollar-account-local-v0' } }
+    render(<GameProvider initialState={redirected}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^BRANCHOPS/ }))
+
+    const branchOps = screen.getByRole('region', { name: 'BranchOps' })
+    expect(within(branchOps).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-1042-7781')
+    expect(within(branchOps).getByText('SETTLED TO').closest('div')).toHaveTextContent('CD-3318-2204')
+  })
+
+  it('presents no BranchOps application on a 1.1 Business Device with no represented branch relationship', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={srv01OnBusiness()}><Shell /></GameProvider>)
+    await enterRemote(user)
+
+    expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()
+    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM'])
+    expect(screen.queryByRole('button', { name: /^BRANCHOPS/ })).toBeNull()
+    expect(screen.getByLabelText('RACK-OS remote operating environment').textContent).not.toContain('Bookstore Branch 01')
+  })
+})
+
+describe('RACK-OS firmware update from a target-owned installer artifact', () => {
+  async function openInstallerArtifact(user: ReturnType<typeof userEvent.setup>) {
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: /DIR\s*opt/ }))
+    await user.click(screen.getByRole('button', { name: /FILE\s*rack-os-1\.1-business\.fwpkg/ }))
+  }
+
+  it('launches a dedicated update utility from the artifact, and starts nothing until Install is confirmed', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={srv02WithInstaller()}><Shell /><StateSnapshot /></GameProvider>)
+    await openInstallerArtifact(user)
+
+    // Stage one: the artifact states what it is; its primary action only opens the utility.
+    expect(screen.getByRole('heading', { name: 'RACK-OS 1.1 Business' })).toBeInTheDocument()
+    expect(screen.getByText('FIRMWARE INSTALLER')).toBeInTheDocument()
+    const beforeLaunch = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    await user.click(screen.getByRole('button', { name: 'OPEN INSTALLER' }))
+
+    // Stage two: the utility states the Device, both releases, and the restart.
+    const utility = screen.getByRole('region', { name: 'Firmware update utility' })
+    expect(within(utility).getByText('CURRENT FIRMWARE').closest('div')).toHaveTextContent('RACK-OS 1.0')
+    expect(within(utility).getByText('TARGET FIRMWARE').closest('div')).toHaveTextContent('RACK-OS 1.1 Business')
+    expect(within(utility).getByText('STATUS').closest('div')).toHaveTextContent('INSTALLABLE')
+    expect(utility).toHaveTextContent('THIS DEVICE WILL RESTART')
+    // No internal identity is exposed as product UI.
+    expect(utility.textContent).not.toContain('firmware-rack-os')
+    expect(utility.textContent).not.toContain('host-lan-002')
+    expect(JSON.parse(screen.getByTestId('game-state').textContent ?? '')).toEqual(beforeLaunch)
+
+    // CANCEL changes nothing either.
+    await user.click(screen.getByRole('button', { name: 'CANCEL' }))
+    expect(JSON.parse(screen.getByTestId('game-state').textContent ?? '')).toEqual(beforeLaunch)
+    expect(screen.queryByRole('region', { name: 'Firmware update utility' })).toBeNull()
+  })
+
+  it('states the real reason and offers no launch on a Device already running the release', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^FILES/ }))
+    await user.click(screen.getByRole('button', { name: /DIR\s*opt/ }))
+    await user.click(screen.getByRole('button', { name: /FILE\s*rack-os-1\.1-business\.fwpkg/ }))
+
+    expect(screen.getByText('THIS DEVICE ALREADY RUNS THIS RELEASE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'OPEN INSTALLER' })).toBeNull()
+  })
+
+  it('replaces the whole environment with a truthful maintenance surface once installation starts', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<GameProvider initialState={srv02WithInstaller()}><Shell /><StateSnapshot /></GameProvider>)
+    await openInstallerArtifact(user)
+    await user.click(screen.getByRole('button', { name: 'OPEN INSTALLER' }))
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+
+    // Canonical Device state changed; the Firmware has not.
+    const started = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const srv02 = started.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    expect(srv02.firmwareUpdate).toMatchObject({ releaseId: RACK_OS_1_1_BUSINESS_FIRMWARE_ID, phase: 'PREPARING' })
+    expect(srv02.firmware?.id).toBe(RACK_OS_FIRMWARE_ID)
+
+    // Terminal, Files and System are gone; the maintenance surface is the environment.
+    const maintenance = screen.getByRole('region', { name: 'Firmware installation' })
+    expect(screen.queryByRole('navigation', { name: /sections/ })).toBeNull()
+    expect(screen.queryByLabelText('Remote command')).toBeNull()
+    expect(maintenance).toHaveTextContent('RACK FIRMWARE UPDATE UTILITY')
+    expect(within(maintenance).getByText('FROM').closest('div')).toHaveTextContent('RACK-OS 1.0')
+    expect(within(maintenance).getByText('TO').closest('div')).toHaveTextContent('RACK-OS 1.1 Business')
+    // No fabricated download stage for an artifact already on this Device.
+    expect(maintenance.textContent).not.toMatch(/download/i)
+    expect(maintenance.querySelector('.rack-update__stage-name')?.textContent).toBe('PREPARING FIRMWARE IMAGE')
+
+    // Progress comes from canonical advancement, and leaving and returning shows the real state.
+    await act(async () => { vi.advanceTimersByTime(10_000) })
+    const midway = Number(screen.getByRole('progressbar', { name: 'Firmware installation progress' }).getAttribute('aria-valuenow'))
+    expect(midway).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: 'Return to NODE-OS without disconnecting' }))
+    await act(async () => { vi.advanceTimersByTime(4_000) })
+    await user.click(screen.getByRole('button', { name: /RETURN REMOTE/ }))
+    const later = Number(screen.getByRole('progressbar', { name: 'Firmware installation progress' }).getAttribute('aria-valuenow'))
+    expect(later).toBeGreaterThan(midway)
+  })
+
+  it('completes into RACK-OS 1.1 Business, really reboots, and presents the new release on reconnect', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const initial = srv02WithInstaller()
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /><ReconnectControl /></GameProvider>)
+    await openInstallerArtifact(user)
+    await user.click(screen.getByRole('button', { name: 'OPEN INSTALLER' }))
+    await user.click(screen.getByRole('button', { name: 'INSTALL' }))
+
+    await act(async () => { vi.advanceTimersByTime(RACK_OS_FIRMWARE_UPDATE_DURATION_MS + 1_000) })
+    const rebooting = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const shuttingDown = rebooting.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    expect(shuttingDown.firmware?.id).toBe(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
+    expect(shuttingDown.operational.lifecycle).not.toBe('RUNNING')
+    // The Session ended through canonical reachability, and the player is back on NODE-OS.
+    expect(rebooting.remoteSession.active).toBeNull()
+    expect(screen.queryByLabelText(/remote operating environment/)).toBeNull()
+
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    const booted = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const restarted = booted.world.network.hosts.find(({ id }) => id === 'host-lan-002')!
+    expect(restarted.operational).toEqual({ lifecycle: 'RUNNING', connectivity: 'CONNECTED' })
+    // GateSSH and its DeviceAccess were never touched, so the same access still reaches it.
+    expect(restarted.services).toEqual(initial.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.services)
+    expect(restarted.installedSoftware).toEqual(initial.world.network.hosts.find(({ id }) => id === 'host-lan-002')!.installedSoftware)
+    expect(booted.deviceAccess.established).toEqual(initial.deviceAccess.established)
+
+    await user.click(screen.getByRole('button', { name: 'test reconnect' }))
+    await enterRemote(user)
+    expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('RACK-OS 1.1 Business')
+    expect(applicationNames()).toEqual(['TERMINAL', 'FILES', 'SYSTEM', 'BRANCHOPS'])
+  })
+})
+
+describe('RACK-OS 1.1 Business and the update surface on a narrow viewport', () => {
+  it('keeps the application launcher and its return path touch-safe', () => {
+    // Rectangular, bordered rows with a comfortable touch target: the industrial
+    // ancestry of RACK-OS, not a rounded consumer app grid.
+    expect(rackCss).toMatch(/\.rack-appitem\s*{[^}]*min-height:\s*62px;/)
+    expect(rackCss).toMatch(/\.rack-appitem\s*{[^}]*border:\s*1px solid/)
+    expect(rackCss).not.toMatch(/\.rack-appitem\s*{[^}]*border-radius/)
+    expect(rackCss).toMatch(/\.rack-appbar\s*{[^}]*min-height:\s*44px;/)
+    expect(rackCss).toMatch(/\.rack-appbar__home\s*{[^}]*min-height:\s*44px;/)
+    expect(rackCss).toMatch(/\.rack-appitem__name\s*{[^}]*overflow-wrap:\s*anywhere;/)
+  })
+
+  it('gives the maintenance environment its own full-height scrollable body', () => {
+    // Two rows, not three: the maintenance environment has no section bar at all.
+    expect(rackCss).toMatch(/\.rack-os--maintenance\s*{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\);/)
+    expect(rackCss).toMatch(/\.rack-update\s*{[^}]*overflow:\s*auto;[^}]*overscroll-behavior-y:\s*contain;/)
+  })
+
+  it('renders the whole application launcher inside the narrowest represented viewport', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)}><Shell /></GameProvider>)
+    await enterRemote(user)
+    // Every application stays a single reachable control; nothing is hidden behind an overflow menu.
+    expect(document.querySelectorAll('.rack-appitem')).toHaveLength(4)
+    for (const item of document.querySelectorAll('.rack-appitem')) expect(item.tagName).toBe('BUTTON')
   })
 })

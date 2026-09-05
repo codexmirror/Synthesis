@@ -18,6 +18,7 @@ const NODE_MINER_OFFER = 'market-offer-node-miner-1.0'
 const GATE_SSH_1_3_2_OFFER = 'market-offer-gate-ssh-1.3.2'
 const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
 const ROLLBACK_OFFER = 'market-offer-flipper-rollback-module-1.0'
+const RACK_OS_FIRMWARE_OFFER = 'market-offer-rack-os-1.1-business'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -87,12 +88,33 @@ async function openEntry(name: RegExp) {
 describe('Market catalog', () => {
   it('lists one entry per software product, not one per offering', () => {
     renderMarket(createInitialGameState())
-    // Seven represented offerings, five products and one module offering.
+    // Eight represented offerings: five products, one module offering and one firmware offering.
     expect(screen.getByText('5 PRODUCTS')).toBeInTheDocument()
-    expect(entryNames()).toEqual(['RATTLER', 'Flipper', 'NodeScan', 'NODE Miner', 'GateSSH', 'Rollback Module'])
+    expect(entryNames()).toEqual(['RATTLER', 'Flipper', 'NodeScan', 'NODE Miner', 'GateSSH', 'Rollback Module', 'RACK-OS 1.1 Business'])
     // The two GateSSH offerings are one product, summarized rather than merged.
     const gateSsh = entries().find((entry) => entry.querySelector('.mk-entry-name')?.textContent === 'GateSSH')!
     expect(gateSsh.querySelector('.mk-entry-meta')).toHaveTextContent('2 RELEASES · 1.3.2, 1.3.3')
+  })
+
+  it('offers the RACK-OS firmware installer as firmware, and never as software', async () => {
+    renderMarket(funded(PRICE))
+    expect(screen.getByText('FIRMWARE')).toBeInTheDocument()
+    const user = await openEntry(/RACK-OS 1\.1 Business/)
+
+    expect(screen.getByRole('heading', { name: 'RACK-OS 1.1 Business' })).toBeInTheDocument()
+    expect(screen.getByText(/DEVICE FIRMWARE · 1 RELEASE OFFERED/)).toBeInTheDocument()
+    // An installer, not a package or a module.
+    expect(within(screen.getByText('INSTALLER').closest('div')!).getByText('rack-os-1.1-business.fwpkg')).toBeInTheDocument()
+    expect(screen.getByText(/never becomes installed software and it does not change any Device/)).toBeInTheDocument()
+
+    // BUY settles real NODE and installs nothing; DOWNLOAD is still a separate step.
+    await user.click(screen.getByRole('button', { name: /^BUY/ }))
+    const after = probe()
+    expect(after.balanceNodeUnits).toBe(0)
+    expect(after.entitlements).toEqual([RACK_OS_FIRMWARE_OFFER])
+    expect(after.software).toEqual(probe().software)
+    expect(after.files.some((path) => path.endsWith('.fwpkg'))).toBe(false)
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeInTheDocument()
   })
 
   it('states each single-release product with its own release facts and price', () => {
@@ -104,7 +126,9 @@ describe('Market catalog', () => {
 
   it('keeps a module offering in its own group and never as a product', () => {
     renderMarket(createInitialGameState())
-    expect(screen.getByText('1 OFFERING')).toBeInTheDocument()
+    // The module group and the firmware group each hold exactly one offering, and neither is a product.
+    expect(screen.getAllByText('1 OFFERING')).toHaveLength(2)
+    expect(screen.getByText('MODULES')).toBeInTheDocument()
     const rollback = entries().find((entry) => entry.querySelector('.mk-entry-name')?.textContent === 'Rollback Module')!
     expect(rollback.querySelector('.mk-entry-meta')).toHaveTextContent('MODULE FOR FLIPPER · 1.0 · 2.1 MB')
     // The module's authored release states no channel, and none is inherited from Flipper's.
@@ -156,7 +180,7 @@ describe('top-level distribution destinations', () => {
   it('presents exactly one represented Market and states that no publisher distribution exists', async () => {
     renderMarket(createInitialGameState())
     expect(screen.getByText('1 REPRESENTED')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /OPEN EXCHANGE 7 OFFERINGS/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /OPEN EXCHANGE 8 OFFERINGS/ })).toHaveAttribute('aria-pressed', 'true')
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /PUBLISHER DISTRIBUTION/ }))

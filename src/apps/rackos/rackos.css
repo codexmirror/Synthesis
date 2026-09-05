@@ -14,6 +14,40 @@ button.rack-header__disconnect { color: #cf9a93; }
 .rack-nav { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid #394246; }
 .rack-nav button { min-height: 44px; padding: 13px 4px; border: 0; border-right: 1px solid #394246; background: #151b1e; color: #879398; font: 700 .68rem ui-monospace, monospace; letter-spacing: .1em; }
 .rack-nav button[aria-current] { color: #edf3f4; background: #20282b; }
+/* RACK-OS 1.1 Business: the application layer this release adds. Deliberately
+   the same industrial grey-blue rectangles as the rest of RACK-OS — squared
+   corners, monospaced, wide letterspacing — rather than a modern app grid. */
+.rack-appbar { min-height: 44px; padding: 0 max(16px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #394246; background: #151b1e; }
+.rack-appbar span { color: #879398; font: 700 .68rem ui-monospace, monospace; letter-spacing: .14em; }
+.rack-appbar__current { margin-left: auto; color: #edf3f4; }
+.rack-appbar__home { min-height: 44px; padding: 0 10px 0 0; border: 0; background: none; color: #aab5b9; font: 700 .68rem ui-monospace, monospace; letter-spacing: .12em; }
+.rack-applications { gap: 16px; }
+.rack-applist { display: grid; gap: 6px; }
+.rack-appitem { min-height: 62px; padding: 10px 12px; display: flex; align-items: center; gap: 14px; border: 1px solid #4d5a5f; background: #151b1e; color: inherit; font: inherit; text-align: left; }
+.rack-appitem:hover, .rack-appitem:focus-visible { background: #20282b; outline: 0; }
+.rack-appitem__index { flex: none; color: #6f7c81; font-size: .7rem; letter-spacing: .1em; }
+.rack-appitem__copy { min-width: 0; display: grid; gap: 4px; }
+.rack-appitem__name { font-size: .86rem; letter-spacing: .12em; overflow-wrap: anywhere; }
+.rack-appitem__note { color: #879398; font-size: .62rem; letter-spacing: .1em; }
+.rack-appitem__mark { flex: none; margin-left: auto; color: #6f7c81; }
+/* The dedicated firmware update utility, launched from an installer artifact. */
+.rack-updater__notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: #aab5b9; font-size: .72rem; line-height: 1.6; }
+/* The maintenance environment the Device presents while it is actually
+   installing firmware. Nothing else is presented for the duration. */
+.rack-os--maintenance { grid-template-rows: auto minmax(0, 1fr); background: #0c1012; }
+.rack-update { padding: 20px 18px; display: grid; align-content: start; gap: 18px; overflow: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+.rack-update__banner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; padding-bottom: 12px; border-bottom: 1px solid #4d5a5f; color: #edf3f4; font: 700 .7rem ui-monospace, monospace; letter-spacing: .14em; }
+.rack-update__banner span:last-child { color: #e0a89a; }
+.rack-update__facts { margin: 0; }
+.rack-update__stages { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.rack-update__stage { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #2b3438; color: #6f7c81; font-size: .74rem; letter-spacing: .1em; }
+.rack-update__stage[data-state="done"] { color: #aab5b9; border-color: #394246; }
+.rack-update__stage[data-state="active"] { color: #edf3f4; border-color: #4d5a5f; background: #171e21; }
+.rack-update__stage-mark { flex: none; }
+.rack-update__track { height: 10px; border: 1px solid #4d5a5f; background: #151b1e; }
+.rack-update__fill { display: block; height: 100%; background: #6f8a90; }
+.rack-update__completion { margin: 0; color: #edf3f4; font-size: .76rem; letter-spacing: .12em; }
+.rack-update__note { margin: 0; color: #879398; font-size: .66rem; letter-spacing: .1em; }
 .rack-body,.rack-terminal { min-height: 0; overflow: hidden; }.rack-body { display: grid; }.rack-terminal { height: 100%; display: grid; grid-template-rows: minmax(0,1fr) auto; padding: 16px; }
 .rack-output { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; -webkit-overflow-scrolling: touch; white-space: pre-wrap; font-size: .78rem; line-height: 1.7; }.rack-command { color: #9eabad; margin-top: 8px; }
 .rack-terminal form { border-top: 1px solid #394246; padding: 12px 0 max(0px, env(safe-area-inset-bottom)); }.rack-terminal label { display: flex; gap: 8px; align-items: center; font-size: .76rem; white-space: nowrap; }

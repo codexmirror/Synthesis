@@ -7,15 +7,28 @@ import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
 import { deriveSoftwarePackageEligibility, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
 import { deriveNodeMinerRuntimeStatus, findNodeMinerExecutable, findRunningNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartRemoteNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
-import type { AuthenticationHistoryRecord, GameState, ExecutableFile, FilesystemFile, FilesystemState, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile, SoftwareModuleFile } from '../../core/game/types'
+import type { AuthenticationHistoryRecord, GameState, ExecutableFile, FilesystemFile, FilesystemState, FirmwarePackageFile, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile, SoftwareModuleFile } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
 import { runRemoteCommand } from './remoteCommands'
 import { resolveBookstoreBranchOperations } from '../../core/game/bookstoreBranch'
 import { formatDollarCents } from '../dollarFormat'
+import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
+import { deriveRackOsFirmwareInstallability, RACK_OS_1_1_BUSINESS_RELEASE, type RackOsFirmwareInstallability } from '../../core/game/rackOsFirmwareUpdate'
+import { RackFirmwareUpdateSurface } from './RackFirmwareUpdate'
 
-type Section = 'terminal' | 'files' | 'operations' | 'system'
+/**
+ * Where the player currently is inside the operated Device's environment.
+ *
+ * RACK-OS 1.0 has only the three operating sections and no home of its own —
+ * its whole navigation is the section bar. RACK-OS 1.1 Business opens instead
+ * on `applications` and reaches the same three surfaces, plus a compatible
+ * installed business application, from there.
+ */
+type RackLocation = 'applications' | 'terminal' | 'files' | 'system' | 'branch-ops'
+
+const RACK_OS_1_0_SECTIONS: readonly RackLocation[] = ['terminal', 'files', 'system']
 
 /** Where the local source picker opens; the player's own working directory. */
 const LOCAL_SOURCE_ROOT = '/home/user'
@@ -23,8 +36,15 @@ const LOCAL_SOURCE_ROOT = '/home/user'
 /**
  * `editingRecoveryReady` and `onEndEditing` are the Shell's editing lifecycle,
  * passed in. RACK-OS reads no viewport of its own and keeps no keyboard state;
- * it only expresses that a section change ends the current editing interaction
+ * it only expresses that a location change ends the current editing interaction
  * and waits for the Shell to say editing geometry has recovered.
+ *
+ * Which of the two represented RACK-OS releases this Device runs is read from
+ * its own stable Firmware identity, never from the display version: 1.0 is the
+ * technical section environment it has always been, and 1.1 Business is the
+ * application shell. Neither presentation is a capability of its own — the
+ * canonical mechanics underneath are identical, and both releases reach them
+ * through the same components.
  */
 export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, onEndEditing }: {
   context: ActiveRemoteTarget
@@ -35,47 +55,72 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
 }) {
   const actions = useGameActions()
   const { disconnectRemoteSession } = actions
-  const [section, setSection] = useState<Section>('terminal')
-  const [requestedSection, setRequestedSection] = useState<Section>()
   const { target, access, service } = context
   const state = useGameState()
-  const branchOperations = resolveBookstoreBranchOperations(state, target.id)
+  const business = target.firmware!.id === RACK_OS_1_1_BUSINESS_FIRMWARE_ID
+  const [location, setLocation] = useState<RackLocation>(business ? 'applications' : 'terminal')
+  const [requestedLocation, setRequestedLocation] = useState<RackLocation>()
+  /* BranchOps is offered only where the exact represented relationship actually
+     exists — this Device is the branch's configured operations host and really
+     hosts the represented BranchOps build — and only where the release provides
+     an application shell to present it in. A 1.1 Business Device without that
+     relationship simply has no BranchOps application, and 1.0 has none at all. */
+  const branchOperations = business ? resolveBookstoreBranchOperations(state, target.id) : undefined
+  /* A location this release cannot present is never presented: 1.0 has no
+     Applications home and no application, so it falls back to its own first
+     section rather than rendering nothing. */
+  const current: RackLocation = business
+    ? (location === 'branch-ops' && !branchOperations ? 'applications' : location)
+    : (RACK_OS_1_0_SECTIONS.includes(location) ? location : 'terminal')
+  const installing = target.firmwareUpdate
 
-  /* A section change while a remote editable is focused would otherwise mount
+  /* A location change while a remote editable is focused would otherwise mount
      the destination into the keyboard geometry the outgoing editable is being
      unmounted out of. This is the same recovery boundary the local/remote
      operating-context switch already uses: end editing, then present the
      destination once the Shell reports recovered editing geometry. With
      nothing being edited that is already true, so the switch is immediate. */
   useEffect(() => {
-    if (requestedSection === undefined || !editingRecoveryReady) return
-    setSection(requestedSection)
-    setRequestedSection(undefined)
-  }, [requestedSection, editingRecoveryReady])
+    if (requestedLocation === undefined || !editingRecoveryReady) return
+    setLocation(requestedLocation)
+    setRequestedLocation(undefined)
+  }, [requestedLocation, editingRecoveryReady])
 
-  function requestSection(next: Section) {
-    if (next === section) { setRequestedSection(undefined); return }
+  function go(next: RackLocation) {
+    if (next === current) { setRequestedLocation(undefined); return }
     onEndEditing()
-    setRequestedSection(next)
+    setRequestedLocation(next)
   }
-  return <section className="rack-os" hidden={hidden} aria-label={`${target.firmware!.name} remote operating environment`}>
-    <header className="rack-header">
-      <div><strong>{target.firmware!.name} {target.firmware!.version}</strong><span>REMOTE</span></div>
-      <div><span>{target.displayName} · {target.ip}</span><span>{access.privilege}</span></div>
-      {/* Two deliberately different actions: the first only changes which
-          operating environment is presented, the second ends the Session. */}
-      <div className="rack-header__actions">
-        <button type="button" className="rack-header__return" onClick={onReturnLocal} aria-label="Return to NODE-OS without disconnecting"><span aria-hidden="true">←</span> NODE-OS</button>
-        <button type="button" className="rack-header__disconnect" onClick={() => disconnectRemoteSession()}>DISCONNECT</button>
-      </div>
-    </header>
-    <nav className="rack-nav" aria-label={`${target.firmware!.name} sections`}>
-      {(['terminal', 'files', ...(branchOperations ? ['operations' as const] : []), 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => requestSection(item)}>{item.toUpperCase()}</button>)}
-    </nav>
+
+  /* While this Device is genuinely installing firmware it presents nothing
+     else: Terminal, Files, System and the applications are all gone for the
+     duration, exactly as they would be on a real machine that is replacing its
+     operating system. The Shell's own context actions stay, because leaving
+     the Device is not something the installation may take away. */
+  if (installing) return <section className="rack-os rack-os--maintenance" hidden={hidden} aria-label={`${target.firmware!.name} firmware update`}>
+    <RackContextFrame target={target} access={access} maintenance onReturnLocal={onReturnLocal} onDisconnect={() => disconnectRemoteSession()} />
     <main className="rack-body">
-      {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} />}
-      {section === 'files' && <RemoteFiles context={context} />}
-      {section === 'operations' && branchOperations && <section className="rack-panel rack-operations" aria-label="Branch operations">
+      <RackFirmwareUpdateSurface progress={installing} deviceName={target.displayName!} currentFirmware={target.firmware!} />
+    </main>
+  </section>
+
+  return <section className="rack-os" hidden={hidden} data-release={business ? 'business' : 'classic'} aria-label={`${target.firmware!.name} remote operating environment`}>
+    <RackContextFrame target={target} access={access} onReturnLocal={onReturnLocal} onDisconnect={() => disconnectRemoteSession()} />
+    {business
+      ? <RackApplicationBar location={current} branchName={branchOperations?.software.name} onHome={() => go('applications')} />
+      : <nav className="rack-nav" aria-label={`${target.firmware!.name} sections`}>
+        {RACK_OS_1_0_SECTIONS.map((item) => <button key={item} aria-current={current === item ? 'page' : undefined} onClick={() => go(item)}>{item.toUpperCase()}</button>)}
+      </nav>}
+    <main className="rack-body">
+      {current === 'applications' && <RackApplications
+        deviceName={target.displayName!}
+        firmware={`${target.firmware!.name} ${target.firmware!.version}`}
+        branchApplication={branchOperations ? { name: branchOperations.software.name, version: branchOperations.software.version } : undefined}
+        open={go}
+      />}
+      {current === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} />}
+      {current === 'files' && <RemoteFiles context={context} />}
+      {current === 'branch-ops' && branchOperations && <section className="rack-panel rack-operations" aria-label="BranchOps">
         <p className="rack-artifact-kind">BRANCH OPERATIONS SERVER</p>
         <h2>{branchOperations.branch.displayName}</h2>
         <dl className="rack-facts">
@@ -89,7 +134,7 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
           <div><dt>SETTLED TO</dt><dd>{sale.transaction.destinationAccountReference}</dd></div>
         </dl>)}
       </section>}
-      {section === 'system' && <section className="rack-panel">
+      {current === 'system' && <section className="rack-panel">
         <dl className="rack-facts">
           <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
           <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>{target.role && <div><dt>ROLE</dt><dd>{target.role.toUpperCase()}</dd></div>}
@@ -98,6 +143,83 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
         <AuthenticationHistory records={target.authenticationHistory?.records ?? []} />
       </section>}
     </main>
+  </section>
+}
+
+/**
+ * The Shell's operating context around whichever RACK-OS release is running:
+ * what this Device is, the Session's authority over it, and the two
+ * deliberately different actions — the first only changes which operating
+ * environment is presented, the second ends the Session.
+ */
+function RackContextFrame({ target, access, maintenance, onReturnLocal, onDisconnect }: {
+  target: ActiveRemoteTarget['target']
+  access: ActiveRemoteTarget['access']
+  maintenance?: boolean
+  onReturnLocal(): void
+  onDisconnect(): void
+}) {
+  return <header className="rack-header">
+    <div><strong>{target.firmware!.name} {target.firmware!.version}</strong><span>{maintenance ? 'MAINTENANCE' : 'REMOTE'}</span></div>
+    <div><span>{target.displayName} · {target.ip}</span><span>{access.privilege}</span></div>
+    <div className="rack-header__actions">
+      <button type="button" className="rack-header__return" onClick={onReturnLocal} aria-label="Return to NODE-OS without disconnecting"><span aria-hidden="true">←</span> NODE-OS</button>
+      <button type="button" className="rack-header__disconnect" onClick={onDisconnect}>DISCONNECT</button>
+    </div>
+  </header>
+}
+
+/**
+ * RACK-OS 1.1 Business's application navigation: the return path out of an
+ * open application, and nothing else. On the Applications home it states where
+ * the player is rather than offering a return to itself.
+ */
+function RackApplicationBar({ location, branchName, onHome }: { location: RackLocation; branchName: string | undefined; onHome(): void }) {
+  if (location === 'applications') return <div className="rack-appbar rack-appbar--home"><span>APPLICATIONS</span></div>
+  return <div className="rack-appbar">
+    <button type="button" className="rack-appbar__home" onClick={onHome}><span aria-hidden="true">←</span> APPLICATIONS</button>
+    <span className="rack-appbar__current">{location === 'branch-ops' ? (branchName ?? '').toUpperCase() : location.toUpperCase()}</span>
+  </div>
+}
+
+/**
+ * The Applications home of RACK-OS 1.1 Business: a rudimentary graphical
+ * launcher over the environment this release actually provides.
+ *
+ * Terminal, Files and System are the release's own built-in applications and
+ * are always listed. Anything below them is listed only because the exact
+ * represented relationship for it exists on this Device — nothing is
+ * fabricated to fill the list, and an installed product with no represented
+ * application here does not become one.
+ */
+function RackApplications({ deviceName, firmware, branchApplication, open }: {
+  deviceName: string
+  firmware: string
+  branchApplication: { name: string; version: string } | undefined
+  open(location: RackLocation): void
+}) {
+  const applications: readonly { location: RackLocation; name: string; note: string }[] = [
+    { location: 'terminal', name: 'TERMINAL', note: 'SYSTEM' },
+    { location: 'files', name: 'FILES', note: 'SYSTEM' },
+    { location: 'system', name: 'SYSTEM', note: 'SYSTEM' },
+    ...(branchApplication ? [{ location: 'branch-ops' as const, name: branchApplication.name.toUpperCase(), note: `INSTALLED · ${branchApplication.version}` }] : []),
+  ]
+  return <section className="rack-panel rack-applications" aria-label="Applications">
+    <dl className="rack-facts rack-facts--dense">
+      <div><dt>DEVICE</dt><dd>{deviceName}</dd></div>
+      <div><dt>FIRMWARE</dt><dd>{firmware}</dd></div>
+    </dl>
+    <p className="rack-artifact-kind">INSTALLED APPLICATIONS · {applications.length}</p>
+    <div className="rack-applist">
+      {applications.map((application, index) => <button className="rack-appitem" type="button" key={application.location} onClick={() => open(application.location)}>
+        <span className="rack-appitem__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+        <span className="rack-appitem__copy">
+          <span className="rack-appitem__name">{application.name}</span>
+          <span className="rack-appitem__note">{application.note}</span>
+        </span>
+        <span className="rack-appitem__mark" aria-hidden="true">▸</span>
+      </button>)}
+    </div>
   </section>
 }
 
@@ -152,6 +274,8 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
   const { id: targetDeviceId, ip: targetAddress, filesystem, displayName: targetDisplayName } = context.target
   const localFilesystem = state.player.localDevice.filesystem
   const [path, setPath] = useState('/'); const [selected, setSelected] = useState<string>()
+  /** Which firmware installer the dedicated update utility is currently open on. Presentation only: opening it starts nothing. */
+  const [installerPath, setInstallerPath] = useState<string>()
   const [uploadDirectory, setUploadDirectory] = useState<string>()
   const [acknowledgement, setAcknowledgement] = useState<string>()
   const [feedback, setFeedback] = useState<string>()
@@ -191,6 +315,21 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
     setFeedback(startResult.status === 'started' ? undefined : startResult.status === 'destination_exists' ? 'DESTINATION ALREADY EXISTS' : startResult.status.toUpperCase().replaceAll('_', ' '))
   }
 
+  /* The dedicated firmware update utility, launched from a selected installer
+     artifact on this Device's own filesystem. It is a separate surface rather
+     than a control inside the file view, because starting a firmware
+     installation is a different decision from inspecting a file. */
+  if (installerPath !== undefined) {
+    const artifact = getFilesystemFile(filesystem!, installerPath)
+    return <RackFirmwareInstaller
+      key={installerPath}
+      file={artifact.status === 'ok' && artifact.file.kind === 'firmware_package' ? artifact.file : undefined}
+      target={context.target}
+      onCancel={() => setInstallerPath(undefined)}
+      onStarted={() => setInstallerPath(undefined)}
+    />
+  }
+
   /* The remote directory the player is standing in establishes the Upload
      destination context; the workflow never leaves RACK-OS to reach NODE-OS. */
   if (uploadDirectory !== undefined) return <RemoteUpload
@@ -216,6 +355,8 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
               ? <dl className="rack-facts"><div><dt>FLIPPER EXTENSION</dt><dd>{result.file.name} {result.file.version}</dd></div><div><dt>BUILD</dt><dd>{result.file.buildId}</dd></div></dl>
             : result.file.kind === 'rattler_payload'
               ? <dl className="rack-facts"><div><dt>RATTLER TARGET</dt><dd>{result.file.targetAddressSnapshot}</dd></div><div><dt>DEVICE</dt><dd>{result.file.targetDeviceId}</dd></div></dl>
+            : result.file.kind === 'firmware_package'
+              ? <RemoteFirmwareArtifact key={selected} file={result.file} target={context.target} openInstaller={() => setInstallerPath(selected)} />
               : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
           player is operating it stays secondary to that Device's own software and
@@ -287,6 +428,111 @@ function RemoteModule({ file }: { file: SoftwareModuleFile }) {
       <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
     </dl>
   </div>
+}
+
+/**
+ * A firmware installer artifact on the Device the player is operating.
+ *
+ * Its primary action is deliberately not "install": opening the artifact
+ * launches the dedicated update utility, and only that utility can start an
+ * installation. Two stages, because possessing a firmware image and replacing
+ * a running server's operating system are different decisions.
+ *
+ * Whether the action is offered at all is the same canonical installability
+ * this Device's own truth already decides, so this pane can never offer a
+ * launch into a utility that would refuse — and where it cannot, it states the
+ * real reason rather than hiding the artifact's nature.
+ */
+function RemoteFirmwareArtifact({ file, target, openInstaller }: {
+  file: FirmwarePackageFile
+  target: ActiveRemoteTarget['target']
+  openInstaller(): void
+}) {
+  const installability = deriveRackOsFirmwareInstallability(file, target)
+  return <div className="rack-artifact">
+    <p className="rack-artifact-kind">FIRMWARE INSTALLER</p>
+    <h2>{file.name} {file.version}</h2>
+    <p className="rack-artifact-release">INSTALLS ON THIS DEVICE</p>
+    <dl className="rack-facts rack-facts--dense">
+      <div><dt>CURRENT</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>
+      <div><dt>STATUS</dt><dd>{describeFirmwareInstallability(installability)}</dd></div>
+      <div><dt>SIZE</dt><dd>{formatBytes(getFilesystemFileSizeBytes(file))}</dd></div>
+      {file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}
+    </dl>
+    {installability === 'installable'
+      ? <button className="rack-primary" type="button" onClick={openInstaller}>OPEN INSTALLER</button>
+      : <p className="rack-install-note">{describeFirmwareInstallabilityReason(installability, target.firmware!.name)}</p>}
+  </div>
+}
+
+/** The same words the canonical admission uses, so surface and operation agree. */
+function describeFirmwareInstallability(installability: RackOsFirmwareInstallability): string {
+  return installability.toUpperCase().replaceAll('_', ' ')
+}
+
+function describeFirmwareInstallabilityReason(installability: Exclude<RackOsFirmwareInstallability, 'installable'>, firmwareName: string): string {
+  if (installability === 'already_installed') return 'THIS DEVICE ALREADY RUNS THIS RELEASE'
+  if (installability === 'update_in_progress') return 'A FIRMWARE UPDATE IS ALREADY RUNNING ON THIS DEVICE'
+  if (installability === 'unrecognized_artifact') return 'THIS INSTALLER CARRIES AN UNRECOGNIZED FIRMWARE BUILD'
+  return `THIS RELEASE DOES NOT INSTALL ON ${firmwareName.toUpperCase()} AS RUN BY THIS DEVICE`
+}
+
+/**
+ * The dedicated RACK-OS firmware update utility, launched from one concrete
+ * installer artifact on the operated Device's own filesystem.
+ *
+ * Opening it changes nothing, CANCEL changes nothing, and INSTALL forwards the
+ * exact artifact path to the canonical operation — which resolves the Device
+ * from the active Remote Session itself, never from anything this component
+ * supplies, and remains the sole authority over whether an installation may
+ * start. Every fact stated here is read from represented truth: this Device,
+ * the release it currently runs, the release the artifact installs, and
+ * whether that installation can proceed. Nothing about the machine, its
+ * hardware, its storage or its network is claimed.
+ */
+function RackFirmwareInstaller({ file, target, onCancel, onStarted }: {
+  file: FirmwarePackageFile | undefined
+  target: ActiveRemoteTarget['target']
+  onCancel(): void
+  onStarted(): void
+}) {
+  const { startRackOsFirmwareUpdateForOperatedRemoteDevice } = useGameActions()
+  const [feedback, setFeedback] = useState<string>()
+  const installability = file ? deriveRackOsFirmwareInstallability(file, target) : undefined
+
+  function confirm() {
+    if (!file) return
+    const result = startRackOsFirmwareUpdateForOperatedRemoteDevice(file.path)
+    if (result.status === 'started') { onStarted(); return }
+    setFeedback(result.status.toUpperCase().replaceAll('_', ' '))
+  }
+
+  return <section className="rack-panel rack-updater" aria-label="Firmware update utility">
+    <div className="rack-path"><span>UPDATE UTILITY</span><code>{target.displayName}</code></div>
+    <button className="rack-back" type="button" onClick={onCancel}>← CANCEL</button>
+    {file
+      ? <>
+        <dl className="rack-facts">
+          <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div>
+          <div><dt>CURRENT FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>
+          <div><dt>TARGET FIRMWARE</dt><dd>{file.name} {file.version}</dd></div>
+          <div><dt>INSTALLER</dt><dd>{file.path}</dd></div>
+          <div><dt>STATUS</dt><dd>{describeFirmwareInstallability(installability!)}</dd></div>
+        </dl>
+        {installability === 'installable' ? <>
+          <ul className="rack-updater__notes">
+            {RACK_OS_1_1_BUSINESS_RELEASE.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}
+          </ul>
+          <p className="rack-install-note rack-install-note--caution">THIS DEVICE WILL RESTART WHEN THE INSTALLATION COMPLETES. THE SESSION ENDS WHILE IT IS UNREACHABLE.</p>
+          <div className="rack-install-actions">
+            <button className="rack-secondary" type="button" onClick={onCancel}>CANCEL</button>
+            <button className="rack-primary" type="button" onClick={confirm}>INSTALL</button>
+          </div>
+        </> : <p className="rack-install-note">{describeFirmwareInstallabilityReason(installability!, target.firmware!.name)}</p>}
+        {feedback && <p className="rack-install-note rack-install-note--caution">{feedback}</p>}
+      </>
+      : <p className="rack-empty">INSTALLER NOT FOUND</p>}
+  </section>
 }
 
 function RemoteExecutable({ file, targetDisplayName, runningProcess, nodeWalletAddress, run, stop }: {
@@ -573,6 +819,6 @@ function AuthenticationHistory({ records }: { records: readonly AuthenticationHi
 function joinPath(path: string, name: string) { return `${path === '/' ? '' : path}/${name}` }
 function parentPath(path: string) { return path.slice(0, path.lastIndexOf('/')) || '/' }
 function basename(path: string) { return path.slice(path.lastIndexOf('/') + 1) }
-function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : 'EXECUTABLE' }
+function typeLabel(file: FilesystemFile) { return file.kind === 'text' ? 'TEXT' : file.kind === 'software_package' ? 'SOFTWARE PACKAGE' : file.kind === 'software_module' ? 'SOFTWARE MODULE' : file.kind === 'firmware_package' ? 'FIRMWARE INSTALLER' : 'EXECUTABLE' }
 
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1) }

@@ -1,5 +1,5 @@
 import { checkDestinationPlacement, getFilesystemFile } from './filesystem'
-import { NODE_OS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID } from './firmwareIdentity'
+import { NODE_OS_FIRMWARE_ID, isRackOsFirmwareId } from './firmwareIdentity'
 import { AUTH_GUARD_PRODUCT_ID } from './authGuard'
 import { NODE_MINER_EXECUTABLE_SIZE_BYTES, NODE_MINER_PROGRAM_ID, nodeMinerInstalledExecutablePathForFirmware } from './nodeMiner'
 import { startProcess } from './processes'
@@ -107,7 +107,8 @@ export function deriveSoftwarePackageEligibility(
   if (target.installedSoftware.find(({ id }) => id === file.productId)?.buildId === file.buildId) return { status: 'installed' }
   if (process.processes.some((candidate) => candidate.kind === 'software_installation' && candidate.status === 'running' && candidate.executorDeviceId === target.id && candidate.productId === file.productId)) return { status: 'installing' }
   if (NODE_OS_ONLY_PRODUCT_IDS.includes(file.productId) && target.firmware.id !== NODE_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'NODE-OS' }
-  if (file.productId === AUTH_GUARD_PRODUCT_ID && target.firmware.id !== RACK_OS_FIRMWARE_ID) return { status: 'incompatible', requiredFirmware: 'RACK-OS' }
+  // Both represented RACK-OS releases are RACK-OS: a Device that installs AuthGuard on 1.0 does not stop qualifying merely because it later runs 1.1 Business.
+  if (file.productId === AUTH_GUARD_PRODUCT_ID && !isRackOsFirmwareId(target.firmware.id)) return { status: 'incompatible', requiredFirmware: 'RACK-OS' }
   return { status: 'installable' }
 }
 

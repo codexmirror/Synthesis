@@ -21,9 +21,10 @@ products, releases, and their player-facing documentation belong to
 ## Filesystem and the Files application
 
 The player's local Device owns a canonical filesystem. It represents exactly
-six explicit filesystem file kinds: text files, software-package files,
+seven explicit filesystem file kinds: text files, software-package files,
 software-module files, the one concrete `deauth.ext` Flipper Extension file,
-executable files, and the narrow RATTLER payload file. Each concrete copy has
+executable files, the narrow RATTLER payload file, and firmware-installer
+files. Each concrete copy has
 an `id` that is unique and stable within its filesystem; `path` is its current
 location rather than identity. A filesystem-owned monotonic counter allocates
 deterministic IDs using destination state alone. Raw IDs may coincide across
@@ -50,6 +51,33 @@ installation Process ends. A path that does not resolve is stated explicitly
 rather than rendered as nothing. Terminal provides local `ls` and type-aware
 `cat` commands over the same filesystem truth; `cat` rejects software packages
 rather than fabricating text.
+
+### Firmware installer artifacts
+
+A `FirmwarePackageFile` (`kind: 'firmware_package'`) is one concrete Firmware
+installer sitting on a Device-owned filesystem. It is deliberately **not** a
+`SoftwarePackageFile`, not an `ExecutableFile`, not `InstalledSoftware`, and not
+Firmware: possessing it is possession of an installer, no installation path that
+admits software accepts it (`not_software_package`, locally and remotely alike),
+and the Device holding it is not running the release it carries. It uses a
+firmware-specific `.fwpkg` filename rather than disguising itself as a `.pkg`,
+but the filename is never identity.
+
+What it carries is the exact represented firmware provenance an installation is
+admitted against: `firmwareId` (the stable identity of the Firmware release it
+installs) plus `buildId` (the exact build), alongside name, version, optional
+publisher and represented `sizeBytes`. Like every other artifact it keeps that
+provenance wherever it is copied to while taking a new concrete copy identity
+from the destination filesystem, so an ordinary transfer to a server moves the
+installer without changing what it is.
+
+Exactly one firmware installer is currently represented: the RACK-OS 1.1
+Business installer, acquired from the Market
+(`docs/current/MARKET.md`) and installed from a RACK-OS Device's own Files
+surface (`docs/current/NETWORK_ACCESS.md`), with the Device-owned firmware
+update itself owned by `docs/current/DEVICE_SYSTEM.md`. No generic firmware
+package ecosystem, catalogue, signing or trust model exists.
+
 
 ### The opened-file viewer
 
@@ -117,6 +145,14 @@ own rather than a shared schema mechanically forced onto every artifact:
   legitimately reads from the artifact, no action (DEPLOY remains RATTLER's
   own action, reachable only from RATTLER after OPEN), then `FILE INFORMATION`
   carrying the payload's opaque release/build provenance.
+- **Firmware installer** — an `INSTALLATION` line stating `NOT ON THIS DEVICE`,
+  the release the installer installs against the release node-01 itself runs,
+  one note saying that Device firmware is installed by the Device that runs it,
+  and **no INSTALL action of any kind**, then `FILE INFORMATION` carrying the
+  publisher and build. NODE-OS refusing here is the truth rather than a missing
+  feature: node-01 runs NODE-OS and this installer installs a RACK-OS release.
+  Transfer stays available through the shared `REMOTE TRANSFER` section, which
+  is how the artifact reaches a Device that can actually use it.
 
 Software-package details remain compact and action-oriented in the sense
 described above: they state the software name, the release as

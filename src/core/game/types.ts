@@ -493,7 +493,37 @@ export interface DeauthExtensionFile {
   readonly sizeBytes: number
 }
 
-export type FilesystemFile = TextFile | SoftwarePackageFile | SoftwareModuleFile | DeauthExtensionFile | ExecutableFile | RattlerPayloadFile
+/**
+ * One concrete Firmware installer artifact on a Device-owned filesystem.
+ *
+ * It is deliberately **not** a `SoftwarePackageFile`, an `ExecutableFile`, or
+ * Firmware itself. Possessing this file is possession of an installer, never
+ * of an installed Firmware release: no installation path that admits software
+ * accepts it, it never becomes `InstalledSoftware`, and the Device it sits on
+ * is not running the release it carries merely because the file is there.
+ *
+ * `firmwareId` plus `buildId` are the exact represented firmware-release
+ * provenance an installation is admitted against — never the filename, which
+ * is only where this copy happens to live. Like every other artifact it keeps
+ * that provenance wherever it is copied to, while `id` is its concrete copy
+ * identity and `path` its current location.
+ */
+export interface FirmwarePackageFile {
+  readonly kind: 'firmware_package'
+  readonly id: string
+  readonly path: string
+  /** Stable identity of the concrete Firmware release this installer installs. */
+  readonly firmwareId: string
+  /** Stable identity of the exact firmware build this artifact carries. */
+  readonly buildId: string
+  readonly name: string
+  readonly version: string
+  /** Provenance stated by the represented release; present only where one is actually represented. */
+  readonly publisher?: string
+  readonly sizeBytes: number
+}
+
+export type FilesystemFile = TextFile | SoftwarePackageFile | SoftwareModuleFile | DeauthExtensionFile | ExecutableFile | RattlerPayloadFile | FirmwarePackageFile
 
 export interface FilesystemState {
   /** Next filesystem-local concrete copy identity. Cross-device references also require the Device ID. */
@@ -795,8 +825,32 @@ export interface MarketModuleDistribution {
   readonly sizeBytes: number
 }
 
+/**
+ * What a firmware offering sends: represented source truth about one concrete
+ * Firmware build and the byte size the operator states for it.
+ *
+ * It is equally not a file and equally not Firmware. A firmware offering
+ * distributes a firmware *installer* artifact, so buying or downloading one
+ * can never install Firmware, produce InstalledSoftware, or change any
+ * Device's Firmware identity — the release it names is installed later, on a
+ * compatible Device, from that Device's own copy of the artifact.
+ */
+export interface MarketFirmwareDistribution {
+  readonly artifact: 'firmware_package'
+  readonly filename: string
+  /** Stable identity of the concrete Firmware release this offering's installer installs. */
+  readonly firmwareId: string
+  /** Stable identity of the one concrete firmware build this offering distributes. */
+  readonly buildId: string
+  readonly name: string
+  readonly version: string
+  /** Provenance stated by the represented release; present only where one is actually represented. */
+  readonly publisher?: string
+  readonly sizeBytes: number
+}
+
 /** What one Market offering would send, whichever represented artifact kind it distributes. */
-export type MarketDistribution = MarketPackageDistribution | MarketModuleDistribution
+export type MarketDistribution = MarketPackageDistribution | MarketModuleDistribution | MarketFirmwareDistribution
 
 /**
  * One represented Market offering: stable offer identity, the canonical
@@ -921,16 +975,34 @@ export interface NetworkHost {
 }
 
 /**
- * The represented stages of one firmware installation, in order. They exist
+ * The represented stages a firmware installation may pass through. They exist
  * because the install genuinely takes represented time and passes through
  * work the Device's owner would recognize; nothing outside the update itself
  * derives meaning from which stage is current.
+ *
+ * Which of these stages an installation actually has is decided by the
+ * concrete update route, not by this type: VEYRA's Device-owned update really
+ * does fetch the release first and so begins at `DOWNLOADING`, while an
+ * installation started from an artifact already sitting on the target's own
+ * filesystem has nothing to download and begins at `PREPARING`. A route never
+ * presents a stage that is not true of it.
  *
  * `FINALIZING` is the update's last installation stage. Completing it activates
  * the release and enters the existing real Device reboot lifecycle; shutdown
  * and boot remain Device operational truth rather than additional update phases.
  */
 export type FirmwareUpdatePhase = 'DOWNLOADING' | 'PREPARING' | 'INSTALLING' | 'FINALIZING'
+
+/**
+ * What advancing one running firmware installation by an elapsed step
+ * produced: the resulting canonical state, plus — only when that step actually
+ * finished the installation — the elapsed time left over after activation,
+ * which belongs to the Device reboot the activation created.
+ */
+export interface FirmwareUpdateStepResult {
+  readonly state: GameState
+  readonly recoveryRemainderMs?: number
+}
 
 /** Canonical progress of one Device's own running Firmware update. */
 export interface DeviceFirmwareUpdateProgress {

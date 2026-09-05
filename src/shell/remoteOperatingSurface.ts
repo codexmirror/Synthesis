@@ -1,4 +1,4 @@
-import { RACK_OS_FIRMWARE_ID, VEYRA_OS_4_1_FIRMWARE_ID, VEYRA_OS_4_2_FIRMWARE_ID } from '../core/game/firmwareIdentity'
+import { isRackOsFirmwareId, VEYRA_OS_4_1_FIRMWARE_ID, VEYRA_OS_4_2_FIRMWARE_ID } from '../core/game/firmwareIdentity'
 import type { FirmwareState } from '../core/game/types'
 
 /**
@@ -26,7 +26,7 @@ export type RemoteOperatingSurface = 'rack-os' | 'veyra-os'
  * operating surface.
  */
 export function selectRemoteOperatingSurface(firmware: FirmwareState | undefined): RemoteOperatingSurface | undefined {
-  if (firmware?.id === RACK_OS_FIRMWARE_ID) return 'rack-os'
+  if (isRackOsFirmwareId(firmware?.id)) return 'rack-os'
   if (firmware?.id === VEYRA_OS_4_1_FIRMWARE_ID || firmware?.id === VEYRA_OS_4_2_FIRMWARE_ID) return 'veyra-os'
   return undefined
 }

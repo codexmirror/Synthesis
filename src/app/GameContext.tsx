@@ -19,6 +19,7 @@ import { createFlipperActions } from './flipperOperations'
 import { createNodeMinerActions } from './nodeMinerOperations'
 import { createDollarFinanceActions } from './dollarFinanceOperations'
 import { createDeviceSecurityActions } from './deviceSecurityOperations'
+import { createFirmwareActions } from './firmwareOperations'
 import { createRattlerActions } from './rattlerOperations'
 import { createMailActions } from './mailOperations'
 import { createRecentActivityActions } from './recentActivityOperations'
@@ -38,6 +39,7 @@ import type { PayoutNodeMinerResult, RetargetLocalNodeMinerPayoutResult, Retarge
 import type { AuthenticateDollarAccountResult, AuthenticateWithSavedDollarSignInResult, LogoutDollarAccountResult, TransferDollarsResult, TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 import type { ChangeWalletProtectionForOperatedRemoteDeviceResult, VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
 import type { StartVeyraFirmwareUpdateResult } from '../core/game/veyraFirmwareUpdate'
+import type { StartRackOsFirmwareUpdateResult } from '../core/game/rackOsFirmwareUpdate'
 import type { CreateRattlerPayloadResult, DeployRattlerResult } from '../core/game/rattler'
 import type { SendMailReplyResult } from '../core/game/mail'
 import type { InstalledSoftware } from '../core/game/types'
@@ -89,6 +91,8 @@ export interface GameActions {
   changeWalletProtectionForOperatedRemoteDevice(pin: string, enabled: boolean): ChangeWalletProtectionForOperatedRemoteDeviceResult
   /** Starts the operated remote Device's own firmware update; verified solely against that Device's own PIN. */
   startVeyraFirmwareUpdateForOperatedRemoteDevice(pin: string): StartVeyraFirmwareUpdateResult
+  /** Starts the operated remote Device's own RACK-OS firmware installation from an installer artifact that Device already holds. */
+  startRackOsFirmwareUpdateForOperatedRemoteDevice(artifactPath: string): StartRackOsFirmwareUpdateResult
   /** Checks a submitted PIN against the operated remote Device's own PIN without committing anything. */
   verifyDevicePinForOperatedRemoteDevice(pin: string): VerifyDevicePinForOperatedRemoteDeviceResult
   createRattlerPayload(targetAddress: string): CreateRattlerPayloadResult
@@ -140,6 +144,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     ...createNodeMinerActions(accessor),
     ...createDollarFinanceActions(accessor),
     ...createDeviceSecurityActions(accessor),
+    ...createFirmwareActions(accessor),
     ...createRattlerActions(accessor),
     ...createMailActions(accessor),
     ...createRecentActivityActions(accessor),

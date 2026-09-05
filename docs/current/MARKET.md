@@ -66,7 +66,22 @@ carries the host product it belongs to plus its stable module identity — and
 deliberately no `productId`, `channel` or `publisher`, because a module is not
 a software product of its own. Buying a module offering therefore cannot
 produce InstalledSoftware; what it can produce is one module artifact the
-player then integrates into Flipper (`docs/current/FILES_SOFTWARE.md`).
+player then integrates into Flipper (`docs/current/FILES_SOFTWARE.md`). A
+`MarketFirmwareDistribution` (`artifact: 'firmware_package'`) sends one concrete
+Firmware *installer* artifact and carries the stable identity of the Firmware
+release it installs (`firmwareId`) plus the exact `buildId` — and no
+`productId`, `releaseId`, `channel` or `moduleId`, because a Firmware release is
+not a software product and not a module. Buying or downloading a firmware
+offering therefore cannot produce InstalledSoftware and cannot change any
+Device's Firmware; what it can produce is one installer artifact the player then
+transfers to a compatible Device and runs from that Device's own operating
+environment (`docs/current/DEVICE_SYSTEM.md`).
+
+`marketDistributionReleaseId` is the one place that answers "which concrete
+release does this offering distribute": a package or module states its own
+`releaseId`, a firmware offering states the Firmware release identity it
+installs. Purchase entitlement identity remains the offer's own `id`, never
+either of these.
 
 A distribution is represented offer and source truth: the release/build facts and
 byte size the operator states it will send, plus the `filename` the V1
@@ -81,17 +96,28 @@ MARKET OFFER / DISTRIBUTION TRUTH
   -> authorized elapsed FileTransfer
   -> completion
   -> one ordinary artifact of the offering's own kind on the local Device
-     filesystem (software_package, or software_module)
+     filesystem (software_package, software_module, or firmware_package)
 ```
 
-The V1 catalog lists seven offerings, each represented once at exactly
+The V1 catalog lists eight offerings, each represented once at exactly
 `0.01 NODE` — `10,000` canonical atomic units, authored as an integer like
 every other NODE amount: NodeScan 1.1 Experimental, NODE Miner 1.0 Unofficial,
-GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0, RATTLER 1.0, and the Flipper Rollback Module 1.0 — the
-one module offering. That
+GateSSH 1.3.2 Stable, GateSSH 1.3.3, Flipper 1.0, RATTLER 1.0, the Flipper
+Rollback Module 1.0 — the one module offering — and the RACK-OS 1.1 Business
+firmware installer — the one firmware offering. That
 price is a current tuning of what this operator charges, not a rule of the
 economy; every operation reads the offering's own `priceNodeUnits` rather than
 a constant.
+
+The RACK-OS 1.1 Business offering distributes `rack-os-1.1-business.fwpkg`, the
+installer for the represented `RACK_OS_1_1_BUSINESS_RELEASE`. Its firmware
+identity, build, name, version, publisher and size are read from that release
+constant rather than restated here, because the release — not the Market — is
+what those facts belong to. This Market is currently its only represented
+acquisition path, and distributing a firmware installer changes nothing about
+who operates the Market: Open Package Exchange remains one broad/open exchange,
+not an official RACK store, a firmware catalogue, or a signing or trust
+authority.
 
 RATTLER is one independently authored unofficial software-package offering,
 published by `NULL//WORKS`; it is not represented as a cracked derivative.
@@ -136,7 +162,8 @@ self-contained — and a focused test pins them to each other so the two
 authoring sites cannot silently diverge.
 
 Filesystem possession of an offering is exact to its distributed `productId`,
-`releaseId`, and `buildId`. A package from another build of the same release is
+`releaseId`, and `buildId` — and, for a firmware offering, to its `firmwareId`
+and `buildId`. A package from another build of the same release is
 not possession of the offered build; copying the offered package preserves that
 build identity while allocating a new filesystem copy identity.
 
@@ -226,13 +253,15 @@ Network transfer evidence records activity between represented Devices, and
 canonical World Truth must not claim a Device-to-Device transfer that never
 happened.
 
-Completion is ordinary: exactly one `software_package` artifact is created on
+Completion is ordinary: exactly one artifact of the offering's own kind — a
+`software_package`, a `software_module`, or a `firmware_package` — is created on
 the local Device at the moment the transferred bytes reach the total — the
 first moment such an artifact exists at all — carrying the offering's
 represented release identity, name, version and size unchanged, plus channel
 and publisher exactly where the offering actually represents them and omitted
 otherwise, and taking its file ID and path from the destination filesystem
-like any other created artifact. Downloading installs nothing. From that point the existing
+like any other created artifact. Downloading installs nothing, and downloading a
+firmware installer changes no Device's Firmware. From that point the existing
 Files / INSTALL lifecycle takes over with no Market-specific installation
 logic. Cancellation uses the existing `cancelFileTransfer` semantics, creates
 no partial artifact, allocates no file ID, and leaves the entitlement intact.
@@ -297,12 +326,14 @@ operator/source truth first, which this slice deliberately does not add.
 The catalog states the operator it is presenting and the client Device, the two
 destinations, and the canonical NODE balance as one line rather than a module.
 Its entries are grouped: `SOFTWARE` lists one entry per represented product,
-`MODULES` lists the module offerings. Grouping reads only stable identity —
+`MODULES` lists the module offerings, and `FIRMWARE` lists the firmware
+offerings. Grouping reads only stable identity —
 `software_package` offerings group strictly by their represented `productId`
 (`docs/design/SOFTWARE_AUTHORING.md`), never by name, version, channel,
 publisher or filename, so two releases of one product stay one entry even when
 they state different names; a module groups by its own equally stable
-`moduleId`, because it has no `productId` at all. The entry's own presentation
+`moduleId`, and a firmware offering by its own equally stable `firmwareId`,
+because neither has a `productId` at all. The entry's own presentation
 label is a deterministic UI choice — the name the first-listed offering states
 — never domain identity, and never rewritten onto a sibling release: each
 release keeps stating its own actual name, and a product surface whose
@@ -389,11 +420,25 @@ stays a separate entry rather than being folded into the product's releases.
 Its own surface states `MODULE` rather than `PACKAGE`, and that acquiring it
 places one module artifact on the Device and never becomes installed software.
 
-The Market ends at acquisition. It offers no INSTALL, no execution and no
-remote-Device installation, and says so where a local copy exists:
+### Firmware
+
+A firmware offering is listed in its own `FIRMWARE` catalog group and states
+`DEVICE FIRMWARE` rather than a product or a module. Its offering surface names
+the artifact as an `INSTALLER` rather than a `PACKAGE`, and states that
+acquiring it places one firmware installer artifact on the client Device, never
+becomes installed software, and does not change any Device's firmware — the
+release it installs is installed later, from the Device it is transferred to. No
+`ON THIS DEVICE` product summary is derived for it, because it belongs to no
+software product.
+
+The Market ends at acquisition. It offers no INSTALL, no execution, no
+remote-Device installation and no firmware installation, and says so where a
+local copy exists:
 
 ```text
 Market -> BUY -> DOWNLOAD -> package in Files -> Files INSTALL -> InstalledSoftware
+Market -> BUY -> DOWNLOAD -> installer in Files -> transfer to a RACK-OS server
+       -> that Device's own update utility -> Device firmware update
 ```
 
 

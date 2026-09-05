@@ -1,7 +1,8 @@
 import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { FLIPPER_1_0, NODESCAN_1_1_EXPERIMENTAL, NODE_MINER_1_0, RATTLER_1_0 } from './softwareReleaseContent'
 import { ROLLBACK_MODULE_1_0 } from './flipper'
-import type { FilesystemFile, FilesystemState, GameState, MarketOffer, MarketPurchase, MarketState } from './types'
+import { RACK_OS_1_1_BUSINESS_RELEASE, RACK_OS_FIRMWARE_INSTALLER_FILENAME } from './rackOsFirmwareUpdate'
+import type { FilesystemFile, FilesystemState, GameState, MarketDistribution, MarketOffer, MarketPurchase, MarketState } from './types'
 import { debitNodeWalletMarketPurchase } from './nodeEconomy'
 
 /**
@@ -130,9 +131,36 @@ export function createInitialMarketState(): MarketState {
           sizeBytes: ROLLBACK_MODULE_1_0.sizeBytes,
         },
       },
+      {
+        // The concrete RACK-OS 1.1 Business firmware installer. It is deliberately not a
+        // `.pkg`: what this offering sends is a firmware installer artifact, not installable
+        // software, so downloading it can never produce InstalledSoftware and never changes
+        // any Device's Firmware. Its size and publisher are the represented release's own,
+        // read from the release constant rather than restated here.
+        id: 'market-offer-rack-os-1.1-business',
+        priceNodeUnits: MARKET_V1_OFFER_PRICE_NODE_UNITS,
+        distribution: {
+          artifact: 'firmware_package',
+          filename: RACK_OS_FIRMWARE_INSTALLER_FILENAME,
+          firmwareId: RACK_OS_1_1_BUSINESS_RELEASE.firmware.id, buildId: RACK_OS_1_1_BUSINESS_RELEASE.buildId,
+          name: RACK_OS_1_1_BUSINESS_RELEASE.firmware.name, version: RACK_OS_1_1_BUSINESS_RELEASE.firmware.version,
+          publisher: RACK_OS_1_1_BUSINESS_RELEASE.publisher,
+          sizeBytes: RACK_OS_1_1_BUSINESS_RELEASE.installerSizeBytes,
+        },
+      },
     ],
     purchases: { nextId: 1, entitlements: [] },
   }
+}
+
+/**
+ * The stable identity of the concrete release an offering distributes,
+ * whichever artifact kind it sends. A software package and a module are
+ * identified by their own `releaseId`; a firmware installer is identified by
+ * the stable identity of the Firmware release it installs.
+ */
+export function marketDistributionReleaseId(distribution: MarketDistribution): string {
+  return distribution.artifact === 'firmware_package' ? distribution.firmwareId : distribution.releaseId
 }
 
 export function findMarketOffer(market: MarketState, offerId: string): MarketOffer | undefined {
@@ -159,6 +187,7 @@ export function findLocalMarketArtifactCopy(filesystem: FilesystemState, offer: 
     if (file.kind !== distribution.artifact) return false
     if (file.kind === 'software_package' && distribution.artifact === 'software_package') return file.productId === distribution.productId && file.releaseId === distribution.releaseId && file.buildId === distribution.buildId
     if (file.kind === 'software_module' && distribution.artifact === 'software_module') return file.moduleId === distribution.moduleId && file.releaseId === distribution.releaseId && file.buildId === distribution.buildId
+    if (file.kind === 'firmware_package' && distribution.artifact === 'firmware_package') return file.firmwareId === distribution.firmwareId && file.buildId === distribution.buildId
     return false
   })
 }
@@ -207,7 +236,7 @@ export function purchaseMarketOffer(state: GameState, offerId: string): Purchase
       nodeWallet: debitNodeWalletMarketPurchase(state.nodeWallet, {
         purchaseId: purchase.id,
         offerId: offer.id,
-        releaseId: offer.distribution.releaseId,
+        releaseId: marketDistributionReleaseId(offer.distribution),
         releaseName: offer.distribution.name,
         releaseVersion: offer.distribution.version,
         amountNodeUnits: offer.priceNodeUnits,
