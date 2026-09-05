@@ -963,7 +963,7 @@ function TargetTopology({ target, unreachable, pending, onRefreshNetwork }: { ta
 
     {network && <div className="ns-network-members" aria-label={`Known members of ${network.name}`}>
       {network.members.map((member) => <div className="ns-network-member" key={member.id}>
-        <span>{member.displayName ?? member.address}</span>
+        <span>{member.isSelf ? 'SELF' : member.displayName ?? member.address}</span>
         {member.liveStatus && <span className={`ns-topo-status ns-topo-status--${member.liveStatus.tone}`}>{member.liveStatus.label}</span>}
       </div>)}
     </div>}

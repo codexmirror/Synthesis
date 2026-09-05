@@ -493,7 +493,7 @@ Target SCAN invokes only the canonical Device Scan and refreshes the currently e
 
 ## Live topology monitoring and integrated intelligence
 
-The target Network row includes a compact member summary derived exclusively from remembered `networkDeviceRelations` and remembered Device identity. It does not enumerate current World membership. Display names appear only after legitimate Inspect observation. Releases without legitimate live authority leave member status unstated.
+The target Network row includes a compact contextual member summary derived exclusively from remembered `networkDeviceRelations`. It excludes the selected target, which is represented once in the detailed topology below. A remembered relationship for the local Device appears as the player-relative identity `SELF`, without requiring Inspect or exposing its canonical display name; other remembered Device display names appear only after legitimate Inspect observation. It does not enumerate current World membership. Releases without legitimate live authority leave member status unstated.
 
 NodeScan 1.2's topology status is an ephemeral projection, never Discovery or Knowledge. Its represented monitoring capability may read only the current target Device operational state and the current open state of that Device's already-observed Services. Device status maps canonical `RUNNING` + `CONNECTED` to `ONLINE`, `SHUTTING_DOWN` to `SHUTTING DOWN`, `BOOTING` to `BOOTING`, `RECONNECTING` to `RECONNECTING`, and other unavailable combinations to `OFFLINE`. Service V1 status is only `ONLINE`, `OFFLINE`, or `CLOSED`, derived from Device usability and the Service's represented `open` field; there is no independent Service lifecycle, recovery phase, or timer.
 

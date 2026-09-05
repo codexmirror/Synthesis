@@ -961,8 +961,35 @@ describe('NodeScan target topology', () => {
     expect(screen.queryByLabelText(/Toggle known information/)).not.toBeInTheDocument()
   })
 
-  it('summarizes only remembered Network members and uses 1.2 live-status authority', async () => {
+  it('projects only contextual remembered members, including legitimately remembered SELF', () => {
+    const home = withNodeScan12(scannedTarget())
+    const homeTarget = selectTarget(home, SRV_01, home)!
+
+    expect(homeTarget.networks[0].members).toEqual([expect.objectContaining({
+      id: home.player.localDevice.id,
+      address: home.player.localDevice.network.ip,
+      isSelf: true,
+      liveStatus: { label: 'ONLINE', tone: 'available' },
+    })])
+    expect(homeTarget.networks[0].members.some(({ id }) => id === SRV_01)).toBe(false)
+
+    const withoutRememberedSelf = {
+      ...home,
+      discovery: {
+        ...home.discovery,
+        networkDeviceRelations: home.discovery.networkDeviceRelations.filter(({ deviceId }) => deviceId !== home.player.localDevice.id),
+      },
+    }
+    expect(selectTarget(withoutRememberedSelf, SRV_01, withoutRememberedSelf)?.networks[0].members).toEqual([])
+  })
+
+  it('summarizes other remembered foreign members without leaking the selected or hidden Devices', async () => {
     const scanned = knownRemote(withNodeScan12(createInitialGameState()))
+    const uninspectedMembers = selectTarget(scanned, 'host-lan-002', scanned)!.networks[0].members
+    expect(uninspectedMembers).toEqual([expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, liveStatus: { label: 'ONLINE', tone: 'available' } })])
+    expect(uninspectedMembers[0].displayName).toBeUndefined()
+    expect(selectTarget(withNodeScan11(scanned), 'host-lan-002', withNodeScan11(scanned))!.networks[0].members[0].liveStatus).toBeUndefined()
+
     const targets = { localDevice: scanned.player.localDevice, network: scanned.world.network }
     let discovery = scanned.discovery
     for (const device of discovery.devices) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, device.address, 'enhanced'), scanned.player.localDevice.id)
@@ -972,9 +999,38 @@ describe('NodeScan target topology', () => {
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_02_ADDRESS}` }))
     const members = screen.getByLabelText('Known members of remote-segment-01')
     expect(members).toHaveTextContent('Petra’s Phone')
-    expect(members).toHaveTextContent('srv-02')
-    expect(within(members).getAllByText('ONLINE')).toHaveLength(2)
+    expect(members).not.toHaveTextContent('srv-02')
+    expect(within(members).getAllByText('ONLINE')).toHaveLength(1)
     expect(members).not.toHaveTextContent('srv-01')
+  })
+
+  it('renders the physical home-net case as contextual SELF plus one detailed srv-01 row', async () => {
+    const scanned = withNodeScan12(scannedTarget())
+    const targets = { localDevice: scanned.player.localDevice, network: scanned.world.network }
+    const discovery = rememberInspect(scanned.discovery, inspectKnownTarget(targets, scanned.discovery, SRV_01_ADDRESS, 'enhanced'), scanned.player.localDevice.id)
+    await openTarget({ ...scanned, discovery })
+
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    const members = within(topology).getByLabelText('Known members of home-net')
+    expect(members).toHaveTextContent('SELF')
+    expect(members).not.toHaveTextContent('srv-01')
+    expect(within(topology).getAllByText('srv-01')).toHaveLength(1)
+  })
+
+  it('renders the physical remote case as contextual srv-02 plus one detailed Petra row', async () => {
+    const scanned = knownRemote(withNodeScan12(createInitialGameState()))
+    const targets = { localDevice: scanned.player.localDevice, network: scanned.world.network }
+    let discovery = scanned.discovery
+    for (const device of discovery.devices) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, device.address, 'enhanced'), scanned.player.localDevice.id)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={{ ...scanned, discovery }}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: `Open target ${PHONE_ADDRESS}` }))
+
+    const topology = screen.getByRole('region', { name: 'Target topology' })
+    const members = within(topology).getByLabelText('Known members of remote-segment-01')
+    expect(members).toHaveTextContent('srv-02')
+    expect(members).not.toHaveTextContent('Petra’s Phone')
+    expect(within(topology).getAllByText('Petra’s Phone')).toHaveLength(1)
   })
 
   it('never states Service software identity beyond what was legitimately observed', async () => {
