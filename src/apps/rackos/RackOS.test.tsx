@@ -1315,18 +1315,36 @@ describe('RACK-OS firmware update from a target-owned installer artifact', () =>
   it('offers no launch on a stale Session whose target has already gone offline, and states the real reason', async () => {
     // The Remote Session is still fully represented here — only the target
     // Device's own operational truth has changed — the exact stale-Session gap
-    // the canonical target_offline refusal defends against.
-    const user = userEvent.setup()
-    const state = srv02WithInstallerOffline()
-    expect(state.remoteSession.active).toEqual(srv02WithInstaller().remoteSession.active)
-    render(<GameProvider initialState={state}><Shell /></GameProvider>)
-    await enterRemote(user)
-    await user.click(screen.getByRole('button', { name: /^FILES/ }))
-    await user.click(screen.getByRole('button', { name: /DIR\s*opt/ }))
-    await user.click(screen.getByRole('button', { name: /FILE\s*rack-os-1\.1-business\.fwpkg/ }))
+    // the canonical target_offline refusal defends against. That gap is a
+    // pre-tick state: GameProvider's own 250ms canonical advancement interval
+    // would otherwise clear it out from under this test the moment real wall
+    // time lets 250ms elapse — which a slower full-suite CI run reliably does,
+    // even though a fast isolated run may not. Rather than freezing every
+    // timer in the environment (which stalls the RAF-driven editing-viewport
+    // machinery this same Shell interaction depends on), only the exact
+    // canonical-advancement interval is neutralized: every other real timer,
+    // including requestAnimationFrame, keeps behaving exactly as it does
+    // outside a test.
+    const realSetInterval = window.setInterval.bind(window)
+    const setIntervalSpy = vi.spyOn(window, 'setInterval').mockImplementation((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout === 250) return 0 as unknown as ReturnType<typeof window.setInterval>
+      return realSetInterval(handler as TimerHandler, timeout, ...args)
+    })
+    try {
+      const user = userEvent.setup()
+      const state = srv02WithInstallerOffline()
+      expect(state.remoteSession.active).toEqual(srv02WithInstaller().remoteSession.active)
+      render(<GameProvider initialState={state}><Shell /></GameProvider>)
+      await enterRemote(user)
+      await user.click(screen.getByRole('button', { name: /^FILES/ }))
+      await user.click(screen.getByRole('button', { name: /DIR\s*opt/ }))
+      await user.click(screen.getByRole('button', { name: /FILE\s*rack-os-1\.1-business\.fwpkg/ }))
 
-    expect(screen.getByText('THIS DEVICE IS NOT CURRENTLY REACHABLE')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'OPEN INSTALLER' })).toBeNull()
+      expect(screen.getByText('THIS DEVICE IS NOT CURRENTLY REACHABLE')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'OPEN INSTALLER' })).toBeNull()
+    } finally {
+      setIntervalSpy.mockRestore()
+    }
   })
 
   it('replaces the whole environment with a truthful maintenance surface once installation starts', async () => {
