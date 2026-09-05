@@ -284,6 +284,8 @@ export interface Target extends TargetSummary {
   }
   readonly services: readonly TargetService[]
   readonly liveStatus?: TopologyStatus
+  /** Remembered Network membership only; live status is admitted by the same narrow authority as target topology. */
+  readonly networks: readonly TargetNetwork[]
   readonly access?: { readonly privilege: 'USER'; readonly viaServiceName?: string }
   readonly session?: { readonly privilege: 'USER'; readonly connectedAddress: string; readonly viaServiceName?: string }
   /**
@@ -291,6 +293,19 @@ export interface Target extends TargetSummary {
    * Player Information justifies it. It remains distinct from Device access.
    */
   readonly packageSubmission?: PackageSubmission
+}
+
+export interface TargetNetworkMember {
+  readonly id: string
+  readonly address: string
+  readonly displayName?: string
+  readonly liveStatus?: TopologyStatus
+}
+
+export interface TargetNetwork {
+  readonly id: string
+  readonly name: string
+  readonly members: readonly TargetNetworkMember[]
 }
 
 /**
@@ -643,6 +658,25 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     return sourceUsable && Boolean(currentHost && isDeviceNetworkUsable(currentHost.operational) && service?.open)
   }).map(({ viaServiceId }) => viaServiceId))
   const deviceHasLiveAuthority = Boolean(currentHost && (monitorAll || usableAccessServiceIds.size > 0))
+  const rememberedNetworks = information.discovery.networkDeviceRelations
+    .filter(({ deviceId: relatedDeviceId }) => relatedDeviceId === device.id)
+    .flatMap(({ networkId }) => {
+      const network = information.discovery.networks.find(({ id }) => id === networkId)
+      if (!network) return []
+      const memberIds = new Set(information.discovery.networkDeviceRelations
+        .filter(({ networkId: relatedNetworkId }) => relatedNetworkId === networkId)
+        .map(({ deviceId: memberId }) => memberId))
+      const members = information.discovery.devices.filter(({ id }) => memberIds.has(id)).map((member) => {
+        const liveHost = monitorAll ? liveTruth?.world.network.hosts.find(({ id }) => id === member.id) : undefined
+        return {
+          id: member.id,
+          address: member.address,
+          ...(member.inspect?.displayName ? { displayName: member.inspect.displayName } : {}),
+          ...(liveHost ? { liveStatus: deviceLiveStatus(liveHost.operational) } : {}),
+        }
+      })
+      return [{ id: network.id, name: network.name, members }]
+    })
 
   const routes: TargetRoute[] = []
   /** KeyProbe's own formed route, entirely independent of the Vulnerability-based `routes` above. At most one is ever formed in V1. */
@@ -832,6 +866,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       : {}),
     servicesObserved: device.servicesObserved,
     services,
+    networks: rememberedNetworks,
     ...(deviceHasLiveAuthority ? { liveStatus: deviceLiveStatus(currentHost!.operational) } : {}),
     ...(passive ? { access: { privilege: passive.privilege, ...(serviceName(passive.viaServiceId) ? { viaServiceName: serviceName(passive.viaServiceId) } : {}) } } : {}),
     ...(activeAccess && information.remoteSession.active

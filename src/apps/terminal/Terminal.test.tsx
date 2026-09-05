@@ -30,7 +30,7 @@ function renderTerminal(scanTarget: GameActions['scanTarget']) {
     pingTarget: vi.fn(),
     scanTarget,
     inspectTarget: vi.fn(),
-    findTargets: vi.fn(),
+    findTargets: vi.fn(), refreshNetwork: vi.fn(),
     startServiceAnalysis: () => unavailable,
     startServiceAnalysisAtEndpoint: () => unavailable,
     startServiceAnalysisFromObservation: () => unavailable,
@@ -253,7 +253,7 @@ describe('Terminal credential access', () => {
     const startCredentialAccessAttemptFromObservation = vi.fn(() => ({ status: 'started' as const, processId: 'process-test', state }))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
+      pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), refreshNetwork: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
       startCredentialAccessAttemptFromObservation, startDeauthAttempt: vi.fn(), startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(), changeWalletProtectionForOperatedRemoteDevice: vi.fn(), startVeyraFirmwareUpdateForOperatedRemoteDevice: vi.fn(), verifyDevicePinForOperatedRemoteDevice: vi.fn(), createRattlerPayload: vi.fn(),
     })
     render(<Terminal />)
@@ -274,7 +274,7 @@ describe('Terminal credential access', () => {
     const startRackUpdateExploitAttemptFromObservation = vi.fn(() => ({ status: 'started' as const, processId: 'process-test', state }))
     vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
     vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
-      pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
+      pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), refreshNetwork: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
       startCredentialAccessAttemptFromObservation, startDeauthAttempt: vi.fn(), startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(), changeWalletProtectionForOperatedRemoteDevice: vi.fn(), startVeyraFirmwareUpdateForOperatedRemoteDevice: vi.fn(), verifyDevicePinForOperatedRemoteDevice: vi.fn(), createRattlerPayload: vi.fn(),
     })
     render(<Terminal />)

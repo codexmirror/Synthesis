@@ -227,6 +227,20 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     } catch { finishRequest(target.id, generation) }
   }
 
+  async function refreshNetwork(networkId: string) {
+    const subject = `network:${networkId}`
+    const generation = beginRequest(subject)
+    if (generation === null) return
+    try {
+      const result = await actions.refreshNetwork(networkId)
+      if (!finishRequest(subject, generation)) return
+      if (result.status === 'software_unavailable') setNotice('NODESCAN NOT INSTALLED')
+      else if (result.status === 'unknown_network') setNotice('NETWORK NOT KNOWN')
+      else if (result.status === 'no_response') setNotice('NO RESPONSE')
+      else if ('unavailable' in result) setNotice(result.unavailable ? `REFRESHED · ${result.unavailable} DEVICE${result.unavailable === 1 ? '' : 'S'} UNAVAILABLE` : null)
+    } catch { finishRequest(subject, generation) }
+  }
+
   function inspect(target: Target) {
     const result = actions.inspectTarget(target.address)
     setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
@@ -347,12 +361,13 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
       <TargetCard
         target={target}
         release={release}
-        pending={pending === target.id}
+        pending={pending !== null}
         notice={notice}
         copyState={copyState}
         selectedPackageId={selectedPackageId}
         onBack={() => open({ kind: 'targets' })}
         onScan={() => scan(target)}
+        onRefreshNetwork={refreshNetwork}
         onInspect={() => inspect(target)}
         onExecuteAction={(action) => action.technique === 'Credential Access'
           ? action.route && action.providerId && hack(action.route as TargetRoute | KeyProbeRoute, target.id, action.providerId)
@@ -666,7 +681,7 @@ function ActivityRow({ record }: { record: ManagedNetworkActivityRecordView }) {
 }
 
 /** One target context, with status, player-chosen offensive ACTIONS, and depth. */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onInspect, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onRefreshNetwork, onInspect, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -675,6 +690,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   selectedPackageId: string
   onBack(): void
   onScan(): void
+  onRefreshNetwork(networkId: string): void
   onInspect(): void
   onExecuteAction(action: TargetOffensiveAction): void
   onConnect(): void
@@ -757,7 +773,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
     </StageSection>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
-    <TargetTopology target={target} unreachable={notice === 'NO RESPONSE'} />
+    <TargetTopology target={target} unreachable={notice === 'NO RESPONSE'} pending={pending} onRefreshNetwork={onRefreshNetwork} />
 
     <section className="ns-actions" aria-labelledby="nodescan-actions-heading">
       <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
@@ -926,7 +942,7 @@ function Operation({ target, status, progressLabel }: { target: Target; status: 
  * around it. Only DISRUPTING, a genuinely running canonical Process, uses the
  * animated live dot; every other mark is a static fact, not an ongoing one.
  */
-function TargetTopology({ target, unreachable }: { target: Target; unreachable: boolean }) {
+function TargetTopology({ target, unreachable, pending, onRefreshNetwork }: { target: Target; unreachable: boolean; pending: boolean; onRefreshNetwork(networkId: string): void }) {
   const networkLabel = locationOf(target)
   const deviceLabel = target.displayName ?? target.address
   const deviceStatus = target.liveStatus ? { mark: target.liveStatus.label, tone: target.liveStatus.tone }
@@ -936,12 +952,21 @@ function TargetTopology({ target, unreachable }: { target: Target; unreachable: 
   const disrupting = target.stage === 'disrupting'
   const hasServiceRows = target.servicesObserved && target.services.length > 0
 
+  const network = target.networks?.[0]
   return <section className="ns-topo" aria-label="Target topology">
     <div className="ns-topo-row ns-topo-row--network">
       <span className="ns-topo-eyebrow">NETWORK</span>
       <span className="ns-topo-text">{networkLabel}</span>
       {disrupting && <span className="ns-topo-status ns-topo-status--live"><i className="ns-live-dot" aria-hidden="true" />DISRUPTING</span>}
+      {network && <button type="button" className="ns-topo-refresh" disabled={pending} onClick={() => onRefreshNetwork(network.id)}>REFRESH</button>}
     </div>
+
+    {network && <div className="ns-network-members" aria-label={`Known members of ${network.name}`}>
+      {network.members.map((member) => <div className="ns-network-member" key={member.id}>
+        <span>{member.displayName ?? member.address}</span>
+        {member.liveStatus && <span className={`ns-topo-status ns-topo-status--${member.liveStatus.tone}`}>{member.liveStatus.label}</span>}
+      </div>)}
+    </div>}
 
     <div className="ns-topo-branch">
       <div className="ns-topo-limbs">
@@ -976,7 +1001,7 @@ function TargetTopology({ target, unreachable }: { target: Target; unreachable: 
                             const intelligence = service.intelligence.find((entry) => entry.software === software)
                             return intelligence
                               ? <details className="ns-topo-intelligence" key={software}>
-                                <summary><span className="ns-topo-text ns-topo-text--muted">{software}</span><span>KNOWN INFO</span></summary>
+                                <summary aria-label={`Toggle known information for ${software}`}><span className="ns-topo-text">{software}</span></summary>
                                 <div className="ns-topo-intelligence-detail"><strong>{software}</strong><span>KNOWN INFORMATION</span><ul>{intelligence.details.map((detail) => <li key={detail}>{detail}</li>)}</ul></div>
                               </details>
                               : <span className="ns-topo-text ns-topo-text--muted" key={software}>{software}</span>

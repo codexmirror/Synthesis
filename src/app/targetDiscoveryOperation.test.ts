@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
-import { createFindTargets } from './targetDiscoveryOperation'
+import { scanNetworkTarget } from '../core/game/scan'
+import { inspectKnownTarget } from '../core/game/inspect'
+import { rememberInspect, rememberScan } from '../core/game/discovery'
+import { createFindTargets, createRefreshNetwork } from './targetDiscoveryOperation'
 
 
 
@@ -14,6 +17,20 @@ function store(initial: GameState) {
 
 function withoutNodeScan(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
+}
+
+function withNodeScan(state: GameState, releaseId: string, version: string): GameState {
+  return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.map((software) => software.id === 'nodescan' ? { ...software, releaseId, version } : software) } } }
+}
+
+function knownRemote(state: GameState): GameState {
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'remote-segment-01'), state.player.localDevice.id)
+  for (const device of discovery.devices) {
+    discovery = rememberScan(discovery, scanNetworkTarget(targets, device.address), state.player.localDevice.id)
+    discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, device.address, 'enhanced'), state.player.localDevice.id)
+  }
+  return { ...state, discovery }
 }
 
 
@@ -50,5 +67,40 @@ describe('findTargets', () => {
     const state = store({ ...offline, player: { ...offline.player, localDevice: { ...offline.player.localDevice, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } } } })
     expect(await createFindTargets(state.read, state.write)()).toEqual({ status: 'no_response' })
     expect(state.current.discovery.networks).toEqual([])
+  })
+})
+
+describe('refreshNetwork', () => {
+  it('gives NodeScan 1.2 the authored Scan then Inspect composition without starting Analyze', async () => {
+    const initial = knownRemote(withNodeScan(createInitialGameState(), 'nodescan-1.2-standard', '1.2'))
+    const stale = initial.discovery.devices.find(({ id }) => id === 'host-lan-002')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation!.version
+    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-002' ? { ...host, services: host.services?.map((service) => service.id === 'service-ssh-002' ? { ...service, implementation: { ...service.implementation, version: '1.4.0' } } : service) } : host) } } }
+    const state = store(changed)
+
+    expect(stale).not.toBe('1.4.0')
+    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toMatchObject({ status: 'refreshed', inspected: 2 })
+    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-002')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation!.version).toBe('1.4.0')
+    expect(state.current.process.processes).toEqual([])
+  })
+
+  it('keeps NodeScan 1.1 refresh Scan-only and preserves historical Inspect evidence', async () => {
+    const initial = knownRemote(withNodeScan(createInitialGameState(), 'nodescan-1.1-experimental', '1.1'))
+    const before = initial.discovery.devices.find(({ id }) => id === 'host-lan-002')!.inspect
+    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-002' ? { ...host, displayName: 'Changed hidden name' } : host) } } }
+    const state = store(changed)
+
+    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toEqual({ status: 'refreshed', inspected: 0, unavailable: 0 })
+    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-002')!.inspect).toEqual(before)
+  })
+
+  it('continues inspecting other remembered members when one Device is unavailable', async () => {
+    const initial = knownRemote(withNodeScan(createInitialGameState(), 'nodescan-1.2-standard', '1.2'))
+    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) =>
+      host.id === 'host-lan-002' ? { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } }
+        : host.id === 'host-phone-001' ? { ...host, displayName: 'Fresh Petra' } : host) } } }
+    const state = store(changed)
+
+    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toEqual({ status: 'refreshed', inspected: 1, unavailable: 1 })
+    expect(state.current.discovery.devices.find(({ id }) => id === 'host-phone-001')?.inspect?.displayName).toBe('Fresh Petra')
   })
 })

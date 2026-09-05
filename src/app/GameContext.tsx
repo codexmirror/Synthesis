@@ -5,7 +5,7 @@ import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { createLocalPingTarget, type PingTargetOperation } from './localPingOperation'
 import { createLocalInspectTarget, type InspectTargetOperation } from './localInspectOperation'
-import { createFindTargets, type FindTargetsOperation } from './targetDiscoveryOperation'
+import { createFindTargets, createRefreshNetwork, type FindTargetsOperation, type RefreshNetworkOperation } from './targetDiscoveryOperation'
 import type { GameStateAccessor } from './gameStateAccess'
 import { createServiceAnalysisActions, type NodeScanEndpointAnalysisResult, type NodeScanStartServiceAnalysisResult, type ObservedServiceAnalysisBatchResult } from './serviceAnalysisOperations'
 import { createCredentialAccessActions } from './credentialAccessOperations'
@@ -49,6 +49,7 @@ export interface GameActions {
   scanTarget: ScanTargetOperation
   inspectTarget: InspectTargetOperation
   findTargets: FindTargetsOperation
+  refreshNetwork: RefreshNetworkOperation
   startServiceAnalysis(targetDeviceId: string, serviceId: string): NodeScanStartServiceAnalysisResult
   startServiceAnalysisAtEndpoint(endpoint: string): NodeScanEndpointAnalysisResult
   startServiceAnalysisFromObservation(observed: ObservedServiceTarget): NodeScanEndpointAnalysisResult
@@ -111,6 +112,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   const [pingTarget] = useState(() => createLocalPingTarget(accessor.read, accessor.write))
   const [inspectTarget] = useState(() => createLocalInspectTarget(accessor.read, accessor.write))
   const [findTargets] = useState(() => createFindTargets(accessor.read, accessor.write))
+  const [refreshNetwork] = useState(() => createRefreshNetwork(accessor.read, accessor.write))
   useEffect(() => {
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
@@ -124,7 +126,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, [])
   // Explicit composition: each domain owns its own application adapter; GameProvider only wires them to the shared canonical-state accessor.
   const actions: GameActions = {
-    pingTarget, scanTarget, inspectTarget, findTargets,
+    pingTarget, scanTarget, inspectTarget, findTargets, refreshNetwork,
     ...createServiceAnalysisActions(accessor),
     ...createCredentialAccessActions(accessor),
     ...createDeauthActions(accessor),
