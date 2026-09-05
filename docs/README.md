@@ -260,8 +260,11 @@ relationship, completed-sale meaning, and settlement configuration.
 - RELATED CURRENT TRUTH → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md),
   [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md),
   [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
-- CODE → `src/core/game/business.ts`, `src/apps/rackos/`
-- TESTS → `src/core/game/business.test.ts`, `src/apps/rackos/RackOS.test.tsx`
+- CODE → `src/core/game/business.ts` (generic Company/Branch/Network structure),
+  `src/core/game/bookstoreCommerce.ts` (the one concrete branch-linked
+  bookstore-commerce record), `src/apps/rackos/`
+- TESTS → `src/core/game/business.test.ts`, `src/core/game/bookstoreCommerce.test.ts`,
+  `src/apps/rackos/RackOS.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
 

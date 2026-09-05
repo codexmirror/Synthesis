@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import {
   BOOKSTORE_BRANCH_NETWORK_ID,
-  BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
   BOOKSTORE_COMPANY_ID,
-  BOOKSTORE_SALE_TRANSACTION_ID,
   resolveBusinessOperatingContext,
 } from './business'
 
@@ -14,62 +12,34 @@ const SRV_01_ID = 'host-lan-001'
 const SRV_02_ID = 'host-lan-002'
 
 describe('business domain initial truth', () => {
-  it('keeps one stable Company independent from Branch, Network, Device and settlement Account', () => {
+  it('keeps one stable Company independent from Branch, Network, Device and any commerce subsystem', () => {
     const state = createInitialGameState()
     expect(state.business.companies).toEqual([{ id: BOOKSTORE_COMPANY_ID, displayName: 'Bookstore' }])
     expect(state.business.companies[0].id).not.toBe(BOOKSTORE_BRANCH_NETWORK_ID)
     expect(state.business.companies[0].id).not.toBe(SRV_02_ID)
-    expect(state.business.companies[0].id).not.toBe(BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)
   })
 
-  it('keeps one stable Branch with its own identity, explicit Company relationship and explicit Network relationship', () => {
+  it('keeps one stable generic Branch with explicit Company and Network relationships and no embedded commerce fields', () => {
     const state = createInitialGameState()
     expect(state.business.branches).toHaveLength(1)
     const branch = state.business.branches[0]
-    expect(branch).toMatchObject({
+    // Generic Branch identity is exactly this shape — nothing more.
+    expect(branch).toEqual({
       id: 'bookstore-branch-01', displayName: 'Bookstore Branch 01',
       companyId: BOOKSTORE_COMPANY_ID, networkId: BOOKSTORE_BRANCH_NETWORK_ID,
-      settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
     })
     expect(branch.id).not.toBe(branch.companyId)
     expect(branch.id).not.toBe(branch.networkId)
-    expect(branch.id).not.toBe(branch.settlementAccountId)
     expect(branch.id).not.toBe(state.player.id)
-    // No operationsDeviceId dependency remains anywhere in the Business domain.
+    // No operationsDeviceId dependency, and no commerce/finance fields embedded on generic Branch identity.
     expect(branch).not.toHaveProperty('operationsDeviceId')
-    expect(branch.completedSales).toEqual([
-      { id: 'bookstore-sale-0001', kind: 'book_sale', dollarTransactionId: BOOKSTORE_SALE_TRANSACTION_ID },
-    ])
-  })
-
-  it('links the one book sale to one real incoming $20 Transaction and coherent current balances', () => {
-    const state = createInitialGameState()
-    const transaction = state.dollarFinance.transactions.records.find(({ id }) => id === BOOKSTORE_SALE_TRANSACTION_ID)
-    expect(state.dollarFinance.transactions).toMatchObject({ nextId: 2 })
-    expect(transaction).toEqual({
-      id: BOOKSTORE_SALE_TRANSACTION_ID,
-      sourceAccountId: 'dollar-account-retail-clearing-v0',
-      destinationAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
-      amountCents: 2_000,
-      sourceAccountReference: 'CD-9000-2000',
-      destinationAccountReference: 'CD-3318-2204',
-    })
-    expect(state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-retail-clearing-v0')?.balanceCents).toBe(80_000)
-    expect(state.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)?.balanceCents).toBe(34_250)
-    expect(state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-local-v0')?.balanceCents).toBe(125_000)
-    expect(transaction).not.toHaveProperty('memo')
-    expect(transaction).not.toHaveProperty('category')
-  })
-
-  it('authors no Petra complaint or Technician response for the incoming sale', () => {
-    const state = createInitialGameState()
-    expect(state.petraCompanyChat.messages).toEqual([])
-    expect(state.technicianReaction.pending).toBeNull()
+    expect(branch).not.toHaveProperty('settlementAccountId')
+    expect(branch).not.toHaveProperty('completedSales')
   })
 })
 
 describe('resolveBusinessOperatingContext', () => {
-  it('resolves the represented bookstore Branch for a Device whose Network membership matches the explicit Branch → Network relationship, with no operationsDeviceId involved', () => {
+  it('resolves the represented bookstore Branch structurally for a Device whose Network membership matches the explicit Branch → Network relationship, with no operationsDeviceId involved', () => {
     const state = createInitialGameState()
     const context = resolveBusinessOperatingContext(state, SRV_02_ID)
     expect(context.networks.map(({ id }) => id)).toEqual([BOOKSTORE_BRANCH_NETWORK_ID])
@@ -78,8 +48,26 @@ describe('resolveBusinessOperatingContext', () => {
     expect(resolved.branch.id).toBe('bookstore-branch-01')
     expect(resolved.company).toEqual({ id: BOOKSTORE_COMPANY_ID, displayName: 'Bookstore' })
     expect(resolved.network.id).toBe(BOOKSTORE_BRANCH_NETWORK_ID)
-    expect(resolved.settlementAccount.accountReference).toBe('CD-3318-2204')
-    expect(resolved.sales[0].transaction.amountCents).toBe(2_000)
+    // Structural resolution carries no commerce/finance projection of its own.
+    expect(resolved).not.toHaveProperty('settlementAccount')
+    expect(resolved).not.toHaveProperty('sales')
+  })
+
+  it('resolves a structurally valid Branch with no bookstore-commerce record at all, independent of Civic Dollar', () => {
+    const initial = createInitialGameState()
+    const noCommerceBranch = { id: 'branch-fixture-no-commerce', displayName: 'Fixture Hosting Branch', companyId: BOOKSTORE_COMPANY_ID, networkId: HOME_NET_ID }
+    // Even with every Civic Dollar Account removed, structural resolution must still succeed:
+    // it never depends on finance to answer the structural Company/Branch/Network question.
+    const state = {
+      ...initial,
+      business: { ...initial.business, branches: [...initial.business.branches, noCommerceBranch] },
+      dollarFinance: { ...initial.dollarFinance, accounts: [] },
+    }
+    const context = resolveBusinessOperatingContext(state, NODE_01_ID)
+    expect(context.branches).toHaveLength(1)
+    expect(context.branches[0].branch.id).toBe('branch-fixture-no-commerce')
+    expect(context.branches[0].company.displayName).toBe('Bookstore')
+    expect(context.branches[0].network.id).toBe(HOME_NET_ID)
   })
 
   it('resolves zero Business Branches for a Device on a Network with none — a legitimate state, not an error', () => {
@@ -113,38 +101,11 @@ describe('resolveBusinessOperatingContext', () => {
     expect(state.networkManagement.established.some((authority) => authority.networkId === BOOKSTORE_BRANCH_NETWORK_ID)).toBe(false)
   })
 
-  it('keeps completed-sale settlement historical when the current destination changes', () => {
-    const initial = createInitialGameState()
-    const transactionBefore = initial.dollarFinance.transactions.records.find(({ id }) => id === BOOKSTORE_SALE_TRANSACTION_ID)!
-    const changed = {
-      ...initial,
-      business: { ...initial.business, branches: initial.business.branches.map((branch) => branch.id === 'bookstore-branch-01' ? { ...branch, settlementAccountId: 'dollar-account-local-v0' } : branch) },
-    }
-
-    const context = resolveBusinessOperatingContext(changed, SRV_02_ID)
-    const resolved = context.branches[0]
-    expect(resolved.settlementAccount.accountReference).toBe('CD-1042-7781')
-    expect(resolved.sales).toHaveLength(1)
-    expect(resolved.sales[0].transaction).toBe(transactionBefore)
-    expect(resolved.sales[0].transaction.amountCents).toBe(2_000)
-    expect(resolved.sales[0].transaction.destinationAccountReference).toBe('CD-3318-2204')
-    expect(changed.dollarFinance.transactions.records).toBe(initial.dollarFinance.transactions.records)
-    expect(changed.dollarFinance.transactions.records[0]).toEqual(transactionBefore)
-  })
-
   it('multiplicity: two Branches may reference the same Network without identity collision, a Company may own more than one Branch, and resolution returns every relevant Branch rather than assuming one', () => {
     const initial = createInitialGameState()
     const secondCompanyId = 'company-fixture-second'
-    const secondBranchOnSameNetwork = {
-      id: 'branch-fixture-second', displayName: 'Fixture Branch Two',
-      companyId: secondCompanyId, networkId: BOOKSTORE_BRANCH_NETWORK_ID,
-      settlementAccountId: 'dollar-account-local-v0', completedSales: [],
-    }
-    const secondBranchOfSameCompany = {
-      id: 'branch-fixture-third', displayName: 'Fixture Branch Three',
-      companyId: BOOKSTORE_COMPANY_ID, networkId: 'network-local-001',
-      settlementAccountId: 'dollar-account-local-v0', completedSales: [],
-    }
+    const secondBranchOnSameNetwork = { id: 'branch-fixture-second', displayName: 'Fixture Branch Two', companyId: secondCompanyId, networkId: BOOKSTORE_BRANCH_NETWORK_ID }
+    const secondBranchOfSameCompany = { id: 'branch-fixture-third', displayName: 'Fixture Branch Three', companyId: BOOKSTORE_COMPANY_ID, networkId: HOME_NET_ID }
     const state = {
       ...initial,
       business: {

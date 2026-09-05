@@ -34,7 +34,8 @@ GameState
 │       │   └── standalone Credential Access Module artifact
 │       └── saved Dollar sign-in
 ├── dollarFinance
-├── business — routed to the dedicated branch-commerce owner
+├── business — generic Company/Branch/Network structure; routed to the dedicated branch-commerce owner
+├── bookstoreCommerce — the one concrete branch-linked commerce record; routed to the same owner
 ├── nodeWallet
 ├── nodeEconomy
 ├── world
@@ -70,10 +71,14 @@ mail account rather than by the local Device or NODE-OS. Its detailed semantics
 belong to `docs/current/COMMUNICATION.md`.
 
 The top-level `business` slice is canonical Business-domain World Truth —
-represented Companies and the Business Branches they own — separate from World
-Device and Civic Dollar state. Its detailed Company/Branch identity, explicit
-Branch → Network relationship, sale-history, and settlement-configuration
-semantics belong to `docs/current/BRANCH_COMMERCE.md`.
+represented Companies and the generic structural Business Branches they
+own, including each Branch's explicit Network relationship — separate from
+World Device and Civic Dollar state. The separate top-level
+`bookstoreCommerce` slice holds the one concrete branch-linked commerce
+record (settlement configuration and sale history) for the currently
+represented bookstore mechanic, keyed by stable Branch ID rather than
+embedded on generic Branch identity. Their detailed semantics belong to
+`docs/current/BRANCH_COMMERCE.md`.
 
 The concretely represented foreign filesystems are normal Device-owned state.
 A successful Upload may create its normal destination artifact in the remote

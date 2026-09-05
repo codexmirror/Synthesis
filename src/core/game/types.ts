@@ -694,23 +694,49 @@ export interface CompanyState {
  * technical-site relationship is an explicit reference to the LocalNetwork it
  * operates through — never derived from Device/Network membership, and never
  * owned by `LocalNetwork` itself. A Network may have zero, one, or multiple
- * associated Branches, and a Company may own multiple Branches. Settlement
- * configuration and sale history remain Branch-owned; the referenced Dollar
- * Transaction remains finance-owned truth.
+ * associated Branches, and a Company may own multiple Branches.
+ *
+ * This is deliberately generic structural identity only: which concrete
+ * commerce or operational subsystem (if any) this Branch has is owned by that
+ * subsystem's own branch-linked record — for example
+ * `BookstoreBranchCommerceRecord` below — keyed by this Branch's stable `id`,
+ * never embedded here. A Branch with no such record is still a structurally
+ * valid, resolvable Business Branch: a future distribution, hosting, or
+ * storage Branch needs no fabricated settlement or sale data merely to exist.
  */
 export interface BusinessBranchState {
   readonly id: string
   readonly displayName: string
   readonly companyId: string
   readonly networkId: string
+}
+
+/** Canonical Business-domain World Truth: represented Companies and the Business Branches they own. Structural identity only — see `BusinessBranchState`. */
+export interface BusinessState {
+  readonly companies: readonly CompanyState[]
+  readonly branches: readonly BusinessBranchState[]
+}
+
+/**
+ * Concrete branch-linked commerce truth for the one currently represented
+ * bookstore mechanic: current settlement-destination configuration and
+ * completed sale history, keyed by stable Branch `id` rather than embedded on
+ * `BusinessBranchState`. This is deliberately a narrow concrete record for
+ * this one mechanic, not a generic Business-commerce framework — a different
+ * future concrete subsystem (distribution, inventory, cameras, payments, ...)
+ * owns its own separate branch-linked record rather than extending this one.
+ * Civic Dollar remains the sole owner of Accounts, balances, and
+ * Transactions; this record holds only stable references into that
+ * Provider-owned truth.
+ */
+export interface BookstoreBranchCommerceRecord {
+  readonly branchId: string
   readonly settlementAccountId: string
   readonly completedSales: readonly BusinessBranchSale[]
 }
 
-/** Canonical Business-domain World Truth: represented Companies and the Business Branches they own. */
-export interface BusinessState {
-  readonly companies: readonly CompanyState[]
-  readonly branches: readonly BusinessBranchState[]
+export interface BookstoreCommerceState {
+  readonly records: readonly BookstoreBranchCommerceRecord[]
 }
 
 /** One represented balance-changing event in the local NODE Wallet. */
@@ -1450,6 +1476,8 @@ export interface GameState {
   readonly dollarFinance: DollarFinanceState
   /** Canonical Business-domain truth: represented Companies and Business Branches. Not a generic Organization/Entity framework. */
   readonly business: BusinessState
+  /** Concrete branch-linked bookstore commerce truth; not embedded in generic Business Branch identity. */
+  readonly bookstoreCommerce: BookstoreCommerceState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
   /** The represented software Market and the player's purchase entitlements in it. */

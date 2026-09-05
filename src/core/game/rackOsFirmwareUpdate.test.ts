@@ -343,6 +343,7 @@ describe('what a completed RACK-OS installation actually changes', () => {
     expect(hostOf(after, SRV_02_ID).filesystem).toEqual(hostOf(before, SRV_02_ID).filesystem)
     expect(hostOf(after, SRV_02_ID).hardware).toEqual(hostOf(before, SRV_02_ID).hardware)
     expect(after.business).toEqual(before.business)
+    expect(after.bookstoreCommerce).toEqual(before.bookstoreCommerce)
     expect(after.dollarFinance).toEqual(before.dollarFinance)
     expect(after.nodeWallet).toEqual(before.nodeWallet)
     expect(after.world.network.localNetworks).toEqual(before.world.network.localNetworks)

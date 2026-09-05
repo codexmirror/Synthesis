@@ -285,7 +285,7 @@ describe('RACK-OS', () => {
     const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
     // A changed current destination must not rewrite or hide the completed
     // sale's canonical historical settlement.
-    const withChangedSettlement = { ...connected, business: { ...connected.business, branches: connected.business.branches.map((branch) => branch.id === 'bookstore-branch-01' ? { ...branch, settlementAccountId: 'dollar-account-local-v0' } : branch) } }
+    const withChangedSettlement = { ...connected, bookstoreCommerce: { records: connected.bookstoreCommerce.records.map((record) => record.branchId === 'bookstore-branch-01' ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) } }
     render(<GameProvider initialState={withChangedSettlement}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
 
@@ -1243,7 +1243,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
   it('keeps the current settlement Account distinct from the completed sale historical settlement', async () => {
     const user = userEvent.setup()
     const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
-    const redirected = { ...base, business: { ...base.business, branches: base.business.branches.map((branch) => branch.id === 'bookstore-branch-01' ? { ...branch, settlementAccountId: 'dollar-account-local-v0' } : branch) } }
+    const redirected = { ...base, bookstoreCommerce: { records: base.bookstoreCommerce.records.map((record) => record.branchId === 'bookstore-branch-01' ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) } }
     render(<GameProvider initialState={redirected}><Shell /></GameProvider>)
     await enterRemote(user)
     await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
@@ -1270,6 +1270,33 @@ describe('RACK-OS 1.1 Business application shell', () => {
     // Truthfully empty, never an invented Company, error, or missing-installation message.
     expect(business.textContent).not.toContain('Bookstore Branch 01')
     expect(business.textContent).not.toMatch(/error|not installed|not found/i)
+  })
+
+  it('presents a structurally valid Branch with no commerce subsystem beside one that has commerce, without inventing settlement or sale data', async () => {
+    const user = userEvent.setup()
+    const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
+    // A second Branch on the same Network, owned by the same Company, with no
+    // bookstoreCommerce record at all — a legitimate structural Branch for a
+    // future concrete subsystem (hosting, distribution, ...) this slice does
+    // not implement.
+    const noCommerceBranch = { id: 'branch-fixture-hosting', displayName: 'Fixture Hosting Branch', companyId: base.business.companies[0].id, networkId: 'network-foreign-001' }
+    const initial = { ...base, business: { ...base.business, branches: [...base.business.branches, noCommerceBranch] } }
+    render(<GameProvider initialState={initial}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+
+    const business = screen.getByRole('region', { name: 'Business' })
+    // The bookstore Branch still shows its own concrete commerce, unaffected by the sibling Branch.
+    expect(business).toHaveTextContent('Bookstore Branch 01')
+    expect(business).toHaveTextContent('$20.00')
+    // The structurally valid Branch presents its own Company/Branch/Network identity...
+    expect(business).toHaveTextContent('Fixture Hosting Branch')
+    const fixtureHeading = within(business).getByRole('heading', { name: 'Fixture Hosting Branch' })
+    const fixtureBlock = fixtureHeading.closest('.rack-artifact')!
+    // ...but invents no settlement, sale, or error state for the subsystem it does not have.
+    expect(fixtureBlock).not.toHaveTextContent('SETTLEMENT ACCOUNT')
+    expect(fixtureBlock).not.toHaveTextContent('RECENT SALES')
+    expect(fixtureBlock.textContent).not.toMatch(/error|not configured|missing/i)
   })
 })
 

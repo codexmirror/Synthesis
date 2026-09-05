@@ -13,6 +13,7 @@ import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
 import { runRemoteCommand } from './remoteCommands'
 import { resolveBusinessOperatingContext, type ResolvedBusinessBranch } from '../../core/game/business'
+import { resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
 import type { LocalNetwork } from '../../core/game/types'
 import { formatDollarCents } from '../dollarFormat'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
@@ -122,7 +123,7 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
       />}
       {current === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} />}
       {current === 'files' && <RemoteFiles context={context} />}
-      {current === 'business' && businessContext && <BusinessSurface context={businessContext} />}
+      {current === 'business' && businessContext && <BusinessSurface state={state} context={businessContext} />}
       {current === 'system' && <section className="rack-panel">
         <dl className="rack-facts">
           <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>
@@ -221,8 +222,18 @@ function RackApplications({ deviceName, firmware, open }: {
  * hidden Company. Multiple resolved Branches (whether on one Network or
  * several) are each presented as their own section rather than assuming
  * exactly one.
+ *
+ * `context` carries only generic structural identity (Branch/Company/Network).
+ * Any concrete commerce is a separate, optional composition on top: this
+ * component resolves `resolveBookstoreCommerceForBranch` per Branch itself,
+ * rather than the structural resolver depending on it, so a structurally
+ * valid Branch with no represented commerce subsystem still presents its
+ * Company/Branch/Network identity without inventing settlement or sale data.
  */
-function BusinessSurface({ context }: { context: { readonly networks: readonly LocalNetwork[]; readonly branches: readonly ResolvedBusinessBranch[] } }) {
+function BusinessSurface({ state, context }: {
+  state: GameState
+  context: { readonly networks: readonly LocalNetwork[]; readonly branches: readonly ResolvedBusinessBranch[] }
+}) {
   return <section className="rack-panel rack-business" aria-label="Business">
     {context.branches.length === 0
       ? <div className="rack-business-empty">
@@ -234,23 +245,26 @@ function BusinessSurface({ context }: { context: { readonly networks: readonly L
           : <p className="rack-empty">NO NETWORK CONTEXT</p>}
         <p className="rack-empty">NO BUSINESS CONFIGURED</p>
       </div>
-      : context.branches.map((resolved) => <div className="rack-artifact" key={resolved.branch.id}>
-        <p className="rack-artifact-kind">BUSINESS BRANCH</p>
-        <h2>{resolved.branch.displayName}</h2>
-        <dl className="rack-facts">
-          <div><dt>COMPANY</dt><dd>{resolved.company.displayName}</dd></div>
-          <div><dt>NETWORK</dt><dd>{resolved.network.name}</dd></div>
-          <div><dt>SETTLEMENT ACCOUNT</dt><dd>{resolved.settlementAccount.accountReference}</dd></div>
-        </dl>
-        {resolved.sales.length > 0 && <>
-          <h3>RECENT SALES</h3>
-          {resolved.sales.map((sale) => <dl className="rack-facts rack-facts--dense" key={sale.id}>
-            <div><dt>SALE</dt><dd>BOOK SALE</dd></div>
-            <div><dt>AMOUNT</dt><dd>{formatDollarCents(sale.transaction.amountCents)}</dd></div>
-            <div><dt>SETTLED TO</dt><dd>{sale.transaction.destinationAccountReference}</dd></div>
-          </dl>)}
-        </>}
-      </div>)}
+      : context.branches.map((resolved) => {
+        const commerce = resolveBookstoreCommerceForBranch(state, resolved.branch.id)
+        return <div className="rack-artifact" key={resolved.branch.id}>
+          <p className="rack-artifact-kind">BUSINESS BRANCH</p>
+          <h2>{resolved.branch.displayName}</h2>
+          <dl className="rack-facts">
+            <div><dt>COMPANY</dt><dd>{resolved.company.displayName}</dd></div>
+            <div><dt>NETWORK</dt><dd>{resolved.network.name}</dd></div>
+            {commerce && <div><dt>SETTLEMENT ACCOUNT</dt><dd>{commerce.settlementAccount.accountReference}</dd></div>}
+          </dl>
+          {commerce && commerce.sales.length > 0 && <>
+            <h3>RECENT SALES</h3>
+            {commerce.sales.map((sale) => <dl className="rack-facts rack-facts--dense" key={sale.id}>
+              <div><dt>SALE</dt><dd>BOOK SALE</dd></div>
+              <div><dt>AMOUNT</dt><dd>{formatDollarCents(sale.transaction.amountCents)}</dd></div>
+              <div><dt>SETTLED TO</dt><dd>{sale.transaction.destinationAccountReference}</dd></div>
+            </dl>)}
+          </>}
+        </div>
+      })}
   </section>
 }
 

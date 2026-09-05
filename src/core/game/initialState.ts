@@ -11,6 +11,7 @@ import type { GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
 import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
 import { createInitialBusinessState } from './business'
+import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
 
 export const GAME_STATE_VERSION = 69
 
@@ -80,6 +81,7 @@ export function createInitialGameState(): GameState {
       }] },
     },
     business: createInitialBusinessState(),
+    bookstoreCommerce: createInitialBookstoreCommerceState(),
     nodeWallet: {
       id: 'wallet-node-local-v0',
       address: 'node-wallet-addr-0001',
