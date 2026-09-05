@@ -560,6 +560,24 @@
 .ns-topo-text--strong { color: var(--text-strong); font-weight: 600; }
 .ns-topo-text--muted { color: var(--text-quiet); }
 
+.ns-topo-refresh {
+  flex: none;
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: .55rem;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+.ns-topo-refresh:disabled { color: var(--text-muted); cursor: default; }
+.ns-network-members { margin: 1px 0 5px; padding-left: var(--topo-indent); display: grid; }
+.ns-network-member { min-width: 0; min-height: 25px; display: flex; align-items: center; gap: 8px; color: var(--text-quiet); font: .61rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ns-network-member > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.ns-network-member .ns-topo-status { margin-left: auto; }
+
 /* The trunk: a row that owns a branch below it continues its own rail down
  * into that branch's first limb, so the line reads unbroken from the row to
  * its last child. A leaf row (a Service with no remembered software, the
@@ -604,11 +622,11 @@
 .ns-topo-status--live { color: var(--caution); }
 
 .ns-topo-intelligence { width: 100%; min-width: 0; }
-.ns-topo-intelligence > summary { display: flex; align-items: center; gap: 8px; min-height: 30px; cursor: pointer; list-style: none; }
+.ns-topo-intelligence > summary { display: inline-flex; max-width: 100%; align-items: center; min-height: 44px; cursor: pointer; list-style: none; }
 .ns-topo-intelligence > summary::-webkit-details-marker { display: none; }
-.ns-topo-intelligence > summary > :last-child { margin-left: auto; color: var(--accent); font-size: .5rem; letter-spacing: .1em; white-space: nowrap; }
-.ns-topo-intelligence > summary > :last-child::after { content: " >"; }
-.ns-topo-intelligence[open] > summary > :last-child::after { content: " −"; }
+.ns-topo-intelligence > summary .ns-topo-text { color: var(--text-secondary); font-weight: 600; }
+.ns-topo-intelligence > summary .ns-topo-text::after { content: " ›"; color: var(--accent-mark); }
+.ns-topo-intelligence[open] > summary .ns-topo-text::after { content: " −"; }
 .ns-topo-intelligence-detail { margin: 4px 0 8px; padding: 10px 12px; border-left: 1px solid var(--accent-mark); background: var(--surface-hover); display: grid; gap: 5px; }
 .ns-topo-intelligence-detail strong { color: var(--text-strong); font-size: .66rem; }
 .ns-topo-intelligence-detail span { color: var(--accent-mark); font-size: .5rem; letter-spacing: .12em; }

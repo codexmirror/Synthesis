@@ -87,6 +87,7 @@ export const NODESCAN_1_2_STANDARD = {
     capabilities: [
       { label: 'NETWORK SCAN', description: 'Discover represented networks, devices, relationships and exposed Services.' },
       { label: 'TARGET INSPECT', description: 'Observe represented Device and already-known Service fingerprints.' },
+      { label: 'NETWORK REFRESH', description: 'Repeat Network Scan, then Inspect legitimately known member Devices without running Analyze.' },
       { label: 'SERVICE ANALYSIS', description: 'Investigate known Service endpoints for represented weaknesses.' },
       { label: 'LIVE TOPOLOGY MONITORING', description: 'Project current Device and Service availability through represented monitoring authority.' },
       { label: 'INTEGRATED INTELLIGENCE', description: 'Open legitimately learned technical information from observed software entries.' },

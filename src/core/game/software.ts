@@ -30,6 +30,11 @@ export function nodeScanSupportsIntegratedIntelligence(installation: NodeScanIns
   return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
 }
 
+/** Whether this concrete release composes Network Scan with follow-up Inspect. */
+export function nodeScanSupportsNetworkRefresh(installation: NodeScanInstallation): boolean {
+  return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
+}
+
 export function findInstalledNodeMiner(device: { readonly installedSoftware?: readonly InstalledSoftware[] }): NodeMinerInstallation | undefined {
   return device.installedSoftware?.find((software): software is NodeMinerInstallation => software.id === 'node-miner')
 }

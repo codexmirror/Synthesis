@@ -99,7 +99,7 @@ function withAccess(state: GameState = knownWeakness()): GameState {
 
 function actionStubs(): GameContext.GameActions {
   return {
-    pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
+    pingTarget: vi.fn(), scanTarget: vi.fn(), inspectTarget: vi.fn(), findTargets: vi.fn(), refreshNetwork: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
     startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), startDeauthAttempt: vi.fn(),
     startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
@@ -849,7 +849,7 @@ describe('NodeScan target topology', () => {
     expect(topology).not.toHaveTextContent('ONLINE')
 
     // Enhanced Inspect legitimately observed the display name here, so the Device row states it, not the bare address.
-    const deviceRow = within(topology).getByText('srv-01').closest('.ns-topo-row')!
+    const deviceRow = topology.querySelector('.ns-topo-row--device')!
     expect(within(deviceRow as HTMLElement).getByText('OBSERVED')).toBeInTheDocument()
 
     const sshRow = within(topology).getByText('SSH · 22/TCP').closest('.ns-topo-row') as HTMLElement
@@ -896,7 +896,8 @@ describe('NodeScan target topology', () => {
     const state = withProcesses(withNodeScan12(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState())))), [completedGateSshAnalysis('1.3.2', 'AUTH-017')])
     const user = await openTarget(state)
     const before = currentState()
-    await user.click(screen.getByText('KNOWN INFO'))
+    await user.click(screen.getByText('GateSSH 1.3.2', { selector: 'summary span' }))
+    expect(screen.queryByText(/^KNOWN INFO$/)).not.toBeInTheDocument()
     expect(screen.getByText('KNOWN INFORMATION')).toBeInTheDocument()
     expect(screen.getByText(/AUTH-017 is a known pre-authentication Credential Access weakness/)).toBeInTheDocument()
     expect(screen.queryByText(/AUTH-031/)).not.toBeInTheDocument()
@@ -957,6 +958,23 @@ describe('NodeScan target topology', () => {
   it('does not expose hidden weakness intelligence without learned Knowledge', async () => {
     await openTarget(withNodeScan12(scannedTarget(withNodeScan11(createInitialGameState()))))
     expect(screen.queryByText('KNOWN INFO')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Toggle known information/)).not.toBeInTheDocument()
+  })
+
+  it('summarizes only remembered Network members and uses 1.2 live-status authority', async () => {
+    const scanned = knownRemote(withNodeScan12(createInitialGameState()))
+    const targets = { localDevice: scanned.player.localDevice, network: scanned.world.network }
+    let discovery = scanned.discovery
+    for (const device of discovery.devices) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, device.address, 'enhanced'), scanned.player.localDevice.id)
+    const state = { ...scanned, discovery }
+    const user = userEvent.setup()
+    render(<GameProvider initialState={state}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: `Open target ${SRV_02_ADDRESS}` }))
+    const members = screen.getByLabelText('Known members of remote-segment-01')
+    expect(members).toHaveTextContent('Petra’s Phone')
+    expect(members).toHaveTextContent('srv-02')
+    expect(within(members).getAllByText('ONLINE')).toHaveLength(2)
+    expect(members).not.toHaveTextContent('srv-01')
   })
 
   it('never states Service software identity beyond what was legitimately observed', async () => {
@@ -1011,7 +1029,7 @@ describe('NodeScan target topology', () => {
 
     // Device and Service rows carry no DEAUTH-scoped mark of their own.
     // Only Scan was remembered here, no Inspect, so the Device row states the bare address.
-    const deviceRow = within(topology).getByText(SRV_02_ADDRESS).closest('.ns-topo-row') as HTMLElement
+    const deviceRow = topology.querySelector('.ns-topo-row--device') as HTMLElement
     expect(within(deviceRow).queryByText('DISRUPTING')).not.toBeInTheDocument()
   })
 })

@@ -1548,11 +1548,12 @@ reinstated.
 
 5. Implemented — the SCAN / HACK / CONNECT interaction reset
 
-NodeScan presents Known Space and a target card, and performs the routine
-technical work of a sweep — Scan, then Inspect where the installed release
-supplies it, then Service Analysis of every remembered Service — from one
-player SCAN. Each step is the same canonical operation Terminal exposes
-individually.
+NodeScan presents Known Space and a target card. NodeScan 1.2 Network
+REFRESH performs the routine free observation work of a sweep — canonical
+Network Scan, then canonical Inspect of the legitimately remembered member
+Devices after Scan settles. It never runs Analyze; Service Analysis remains a
+deliberate, resource-consuming action. Earlier NodeScan releases do not gain
+automatic Inspect merely because 1.1 supplies manual Inspect.
 
 Physical playtesting of that reset confirmed the casual loop and returned two
 presentation corrections, both applied without changing the interaction:
@@ -1560,10 +1561,8 @@ presentation corrections, both applied without changing the interaction:
 * Known Space draws the remembered relationship scaffold again — Network,
   SELF's position, the targets that belong there — under the rule in section
   9. Legibility was restored; the navigation was not.
-* A sweep starts one real Service Analysis Process per remembered Service, so
-  each names the Service it is analysing rather than differing only by port.
-  They remain independent Processes with their own resources, progress and
-  cancellation; no batch, parent or grouped state was introduced.
+* Network REFRESH creates no Process or persistent refresh state. Partial
+  Inspect failure leaves observations from other member Devices intact.
 
 ⸻
 
