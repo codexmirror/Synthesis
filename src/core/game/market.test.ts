@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { findLocalMarketArtifactCopy, findMarketOffer, isMarketOfferPurchased, purchaseMarketOffer, MARKET_OPERATOR_SETTLEMENT_ADDRESS, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
+import { findLocalMarketArtifactCopy, findMarketOffer, isMarketOfferPurchased, marketDistributionReleaseId, purchaseMarketOffer, MARKET_OPERATOR_SETTLEMENT_ADDRESS, MARKET_V1_OFFER_PRICE_NODE_UNITS } from './market'
+import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from './firmwareIdentity'
+import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 import { NODE_UNITS_PER_NODE } from './nodeMiner'
 import { advanceGameState } from './gameAdvancement'
 import { startMarketPackageDownload } from './fileTransfer'
@@ -14,6 +16,7 @@ const GATE_SSH_1_3_3_OFFER = 'market-offer-gate-ssh-1.3.3'
 const ROLLBACK_OFFER = 'market-offer-flipper-rollback-module-1.0'
 const FLIPPER_OFFER = 'market-offer-flipper-1.0'
 const RATTLER_OFFER = 'market-offer-rattler-1.0-v0'
+const RACK_OS_FIRMWARE_OFFER = 'market-offer-rack-os-1.1-business'
 /** Every V1 offering's represented price: 0.01 NODE as canonical integer atomic units. */
 const PRICE = MARKET_V1_OFFER_PRICE_NODE_UNITS
 
@@ -29,10 +32,10 @@ describe('Market catalog', () => {
   it('represents each required release exactly once, under stable offer identity', () => {
     const { offers } = createInitialGameState().market
     expect(offers.map(({ id }) => id)).toEqual([
-      RATTLER_OFFER, FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER,
+      RATTLER_OFFER, FLIPPER_OFFER, NODESCAN_OFFER, NODE_MINER_OFFER, 'market-offer-gate-ssh-1.3.2', GATE_SSH_1_3_3_OFFER, ROLLBACK_OFFER, RACK_OS_FIRMWARE_OFFER,
     ])
     expect(new Set(offers.map(({ id }) => id)).size).toBe(offers.length)
-    expect(new Set(offers.map(({ distribution }) => distribution.releaseId)).size).toBe(offers.length)
+    expect(new Set(offers.map(({ distribution }) => marketDistributionReleaseId(distribution))).size).toBe(offers.length)
   })
 
   it('prices every offering at exactly 0.01 NODE in canonical integer atomic units', () => {
@@ -46,11 +49,14 @@ describe('Market catalog', () => {
 
   it('adds RATTLER to the intended catalog exactly once', () => {
     const { offers } = createInitialGameState().market
-    expect(offers).toHaveLength(7)
-    // Six package offerings and one module offering: a module is distributed as a
-    // module artifact, never as an installable package with a product identity.
-    expect(offers.map(({ distribution }) => distribution.artifact === 'software_package' ? distribution.productId : `module:${distribution.moduleId}`)).toEqual([
-      'product-rattler-v0', 'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback',
+    expect(offers).toHaveLength(8)
+    // Six package offerings, one module offering and one firmware offering: neither a
+    // module nor a firmware installer is distributed as an installable package, and
+    // neither carries a product identity at all.
+    expect(offers.map(({ distribution }) => distribution.artifact === 'software_package'
+      ? distribution.productId
+      : distribution.artifact === 'software_module' ? `module:${distribution.moduleId}` : `firmware:${distribution.firmwareId}`)).toEqual([
+      'product-rattler-v0', 'flipper', 'nodescan', 'node-miner', 'gate-ssh', 'gate-ssh', 'module:rollback', `firmware:${RACK_OS_1_1_BUSINESS_FIRMWARE_ID}`,
     ])
     expect(findMarketOffer(createInitialGameState().market, RATTLER_OFFER)?.distribution).toMatchObject({
       artifact: 'software_package', filename: 'rattler-1.0.pkg', productId: 'product-rattler-v0',
@@ -250,12 +256,14 @@ describe('possession and entitlement', () => {
   it('derives possession from exact concrete build truth, not from a stored flag or release alone', () => {
     const state = createInitialGameState()
     const nodeScanOffer = findMarketOffer(state.market, NODESCAN_OFFER)!
+    if (nodeScanOffer.distribution.artifact !== 'software_package') throw new Error('The NodeScan offering distributes a software package')
+    const nodeScanDistribution = nodeScanOffer.distribution
     expect(findLocalMarketArtifactCopy(state.player.localDevice.filesystem, nodeScanOffer)).toBeUndefined()
 
     const copiedElsewhere: GameState = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: {
       nextFileId: 4,
       files: [...state.player.localDevice.filesystem.files, {
-        ...(({ artifact, filename, ...release }) => release)(nodeScanOffer.distribution),
+        ...(({ artifact, filename, ...release }) => release)(nodeScanDistribution),
         kind: 'software_package' as const, id: 'file-0003', path: '/home/user/keep/nodescan-exp-1.1.pkg', productId: 'nodescan',
       }],
     } } } }
@@ -306,6 +314,70 @@ describe('Rollback Module acquisition path', () => {
     // Integration is unavailable until the later Flipper acquisition installs a host.
     const integration = startFlipperModuleIntegration(downloaded, modules[0].id)
     expect(integration.status).toBe('host_not_installed')
+  })
+})
+
+describe('RACK-OS 1.1 Business firmware acquisition path', () => {
+  it('BUY -> DOWNLOAD -> completion yields one firmware installer artifact and no software of any kind', () => {
+    const state = funded(2 * PRICE)
+    const purchase = purchaseMarketOffer(state, RACK_OS_FIRMWARE_OFFER)
+    if (purchase.status !== 'purchased') throw new Error(`expected purchased, got ${purchase.status}`)
+    // Buying settles real NODE and installs nothing.
+    expect(purchase.state.nodeWallet.balanceNodeUnits).toBe(PRICE)
+    expect(marketAccount(purchase.state).balanceNodeUnits).toBe(PRICE)
+    expect(purchase.state.player.localDevice.filesystem).toBe(state.player.localDevice.filesystem)
+    expect(purchase.state.world.network.hosts).toEqual(state.world.network.hosts)
+
+    const download = startMarketPackageDownload(purchase.state, RACK_OS_FIRMWARE_OFFER)
+    if (download.status !== 'started') throw new Error(`expected started, got ${download.status}`)
+    // Admission creates no artifact; the transfer is a real elapsed FileTransfer.
+    expect(download.state.player.localDevice.filesystem).toBe(purchase.state.player.localDevice.filesystem)
+    expect(download.state.fileTransfer.active?.origin).toBe('market_distribution')
+
+    const downloaded = advanceGameState(download.state, 120_000)
+    expect(downloaded.fileTransfer.active).toBeNull()
+
+    const created = downloaded.player.localDevice.filesystem.files.filter((file) => file.kind === 'firmware_package')
+    expect(created).toEqual([{
+      kind: 'firmware_package', id: 'file-0006', path: '/home/user/downloads/rack-os-1.1-business.fwpkg',
+      firmwareId: RACK_OS_1_1_BUSINESS_FIRMWARE_ID, buildId: RACK_OS_1_1_BUSINESS_RELEASE.buildId,
+      name: 'RACK-OS', version: '1.1 Business', publisher: RACK_OS_1_1_BUSINESS_RELEASE.publisher,
+      sizeBytes: RACK_OS_1_1_BUSINESS_RELEASE.installerSizeBytes,
+    }])
+    // Never a software package, never InstalledSoftware, and never Firmware on any Device.
+    expect(downloaded.player.localDevice.filesystem.files.some((file) => file.kind === 'software_package' && file.path.includes('rack-os'))).toBe(false)
+    expect(downloaded.player.localDevice.installedSoftware).toEqual(state.player.localDevice.installedSoftware)
+    expect(downloaded.world.network.hosts.map(({ firmware }) => firmware?.id)).toEqual(state.world.network.hosts.map(({ firmware }) => firmware?.id))
+    expect(downloaded.world.network.hosts.every((host) => host.firmwareUpdate === undefined)).toBe(true)
+  })
+
+  it('derives possession from the exact distributed firmware build, and redownloads after the copy is removed', () => {
+    const acquired = (() => {
+      const purchase = purchaseMarketOffer(funded(PRICE), RACK_OS_FIRMWARE_OFFER)
+      if (purchase.status !== 'purchased') throw new Error(purchase.status)
+      const download = startMarketPackageDownload(purchase.state, RACK_OS_FIRMWARE_OFFER)
+      if (download.status !== 'started') throw new Error(download.status)
+      return advanceGameState(download.state, 120_000)
+    })()
+    const offer = findMarketOffer(acquired.market, RACK_OS_FIRMWARE_OFFER)!
+    expect(findLocalMarketArtifactCopy(acquired.player.localDevice.filesystem, offer)?.path).toBe('/home/user/downloads/rack-os-1.1-business.fwpkg')
+
+    // A different firmware build of the same release is not possession of the offered build.
+    const otherBuild: GameState = { ...acquired, player: { ...acquired.player, localDevice: { ...acquired.player.localDevice, filesystem: {
+      ...acquired.player.localDevice.filesystem,
+      files: acquired.player.localDevice.filesystem.files.map((file) => file.kind === 'firmware_package' ? { ...file, buildId: 'build-rack-os-1-1-business-other' } : file),
+    } } } }
+    expect(findLocalMarketArtifactCopy(otherBuild.player.localDevice.filesystem, offer)).toBeUndefined()
+
+    // Removing the copy loses possession but never the entitlement, so DOWNLOAD works again.
+    const removed: GameState = { ...acquired, player: { ...acquired.player, localDevice: { ...acquired.player.localDevice, filesystem: {
+      ...acquired.player.localDevice.filesystem,
+      files: acquired.player.localDevice.filesystem.files.filter((file) => file.kind !== 'firmware_package'),
+    } } } }
+    expect(isMarketOfferPurchased(removed.market, RACK_OS_FIRMWARE_OFFER)).toBe(true)
+    const again = startMarketPackageDownload(removed, RACK_OS_FIRMWARE_OFFER)
+    expect(again.status).toBe('started')
+    expect(advanceGameState(again.state, 120_000).player.localDevice.filesystem.files.some((file) => file.kind === 'firmware_package')).toBe(true)
   })
 })
 

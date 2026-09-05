@@ -12,7 +12,7 @@ import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RE
 import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
 import { BRANCH_OPS_INSTALLATION, createInitialBookstoreBranchState } from './bookstoreBranch'
 
-export const GAME_STATE_VERSION = 67
+export const GAME_STATE_VERSION = 68
 
 export function createInitialGameState(): GameState {
   return {

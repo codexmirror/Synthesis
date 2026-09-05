@@ -795,7 +795,11 @@ presentation.
 
 Which environment that is, is selected from the target's own represented
 Firmware identity rather than its mutable display name: `firmware-rack-os-v1`
-mounts RACK-OS and `firmware-veyra-os-v4-1` mounts VEYRA OS. Firmware the Shell
+and `firmware-rack-os-v1-1-business` both mount RACK-OS (`isRackOsFirmwareId`),
+and `firmware-veyra-os-v4-1` / `firmware-veyra-os-v4-2` both mount VEYRA OS.
+Each pair really is one operating system; which release a Device runs stays its
+own distinct Firmware identity, and the environment's own presentation — not
+this dispatch — is what differs between its releases. Firmware the Shell
 has no implementation for mounts nothing — the handoff states that there is no
 operating surface for it and offers no entry, while the Session itself remains
 real, stated, and disconnectable. There is no fallback to RACK-OS and no generic
@@ -806,13 +810,44 @@ After explicit entry, the Session presents the distinct RACK-OS operating
 surface. Its target is resolved by stable `RemoteSession.accessId` through
 `DeviceAccess.targetDeviceId`, never by the connected address. RACK-OS is an
 authorized live view of current canonical target state, not a Discovery
-projection, and exposes only Terminal, Files, and System. Its Terminal supports
+projection, and exposes exactly three operating surfaces — Terminal, Files, and
+System.
+
+Two represented RACK-OS releases present those three surfaces very differently,
+and which one a Device presents is read from its own stable Firmware identity:
+
+```text
+RACK-OS 1.0            technical era
+                       one section bar: TERMINAL / FILES / SYSTEM
+                       no home, no launcher, no application
+
+RACK-OS 1.1 Business   primitive application-shell era
+                       opens on an APPLICATIONS home
+                       TERMINAL / FILES / SYSTEM as built-in applications
+                       plus a compatible installed business application
+                       an open application returns to APPLICATIONS
+```
+
+RACK-OS 1.0 has no `OPERATIONS` section and no business surface of any kind:
+srv-02 really does host BranchOps, and 1.0 simply provides no application shell
+to present it in. Removing that section changes no BranchOps InstalledSoftware,
+branch state, sale, settlement configuration, filesystem or finance.
+
+RACK-OS 1.1 Business lists a BranchOps application only where the exact
+represented relationship actually exists — the Device is the branch's configured
+operations host *and* really hosts the represented BranchOps 1.0 build — which
+is the same `resolveBookstoreBranchOperations` condition
+[`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md) owns. A 1.1 Business Device without
+that relationship (an upgraded srv-01, for instance) has the application shell
+and only the three built-ins; no application is fabricated to fill the launcher,
+and an installed product with no represented application here does not become
+one. There is deliberately no generic installed-application framework,
+application discovery, or per-application permission model.
+
+Both releases reach the same canonical mechanics through the same components:
+the shell is presentation, never capability. Its Terminal supports
 `help`, `clear`, `ip`, `ls`, `cat`, and `disconnect`; Terminal and Files read the
-same foreign Device-owned filesystem. A Device that is both the configured
-bookstore operations host and actual host of the represented BranchOps 1.0
-installation additionally exposes the read-only `OPERATIONS` section owned by
-[`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md); other Devices fabricate no business
-surface. RACK-OS Terminal also supports
+same foreign Device-owned filesystem. RACK-OS Terminal also supports
 `download <remote-absolute-file-path>`,
 `upload <local-absolute-file-path> <remote-absolute-file-path>` and
 the dynamically available shared `node-miner` product CLI (`help`, `run`, `status`, `stop`, and `payout`), RACK-OS Files
@@ -849,6 +884,64 @@ DeviceAccess observes the same still-running Process. RACK-OS Terminal reuses th
 place, through the shared canonical operation, and is deliberately not offered
 graphically. What it does economically is owned by
 `docs/current/NODE_ECONOMY.md`.
+
+### The RACK-OS firmware update utility
+
+RACK-OS Files additionally recognizes a firmware installer artifact
+(`docs/current/FILES_SOFTWARE.md`) sitting on the operated Device's own
+filesystem. The interaction is deliberately two-stage, because possessing a
+firmware image and replacing a running server's operating system are different
+decisions:
+
+```text
+firmware installer artifact in RACK-OS Files
+  -> OPEN INSTALLER                 (presentation only; starts nothing)
+  -> dedicated update utility       (Device, current release, target release,
+                                     compatibility, and that it will restart)
+  -> explicit INSTALL               (the canonical operation)
+  -> Device-owned firmware update
+```
+
+The artifact pane and the utility both state installability from the same
+canonical derivation the admission enforces, so neither can offer an
+installation the operation would refuse; an incompatible Device, an already
+updated Device, an unrecognized build or an update already running each state
+the real reason and offer no action.
+
+That invariant covers the target's own current *reachability* too, not only
+its Firmware/build compatibility: the operated Device is a Remote Session away,
+and a Session that has not yet been cleared by canonical reachability
+advancement can still resolve identity against a target that has already gone
+offline. Both surfaces read `deriveRackOsFirmwarePresentationStatus`
+(`docs/current/DEVICE_SYSTEM.md`), which checks that separate current-operability
+condition first and states `target_offline` — offering neither `OPEN
+INSTALLER` nor `INSTALL` — before it ever asks whether the artifact is the
+right release for this Device. Opening the utility and cancelling it change no
+canonical state whatever. Internal Device, Service and Firmware IDs
+are never exposed as product UI. The canonical operation, its Session-resolved
+target, its authority and everything installation then does are owned by
+`docs/current/DEVICE_SYSTEM.md`.
+
+While the operated Device is genuinely installing firmware, RACK-OS stops
+presenting its normal environment entirely — no section bar, no applications, no
+Terminal, Files or System — and presents a dedicated full-environment
+maintenance console instead: the Device, the release it is coming from, the
+release it is going to, the three represented stages, canonical progress, and
+that it will restart. Every claim there is read from the Device's own canonical
+update state on each render. It runs no timer, animates no invented progress,
+and cannot cancel, pause, accelerate or complete the installation; leaving
+RACK-OS and returning shows wherever the real installation has got to. It
+deliberately fabricates no boot log, kernel output, hardware check, signature
+verification or disk/network telemetry. The Shell's own `← NODE-OS` and
+`DISCONNECT` context actions remain, because leaving the Device is not something
+an installation may take away.
+
+When the installation completes, the Device really reboots, and the Remote
+Session ends the ordinary way — canonical reachability observes an unreachable
+Device — rather than the installer deleting it. Because the RACK-OS release
+replaces no Service build, established DeviceAccess survives, and after the boot
+the player connects again over that same access and is presented with whichever
+release the Device now runs.
 
 No per-application permission model exists. Terminal, Files and System are all
 reached under the one `USER` DeviceAccess authority; that a future authority

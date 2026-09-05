@@ -192,28 +192,65 @@ security truth.
 A Device may be installing a Firmware release, and that installation is its own
 canonical Device state: `NetworkHost.firmwareUpdate`
 (`DeviceFirmwareUpdateProgress`, `src/core/game/types.ts`) is the release
-identity being installed, the current represented stage
-(`DOWNLOADING` → `PREPARING` → `INSTALLING` → `FINALIZING`) and the elapsed time
+identity being installed, the current represented stage and the elapsed time
 inside that stage. It is present only while an installation is actually
-running. Petra's phone seeds with none. `FINALIZING` is this update's own last
+running, and no Device seeds with one. It is Device-owned Firmware truth, not a
+`software_installation` Process, not InstalledSoftware, not a filesystem
+artifact and not presentation state. `FINALIZING` is an update's own last
 represented stage of applying the release — deliberately not a Device
 reboot; see below.
 
-The whole represented update source is one authored release constant,
+Progress advances only through canonical `advanceGameState`, exactly like every
+other represented Device transition. Elapsed time is consumed coherently across
+stage boundaries, so one large step produces the same outcome an equivalent
+sequence of small steps would: an installation therefore progresses whether or
+not any operating surface is presenting it, and no browser timer may advance it
+(A10).
+
+Two concrete firmware-update routes are represented, and they are deliberately
+different mechanics rather than one generalized update system:
+
+```text
+VEYRA OS 4.1 -> 4.2       Device-owned closed update path, no artifact
+                          DOWNLOADING -> PREPARING -> INSTALLING -> FINALIZING
+
+RACK-OS 1.0 -> 1.1 Bus.   Market-acquired installer artifact on the target's
+                          own filesystem
+                          PREPARING -> INSTALLING -> FINALIZING
+```
+
+`FirmwareUpdatePhase` lists the stages an installation *may* pass through;
+which stages a route actually has is that route's own truth. The RACK-OS route
+has no `DOWNLOADING` stage at all, because the installer is already on the
+Device before installation is admitted, and a fabricated download stage would
+be a false status line.
+
+`deviceFirmwareUpdate.ts` is the shared canonical advancement owner called from
+`advanceGameState`. It decides only *which* running installations participate
+and which concrete route advances each one, dispatching on the release identity
+being installed; stages, durations and what activating a release changes stay
+with each route (`veyraFirmwareUpdate.ts`, `rackOsFirmwareUpdate.ts`). It is
+deliberately two explicit branches, not a firmware registry, update framework
+or plugin surface (A16). An installation naming a release the world does not
+represent is dropped there without installing anything.
+
+### The VEYRA route
+
+The whole represented VEYRA update source is one authored release constant,
 `VEYRA_OS_4_2_RELEASE`, and the single step it defines
 (`src/core/game/veyraFirmwareUpdate.ts`). `resolveAvailableVeyraFirmwareUpdate`
 derives availability from a Device's own current Firmware identity — VEYRA OS
 4.1 is offered 4.2, anything else is offered nothing — and stores nothing. There
 is deliberately no update server, firmware marketplace, OTA protocol, package
 manager, release channel, version-ordering rule or generic Firmware registry
-(A16); a future release adds one more constant and one more concrete step.
+(A16).
 
-A Firmware release is not `InstalledSoftware` and not a package (A07): the
+A VEYRA Firmware release is not `InstalledSoftware` and not a package (A07): the
 release carries no size, publisher, distribution endpoint or acquisition step,
 and it is never a filesystem artifact. What it does carry is the concrete SSH
 implementation it ships, which is Device-owned Service implementation truth.
 
-`startVeyraFirmwareUpdateForOperatedRemoteDevice` is the only way an
+`startVeyraFirmwareUpdateForOperatedRemoteDevice` is the only way that
 installation begins. It accepts no Device argument: the acting Device is
 resolved from the active Remote Session, the same "Session decides *which*
 Device acts, and grants no authority of its own" precedent
@@ -224,19 +261,85 @@ and refuses `invalid_pin`, `update_in_progress` or `update_unavailable` without
 touching canonical state at all. DeviceAccess and an active Session never
 satisfy the PIN check.
 
-`advanceVeyraFirmwareUpdates` advances every running installation on every
-`advanceGameState(elapsedMs)` tick, consuming elapsed time across stage
-boundaries exactly as Device connectivity recovery does: one large step produces
-the same outcome an equivalent sequence of small steps would. The installation
-therefore progresses whether or not any operating surface is presenting it, and
-browser timers remain triggers rather than truth (A10). An installation naming a
-release the world does not represent is dropped without installing anything.
+### The RACK-OS route
 
-Completing the final `FINALIZING` stage atomically activates the release and enters the Device’s existing real reboot lifecycle. The Device’s `firmware` becomes the new release identity, its one firmware-owned GateSSH Service receives the release’s bundled implementation, and its operational state becomes `SHUTTING_DOWN` / `DISCONNECTED` with the ordinary recovery progress that continues through `BOOTING` to `RUNNING` / `CONNECTED`. Completion of that real boot crosses `runRealDeviceBootConsequences` exactly once; the update never invokes an individual boot consequence.
+RACK-OS 1.1 Business is one authored release constant,
+`RACK_OS_1_1_BUSINESS_RELEASE` (`src/core/game/rackOsFirmwareUpdate.ts`),
+distinct by stable Firmware identity from RACK-OS 1.0 — which remains exactly
+the release it always was and is never renamed into the newer one. Both
+represented servers start on 1.0, so the upgrade is real gameplay.
 
-Replacing the credential-access surface invalidates only established `DeviceAccess` whose represented provenance names that Service’s replaced concrete build. Unrelated Access, and legacy relationships without represented build provenance, remain intact. The active Remote Session is not disconnected by the update: ordinary Remote Session reachability observes the now network-unusable Device and ends it. Discovery and Knowledge remain historical, so remembered GateSSH 1.3.2 / `AUTH-017` facts can become stale; Credential Access still validates them against current World Truth and fails.
+Unlike VEYRA's, this release *is* acquired. It is distributed as a concrete
+`firmware_package` filesystem artifact — never Firmware, never
+`InstalledSoftware`, never a `SoftwarePackageFile`
+(`docs/current/FILES_SOFTWARE.md`, `docs/current/MARKET.md`) — and the causal
+path is:
+
+```text
+Market offering -> purchase entitlement -> elapsed FileTransfer
+  -> firmware installer artifact on node-01
+  -> ordinary transfer to a RACK-OS server
+  -> that Device's own Files -> dedicated update utility -> explicit INSTALL
+  -> canonical Device firmware-update state
+  -> activation -> real Device reboot -> RACK-OS 1.1 Business
+```
+
+`startRackOsFirmwareUpdateForOperatedRemoteDevice` is the only way that
+installation begins. It also accepts no Device argument: the acting Device is
+resolved from the active Remote Session, and the installer artifact is then
+resolved from *that* Device's own filesystem by path, so no caller and no
+presentation component can point an installation at another Device or at a
+copy the target does not hold. Its authority is the currently represented
+operating authority of the Session's DeviceAccess, exactly as remote package
+installation uses it; V1 represents no finer RACK-OS administrator or RBAC
+model and none is added here.
+
+Admission checks two genuinely separate things, in order, and refuses closed on
+either without touching canonical state:
+
+1. **Reachability** — `resolveActiveRemoteTarget` resolves the target's stable
+   *identity* only; it does not itself validate that the target is currently
+   reachable, and other callers rely on that separation. Immediately after
+   resolving identity, admission checks the target's own current operational
+   truth with the same `isDeviceNetworkUsable` every other remote mechanic
+   uses (`installRemoteSoftwarePackage` established the precedent), and
+   refuses `target_offline` if it is not network-usable. This exists because a
+   Remote Session that has not yet been cleared by the next canonical
+   reachability pass (`advanceRemoteSessionReachability`) could otherwise still
+   resolve after its target has already gone offline; refusing here closes
+   that gap without making Session reachability validation itself.
+2. **Compatibility** — once the target is confirmed reachable, admission and
+   every surface presenting it share one derivation,
+   `deriveRackOsFirmwareInstallability`, which reads stable identity only:
+   recognition is exact `firmwareId` + `buildId` (a `.fwpkg` filename proves
+   nothing), and compatibility is that the Device currently runs RACK-OS 1.0.
+   Every other case fails closed with the real reason —
+   `unrecognized_artifact`, `incompatible_device`, `already_installed`,
+   `update_in_progress`.
+
+`target_offline` is deliberately not folded into
+`deriveRackOsFirmwareInstallability`: it is the Device's own current
+operational truth, not a compatibility fact about the artifact or the release,
+so the compatibility derivation stays a narrow question about stable
+Firmware/build identity. The artifact pane and the update utility read the
+same composed order from `deriveRackOsFirmwarePresentationStatus` — reachability
+first, then compatibility — so presentation can never offer `OPEN INSTALLER` or
+`INSTALL` in a state the canonical operation would refuse
+(`docs/current/NETWORK_ACCESS.md`). Launching the utility and cancelling it
+likewise change nothing; only INSTALL starts anything.
+
+
+### Completion, for either route
+
+Completing the final `FINALIZING` stage atomically activates the release and enters the Device’s existing real reboot lifecycle. The Device’s `firmware` becomes the new release identity, and its operational state becomes `SHUTTING_DOWN` / `DISCONNECTED` with the ordinary recovery progress that continues through `BOOTING` to `RUNNING` / `CONNECTED`. Completion of that real boot crosses `runRealDeviceBootConsequences` exactly once; the update never invokes an individual boot consequence.
+
+What else activation changes is the route’s own truth, and the two differ because the Devices differ. On the phone, GateSSH is firmware, so the VEYRA release’s one firmware-owned GateSSH Service receives the release’s bundled implementation. On a RACK-OS server GateSSH is `InstalledSoftware` and separately managed Service state, so **RACK-OS 1.1 Business changes the Device’s `firmware` and nothing else**: Services, `installedSoftware` (GateSSH, AuthGuard, BranchOps), the filesystem, branch commerce, Civic Dollar state, hardware and Network membership are all untouched, and the installer artifact itself remains an ordinary file. Firmware update, GateSSH update, AuthGuard install/update, BranchOps update and configuration repair stay separate causes.
+
+Replacing the credential-access surface invalidates only established `DeviceAccess` whose represented provenance names that Service’s replaced concrete build. Unrelated Access, and legacy relationships without represented build provenance, remain intact. Because the RACK-OS route replaces no Service build at all, established DeviceAccess to an upgraded server simply survives, and the player reconnects over it after the reboot. The active Remote Session is not disconnected by either update: ordinary Remote Session reachability observes the now network-unusable Device and ends it. Discovery and Knowledge remain historical, so remembered GateSSH 1.3.2 / `AUTH-017` facts can become stale; Credential Access still validates them against current World Truth and fails.
 
 For Petra’s phone this moves `service-ssh-003` from GateSSH 1.3.2 to 1.3.3, so `AUTH-017` no longer derives and `AUTH-031` does. GateSSH remains firmware-owned Service implementation and never becomes `InstalledSoftware`. NodeScan’s existing live-topology projection observes the same operational truth only where NodeScan 1.2 monitoring or exact usable Service access supplies current observation authority; historical-only views receive no hidden reboot state.
+
+### Wallet protection and PIN verification
 
 The Wallet-protection setting is persistent Device state with no timer, temporary-unlock duration,
 or automatic reset. Player-requested changes continue to require successful PIN

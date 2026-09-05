@@ -42,6 +42,7 @@ describe('product grouping', () => {
     const view = deriveMarketView(createInitialGameState())
     expect(view.entries.map(({ name, kind }) => `${kind}:${name}`)).toEqual([
       'product:RATTLER', 'product:Flipper', 'product:NodeScan', 'product:NODE Miner', 'product:GateSSH', 'module:Rollback Module',
+      'firmware:RACK-OS 1.1 Business',
     ])
     const gateSsh = entry(createInitialGameState(), 'GateSSH')
     expect(gateSsh.productId).toBe('gate-ssh')
@@ -190,7 +191,7 @@ describe('distribution destinations', () => {
     const renamed: GameState = { ...base, market: { ...base.market, operator: { ...base.market.operator, name: 'Some Other Exchange' } } }
     const [represented, unrepresented] = deriveMarketView(renamed).sources
 
-    expect(represented).toMatchObject({ id: base.market.operator.id, kind: 'represented', operatorName: 'Some Other Exchange', offeringCount: 7 })
+    expect(represented).toMatchObject({ id: base.market.operator.id, kind: 'represented', operatorName: 'Some Other Exchange', offeringCount: 8 })
     // The second destination is a stated absence: no operator, no offerings, nothing settleable.
     expect(unrepresented.kind).toBe('unrepresented')
     expect(unrepresented.operatorName).toBeUndefined()

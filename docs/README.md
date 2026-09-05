@@ -111,12 +111,14 @@ below.
   `src/core/game/credentialAccess.ts`, `src/core/game/remoteSession.ts`,
   `src/core/game/authenticationHistory.ts`, `src/app/localScanOperation.ts`,
   `src/app/localInspectOperation.ts`, `src/app/targetDiscoveryOperation.ts`,
-  `src/apps/network/`, `src/apps/rackos/`
+  `src/apps/network/`, `src/apps/rackos/`,
+  `src/core/game/rackOsFirmwareUpdate.ts` (the RACK-OS 1.1 Business release, its
+  installer artifact, and the firmware update the RACK-OS surface admits)
 - TESTS → `src/core/game/scan.test.ts`, `src/core/game/inspect.test.ts`,
   `src/core/game/discovery.test.ts`, `src/core/game/credentialAccess.test.ts`,
   `src/core/game/remoteSession.test.ts`,
   `src/app/targetDiscoveryOperation.test.ts`, `src/apps/network/Network.test.tsx`,
-  `src/apps/rackos/RackOS.test.tsx`
+  `src/apps/rackos/RackOS.test.tsx`, `src/core/game/rackOsFirmwareUpdate.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
@@ -139,8 +141,9 @@ state, authored replies, NodeMail.
 
 ### Files, transfer, and software
 
-Filesystem, Files, Download/Upload, packages, installation, removal,
-executables, software management, Flipper and its module-integration mechanic.
+Filesystem, Files, Download/Upload, packages, firmware installer artifacts,
+installation, removal, executables, software management, Flipper and its
+module-integration mechanic.
 
 - CURRENT TRUTH → [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md)
 - ARCHITECTURE → A17 (and A07) in
@@ -170,8 +173,8 @@ executables, software management, Flipper and its module-integration mechanic.
 ### Software Market
 
 The represented software Market, its operator/seller identity, offerings and
-prices, purchase entitlement, Market package distribution, and the NODE-OS
-Market application.
+prices, purchase entitlement, Market package / module / firmware-installer
+distribution, and the NODE-OS Market application.
 
 - CURRENT TRUTH → [`current/MARKET.md`](current/MARKET.md)
 - ARCHITECTURE → A18 in
@@ -279,6 +282,8 @@ runtime, network transfer capacity, System application.
 - CODE → `src/core/game/types.ts`, `src/core/game/initialState.ts`,
   `src/core/game/deviceOperationalState.ts`, `src/core/game/networkConnectivity.ts`,
   `src/core/game/deviceConnectivityRecovery.ts`, `src/core/game/deviceBootBoundary.ts`,
+  `src/core/game/firmwareIdentity.ts`, `src/core/game/deviceFirmwareUpdate.ts`,
+  `src/core/game/veyraFirmwareUpdate.ts`, `src/core/game/rackOsFirmwareUpdate.ts`,
   `src/core/game/deviceBootActivation.ts`,
   `src/core/game/networkTransferCapacity.ts`, `src/core/game/networkActivityHistory.ts`,
   `src/core/game/networkManagement.ts`, `src/core/game/serviceImplementations.ts`,
@@ -288,6 +293,7 @@ runtime, network transfer capacity, System application.
   `src/core/game/connectivityRecoveryRegression.test.ts`, `src/core/game/deviceBootActivation.test.ts`,
   `src/core/game/networkTransferCapacity.test.ts`, `src/core/game/networkActivityHistory.test.ts`,
   `src/core/game/networkManagement.test.ts`, `src/core/game/serviceImplementations.test.ts`,
+  `src/core/game/veyraFirmwareUpdate.test.ts`, `src/core/game/rackOsFirmwareUpdate.test.ts`,
   `src/apps/system/System.test.tsx`, `src/apps/networkManagement/networkProjection.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/DEVICE_SYSTEM.md`](current/DEVICE_SYSTEM.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
@@ -348,7 +354,9 @@ VEYRA Device presentation direction.
   Account, Session and transfers →
   [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md)
 - CODE → `src/apps/veyra/`, `src/shell/remoteOperatingSurface.ts`,
-  `src/core/game/firmwareIdentity.ts`, `src/core/game/veyraFirmwareUpdate.ts`
+  `src/core/game/firmwareIdentity.ts`, `src/core/game/veyraFirmwareUpdate.ts`,
+  `src/core/game/deviceFirmwareUpdate.ts` (the shared firmware-update
+  advancement owner, not VEYRA-specific)
 - TESTS → `src/apps/veyra/Veyra.test.tsx`,
   `src/shell/remoteOperatingSurface.test.ts`,
   `src/core/game/veyraPhoneAccess.test.ts`,

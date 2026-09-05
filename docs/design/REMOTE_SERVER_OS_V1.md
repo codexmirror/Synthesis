@@ -11,6 +11,16 @@ filesystem and transfers).
 
 Approved design contract for the first operable foreign server Firmware.
 
+### Release scope
+
+This contract describes **RACK-OS 1.0**, which remains exactly the environment
+specified here: the active remote context over Terminal / Files / System, with
+no RACK-OS Home, no launcher and no application. RACK-OS 1.1 Business is a
+separate, later concrete Firmware release that deliberately does add a primitive
+application shell; that release's presentation is current implemented truth
+owned by `docs/current/NETWORK_ACCESS.md` and is not governed by the structural
+statements below.
+
 This document is the authoritative product and presentation contract for the
 first foreign operating surface introduced by Work Order 05.
 

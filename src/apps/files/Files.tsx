@@ -13,7 +13,8 @@ import { deriveFileTransferDirection, type StartRemoteFileUploadResult } from '.
 import { describeUploadFailure } from '../uploadFailure'
 import { describeInstallFailure } from '../installFailure'
 import { resolveActiveRemoteTarget } from '../../core/game/remoteSession'
-import type { DeauthExtensionFile, DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile, SoftwareModuleFile, FlipperInstallation, RattlerPayloadFile, TextFile } from '../../core/game/types'
+import type { DeauthExtensionFile, DeviceAccessFileTransfer, GameState, ExecutableFile, FileTransfer, FilesystemFile, FirmwarePackageFile, InstalledSoftware, LocalDeviceState, NodeMinerProcess, SoftwareInstallationProcess, SoftwareRemovalProcess, SoftwarePackageFile, SoftwareModuleFile, FlipperInstallation, RattlerPayloadFile, TextFile } from '../../core/game/types'
+import { isRackOsFirmwareArtifact } from '../../core/game/rackOsFirmwareUpdate'
 import { RATTLER_1_0 } from '../../core/game/softwareReleaseContent'
 import { RATTLER_PROGRAM_ID } from '../../core/game/rattler'
 import type { ExecutableAppId } from '../../shell/appRegistry'
@@ -160,6 +161,8 @@ function identityName(file: FilesystemFile): string | undefined {
     case 'deauth_extension':
     case 'executable':
       return file.name
+    case 'firmware_package':
+      return `${file.name} ${file.version}`
     default:
       return undefined
   }
@@ -233,6 +236,7 @@ function FileDetails({ file, device, process, installedSoftware, installingProdu
         : file.kind === 'software_module' ? <ModuleDetails file={file} installedSoftware={installedSoftware} />
         : file.kind === 'deauth_extension' ? <DeauthExtensionDetails file={file} device={device} />
         : file.kind === 'rattler_payload' ? <RattlerPayloadDetails file={file} />
+        : file.kind === 'firmware_package' ? <FirmwarePackageDetails file={file} device={device} />
           : <ExecutableDetails file={file} nodeWalletAddress={nodeWalletAddress} runNodeMiner={runNodeMiner} runningProcess={runningProcess} openExecutableApp={openExecutableApp} />}
     {(activeUpload || connectedAddress) && <RemoteTransfer file={file} connectedAddress={connectedAddress} upload={upload} activeUpload={activeUpload} />}
   </div>
@@ -542,6 +546,36 @@ function RattlerPayloadDetails({ file }: { file: RattlerPayloadFile }) {
 }
 
 /**
+ * A firmware installer artifact on the local Device.
+ *
+ * NODE-OS states what the artifact is and refuses to do anything with it, and
+ * that refusal is the truth rather than a missing feature: node-01 runs
+ * NODE-OS, this installer installs a RACK-OS release, and firmware is
+ * installed by the Device that runs it — from that Device's own copy, through
+ * that Device's own operating environment. So there is no INSTALL action here,
+ * and none is implied. Transfer remains available through the shared REMOTE
+ * TRANSFER section below, which is how the artifact reaches a Device that can
+ * actually use it.
+ */
+function FirmwarePackageDetails({ file, device }: { file: FirmwarePackageFile; device: LocalDeviceState }) {
+  const recognized = isRackOsFirmwareArtifact(file)
+  return <section className="file-kind-details">
+    <div className="node-section"><span>INSTALLATION</span><span>NOT ON THIS DEVICE</span></div>
+    <dl className="node-facts">
+      <div><dt>INSTALLS</dt><dd>{file.name} {file.version}</dd></div>
+      <div><dt>THIS DEVICE</dt><dd>{device.firmware.name} {device.firmware.version}</dd></div>
+    </dl>
+    <p className="node-note">{recognized
+      ? `Device firmware is installed by the Device that runs it. Transfer this installer to a compatible ${file.name} server and open it there.`
+      : `This installer carries a firmware build ${device.displayName} does not recognize.`}</p>
+    <FileInformation file={file}>
+      {file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}
+      <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
+    </FileInformation>
+  </section>
+}
+
+/**
  * Package state derived from canonical truth alone: normal NODE-OS package
  * recognition of the artifact's current path, Device-owned installed
  * software, and running local Process state. An
@@ -569,6 +603,7 @@ function typeLabel(file: FilesystemFile): string {
     case 'software_module': return 'SOFTWARE MODULE'
     case 'deauth_extension': return 'FLIPPER EXTENSION'
     case 'rattler_payload': return 'RATTLER PAYLOAD'
+    case 'firmware_package': return 'FIRMWARE INSTALLER'
     case 'executable': return 'EXECUTABLE'
   }
 }

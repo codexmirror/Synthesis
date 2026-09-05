@@ -11,6 +11,7 @@ import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 import { CREDENTIAL_ACCESS_MODULE_1_0, ROLLBACK_MODULE_1_0, FLIPPER_1_0_CANONICAL_INSTALLATION, FLIPPER_INSTALLED_EXECUTABLE_PATH } from '../../core/game/flipper'
 import { RATTLER_PROGRAM_ID, RATTLER_INSTALLED_EXECUTABLE_PATH } from '../../core/game/rattler'
 import { RATTLER_1_0 } from '../../core/game/softwareReleaseContent'
+import { RACK_OS_1_1_BUSINESS_RELEASE } from '../../core/game/rackOsFirmwareUpdate'
 
 afterEach(() => vi.useRealTimers())
 
@@ -42,6 +43,33 @@ function uploadState() {
 }
 
 describe('Files', () => {
+  it('presents a RACK-OS firmware installer as the artifact it is, and offers no installation on node-01', async () => {
+    const base = createInitialGameState()
+    const installer: FilesystemFile = {
+      kind: 'firmware_package', id: 'file-firmware', path: '/home/user/downloads/rack-os-1.1-business.fwpkg',
+      firmwareId: RACK_OS_1_1_BUSINESS_RELEASE.firmware.id, buildId: RACK_OS_1_1_BUSINESS_RELEASE.buildId,
+      name: RACK_OS_1_1_BUSINESS_RELEASE.firmware.name, version: RACK_OS_1_1_BUSINESS_RELEASE.firmware.version,
+      publisher: RACK_OS_1_1_BUSINESS_RELEASE.publisher, sizeBytes: RACK_OS_1_1_BUSINESS_RELEASE.installerSizeBytes,
+    }
+    const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice,
+      filesystem: { nextFileId: 2, files: [installer] },
+    } } }
+    render(<GameProvider initialState={state}><Files /><StateProbe /></GameProvider>)
+    const user = userEvent.setup()
+    const before = probe()
+    await user.click(screen.getByRole('button', { name: /downloads.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /rack-os-1\.1-business\.fwpkg.*FIRMWARE INSTALLER/ }))
+
+    expect(screen.getByRole('heading', { name: 'RACK-OS 1.1 Business' })).toBeInTheDocument()
+    expect(screen.getByText('FIRMWARE INSTALLER · 24 MB')).toBeInTheDocument()
+    // NODE-OS states its own firmware and refuses: there is no install action anywhere.
+    expect(screen.getByText('INSTALLATION').closest('.node-section')).toHaveTextContent('NOT ON THIS DEVICE')
+    expect(within(screen.getByText('THIS DEVICE').closest('div')!).getByText('NODE-OS 1.0')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'INSTALL' })).toBeNull()
+    expect(screen.getByText(/Transfer this installer to a compatible RACK-OS server/)).toBeInTheDocument()
+    expect(probe()).toEqual(before)
+  })
+
   it.each([
     ['Credential Access Module', 'AUTH-017', CREDENTIAL_ACCESS_MODULE_1_0],
     ['Rollback Module', 'UPD-001', ROLLBACK_MODULE_1_0],

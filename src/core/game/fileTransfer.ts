@@ -125,22 +125,27 @@ function marketDistributionSizeBytes(offer: MarketOffer): number {
 
 /**
  * Build the one ordinary artifact a completed Market download writes, **at the
- * completion moment only** — a `software_package` or a `software_module`,
- * whichever the offering actually distributes.
+ * completion moment only** — a `software_package`, a `software_module` or a
+ * `firmware_package`, whichever the offering actually distributes.
  *
  * There is deliberately no artifact for a Market offering before this point: a
  * file lives on a Device-owned filesystem, and until the transfer completes
  * there is no artifact, no allocated file ID and no path anywhere. The `id`
  * and `path` below exist only because the shared copy operation allocates the
  * real ones from the destination filesystem and replaces both immediately;
- * neither is ever observable. A module artifact is written exactly as it is
- * distributed: completion installs nothing and creates no InstalledSoftware.
+ * neither is ever observable. A module and a firmware installer are each
+ * written exactly as they are distributed: completion installs nothing,
+ * creates no InstalledSoftware, and changes no Device's Firmware.
  */
 function createCompletedMarketArtifact(offer: MarketOffer): FilesystemFile {
   const pending = { id: 'pending-market-download', path: `/${offer.distribution.filename}` }
   if (offer.distribution.artifact === 'software_module') {
     const { artifact, filename, ...distributed } = offer.distribution
     return { kind: 'software_module', ...pending, ...distributed }
+  }
+  if (offer.distribution.artifact === 'firmware_package') {
+    const { artifact, filename, ...distributed } = offer.distribution
+    return { kind: 'firmware_package', ...pending, ...distributed }
   }
   const { artifact, filename, ...distributed } = offer.distribution
   return { kind: 'software_package', ...pending, ...distributed }

@@ -116,10 +116,11 @@ function SourceStrip({ sources, activeId, select }: { sources: readonly MarketSo
   </>
 }
 
-/** The represented Market's own catalog: its products, then its module offerings. */
+/** The represented Market's own catalog: its products, then its module offerings, then its firmware offerings. */
 function Catalog({ view, open }: { view: MarketView; open: (entry: MarketCatalogEntry) => void }) {
   const products = view.entries.filter(({ kind }) => kind === 'product')
   const modules = view.entries.filter(({ kind }) => kind === 'module')
+  const firmware = view.entries.filter(({ kind }) => kind === 'firmware')
   return <div className="mk-catalog">
     <dl className="mk-balance">
       <dt>NODE BALANCE</dt>
@@ -134,6 +135,10 @@ function Catalog({ view, open }: { view: MarketView; open: (entry: MarketCatalog
         {modules.length > 0 && <>
           <div className="node-section"><span>MODULES</span><span>{modules.length} {modules.length === 1 ? 'OFFERING' : 'OFFERINGS'}</span></div>
           <div className="mk-list">{modules.map((entry) => <CatalogEntry key={entry.key} entry={entry} open={open} />)}</div>
+        </>}
+        {firmware.length > 0 && <>
+          <div className="node-section"><span>FIRMWARE</span><span>{firmware.length} {firmware.length === 1 ? 'OFFERING' : 'OFFERINGS'}</span></div>
+          <div className="mk-list">{firmware.map((entry) => <CatalogEntry key={entry.key} entry={entry} open={open} />)}</div>
         </>}
       </>
       : <div className="node-empty"><strong>NO OFFERINGS</strong><span>This Market currently lists nothing.</span></div>}
@@ -197,7 +202,7 @@ function EntrySurface({ entry, view, selected, feedback, selectRelease, openEntr
       <h2 className="mk-subject-name">{entry.name}</h2>
       <p className="mk-subject-meta">{entry.kind === 'module'
         ? `MODULE FOR ${(entry.hostName ?? entry.hostProductId ?? '').toUpperCase()}`
-        : 'SOFTWARE PRODUCT'} · {entry.releases.length} {entry.releases.length === 1 ? 'RELEASE' : 'RELEASES'} OFFERED</p>
+        : entry.kind === 'firmware' ? 'DEVICE FIRMWARE' : 'SOFTWARE PRODUCT'} · {entry.releases.length} {entry.releases.length === 1 ? 'RELEASE' : 'RELEASES'} OFFERED</p>
       {statedNames.length > 1 && <p className="mk-subject-meta">RELEASES STATE DIFFERENT NAMES · {statedNames.join(', ')}</p>}
     </div>
 
@@ -293,7 +298,9 @@ function ReleaseDetail({ release, entry, view, feedback, buy, download }: {
       {release.action === 'NONE' && release.destinationOccupied && release.purchased && <p className="node-note node-note--caution">DESTINATION OCCUPIED · {release.destinationPath}</p>}
       {release.localCopyPath && <p className="node-note">{release.artifact === 'software_module'
         ? 'The Market ends at acquisition. Open Flipper to integrate this module.'
-        : 'The Market ends at acquisition. Install this package from Files.'}</p>}
+        : release.artifact === 'firmware_package'
+          ? 'The Market ends at acquisition. Transfer this installer to a compatible Device and run it from that Device\u2019s own Files.'
+          : 'The Market ends at acquisition. Install this package from Files.'}</p>}
       {feedback && <p className="node-note node-note--caution">{feedback}</p>}
     </div>
 
@@ -301,7 +308,7 @@ function ReleaseDetail({ release, entry, view, feedback, buy, download }: {
     <dl className="node-facts">
       <div><dt>PUBLISHER</dt><dd>{release.publisher ?? 'NOT STATED'}</dd></div>
       <div><dt>SELLER</dt><dd>{view.operatorName}</dd></div>
-      <div><dt>{release.artifact === 'software_module' ? 'MODULE' : 'PACKAGE'}</dt><dd>{release.filename}</dd></div>
+      <div><dt>{release.artifact === 'software_module' ? 'MODULE' : release.artifact === 'firmware_package' ? 'INSTALLER' : 'PACKAGE'}</dt><dd>{release.filename}</dd></div>
       <div><dt>SIZE</dt><dd>{formatBytes(release.sizeBytes)}</dd></div>
       <div><dt>PURCHASE</dt><dd>{release.purchased ? 'PURCHASED' : 'NOT PURCHASED'}</dd></div>
       <div><dt>LOCAL COPY</dt><dd>{release.localCopyPath ?? 'NONE'}</dd></div>
@@ -309,6 +316,12 @@ function ReleaseDetail({ release, entry, view, feedback, buy, download }: {
 
     {entry.kind === 'module' && <p className="node-note">
       A module offering is not an installable release. Acquiring it places one module artifact on {view.clientDeviceName}; it never becomes installed software.
+    </p>}
+
+    {entry.kind === 'firmware' && <p className="node-note">
+      A firmware offering is not software. Acquiring it places one firmware installer artifact on {view.clientDeviceName};
+      it never becomes installed software and it does not change any Device{'\u2019'}s firmware. The release it installs is installed
+      later, from the Device it is transferred to.
     </p>}
 
     <SoftwareReleaseDisclosure releaseId={release.releaseId} summary facts={<dl className="node-facts">
@@ -349,7 +362,7 @@ function describeSummary({ summary }: MarketCatalogEntry) {
  * product with several states how many, then the versions themselves.
  */
 function describeEntryMeta(entry: MarketCatalogEntry) {
-  const host = entry.kind === 'module' ? [`MODULE FOR ${(entry.hostName ?? entry.hostProductId ?? '').toUpperCase()}`] : []
+  const host = entry.kind === 'module' ? [`MODULE FOR ${(entry.hostName ?? entry.hostProductId ?? '').toUpperCase()}`] : entry.kind === 'firmware' ? ['DEVICE FIRMWARE'] : []
   if (entry.releases.length === 1) {
     const [release] = entry.releases
     return [...host, ...(release.channel ? [`${release.version} · ${release.channel.toUpperCase()}`] : [release.version]), formatBytes(release.sizeBytes)].join(' · ')
