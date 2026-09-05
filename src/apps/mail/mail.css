@@ -1,89 +1,210 @@
 /*
  * NodeMail presentation.
  *
- * Correspondence, not Terminal output and not a CRUD list: message text is the
- * primary object, so it is set larger and looser than the technical labels
- * around it while everything structural stays in the shared NODE-OS language.
+ * Correspondence, not Terminal output and not a CRUD list. Two decisions
+ * carry the surface:
+ *
+ * TYPE STATES WHAT KIND OF TEXT IT IS. Everything the operating system says —
+ * labels, counts, addresses, chips — stays in the NODE-OS monospace inherited
+ * from the Shell. Everything a person wrote — correspondent names, subjects,
+ * previews, message bodies and the player's own draft — is set in the prose
+ * family, larger and looser. That one distinction is what makes a mailbox read
+ * as writing inside a technical operating system rather than as more output.
+ *
+ * SEPARATION IS RULED, NOT BOXED. The inbox is one hairline-ruled column of
+ * entries instead of a stack of bordered cards, because a card per thread is
+ * what stops a mailbox scaling past a handful of them. Only the player's own
+ * messages are a filled block, and only because that is what states direction
+ * without alignment games.
+ *
  * The scrolling gutter belongs to `.app-content`, so nothing here redeclares
- * it.
+ * it. Every colour composes `styles/tokens.css`; this application owns none.
  */
 
-.mail-app { max-width: 680px; }
+.mail-app {
+  max-width: 680px;
+  /*
+   * Local, non-palette value: the prose family the shared row primitive
+   * already uses for authored names. Named once here because NodeMail is the
+   * one surface that deliberately sets authored text apart from system text.
+   */
+  --mail-prose: Inter, system-ui, sans-serif;
+}
 
-/* Inbox: correspondent first, subject second, what was last said third. */
-.node-row.mail-thread { align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
-.mail-thread .node-row-glyph { margin-top: 2px; color: var(--text-faint); }
-.mail-thread .node-chip,
-.mail-thread .node-row-arrow { margin-top: 2px; }
-.mail-thread--unread .node-row-glyph { color: var(--accent-mark); }
-.mail-thread--unread .node-row-copy strong { color: var(--green); }
+/* ── Inbox ───────────────────────────────────────────────────────────────── */
 
+/*
+ * The mailbox summary. A count of nothing is a quiet fact; a count of
+ * something waiting is the reason the player opened the application.
+ */
+.mail-unread { font-variant-numeric: tabular-nums; }
+/* Specific enough to beat the shared section's own quiet right-hand value. */
+.node-section > .mail-unread--live:last-child:not(:first-child) { color: var(--accent); }
+
+/*
+ * One ruled column. Entries carry the rules, so the list is still one object
+ * when it holds fifty threads, and an entry is the whole touch target.
+ */
+.mail-index {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--line-quiet);
+}
+
+/* The section heading already closed the top of the column. */
+.mail-index > li:first-child > .mail-entry { border-top: 0; }
+
+.mail-entry {
+  width: 100%;
+  min-height: 66px;
+  padding: 13px 12px 14px;
+  display: grid;
+  gap: 4px;
+  border: 0;
+  border-top: 1px solid var(--line-quiet);
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/*
+ * Unread is stated three independent ways: structurally by the accent rail
+ * and its wash, by value in the correspondent and subject, and in words by
+ * the chip. None of the three is load-bearing on its own.
+ */
+.mail-entry--unread {
+  border-left-color: var(--accent-rule);
+  background: linear-gradient(90deg, var(--accent-veil), transparent 42%);
+}
+
+.mail-entry:focus-visible {
+  border-left-color: var(--line-accent);
+  background: var(--surface-hover);
+  outline: 0;
+}
+
+@media (hover: hover) {
+  .mail-entry:hover { background: var(--surface-hover); }
+  .mail-entry--unread:hover { background: linear-gradient(90deg, var(--accent-veil), var(--surface-hover) 42%); }
+}
+
+.mail-entry-head {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.mail-entry-from {
+  min-width: 0;
+  flex: 1;
+  color: var(--text-secondary);
+  font: 600 .8rem var(--mail-prose);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.mail-entry--unread .mail-entry-from { color: var(--text-strong); }
+
+/*
+ * The subject is what the correspondence is about, so it is set as reading
+ * text rather than as a tracked technical label under the name.
+ */
+.mail-entry-subject {
+  min-width: 0;
+  color: var(--text-muted);
+  font: 400 .82rem var(--mail-prose);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mail-entry--unread .mail-entry-subject { color: var(--text); }
+
+.mail-entry .node-row-arrow { align-self: center; color: var(--text-muted); }
+.mail-entry--unread .node-row-arrow { color: var(--accent-mark); }
+
+/* The last thing actually said, projected from canonical state and never stored. */
 .mail-preview {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  margin-top: 1px;
   color: var(--text-quiet);
-  font-size: .68rem;
+  font-family: var(--mail-prose);
+  font-size: .72rem;
   line-height: 1.45;
   letter-spacing: 0;
   text-transform: none;
   overflow-wrap: anywhere;
 }
 
-.mail-thread--unread .mail-preview { color: var(--text-secondary); }
+.mail-entry--unread .mail-preview { color: var(--text-secondary); }
 
-/* Thread header: what this correspondence is, and between whom. */
-.mail-subject {
-  margin: 4px 0 0;
-  color: var(--text-strong);
-  font: 600 .95rem Inter, system-ui, sans-serif;
-  overflow-wrap: anywhere;
-}
-
-.mail-parties {
-  margin: 7px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  font-size: .64rem;
-  overflow-wrap: anywhere;
-}
-
-.mail-party { color: var(--text-secondary); }
-.mail-party-address { color: var(--text-muted); }
-
-.mail-party-account {
+/* Whether the last contribution was the player's own, stated rather than implied. */
+.mail-preview-mark {
+  margin-right: 7px;
   color: var(--text-faint);
-  font-size: var(--label-size);
-  letter-spacing: var(--label-tracking);
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .1em;
 }
 
-/* Ordered history. Message direction is stated, not implied by alignment. */
+/* ── Thread ──────────────────────────────────────────────────────────────── */
+
+/* The subject is the object of the screen and is set as one. */
+.mail-subject {
+  margin: 2px 0 0;
+  color: var(--text-strong);
+  font: 600 1rem var(--mail-prose);
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Who the correspondence is between, stated once as facts rather than as a
+ * run-on line: two identities, each with its own address, both of which have
+ * to survive being long.
+ */
+.node-facts.mail-parties { margin: 13px 0 0; }
+.node-facts.mail-parties dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.mail-party-name { color: var(--text-strong); font-family: var(--mail-prose); font-weight: 600; }
+.mail-party-address { color: var(--text-muted); font-size: .64rem; }
+
+/*
+ * The transcript. Direction is stated by the author line and reinforced
+ * structurally, never by alignment: what was said to the player stands on the
+ * page behind an accent rule, and what the player said is an inset block.
+ * No bubbles, no avatars, no delivery marks.
+ */
 .mail-messages {
-  margin: 0;
+  margin: 15px 0 0;
   padding: 0;
   display: grid;
-  gap: 14px;
+  gap: 17px;
   list-style: none;
 }
 
-.mail-message {
-  min-width: 0;
-  padding: 2px 0 2px 12px;
+.mail-message { min-width: 0; }
+
+.mail-message--received {
+  padding: 1px 0 1px 13px;
   border-left: 2px solid var(--accent-rule);
 }
 
 .mail-message--sent {
-  border-left-color: var(--line-strong);
-  padding-left: 12px;
-  margin-left: clamp(0px, 6vw, 44px);
+  padding: 11px 13px 12px;
+  border: 1px solid var(--line-quiet);
+  background: var(--surface-raised);
 }
 
 .mail-message-author {
   display: block;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: var(--label-size);
   letter-spacing: var(--label-tracking);
   text-transform: uppercase;
@@ -91,18 +212,20 @@
 
 .mail-message--sent .mail-message-author { color: var(--text-faint); }
 
+/* The message itself: the largest, loosest, most readable text on the surface. */
 .mail-message-body {
-  margin: 6px 0 0;
+  margin: 7px 0 0;
   color: var(--text);
-  font-size: .78rem;
-  line-height: 1.65;
+  font-family: var(--mail-prose);
+  font-size: .84rem;
+  line-height: 1.72;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .mail-message--sent .mail-message-body { color: var(--text-secondary); }
 
-.mail-message--arrived { animation: mail-arrive 160ms ease-out both; }
+.mail-message--arrived { animation: mail-arrive 200ms ease-out both; }
 
 @keyframes mail-arrive {
   from { opacity: 0; }
@@ -138,38 +261,44 @@
 
 .mail-address-feedback { margin-left: .35em; }
 
-/* Reply composer: a real multiline draft plus one explicit send. */
-.mail-composer {
-  margin-top: 22px;
-  padding-top: 16px;
-  display: grid;
-  gap: 12px;
-  border-top: 1px solid var(--line);
-}
+/* ── Reply ───────────────────────────────────────────────────────────────── */
+
+/*
+ * The reply continues the correspondence instead of being a form bolted to the
+ * end of it: the same section rule the transcript opened with, the recipient
+ * stated beside it, one draft and one explicit send.
+ */
+.mail-composer { display: grid; gap: 11px; }
+.node-section.mail-composer-head { margin: 26px 0 0; }
 
 .mail-composer-input {
   width: 100%;
-  min-height: 96px;
-  padding: 12px;
+  min-height: 104px;
+  padding: 12px 13px;
   resize: vertical;
   border: 1px solid var(--line-strong);
   outline: 0;
   background: var(--surface);
   color: var(--text);
-  font: inherit;
-  font-size: .76rem;
-  line-height: 1.6;
+  font-family: var(--mail-prose);
+  font-size: .82rem;
+  line-height: 1.65;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
 
 .mail-composer-input:focus { border-color: var(--line-accent); }
+.mail-composer-input::placeholder { color: var(--text-faint); }
 
 .mail-composer-actions { display: flex; justify-content: flex-end; }
-.mail-composer-actions .node-action { min-width: 120px; justify-content: center; }
+.mail-composer-actions .node-action { min-width: 128px; justify-content: center; }
+
+/* A correspondence that accepts nothing says so where the composer would be. */
+.node-empty.mail-closed { margin-top: 24px; }
 
 @media (max-width: 480px) {
-  .mail-message--sent { margin-left: 18px; }
+  .mail-subject { font-size: .94rem; }
+  .mail-message--sent { padding: 10px 11px 11px; }
   .mail-composer-actions .node-action { flex: 1; }
 }
 

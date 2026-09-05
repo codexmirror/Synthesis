@@ -47,6 +47,15 @@ export function Mail() {
   return <Inbox mail={mail} open={open} />
 }
 
+/**
+ * The mailbox as an index rather than a stack of cards.
+ *
+ * Every row is one ruled entry in a single column, so the list reads as one
+ * object at two threads and still reads as one object at fifty. Unread is
+ * stated three independent ways — an accent rail on the entry, brighter
+ * correspondent and subject type, and the explicit `UNREAD` chip — so it
+ * survives both fast scanning and colour blindness.
+ */
 function Inbox({ mail, open }: { mail: MailState; open: (thread: MailThread) => void }) {
   const unread = deriveUnreadMailCount(mail)
 
@@ -58,37 +67,52 @@ function Inbox({ mail, open }: { mail: MailState; open: (thread: MailThread) => 
 
     <div className="node-section">
       <span>INBOX</span>
-      <span>{unread} UNREAD</span>
+      <span className={unread > 0 ? 'mail-unread mail-unread--live' : 'mail-unread'}>{unread} UNREAD</span>
     </div>
 
     {mail.threads.length > 0
-      ? <div className="node-list">
+      ? <ol className="mail-index">
         {mail.threads.map((thread) => {
           const correspondent = findMailCorrespondent(mail, thread.correspondentId)
           const latest = findLatestThreadMessage(mail, thread.id)
           const unreadInThread = deriveThreadUnreadCount(mail, thread.id)
-          return <button
-            className={unreadInThread > 0 ? 'node-row mail-thread mail-thread--unread' : 'node-row mail-thread'}
-            type="button"
-            key={thread.id}
-            onClick={() => open(thread)}
-            aria-label={`Open ${thread.subject} from ${correspondentLabel(correspondent, thread)}`}
-          >
-            <span className="node-row-glyph" aria-hidden="true">{unreadInThread > 0 ? '●' : '○'}</span>
-            <span className="node-row-copy">
-              <strong>{correspondentLabel(correspondent, thread)}</strong>
-              <small>{thread.subject}</small>
-              {latest && <span className="mail-preview">{preview(latest)}</span>}
-            </span>
-            {unreadInThread > 0 && <span className="node-chip">UNREAD</span>}
-            <span className="node-row-arrow" aria-hidden="true">→</span>
-          </button>
+          return <li key={thread.id}>
+            <button
+              className={unreadInThread > 0 ? 'mail-entry mail-entry--unread' : 'mail-entry'}
+              type="button"
+              onClick={() => open(thread)}
+              aria-label={`Open ${thread.subject} from ${correspondentLabel(correspondent, thread)}`}
+            >
+              <span className="mail-entry-head">
+                <strong className="mail-entry-from">{correspondentLabel(correspondent, thread)}</strong>
+                {unreadInThread > 0 && <span className="node-chip">UNREAD</span>}
+                <span className="node-row-arrow" aria-hidden="true">→</span>
+              </span>
+              <span className="mail-entry-subject">{thread.subject}</span>
+              {latest && <span className="mail-preview">
+                {latest.sender === 'account' && <span className="mail-preview-mark">YOU</span>}
+                {preview(latest)}
+              </span>}
+            </button>
+          </li>
         })}
-      </div>
-      : <div className="node-empty"><strong>NO CORRESPONDENCE</strong><span>Nothing has been delivered to this account.</span></div>}
+      </ol>
+      : <div className="node-empty">
+        <strong>NO CORRESPONDENCE</strong>
+        <span>Nothing has been delivered to {mail.account.address}.</span>
+      </div>}
   </section>
 }
 
+/**
+ * One correspondence, read as a transcript.
+ *
+ * The subject leads, the two identities the correspondence is between are
+ * stated once underneath it, and then the messages themselves are the surface.
+ * Direction is stated by the author line and reinforced structurally rather
+ * than by alignment: what was said to the player sits on the page behind an
+ * accent rule, what the player said sits in a quieter inset block.
+ */
 function Thread({ mail, thread, send, close }: {
   mail: MailState
   thread: MailThread
@@ -113,11 +137,19 @@ function Thread({ mail, thread, send, close }: {
     </button>
 
     <h2 className="mail-subject">{thread.subject}</h2>
-    <p className="mail-parties">
-      <span className="mail-party">{correspondentLabel(correspondent, thread)}</span>
-      {correspondent && <span className="mail-party-address">{correspondent.address}</span>}
-      <span className="mail-party-account">TO {mail.account.address}</span>
-    </p>
+    <dl className="node-facts mail-parties">
+      <div>
+        <dt>CORRESPONDENT</dt>
+        <dd>
+          <span className="mail-party-name">{correspondentLabel(correspondent, thread)}</span>
+          {correspondent && <span className="mail-party-address">{correspondent.address}</span>}
+        </dd>
+      </div>
+      <div>
+        <dt>ACCOUNT</dt>
+        <dd><span className="mail-party-address">{mail.account.address}</span></dd>
+      </div>
+    </dl>
 
     <div className="node-section">
       <span>MESSAGES</span>
@@ -136,7 +168,10 @@ function Thread({ mail, thread, send, close }: {
 
     {threadAcceptsReply(thread.id)
       ? <Composer thread={thread} correspondent={correspondent} send={send} onSent={setArrived} />
-      : <p className="node-note">{correspondent ? `${correspondent.address} does not accept replies.` : 'This thread does not accept replies.'}</p>}
+      : <div className="node-empty mail-closed">
+        <strong>NO REPLY</strong>
+        <span>{correspondent ? `${correspondent.address} does not accept replies.` : 'This thread does not accept replies.'}</span>
+      </div>}
   </section>
 }
 
@@ -168,19 +203,25 @@ function Composer({ thread, correspondent, send, onSent }: {
     onSent([result.playerMessageId, result.replyMessageId])
   }
 
+  /*
+   * The reply continues the correspondence rather than being a form appended
+   * to it: it opens with the same section rule the transcript did, and states
+   * who it is going to instead of labelling its own input.
+   */
   return <form className="mail-composer" onSubmit={submit}>
-    <label className="node-field">
-      <span>REPLY{correspondent ? ` TO ${correspondent.address}` : ''}</span>
-      <textarea
-        className="mail-composer-input"
-        data-editing-scroll-owner
-        rows={4}
-        value={draft}
-        placeholder="Write a reply…"
-        aria-label={`Reply to ${correspondentLabel(correspondent, thread)}`}
-        onChange={(event) => { setDraft(event.target.value); setFailure(undefined) }}
-      />
-    </label>
+    <div className="node-section mail-composer-head">
+      <span>REPLY</span>
+      {correspondent && <span>TO {correspondent.address}</span>}
+    </div>
+    <textarea
+      className="mail-composer-input"
+      data-editing-scroll-owner
+      rows={4}
+      value={draft}
+      placeholder="Write a reply…"
+      aria-label={`Reply to ${correspondentLabel(correspondent, thread)}`}
+      onChange={(event) => { setDraft(event.target.value); setFailure(undefined) }}
+    />
     <div className="mail-composer-actions">
       <button className="node-action" type="submit" disabled={draft.trim().length === 0}>SEND</button>
     </div>
@@ -194,6 +235,5 @@ function correspondentLabel(correspondent: MailCorrespondent | undefined, thread
 
 /** A compact projection of the last thing said in a thread; derived, never stored. */
 function preview(message: MailMessage): string {
-  const text = message.body.replace(/\s+/g, ' ').trim()
-  return message.sender === 'account' ? `You: ${text}` : text
+  return message.body.replace(/\s+/g, ' ').trim()
 }

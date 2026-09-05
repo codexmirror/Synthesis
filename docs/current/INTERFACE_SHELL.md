@@ -221,20 +221,43 @@ state and never reaches `GameState`.
 
 The application carries the shared masthead, whose subject is the mailbox
 account being presented: a different identity from the local Device that Shell
-chrome names. Inbox rows state correspondent, subject, and a preview projected
-from the latest canonical message, and mark unread threads with a filled
-marker, a brighter correspondent name, and an `UNREAD` chip. A thread states
-its subject, both parties, and its messages in order, each labeled `YOU` or
-with the correspondent's name.
+chrome names.
 
-A thread that represents no authored interaction presents no composer and says
-that the address does not accept replies.
+NodeMail sets authored text apart from system text: technical labels, counts,
+addresses, chips and section headings stay in the NODE-OS monospace, while
+correspondent names, subjects, previews, message bodies and the player's draft
+are set in the shared prose family, larger and looser. It also owns its inbox
+list rather than composing the shared bordered row, on the same terms Wallet's
+activity and Market's catalog already do: a rectangle per item makes a mailbox
+read as a pile of repeated objects and does not scale.
+
+The inbox is one hairline-ruled column of entries, each entry a single full-row
+control stating correspondent, subject, and a preview projected from the latest
+canonical message. When that latest message is the player's own, the preview
+carries a `YOU` mark. Unread threads are marked three independent ways — an
+accent rail and wash on the entry, brighter correspondent and subject type, and
+an `UNREAD` chip — and the mailbox's derived unread count takes the accent only
+while something is waiting. Presented order is represented order.
+
+A thread states its subject, then the correspondent's name and address and the
+account it was delivered to as facts, then its messages in order. Each message
+is labeled `YOU` or with the correspondent's name; incoming messages stand on
+the page behind an accent rule and the player's own sit in a quieter inset
+block, with no horizontal offset implying a side.
+
+A thread that represents no authored interaction presents no composer and says,
+where the composer would be, that the address does not accept replies.
+
+No NodeMail surface presents a clock, a date, or a relative age. The mail slice
+represents no communication time.
 
 An address-shaped run of text inside a message body is rendered as a copy
 control over that literal communicated string. It is a copy affordance only: it
 offers no scan, connect or inspect action and resolves nothing.
 
-The reply composer is an ordinary multiline `textarea` plus an explicit `SEND`.
+The reply composer opens with the same section rule the message list did and
+states the address it is going to, rather than labelling its own input. It is
+an ordinary multiline `textarea` plus an explicit `SEND`.
 Enter inserts a newline and never submits, because the draft is a textarea
 rather than a single-line input intercepted by a key handler. The composer is
 never autofocused, so opening a thread does not open the software keyboard, and
