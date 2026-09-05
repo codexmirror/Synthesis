@@ -243,6 +243,25 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 - DOCUMENTATION IMPACT OWNER → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md) for Dollars; [`current/NODE_ECONOMY.md`](current/NODE_ECONOMY.md) for NODE
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
+### Branch commerce
+
+Concrete bookstore-branch identity, operations host, completed-sale meaning,
+and settlement configuration.
+
+- CURRENT TRUTH → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
+- ARCHITECTURE → A01–A04 in
+  [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md),
+  A07 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md),
+  A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md),
+  A18 in [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
+- RELATED CURRENT TRUTH → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md),
+  [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md),
+  [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
+- CODE → `src/core/game/bookstoreBranch.ts`, `src/apps/rackos/`
+- TESTS → `src/core/game/bookstoreBranch.test.ts`, `src/apps/rackos/RackOS.test.tsx`
+- DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
+- NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
+
 ### Devices, world, and System
 
 GameState areas, local Device, represented servers and services, hardware and

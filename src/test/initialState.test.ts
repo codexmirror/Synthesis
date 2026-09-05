@@ -37,13 +37,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 66', () => {
+  it('separates identities and seeds canonical local-device state in schema version 67', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(66)
+    expect(GAME_STATE_VERSION).toBe(67)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(66)
+    expect(state.version).toBe(67)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -182,7 +182,7 @@ describe('createInitialGameState', () => {
     expect(server?.id).not.toBe('host-lan-001')
     expect(server?.installedSoftware).toContainEqual({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' })
     expect(server?.installedSoftware).toContainEqual({ id: 'auth-guard', releaseId: 'auth-guard-1.0', buildId: 'build-auth-guard-1.0-v0', name: 'AuthGuard', version: '1.0', publisher: 'rack-systems' })
-    expect(server?.installedSoftware).toHaveLength(2)
+    expect(server?.installedSoftware).toHaveLength(3)
     expect(server?.installedSoftware).not.toBe(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.installedSoftware)
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })
@@ -255,8 +255,10 @@ describe('createInitialGameState', () => {
       { id: 'dollar-session-0001', accountId: 'dollar-account-local-v0', clientDeviceId: 'device-local-v0' },
       { id: 'dollar-session-0002', accountId: 'dollar-account-veyra-phone-v0', clientDeviceId: 'host-phone-001' },
     ])
-    // Nothing has moved in the represented world yet.
-    expect(state.dollarFinance.transactions).toEqual({ nextId: 1, records: [] })
+    expect(state.dollarFinance.transactions).toEqual({ nextId: 2, records: [{
+      id: 'dollar-transaction-0001', sourceAccountId: 'dollar-account-retail-clearing-v0', destinationAccountId: 'dollar-account-veyra-phone-v0', amountCents: 2_000,
+      sourceAccountReference: 'CD-9000-2000', destinationAccountReference: 'CD-3318-2204',
+    }] })
     // The phone stores no sign-in of its own: a Session is not saved material.
     expect(phone).not.toHaveProperty('savedDollarSignIn')
   })

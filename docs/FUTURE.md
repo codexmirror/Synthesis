@@ -70,6 +70,22 @@ The goal is not simply more:
 
 The goal is a world in which existing systems combine to create new situations.
 
+## Persistent businesses and legitimate acquisition
+
+Businesses should become persistent world entities rather than disposable
+hacking levels. Compromise may create temporary opportunities, but it does not
+imply ownership or permanent passive income. Concrete defensive maintenance,
+configuration changes, software updates, credentials, topology, and other
+represented state may close particular attack paths; this should never collapse
+into a universal `unhackable` flag.
+
+The player may later acquire Companies legitimately with Dollar. Legitimate
+ownership may then provide legitimate economic benefit and management or
+upgrades over represented infrastructure. That management should interact with
+the same concrete systems used by hacking rather than becoming a disconnected
+generic tycoon minigame. Company purchase, ownership, valuation, profit,
+management, and upgrades remain future direction, not current truth.
+
 
 ## Multiple approaches instead of one hacking pipeline
 

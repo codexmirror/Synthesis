@@ -20,7 +20,7 @@ describe('Petra Company Chat transaction reaction', () => {
     expect(result.status).toBe('transferred')
     if (result.status !== 'transferred') return
 
-    const transaction = result.state.dollarFinance.transactions.records[0]
+    const transaction = result.state.dollarFinance.transactions.records.at(-1)!
     expect(transaction).toMatchObject({
       id: result.transactionId,
       sourceAccountId: PETRA_PHONE_ACCOUNT_ID,
@@ -41,7 +41,7 @@ describe('Petra Company Chat transaction reaction', () => {
   it('cannot react to a supplied Transaction that does not yet exist canonically', () => {
     const before = createInitialGameState()
     const transaction: DollarTransaction = {
-      id: 'dollar-transaction-0001', sourceAccountId: PETRA_PHONE_ACCOUNT_ID,
+      id: 'dollar-transaction-not-recorded', sourceAccountId: PETRA_PHONE_ACCOUNT_ID,
       destinationAccountId: PLAYER_DOLLAR_ACCOUNT_ID, amountCents: 100,
       sourceAccountReference: 'CD-3318-2204', destinationAccountReference: PLAYER_REFERENCE,
     }
@@ -99,7 +99,7 @@ describe('Petra Company Chat transaction reaction', () => {
     const second = transferDollars(first.state, PHONE_DEVICE_ID, PLAYER_REFERENCE, 100)
     if (second.status !== 'transferred') throw new Error(second.status)
 
-    expect(second.state.dollarFinance.transactions.records).toHaveLength(2)
+    expect(second.state.dollarFinance.transactions.records).toHaveLength(3)
     expect(second.state.petraCompanyChat.messages).toEqual(first.state.petraCompanyChat.messages)
     expect(second.state.petraCompanyChat.messages.filter(({ id }) => id === PETRA_UNUSUAL_TRANSACTION_MESSAGE_ID)).toHaveLength(1)
   })

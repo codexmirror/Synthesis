@@ -10,8 +10,8 @@ const secondDevice = (state: GameState): NetworkHost => state.world.network.host
 describe('Dollar Financial Provider', () => {
   it('seeds separate Provider, Account, Credential and local Device-bound Session identities with preserved wealth and unique references', () => {
     const state = createInitialGameState(); const account = state.dollarFinance.accounts[0]; const credential = state.dollarFinance.credentials[0]
-    // Two concrete Accounts: the player's, and the one the represented VEYRA phone is signed in to.
-    expect(state.dollarFinance.accounts).toHaveLength(2); expect(account.balanceCents).toBe(125_000)
+    // Three concrete Accounts: the player's, the phone-authorized branch settlement Account, and the sale's neutral clearing source.
+    expect(state.dollarFinance.accounts).toHaveLength(3); expect(account.balanceCents).toBe(125_000)
     expect(new Set(state.dollarFinance.accounts.map(({ accountReference }) => accountReference)).size).toBe(state.dollarFinance.accounts.length)
     expect(new Set(state.dollarFinance.credentials.map(({ loginIdentifier }) => loginIdentifier)).size).toBe(state.dollarFinance.credentials.length)
     expect(account.id).not.toBe(account.accountReference); expect(account.id).not.toBe(credential.loginIdentifier)
@@ -100,15 +100,17 @@ describe('Dollar Financial Provider', () => {
 })
 
 /**
- * Two Accounts and a matching Credential exist only as a test fixture: the
- * production world still contains exactly the player's own Account, and a
- * foreign Account arrives when concrete gameplay introduces whoever holds it.
+ * This Account and matching Credential exist only as a test fixture. The
+ * recipient is independent from the
+ * three production Accounts and arrives solely to exercise generic transfers.
  */
 const RECIPIENT = { id: 'dollar-account-fixture-b', accountReference: 'CD-2000-0002', balanceCents: 4_000 }
 const RECIPIENT_CREDENTIAL = { id: 'dollar-credential-fixture-b', accountId: RECIPIENT.id, loginIdentifier: 'second.civic', password: 'second-secret' }
 
 function withRecipient(state = createInitialGameState()): GameState {
-  return { ...state, dollarFinance: { ...state.dollarFinance, accounts: [...state.dollarFinance.accounts, RECIPIENT], credentials: [...state.dollarFinance.credentials, RECIPIENT_CREDENTIAL] } }
+  // Most transfer unit cases use an intentionally empty-history fixture; the
+  // authored branch history and next production ID have dedicated coverage.
+  return { ...state, dollarFinance: { ...state.dollarFinance, accounts: [...state.dollarFinance.accounts, RECIPIENT], credentials: [...state.dollarFinance.credentials, RECIPIENT_CREDENTIAL], transactions: { nextId: 1, records: [] } } }
 }
 
 const balanceOf = (state: GameState, accountId: string): number => state.dollarFinance.accounts.find(({ id }) => id === accountId)!.balanceCents
@@ -118,7 +120,7 @@ describe('Dollar transfers', () => {
     const before = signedOut(withRecipient())
     const result = transferDollars(before, before.player.localDevice.id, RECIPIENT.accountReference, 500)
     expect(result).toEqual({ status: 'not_signed_in', state: before })
-    expect(result.state.dollarFinance.transactions.records).toHaveLength(0)
+    expect(result.state.dollarFinance.transactions).toBe(before.dollarFinance.transactions)
   })
 
   it('denies a transfer authorized only by a dangling Session', () => {
@@ -252,9 +254,9 @@ describe('Dollar transfers', () => {
 })
 
 describe('Dollar Account activity', () => {
-  it('has no activity at all when no Transaction exists', () => {
+  it('has no activity for the local Account when no Transaction concerns it', () => {
     const state = createInitialGameState()
-    expect(state.dollarFinance.transactions.records).toEqual([])
+    expect(state.dollarFinance.transactions.records).toHaveLength(1)
     expect(projectDollarAccountActivity(state, 'dollar-account-local-v0')).toEqual([])
   })
 
@@ -468,8 +470,8 @@ describe('Dollars acted by the operated remote Device', () => {
     const balance = (state: GameState, id: string) => state.dollarFinance.accounts.find((account) => account.id === id)!.balanceCents
     expect(balance(result.state, 'dollar-account-veyra-phone-v0')).toBe(34_250 - 2_000)
     expect(balance(result.state, 'dollar-account-local-v0')).toBe(125_000 + 2_000)
-    expect(result.state.dollarFinance.transactions.records).toHaveLength(1)
-    expect(result.state.dollarFinance.transactions.records[0]).toMatchObject({ sourceAccountId: 'dollar-account-veyra-phone-v0', destinationAccountId: 'dollar-account-local-v0' })
+    expect(result.state.dollarFinance.transactions.records).toHaveLength(2)
+    expect(result.state.dollarFinance.transactions.records.at(-1)).toMatchObject({ id: 'dollar-transaction-0002', sourceAccountId: 'dollar-account-veyra-phone-v0', destinationAccountId: 'dollar-account-local-v0' })
     // Sessions, Credentials, access and the Session itself are untouched.
     expect(result.state.dollarFinance.sessions).toEqual(before.dollarFinance.sessions)
     expect(result.state.dollarFinance.credentials).toEqual(before.dollarFinance.credentials)

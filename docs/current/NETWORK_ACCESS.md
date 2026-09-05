@@ -808,7 +808,11 @@ surface. Its target is resolved by stable `RemoteSession.accessId` through
 authorized live view of current canonical target state, not a Discovery
 projection, and exposes only Terminal, Files, and System. Its Terminal supports
 `help`, `clear`, `ip`, `ls`, `cat`, and `disconnect`; Terminal and Files read the
-same foreign Device-owned filesystem. RACK-OS Terminal also supports
+same foreign Device-owned filesystem. A Device that is both the configured
+bookstore operations host and actual host of the represented BranchOps 1.0
+installation additionally exposes the read-only `OPERATIONS` section owned by
+[`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md); other Devices fabricate no business
+surface. RACK-OS Terminal also supports
 `download <remote-absolute-file-path>`,
 `upload <local-absolute-file-path> <remote-absolute-file-path>` and
 the dynamically available shared `node-miner` product CLI (`help`, `run`, `status`, `stop`, and `payout`), RACK-OS Files

@@ -63,6 +63,22 @@ A Transaction carries a stable monotonic ID (`dollar-transaction-0001`, followin
 
 `projectDollarAccountActivity` derives one Account's activity from those Transactions, newest first: outgoing amounts negative with the destination reference snapshot as counterparty, incoming amounts positive with the source reference snapshot. It exposes no other Account's balance, no Credential, no Device, no Session and no internal Account ID, and an Account with no Transactions has no activity.
 
+## Initial branch-sale finance truth
+
+The Provider initially owns a third, neutral retail-clearing Account with no
+Credential, Session, Device, or customer identity. One authored historical
+Transaction (`dollar-transaction-0001`) moves 2,000 cents from its
+`CD-9000-2000` reference into `dollar-account-veyra-phone-v0` at
+`CD-3318-2204`. The destination retains its intended current 34,250-cent
+balance; the clearing source's current balance is 80,000 cents. Transaction
+allocation therefore begins at `dollar-transaction-0002`.
+
+Finance owns only this generic movement. The bookstore sale meaning and
+settlement configuration are owned by
+[`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md). Because the VEYRA phone's existing
+Financial Session authorizes the destination Account, ordinary Account activity
+naturally projects the incoming $20.00 without special Wallet metadata.
+
 ## Wallet presentation
 
 The combined NODE-OS Wallet remains presentation over two independent domains. `Wallet` composes the Dollar client above a separate NODE section, and `src/apps/wallet/wallet.css` owns the Wallet's application-specific layout inside the shared NODE-OS language. The client is split by surface ownership: `src/apps/wallet/DollarClient.tsx` resolves the Account and owns the dashboard, `src/apps/wallet/DollarSend.tsx` owns SEND and its review, `src/apps/wallet/DollarAccess.tsx` owns ACCOUNT, the signed-out surface and both sign-in paths, and `src/apps/wallet/walletControls.tsx` holds the controls all of them compose. Which surface is open is still held by one component and the split is presentational only: no surface owns finance truth, and every money movement and sign-in still goes through the same shared domain operation. Which Dollar surface is open — dashboard, SEND, RECEIVE or ACCOUNT — is presentation state held by `Wallet`; it never reaches `GameState`. The selected presentation direction is owned by `docs/design/NODE_OS_WALLET_PRODUCT_POLISH_V1.md`.

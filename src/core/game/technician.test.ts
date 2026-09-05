@@ -25,9 +25,9 @@ describe('Petra Technician response', () => {
   it('schedules from Petra’s one complaint without responding or hardening immediately', () => {
     const state = qualifyingTransfer()
     expect(state.petraCompanyChat.messages).toHaveLength(1)
-    expect(state.petraCompanyChat.messages[0]).toMatchObject({ authorName: 'Petra', causedByTransactionId: 'dollar-transaction-0001' })
+    expect(state.petraCompanyChat.messages[0]).toMatchObject({ authorName: 'Petra', causedByTransactionId: 'dollar-transaction-0002' })
     expect(state.technicianReaction.pending).toEqual({
-      transactionId: 'dollar-transaction-0001', remainingMs: PETRA_TECHNICIAN_RESPONSE_DELAY_MS,
+      transactionId: 'dollar-transaction-0002', remainingMs: PETRA_TECHNICIAN_RESPONSE_DELAY_MS,
     })
     expect(walletProtection(state)).toBe(false)
     expect(state.petraCompanyChat.messages.some(({ authorId }) => authorId === TECHNICIAN_CORRESPONDENT_ID)).toBe(false)
@@ -52,7 +52,7 @@ describe('Petra Technician response', () => {
       authorId: TECHNICIAN_CORRESPONDENT_ID,
       authorName: 'Technician',
       body: PETRA_TECHNICIAN_MESSAGE,
-      causedByTransactionId: 'dollar-transaction-0001',
+      causedByTransactionId: 'dollar-transaction-0002',
     })
 
     const later = advanceGameState(resolved, 60_000)
