@@ -12,8 +12,10 @@ import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
 import { runRemoteCommand } from './remoteCommands'
+import { resolveBookstoreBranchOperations } from '../../core/game/bookstoreBranch'
+import { formatDollarCents } from '../dollarFormat'
 
-type Section = 'terminal' | 'files' | 'system'
+type Section = 'terminal' | 'files' | 'operations' | 'system'
 
 /** Where the local source picker opens; the player's own working directory. */
 const LOCAL_SOURCE_ROOT = '/home/user'
@@ -36,6 +38,8 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
   const [section, setSection] = useState<Section>('terminal')
   const [requestedSection, setRequestedSection] = useState<Section>()
   const { target, access, service } = context
+  const state = useGameState()
+  const branchOperations = resolveBookstoreBranchOperations(state, target.id)
 
   /* A section change while a remote editable is focused would otherwise mount
      the destination into the keyboard geometry the outgoing editable is being
@@ -66,11 +70,25 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
       </div>
     </header>
     <nav className="rack-nav" aria-label={`${target.firmware!.name} sections`}>
-      {(['terminal', 'files', 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => requestSection(item)}>{item.toUpperCase()}</button>)}
+      {(['terminal', 'files', ...(branchOperations ? ['operations' as const] : []), 'system'] as const).map((item) => <button key={item} aria-current={section === item ? 'page' : undefined} onClick={() => requestSection(item)}>{item.toUpperCase()}</button>)}
     </nav>
     <main className="rack-body">
       {section === 'terminal' && <RemoteTerminal context={context} onDisconnect={() => disconnectRemoteSession()} />}
       {section === 'files' && <RemoteFiles context={context} />}
+      {section === 'operations' && branchOperations && <section className="rack-panel rack-operations" aria-label="Branch operations">
+        <p className="rack-artifact-kind">BRANCH OPERATIONS SERVER</p>
+        <h2>{branchOperations.branch.displayName}</h2>
+        <dl className="rack-facts">
+          <div><dt>SOFTWARE</dt><dd>{branchOperations.software.name} {branchOperations.software.version}</dd></div>
+          <div><dt>SETTLEMENT ACCOUNT</dt><dd>{branchOperations.settlementAccount.accountReference}</dd></div>
+        </dl>
+        <h3>RECENT SALES</h3>
+        {branchOperations.sales.map((sale) => <dl className="rack-facts rack-facts--dense" key={sale.id}>
+          <div><dt>SALE</dt><dd>BOOK SALE</dd></div>
+          <div><dt>AMOUNT</dt><dd>{formatDollarCents(sale.transaction.amountCents)}</dd></div>
+          <div><dt>SETTLED TO</dt><dd>{sale.transaction.destinationAccountReference}</dd></div>
+        </dl>)}
+      </section>}
       {section === 'system' && <section className="rack-panel">
         <dl className="rack-facts">
           <div><dt>DEVICE</dt><dd>{target.displayName}</dd></div><div><dt>ADDRESS</dt><dd>{target.ip}</dd></div>

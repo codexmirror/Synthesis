@@ -640,6 +640,27 @@ export interface DollarFinanceState {
   readonly transactions: { readonly nextId: number; readonly records: readonly DollarTransaction[] }
 }
 
+/** Business-owned meaning for the one completed sale represented in V1. */
+export interface BookstoreBranchSale {
+  readonly id: string
+  readonly kind: 'book_sale'
+  /** The Provider-owned money movement that settled this sale. */
+  readonly dollarTransactionId: string
+}
+
+/**
+ * The one concrete bookstore branch. Its identity and configuration remain
+ * independent from its operations Device, installed software, and settlement
+ * Account; the referenced Dollar Transaction remains finance-owned truth.
+ */
+export interface BookstoreBranchState {
+  readonly id: string
+  readonly displayName: string
+  readonly operationsDeviceId: string
+  readonly settlementAccountId: string
+  readonly completedSales: readonly BookstoreBranchSale[]
+}
+
 /** One represented balance-changing event in the local NODE Wallet. */
 export type NodeWalletActivityRecord = NodeWalletMiningPayoutActivityRecord | NodeWalletMarketPurchaseActivityRecord
 
@@ -1333,6 +1354,8 @@ export interface GameState {
   readonly version: number
   readonly player: PlayerState
   readonly dollarFinance: DollarFinanceState
+  /** Concrete branch-commerce truth; not a generic Company or ownership model. */
+  readonly bookstoreBranch: BookstoreBranchState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
   /** The represented software Market and the player's purchase entitlements in it. */

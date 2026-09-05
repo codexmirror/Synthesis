@@ -974,6 +974,13 @@ state.
 
 ## Gotchas
 
+The initial `srv-02` inventory also contains the ordinary concrete BranchOps
+1.0 installation used by the bookstore branch. It has stable product, release,
+and build identity but no represented package, install flow, executable,
+Service, Process, license, update, or static release-documentation entry. Its
+business relationship and RACK-OS presentation are owned by
+[`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md).
+
 - Artifact identity is not filename or path recognition. A package keeps its
   kind, `productId`, `releaseId`, `buildId`, name, version, publisher and size no matter
   where it is copied to; only what an operation is willing to *admit* depends

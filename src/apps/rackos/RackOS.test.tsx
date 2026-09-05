@@ -96,6 +96,7 @@ describe('RACK-OS', () => {
     const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
     expect(current.discovery).toEqual(discoveryBefore); expect(current.knowledge).toEqual(knowledgeBefore)
     await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR srv' })); await user.click(screen.getByRole('button', { name: 'FILE proof.txt' })); expect(document.body).toHaveTextContent('Foreign canonical proof.')
+    expect(screen.queryByRole('button', { name: 'OPERATIONS' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'SYSTEM' })); expect(document.body).toHaveTextContent('STATE-OS 7.4'); expect(document.body).toHaveTextContent('HTTP')
   })
 
@@ -280,7 +281,10 @@ describe('RACK-OS', () => {
     const access = { id: 'access-b', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
     const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
     const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
-    render(<GameProvider initialState={connected}><Shell /><StateSnapshot /></GameProvider>)
+    // A changed current destination must not rewrite or hide the completed
+    // sale's canonical historical settlement.
+    const withChangedSettlement = { ...connected, bookstoreBranch: { ...connected.bookstoreBranch, settlementAccountId: 'dollar-account-local-v0' } }
+    render(<GameProvider initialState={withChangedSettlement}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
 
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
@@ -293,7 +297,23 @@ describe('RACK-OS', () => {
     expect(rackOs).toHaveTextContent('Backup manifest for srv-02.')
     expect(rackOs).not.toHaveTextContent('Service workspace.')
 
-    await user.type(input, 'download /srv/backup-manifest.txt{enter}')
+    const beforeOperations = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    await user.click(screen.getByRole('button', { name: 'OPERATIONS' }))
+    const operations = screen.getByRole('region', { name: 'Branch operations' })
+    expect(operations).toHaveTextContent('BRANCH OPERATIONS SERVER')
+    expect(operations).toHaveTextContent('Bookstore Branch 01')
+    expect(operations).toHaveTextContent('BranchOps 1.0')
+    expect(operations).toHaveTextContent('BOOK SALE')
+    expect(operations).toHaveTextContent('$20.00')
+    expect(within(operations).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-1042-7781')
+    expect(within(operations).getByText('SETTLED TO').closest('div')).toHaveTextContent('CD-3318-2204')
+    expect(operations.textContent).not.toContain('dollar-account-veyra-phone-v0')
+    expect(operations.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
+    expect(JSON.parse(screen.getByTestId('game-state').textContent ?? '')).toEqual(beforeOperations)
+
+    await user.click(screen.getByRole('button', { name: 'TERMINAL' }))
+
+    await user.type(screen.getByLabelText('Remote command'), 'download /srv/backup-manifest.txt{enter}')
     expect(rackOs).toHaveTextContent('DOWNLOAD STARTED')
     expect(rackOs).toHaveTextContent('/home/user/downloads/backup-manifest.txt')
     await act(async () => { vi.advanceTimersByTime(1_000) })

@@ -471,7 +471,7 @@ describe('Wallet RECEIVE', () => {
     expect(screen.getByText('$1,250.00')).toBeInTheDocument()
     expect(screen.getByText('NO ACTIVITY YET')).toBeInTheDocument()
     expect(screen.getByLabelText('NODE wallet')).toBeInTheDocument()
-    expect(before.dollarFinance.transactions.records).toEqual([])
+    expect(before.dollarFinance.transactions.records).toEqual(createInitialGameState().dollarFinance.transactions.records)
     expect(before.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-local-v0')?.balanceCents).toBe(125_000)
   })
 })

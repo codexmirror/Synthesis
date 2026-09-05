@@ -198,21 +198,21 @@ describe('VEYRA Wallet', () => {
     expect(review).toHaveTextContent(PLAYER_REFERENCE)
     expect(review).toHaveTextContent(PHONE_REFERENCE)
     // Nothing has moved yet.
-    expect(canonical().dollarFinance.transactions.records).toHaveLength(0)
+    expect(canonical().dollarFinance.transactions.records).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: 'Send $25.50' }))
 
     const after = canonical()
     expect(accountBalance(after, PHONE_ACCOUNT_ID)).toBe(34_250 - 2_550)
     expect(accountBalance(after, 'dollar-account-local-v0')).toBe(125_000 + 2_550)
-    expect(after.dollarFinance.transactions.records).toEqual([{
-      id: 'dollar-transaction-0001',
+    expect(after.dollarFinance.transactions.records.at(-1)).toEqual({
+      id: 'dollar-transaction-0002',
       sourceAccountId: PHONE_ACCOUNT_ID,
       destinationAccountId: 'dollar-account-local-v0',
       amountCents: 2_550,
       sourceAccountReference: PHONE_REFERENCE,
       destinationAccountReference: PLAYER_REFERENCE,
-    }])
+    })
 
     // The Wallet now reads the new canonical truth, including the Transaction.
     const wallet = screen.getByRole('region', { name: 'Wallet' })
@@ -267,7 +267,7 @@ describe('VEYRA Wallet', () => {
     const pending = canonical()
     expect(accountBalance(pending, PHONE_ACCOUNT_ID)).toBe(34_250 - 2_000)
     expect(accountBalance(pending, 'dollar-account-local-v0')).toBe(125_000 + 2_000)
-    expect(pending.dollarFinance.transactions.records).toHaveLength(1)
+    expect(pending.dollarFinance.transactions.records).toHaveLength(2)
     expect(screen.getByRole('region', { name: 'Review transfer' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sent $20.00' })).toBeDisabled()
 
@@ -276,7 +276,7 @@ describe('VEYRA Wallet', () => {
     const wallet = await screen.findByRole('region', { name: 'Wallet' })
     expect(wallet).toHaveTextContent('$322.50')
     expect(wallet).toHaveTextContent('−$20.00')
-    expect(canonical().dollarFinance.transactions.records).toHaveLength(1)
+    expect(canonical().dollarFinance.transactions.records).toHaveLength(2)
   })
 
   it('derives Activity only from canonical Transactions', async () => {
@@ -300,13 +300,16 @@ describe('VEYRA Wallet', () => {
     expect(wallet.textContent).not.toMatch(/pending|fee|categor|merchant|ago|today/i)
   })
 
-  it('shows an empty Activity state rather than inventing a history', async () => {
+  it('naturally presents the real incoming branch payment from canonical activity', async () => {
     const user = await enterPhone()
     await user.click(screen.getByRole('button', { name: 'Wallet' }))
 
     const wallet = screen.getByRole('region', { name: 'Wallet' })
-    expect(wallet).toHaveTextContent('Money you send or receive will appear here.')
-    expect(canonical().dollarFinance.transactions.records).toEqual([])
+    expect(wallet).toHaveTextContent('Received')
+    expect(wallet).toHaveTextContent('+$20.00')
+    expect(wallet).toHaveTextContent('CD-9000-2000')
+    expect(wallet.textContent).not.toMatch(/book|sale|merchant/i)
+    expect(canonical().dollarFinance.transactions.records).toHaveLength(1)
   })
 
   it('refuses a transfer in product wording and moves no money', async () => {
@@ -322,7 +325,7 @@ describe('VEYRA Wallet', () => {
     expect(screen.getByRole('alert').textContent).not.toMatch(/insufficient_funds/)
     const after = canonical()
     expect(accountBalance(after, PHONE_ACCOUNT_ID)).toBe(34_250)
-    expect(after.dollarFinance.transactions.records).toEqual([])
+    expect(after.dollarFinance.transactions.records).toEqual(createInitialGameState().dollarFinance.transactions.records)
 
     await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(screen.getByRole('region', { name: 'Wallet' })).toBeInTheDocument()
@@ -342,7 +345,7 @@ describe('VEYRA Wallet', () => {
     expect(receive.querySelector('canvas, img')).toBeNull()
     expect(receive.textContent).not.toMatch(/QR/i)
     // Opening RECEIVE creates nothing.
-    expect(canonical().dollarFinance.transactions.records).toEqual([])
+    expect(canonical().dollarFinance.transactions.records).toEqual(createInitialGameState().dollarFinance.transactions.records)
   })
 })
 
