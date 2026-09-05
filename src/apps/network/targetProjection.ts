@@ -12,7 +12,16 @@ import type {
   RackUpdatePackageSubmission,
   ServiceAnalysisProcess,
 } from '../../core/game/types'
-import { KEYPROBE_ATTACK_PROFILES, STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, keyProbeSuccessChance, ownedCredentialAccessProviders, type CredentialAccessProviderId } from '../../core/game/credentialAccess'
+import {
+  STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID,
+  keyProbeProfileForImplementation,
+  keyProbeProfileForObservedImplementation,
+  keyProbeSuccessChance,
+  ownedCredentialAccessModuleProviders,
+  ownsKeyProbe,
+  type CredentialAccessProviderId,
+  type ServiceImplementationIdentity,
+} from '../../core/game/credentialAccess'
 import { DEAUTH_EXTENSION, findCompatibleDeauthExtension } from '../../core/game/deauth'
 import type { DeauthProcess } from '../../core/game/types'
 
@@ -113,6 +122,22 @@ export interface TargetRoute {
   readonly moduleName?: string
   /** Remembered implementation fingerprint, where a legitimate Inspect stored one. */
   readonly implementation?: string
+}
+
+/**
+ * KeyProbe's own way in: a legitimately known, supported GateSSH
+ * authentication surface, formed entirely independently of any named
+ * Vulnerability or Knowledge. It states what the player has observed and
+ * owns, exactly like `TargetRoute`, and never predicts success.
+ */
+export interface KeyProbeRoute {
+  readonly serviceId: string
+  readonly serviceName: string
+  readonly endpoint: string
+  /** The concrete implementation identity a legitimate Inspect observed, matched against an authored KeyProbe profile. */
+  readonly serviceImplementation: ServiceImplementationIdentity
+  /** Remembered display fingerprint, e.g. "GateSSH 1.3.3". */
+  readonly implementation: string
 }
 
 export type AnalysisOutcome = 'weaknesses_detected' | 'no_weakness_detected' | 'service_unavailable'
@@ -291,7 +316,7 @@ export interface TargetOffensiveAction {
   readonly technique: 'Credential Access' | 'Rollback' | 'DEAUTH'
   readonly provider: string
   readonly providerId?: CredentialAccessProviderId
-  readonly route?: TargetRoute | PackageSubmissionRoute | { readonly networkId: string; readonly networkName: string; readonly contextDeviceId: string }
+  readonly route?: TargetRoute | KeyProbeRoute | PackageSubmissionRoute | { readonly networkId: string; readonly networkName: string; readonly contextDeviceId: string }
   /** This Technique's own attempt is currently running against this target. */
   readonly running: boolean
   /** Credential Access only: this provider's own current read of the formed route. */
@@ -499,12 +524,15 @@ function moduleNameFor(vulnerabilityId: string): string | undefined {
  * canonical profile and chance calculation Credential Access resolution
  * itself uses, given only the local Device's current compute and whether the
  * player has legitimately observed compatible AuthGuard protection on this
- * exact remembered implementation. It never reads hidden World Truth, so a
- * later hidden change to Hardware, GateSSH, or AuthGuard the player has not
- * legitimately observed cannot move this number.
+ * exact remembered implementation. Keyed by the concrete Service
+ * implementation identity, never by a named Vulnerability, so a future
+ * GateSSH release with no Vulnerability at all can still earn an estimate. It
+ * never reads hidden World Truth, so a later hidden change to Hardware,
+ * GateSSH, or AuthGuard the player has not legitimately observed cannot move
+ * this number.
  */
-function keyProbeEstimate(vulnerabilityId: string, computeCapacity: number, authGuardProtected: boolean): CredentialAccessAssessment | undefined {
-  const profile = vulnerabilityId === 'AUTH-017' || vulnerabilityId === 'AUTH-031' ? KEYPROBE_ATTACK_PROFILES[vulnerabilityId] : undefined
+function keyProbeEstimate(serviceImplementation: ServiceImplementationIdentity, computeCapacity: number, authGuardProtected: boolean): CredentialAccessAssessment | undefined {
+  const profile = keyProbeProfileForImplementation(serviceImplementation)
   if (!profile) return undefined
   return { kind: 'estimate', percent: Math.round(keyProbeSuccessChance(profile, computeCapacity, authGuardProtected) * 100) }
 }
@@ -553,31 +581,37 @@ function knownSoftwareIntelligence(
     && process.result?.status === 'weaknesses_detected'
     && `${process.analyzedImplementation?.name} ${process.analyzedImplementation?.version}` === implementation
     && process.result.vulnerabilities.some(({ vulnerabilityId: id }) => id === vulnerabilityId))
-  const successfulProviders = (vulnerabilityId: string) => attempts.filter((process) =>
+  const successfulModuleAttempts = (vulnerabilityId: string) => attempts.filter((process) =>
     process.status === 'completed'
     && process.vulnerabilityId === vulnerabilityId
     && process.result?.status === 'access_established')
+  // KeyProbe's own successes are matched by the concrete implementation it actually attacked, never by a Vulnerability ID it does not carry.
+  const successfulKeyProbeAttempt = (implementation: string) => attempts.some((process) => {
+    if (process.status !== 'completed' || process.toolId !== 'keyprobe' || process.result?.status !== 'access_established' || !process.serviceImplementation) return false
+    const profile = keyProbeProfileForImplementation(process.serviceImplementation)
+    return Boolean(profile && `${profile.observedImplementationName} ${profile.observedImplementationVersion}` === implementation)
+  })
 
   return software.flatMap((name) => {
     if (name === 'GateSSH 1.3.2' && learnedFor(name, 'AUTH-017')) return [{ software: name, details: [
       'AUTH-017 is a known pre-authentication Credential Access weakness.',
-      ...successfulProviders('AUTH-017').map((process) => `${credentialAccessProviderName(process)} successfully exploited AUTH-017.`),
+      ...successfulModuleAttempts('AUTH-017').map((process) => `${credentialAccessProviderName(process)} successfully exploited AUTH-017.`),
+      ...(successfulKeyProbeAttempt(name) ? ['KeyProbe successfully accessed this authentication surface.'] : []),
     ] }]
     if (name === 'GateSSH 1.3.3') {
       const details = [
         ...(learnedFor('GateSSH 1.3.2', 'AUTH-017') ? ['This release patched the previously known AUTH-017 weakness from GateSSH 1.3.2.'] : []),
-        ...(learnedFor(name, 'AUTH-031') ? [
-          'Analysis identified AUTH-031, a separate pre-authentication Credential Access weakness.',
-          ...successfulProviders('AUTH-031').map((process) => `${credentialAccessProviderName(process)} successfully exploited AUTH-031.`),
-        ] : []),
+        ...(learnedFor(name, 'AUTH-031') ? ['Analysis identified AUTH-031, a separate pre-authentication Credential Access weakness.'] : []),
+        ...(successfulKeyProbeAttempt(name) ? ['KeyProbe successfully accessed this authentication surface.'] : []),
       ]
       return details.length ? [{ software: name, details }] : []
     }
     if (name.startsWith('AuthGuard ') && authGuard) {
+      // AuthGuard's protection role is GateSSH-release-scoped, never Vulnerability-scoped: it applies to any KeyProbe attempt it actually blunted.
       const protectedFailure = authGuard.compatibility === 'SUPPORTED' && attempts.some((process) =>
         process.status === 'completed'
         && process.result?.status === 'attempt_failed'
-        && process.vulnerabilityId === 'AUTH-031'
+        && process.toolId === 'keyprobe'
         && process.authGuardProtectionObserved)
       return [{ software: name, details: [
         `Inspect observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`,
@@ -611,6 +645,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   const deviceHasLiveAuthority = Boolean(currentHost && (monitorAll || usableAccessServiceIds.size > 0))
 
   const routes: TargetRoute[] = []
+  /** KeyProbe's own formed route, entirely independent of the Vulnerability-based `routes` above. At most one is ever formed in V1. */
+  let keyProbeRoute: KeyProbeRoute | undefined
   const services = device.services.map((service): TargetService => {
     const observed = describeImplementation(service.inspect)
     const observedAuthGuard = device.inspect?.enhanced?.authGuard
@@ -638,8 +674,22 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    const supported = weaknesses.find(({ id }) => ownedCredentialAccessProviders(information, id).length > 0)
-    const supportedProviders = supported ? ownedCredentialAccessProviders(information, supported.id) : []
+    // KeyProbe forms from the player's own legitimately observed authentication surface alone — no
+    // Vulnerability Knowledge required, and never derived from hidden current World Truth.
+    if (!viaAccess && service.inspect?.implementation) {
+      const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)
+      if (profile) {
+        keyProbeRoute = {
+          serviceId: service.id,
+          serviceName: service.name,
+          endpoint: service.endpoint,
+          serviceImplementation: { productId: profile.serviceProductId, releaseId: profile.serviceReleaseId, buildId: profile.serviceBuildId },
+          implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+        }
+      }
+    }
+    const supported = weaknesses.find(({ id }) => ownedCredentialAccessModuleProviders(information, id).length > 0)
+    const supportedProviders = supported ? ownedCredentialAccessModuleProviders(information, supported.id) : []
     const techniqueTool = supported ? findLocalTechniqueTool(information.player.localDevice, supported.id) : undefined
     if (supported && supportedProviders.length > 0 && !viaAccess) {
       routes.push({
@@ -689,37 +739,40 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     return artifact?.path
   }
   const rollbackProvider = providerFor('rollback', ROLLBACK_MODULE_1_0.name)
-  // Exactly one credential-access route is ever formed per target (one relevant Service), so the
-  // player's owned providers are queried against whichever concrete surface that route actually names —
-  // AUTH-017 and AUTH-031 alike — rather than a single hardcoded surface.
-  const credentialRoute = routes[0] as TargetRoute | undefined
-  const credentialProviders = ownedCredentialAccessProviders(information, credentialRoute?.vulnerabilityId ?? 'AUTH-017')
+  // The specialized module's route names exactly one Vulnerability (AUTH-017); at most one is ever formed.
+  const moduleRoute = routes[0] as TargetRoute | undefined
+  const moduleProviders = ownedCredentialAccessModuleProviders(information, moduleRoute?.vulnerabilityId ?? 'AUTH-017')
   const deviceAuthGuard = device.inspect?.enhanced?.authGuard
   // Only a legitimately observed AuthGuard match may affect the player's own estimate; a hidden or
-  // unobserved installation, or one that names a different remembered implementation, never does.
-  const legitimatelyObservedAuthGuardMatch = Boolean(credentialRoute
-    && credentialRoute.vulnerabilityId === 'AUTH-031'
+  // unobserved installation, or one that names a different remembered implementation, never does. AuthGuard's
+  // protection is GateSSH-release-scoped, never Vulnerability-scoped, so no Vulnerability check applies here.
+  const legitimatelyObservedAuthGuardMatch = Boolean(keyProbeRoute
     && deviceAuthGuard?.compatibility === 'SUPPORTED'
-    && deviceAuthGuard.protectedImplementation === credentialRoute.implementation)
+    && deviceAuthGuard.protectedImplementation === keyProbeRoute.implementation)
   const localComputeCapacity = information.player.localDevice.hardware.cpu.computeCapacity
-  const credentialAction = (provider: { readonly id: CredentialAccessProviderId; readonly name: string }): TargetOffensiveAction => {
+  const keyProbeOwned = ownsKeyProbe(information)
+  const keyProbeAction: TargetOffensiveAction | undefined = keyProbeOwned ? {
+    technique: 'Credential Access' as const,
+    provider: 'KeyProbe',
+    providerId: STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID,
+    running: hacking.length > 0,
+    ...(keyProbeRoute ? { route: keyProbeRoute, assessment: keyProbeEstimate(keyProbeRoute.serviceImplementation, localComputeCapacity, legitimatelyObservedAuthGuardMatch) } : {}),
+    ...(lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) ? { lastFailureReason: lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) } : {}),
+  } : undefined
+  const moduleAction = (provider: { readonly id: CredentialAccessProviderId; readonly name: string }): TargetOffensiveAction => {
     const lastFailureReason = lastCredentialFailure(provider.id)
     return {
       technique: 'Credential Access' as const,
       provider: provider.name,
       providerId: provider.id,
       running: hacking.length > 0,
-      ...(credentialRoute ? { route: credentialRoute } : {}),
-      ...(credentialRoute ? {
-        assessment: provider.id === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
-          ? keyProbeEstimate(credentialRoute.vulnerabilityId, localComputeCapacity, legitimatelyObservedAuthGuardMatch)
-          : moduleCompatibility(credentialRoute.implementation),
-      } : {}),
+      ...(moduleRoute ? { route: moduleRoute, assessment: moduleCompatibility(moduleRoute.implementation) } : {}),
       ...(lastFailureReason ? { lastFailureReason } : {}),
     }
   }
   const offensiveActions: TargetOffensiveAction[] = [
-    ...credentialProviders.map(credentialAction),
+    ...(keyProbeAction ? [keyProbeAction] : []),
+    ...moduleProviders.map(moduleAction),
     ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, running: Boolean(packageSubmission?.attacking), ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
     ...(findCompatibleDeauthExtension(information.player.localDevice) ? information.discovery.networkDeviceRelations
       .filter(({ deviceId }) => deviceId === device.id)
@@ -731,7 +784,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     hacking: hacking.length > 0,
     disrupting: deauth.some((process) => process.status === 'running' && process.contextDeviceId === device.id),
     analyzing: analyzing.length > 0,
-    routes: routes.length,
+    routes: routes.length + (keyProbeRoute ? 1 : 0),
     servicesObserved: device.servicesObserved,
     services,
     packageSubmission,
@@ -824,12 +877,17 @@ function selectOperation(input: {
       : process.toolId === 'flipper' && process.moduleId ? `${input.flipperName ?? 'Flipper'} · ${FLIPPER_MODULE_NAME[process.moduleId]}`
         : process.moduleId ? FLIPPER_MODULE_NAME[process.moduleId] : process.toolId
   const attemptFacts = (process: CredentialAccessProcess | RackUpdateExploitProcess): TargetOperationFact[] => {
-    const label = input.weaknessLabel(process.serviceId, process.vulnerabilityId)
-    return [
+    const base = [
       { label: 'PROVIDER', value: providerOf(process) },
       { label: 'ENDPOINT', value: process.startedEndpoint },
-      { label: 'WEAKNESS', value: label ? `${process.vulnerabilityId} · ${label}` : process.vulnerabilityId },
     ]
+    // KeyProbe attacks a Service surface directly, never a named Vulnerability: its running fact states the
+    // legitimately remembered implementation the attempt started against, not a WEAKNESS line.
+    if (process.kind === 'credential_access' && process.toolId === 'keyprobe') {
+      return [...base, { label: 'TARGET', value: serviceOf(process.serviceId)?.observed?.implementation ?? '' }]
+    }
+    const label = process.vulnerabilityId !== undefined ? input.weaknessLabel(process.serviceId, process.vulnerabilityId) : undefined
+    return [...base, { label: 'WEAKNESS', value: process.vulnerabilityId !== undefined ? (label ? `${process.vulnerabilityId} · ${label}` : process.vulnerabilityId) : '' }]
   }
 
   if (input.stage === 'analyzing' && input.analyzing.length) {

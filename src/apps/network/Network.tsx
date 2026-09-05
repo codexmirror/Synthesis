@@ -8,6 +8,7 @@ import {
   resolveNodeScanRelease,
   selectKnownSpace,
   selectTarget,
+  type KeyProbeRoute,
   type KnownNetwork,
   type KnownSpace,
   type NodeScanRelease,
@@ -234,11 +235,12 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
           : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
   }
 
-  function hack(route: TargetRoute, targetDeviceId: string, providerId: NonNullable<TargetOffensiveAction['providerId']>) {
+  function hack(route: TargetRoute | KeyProbeRoute, targetDeviceId: string, providerId: NonNullable<TargetOffensiveAction['providerId']>) {
     const result = actions.startCredentialAccessAttemptFromObservation({
       endpoint: route.endpoint, targetDeviceId, serviceId: route.serviceId,
-      vulnerabilityId: route.vulnerabilityId,
       providerId,
+      // KeyProbe forms from its own attacked authentication surface; the specialized module forms from its own required Vulnerability.
+      ...(providerId === 'keyprobe' ? { serviceImplementation: (route as KeyProbeRoute).serviceImplementation } : { vulnerabilityId: (route as TargetRoute).vulnerabilityId }),
     })
     if (result.status === 'started') setNotice(null)
     else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
@@ -351,7 +353,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
         onScan={() => scan(target)}
         onInspect={() => inspect(target)}
         onExecuteAction={(action) => action.technique === 'Credential Access'
-          ? action.route && action.providerId && hack(action.route as TargetRoute, target.id, action.providerId)
+          ? action.route && action.providerId && hack(action.route as TargetRoute | KeyProbeRoute, target.id, action.providerId)
           : action.technique === 'Rollback' ? action.route && attackPackageSubmission(target)
             : action.route && actions.startDeauthAttempt(action.route as { networkId: string; networkName: string; contextDeviceId: string })}
         onConnect={() => connect(target)}
@@ -763,12 +765,20 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
           <div className="ns-action-copy">
             <strong>{action.technique.toUpperCase()}</strong>
             <span>{action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}{action.provider}</span>
-            {action.technique === 'Credential Access' && action.route && (() => {
+            {action.technique === 'Credential Access' && action.route && action.providerId === 'keyprobe' && (() => {
+              // KeyProbe attacks a Service surface directly: it states the known TARGET implementation and its
+              // own estimate, never a SURFACE/Vulnerability line — it has none.
+              const route = action.route as KeyProbeRoute
+              return <dl className="ns-op-facts ns-action-facts">
+                <div><dt>TARGET</dt><dd>{route.implementation}</dd></div>
+                {action.assessment?.kind === 'estimate' && <div><dt>EST. SUCCESS</dt><dd>{action.assessment.percent}%</dd></div>}
+              </dl>
+            })()}
+            {action.technique === 'Credential Access' && action.route && action.providerId !== 'keyprobe' && (() => {
               const route = action.route as TargetRoute
               return <dl className="ns-op-facts ns-action-facts">
                 <div><dt>SURFACE</dt><dd>{route.vulnerabilityId}</dd></div>
                 {route.implementation && <div><dt>TARGET</dt><dd>{route.implementation}</dd></div>}
-                {action.assessment?.kind === 'estimate' && <div><dt>EST. SUCCESS</dt><dd>{action.assessment.percent}%</dd></div>}
                 {action.assessment?.kind === 'compatibility' && <div><dt>COMPATIBILITY</dt><dd>{action.assessment.status}</dd></div>}
               </dl>
             })()}

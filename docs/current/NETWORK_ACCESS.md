@@ -112,33 +112,51 @@ recommendation between providers, or hidden target-truth filtering. If
 neither provider is owned, ACTIONS states that no offensive Techniques are
 available.
 
-A Credential Access entry with a currently formed route also states the known
-`SURFACE` (the vulnerability ID the route names, e.g. `AUTH-031`) and, where
-Inspect legitimately remembers one, the `TARGET` implementation (e.g.
-`GateSSH 1.3.3`). KeyProbe additionally states an `EST. SUCCESS` percentage:
-the player's own best estimate, reusing the exact canonical
-`keyProbeSuccessChance` profile/chance calculation from Credential Access over
-only the local Device's current executor CPU compute and, where the exact
+Credential Access forms two structurally distinct kinds of route, and ACTIONS
+presents each in its own vocabulary rather than forcing one shape onto both.
+KeyProbe is a broad, noisy tool that attacks a supported GateSSH
+authentication surface directly: its route and its authored attack profile
+are both keyed by the concrete Service implementation identity alone, never
+by a named Vulnerability, so a future GateSSH release needs no invented
+Vulnerability merely to become a valid KeyProbe target. The specialized
+Credential Access Module, by contrast, is a Vulnerability-specific technique
+scoped to exactly `AUTH-017`; its route still names that Vulnerability.
+
+A KeyProbe entry with a currently formed route states the known `TARGET`
+implementation Inspect legitimately remembers (e.g. `GateSSH 1.3.3`) and an
+`EST. SUCCESS` percentage: the player's own best estimate, reusing the exact
+canonical `keyProbeSuccessChance` profile/chance calculation from Credential
+Access — looked up by that same Service implementation identity — over only
+the local Device's current executor CPU compute and, where the exact
 compatible AuthGuard release has itself been legitimately observed protecting
-the same remembered implementation, that protection — never Device Model
+that same remembered implementation, that protection — never Device Model
 ceiling compute, never a hidden AuthGuard installation the player has not
 observed, and never a silently refreshed hidden Service implementation. The
-specialized Credential Access Module is deterministic, not probabilistic, so
-it never earns a percentage of its own; it instead states `COMPATIBILITY` as
-`MATCHED` (the currently remembered implementation still names the module's
-one authored surface, GateSSH 1.3.2), `UNCONFIRMED` (a later legitimate
-observation named a different one instead, which a still-justified stale
-route may still be attempted against), or `EXPECTED` (its ordinary default,
-where nothing observed contradicts it either way). This is a per-provider
-technique read, not the inter-provider ranking or recommendation the previous
-paragraph rules out. START ATTEMPT begins the same canonical Credential
-Access operation EXECUTE always has; the wording is specific to this
-Technique and RackUpdate and DEAUTH keep their own EXECUTE control and
-language unchanged.
+specialized module entry instead states the known `SURFACE` (`AUTH-017`) and,
+where Inspect legitimately remembers one, the same `TARGET` implementation
+field; being deterministic rather than probabilistic, it never earns a
+percentage of its own. It states `COMPATIBILITY` as `MATCHED` (the currently
+remembered implementation still names the module's one authored surface,
+GateSSH 1.3.2), `UNCONFIRMED` (a later legitimate observation named a
+different one instead, which a still-justified stale route may still be
+attempted against), or `EXPECTED` (its ordinary default, where nothing
+observed contradicts it either way). Neither read is an inter-provider
+ranking or recommendation, which the previous paragraph still rules out.
+START ATTEMPT begins the same canonical Credential Access operation EXECUTE
+always has; the wording is specific to this Technique and RackUpdate and
+DEAUTH keep their own EXECUTE control and language unchanged.
+
+Because KeyProbe's route needs only a legitimately remembered Service
+implementation, it forms and estimates independently of whether the player
+has ever earned Vulnerability Knowledge on that Service at all: a target
+whose only Player Information is a remembered GateSSH fingerprint (from
+Enhanced Inspect) still offers a real KeyProbe attempt with a real estimate,
+with no `discoveredVulnerabilities` entry required or consulted.
 
 Credential Access's own most recent completed attempt against a route is
 projected beside it once running work clears: a reached attempt whose
-weakness or exact implementation was no longer current states `ATTEMPT
+attacked surface — KeyProbe's remembered GateSSH implementation, or the
+module's required Vulnerability — was no longer current states `ATTEMPT
 FAILED · Surface mismatch detected · previous route may be outdated`; a
 reached, current KeyProbe attempt whose one canonical decision came back
 negative states `Authentication attempt rejected`; and one whose canonical
@@ -206,42 +224,63 @@ Remote Session remains the highest-priority truth, and represented running work
 remains visible.
 
 
-A concrete attempt context is derived from the player's own Knowledge of a
-weakness on a remembered Service together with a concrete owned provider, and
-not from any current target truth. The initial standalone
-Credential Access Module supports `AUTH-017` directly; a later installed
-Flipper build supports it after integrating that same module. Without either
-concrete source no action is formed, the Knowledge that produced it is
-untouched, and the started attempt still carries its `toolId`, `moduleId` and
-`vulnerabilityId`. GateSSH 1.3.2 derives `AUTH-017`; GateSSH 1.3.3 instead derives `AUTH-031`
-(pre-authentication challenge state reuse). KeyProbe 1.0 supports both exact
-surfaces through authored attack profiles. GateSSH 1.3.2/`AUTH-017` requires
-1,200 work and GateSSH 1.3.3/`AUTH-031` requires 1,800 work, so the latter
-takes longer on equal Hardware while both continue to advance through the
-ordinary CPU scheduler. KeyProbe's success threshold starts from 48% and 30%,
-respectively, at compute capacity 100; each point of current executor CPU
-compute above or below 100 changes the applicable threshold by 0.25 percentage
-points before the profile-specific bounds are applied (15–78% for `AUTH-017`,
-8–65% for `AUTH-031`). The exact compatible AuthGuard 1.0 installation reduces
-the bounded `AUTH-031` threshold to one sixth, producing 5% at compute 100.
-AuthGuard is the product;
-its represented 1.0 release explicitly supports the GateSSH 1.3.3 and 1.4.0
-authentication pipelines, while 1.3.2 is unsupported. Compatibility alone
-does not create a weakness or attack route: GateSSH 1.4.0 currently derives
-neither `AUTH-017` nor `AUTH-031`. These are authored
-combinations, not additive difficulty modifiers. The specialized Credential
-Access Module remains deterministic for `AUTH-017` and does not support
-`AUTH-031`. A Service's implementation is Device-owned World Truth and may
-change under the player: Petra's phone runs firmware-owned GateSSH, so a
-completed VEYRA firmware update moves `service-ssh-003` from 1.3.2 to 1.3.3 and
-the weakness, provider profile and remembered-intelligence behavior above then
-follow that real implementation with no update-specific rule (owned by
-`docs/current/DEVICE_SYSTEM.md` and `docs/current/VEYRA_OS.md`). Resolution validates the current causal surface before KeyProbe
-consumes exactly one random decision. AuthGuard does not remove `AUTH-031`;
-Service Analysis still discovers it. Enhanced Inspect may remember AuthGuard,
-the protected GateSSH release, and supported or unsupported compatibility.
-NodeScan presents the product as AuthGuard from only that historical Discovery,
-which a later release change does not silently refresh.
+A concrete attempt context is derived from the player's own legitimate
+information about a remembered Service together with a concrete owned
+provider, and not from any current target truth — but the two providers draw
+on structurally different information. The specialized Credential Access
+Module still forms from the player's own Knowledge of `AUTH-017` on a
+remembered Service; the initial standalone Credential Access Module supports
+`AUTH-017` directly, and a later installed Flipper build supports it after
+integrating that same module. Without either concrete source no module action
+is formed, the Knowledge that produced it is untouched, and the started
+module attempt still carries its `toolId`, `moduleId` and `vulnerabilityId`.
+
+KeyProbe instead forms from the player's own legitimately remembered Service
+implementation identity alone — Discovery's Enhanced Inspect fingerprint,
+never Knowledge, never a named Vulnerability, and never current target truth.
+KeyProbe 1.0's authored attack profiles are keyed by that same concrete
+GateSSH implementation identity. A started KeyProbe attempt carries its
+`toolId` and a `serviceImplementation` snapshot instead of a `vulnerabilityId`.
+GateSSH 1.3.2's profile requires 1,200 work at a 48% threshold at compute
+capacity 100; GateSSH 1.3.3's requires 1,800 work at a 30% threshold, so the
+latter takes longer on equal Hardware while both continue to advance through
+the ordinary CPU scheduler. Each point of current executor CPU compute above
+or below 100 changes the applicable threshold by 0.25 percentage points
+before the profile-specific bounds are applied (15–78% for GateSSH 1.3.2,
+8–65% for GateSSH 1.3.3). Where AuthGuard 1.0 is installed on the target and
+supports the current GateSSH release the attempt actually reaches, its
+protection reduces the bounded threshold to one sixth — producing 5% at
+compute 100 against GateSSH 1.3.3 — independently of any named Vulnerability,
+including one that does not exist at all: a future GateSSH release with no
+authored Vulnerability can still be a valid, AuthGuard-protectable KeyProbe
+target purely by carrying its own KeyProbe profile. These are authored
+combinations, not additive difficulty modifiers, and never derived by parsing
+a semantic version number. GateSSH 1.3.2 separately derives the real
+Vulnerability `AUTH-017`, and GateSSH 1.3.3 separately derives `AUTH-031`
+(pre-authentication challenge state reuse); both remain real, Knowledge- and
+intelligence-relevant weaknesses, but neither is KeyProbe's own identity. The
+specialized Credential Access Module remains deterministic for `AUTH-017` and
+does not support `AUTH-031`, or any surface reachable only through KeyProbe's
+broader profile set. AuthGuard is the product; its represented 1.0 release
+explicitly supports the GateSSH 1.3.3 and 1.4.0 authentication pipelines,
+while 1.3.2 is unsupported. Compatibility alone does not create a Vulnerability
+or a module attack route: GateSSH 1.4.0 currently derives neither `AUTH-017`
+nor `AUTH-031`, though it remains a currently unauthored KeyProbe surface (no
+profile exists for it in V1). A Service's implementation is Device-owned
+World Truth and may change under the player: Petra's phone runs firmware-owned
+GateSSH, so a completed VEYRA firmware update moves `service-ssh-003` from
+1.3.2 to 1.3.3 and the Vulnerability, KeyProbe profile and
+remembered-intelligence behavior above then follow that real implementation
+with no update-specific rule (owned by `docs/current/DEVICE_SYSTEM.md` and
+`docs/current/VEYRA_OS.md`). Resolution validates the current causal surface —
+KeyProbe's remembered implementation identity against the Service's current
+one, or the module's required Vulnerability against `vulnerabilitiesForService`
+— before KeyProbe consumes exactly one random decision. AuthGuard does not
+remove `AUTH-031`; Service Analysis still discovers it. Enhanced Inspect may
+remember AuthGuard, the protected GateSSH release, and supported or
+unsupported compatibility. NodeScan presents the product as AuthGuard from
+only that historical Discovery, which a later release change does not
+silently refresh.
 
 The canonical resolver selects the actual local source —
 preferring an integrated Flipper build when it supports the technique and
@@ -609,23 +648,32 @@ later changes.
 
 The current concrete access mechanic is Credential Access.
 
-After the player has remembered:
+The specialized Credential Access Module forms once the player has remembered:
 
 - the represented SSH service
-- positive Weak Authentication Knowledge
+- positive Weak Authentication (`AUTH-017`) Knowledge
 
-and SELF owns a concrete Credential Access provider, the
-player may initiate a credential attempt through:
+KeyProbe instead forms once the player has remembered:
+
+- the represented SSH service
+- its concrete implementation identity, from a legitimate Enhanced Inspect
+  fingerprint — no Vulnerability Knowledge required or consulted
+
+and in either case SELF owns the concrete provider in question. The initial
+local Device owns both the specialized standalone Credential Access Module and
+the ordinary installed KeyProbe 1.0 provider. NodeScan lists both as separate
+Credential Access choices, without ranking or preselecting either one. The
+player may initiate a Knowledge-driven credential attempt (always through the
+specialized module) through:
 
 ```text
 attack <ipv4:port>
 ```
 
-or through NodeScan's Credential Access ACTION, which uses the concrete context
-derived from the player's own Knowledge and selected owned provider. The initial
-local Device owns both the specialized standalone Credential Access Module and
-the ordinary installed KeyProbe 1.0 provider. NodeScan lists both as separate
-Credential Access choices, without ranking or preselecting either one.
+or initiate either provider through NodeScan's Credential Access ACTION, which
+uses the concrete context derived from the player's own legitimate information
+(Knowledge for the module, remembered implementation identity for KeyProbe)
+and selected owned provider.
 
 Starting the attempt creates a Credential Access Process.
 
@@ -633,20 +681,24 @@ It does not establish access immediately.
 
 Completion resolves against current World Truth and validates the represented
 target, current Device network usability, selected endpoint relationship, open
-Service, current weakness, concrete Service implementation, and represented
-credential-access context before any probability decision. Against the current
-`AUTH-017` / GateSSH 1.3.2 case, the specialized module succeeds
-deterministically while KeyProbe makes exactly one canonical, current-executor
-compute-dependent decision per attempt using the concrete profile above. A
-completed result is terminal and is never rerolled. Success creates
-persistent USER `DeviceAccess`; a reached probabilistic failure creates FAILURE
-authentication and Network evidence but no access. If the endpoint no longer
-reaches the intended current Device and open Service, completion creates no
-reached-attempt evidence and makes no probability decision. If the attempt
-reaches that Service but `AUTH-017`, its supported GateSSH 1.3.2 implementation,
-or its Credential Access condition is no longer valid, completion records the
-reached FAILURE through the existing evidence owners but still makes no
-probability decision. Neither outcome rewrites historical Discovery or Knowledge.
+Service, and represented credential-access context before any probability
+decision — the module additionally validates its current Vulnerability, and
+KeyProbe additionally validates that the Service's current implementation
+identity still exactly matches the one the attempt actually remembered
+attacking. Against the current `AUTH-017` / GateSSH 1.3.2 case, the
+specialized module succeeds deterministically while KeyProbe makes exactly one
+canonical, current-executor compute-dependent decision per attempt using the
+concrete profile matching its remembered implementation. A completed result is
+terminal and is never rerolled. Success creates persistent USER `DeviceAccess`;
+a reached probabilistic failure creates FAILURE authentication and Network
+evidence but no access. If the endpoint no longer reaches the intended current
+Device and open Service, completion creates no reached-attempt evidence and
+makes no probability decision. If the attempt reaches that Service but its
+attacked surface — the module's `AUTH-017` Vulnerability, or KeyProbe's
+remembered GateSSH implementation — or its Credential Access condition is no
+longer valid, completion records the reached FAILURE through the existing
+evidence owners but still makes no probability decision. Neither outcome
+rewrites historical Discovery or Knowledge.
 
 Services remain concrete Device-owned network surfaces with no arbitrary
 canonical count cap: a Device may expose zero, one, or many. Device availability
@@ -875,10 +927,17 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   delays, gates, or is a precondition for the canonical operation it presents;
   Scan, Ping, Inspect and Known-Space sweep remain issued immediately, with no
   presentation timer in front of them.
-- A way in is a statement about the player's Knowledge and installed software,
-  never a prediction. Removing the supporting tool removes the offer without
-  touching the Knowledge, and a stale endpoint can still produce a legitimate
+- A way in is a statement about the player's own legitimate information and
+  installed software, never a prediction: Knowledge for the specialized
+  module, a remembered implementation identity for KeyProbe. Removing the
+  supporting tool removes the offer without touching that information, and a
+  stale endpoint or stale remembered surface can still produce a legitimate
   failed attempt.
+- KeyProbe's identity is a concrete Service implementation, never a named
+  Vulnerability. Its authored attack profiles are keyed by that
+  implementation; forming or estimating a KeyProbe attempt never reads
+  `discoveredVulnerabilities`, and a future GateSSH release needs no invented
+  Vulnerability to become a valid KeyProbe target.
 - NodeScan target Scan, Inspect, and Analyze remain separate explicit operations.
   None relaxes the admission or information boundary of another.
 - `RackUpdateSubmissionAccess` is not `DeviceAccess`. It is a narrower grant

@@ -134,12 +134,24 @@ export interface CredentialAccessProcess extends ProcessBase {
   readonly targetDeviceId: string
   readonly serviceId: string
   readonly startedEndpoint: string
-  readonly vulnerabilityId: string
   /** The concrete execution source snapshotted when the attempt started. */
   readonly toolId: 'flipper' | 'credential-access-module' | 'keyprobe'
   /** Present when the concrete provider is the specialized module, standalone or integrated. */
   readonly moduleId?: 'credential-access'
-  /** Resolution evidence that the attempted AUTH-031 surface had supported AuthGuard 1.0 protection. */
+  /**
+   * The specialized module's own required Vulnerability, snapshotted when
+   * the attempt started. Present only when `toolId` is the module
+   * (standalone or Flipper-integrated); absent for KeyProbe, which is
+   * Vulnerability-agnostic by design.
+   */
+  readonly vulnerabilityId?: string
+  /**
+   * KeyProbe's own attacked authentication surface — a concrete GateSSH
+   * implementation identity, snapshotted when the attempt started. Present
+   * only when `toolId === 'keyprobe'`; absent for the specialized module.
+   */
+  readonly serviceImplementation?: { readonly productId: string; readonly releaseId: string; readonly buildId: string }
+  /** Resolution evidence that the attempted GateSSH release had supported AuthGuard 1.0 protection. */
   readonly authGuardProtectionObserved?: true
   readonly result?: CredentialAccessResult
 }

@@ -16,6 +16,7 @@ import { selectKnownSpace, selectTarget, selectTargets } from './targetProjectio
 import { FLIPPER_1_0_CANONICAL_INSTALLATION, ROLLBACK_MODULE_1_0 } from '../../core/game/flipper'
 import { FLIPPER_1_0_ROLLBACK_INTEGRATED_BUILD_ID } from '../../core/game/softwareReleaseContent'
 import { GATE_SSH_1_3_2_BUILD_ID } from '../../core/game/serviceImplementations'
+import { AUTH_GUARD_1_0_INSTALLATION } from '../../core/game/authGuard'
 
 const scanTargetSpy = vi.hoisted(() => vi.fn())
 vi.mock('../../core/game/scan', async (importOriginal) => {
@@ -376,11 +377,19 @@ describe('NodeScan information boundary', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={changedWorld}><Network /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
-    // The world now runs GateSSH 1.3.2, which is vulnerable. Player memory says 1.3.3.
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
+    // The world now runs GateSSH 1.3.2, which is vulnerable. Player memory says 1.3.3: KeyProbe's own
+    // surface is legitimately known from that stale memory alone, so its route and estimate already form.
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
+    const actions = screen.getByRole('region', { name: 'ACTIONS' })
+    expect(actions).toHaveTextContent('GateSSH 1.3.3')
+    expect(actions).not.toHaveTextContent('GateSSH 1.3.2')
+    // srv-02 also genuinely runs AuthGuard, legitimately observed by the same Inspect — so the stale
+    // estimate reflects that remembered protection too, never the hidden current 1.3.2 World Truth.
+    expect(actions).toHaveTextContent('5%')
     await openDetails(user)
-    expect(screen.getByText('GateSSH 1.3.3')).toBeInTheDocument()
-    expect(screen.queryByText('GateSSH 1.3.2')).not.toBeInTheDocument()
+    const details = screen.getByText('SERVICES').closest('.ns-detail-panel') as HTMLElement
+    expect(within(details).getByText('GateSSH 1.3.3')).toBeInTheDocument()
+    expect(within(details).queryByText('GateSSH 1.3.2')).not.toBeInTheDocument()
   })
 
   it('presents legitimately observed AuthGuard with GateSSH in the affected Service software list', async () => {
@@ -576,10 +585,13 @@ describe('Credential Access domain presentation', () => {
     return selectTarget(state, deviceId)?.offensiveActions.find((action) => action.providerId === 'keyprobe')
   }
 
-  it('estimates the canonical 30% KeyProbe chance for known AUTH-031 / GateSSH 1.3.3 at compute 100 with no known AuthGuard', () => {
+  it('forms KeyProbe from the legitimately known GateSSH 1.3.3 surface alone and estimates the canonical 30% chance at compute 100 with no known AuthGuard, without needing AUTH-031 Knowledge', () => {
     const state = knownAuth031({ inspect: true, authGuardInWorld: false })
-    const action = keyProbeAction(withoutWorldRead(state), SRV_02)
-    expect(action?.route).toMatchObject({ vulnerabilityId: 'AUTH-031', implementation: 'GateSSH 1.3.3' })
+    // No named Vulnerability is consulted to form this route: it forms identically with Knowledge erased.
+    const withoutKnowledge = { ...state, knowledge: { discoveredVulnerabilities: [] } }
+    const action = keyProbeAction(withoutWorldRead(withoutKnowledge), SRV_02)
+    expect(action?.route).toMatchObject({ implementation: 'GateSSH 1.3.3', serviceImplementation: { releaseId: 'gate-ssh-1.3.3' } })
+    expect(action?.route).not.toHaveProperty('vulnerabilityId')
     expect(action?.assessment).toEqual({ kind: 'estimate', percent: 30 })
   })
 
@@ -590,9 +602,11 @@ describe('Credential Access domain presentation', () => {
   })
 
   it('never lets a hidden, unobserved AuthGuard installation affect the estimate', () => {
-    // AuthGuard genuinely protects srv-02 in World Truth here; the player has only Scanned, never Inspected it.
-    const state = knownAuth031({ inspect: false, authGuardInWorld: true })
-    expect(keyProbeAction(withoutWorldRead(state), SRV_02)?.assessment).toEqual({ kind: 'estimate', percent: 30 })
+    // The player Inspected before AuthGuard was ever installed, so its surface is legitimately known;
+    // AuthGuard is added to World Truth afterward, unobserved.
+    const inspectedFirst = knownAuth031({ inspect: true, authGuardInWorld: false })
+    const hiddenAuthGuardAdded = { ...inspectedFirst, world: { network: { ...inspectedFirst.world.network, hosts: inspectedFirst.world.network.hosts.map((host) => host.id === SRV_02 ? { ...host, installedSoftware: [...(host.installedSoftware ?? []), AUTH_GUARD_1_0_INSTALLATION] } : host) } } }
+    expect(keyProbeAction(withoutWorldRead(hiddenAuthGuardAdded), SRV_02)?.assessment).toEqual({ kind: 'estimate', percent: 30 })
   })
 
   it('lets a legitimately observed compatible AuthGuard installation lower the estimate to 5%', () => {
@@ -1041,11 +1055,14 @@ describe('RackUpdate exploit and package submission', () => {
     expect(actions).toHaveTextContent('CREDENTIAL ACCESS')
     expect(actions).toHaveTextContent('ROLLBACK')
     expect(actions).not.toHaveTextContent(/RECOMMENDED|BEST OPTION/)
-    // Credential Access has no currently formed execution context (AUTH-017
+    // The specialized module has no currently formed execution context (AUTH-017
     // is not yet Knowledge here), so it stays visible with its provider but
     // presents a quiet unavailable mark instead of a disabled EXECUTE control.
     expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).not.toBeInTheDocument()
-    expect(within(actions).getAllByLabelText(/Credential Access with .* unavailable/)).toHaveLength(2)
+    expect(within(actions).getAllByLabelText(/Credential Access with .* unavailable/)).toHaveLength(1)
+    // KeyProbe's own authentication surface is legitimately known from Inspect alone, with no Vulnerability
+    // Knowledge required, so it stays a real EXECUTE control here.
+    expect(within(actions).getByRole('button', { name: 'Execute Credential Access with KeyProbe' })).toBeInTheDocument()
     // Rollback's context is formed, so it stays a real EXECUTE control.
     expect(within(actions).getByRole('button', { name: 'Execute Rollback' })).toBeInTheDocument()
     await user.click(screen.getByText('TECHNICAL INTELLIGENCE'))

@@ -5,11 +5,18 @@ import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, remov
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
-import { canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, KEYPROBE_ATTACK_PROFILES, keyProbeSuccessChance, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { canFormCredentialAccessAttempt, CREDENTIAL_ACCESS_RAM_REQUIRED_MIB, CREDENTIAL_ACCESS_WORK_REQUIRED, KEYPROBE_ATTACK_PROFILES, keyProbeProfileForImplementation, keyProbeProfileForObservedImplementation, keyProbeSuccessChance, resolveCompletedCredentialAccess, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import type { CredentialAccessProcess, GameState } from './types'
 
 const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017' } as const
+// KeyProbe's own attacked authentication surface against the same GateSSH 1.3.2 Service — a concrete
+// implementation identity, never a named Vulnerability.
+const keyProbeObservation = {
+  endpoint: observation.endpoint, targetDeviceId: observation.targetDeviceId, serviceId: observation.serviceId,
+  providerId: 'keyprobe', serviceImplementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: GATE_SSH_1_3_2_BUILD_ID },
+} as const
 
 function prepared(): GameState {
   let state = createInitialGameState()
@@ -36,7 +43,7 @@ describe('Initial credential access', () => {
     [0.479999, 'access_established', 'SUCCESS'],
     [0.48, 'attempt_failed', 'FAILURE'],
   ] as const)('gives compute-100 KeyProbe its one canonical 48%% boundary decision (%s)', (roll, status, evidence) => {
-    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    const started = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
     if (started.status !== 'started') throw Error(started.status)
     let rolls = 0
     const done = advanceGameState(started.state, 30_000, () => { rolls += 1; return roll })
@@ -48,15 +55,15 @@ describe('Initial credential access', () => {
   })
 
   it('keeps KeyProbe probability bounded for unusually weak and strong compute', () => {
-    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-017'], -1000)).toBe(0.15)
-    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], -1000)).toBe(0.08)
-    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-017'], 100_000)).toBe(0.78)
-    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], 100_000)).toBe(0.65)
-    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], 100_000, true)).toBeCloseTo(0.108333)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_2_RELEASE_ID], -1000)).toBe(0.15)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_3_RELEASE_ID], -1000)).toBe(0.08)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_2_RELEASE_ID], 100_000)).toBe(0.78)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_3_RELEASE_ID], 100_000)).toBe(0.65)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_3_RELEASE_ID], 100_000, true)).toBeCloseTo(0.108333)
   })
 
   it('does not roll KeyProbe when current World Truth no longer supplies a reachable valid surface', () => {
-    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    const started = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
     if (started.status !== 'started') throw Error(started.status)
     const closed = changeService(started.state, (service) => ({ ...service, open: false }))
     const done = advanceGameState(closed, 30_000, () => { throw Error('must validate reachability before probability') })
@@ -90,7 +97,7 @@ describe('Initial credential access', () => {
     expect(canFormCredentialAccessAttempt(unrelatedKnown, unrelated)).toBe(false)
 
     const standardOnly = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
-    expect(canFormCredentialAccessAttempt(standardOnly, { ...observation, providerId: 'keyprobe' })).toBe(true)
+    expect(canFormCredentialAccessAttempt(standardOnly, keyProbeObservation)).toBe(true)
     expect(canFormCredentialAccessAttempt(standardOnly, observation)).toBe(false)
   })
 
@@ -109,10 +116,10 @@ describe('Initial credential access', () => {
   })
 
   it('finishes the easier AUTH-017 KeyProbe work sooner on the same compute-100 Hardware', () => {
-    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    const started = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
     if (started.status !== 'started') throw Error(started.status)
     const process = started.state.process.processes.at(-1) as CredentialAccessProcess
-    expect(process.workRequired).toBe(KEYPROBE_ATTACK_PROFILES['AUTH-017'].workRequired)
+    expect(process.workRequired).toBe(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_2_RELEASE_ID].workRequired)
     expect(advanceGameState(started.state, 15_000, () => 1).process.processes.at(-1)?.status).toBe('completed')
   })
 
@@ -150,7 +157,7 @@ describe('Initial credential access', () => {
   })
 
   it('appends a FAILURE record, and creates no DeviceAccess, when the Service is reached but its weakness is gone', () => {
-    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    const started = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
     if (started.status !== 'started') throw Error(started.status)
     const running = started.state; const discovery = running.discovery; const knowledge = running.knowledge
     const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000, () => { throw Error('must validate the weakness before probability') })
@@ -163,7 +170,7 @@ describe('Initial credential access', () => {
   })
 
   it('classifies a valid KeyProbe probabilistic rejection distinctly from a stale-surface failure', () => {
-    const started = startCredentialAccessAttemptFromObservation(prepared(), { ...observation, providerId: 'keyprobe' })
+    const started = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
     if (started.status !== 'started') throw Error(started.status)
     const rejected = advanceGameState(started.state, 30_000, () => 0.48)
     expect(rejected.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.result).toMatchObject({ status: 'attempt_failed', reason: 'authentication_rejected' })

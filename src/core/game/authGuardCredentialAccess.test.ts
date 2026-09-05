@@ -1,17 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_4_0_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
+import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_1_4_0_BUILD_ID, GATE_SSH_PRODUCT_ID, vulnerabilitiesForService } from './serviceImplementations'
 import { rememberInspect, rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { inspectKnownTarget } from './inspect'
 import { advanceGameState } from './gameAdvancement'
 import { startServiceAnalysis } from './serviceAnalysis'
-import { KEYPROBE_ATTACK_PROFILES, keyProbeSuccessChance, ownedCredentialAccessProviders, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { KEYPROBE_ATTACK_PROFILES, canFormCredentialAccessAttempt, keyProbeSuccessChance, ownsKeyProbe, startCredentialAccessAttemptFromObservation } from './credentialAccess'
 import type { CredentialAccessProcess, GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID, authGuard10SupportsGateSshAuthentication } from './authGuard'
 import { deriveSoftwarePackageEligibility } from './softwareInstallation'
 
-const observation = { endpoint: '203.0.113.42:22', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', vulnerabilityId: 'AUTH-031', providerId: 'keyprobe' } as const
+// KeyProbe's own attacked authentication surface: a concrete GateSSH implementation identity, never a named Vulnerability.
+const observation = {
+  endpoint: '203.0.113.42:22', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002',
+  serviceImplementation: { productId: GATE_SSH_PRODUCT_ID, releaseId: GATE_SSH_1_3_3_RELEASE_ID, buildId: GATE_SSH_1_3_3_BUILD_ID },
+  providerId: 'keyprobe',
+} as const
 
 function learned(): GameState {
   let state = createInitialGameState()
@@ -56,9 +61,14 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
     expect(vulnerabilitiesForService(gateSsh140)).toEqual([])
   })
 
-  it('forms AUTH-031 only through KeyProbe and resolves protected 5% with one draw', () => {
+  it('forms the GateSSH 1.3.3 KeyProbe surface without any AUTH-031 Knowledge, and resolves protected 5% with one draw', () => {
     const state = learned()
-    expect(ownedCredentialAccessProviders(state, 'AUTH-031')).toEqual([{ id: 'keyprobe', name: 'KeyProbe' }])
+    expect(ownsKeyProbe(state)).toBe(true)
+    // No fake or named Vulnerability is consulted to form this attempt: it forms identically with Knowledge erased.
+    const withoutKnowledge = { ...state, knowledge: { discoveredVulnerabilities: [] } }
+    expect(canFormCredentialAccessAttempt(withoutKnowledge, observation)).toBe(true)
+    expect(startCredentialAccessAttemptFromObservation(withoutKnowledge, observation).status).toBe('started')
+
     expect(resolve(state, 0.049999)).toEqual({ draws: 1, result: 'access_established', protected: undefined, reason: undefined })
     expect(resolve(state, 0.05)).toEqual({ draws: 1, result: 'attempt_failed', protected: true, reason: 'protection_observed' })
   })
@@ -76,8 +86,8 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
     const started = startCredentialAccessAttemptFromObservation(base, observation)
     if (started.status !== 'started') throw Error(started.status)
     const process = started.state.process.processes.at(-1) as CredentialAccessProcess
-    expect(process.workRequired).toBe(KEYPROBE_ATTACK_PROFILES['AUTH-031'].workRequired)
-    expect(process.workRequired).toBeGreaterThan(KEYPROBE_ATTACK_PROFILES['AUTH-017'].workRequired)
+    expect(process.workRequired).toBe(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_3_RELEASE_ID].workRequired)
+    expect(process.workRequired).toBeGreaterThan(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_2_RELEASE_ID].workRequired)
 
     const baseAfter15Seconds = advanceGameState(started.state, 15_000, () => 1)
     expect(baseAfter15Seconds.process.processes.at(-1)?.status).toBe('running')
@@ -101,7 +111,7 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
       hardware: { ...state.player.localDevice.hardware, cpu: { ...state.player.localDevice.hardware.cpu, computeCapacity: 160 } },
     } } }
     expect(stronger.player.localDevice.deviceModel.maximumComputeCapacity).toBe(100)
-    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES['AUTH-031'], 160)).toBeCloseTo(0.45)
+    expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_3_RELEASE_ID], 160)).toBeCloseTo(0.45)
     expect(resolve(stronger, 0.449999)).toMatchObject({ result: 'access_established' })
     expect(resolve(stronger, 0.45)).toMatchObject({ result: 'attempt_failed' })
   })

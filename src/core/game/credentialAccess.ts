@@ -8,34 +8,50 @@ import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import { authGuard10SupportsGateSshAuthentication } from './authGuard'
 
-/** The one Flipper module that supplies this technique. It is domain truth, never supplied by an interface. */
+/** The one Flipper module that supplies the specialized Vulnerability-specific technique. It is domain truth, never supplied by an interface. */
 const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
 export const STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID = 'keyprobe' as const
 export type CredentialAccessProviderId = CredentialAccessProcess['toolId']
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
 export const CREDENTIAL_ACCESS_RAM_REQUIRED_MIB = 896
 
+/** Stable identity of a concrete Service implementation, independent of any named Vulnerability. */
+export interface ServiceImplementationIdentity {
+  readonly productId: string
+  readonly releaseId: string
+  readonly buildId: string
+}
+
+/**
+ * KeyProbe is a broad, noisy Credential Access tool: it attacks a supported
+ * GateSSH authentication surface directly, and is keyed by that concrete
+ * Service implementation rather than by any named Vulnerability. A future
+ * GateSSH release may carry no Vulnerability at all and still be a valid
+ * KeyProbe target, exactly like these two.
+ */
 interface KeyProbeAttackProfile {
-  readonly vulnerabilityId: 'AUTH-017' | 'AUTH-031'
   readonly serviceProductId: typeof GATE_SSH_PRODUCT_ID
   readonly serviceReleaseId: string
   readonly serviceBuildId: string
+  /** The display name/version a legitimate Inspect observation names for this exact profile — Player Information, never a stable ID. */
+  readonly observedImplementationName: string
+  readonly observedImplementationVersion: string
   readonly workRequired: number
   readonly chanceAtCompute100: number
   readonly minimumChance: number
   readonly maximumChance: number
 }
 
-/** Authored KeyProbe 1.0 profiles for the concrete authentication surfaces represented in V1. */
-export const KEYPROBE_ATTACK_PROFILES: Readonly<Record<KeyProbeAttackProfile['vulnerabilityId'], KeyProbeAttackProfile>> = {
-  'AUTH-017': {
-    vulnerabilityId: 'AUTH-017', serviceProductId: GATE_SSH_PRODUCT_ID,
-    serviceReleaseId: GATE_SSH_1_3_2_RELEASE_ID, serviceBuildId: GATE_SSH_1_3_2_BUILD_ID,
+/** Authored KeyProbe 1.0 profiles for the concrete GateSSH authentication surfaces represented in V1, keyed by release identity. */
+export const KEYPROBE_ATTACK_PROFILES: Readonly<Record<string, KeyProbeAttackProfile>> = {
+  [GATE_SSH_1_3_2_RELEASE_ID]: {
+    serviceProductId: GATE_SSH_PRODUCT_ID, serviceReleaseId: GATE_SSH_1_3_2_RELEASE_ID, serviceBuildId: GATE_SSH_1_3_2_BUILD_ID,
+    observedImplementationName: 'GateSSH', observedImplementationVersion: '1.3.2',
     workRequired: 1200, chanceAtCompute100: 0.48, minimumChance: 0.15, maximumChance: 0.78,
   },
-  'AUTH-031': {
-    vulnerabilityId: 'AUTH-031', serviceProductId: GATE_SSH_PRODUCT_ID,
-    serviceReleaseId: GATE_SSH_1_3_3_RELEASE_ID, serviceBuildId: GATE_SSH_1_3_3_BUILD_ID,
+  [GATE_SSH_1_3_3_RELEASE_ID]: {
+    serviceProductId: GATE_SSH_PRODUCT_ID, serviceReleaseId: GATE_SSH_1_3_3_RELEASE_ID, serviceBuildId: GATE_SSH_1_3_3_BUILD_ID,
+    observedImplementationName: 'GateSSH', observedImplementationVersion: '1.3.3',
     workRequired: 1800, chanceAtCompute100: 0.30, minimumChance: 0.08, maximumChance: 0.65,
   },
 }
@@ -50,44 +66,63 @@ export function keyProbeSuccessChance(profile: KeyProbeAttackProfile, computeCap
   return authGuardProtected ? boundedChance * AUTH_GUARD_KEYPROBE_CHANCE_MULTIPLIER : boundedChance
 }
 
-function keyProbeProfile(vulnerabilityId: string): KeyProbeAttackProfile | undefined {
-  return vulnerabilityId === 'AUTH-017' || vulnerabilityId === 'AUTH-031' ? KEYPROBE_ATTACK_PROFILES[vulnerabilityId] : undefined
+/** Resolution-side lookup: does this current (or remembered) World-Truth-native Service implementation identity match an authored KeyProbe profile? */
+export function keyProbeProfileForImplementation(implementation: ServiceImplementationIdentity): KeyProbeAttackProfile | undefined {
+  const profile = KEYPROBE_ATTACK_PROFILES[implementation.releaseId]
+  return profile && profile.serviceProductId === implementation.productId && profile.serviceBuildId === implementation.buildId ? profile : undefined
+}
+
+/**
+ * Formation-side lookup: the one legitimate Player-Information route into a
+ * KeyProbe profile. `observed` is exactly the display name/version a real
+ * Inspect stored in Discovery — never a stable World Truth ID — so this can
+ * never consult hidden current Service truth to decide what KeyProbe may
+ * attempt.
+ */
+export function keyProbeProfileForObservedImplementation(observed: { readonly name: string; readonly version: string }): KeyProbeAttackProfile | undefined {
+  return Object.values(KEYPROBE_ATTACK_PROFILES).find((profile) => profile.observedImplementationName === observed.name && profile.observedImplementationVersion === observed.version)
 }
 
 export interface CredentialAccessObservation {
   readonly endpoint: string
   readonly targetDeviceId: string
   readonly serviceId: string
-  readonly vulnerabilityId: string
   readonly providerId?: CredentialAccessProviderId
+  /** The specialized module's own required Vulnerability. Required when starting through the module; irrelevant to KeyProbe. */
+  readonly vulnerabilityId?: string
+  /** KeyProbe's own attacked authentication surface. Required when starting through KeyProbe; irrelevant to the specialized module. */
+  readonly serviceImplementation?: ServiceImplementationIdentity
 }
 
-function ownsStandardProvider(state: Pick<GameState, 'player'>): boolean {
+/** Whether SELF owns the standalone KeyProbe 1.0 installation. Vulnerability-agnostic by design: KeyProbe's own concrete profile governs which authentication surfaces are attackable, never a named weakness. */
+export function ownsKeyProbe(state: Pick<GameState, 'player'>): boolean {
   return state.player.localDevice.installedSoftware.some(({ id, releaseId, buildId }) => id === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID && releaseId === 'keyprobe-1.0' && buildId === 'build-keyprobe-1.0-v0')
 }
 
-export function ownedCredentialAccessProviders(state: Pick<GameState, 'player'>, vulnerabilityId: string): readonly { readonly id: CredentialAccessProviderId; readonly name: string }[] {
-  if (vulnerabilityId !== 'AUTH-017' && vulnerabilityId !== 'AUTH-031') return []
-  const providers: { id: CredentialAccessProviderId; name: string }[] = []
-  if (ownsStandardProvider(state)) providers.push({ id: STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, name: 'KeyProbe' })
-  const tool = vulnerabilityId === 'AUTH-017' ? findLocalTechniqueTool(state.player.localDevice, vulnerabilityId) : undefined
+/** Concrete providers of the specialized Vulnerability-specific technique (standalone module or Flipper-integrated) for one named Vulnerability. AUTH-017 only; KeyProbe is never among these. */
+export function ownedCredentialAccessModuleProviders(state: Pick<GameState, 'player'>, vulnerabilityId: string): readonly { readonly id: CredentialAccessProviderId; readonly name: string }[] {
+  if (vulnerabilityId !== 'AUTH-017') return []
+  const tool = findLocalTechniqueTool(state.player.localDevice, vulnerabilityId)
+  if (!tool) return []
   const flipper = findInstalledFlipper(state.player.localDevice)
-  if (tool) {
-    const integrated = Boolean(flipper && flipperSupportsTechnique(flipper, vulnerabilityId))
-    const standalone = findLocalFlipperModuleArtifacts(state.player.localDevice).find((file) => file.moduleId === CREDENTIAL_ACCESS_MODULE_ID && isSupportedFlipperModuleArtifact(file))
-    providers.push({ id: integrated ? FLIPPER_PRODUCT_ID : 'credential-access-module', name: integrated ? `${tool.toolName} · ${tool.moduleName}` : standalone?.path ?? tool.moduleName })
-  }
-  return providers
+  const integrated = Boolean(flipper && flipperSupportsTechnique(flipper, vulnerabilityId))
+  const standalone = findLocalFlipperModuleArtifacts(state.player.localDevice).find((file) => file.moduleId === CREDENTIAL_ACCESS_MODULE_ID && isSupportedFlipperModuleArtifact(file))
+  return [{ id: integrated ? FLIPPER_PRODUCT_ID : 'credential-access-module', name: integrated ? `${tool.toolName} · ${tool.moduleName}` : standalone?.path ?? tool.moduleName }]
 }
 
 export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'deviceAccess'>, observed: CredentialAccessObservation): boolean {
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
-  const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const requestedProvider = observed.providerId ?? 'credential-access-module'
-  const tool = ownedCredentialAccessProviders(state, observed.vulnerabilityId).some(({ id }) => id === requestedProvider)
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
-  return Boolean(service && known && tool && !accessed)
+  if (!service || accessed) return false
+  const requestedProvider = observed.providerId ?? 'credential-access-module'
+  if (requestedProvider === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
+    // KeyProbe forms from the player's own legitimately identified authentication surface alone — no Vulnerability Knowledge required.
+    return Boolean(ownsKeyProbe(state) && observed.serviceImplementation && keyProbeProfileForImplementation(observed.serviceImplementation))
+  }
+  const known = observed.vulnerabilityId !== undefined && state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
+  const tool = observed.vulnerabilityId !== undefined && ownedCredentialAccessModuleProviders(state, observed.vulnerabilityId).some(({ id }) => id === requestedProvider)
+  return Boolean(known && tool)
 }
 
 export type StartCredentialAccessResult =
@@ -109,13 +144,14 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   if (started.status === 'insufficient_memory') return { ...started, state }
   const installedHost = findInstalledFlipper(state.player.localDevice)
   const executionToolId = observed.providerId ?? 'credential-access-module'
-  if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && flipperSupportsTechnique(installedHost, observed.vulnerabilityId))) return { status: 'not_available', state }
-  const keyProbe = executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID ? keyProbeProfile(observed.vulnerabilityId) : undefined
+  if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && observed.vulnerabilityId !== undefined && flipperSupportsTechnique(installedHost, observed.vulnerabilityId))) return { status: 'not_available', state }
+  const isKeyProbe = executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
+  const keyProbe = isKeyProbe && observed.serviceImplementation ? keyProbeProfileForImplementation(observed.serviceImplementation) : undefined
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
     workRequired: keyProbe?.workRequired ?? CREDENTIAL_ACCESS_WORK_REQUIRED,
-    startedEndpoint: observed.endpoint, vulnerabilityId: observed.vulnerabilityId, toolId: executionToolId,
-    ...(executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID ? {} : { moduleId: CREDENTIAL_ACCESS_MODULE_ID }),
+    startedEndpoint: observed.endpoint, toolId: executionToolId,
+    ...(isKeyProbe ? { serviceImplementation: observed.serviceImplementation! } : { vulnerabilityId: observed.vulnerabilityId!, moduleId: CREDENTIAL_ACCESS_MODULE_ID }),
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }
@@ -164,14 +200,21 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
   if (!reached || !service) return failedResult
 
-  const profile = process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID ? keyProbeProfile(process.vulnerabilityId) : undefined
-  const validKeyProbeSurface = Boolean(profile
-    && service.implementation.productId === profile.serviceProductId
-    && service.implementation.releaseId === profile.serviceReleaseId
-    && service.implementation.buildId === profile.serviceBuildId)
-  const validSurface = Boolean(vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId)
-    && service.credentialAccess
-    && (process.toolId !== STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID || validKeyProbeSurface))
+  const isKeyProbe = process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
+  // KeyProbe's own current profile for whatever GateSSH release the Service actually runs right now —
+  // consulted only to run the roll once the surface below is confirmed unchanged since the attempt started.
+  const currentKeyProbeProfile = isKeyProbe ? keyProbeProfileForImplementation(service.implementation) : undefined
+  // The attempted surface is still current only when the represented implementation exactly matches what
+  // KeyProbe actually remembered attempting — a hidden GateSSH change to any other release, KeyProbe-supported
+  // or not, is a surface mismatch, never a silent re-target.
+  const validKeyProbeSurface = Boolean(currentKeyProbeProfile
+    && process.serviceImplementation
+    && service.implementation.productId === process.serviceImplementation.productId
+    && service.implementation.releaseId === process.serviceImplementation.releaseId
+    && service.implementation.buildId === process.serviceImplementation.buildId)
+  const validSurface = Boolean(service.credentialAccess && (isKeyProbe
+    ? validKeyProbeSurface
+    : process.vulnerabilityId !== undefined && vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId)))
   // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
   // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
   const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
@@ -179,14 +222,17 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   // is valid. The specialized module remains deterministic for AUTH-017.
   let succeeds = validSurface
   let rolled = false
-  if (validSurface && process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
+  let protectedByAuthGuard = false
+  if (validSurface && isKeyProbe) {
     const executor = process.executorDeviceId === state.player.localDevice.id
       ? state.player.localDevice
       : state.world.network.hosts.find(({ id }) => id === process.executorDeviceId)
-    if (!executor?.hardware || !profile) succeeds = false
+    if (!executor?.hardware || !currentKeyProbeProfile) succeeds = false
     else {
-      const protectedByAuthGuard = process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host?.installedSoftware, service)
-      succeeds = random() < keyProbeSuccessChance(profile, executor.hardware.cpu.computeCapacity, protectedByAuthGuard)
+      // AuthGuard's own protection role is GateSSH-release-scoped, never Vulnerability-scoped, so it applies
+      // to any KeyProbe attempt against a release it protects.
+      protectedByAuthGuard = authGuard10SupportsGateSshAuthentication(host?.installedSoftware, service)
+      succeeds = random() < keyProbeSuccessChance(currentKeyProbeProfile, executor.hardware.cpu.computeCapacity, protectedByAuthGuard)
       rolled = true
     }
   }
@@ -199,11 +245,12 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
     : state.world
   if (!succeeds) {
     // A narrow, mechanic-owned reason NodeScan can project safely: the
-    // surface itself was no longer valid, a rolled decision was rejected, or
-    // that rolled decision was blunted by legitimately-resolvable AuthGuard
+    // surface itself was no longer valid (KeyProbe's remembered GateSSH
+    // attack surface, or the module's required Vulnerability, no longer
+    // matches current World Truth), a rolled decision was rejected, or that
+    // rolled decision was blunted by legitimately-resolvable AuthGuard
     // protection. Left absent only for the defensive missing-executor case,
     // where no decision was actually made.
-    const protectedByAuthGuard = process.vulnerabilityId === 'AUTH-031' && authGuard10SupportsGateSshAuthentication(host!.installedSoftware, service)
     const reason = !validSurface ? 'surface_mismatch' as const : rolled ? (protectedByAuthGuard ? 'protection_observed' as const : 'authentication_rejected' as const) : undefined
     return {
       ...failedResult,
@@ -222,6 +269,7 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   return { process: { ...process, result: { status: 'access_established', accessId: id } }, deviceAccess: { nextId: state.deviceAccess.nextId + 1, established: [...state.deviceAccess.established, {
     id, sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId,
     viaServiceId: process.serviceId, viaServiceBuildId: service.implementation.buildId,
-    viaVulnerabilityId: process.vulnerabilityId, privilege: service.credentialAccess!.privilege,
+    ...(process.vulnerabilityId !== undefined ? { viaVulnerabilityId: process.vulnerabilityId } : {}),
+    privilege: service.credentialAccess!.privilege,
   }] }, world }
 }
