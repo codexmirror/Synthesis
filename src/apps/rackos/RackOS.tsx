@@ -15,7 +15,7 @@ import { runRemoteCommand } from './remoteCommands'
 import { resolveBookstoreBranchOperations } from '../../core/game/bookstoreBranch'
 import { formatDollarCents } from '../dollarFormat'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
-import { deriveRackOsFirmwareInstallability, RACK_OS_1_1_BUSINESS_RELEASE, type RackOsFirmwareInstallability } from '../../core/game/rackOsFirmwareUpdate'
+import { deriveRackOsFirmwarePresentationStatus, RACK_OS_1_1_BUSINESS_RELEASE, type RackOsFirmwarePresentationStatus } from '../../core/game/rackOsFirmwareUpdate'
 import { RackFirmwareUpdateSurface } from './RackFirmwareUpdate'
 
 /**
@@ -448,32 +448,33 @@ function RemoteFirmwareArtifact({ file, target, openInstaller }: {
   target: ActiveRemoteTarget['target']
   openInstaller(): void
 }) {
-  const installability = deriveRackOsFirmwareInstallability(file, target)
+  const status = deriveRackOsFirmwarePresentationStatus(file, target)
   return <div className="rack-artifact">
     <p className="rack-artifact-kind">FIRMWARE INSTALLER</p>
     <h2>{file.name} {file.version}</h2>
     <p className="rack-artifact-release">INSTALLS ON THIS DEVICE</p>
     <dl className="rack-facts rack-facts--dense">
       <div><dt>CURRENT</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>
-      <div><dt>STATUS</dt><dd>{describeFirmwareInstallability(installability)}</dd></div>
+      <div><dt>STATUS</dt><dd>{describeFirmwarePresentationStatus(status)}</dd></div>
       <div><dt>SIZE</dt><dd>{formatBytes(getFilesystemFileSizeBytes(file))}</dd></div>
       {file.publisher && <div><dt>PUBLISHER</dt><dd>{file.publisher}</dd></div>}
     </dl>
-    {installability === 'installable'
+    {status === 'installable'
       ? <button className="rack-primary" type="button" onClick={openInstaller}>OPEN INSTALLER</button>
-      : <p className="rack-install-note">{describeFirmwareInstallabilityReason(installability, target.firmware!.name)}</p>}
+      : <p className="rack-install-note">{describeFirmwarePresentationStatusReason(status, target.firmware!.name)}</p>}
   </div>
 }
 
 /** The same words the canonical admission uses, so surface and operation agree. */
-function describeFirmwareInstallability(installability: RackOsFirmwareInstallability): string {
-  return installability.toUpperCase().replaceAll('_', ' ')
+function describeFirmwarePresentationStatus(status: RackOsFirmwarePresentationStatus): string {
+  return status.toUpperCase().replaceAll('_', ' ')
 }
 
-function describeFirmwareInstallabilityReason(installability: Exclude<RackOsFirmwareInstallability, 'installable'>, firmwareName: string): string {
-  if (installability === 'already_installed') return 'THIS DEVICE ALREADY RUNS THIS RELEASE'
-  if (installability === 'update_in_progress') return 'A FIRMWARE UPDATE IS ALREADY RUNNING ON THIS DEVICE'
-  if (installability === 'unrecognized_artifact') return 'THIS INSTALLER CARRIES AN UNRECOGNIZED FIRMWARE BUILD'
+function describeFirmwarePresentationStatusReason(status: Exclude<RackOsFirmwarePresentationStatus, 'installable'>, firmwareName: string): string {
+  if (status === 'target_offline') return 'THIS DEVICE IS NOT CURRENTLY REACHABLE'
+  if (status === 'already_installed') return 'THIS DEVICE ALREADY RUNS THIS RELEASE'
+  if (status === 'update_in_progress') return 'A FIRMWARE UPDATE IS ALREADY RUNNING ON THIS DEVICE'
+  if (status === 'unrecognized_artifact') return 'THIS INSTALLER CARRIES AN UNRECOGNIZED FIRMWARE BUILD'
   return `THIS RELEASE DOES NOT INSTALL ON ${firmwareName.toUpperCase()} AS RUN BY THIS DEVICE`
 }
 
@@ -498,7 +499,7 @@ function RackFirmwareInstaller({ file, target, onCancel, onStarted }: {
 }) {
   const { startRackOsFirmwareUpdateForOperatedRemoteDevice } = useGameActions()
   const [feedback, setFeedback] = useState<string>()
-  const installability = file ? deriveRackOsFirmwareInstallability(file, target) : undefined
+  const status = file ? deriveRackOsFirmwarePresentationStatus(file, target) : undefined
 
   function confirm() {
     if (!file) return
@@ -517,9 +518,9 @@ function RackFirmwareInstaller({ file, target, onCancel, onStarted }: {
           <div><dt>CURRENT FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>
           <div><dt>TARGET FIRMWARE</dt><dd>{file.name} {file.version}</dd></div>
           <div><dt>INSTALLER</dt><dd>{file.path}</dd></div>
-          <div><dt>STATUS</dt><dd>{describeFirmwareInstallability(installability!)}</dd></div>
+          <div><dt>STATUS</dt><dd>{describeFirmwarePresentationStatus(status!)}</dd></div>
         </dl>
-        {installability === 'installable' ? <>
+        {status === 'installable' ? <>
           <ul className="rack-updater__notes">
             {RACK_OS_1_1_BUSINESS_RELEASE.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}
           </ul>
@@ -528,7 +529,7 @@ function RackFirmwareInstaller({ file, target, onCancel, onStarted }: {
             <button className="rack-secondary" type="button" onClick={onCancel}>CANCEL</button>
             <button className="rack-primary" type="button" onClick={confirm}>INSTALL</button>
           </div>
-        </> : <p className="rack-install-note">{describeFirmwareInstallabilityReason(installability!, target.firmware!.name)}</p>}
+        </> : <p className="rack-install-note">{describeFirmwarePresentationStatusReason(status!, target.firmware!.name)}</p>}
         {feedback && <p className="rack-install-note rack-install-note--caution">{feedback}</p>}
       </>
       : <p className="rack-empty">INSTALLER NOT FOUND</p>}

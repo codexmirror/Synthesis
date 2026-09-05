@@ -144,6 +144,31 @@ export function deriveRackOsFirmwareInstallability(
   return 'installable'
 }
 
+/**
+ * The status the two RACK-OS firmware presentation surfaces (the artifact
+ * pane and the update utility) actually show, composing installability with
+ * the same reachability precondition the canonical operation itself checks.
+ *
+ * `deriveRackOsFirmwareInstallability` alone answers a narrower question —
+ * stable Firmware/build compatibility — and stays that way; `target_offline`
+ * is not a compatibility fact about the artifact or the release, it is the
+ * Device's own current operational truth, exactly what
+ * `startRackOsFirmwareUpdateForOperatedRemoteDevice` refuses on before it ever
+ * inspects the artifact. This derivation checks reachability first, in that
+ * same order, so presentation can never offer an installation the canonical
+ * operation would refuse merely because a stale Remote Session has not yet
+ * been cleared.
+ */
+export type RackOsFirmwarePresentationStatus = 'target_offline' | RackOsFirmwareInstallability
+
+export function deriveRackOsFirmwarePresentationStatus(
+  file: FirmwarePackageFile,
+  device: { readonly firmware?: FirmwareState; readonly firmwareUpdate?: DeviceFirmwareUpdateProgress; readonly operational: NetworkHost['operational'] },
+): RackOsFirmwarePresentationStatus {
+  if (!isDeviceNetworkUsable(device.operational)) return 'target_offline'
+  return deriveRackOsFirmwareInstallability(file, device)
+}
+
 export type StartRackOsFirmwareUpdateResult =
   | { readonly status: 'started'; readonly state: GameState }
   | {

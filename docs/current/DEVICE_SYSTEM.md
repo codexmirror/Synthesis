@@ -294,14 +294,39 @@ operating authority of the Session's DeviceAccess, exactly as remote package
 installation uses it; V1 represents no finer RACK-OS administrator or RBAC
 model and none is added here.
 
-Admission and every surface presenting it share one derivation,
-`deriveRackOsFirmwareInstallability`, which reads stable identity only:
-recognition is exact `firmwareId` + `buildId` (a `.fwpkg` filename proves
-nothing), and compatibility is that the Device currently runs RACK-OS 1.0.
-Every other case fails closed with the real reason — `unrecognized_artifact`,
-`incompatible_device`, `already_installed`, `update_in_progress` — and touches
-no canonical state at all. Launching the utility and cancelling it likewise
-change nothing; only INSTALL starts anything.
+Admission checks two genuinely separate things, in order, and refuses closed on
+either without touching canonical state:
+
+1. **Reachability** — `resolveActiveRemoteTarget` resolves the target's stable
+   *identity* only; it does not itself validate that the target is currently
+   reachable, and other callers rely on that separation. Immediately after
+   resolving identity, admission checks the target's own current operational
+   truth with the same `isDeviceNetworkUsable` every other remote mechanic
+   uses (`installRemoteSoftwarePackage` established the precedent), and
+   refuses `target_offline` if it is not network-usable. This exists because a
+   Remote Session that has not yet been cleared by the next canonical
+   reachability pass (`advanceRemoteSessionReachability`) could otherwise still
+   resolve after its target has already gone offline; refusing here closes
+   that gap without making Session reachability validation itself.
+2. **Compatibility** — once the target is confirmed reachable, admission and
+   every surface presenting it share one derivation,
+   `deriveRackOsFirmwareInstallability`, which reads stable identity only:
+   recognition is exact `firmwareId` + `buildId` (a `.fwpkg` filename proves
+   nothing), and compatibility is that the Device currently runs RACK-OS 1.0.
+   Every other case fails closed with the real reason —
+   `unrecognized_artifact`, `incompatible_device`, `already_installed`,
+   `update_in_progress`.
+
+`target_offline` is deliberately not folded into
+`deriveRackOsFirmwareInstallability`: it is the Device's own current
+operational truth, not a compatibility fact about the artifact or the release,
+so the compatibility derivation stays a narrow question about stable
+Firmware/build identity. The artifact pane and the update utility read the
+same composed order from `deriveRackOsFirmwarePresentationStatus` — reachability
+first, then compatibility — so presentation can never offer `OPEN INSTALLER` or
+`INSTALL` in a state the canonical operation would refuse
+(`docs/current/NETWORK_ACCESS.md`). Launching the utility and cancelling it
+likewise change nothing; only INSTALL starts anything.
 
 
 ### Completion, for either route

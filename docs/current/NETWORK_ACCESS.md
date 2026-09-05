@@ -906,8 +906,18 @@ The artifact pane and the utility both state installability from the same
 canonical derivation the admission enforces, so neither can offer an
 installation the operation would refuse; an incompatible Device, an already
 updated Device, an unrecognized build or an update already running each state
-the real reason and offer no action. Opening the utility and cancelling it
-change no canonical state whatever. Internal Device, Service and Firmware IDs
+the real reason and offer no action.
+
+That invariant covers the target's own current *reachability* too, not only
+its Firmware/build compatibility: the operated Device is a Remote Session away,
+and a Session that has not yet been cleared by canonical reachability
+advancement can still resolve identity against a target that has already gone
+offline. Both surfaces read `deriveRackOsFirmwarePresentationStatus`
+(`docs/current/DEVICE_SYSTEM.md`), which checks that separate current-operability
+condition first and states `target_offline` — offering neither `OPEN
+INSTALLER` nor `INSTALL` — before it ever asks whether the artifact is the
+right release for this Device. Opening the utility and cancelling it change no
+canonical state whatever. Internal Device, Service and Firmware IDs
 are never exposed as product UI. The canonical operation, its Session-resolved
 target, its authority and everything installation then does are owned by
 `docs/current/DEVICE_SYSTEM.md`.

@@ -1145,6 +1145,24 @@ function srv02WithInstaller(firmwareId: string = RACK_OS_FIRMWARE_ID): GameState
 
 const INSTALLER_PATH = '/opt/rack-os-1.1-business.fwpkg'
 
+/**
+ * The exact stale-Session precondition the canonical `target_offline` refusal
+ * defends against: a Remote Session that is still fully established, over a
+ * target Device whose own operational truth has already become network-
+ * unusable. Reachability advancement clears a Session like this on its next
+ * tick; this fixture captures the state before that tick runs, so presentation
+ * can be proven never to offer what the canonical operation would refuse in
+ * that gap.
+ */
+function srv02WithInstallerOffline(): GameState {
+  const online = srv02WithInstaller()
+  return {
+    ...online,
+    world: { ...online.world, network: { ...online.world.network, hosts: online.world.network.hosts.map((host) =>
+      host.id === 'host-lan-002' ? { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } } : host) } },
+  }
+}
+
 /** srv-01 already on RACK-OS 1.1 Business: a compatible Device with no BranchOps relationship at all. */
 function srv01OnBusiness(): GameState {
   const base = createInitialGameState()
@@ -1291,6 +1309,23 @@ describe('RACK-OS firmware update from a target-owned installer artifact', () =>
     await user.click(screen.getByRole('button', { name: /FILE\s*rack-os-1\.1-business\.fwpkg/ }))
 
     expect(screen.getByText('THIS DEVICE ALREADY RUNS THIS RELEASE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'OPEN INSTALLER' })).toBeNull()
+  })
+
+  it('offers no launch on a stale Session whose target has already gone offline, and states the real reason', async () => {
+    // The Remote Session is still fully represented here — only the target
+    // Device's own operational truth has changed — the exact stale-Session gap
+    // the canonical target_offline refusal defends against.
+    const user = userEvent.setup()
+    const state = srv02WithInstallerOffline()
+    expect(state.remoteSession.active).toEqual(srv02WithInstaller().remoteSession.active)
+    render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^FILES/ }))
+    await user.click(screen.getByRole('button', { name: /DIR\s*opt/ }))
+    await user.click(screen.getByRole('button', { name: /FILE\s*rack-os-1\.1-business\.fwpkg/ }))
+
+    expect(screen.getByText('THIS DEVICE IS NOT CURRENTLY REACHABLE')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'OPEN INSTALLER' })).toBeNull()
   })
 

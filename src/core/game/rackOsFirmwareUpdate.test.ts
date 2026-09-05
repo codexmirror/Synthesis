@@ -6,6 +6,7 @@ import { advanceDeviceFirmwareUpdates } from './deviceFirmwareUpdate'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID, VEYRA_OS_4_1_FIRMWARE_ID, isRackOsFirmwareId } from './firmwareIdentity'
 import {
   deriveRackOsFirmwareInstallability,
+  deriveRackOsFirmwarePresentationStatus,
   deriveRackOsFirmwareUpdateProgress,
   RACK_OS_1_1_BUSINESS_RELEASE,
   RACK_OS_FIRMWARE_INSTALLER_FILENAME,
@@ -211,6 +212,18 @@ describe('admitting a RACK-OS firmware installation', () => {
     expect(deriveRackOsFirmwareInstallability(artifact, { firmware: RACK_OS_1_1_BUSINESS_RELEASE.firmware })).toBe('already_installed')
     expect(deriveRackOsFirmwareInstallability(artifact, { firmware: { id: VEYRA_OS_4_1_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' } })).toBe('incompatible_device')
     expect(deriveRackOsFirmwareInstallability({ ...artifact, buildId: 'other' }, { firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' } })).toBe('unrecognized_artifact')
+  })
+
+  it('presentation status checks reachability first, matching the canonical admission order', () => {
+    const artifact = installerArtifact('file-firmware')
+    const runningConnected = { lifecycle: 'RUNNING' as const, connectivity: 'CONNECTED' as const }
+    const runningDisconnected = { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const }
+    expect(deriveRackOsFirmwarePresentationStatus(artifact, { firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' }, operational: runningConnected })).toBe('installable')
+    expect(deriveRackOsFirmwarePresentationStatus(artifact, { firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' }, operational: runningDisconnected })).toBe('target_offline')
+    // Offline outranks every other refusal: an offline Device already running the release, or holding
+    // an unrecognized build, still states the real precondition failure rather than a compatibility one.
+    expect(deriveRackOsFirmwarePresentationStatus(artifact, { firmware: RACK_OS_1_1_BUSINESS_RELEASE.firmware, operational: runningDisconnected })).toBe('target_offline')
+    expect(deriveRackOsFirmwarePresentationStatus({ ...artifact, buildId: 'other' }, { firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' }, operational: runningDisconnected })).toBe('target_offline')
   })
 
   it('changes only the operated Device firmware-update state, and never its Firmware immediately', () => {
