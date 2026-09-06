@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import {
+  BOOKSTORE_BRANCH_LOCATION,
   BOOKSTORE_BRANCH_NETWORK_ID,
   BOOKSTORE_COMPANY_ID,
   resolveBusinessOperatingContext,
@@ -25,7 +26,7 @@ describe('business domain initial truth', () => {
     const branch = state.business.branches[0]
     // Generic Branch identity is exactly this shape — nothing more.
     expect(branch).toEqual({
-      id: 'bookstore-branch-01', displayName: 'Bookstore Branch 01',
+      id: 'bookstore-branch-01', displayName: 'Bookstore Branch 01', location: BOOKSTORE_BRANCH_LOCATION,
       companyId: BOOKSTORE_COMPANY_ID, networkId: BOOKSTORE_BRANCH_NETWORK_ID,
     })
     expect(branch.id).not.toBe(branch.companyId)

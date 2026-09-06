@@ -1,6 +1,6 @@
 import { resolveActiveRemoteTarget } from './remoteSession'
 import { resolvePetraTransactionReaction } from './petraCompanyChat'
-import type { DeviceSavedDollarSignIn, DollarFinancialAccount, DollarTransaction, GameState } from './types'
+import type { DeviceSavedDollarSignIn, DollarFinancialAccount, DollarTransaction, DollarTransactionStatementContext, GameState } from './types'
 
 export type AuthenticateDollarAccountResult =
   | { readonly status: 'authenticated'; readonly state: GameState; readonly sessionId: string }
@@ -93,8 +93,16 @@ export type CivicDollarMovementResult =
  * This performs no reaction of its own (Petra's transaction reaction stays
  * owned by `transferDollars`, at its existing semantic layer) and does not
  * decide whose money is allowed to move.
+ *
+ * `statementContext` is an optional narrow historical statement-context
+ * snapshot (`DollarTransactionStatementContext`) the calling domain operation
+ * may supply for the Transaction this movement creates — this primitive only
+ * stores whatever it is given, verbatim, once, at creation; it never
+ * constructs, infers, or re-resolves one itself, and understands nothing
+ * about what a Bookstore or a Business Branch is. `transferDollars` never
+ * supplies one.
  */
-export function executeCivicDollarMovement(state: GameState, sourceAccountId: string, destinationAccountId: string, amountCents: number): CivicDollarMovementResult {
+export function executeCivicDollarMovement(state: GameState, sourceAccountId: string, destinationAccountId: string, amountCents: number, statementContext?: DollarTransactionStatementContext): CivicDollarMovementResult {
   const source = state.dollarFinance.accounts.find(({ id }) => id === sourceAccountId)
   if (!source) return { status: 'source_not_found', state }
   const destination = state.dollarFinance.accounts.find(({ id }) => id === destinationAccountId)
@@ -115,6 +123,7 @@ export function executeCivicDollarMovement(state: GameState, sourceAccountId: st
     amountCents,
     sourceAccountReference: source.accountReference,
     destinationAccountReference: destination.accountReference,
+    ...(statementContext ? { statementContext } : {}),
   }
   const accounts = state.dollarFinance.accounts.map((account) => {
     if (account.id === source.id) return { ...account, balanceCents: resultingSourceBalance }
@@ -233,20 +242,25 @@ export interface DollarAccountActivityEntry {
   readonly amountCents: number
   /** Historical snapshot from the Transaction, never the counterparty's current reference. */
   readonly counterpartyReference: string
+  /** The Transaction's own optional historical statement-context snapshot, carried through verbatim. Absent for an ordinary transfer. */
+  readonly statementContext?: DollarTransactionStatementContext
 }
 
 /**
  * Account activity derived from canonical Transactions, newest first. It
  * exposes no other Account's balance, no Credential, no Device, no Session and
  * no internal Account ID, and it invents nothing: an Account with no
- * Transactions has no activity.
+ * Transactions has no activity. Where a Transaction carries an optional
+ * statement-context snapshot, it is carried through unchanged; this
+ * projection never resolves Business or any other domain state to construct
+ * or supplement one.
  */
 export function projectDollarAccountActivity(state: GameState, accountId: string): readonly DollarAccountActivityEntry[] {
   return state.dollarFinance.transactions.records
     .filter((record) => record.sourceAccountId === accountId || record.destinationAccountId === accountId)
     .map((record) => record.sourceAccountId === accountId
-      ? { id: record.id, direction: 'outgoing' as const, amountCents: -record.amountCents, counterpartyReference: record.destinationAccountReference }
-      : { id: record.id, direction: 'incoming' as const, amountCents: record.amountCents, counterpartyReference: record.sourceAccountReference })
+      ? { id: record.id, direction: 'outgoing' as const, amountCents: -record.amountCents, counterpartyReference: record.destinationAccountReference, ...(record.statementContext ? { statementContext: record.statementContext } : {}) }
+      : { id: record.id, direction: 'incoming' as const, amountCents: record.amountCents, counterpartyReference: record.sourceAccountReference, ...(record.statementContext ? { statementContext: record.statementContext } : {}) })
     .reverse()
 }
 

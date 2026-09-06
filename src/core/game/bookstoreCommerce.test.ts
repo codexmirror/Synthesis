@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { BOOKSTORE_BRANCH_ID } from './business'
+import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
 import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_BRANCH_UNIT_PRICE_CENTS, BOOKSTORE_SALE_TRANSACTION_ID, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
+import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 
 describe('bookstore commerce initial truth', () => {
   it('keeps one concrete branch-linked commerce record referencing the generic Branch by stable ID', () => {
@@ -27,6 +28,7 @@ describe('bookstore commerce initial truth', () => {
       amountCents: 2_000,
       sourceAccountReference: 'CD-9000-2000',
       destinationAccountReference: 'CD-3318-2204',
+      statementContext: { description: BOOKSTORE_BRANCH_NAME, purpose: BOOKSTORE_SALE_STATEMENT_PURPOSE, location: BOOKSTORE_BRANCH_LOCATION },
     })
     expect(state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-retail-clearing-v0')?.balanceCents).toBe(80_000)
     expect(state.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)?.balanceCents).toBe(34_250)

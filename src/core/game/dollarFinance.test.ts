@@ -261,6 +261,13 @@ describe('Dollar transfers', () => {
     expect(serialized).not.toContain(before.player.localDevice.id)
     expect(serialized).not.toContain('dollar-session-0001')
   })
+
+  it('never supplies a statement-context snapshot of its own — an ordinary transfer carries none', () => {
+    const before = withRecipient()
+    const result = transferDollars(before, before.player.localDevice.id, RECIPIENT.accountReference, 1_000)
+    if (result.status !== 'transferred') throw new Error(result.status)
+    expect(result.state.dollarFinance.transactions.records[0]).not.toHaveProperty('statementContext')
+  })
 })
 
 describe('executeCivicDollarMovement — the canonical Account-to-Account movement invariant', () => {
@@ -331,6 +338,22 @@ describe('executeCivicDollarMovement — the canonical Account-to-Account moveme
     expect(result.state.petraCompanyChat.messages).toEqual([])
     expect(result.state.technicianReaction.pending).toBeNull()
   })
+
+  it('stores a caller-supplied statement-context snapshot verbatim on the created Transaction, without constructing or inferring one itself', () => {
+    const before = withRecipient()
+    const result = executeCivicDollarMovement(before, 'dollar-account-local-v0', RECIPIENT.id, 500, { description: 'Fixture Branch', purpose: 'Retail sale', location: '1 Fixture Way' })
+    expect(result.status).toBe('moved')
+    if (result.status !== 'moved') return
+    expect(result.transaction.statementContext).toEqual({ description: 'Fixture Branch', purpose: 'Retail sale', location: '1 Fixture Way' })
+  })
+
+  it('omits statementContext entirely when the caller supplies none, exactly like before this shape existed', () => {
+    const before = withRecipient()
+    const result = executeCivicDollarMovement(before, 'dollar-account-local-v0', RECIPIENT.id, 500)
+    expect(result.status).toBe('moved')
+    if (result.status !== 'moved') return
+    expect(result.transaction).not.toHaveProperty('statementContext')
+  })
 })
 
 describe('Dollar Account activity', () => {
@@ -370,6 +393,27 @@ describe('Dollar Account activity', () => {
     const between = transferDollars(authenticated.state, remote.id, RECIPIENT.accountReference, 100)
     if (between.status !== 'transferred') throw new Error(between.status)
     expect(projectDollarAccountActivity(between.state, 'dollar-account-local-v0')).toEqual([])
+  })
+
+  it('carries a Transaction statement-context snapshot through to activity unchanged, alongside the actual counterparty reference', () => {
+    const before = withRecipient()
+    const result = executeCivicDollarMovement(before, 'dollar-account-local-v0', RECIPIENT.id, 2_000, { description: 'Fixture Branch', purpose: 'Retail sale', location: '1 Fixture Way' })
+    expect(result.status).toBe('moved')
+    if (result.status !== 'moved') return
+    expect(projectDollarAccountActivity(result.state, 'dollar-account-local-v0')).toEqual([
+      { id: result.transaction.id, direction: 'outgoing', amountCents: -2_000, counterpartyReference: RECIPIENT.accountReference, statementContext: { description: 'Fixture Branch', purpose: 'Retail sale', location: '1 Fixture Way' } },
+    ])
+    expect(projectDollarAccountActivity(result.state, RECIPIENT.id)).toEqual([
+      { id: result.transaction.id, direction: 'incoming', amountCents: 2_000, counterpartyReference: 'CD-1042-7781', statementContext: { description: 'Fixture Branch', purpose: 'Retail sale', location: '1 Fixture Way' } },
+    ])
+  })
+
+  it('omits statementContext from an activity entry for a Transaction that carries none', () => {
+    const before = withRecipient()
+    const sent = transferDollars(before, before.player.localDevice.id, RECIPIENT.accountReference, 2_500)
+    if (sent.status !== 'transferred') throw new Error(sent.status)
+    const [entry] = projectDollarAccountActivity(sent.state, 'dollar-account-local-v0')
+    expect(entry).not.toHaveProperty('statementContext')
   })
 })
 

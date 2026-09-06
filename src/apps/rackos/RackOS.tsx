@@ -16,6 +16,7 @@ import { resolveBusinessOperatingContext, type ResolvedBusinessBranch } from '..
 import { resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
 import { resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { resolveBookstoreBackendForBranch } from '../../core/game/bookstoreBackend'
+import { deriveEffectiveBookstoreOpportunityRatePerHour, resolveBookstoreSalesCadenceForBranch } from '../../core/game/bookstoreSalesCadence'
 import type { LocalNetwork } from '../../core/game/types'
 import { formatDollarCents } from '../dollarFormat'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
@@ -225,23 +226,39 @@ function RackApplications({ deviceName, firmware, open }: {
  * several) are each presented as their own section rather than assuming
  * exactly one.
  *
- * `context` carries only generic structural identity (Branch/Company/Network).
- * Any concrete commerce, operations, or backend is a separate, optional
- * composition on top: this component resolves
+ * `context` carries only generic structural identity (Branch/Company/Network),
+ * including the Branch's own current represented `location` where one exists.
+ * Any concrete commerce, operations, backend, or sales-cadence demand is a
+ * separate, optional composition on top: this component resolves
  * `resolveBookstoreCommerceForBranch`, `resolveBookstoreOperationsForBranch`,
- * and `resolveBookstoreBackendForBranch` per Branch itself, rather than the
- * structural resolver depending on any of them, so a structurally valid
- * Branch presents its Company/Branch/Network identity regardless of which (if
- * any) of those three concrete subsystems it has represented, without
- * inventing settlement, sale, OPEN/CLOSED, inventory, or backend data in
- * place of an absent one. The three subsystems are independent optional
- * joins: a Branch may have any combination of operations, commerce, and
- * backend, or none. Backend presence and status are the referenced Device's
- * and Service's own current represented World Truth (resolved fresh, never a
- * stored flag) — browsing this read-only surface grants no DeviceAccess,
+ * `resolveBookstoreBackendForBranch`, and `resolveBookstoreSalesCadenceForBranch`
+ * per Branch itself, rather than the structural resolver depending on any of
+ * them, so a structurally valid Branch presents its Company/Branch/Network
+ * identity regardless of which (if any) of those four concrete subsystems it
+ * has represented, without inventing settlement, sale, OPEN/CLOSED,
+ * inventory, backend, or demand data in place of an absent one. The four
+ * subsystems are independent optional joins: a Branch may have any
+ * combination of operations, commerce, backend, and sales cadence, or none.
+ * Backend presence and status are the referenced Device's and Service's own
+ * current represented World Truth (resolved fresh, never a stored flag) —
+ * browsing this read-only surface grants no DeviceAccess,
  * NetworkManagementAuthority, Discovery, Knowledge, or Business authority
  * over either.
+ *
+ * Demand is presented as `DEMAND OPPORTUNITIES` (opportunities/hour) and
+ * `ATTRACTIVENESS`, derived fresh from the cadence record's own represented
+ * configuration via the existing `deriveEffectiveBookstoreOpportunityRatePerHour`
+ * — never stored or invented here, and never worded as guaranteed sales,
+ * because OPEN/CLOSED, inventory, checkout, backend, settlement, and finance
+ * truth can still refuse any given opportunity. `remainingUntilOpportunityMs`
+ * is internal simulation timing, not player-facing Business information, and
+ * is never presented here.
  */
+/** A compact operator-facing rendering of an effective opportunity rate, e.g. `10` or `12.5`; never more than two decimal places and no trailing zeros. */
+function formatOpportunityRate(effectiveOpportunityRatePerHour: number): string {
+  return String(Number(effectiveOpportunityRatePerHour.toFixed(2)))
+}
+
 function BusinessSurface({ state, context }: {
   state: GameState
   context: { readonly networks: readonly LocalNetwork[]; readonly branches: readonly ResolvedBusinessBranch[] }
@@ -261,13 +278,20 @@ function BusinessSurface({ state, context }: {
         const commerce = resolveBookstoreCommerceForBranch(state, resolved.branch.id)
         const operations = resolveBookstoreOperationsForBranch(state, resolved.branch.id)
         const backend = resolveBookstoreBackendForBranch(state, resolved.branch.id)
+        // Presentation-only, optional join, resolved independently and exactly like the three siblings above:
+        // this Branch's own concrete demand configuration, never a stored/derived value of RACK-OS's own.
+        const cadence = resolveBookstoreSalesCadenceForBranch(state, resolved.branch.id)
         return <div className="rack-artifact" key={resolved.branch.id}>
           <p className="rack-artifact-kind">BUSINESS BRANCH</p>
           <h2>{resolved.branch.displayName}</h2>
           <dl className="rack-facts">
             <div><dt>COMPANY</dt><dd>{resolved.company.displayName}</dd></div>
             <div><dt>NETWORK</dt><dd>{resolved.network.name}</dd></div>
+            {resolved.branch.location && <div><dt>LOCATION</dt><dd>{resolved.branch.location}</dd></div>}
             {operations && <div><dt>STATUS</dt><dd>{operations.open ? 'OPEN' : 'CLOSED'}</dd></div>}
+            {/* "Opportunities," never "expected sales": OPEN/CLOSED, inventory, checkout, backend, settlement and finance truth can still refuse any given opportunity. */}
+            {cadence && <div><dt>DEMAND OPPORTUNITIES</dt><dd>~{formatOpportunityRate(deriveEffectiveBookstoreOpportunityRatePerHour(cadence))} / HOUR</dd></div>}
+            {cadence && <div><dt>ATTRACTIVENESS</dt><dd>{cadence.attractivenessMultiplier.toFixed(2)}×</dd></div>}
             {operations && <div><dt>STOCK</dt><dd>{operations.currentInventory} / {operations.shelfCapacity}</dd></div>}
             {operations && <div><dt>CHECKOUTS</dt><dd>{operations.checkoutCapacity}</dd></div>}
             {commerce && <div><dt>SETTLEMENT ACCOUNT</dt><dd>{commerce.settlementAccount.accountReference}</dd></div>}

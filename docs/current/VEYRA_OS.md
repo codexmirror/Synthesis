@@ -195,9 +195,17 @@ The consumer hierarchy is balance, Provider, SEND / RECEIVE, ACCOUNT, ACTIVITY:
   Internal Account, Credential and Financial Session identity and all
   credential material are absent.
 - **ACTIVITY** is `projectDollarAccountActivity` and nothing else: direction,
-  the historical counterparty reference snapshot, and the signed amount. There
-  is no timestamp, merchant, category, status, fee, pending state or graph, and
-  an Account with no Transactions shows a truthful empty state.
+  the historical counterparty reference snapshot, and the signed amount. Where
+  the underlying Transaction carries an optional `statementContext` snapshot
+  (the Bookstore sale is the current example, and its seeded settlement
+  Account is this phone's own Account), the row additionally leads with that
+  context's `description` and states `purpose`/`location` beneath it, while
+  the direction word and counterparty reference stay visible on their own
+  line rather than being replaced. A Transaction with no `statementContext`
+  keeps exactly the prior compact two-line row. There is no timestamp,
+  category, status, fee, pending state, graph, or invented context for a
+  Transaction that carries none, and an Account with no Transactions shows a
+  truthful empty state.
 
 Which Wallet surface is open is presentation state held by the component; it
 never reaches `GameState`.

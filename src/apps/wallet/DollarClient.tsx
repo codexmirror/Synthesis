@@ -143,8 +143,14 @@ function ActionTile({ icon, label, onClick }: { icon: WalletIconName; label: str
  * Direction survives without colour — the mark points the way the money went,
  * the wording says it, and the amount is explicitly signed.
  *
- * No timestamp, category, avatar, merchant, recipient name, status, fee or memo
- * is added, because the world represents none of them.
+ * Where a Transaction carries an optional historical statement-context
+ * snapshot (a Bookstore sale, currently), its `description` becomes the row's
+ * human subject and `purpose`/`location` sit beneath it as secondary detail —
+ * the counterparty reference and direction word stay on their own line rather
+ * than being replaced, since they remain the actual financial facts. A
+ * Transaction with no statement context keeps exactly the prior compact
+ * two-line row. No timestamp, category, avatar, status, fee or invented memo
+ * is ever added, because the world represents none of that.
  */
 function DollarActivity({ activity }: { activity: readonly DollarAccountActivityEntry[] }) {
   if (activity.length === 0) {
@@ -155,16 +161,26 @@ function DollarActivity({ activity }: { activity: readonly DollarAccountActivity
   }
 
   return <div className="wallet-module dollar-activity-module">
-    {activity.map((entry) => <div className="dollar-activity" key={entry.id}>
-      <span className={`dollar-activity-mark dollar-activity-mark--${entry.direction}`} aria-hidden="true">
-        <WalletIcon name={entry.direction === 'outgoing' ? 'send' : 'receive'} />
-      </span>
-      <span className="dollar-activity-copy">
-        <strong>{entry.counterpartyReference}</strong>
-        <small>{entry.direction === 'outgoing' ? 'SENT' : 'RECEIVED'}</small>
-      </span>
-      <span className={`dollar-amount dollar-amount--${entry.direction}`}>{formatSignedDollarCents(entry.amountCents)}</span>
-    </div>)}
+    {activity.map((entry) => {
+      const context = entry.statementContext
+      const directionWord = entry.direction === 'outgoing' ? 'SENT' : 'RECEIVED'
+      const meta = context ? [context.purpose, context.location].filter(Boolean).join(' · ') : undefined
+      return <div className="dollar-activity" key={entry.id}>
+        <span className={`dollar-activity-mark dollar-activity-mark--${entry.direction}`} aria-hidden="true">
+          <WalletIcon name={entry.direction === 'outgoing' ? 'send' : 'receive'} />
+        </span>
+        <span className="dollar-activity-copy">
+          <strong>{context?.description ?? entry.counterpartyReference}</strong>
+          {context
+            ? <>
+              {meta && <small>{meta}</small>}
+              <small>{directionWord} · {entry.counterpartyReference}</small>
+            </>
+            : <small>{directionWord}</small>}
+        </span>
+        <span className={`dollar-amount dollar-amount--${entry.direction}`}>{formatSignedDollarCents(entry.amountCents)}</span>
+      </div>
+    })}
   </div>
 }
 

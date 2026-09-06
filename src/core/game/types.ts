@@ -639,6 +639,30 @@ export interface DollarFinancialSession {
 }
 
 /**
+ * A small explicit historical statement-context snapshot a Transaction may
+ * optionally carry, supplied only by the domain operation that created the
+ * movement (the Bookstore sale is the current example) — never by
+ * `transferDollars` itself, which supplies none. This is a narrow financial-
+ * history shape, not a generic metadata bag: every field is a fixed,
+ * human-readable string, captured once at the moment the Transaction was
+ * created and never re-derived afterwards.
+ *
+ * `description` and `location` are historical snapshots of whatever the
+ * creating domain's current identity/location happened to be at that moment
+ * (A01/A03) — never a live reference into that domain's current state. A
+ * later change to that domain's current identity or location must never
+ * rewrite an already-created Transaction's statement context. `purpose` is a
+ * fixed, deterministic label for the kind of movement the creating operation
+ * represents (for example `Retail sale`); it is authored, never randomized or
+ * generated.
+ */
+export interface DollarTransactionStatementContext {
+  readonly description?: string
+  readonly purpose?: string
+  readonly location?: string
+}
+
+/**
  * Represented truth that one transfer between two Financial Accounts actually
  * happened. It is Provider-owned, not Device, interface or Player state, and
  * it is deliberately not a ledger: there is no pending or settled state, no
@@ -658,6 +682,8 @@ export interface DollarTransaction {
   readonly amountCents: number
   readonly sourceAccountReference: string
   readonly destinationAccountReference: string
+  /** Optional historical statement-context snapshot; see `DollarTransactionStatementContext`. Absent for an ordinary `transferDollars` movement. */
+  readonly statementContext?: DollarTransactionStatementContext
 }
 
 /** The one concrete represented Dollar Financial Provider. */
@@ -707,6 +733,16 @@ export interface CompanyState {
 export interface BusinessBranchState {
   readonly id: string
   readonly displayName: string
+  /**
+   * Current mutable human-readable location/address this Branch represents
+   * itself as operating from, e.g. `18 Mercer Street`. Optional: a
+   * structurally valid Branch (a future distribution or hosting Branch, for
+   * example) need not represent one. Current truth only — a Transaction's
+   * historical statement-context snapshot (`DollarTransactionStatementContext`)
+   * captures this value at the moment a sale happened and never re-reads it,
+   * so changing this afterwards never rewrites already-created Transactions.
+   */
+  readonly location?: string
   readonly companyId: string
   readonly networkId: string
 }

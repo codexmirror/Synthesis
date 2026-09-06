@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { BOOKSTORE_BRANCH_ID } from './business'
+import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
 import { BOOKSTORE_BACKEND_DEVICE_ID, BOOKSTORE_BACKEND_SERVICE_ID } from './bookstoreBackend'
 import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_SALE_TRANSACTION_ID } from './bookstoreCommerce'
-import { RETAIL_CLEARING_ACCOUNT_ID, executeBookstoreSale } from './bookstoreSale'
+import { BOOKSTORE_SALE_STATEMENT_PURPOSE, RETAIL_CLEARING_ACCOUNT_ID, executeBookstoreSale } from './bookstoreSale'
 import type { GameState } from './types'
 
 const balanceOf = (state: GameState, accountId: string): number => state.dollarFinance.accounts.find(({ id }) => id === accountId)!.balanceCents
@@ -29,6 +29,7 @@ describe('executeBookstoreSale — success path', () => {
       amountCents: 2_000,
       sourceAccountReference: 'CD-9000-2000',
       destinationAccountReference: 'CD-3318-2204',
+      statementContext: { description: BOOKSTORE_BRANCH_NAME, purpose: BOOKSTORE_SALE_STATEMENT_PURPOSE, location: BOOKSTORE_BRANCH_LOCATION },
     })
     expect(result.transactionId).toBe(newTransaction.id)
 
@@ -261,5 +262,62 @@ describe('executeBookstoreSale — atomic failure paths', () => {
     const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
     expect(result).toEqual({ status: 'balance_not_representable', state })
     expect(result.state).toBe(state)
+  })
+})
+
+describe('executeBookstoreSale — historical statement-context snapshot truth', () => {
+  it('snapshots the current Branch displayName/location into the created Transaction, and a later Branch rename/relocation never rewrites it', () => {
+    const initial = createInitialGameState()
+
+    const first = executeBookstoreSale(initial, BOOKSTORE_BRANCH_ID)
+    expect(first.status).toBe('sold')
+    if (first.status !== 'sold') return
+    const firstTransaction = first.state.dollarFinance.transactions.records.find(({ id }) => id === first.transactionId)!
+    expect(firstTransaction.statementContext).toEqual({ description: 'Bookstore Branch 01', purpose: 'Retail sale', location: '18 Mercer Street' })
+    // The actual financial counterparty reference remains the separate, real historical Account-reference snapshot — never replaced by the description.
+    expect(firstTransaction.sourceAccountReference).toBe('CD-9000-2000')
+    expect(firstTransaction.destinationAccountReference).toBe('CD-3318-2204')
+
+    // Rename and relocate the Branch after the first sale.
+    const renamed: GameState = {
+      ...first.state,
+      business: { ...first.state.business, branches: first.state.business.branches.map((branch) => branch.id === BOOKSTORE_BRANCH_ID ? { ...branch, displayName: 'Downtown Books', location: '900 Founders Way' } : branch) },
+    }
+
+    const second = executeBookstoreSale(renamed, BOOKSTORE_BRANCH_ID)
+    expect(second.status).toBe('sold')
+    if (second.status !== 'sold') return
+    const secondTransaction = second.state.dollarFinance.transactions.records.find(({ id }) => id === second.transactionId)!
+    // The later sale snapshots the Branch's new current identity/location...
+    expect(secondTransaction.statementContext).toEqual({ description: 'Downtown Books', purpose: 'Retail sale', location: '900 Founders Way' })
+    expect(secondTransaction.sourceAccountReference).toBe('CD-9000-2000')
+    expect(secondTransaction.destinationAccountReference).toBe('CD-3318-2204')
+
+    // ...without ever rewriting the earlier Transaction's own historical snapshot.
+    const firstTransactionAfterRename = second.state.dollarFinance.transactions.records.find(({ id }) => id === first.transactionId)!
+    expect(firstTransactionAfterRename.statementContext).toEqual({ description: 'Bookstore Branch 01', purpose: 'Retail sale', location: '18 Mercer Street' })
+  })
+
+  it('creates no statement context, no Transaction, and no CompletedSale on a refused sale', () => {
+    const initial = createInitialGameState()
+    const closed: GameState = { ...initial, bookstoreOperations: { records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, open: false } : record) } }
+    const result = executeBookstoreSale(closed, BOOKSTORE_BRANCH_ID)
+    expect(result.status).toBe('closed')
+    expect(result.state).toBe(closed)
+    expect(result.state.dollarFinance.transactions.records).toEqual(initial.dollarFinance.transactions.records)
+  })
+
+  it('omits the location field from statement context entirely for a Branch with no represented location, rather than inventing one', () => {
+    const initial = createInitialGameState()
+    const noLocation: GameState = {
+      ...initial,
+      business: { ...initial.business, branches: initial.business.branches.map((branch) => branch.id === BOOKSTORE_BRANCH_ID ? { ...branch, location: undefined } : branch) },
+    }
+    const result = executeBookstoreSale(noLocation, BOOKSTORE_BRANCH_ID)
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    const transaction = result.state.dollarFinance.transactions.records.find(({ id }) => id === result.transactionId)!
+    expect(transaction.statementContext).toEqual({ description: 'Bookstore Branch 01', purpose: 'Retail sale' })
+    expect(transaction.statementContext).not.toHaveProperty('location')
   })
 })

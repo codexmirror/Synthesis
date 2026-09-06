@@ -10,13 +10,14 @@ import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_
 import type { GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
 import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
-import { createInitialBusinessState } from './business'
+import { BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME, createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
 import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
 import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence'
+import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 
-export const GAME_STATE_VERSION = 75
+export const GAME_STATE_VERSION = 76
 
 export function createInitialGameState(): GameState {
   return {
@@ -73,7 +74,9 @@ export function createInitialGameState(): GameState {
         // The phone is already signed in to its own Account, which is what makes a consumer Wallet openable on it. It authorizes exactly that Account for exactly that Device.
         { id: 'dollar-session-0002', accountId: 'dollar-account-veyra-phone-v0', clientDeviceId: 'host-phone-001' },
       ] },
-      // Authored initial finance truth for the branch's one completed historical sale.
+      // Authored initial finance truth for the branch's one completed historical sale. Its statement context is
+      // authored literally to match the seeded Branch's initial displayName/location — never derived dynamically
+      // from current Business state — so a later Branch rename/relocation can never rewrite this history.
       transactions: { nextId: 2, records: [{
         id: 'dollar-transaction-0001',
         sourceAccountId: 'dollar-account-retail-clearing-v0',
@@ -81,6 +84,7 @@ export function createInitialGameState(): GameState {
         amountCents: 2_000,
         sourceAccountReference: 'CD-9000-2000',
         destinationAccountReference: 'CD-3318-2204',
+        statementContext: { description: BOOKSTORE_BRANCH_NAME, purpose: BOOKSTORE_SALE_STATEMENT_PURPOSE, location: BOOKSTORE_BRANCH_LOCATION },
       }] },
     },
     business: createInitialBusinessState(),
