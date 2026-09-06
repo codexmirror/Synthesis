@@ -15,6 +15,7 @@ import { advanceRattlerPinSearches } from './rattler'
 import { resolveCompletedDeauthAttempts } from './deauth'
 import { advanceTechnicianReaction } from './technician'
 import { advanceDeviceFirmwareUpdatesWithRemainder } from './deviceFirmwareUpdate'
+import { advanceBookstoreSalesCadence } from './bookstoreSalesCadence'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -33,6 +34,21 @@ import { advanceDeviceFirmwareUpdatesWithRemainder } from './deviceFirmwareUpdat
  * in one pass, and is exactly what happens here.
  */
 export function advanceGameState(state: GameState, elapsedMs: number, credentialAccessRandom: () => number = Math.random): GameState {
+  return advanceBookstoreSalesCadence(state, elapsedMs, (segmentState, segmentElapsedMs) => advanceGameStateCore(segmentState, segmentElapsedMs, credentialAccessRandom))
+}
+
+/**
+ * The rest of canonical advancement, exactly as it existed before Bookstore
+ * Sales Cadence: every other represented mechanic `advanceGameState` used to
+ * compose directly. `advanceBookstoreSalesCadence` now calls this once per
+ * chronological segment between Bookstore sale-opportunity boundaries so
+ * that a due opportunity observes the World/Business truth that exists at
+ * its own due time, never the truth from the start or end of a larger
+ * `elapsedMs` alone. A caller that never has a due opportunity inside
+ * `elapsedMs` still gets exactly one call here, identical to before this
+ * mechanic existed.
+ */
+function advanceGameStateCore(state: GameState, elapsedMs: number, credentialAccessRandom: () => number): GameState {
   let nextState = advanceRattlerPinSearches(state, elapsedMs)
 
   const executors = [nextState.player.localDevice, ...nextState.world.network.hosts.filter((host) => host.hardware && host.runtime).map((host) => ({ id: host.id, hardware: host.hardware!, runtime: host.runtime! }))]

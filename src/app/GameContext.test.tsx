@@ -115,10 +115,24 @@ describe('GameProvider service-analysis actions', () => {
     expect(process.processes).toHaveLength(1)
     expect(renders).toBe(2)
   })
-  it('does not rerender consumers during repeated idle scheduler ticks', () => {
+  it('publishes a state update from an idle scheduler tick now that Bookstore Sales Cadence timing genuinely advances', () => {
     vi.useFakeTimers(); let renders = 0
     function Counter() { useGameState(); renders += 1; return null }
-    render(<GameProvider><Counter /></GameProvider>); expect(renders).toBe(1); act(() => vi.advanceTimersByTime(2000)); expect(renders).toBe(1)
+    render(<GameProvider><Counter /></GameProvider>); expect(renders).toBe(1)
+    // Bookstore Sales Cadence's remainingUntilOpportunityMs is genuine canonical
+    // state that decrements on every non-zero-elapsed advancement, including an
+    // idle scheduler tick with no player action — so idle time passing is no
+    // longer a true no-op and can legitimately publish a GameState update.
+    //
+    // This only asserts that at least one further render happens. It does not
+    // assert how many renders happen, because advancing several fake-timer
+    // ticks inside one `act()` fires them synchronously in a single JS task —
+    // unlike separate real 250 ms `setInterval` firings, which are each their
+    // own task and are not batched together by React. Asserting an exact
+    // count here would encode a production batching guarantee this test setup
+    // does not actually establish.
+    act(() => vi.advanceTimersByTime(2000))
+    expect(renders).toBeGreaterThan(1)
   })
   it('clears only completed history and preserves canonical consequences and next ID', () => {
     const base = createInitialGameState()

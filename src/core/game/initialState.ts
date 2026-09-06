@@ -14,8 +14,9 @@ import { createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
 import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
+import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence'
 
-export const GAME_STATE_VERSION = 73
+export const GAME_STATE_VERSION = 74
 
 export function createInitialGameState(): GameState {
   return {
@@ -86,6 +87,7 @@ export function createInitialGameState(): GameState {
     bookstoreCommerce: createInitialBookstoreCommerceState(),
     bookstoreOperations: createInitialBookstoreOperationsState(),
     bookstoreBackend: createInitialBookstoreBackendState(),
+    bookstoreSalesCadence: createInitialBookstoreSalesCadenceState(),
     nodeWallet: {
       id: 'wallet-node-local-v0',
       address: 'node-wallet-addr-0001',

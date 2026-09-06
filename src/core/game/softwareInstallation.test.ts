@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { advanceGameState } from './gameAdvancement'
-import { createInitialGameState } from './initialState'
+import { createInitialGameState as createSeededGameState } from './initialState'
+
+/**
+ * This file exercises software installation, an unrelated domain from
+ * Bookstore Sales Cadence. Several scenarios here advance canonical elapsed
+ * time by 20,000 ms one or more times, which can cumulatively reach the
+ * seeded Bookstore Branch's own 30-second cadence boundary and produce an
+ * incidental real sale — polluting assertions this file never intends to
+ * make about Bookstore state. Pushing the seeded cadence record's next
+ * opportunity far out keeps every scenario in this file free of that
+ * coincidental cross-domain interaction.
+ */
+function createInitialGameState(): GameState {
+  const state = createSeededGameState()
+  return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
+}
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, RACK_OS_NODE_MINER_INSTALLED_EXECUTABLE_PATH, startNodeMiner } from './nodeMiner'
 import { cancelLocalProcess, deriveResourceUsage } from './processes'
 import { installLocalSoftwarePackage, installRemoteSoftwarePackage, isRecognizedSoftwarePackagePath, resolveCompletedSoftwareInstallations, SOFTWARE_INSTALLATION_RAM_REQUIRED_MIB } from './softwareInstallation'
@@ -322,7 +337,9 @@ describe('software installation completion idempotency', () => {
     const once = completeInstallation(started.state)
     const twice = resolveCompletedSoftwareInstallations(once)
     expect(twice).toBe(once)
-    expect(advanceGameState(once, 20_000)).toBe(once)
+    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of installation completion; nothing else does.
+    const rerun = advanceGameState(once, 20_000)
+    expect({ ...rerun, bookstoreSalesCadence: once.bookstoreSalesCadence }).toEqual(once)
 
     const executables = once.player.localDevice.filesystem.files.filter((file) => file.kind === 'executable')
     expect(executables).toHaveLength(1)

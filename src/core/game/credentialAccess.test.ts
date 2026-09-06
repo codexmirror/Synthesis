@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { rememberInspect, rememberScan } from './discovery'
-import { createInitialGameState } from './initialState'
+import { createInitialGameState as createSeededGameState } from './initialState'
+
+/**
+ * This file exercises Credential Access, an unrelated domain from Bookstore
+ * Sales Cadence. Several scenarios here advance canonical elapsed time by
+ * exactly 30,000 ms (or a cumulative multiple of it) purely as a generic
+ * "long enough" step for credential-access process completion, which would
+ * otherwise coincidentally land on the seeded Bookstore Branch's own
+ * 30-second cadence boundary and produce an incidental real sale — polluting
+ * assertions this file never intends to make about Bookstore state. Pushing
+ * the seeded cadence record's next opportunity far out keeps every scenario
+ * in this file free of that coincidental cross-domain interaction.
+ */
+function createInitialGameState(): GameState {
+  const state = createSeededGameState()
+  return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
+}
 import { inspectKnownTarget } from './inspect'
 import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess } from './processes'
 import { scanNetworkTarget } from './scan'
@@ -54,7 +70,9 @@ describe('Initial credential access', () => {
     expect(done.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.result?.status).toBe(status)
     expect(done.deviceAccess.established).toHaveLength(status === 'access_established' ? 1 : 0)
     expect(done.world.network.hosts[0].authenticationHistory?.records.at(-1)?.result).toBe(evidence)
-    expect(advanceGameState(done, 30_000, () => { throw Error('must not reroll') })).toBe(done)
+    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of credential access outcome; nothing else does.
+    const rerolled = advanceGameState(done, 30_000, () => { throw Error('must not reroll') })
+    expect({ ...rerolled, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
   })
 
   it('keeps KeyProbe probability bounded for unusually weak and strong compute', () => {
@@ -190,7 +208,8 @@ describe('Initial credential access', () => {
 
     // Repeated advancement resolves the completed Process at most once and must never duplicate the history entry.
     const advancedAgain = advanceGameState(done, 30_000)
-    expect(advancedAgain).toBe(done)
+    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of credential access outcome; nothing else does.
+    expect({ ...advancedAgain, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
     expect(advancedAgain.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory?.records).toHaveLength(1)
 
     expect(startCredentialAccessAttemptFromObservation(done, observation).status).toBe('access_established')

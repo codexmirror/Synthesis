@@ -813,6 +813,41 @@ export interface BookstoreBackendState {
   readonly records: readonly BookstoreBranchBackendRecord[]
 }
 
+/**
+ * Concrete branch-linked Bookstore *sales cadence* truth: the timing
+ * configuration that determines when a sale opportunity for this Bookstore
+ * Branch becomes due, keyed by stable Branch `id` exactly like
+ * `BookstoreBranchCommerceRecord`, `BookstoreBranchOperationsRecord`, and
+ * `BookstoreBranchBackendRecord` — and equally a separate record from all
+ * three. It owns only timing/configuration, never sale meaning: whether a due
+ * opportunity actually produces a sale is decided entirely by
+ * `executeBookstoreSale` (`bookstoreSale.ts`), which this record never reads
+ * or duplicates.
+ *
+ * `opportunityIntervalMs` is configuration-like: how often this Branch
+ * produces a sale opportunity. `remainingUntilOpportunityMs` is mutable
+ * runtime truth: represented elapsed time left until the next opportunity.
+ * A due opportunity is always consumed — successful or refused — and the
+ * next full cycle begins immediately; this record stores no missed
+ * opportunity, backlog, waiting customer, or retry state.
+ *
+ * This is a narrow concrete Bookstore record, not a generic Business
+ * scheduler, demand system, or universal recurrence framework: a future
+ * concrete archetype owns its own separate branch-linked timing shape rather
+ * than extending this one or a shared engine.
+ */
+export interface BookstoreBranchSalesCadenceRecord {
+  readonly branchId: string
+  /** Configuration-like: represented elapsed milliseconds between sale opportunities. Must be a positive finite number. */
+  readonly opportunityIntervalMs: number
+  /** Mutable runtime: represented elapsed milliseconds remaining until the next sale opportunity becomes due. Must be a positive finite number; a due opportunity always resets this to `opportunityIntervalMs`, never to zero or a negative remainder. */
+  readonly remainingUntilOpportunityMs: number
+}
+
+export interface BookstoreSalesCadenceState {
+  readonly records: readonly BookstoreBranchSalesCadenceRecord[]
+}
+
 /** One represented balance-changing event in the local NODE Wallet. */
 export type NodeWalletActivityRecord = NodeWalletMiningPayoutActivityRecord | NodeWalletMarketPurchaseActivityRecord
 
@@ -1556,6 +1591,8 @@ export interface GameState {
   readonly bookstoreOperations: BookstoreOperationsState
   /** Concrete branch-linked reference to the real represented Device/Service implementing a Bookstore Branch's technical backend; a separate optional join from both `bookstoreCommerce` and `bookstoreOperations`, not embedded in generic Business Branch identity. */
   readonly bookstoreBackend: BookstoreBackendState
+  /** Concrete branch-linked Bookstore sales cadence truth: when a sale opportunity becomes due for a Bookstore Branch. Owns timing only — a separate optional join from `bookstoreCommerce`, `bookstoreOperations`, and `bookstoreBackend`, not embedded in generic Business Branch identity, and never itself a sale-execution owner. */
+  readonly bookstoreSalesCadence: BookstoreSalesCadenceState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
   /** The represented software Market and the player's purchase entitlements in it. */

@@ -280,10 +280,14 @@ implements a Branch's backend.
   `src/core/game/bookstoreBackend.ts` (the separate concrete branch-linked
   backend reference and its availability derivation),
   `src/core/game/bookstoreSale.ts` (the one canonical explicit Bookstore sale
-  execution transition coordinating the above with Civic Dollar), `src/apps/rackos/`
+  execution transition coordinating the above with Civic Dollar),
+  `src/core/game/bookstoreSalesCadence.ts` (the separate concrete branch-linked
+  sales-cadence record and its canonical advancement, composed into
+  `src/core/game/gameAdvancement.ts`), `src/apps/rackos/`
 - TESTS → `src/core/game/business.test.ts`, `src/core/game/bookstoreCommerce.test.ts`,
   `src/core/game/bookstoreOperations.test.ts`, `src/core/game/bookstoreBackend.test.ts`,
-  `src/core/game/bookstoreSale.test.ts`, `src/apps/rackos/RackOS.test.tsx`
+  `src/core/game/bookstoreSale.test.ts`, `src/core/game/bookstoreSalesCadence.test.ts`,
+  `src/apps/rackos/RackOS.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
 

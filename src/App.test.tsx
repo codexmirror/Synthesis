@@ -24,6 +24,7 @@ import { connectRemoteFromObservation } from './core/game/remoteSession'
 import { createInitialGameState } from './core/game/initialState'
 import { RACK_OS_FIRMWARE_ID } from './core/game/firmwareIdentity'
 import type { FileTransfer, GameState } from './core/game/types'
+import { withoutBookstoreCadenceTiming } from './test/canonicalSnapshot'
 
 function withActiveTransfer(direction: 'download' | 'upload', base: GameState = createInitialGameState()): GameState {
   const localDeviceId = base.player.localDevice.id
@@ -258,6 +259,17 @@ afterEach(() => {
 function StateSnapshot() {
   const state = useGameState()
   return <output data-testid="state-snapshot">{JSON.stringify(state)}</output>
+}
+
+/**
+ * A "before vs. after" comparison meant to prove some unrelated interaction
+ * touched no canonical state should not fail merely because Bookstore Sales
+ * Cadence's own timing legitimately moved forward during the interaction, so
+ * this reads the snapshot with `withoutBookstoreCadenceTiming` applied.
+ */
+function stateSnapshotWithoutBookstoreCadenceTiming(): unknown {
+  const state = JSON.parse(screen.getByTestId('state-snapshot').textContent ?? '{}') as GameState
+  return withoutBookstoreCadenceTiming(state)
 }
 
 /** An entered-Session world: one accessed represented host, connected. */
@@ -1831,7 +1843,7 @@ describe('leaving editing', () => {
     act(() => { remoteInput.focus() })
     await openKeyboard(viewport)
     expect(shell).toHaveAttribute('data-editing-phase', 'editing')
-    const beforeSwitch = screen.getByTestId('state-snapshot').textContent
+    const beforeSwitch = stateSnapshotWithoutBookstoreCadenceTiming()
 
     // iOS Safari does not focus a tapped button, so the tap moves no focus and
     // the outgoing editable would simply be unmounted under the keyboard.
@@ -1853,7 +1865,7 @@ describe('leaving editing', () => {
     expect(screen.getByText('PATH')).toBeInTheDocument()
     // Presentation only: the canonical Session and every other represented
     // truth are untouched by the section change.
-    expect(screen.getByTestId('state-snapshot')).toHaveTextContent(beforeSwitch ?? '')
+    expect(stateSnapshotWithoutBookstoreCadenceTiming()).toEqual(beforeSwitch)
   })
 
   it('switches a RACK-OS section immediately when no editing interaction is open', async () => {
@@ -2006,10 +2018,10 @@ describe('NODE-OS shell and applications', () => {
         <Shell />
       </GameProvider>,
     )
-    const before = screen.getByTestId('state-snapshot').textContent
+    const before = stateSnapshotWithoutBookstoreCadenceTiming()
     await user.click(screen.getByRole('button', { name: /open wallet/i }))
     await user.click(screen.getByRole('button', { name: /back to home/i }))
-    expect(screen.getByTestId('state-snapshot')).toHaveTextContent(before ?? '')
+    expect(stateSnapshotWithoutBookstoreCadenceTiming()).toEqual(before)
   })
 
   it('shows canonical runtime values in the System app', async () => {
