@@ -256,7 +256,9 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 ### Branch commerce
 
 Concrete Company and Business Branch identity, the Branch's explicit Network
-relationship, completed-sale meaning, and settlement configuration.
+relationship, completed-sale meaning, settlement configuration, and the
+separate concrete bookstore-operations record (OPEN/CLOSED, current
+inventory, shelf capacity, checkout capacity).
 
 - CURRENT TRUTH → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - ARCHITECTURE → A01–A04 in
@@ -269,9 +271,10 @@ relationship, completed-sale meaning, and settlement configuration.
   [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - CODE → `src/core/game/business.ts` (generic Company/Branch/Network structure),
   `src/core/game/bookstoreCommerce.ts` (the one concrete branch-linked
-  bookstore-commerce record), `src/apps/rackos/`
+  bookstore-commerce record), `src/core/game/bookstoreOperations.ts` (the
+  separate concrete branch-linked bookstore-operations record), `src/apps/rackos/`
 - TESTS → `src/core/game/business.test.ts`, `src/core/game/bookstoreCommerce.test.ts`,
-  `src/apps/rackos/RackOS.test.tsx`
+  `src/core/game/bookstoreOperations.test.ts`, `src/apps/rackos/RackOS.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
 

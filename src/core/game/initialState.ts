@@ -12,8 +12,9 @@ import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RE
 import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
 import { createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
+import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 
-export const GAME_STATE_VERSION = 70
+export const GAME_STATE_VERSION = 71
 
 export function createInitialGameState(): GameState {
   return {
@@ -82,6 +83,7 @@ export function createInitialGameState(): GameState {
     },
     business: createInitialBusinessState(),
     bookstoreCommerce: createInitialBookstoreCommerceState(),
+    bookstoreOperations: createInitialBookstoreOperationsState(),
     nodeWallet: {
       id: 'wallet-node-local-v0',
       address: 'node-wallet-addr-0001',

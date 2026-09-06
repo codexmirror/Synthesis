@@ -3,7 +3,9 @@
 Status: Accepted
 Scope: Current Company and Business Branch structural identity, the Branch's
 explicit Network relationship, the concrete bookstore-commerce record attached
-to the seeded Branch, completed-sale meaning, and settlement configuration.
+to the seeded Branch, completed-sale meaning, settlement configuration, and
+the separate concrete bookstore-operations record (OPEN/CLOSED, current
+inventory, shelf capacity, checkout capacity).
 
 ## Generic Company / Branch / Network structural truth
 
@@ -78,11 +80,71 @@ truth, and returns `undefined` where a Branch has no such record at all — a
 legitimate structural state, never an error.
 
 This record is deliberately narrow and concrete, not a generic Business-commerce
-framework: a different future concrete subsystem (distribution, inventory,
-cameras, payments, storage, ...) would own its own separate branch-linked
+framework: a different concrete subsystem owns its own separate branch-linked
 record, keyed the same way by stable Branch ID, rather than extending this one
-or being embedded on `BusinessBranchState`. None of those future systems are
-implemented.
+or being embedded on `BusinessBranchState`. The one currently represented
+sibling is bookstore *operations*, below; a still-later concrete subsystem
+(distribution, cameras, payments, storage, ...) would follow the same
+pattern rather than extending either existing record.
+
+## The current concrete bookstore-operations record
+
+A second, separate branch-linked record represents the currently implemented
+Bookstore *operations* mechanic — how a Bookstore Branch is configured to
+sell and whether it is presently open — owned by
+`GameState.bookstoreOperations` (`src/core/game/bookstoreOperations.ts`):
+
+```text
+BookstoreBranchOperationsRecord
+├── branchId          — the Business Branch this record belongs to, by stable ID
+├── shelfCapacity      — configuration-like: maximum sellable inventory this Branch can shelve
+├── checkoutCapacity   — configuration-like: represented physical checkout positions
+├── open               — mutable runtime: OPEN or CLOSED
+└── currentInventory   — mutable runtime: current sellable inventory quantity
+```
+
+`shelfCapacity` and `checkoutCapacity` are configuration-like — how this
+Branch is set up — while `open` and `currentInventory` are mutable runtime
+truth; the shape keeps the two distinguishable rather than blending them.
+`checkoutCapacity` represents only a count of physical/operational checkout
+positions: it carries no customer-throughput, sales-per-hour, demand, timing,
+or autonomous-sale meaning.
+
+`createBookstoreBranchOperationsRecord` is the one sanctioned constructor for
+this record and enforces, at construction, that `currentInventory` can never
+be represented above `shelfCapacity`. V1 seeds exactly one such record for
+`bookstore-branch-01`: shelf capacity 480, checkout capacity 2, OPEN, and 360
+units of current inventory — conservative authored fixture values, not a
+generation range, minimum/maximum, or economic tier. A different Bookstore
+Branch varies purely through this same record's configuration/runtime values
+(different capacities, inventory, or OPEN/CLOSED) — never through
+branch-specific code, and never by branching on `bookstore-branch-01`'s
+literal ID or display name.
+
+`resolveBookstoreOperationsForBranch(state, branchId)` resolves this record
+for one Branch and returns `undefined` where a Branch has no such record at
+all — a legitimate structural state, never an error. It is a wholly separate,
+independent join from `resolveBookstoreCommerceForBranch`: a Branch may have
+operations without commerce, commerce without operations, both, or neither,
+and none of those combinations is invalid.
+
+This slice implements no Economic Tier, valuation, Bookstore staffing,
+Bookstore security generation, advertising effects, upgrades, ownership,
+demand, or autonomous/scheduled sales. It does not touch the existing Petra
+Technician incident-response mechanic, which remains separately implemented
+current truth (`docs/current/NETWORK_ACCESS.md`).
+
+### No universal Business archetype framework
+
+Bookstore is the first concrete Business archetype; commerce and operations
+are its own two narrow branch-linked records, not instances of a generic
+Business-operations/archetype engine, registry, or rules system — none
+exists. A future archetype (Laundry, Bank, ...) is expected to introduce its
+own concrete branch-linked model(s) the same way, varying through its own
+configuration/runtime data rather than seeded-identity dispatch. Generalizing
+into a shared abstraction is deferred until multiple concrete
+archetype implementations actually justify it; it is not implemented now and
+is not implied by this pattern repeating twice.
 
 ## Sale and finance ownership
 
@@ -106,29 +168,38 @@ Applications home, alongside Terminal, Files and System — regardless of
 whether any Business Branch exists. Opening it resolves the operated Device's
 structural Business context (`resolveBusinessOperatingContext`) and, for each
 resolved Branch, separately composes that Branch's concrete commerce
-(`resolveBookstoreCommerceForBranch`) where one exists. RACK-OS only composes
-and presents these two owners; it is not itself the canonical owner of
-either.
+(`resolveBookstoreCommerceForBranch`) and concrete operations
+(`resolveBookstoreOperationsForBranch`) where either exists. RACK-OS only
+composes and presents these three owners; it is not itself the canonical
+owner of any of them.
 
 Where no Branch resolves at all, BUSINESS truthfully states the resolved
 Network context and that no Business is configured; this is legitimate
 represented World Truth, not an error, a missing installation, or a hidden
 Company. Where one or more Branches resolve, BUSINESS presents each Branch's
-Company identity, Branch identity, and associated Network unconditionally, and
-additionally presents current settlement Account reference and completed sale
-history only where that Branch actually has a represented commerce record — a
-structurally valid Branch with none presents its identity and nothing invented
-in place of settlement or sales. It exposes no internal Account IDs,
-Credentials, Financial Sessions, balances, Player identity, or unrelated World
-Truth.
+Company identity, Branch identity, and associated Network unconditionally,
+and additionally presents:
+
+- OPEN/CLOSED, current inventory relative to shelf capacity, and checkout
+  capacity, only where that Branch has a represented operations record; and
+- current settlement Account reference and completed sale history, only
+  where that Branch has a represented commerce record.
+
+Operations and commerce are presented fully independently of each other: a
+structurally valid Branch with neither presents only its identity, with one
+presents only that one's facts, and with both presents both — nothing invented
+in place of a subsystem that is not represented. It exposes no internal
+Account IDs, Credentials, Financial Sessions, balances, Player identity, or
+unrelated World Truth.
 
 RACK-OS 1.0 is the old technical section environment and provides no
 application shell at all, so it presents no BUSINESS surface even where a
 Branch's associated Network reaches the operated Device. Installing RACK-OS
-1.1 Business creates no Company, Branch, commerce record, financial state, or
-Network association of its own — it only makes the built-in BUSINESS read
-surface available; whether that surface finds any Business Branch or commerce
-record is unrelated to the Firmware.
+1.1 Business creates no Company, Branch, commerce record, operations record,
+financial state, or Network association of its own — it only makes the
+built-in BUSINESS read surface available; whether that surface finds any
+Business Branch, commerce record, or operations record is unrelated to the
+Firmware.
 
 Browsing changes no GameState, Discovery, Knowledge, finance, access, or
 business state. Settlement editing/redirection and future sales are not
