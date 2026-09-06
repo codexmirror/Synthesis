@@ -16,7 +16,7 @@ import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
 import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence'
 
-export const GAME_STATE_VERSION = 74
+export const GAME_STATE_VERSION = 75
 
 export function createInitialGameState(): GameState {
   return {

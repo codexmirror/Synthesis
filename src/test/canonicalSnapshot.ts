@@ -13,9 +13,10 @@ import type { GameState } from '../core/game/types'
  * This normalizes only that one field, to a fixed deterministic value,
  * before such a comparison — it deliberately preserves everything else about
  * cadence's represented shape (record presence/count, `branchId`,
- * `opportunityIntervalMs`, and ordering), so a test using this still catches
- * a real regression that added, removed, or reconfigured a cadence record,
- * rather than only ignoring legitimate background timing.
+ * `locationOpportunityRatePerHour`, `attractivenessMultiplier`, and
+ * ordering), so a test using this still catches a real regression that
+ * added, removed, or reconfigured a cadence record, rather than only
+ * ignoring legitimate background timing.
  */
 export function withoutBookstoreCadenceTiming<T extends { readonly bookstoreSalesCadence?: GameState['bookstoreSalesCadence'] }>(state: T): T {
   if (!state.bookstoreSalesCadence) return state

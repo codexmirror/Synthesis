@@ -32,9 +32,26 @@ import { advanceBookstoreSalesCadence } from './bookstoreSalesCadence'
  * history), so resolving them as three explicit sequential passes over
  * `nextState.process.processes` is equivalent to resolving them positionally
  * in one pass, and is exactly what happens here.
+ *
+ * `credentialAccessRandom` and `bookstoreDemandRandom` are semantically
+ * independent random sources for unrelated mechanics that may both be
+ * consumed during the same call: Credential Access probability and Bookstore
+ * demand sampling never share or advance each other's sequence merely
+ * because both happen to occur within one `advanceGameState` call. Each
+ * defaults independently to `Math.random` in production.
  */
-export function advanceGameState(state: GameState, elapsedMs: number, credentialAccessRandom: () => number = Math.random): GameState {
-  return advanceBookstoreSalesCadence(state, elapsedMs, (segmentState, segmentElapsedMs) => advanceGameStateCore(segmentState, segmentElapsedMs, credentialAccessRandom))
+export function advanceGameState(
+  state: GameState,
+  elapsedMs: number,
+  credentialAccessRandom: () => number = Math.random,
+  bookstoreDemandRandom: () => number = Math.random,
+): GameState {
+  return advanceBookstoreSalesCadence(
+    state,
+    elapsedMs,
+    (segmentState, segmentElapsedMs) => advanceGameStateCore(segmentState, segmentElapsedMs, credentialAccessRandom),
+    bookstoreDemandRandom,
+  )
 }
 
 /**
