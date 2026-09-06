@@ -85,7 +85,11 @@ function replaceCadenceRecord(state: GameState, next: BookstoreBranchSalesCadenc
  * segment instead of one large call, so the two are equivalent whenever the
  * composed mechanics are themselves deterministic and partition-coherent
  * (as `advanceGameState`'s own module documentation already requires of its
- * per-Device causal composition).
+ * per-Device causal composition). Segments are walked iteratively rather
+ * than recursively, so a large `elapsedMs` containing many thousands of due
+ * opportunities (a seeded 30-second interval makes this an ordinary
+ * consequence of a large but legitimate canonical elapsed value) advances in
+ * a bounded loop instead of consuming call-stack depth per opportunity.
  *
  * One due opportunity always calls the existing canonical
  * `executeBookstoreSale` exactly once for that Branch and is consumed
@@ -93,47 +97,61 @@ function replaceCadenceRecord(state: GameState, next: BookstoreBranchSalesCadenc
  * sale did or did not complete, never retries a refused opportunity, and
  * never stores backlog, missed-opportunity, or waiting-customer state. The
  * next full cycle begins immediately after every due opportunity.
+ *
+ * Cadence mutates canonical state only where represented cadence truth
+ * actually advances: a non-positive `elapsedMs` has no timer to advance, and
+ * a Branch with no represented cadence record at all has no cadence truth to
+ * advance, so both delegate straight to `advanceWorld` without manufacturing
+ * a synthetic `bookstoreSalesCadence` copy of their own — preserving
+ * whatever state/reference behavior the rest of canonical advancement
+ * legitimately produces on its own.
  */
 export function advanceBookstoreSalesCadence(
   state: GameState,
   elapsedMs: number,
   advanceWorld: (state: GameState, elapsedMs: number) => GameState,
 ): GameState {
-  // A record's `remainingUntilOpportunityMs` is always positive, so this is
-  // empty whenever `elapsedMs` cannot reach any opportunity at all —
-  // including `elapsedMs <= 0`, which then still calls `advanceWorld` exactly
-  // once, matching this call's behavior before Sales Cadence existed.
-  const dueRecords = state.bookstoreSalesCadence.records.filter((record) => record.remainingUntilOpportunityMs <= elapsedMs)
-  if (dueRecords.length === 0) {
-    const decremented: GameState = {
-      ...state,
-      bookstoreSalesCadence: {
-        records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: record.remainingUntilOpportunityMs - elapsedMs })),
-      },
+  if (elapsedMs <= 0 || state.bookstoreSalesCadence.records.length === 0) return advanceWorld(state, elapsedMs)
+
+  let currentState = state
+  let remainingElapsedMs = elapsedMs
+
+  while (remainingElapsedMs > 0) {
+    // A record's `remainingUntilOpportunityMs` is always positive, so this is
+    // empty whenever no record can reach a due opportunity within what is
+    // left of the elapsed interval.
+    const dueRecords = currentState.bookstoreSalesCadence.records.filter((record) => record.remainingUntilOpportunityMs <= remainingElapsedMs)
+    if (dueRecords.length === 0) {
+      const decremented: GameState = {
+        ...currentState,
+        bookstoreSalesCadence: {
+          records: currentState.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: record.remainingUntilOpportunityMs - remainingElapsedMs })),
+        },
+      }
+      currentState = advanceWorld(decremented, remainingElapsedMs)
+      break
     }
-    return advanceWorld(decremented, elapsedMs)
+
+    // Chronologically the earliest due opportunity across every cadence
+    // record. `advanceWorld` only ever sees this smaller segment, so the
+    // World/Business truth it produces is exactly the truth that exists at
+    // this due instant — never truth from later in a larger `elapsedMs`.
+    const segmentMs = Math.min(...dueRecords.map((record) => record.remainingUntilOpportunityMs))
+    let nextState = advanceWorld(currentState, segmentMs)
+
+    for (const record of nextState.bookstoreSalesCadence.records) {
+      if (record.remainingUntilOpportunityMs !== segmentMs) {
+        nextState = replaceCadenceRecord(nextState, { ...record, remainingUntilOpportunityMs: record.remainingUntilOpportunityMs - segmentMs })
+        continue
+      }
+      // Consumed whether this attempt sells or refuses — the next full cycle begins immediately either way.
+      const attempted = executeBookstoreSale(nextState, record.branchId)
+      nextState = replaceCadenceRecord(attempted.state, { ...record, remainingUntilOpportunityMs: record.opportunityIntervalMs })
+    }
+
+    currentState = nextState
+    remainingElapsedMs -= segmentMs
   }
 
-  // Chronologically the earliest due opportunity across every cadence
-  // record. `advanceWorld` only ever sees this smaller segment, so the
-  // World/Business truth it produces is exactly the truth that exists at
-  // this due instant — never truth from later in a larger `elapsedMs`.
-  const segmentMs = Math.min(...dueRecords.map((record) => record.remainingUntilOpportunityMs))
-  let nextState = advanceWorld(state, segmentMs)
-
-  for (const record of nextState.bookstoreSalesCadence.records) {
-    if (record.remainingUntilOpportunityMs !== segmentMs) {
-      nextState = replaceCadenceRecord(nextState, { ...record, remainingUntilOpportunityMs: record.remainingUntilOpportunityMs - segmentMs })
-      continue
-    }
-    // Consumed whether this attempt sells or refuses — the next full cycle begins immediately either way.
-    const attempted = executeBookstoreSale(nextState, record.branchId)
-    nextState = replaceCadenceRecord(attempted.state, { ...record, remainingUntilOpportunityMs: record.opportunityIntervalMs })
-  }
-
-  const remainingElapsedMs = elapsedMs - segmentMs
-  // Only recurse when represented elapsed time is actually left to advance;
-  // otherwise this segment's own `advanceWorld` call above is already the
-  // one and only call this `elapsedMs` warrants.
-  return remainingElapsedMs > 0 ? advanceBookstoreSalesCadence(nextState, remainingElapsedMs, advanceWorld) : nextState
+  return currentState
 }

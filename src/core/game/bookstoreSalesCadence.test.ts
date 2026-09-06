@@ -3,6 +3,7 @@ import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID } from './business'
 import { BOOKSTORE_BACKEND_DEVICE_ID } from './bookstoreBackend'
 import {
+  advanceBookstoreSalesCadence,
   BOOKSTORE_BRANCH_SALE_OPPORTUNITY_INTERVAL_MS,
   createBookstoreBranchSalesCadenceRecord,
   resolveBookstoreSalesCadenceForBranch,
@@ -220,5 +221,63 @@ describe('Bookstore Sales Cadence — causal boundary: opportunities observe Bac
     // proving it did not blindly observe only the start-of-interval or end-of-interval truth.
     expect(salesCountOf(largeStep)).toBe(2)
     expect(inventoryOf(largeStep)).toBe(359)
+  })
+})
+
+describe('Bookstore Sales Cadence — stack-safe processing of many due opportunities', () => {
+  /** The rest of canonical advancement, stubbed to a no-op so this proof exercises only cadence's own opportunity-boundary walk, not thousands of expensive full-pipeline passes. */
+  const identityWorld = (state: GameState, _elapsedMs: number): GameState => state
+
+  it('consumes tens of thousands of due opportunities in one call without a recursive stack failure, preserving the final cadence remainder', () => {
+    const opportunities = 100_000
+    const elapsedMs = opportunities * BOOKSTORE_BRANCH_SALE_OPPORTUNITY_INTERVAL_MS
+    const seed = createInitialGameState()
+
+    let result: GameState | undefined
+    expect(() => { result = advanceBookstoreSalesCadence(seed, elapsedMs, identityWorld) }).not.toThrow()
+
+    // elapsedMs is an exact multiple of the interval, so a correct walk lands exactly
+    // back on a fresh full cycle — proving every segment was actually consumed, not
+    // merely that the call returned without error.
+    expect(cadenceOf(result!).remainingUntilOpportunityMs).toBe(BOOKSTORE_BRANCH_SALE_OPPORTUNITY_INTERVAL_MS)
+    // Every opportunity really attempted a canonical sale until Retail Clearing's seeded
+    // 80,000 cents ran out at the current 2,000-cent price (40 sales), then kept being
+    // consumed as ordinary insufficient-funds refusals — proving the loop walked every
+    // one of the 100,000 segments rather than stopping early.
+    expect(salesCountOf(result!)).toBe(41)
+    expect(inventoryOf(result!)).toBe(320)
+  })
+})
+
+describe('Bookstore Sales Cadence — no-op state semantics', () => {
+  const identityWorld = (state: GameState, _elapsedMs: number): GameState => state
+
+  it('delegates straight through with no synthetic cadence mutation at zero elapsed time', () => {
+    const state = createInitialGameState()
+    expect(advanceBookstoreSalesCadence(state, 0, identityWorld)).toBe(state)
+  })
+
+  it('delegates straight through with no synthetic cadence mutation when no Bookstore cadence record is represented', () => {
+    const initial = createInitialGameState()
+    const noCadence: GameState = { ...initial, bookstoreSalesCadence: { records: [] } }
+    expect(advanceBookstoreSalesCadence(noCadence, 5_000, identityWorld)).toBe(noCadence)
+  })
+
+  it('returns exactly what advanceWorld produces for both no-op paths, without additional wrapping', () => {
+    const state = createInitialGameState()
+    const marker: GameState = { ...state, recentActivity: { entries: [] } }
+    const stubWorld = (_state: GameState, _elapsedMs: number): GameState => marker
+
+    expect(advanceBookstoreSalesCadence(state, 0, stubWorld)).toBe(marker)
+
+    const noCadence: GameState = { ...state, bookstoreSalesCadence: { records: [] } }
+    expect(advanceBookstoreSalesCadence(noCadence, 5_000, stubWorld)).toBe(marker)
+  })
+
+  it('still advances the real countdown for positive elapsed time once at least one cadence record exists', () => {
+    const state = createInitialGameState()
+    const result = advanceBookstoreSalesCadence(state, 1, identityWorld)
+    expect(result).not.toBe(state)
+    expect(cadenceOf(result).remainingUntilOpportunityMs).toBe(29_999)
   })
 })

@@ -24,6 +24,7 @@ import { connectRemoteFromObservation } from './core/game/remoteSession'
 import { createInitialGameState } from './core/game/initialState'
 import { RACK_OS_FIRMWARE_ID } from './core/game/firmwareIdentity'
 import type { FileTransfer, GameState } from './core/game/types'
+import { withoutBookstoreCadenceTiming } from './test/canonicalSnapshot'
 
 function withActiveTransfer(direction: 'download' | 'upload', base: GameState = createInitialGameState()): GameState {
   const localDeviceId = base.player.localDevice.id
@@ -261,17 +262,14 @@ function StateSnapshot() {
 }
 
 /**
- * Bookstore Sales Cadence timing is genuine canonical state that keeps
- * advancing with real represented elapsed time regardless of what a
- * scenario here is actually exercising. A "before vs. after" comparison
- * meant to prove some unrelated interaction touched no canonical state
- * should not fail merely because that background timing legitimately moved
- * forward during the interaction, so this reads the snapshot with that one
- * continuously-ticking field normalized away.
+ * A "before vs. after" comparison meant to prove some unrelated interaction
+ * touched no canonical state should not fail merely because Bookstore Sales
+ * Cadence's own timing legitimately moved forward during the interaction, so
+ * this reads the snapshot with `withoutBookstoreCadenceTiming` applied.
  */
 function stateSnapshotWithoutBookstoreCadenceTiming(): unknown {
   const state = JSON.parse(screen.getByTestId('state-snapshot').textContent ?? '{}') as GameState
-  return { ...state, bookstoreSalesCadence: { records: [] } }
+  return withoutBookstoreCadenceTiming(state)
 }
 
 /** An entered-Session world: one accessed represented host, connected. */
