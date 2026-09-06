@@ -335,7 +335,7 @@ describe('Files NODE Miner installation', () => {
     expect(screen.getByRole('heading', { name: 'NODE Miner' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'RUN' }))
     expect(within(document.querySelector('.files-app') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
-    expect(within(screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
+    expect((screen.getByText('NODE MINER').closest('.am-row') as HTMLElement).dataset.status).toBe('running')
     vi.useRealTimers()
   })
 })
@@ -363,8 +363,7 @@ describe('Files NODE Miner RUN', () => {
     expect(screen.queryByRole('button', { name: 'RUN' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('NODE payout address')).not.toBeInTheDocument()
 
-    const card = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
-    expect(within(card).getByText('RUNNING')).toBeInTheDocument()
+    expect((screen.getByText('NODE MINER').closest('.am-row') as HTMLElement).dataset.status).toBe('running')
   })
 
   it('never re-offers a normal RUN action while the same local Miner is already running, even across a different copy of the executable', async () => {
@@ -412,6 +411,8 @@ describe('Files NODE Miner RUN', () => {
     await user.click(screen.getByRole('button', { name: 'RUN' }))
     expect(within(document.querySelector('.files-app') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
 
+    // STOP lives on the Miner's own surface in the Activity Monitor.
+    await user.click(screen.getByText('NODE MINER').closest('.am-row') as HTMLElement)
     await user.click(screen.getByRole('button', { name: 'Stop NODE MINER' }))
     expect(within(document.querySelector('.files-app') as HTMLElement).queryByText('RUNNING')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'RUN' })).toBeInTheDocument()
@@ -669,7 +670,7 @@ describe('Files install review', () => {
     expect(screen.queryByText('INSTALL SOFTWARE')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'INSTALLING…' })).toBeDisabled()
     // The admitted release is the selected copy's, so a different forwarded path would fail here.
-    expect(within(screen.getByText('SOFTWARE INSTALLATION').closest('.am-activity') as HTMLElement).getByText('NODE Miner 1.1')).toBeInTheDocument()
+    expect(within(screen.getByText('SOFTWARE INSTALLATION').closest('.am-row') as HTMLElement).getByText('NODE Miner 1.1')).toBeInTheDocument()
   })
 
   it('presents a canonical admission failure truthfully instead of fabricating installation state', async () => {

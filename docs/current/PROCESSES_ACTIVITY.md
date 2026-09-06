@@ -129,13 +129,15 @@ What that Miner produces and where it routes production is owned by
 
 ## Cancellation
 
-Running finite local Process cards offer CANCEL through canonical
-`cancelLocalProcess`; cancellation immediately removes unfinished work from the
-scheduler, releases its CPU/RAM allocation, and prevents its completion
-consequence. The running FileTransfer card keeps its distinct CANCEL control
-for either direction through canonical `cancelFileTransfer`, the running NODE
-Miner card offers PAYOUT and STOP through canonical `stopNodeMiner`, and Recent Activity cards offer REMOVE
-instead.
+Lifecycle controls are offered on the selected activity's own detail surface
+rather than in the runtime overview. A running finite local Process offers
+CANCEL through canonical `cancelLocalProcess`; cancellation immediately removes
+unfinished work from the scheduler, releases its CPU/RAM allocation, and
+prevents its completion consequence. The running FileTransfer keeps its
+distinct CANCEL control for either direction through canonical
+`cancelFileTransfer`, the running NODE Miner offers PAYOUT and STOP through
+canonical `stopNodeMiner`, and an ended activity offers REMOVE instead. Recent
+Activity additionally stays clearable in bulk from its own section heading.
 
 
 ## Processes / Activity Monitor
@@ -164,20 +166,46 @@ other activity type is represented. Filter badges count running activity only,
 while Recent Activity cards for ended Processes and FileTransfers remain visible
 in the matching filtered history.
 
-Its system summary derives CPU load, RAM use, the running-activity count, and
-current network transfer usage from current state alone. NET DOWN is the active
-transfer's derived effective rate only for Download, while NET UP is that rate
-only for Upload; the opposite direction is zero. Both are presented
-against the local Device's represented `NetworkTransferCapacity`. None of this
-usage is stored as canonical state. Represented artifact byte sizes keep their
-existing decimal units, while transfer rates keep the binary units of that
-capacity.
+The application is two surfaces. The runtime overview is for comprehension and
+navigation: Device load, running activity, and recent activity. One activity's
+detail surface is where that activity's concrete runtime facts and its
+lifecycle controls live. Selecting an activity opens its detail surface and a
+single back control returns to the overview. An activity that ends while it is
+being inspected keeps the player on its surface and states its own end there;
+an activity that no longer exists at all returns the player to the overview.
 
-Running activity is the visual focus and carries only the information its own
-runtime supports: a finite operation (Service Analysis, Credential Access,
-Software Installation, Software Removal) shows its own concrete subject,
-percentage progress, CPU allocation, RAM requirement, and concrete completed
-result. Service-scoped work — Service Analysis and Credential Access — names
+Device load derives CPU load, RAM use and current network transfer usage from
+current state alone. The CPU and RAM rails are composed of the executor's own
+baseline plus one segment per running Process — that Process's canonical CPU
+allocation and its reserved RAM — so resource pressure is presented as the work
+causing it rather than as a free-standing gauge. A `FileTransfer` contributes
+to neither rail, because it holds no Process CPU or RAM. Network states the one
+active transfer's direction and rate and keeps a rail for each represented
+direction: NET DOWN is the active transfer's derived effective rate only for
+Download, while NET UP is that rate only for Upload; the opposite direction is
+zero. Both are presented against the local Device's represented
+`NetworkTransferCapacity`. None of this usage is stored as canonical state.
+Represented artifact byte sizes keep their existing decimal units, while
+transfer rates keep the binary units of that capacity. The count of running
+activity is stated by the RUNNING section itself.
+
+Running activity is the visual focus. Each activity is one row that identifies
+it — its runtime type, its own concrete subject, its relationship line, the one
+number its runtime leads with, and what it is currently holding — and opens its
+detail surface. The overview carries no lifecycle control of its own, so a list
+of several running activities stays scannable.
+
+At both densities an activity carries only the information its own runtime
+supports, and detail states what the overview does not rather than repeating
+it. A finite operation (Service Analysis, Credential Access, Software
+Installation, Software Removal) leads with its own concrete subject and
+percentage progress and states its CPU allocation and RAM requirement while it
+runs; its detail surface adds the Process's own canonical elapsed and required
+compute, states that its completion is finite, and presents the concrete
+snapshotted subject facts that operation actually recorded — the release,
+channel and publisher of a software operation, the attacked surface a
+Credential Access or RackUpdate Exploit attempt was aimed at — plus its
+concrete completed result. Service-scoped work — Service Analysis and Credential Access — names
 the Service the player legitimately remembers at that stable target and
 Service identity, with its historical endpoint beneath it, so several
 simultaneous Service Analysis Processes are told apart by what each one is
@@ -187,11 +215,13 @@ identity, the operation truthfully falls back to naming its historical
 endpoint alone. Software operations name their package or software release.
 The continuous NODE Miner operation shows CPU, RAM, configured payout
 address, cumulative gross produced, accrued unpaid production, and a derived
-units/s rate, deliberately without a percentage progress bar. A
+units/s rate, deliberately without a percentage progress bar; it is marked
+continuous rather than given a completion threshold it does not have. A
 FileTransfer is labelled DOWNLOAD or UPLOAD and shows its artifact,
 direction-aware source-to-destination relationship, transferred and total
 bytes, progress, and current effective rate, and never claims Process
-CPU or RAM. A Market distribution download is the same real DOWNLOAD runtime
+CPU or RAM — its detail surface states the link capacity it is running
+against instead of a resource block. A Market distribution download is the same real DOWNLOAD runtime
 with the same controls, stating the represented Market operator as its source
 and route (see `docs/current/MARKET.md`); the Activity Monitor keeps no
 Market-owned progress of its own. It presents no payout split or developer address, because that is
@@ -199,13 +229,17 @@ not runtime the Activity Monitor observes.
 
 Recent Activity preserves bounded snapshots of the 20 most recently ended local
 activities, including completed or cancelled finite Processes, stopped NODE
-Miners, and completed or cancelled Upload or Download FileTransfers. A cancelled finite Process preserves its partial progress and is explicitly
-labelled CANCELLED without presenting active CPU or RAM ownership. Completed outcomes remain distinct from
-cancellation, while other ended activity continues to rely on placement and
-concrete outcomes rather than a generic lifecycle state. History is presented
-more quietly than running work and stays clearable either individually or all
-at once. Clearing all of it is confirmed inside the application surface rather
-than by a browser dialog.
+Miners, and completed or cancelled Upload or Download FileTransfers. A
+cancelled finite Process preserves its partial progress and is explicitly
+labelled CANCELLED. Ended work of every kind states no resource block at all,
+because it released its allocation; absence is the truthful presentation, not a
+block of zeroes. Completed outcomes remain distinct from cancellation, while
+other ended activity continues to rely on placement and concrete outcomes
+rather than a generic lifecycle state. History is presented more quietly than
+running work, is inspectable in the same detail surface as running work, and
+stays clearable either individually — through REMOVE on the ended activity's
+own surface — or all at once from the Recent Activity heading. Clearing all of
+it is confirmed inside the application surface rather than by a browser dialog.
 
 Recent Activity may be cleared without:
 
@@ -262,6 +296,10 @@ Local STOP is unchanged and still archives its own Device's Miner.
   allocation is released.
 - Continuous Processes never complete from elapsed work. Do not give NODE Miner
   a percentage completion bar or a generic stopped state.
+- The overview and the detail surface are two densities of the same derived
+  presentation, not two models. Detail must state what the overview does not;
+  it must not restate the same facts one level deeper, and it must not invent
+  facts the activity's own runtime does not represent in order to fill a block.
 - Recent Activity is the local Device's own runtime observation. A completed
   remote `software_installation` Process is neither archived into it nor
   retained in `ProcessState`, and a remote NODE Miner STOP archives nothing,

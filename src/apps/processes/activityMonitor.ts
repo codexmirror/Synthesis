@@ -2,7 +2,7 @@ import { deriveActiveFileTransferRateBytesPerSecond, deriveFileTransferDirection
 import { deriveResourceUsage, type ResourceUsage } from '../../core/game/processes'
 import { NODE_MINER_COMPUTE_SECONDS_PER_UNIT } from '../../core/game/nodeMiner'
 import type { DeviceAccess, DeviceAccessFileTransfer, DiscoveryState, FileTransfer, GameProcess, GameState, NetworkTransferCapacity, NodeMinerProcess, RecentActivityEntry } from '../../core/game/types'
-import { formatByteProgress, formatTransferRate } from '../byteFormat'
+import { formatByteProgress, formatBytes, formatTransferRate } from '../byteFormat'
 
 /**
  * Pure presentation adapter for the Activity Monitor.
@@ -12,6 +12,14 @@ import { formatByteProgress, formatTransferRate } from '../byteFormat'
  * runtime — into one player-facing activity list. It owns no gameplay state,
  * stores nothing, and never merges those domains: a transfer stays a transfer
  * and is never represented as a `GameProcess`.
+ *
+ * Each activity is derived at two densities, because the application presents
+ * it at two: a `row` the runtime overview can scan (what it is, what it is
+ * working on, its one headline number, and the resources it is holding), and
+ * `sections` the activity's own detail surface presents. The two are not the
+ * same information at different sizes — the overview deliberately carries
+ * less, and detail carries what only that runtime supports. Nothing is padded
+ * out so that the runtime types look alike.
  */
 
 export type ActivityCategory = 'operation' | 'transfer'
@@ -25,6 +33,9 @@ export const ACTIVITY_FILTERS = [
 
 export interface ActivityFact { readonly label: string; readonly value: string }
 
+/** One titled block of an activity's detail surface. Only blocks its runtime supports are produced. */
+export interface ActivitySection { readonly heading: string; readonly facts: readonly ActivityFact[] }
+
 export interface ActivityOutcome {
   readonly tone: 'positive' | 'neutral' | 'negative'
   readonly headline: string
@@ -33,6 +44,8 @@ export interface ActivityOutcome {
 
 export interface MonitorActivity {
   readonly id: string
+  /** Stable selection key across the two independent runtime domains. */
+  readonly key: string
   readonly category: ActivityCategory
   /** Runtime type of this activity, e.g. SERVICE ANALYSIS or DOWNLOAD. */
   readonly kindLabel: string
@@ -43,10 +56,14 @@ export interface MonitorActivity {
   readonly status: 'running' | 'recent'
   /** Absent for continuous runtime with no finite completion threshold (e.g. NODE Miner): never rendered as a fake 0-100% bar. */
   readonly progressPercent?: number
-  /** Compact metrics meaningful to this runtime type; never padded out. */
-  readonly facts: readonly ActivityFact[]
-  /** Wide rows for long values such as filesystem paths. */
-  readonly details: readonly ActivityFact[]
+  /** True only for runtime that never completes from elapsed work. Marks it as such instead of implying a completion threshold. */
+  readonly continuous?: boolean
+  /** The one number this runtime type leads with in the overview. */
+  readonly metric?: ActivityFact
+  /** Pre-formatted overview meta, e.g. what the activity is currently holding. Never padded to a fixed length. */
+  readonly summary: readonly string[]
+  /** Detail-surface blocks. Empty for a runtime whose state supports nothing beyond its overview row. */
+  readonly sections: readonly ActivitySection[]
   readonly outcome?: ActivityOutcome
   /** True only for runtime that STOP (rather than CANCEL/REMOVE) can terminate, e.g. NODE Miner. */
   readonly stoppable?: boolean
@@ -54,27 +71,52 @@ export interface MonitorActivity {
   readonly cancellable?: boolean
 }
 
+/**
+ * One contributor to a Device load rail. Segments exist so resource pressure
+ * reads as the work causing it rather than as a free-standing gauge: every
+ * segment is one running Process's own canonical allocation or reservation.
+ */
+export interface LoadSegment { readonly id: string; readonly label: string; readonly percent: number }
+
+export interface MonitorCpuLoad {
+  readonly totalPercent: number
+  readonly baselinePercent: number
+  readonly segments: readonly LoadSegment[]
+}
+
+export interface MonitorRamLoad {
+  readonly usedMiB: number
+  readonly availableMiB: number
+  readonly capacityMiB: number
+  readonly totalPercent: number
+  readonly baselinePercent: number
+  readonly segments: readonly LoadSegment[]
+}
+
 export interface MonitorNetworkUsage {
   /** Current derived transfer usage; not stored canonical state. */
   readonly downloadBytesPerSecond: number
   readonly uploadBytesPerSecond: number
   readonly capacity: NetworkTransferCapacity
+  /** The direction the one active transfer is using, if any. */
+  readonly activeDirection?: 'download' | 'upload'
 }
 
 export interface MonitorSummary {
-  readonly cpuPercent: number
-  readonly baselineCpuPercent: number
-  readonly ramUsedMiB: number
-  readonly ramAvailableMiB: number
-  readonly ramCapacityMiB: number
-  readonly ramPercent: number
-  readonly activeCount: number
+  readonly cpu: MonitorCpuLoad
+  readonly ram: MonitorRamLoad
   readonly network: MonitorNetworkUsage
+  readonly activeCount: number
 }
 
 export interface ActivityMonitor {
   readonly summary: MonitorSummary
   readonly activities: readonly MonitorActivity[]
+}
+
+/** How a Process names its own runtime type. `generic` has no authored label of its own. */
+function processKindLabel(process: GameProcess): string {
+  return process.kind === 'generic' ? 'PROCESS' : process.label
 }
 
 export function deriveActivityMonitor(state: GameState): ActivityMonitor {
@@ -90,19 +132,34 @@ export function deriveActivityMonitor(state: GameState): ActivityMonitor {
     .map((entry) => toRecentActivity(entry, state, usage))
     .reverse()
   const activities = [...(transfer ? [...operations, transfer.activity] : operations), ...recent]
+
+  // Load segments come from the executor's own running Processes. A
+  // FileTransfer contributes to neither rail: it holds no Process CPU or RAM.
+  const runningProcesses = state.process.processes.filter((process) => process.status === 'running' && process.executorDeviceId === device.id)
+  const cpuSegments = runningProcesses
+    .map((process) => ({ id: process.id, label: processKindLabel(process), percent: usage.cpuAllocationByProcess[process.id] ?? 0 }))
+    .filter(({ percent }) => percent > 0)
+  const ramSegments = runningProcesses
+    .map((process) => ({ id: process.id, label: processKindLabel(process), percent: usage.ramCapacityMiB > 0 ? process.ramRequiredMiB / usage.ramCapacityMiB * 100 : 0 }))
+    .filter(({ percent }) => percent > 0)
+
   return {
     summary: {
-      cpuPercent: usage.totalCpuLoad,
-      baselineCpuPercent: usage.baselineCpuLoad,
-      ramUsedMiB: usage.baselineRamMiB + usage.processRamMiB,
-      ramAvailableMiB: usage.availableRamMiB,
-      ramCapacityMiB: usage.ramCapacityMiB,
-      ramPercent: usage.totalRamUsage,
+      cpu: { totalPercent: usage.totalCpuLoad, baselinePercent: usage.baselineCpuLoad, segments: cpuSegments },
+      ram: {
+        usedMiB: usage.baselineRamMiB + usage.processRamMiB,
+        availableMiB: usage.availableRamMiB,
+        capacityMiB: usage.ramCapacityMiB,
+        totalPercent: usage.totalRamUsage,
+        baselinePercent: usage.ramCapacityMiB > 0 ? usage.baselineRamMiB / usage.ramCapacityMiB * 100 : 0,
+        segments: ramSegments,
+      },
       activeCount: activities.filter((activity) => activity.status === 'running').length,
       network: {
         downloadBytesPerSecond: transfer?.direction === 'download' ? transfer.rateBytesPerSecond : 0,
         uploadBytesPerSecond: transfer?.direction === 'upload' ? transfer.rateBytesPerSecond : 0,
         capacity: device.network.transferCapacity,
+        ...(transfer ? { activeDirection: transfer.direction } : {}),
       },
     },
     activities,
@@ -113,6 +170,15 @@ export function filterActivities(activities: readonly MonitorActivity[], filter:
   if (filter === 'operations') return activities.filter((activity) => activity.category === 'operation')
   if (filter === 'transfers') return activities.filter((activity) => activity.category === 'transfer')
   return activities
+}
+
+/** Count of running activity under one filter. Used by the filter badges, which count live work only. */
+export function countRunning(activities: readonly MonitorActivity[], filter: ActivityFilterId): number {
+  return filterActivities(activities, filter).filter((activity) => activity.status === 'running').length
+}
+
+export function findActivity(activities: readonly MonitorActivity[], key: string | undefined): MonitorActivity | undefined {
+  return key === undefined ? undefined : activities.find((activity) => activity.key === key)
 }
 
 /**
@@ -146,25 +212,75 @@ function toOperationSubject(process: Exclude<GameProcess, NodeMinerProcess>, dis
     : { titleLabel: 'TARGET', title: process.startedEndpoint }
 }
 
+/**
+ * The detail blocks a finite operation's own snapshotted state supports.
+ *
+ * Only what the Process actually recorded is stated. Nothing is inferred from
+ * current World Truth, and a kind that recorded nothing beyond its subject
+ * contributes no block rather than an empty one.
+ */
+function toOperationSubjectSection(process: Exclude<GameProcess, NodeMinerProcess>): ActivitySection | undefined {
+  // Service-scoped work already states its endpoint as the subject line above;
+  // repeating it here would make detail a copy of the row rather than more of
+  // the runtime. What it adds is the concrete surface the attempt was aimed at,
+  // which the Process snapshotted at admission.
+  if (process.kind === 'credential_access' || process.kind === 'rack_update_exploit') {
+    return process.vulnerabilityId ? { heading: 'SURFACE', facts: [{ label: 'WEAKNESS', value: process.vulnerabilityId }] } : undefined
+  }
+  if (process.kind === 'software_installation') {
+    return { heading: 'SUBJECT', facts: [
+      { label: 'RELEASE', value: process.releaseId },
+      ...(process.channel ? [{ label: 'CHANNEL', value: process.channel }] : []),
+      ...(process.publisher ? [{ label: 'PUBLISHER', value: process.publisher }] : []),
+    ] }
+  }
+  if (process.kind === 'software_removal') {
+    return { heading: 'SUBJECT', facts: [{ label: 'RELEASE', value: process.releaseId }] }
+  }
+  if (process.kind === 'flipper_module_integration') {
+    return { heading: 'SUBJECT', facts: [
+      { label: 'MODULE', value: process.moduleReleaseId },
+      { label: 'SIZE', value: formatBytes(process.moduleSizeBytes) },
+      { label: 'HOST', value: process.hostReleaseId },
+    ] }
+  }
+  return undefined
+}
+
 function toOperationActivity(process: GameProcess, usage: ResourceUsage, access: readonly DeviceAccess[], discovery: DiscoveryState, executorComputeCapacity: number, recent: boolean, cancelled = false): MonitorActivity {
   if (process.kind === 'node_miner') return toNodeMinerActivity(process, usage, executorComputeCapacity, recent)
   const running = process.status === 'running'
   const progressPercent = Math.round(process.workCompleted / process.workRequired * 100)
+  const cpuPercent = Math.round(usage.cpuAllocationByProcess[process.id] ?? 0)
+  const holding = running && !cancelled
+  const subject = toOperationSubjectSection(process)
   return {
     id: process.id,
+    key: `operation:${process.id}`,
     category: 'operation',
-    kindLabel: process.kind === 'generic' ? 'PROCESS' : process.label,
+    kindLabel: processKindLabel(process),
     ...toOperationSubject(process, discovery),
     status: recent ? 'recent' : 'running',
     progressPercent,
-    facts: [
-      { label: 'PROGRESS', value: `${progressPercent}%` },
-      ...(!cancelled ? [
-        { label: 'CPU', value: `${Math.round(usage.cpuAllocationByProcess[process.id] ?? 0)}%` },
-        { label: 'RAM', value: `${running ? process.ramRequiredMiB : 0} MiB` },
-      ] : []),
+    metric: { label: 'PROGRESS', value: `${progressPercent}%` },
+    summary: holding ? [`${cpuPercent}% CPU`, `${process.ramRequiredMiB} MiB`] : [],
+    sections: [
+      // The subject line above already leads with this activity's progress, so
+      // the block states the Process's own canonical elapsed and required
+      // compute, which the rounded percentage does not carry.
+      { heading: 'WORK', facts: [
+        { label: 'COMPUTE', value: `${Math.round(process.workCompleted).toLocaleString('en-US')} / ${process.workRequired.toLocaleString('en-US')}` },
+        { label: 'COMPLETION', value: 'FINITE' },
+      ] },
+      // Only running work owns an allocation. Ended work — completed or
+      // cancelled — released it, so it states no resource block at all rather
+      // than a block of zeroes.
+      ...(holding ? [{ heading: 'RESOURCES', facts: [
+        { label: 'CPU', value: `${cpuPercent}%` },
+        { label: 'RAM', value: `${process.ramRequiredMiB} MiB` },
+      ] }] : []),
+      ...(subject ? [subject] : []),
     ],
-    details: [],
     outcome: cancelled ? { tone: 'neutral', headline: 'CANCELLED', details: [] } : toOperationOutcome(process, access),
     cancellable: running,
   }
@@ -173,7 +289,8 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
 /**
  * Continuous NODE Miner runtime has no finite completion threshold, so it
  * deliberately carries no `progressPercent`: rendering a 0-100% bar for
- * indefinite work would misrepresent it as approaching completion.
+ * indefinite work would misrepresent it as approaching completion. It is
+ * marked `continuous` instead, which is what its runtime actually is.
  *
  * It presents this Process's own gross production and what it routes to its
  * configured payout address. Whatever else the running release does with
@@ -183,22 +300,36 @@ function toOperationActivity(process: GameProcess, usage: ResourceUsage, access:
 function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, executorComputeCapacity: number, recent: boolean): MonitorActivity {
   const cpuPercent = recent ? 0 : usage.cpuAllocationByProcess[process.id] ?? 0
   const allocatedCompute = executorComputeCapacity * cpuPercent / 100
-  const unitsPerSecond = allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_UNIT
+  const unitsPerSecond = Math.round(allocatedCompute / NODE_MINER_COMPUTE_SECONDS_PER_UNIT)
+  const produced = process.producedNodeUnits
+  const unpaid = produced - process.payoutNodeUnits - process.developerFeeNodeUnits
   return {
     id: process.id,
+    key: `operation:${process.id}`,
     category: 'operation',
     kindLabel: process.label,
     titleLabel: 'RELEASE',
     title: process.releaseId,
     status: recent ? 'recent' : 'running',
-    facts: [
-      ...(!recent ? [{ label: 'CPU', value: `${Math.round(cpuPercent)}%` }, { label: 'RAM', value: `${process.ramRequiredMiB} MiB` }] : []),
-      { label: 'PRODUCED', value: `${process.producedNodeUnits.toLocaleString('en-US')} units` },
-      { label: 'UNPAID', value: `${(process.producedNodeUnits - process.payoutNodeUnits - process.developerFeeNodeUnits).toLocaleString('en-US')} units` },
-    ],
-    details: [
-      { label: 'ADDRESS', value: process.payoutAddress },
-      ...(unitsPerSecond > 0 ? [{ label: 'RATE', value: `${Math.round(unitsPerSecond).toLocaleString('en-US')} units/s` }] : []),
+    continuous: true,
+    metric: recent
+      ? { label: 'PRODUCED', value: `${produced.toLocaleString('en-US')} units` }
+      : { label: 'RATE', value: `${unitsPerSecond.toLocaleString('en-US')} units/s` },
+    summary: recent
+      ? [`${produced.toLocaleString('en-US')} units produced`]
+      : [`${Math.round(cpuPercent)}% CPU`, `${process.ramRequiredMiB} MiB`, `${unpaid.toLocaleString('en-US')} units unpaid`],
+    sections: [
+      { heading: 'PRODUCTION', facts: [
+        { label: 'PRODUCED', value: `${produced.toLocaleString('en-US')} units` },
+        { label: 'UNPAID', value: `${unpaid.toLocaleString('en-US')} units` },
+        ...(unitsPerSecond > 0 ? [{ label: 'RATE', value: `${unitsPerSecond.toLocaleString('en-US')} units/s` }] : []),
+        { label: 'COMPLETION', value: 'CONTINUOUS' },
+      ] },
+      ...(!recent ? [{ heading: 'RESOURCES', facts: [
+        { label: 'CPU', value: `${Math.round(cpuPercent)}%` },
+        { label: 'RAM', value: `${process.ramRequiredMiB} MiB` },
+      ] }] : []),
+      { heading: 'CONFIGURATION', facts: [{ label: 'PAYOUT ADDRESS', value: process.payoutAddress }, { label: 'BUILD', value: process.buildId }] },
     ],
     stoppable: !recent,
   }
@@ -269,10 +400,14 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
     ? { route: `${state.market.operator.name} → ${device.displayName}`, source: state.market.operator.name }
     : deriveDeviceTransferEndpoints(state, transfer, direction)
   if (!endpoints) return undefined
+  const capacity = direction === 'download'
+    ? device.network.transferCapacity.downloadBytesPerSecond
+    : device.network.transferCapacity.uploadBytesPerSecond
   return {
     rateBytesPerSecond, direction,
     activity: {
       id: transfer.id,
+      key: `transfer:${transfer.id}`,
       category: 'transfer',
       kindLabel: direction.toUpperCase(),
       titleLabel: 'ARTIFACT',
@@ -280,14 +415,23 @@ function deriveTransferPresentation(state: GameState): TransferPresentation | un
       route: endpoints.route,
       status: 'running',
       progressPercent,
-      facts: [
-        { label: 'PROGRESS', value: `${progressPercent}%` },
-        { label: 'TRANSFERRED', value: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal) },
-        ...(rateBytesPerSecond > 0 ? [{ label: 'RATE', value: formatTransferRate(rateBytesPerSecond) }] : []),
+      metric: { label: 'PROGRESS', value: `${progressPercent}%` },
+      summary: [
+        formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal),
+        ...(rateBytesPerSecond > 0 ? [formatTransferRate(rateBytesPerSecond)] : []),
       ],
-      details: [
-        ...(endpoints.source ? [{ label: 'SOURCE', value: endpoints.source }] : []),
-        { label: 'DESTINATION', value: transfer.destinationPath },
+      // A transfer claims no Process CPU or RAM. Its resource block is the
+      // network capacity it is actually running against, and nothing else.
+      sections: [
+        { heading: 'TRANSFER', facts: [
+          { label: 'TRANSFERRED', value: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal) },
+          ...(rateBytesPerSecond > 0 ? [{ label: 'RATE', value: formatTransferRate(rateBytesPerSecond) }] : []),
+          { label: 'LINK CAPACITY', value: formatTransferRate(capacity) },
+        ] },
+        { heading: 'ROUTE', facts: [
+          ...(endpoints.source ? [{ label: 'SOURCE', value: endpoints.source }] : []),
+          { label: 'DESTINATION', value: transfer.destinationPath },
+        ] },
       ],
     },
   }
@@ -322,10 +466,26 @@ function toTransferActivity(transfer: FileTransfer, localDeviceId: string, sourc
   const progressPercent = transfer.bytesTotal > 0 ? Math.floor(transfer.bytesTransferred / transfer.bytesTotal * 100) : 0
   const direction = deriveFileTransferDirection(localDeviceId, transfer) ?? 'download'
   return {
-    id: transfer.id, category: 'transfer', kindLabel: direction.toUpperCase(), titleLabel: 'ARTIFACT', title: basename(transfer.destinationPath), route,
-    status: 'recent', progressPercent,
-    facts: [{ label: 'PROGRESS', value: `${progressPercent}%` }, { label: 'TRANSFERRED', value: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal) }],
-    details: [...(sourcePath ? [{ label: 'SOURCE', value: sourcePath }] : []), { label: 'DESTINATION', value: transfer.destinationPath }],
+    id: transfer.id,
+    key: `transfer:${transfer.id}`,
+    category: 'transfer',
+    kindLabel: direction.toUpperCase(),
+    titleLabel: 'ARTIFACT',
+    title: basename(transfer.destinationPath),
+    route,
+    status: 'recent',
+    progressPercent,
+    metric: { label: 'PROGRESS', value: `${progressPercent}%` },
+    summary: [formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal)],
+    sections: [
+      { heading: 'TRANSFER', facts: [
+        { label: 'TRANSFERRED', value: formatByteProgress(transfer.bytesTransferred, transfer.bytesTotal) },
+      ] },
+      { heading: 'ROUTE', facts: [
+        ...(sourcePath ? [{ label: 'SOURCE', value: sourcePath }] : []),
+        { label: 'DESTINATION', value: transfer.destinationPath },
+      ] },
+    ],
   }
 }
 

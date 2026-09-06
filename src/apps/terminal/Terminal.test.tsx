@@ -16,6 +16,10 @@ import { installLocalSoftwarePackage } from '../../core/game/softwareInstallatio
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { Processes } from '../processes/Processes'
 
+/** Terminal's own surface. Scoped queries keep an assertion about Terminal
+ *  output from reaching a co-rendered application's legitimate wording. */
+const terminal = () => within(document.querySelector('.terminal') as HTMLElement)
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
@@ -406,12 +410,11 @@ describe('Terminal NODE Miner CLI', () => {
     expect(screen.getByText('NODE MINER STARTED')).toBeInTheDocument()
     expect(screen.getByText(`PAYOUT ${state.nodeWallet.address}`)).toBeInTheDocument()
     // The shared node-miner CLI never exposes the internal global GameProcess ID as a Device-local process number.
-    expect(screen.queryByText(/PROCESS/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/process-0001/)).not.toBeInTheDocument()
+    expect(terminal().queryByText(/PROCESS/)).not.toBeInTheDocument()
+    expect(terminal().queryByText(/process-0001/)).not.toBeInTheDocument()
 
     // The very same Process is immediately visible through Processes.
-    const minerCard = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
-    expect(within(minerCard).getByText('RUNNING')).toBeInTheDocument()
+    expect((screen.getByText('NODE MINER').closest('.am-row') as HTMLElement).dataset.status).toBe('running')
 
     await user.type(input, 'node-miner run --payout other{enter}')
     expect(screen.getByText('ALREADY RUNNING')).toBeInTheDocument()
@@ -440,11 +443,11 @@ describe('Terminal NODE Miner CLI', () => {
     await user.type(input, `node-miner run --payout ${state.nodeWallet.address}{enter}`)
     await user.type(input, 'node-miner status{enter}')
     expect(screen.getByText('STATUS RUNNING')).toBeInTheDocument()
-    expect(screen.queryByText(/PROCESS/)).not.toBeInTheDocument()
+    expect(terminal().queryByText(/PROCESS/)).not.toBeInTheDocument()
 
     await user.type(input, 'node-miner stop{enter}')
     expect(screen.getByText('STOPPED')).toBeInTheDocument()
-    expect((screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement).dataset.status).toBe('recent')
+    expect((screen.getByText('NODE MINER').closest('.am-row') as HTMLElement).dataset.status).toBe('recent')
 
     await user.type(input, 'node-miner status{enter}')
     expect(screen.getByText('STATUS IDLE')).toBeInTheDocument()
@@ -467,8 +470,7 @@ describe('Terminal NODE Miner CLI', () => {
     render(<GameProvider initialState={runningWithoutExecutable}><Terminal /><Processes /></GameProvider>)
 
     // The already-running Process is independent of its source executable and still shows in Processes.
-    const minerCard = screen.getByText('NODE MINER').closest('.am-activity') as HTMLElement
-    expect(within(minerCard).getByText('RUNNING')).toBeInTheDocument()
+    expect((screen.getByText('NODE MINER').closest('.am-row') as HTMLElement).dataset.status).toBe('running')
 
     // But installed metadata alone cannot conjure the missing executable back into CLI availability.
     await userEvent.setup().type(screen.getByLabelText('Command input'), 'node-miner status{enter}')

@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
@@ -540,6 +540,8 @@ describe('Activity Monitor recognition', () => {
     expect(screen.getByText('DOWNLOAD')).toBeInTheDocument()
     expect(screen.getByText('nodescan-exp-1.1.pkg')).toBeInTheDocument()
     expect(screen.getByText('Open Package Exchange → node-01')).toBeInTheDocument()
+    // The transfer's own surface offers the canonical transfer control.
+    fireEvent.click(screen.getByText('DOWNLOAD').closest('.am-row') as HTMLElement)
     expect(screen.getByRole('button', { name: 'Cancel active DOWNLOAD' })).toHaveTextContent('CANCEL')
   })
 
@@ -548,6 +550,7 @@ describe('Activity Monitor recognition', () => {
     if (started.status !== 'started') throw new Error('expected started')
     render(<GameProvider initialState={advanceGameState(started.state, 2_000)}><Processes /><StateProbe /></GameProvider>)
     const user = userEvent.setup()
+    await user.click(screen.getByText('DOWNLOAD').closest('.am-row') as HTMLElement)
     await act(async () => { await user.click(screen.getByRole('button', { name: 'Cancel active DOWNLOAD' })) })
     expect(probe()).toMatchObject({ transfer: null, entitlements: [NODESCAN_OFFER] })
     expect(probe().files).not.toContain('/home/user/downloads/nodescan-exp-1.1.pkg')
