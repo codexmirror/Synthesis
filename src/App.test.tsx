@@ -260,6 +260,20 @@ function StateSnapshot() {
   return <output data-testid="state-snapshot">{JSON.stringify(state)}</output>
 }
 
+/**
+ * Bookstore Sales Cadence timing is genuine canonical state that keeps
+ * advancing with real represented elapsed time regardless of what a
+ * scenario here is actually exercising. A "before vs. after" comparison
+ * meant to prove some unrelated interaction touched no canonical state
+ * should not fail merely because that background timing legitimately moved
+ * forward during the interaction, so this reads the snapshot with that one
+ * continuously-ticking field normalized away.
+ */
+function stateSnapshotWithoutBookstoreCadenceTiming(): unknown {
+  const state = JSON.parse(screen.getByTestId('state-snapshot').textContent ?? '{}') as GameState
+  return { ...state, bookstoreSalesCadence: { records: [] } }
+}
+
 /** An entered-Session world: one accessed represented host, connected. */
 function remoteConnectedState(): GameState {
   const base = createInitialGameState()
@@ -1831,7 +1845,7 @@ describe('leaving editing', () => {
     act(() => { remoteInput.focus() })
     await openKeyboard(viewport)
     expect(shell).toHaveAttribute('data-editing-phase', 'editing')
-    const beforeSwitch = screen.getByTestId('state-snapshot').textContent
+    const beforeSwitch = stateSnapshotWithoutBookstoreCadenceTiming()
 
     // iOS Safari does not focus a tapped button, so the tap moves no focus and
     // the outgoing editable would simply be unmounted under the keyboard.
@@ -1853,7 +1867,7 @@ describe('leaving editing', () => {
     expect(screen.getByText('PATH')).toBeInTheDocument()
     // Presentation only: the canonical Session and every other represented
     // truth are untouched by the section change.
-    expect(screen.getByTestId('state-snapshot')).toHaveTextContent(beforeSwitch ?? '')
+    expect(stateSnapshotWithoutBookstoreCadenceTiming()).toEqual(beforeSwitch)
   })
 
   it('switches a RACK-OS section immediately when no editing interaction is open', async () => {
@@ -2006,10 +2020,10 @@ describe('NODE-OS shell and applications', () => {
         <Shell />
       </GameProvider>,
     )
-    const before = screen.getByTestId('state-snapshot').textContent
+    const before = stateSnapshotWithoutBookstoreCadenceTiming()
     await user.click(screen.getByRole('button', { name: /open wallet/i }))
     await user.click(screen.getByRole('button', { name: /back to home/i }))
-    expect(screen.getByTestId('state-snapshot')).toHaveTextContent(before ?? '')
+    expect(stateSnapshotWithoutBookstoreCadenceTiming()).toEqual(before)
   })
 
   it('shows canonical runtime values in the System app', async () => {

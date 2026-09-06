@@ -7,7 +7,9 @@ to the seeded Branch, completed-sale meaning, settlement configuration, the
 separate concrete bookstore-operations record (OPEN/CLOSED, current
 inventory, shelf capacity, checkout capacity), and the separate concrete
 bookstore-backend record referencing the real represented Device/Service
-that technically implements the Branch's backend.
+that technically implements the Branch's backend, and the separate concrete
+bookstore-sales-cadence record that determines when a sale opportunity for
+the Branch becomes due.
 
 ## Generic Company / Branch / Network structural truth
 
@@ -187,8 +189,9 @@ resolve, availability is derived fresh from that Device's own
 `open` truth — never a stored status flag on the record itself, so backend
 availability can never drift from the real technical state it describes.
 This is a wholly separate, independent join from
-`resolveBookstoreCommerceForBranch` and `resolveBookstoreOperationsForBranch`:
-a Branch may have any combination of the three concrete subsystems, or none.
+`resolveBookstoreCommerceForBranch`, `resolveBookstoreOperationsForBranch`,
+and `resolveBookstoreSalesCadenceForBranch`: a Branch may have any
+combination of these concrete subsystems, or none.
 
 This slice implements no writable backend administration, no Business
 authentication/permission model, no vulnerability or exploit on the backend
@@ -201,15 +204,15 @@ represented Service does (`docs/current/NETWORK_ACCESS.md`).
 
 ### No universal Business archetype framework
 
-Bookstore is the first concrete Business archetype; commerce, operations, and
-backend are its own three narrow branch-linked records, not instances of a
-generic Business-operations/archetype engine, registry, or rules system —
-none exists. A future archetype (Laundry, Bank, ...) is expected to introduce
-its own concrete branch-linked model(s) the same way, varying through its own
-configuration/runtime data rather than seeded-identity dispatch. Generalizing
-into a shared abstraction is deferred until multiple concrete
-archetype implementations actually justify it; it is not implemented now and
-is not implied by this pattern repeating three times.
+Bookstore is the first concrete Business archetype; commerce, operations,
+backend, and sales cadence are its own four narrow branch-linked records, not
+instances of a generic Business-operations/archetype engine, registry, or
+rules system — none exists. A future archetype (Laundry, Bank, ...) is
+expected to introduce its own concrete branch-linked model(s) the same way,
+varying through its own configuration/runtime data rather than
+seeded-identity dispatch. Generalizing into a shared abstraction is deferred
+until multiple concrete archetype implementations actually justify it; it is
+not implemented now and is not implied by this pattern repeating.
 
 ## Sale and finance ownership
 
@@ -258,9 +261,61 @@ Operations, Commerce, or Civic Dollar state.
 
 This is one explicit domain transition, not a cadence: nothing here decides
 *when* a sale is attempted, there is no timer, countdown, or autonomous
-demand, and calling it twice is two independent explicit attempts. A later
-Sales Cadence slice decides when this operation is attempted; this slice only
-defines what one attempt means.
+demand, and calling it twice is two independent explicit attempts. Sales
+Cadence (below) decides when this operation is attempted; this remains the
+sole definition of what one attempt means.
+
+### Sales cadence
+
+A fourth, separate branch-linked record represents the currently implemented
+Bookstore *sales cadence* mechanic — when a sale opportunity for a Bookstore
+Branch becomes due — owned by `GameState.bookstoreSalesCadence`
+(`src/core/game/bookstoreSalesCadence.ts`):
+
+```text
+BookstoreBranchSalesCadenceRecord
+├── branchId                      — the Business Branch this record belongs to, by stable ID
+├── opportunityIntervalMs         — configuration-like: represented elapsed ms between opportunities
+└── remainingUntilOpportunityMs   — mutable runtime: represented elapsed ms left until the next opportunity
+```
+
+This record owns timing and configuration only; it never reads or duplicates
+any of `executeBookstoreSale`'s prerequisites, and it never writes inventory,
+Accounts, Transactions, CompletedSales, Backend, or Business state directly.
+`createBookstoreBranchSalesCadenceRecord` is the one sanctioned constructor
+and enforces, at construction, that both fields are positive finite numbers.
+V1 seeds exactly one such record for `bookstore-branch-01`:
+`opportunityIntervalMs = 30_000` and initially `remainingUntilOpportunityMs =
+30_000` — an authored V1 Bookstore fixture, not a universal law for every
+Bookstore or Business. There is no free sale at game start, initial-state
+construction, or a zero-elapsed advancement; the first opportunity exists
+only after 30,000 ms of actual canonical elapsed advancement.
+`resolveBookstoreSalesCadenceForBranch(state, branchId)` resolves this record
+for one Branch and returns `undefined` where a Branch has no such record at
+all, exactly like the three sibling resolvers above.
+
+`advanceBookstoreSalesCadence` (called from `advanceGameState` in
+`gameAdvancement.ts`, ahead of the rest of canonical advancement) is the
+canonical advancement for every represented cadence record. On each call it
+chronologically partitions the given `elapsedMs` at each Branch's own
+opportunity boundary: it advances the remainder of canonical state
+(`advanceGameStateCore`, the same composition `advanceGameState` used before
+this mechanic existed) up to exactly the next due instant, calls the existing
+canonical `executeBookstoreSale(state, branchId)` exactly once for that
+Branch, and only then continues with whatever elapsed time is left — so a due
+opportunity always observes the World/Business truth that exists at its own
+due time, never truth from the start or the end of a larger `elapsedMs`
+alone, and a large elapsed step correctly contains multiple chronological
+opportunities rather than at most one. A due opportunity is always consumed —
+whether `executeBookstoreSale` sells or refuses — and the next full
+`opportunityIntervalMs` cycle begins immediately either way: cadence stores
+no missed opportunity, backlog, waiting customer, retry, or lost-revenue
+state, and a prerequisite that becomes valid again after a missed opportunity
+never triggers an immediate retry or recovery burst.
+
+This is a narrow concrete Bookstore record, not a generic Business
+scheduler, demand system, or universal recurrence framework — exactly like
+its three siblings above.
 
 ### Retail Clearing
 
@@ -284,7 +339,9 @@ resolved Branch, separately composes that Branch's concrete commerce
 (`resolveBookstoreOperationsForBranch`), and concrete backend
 (`resolveBookstoreBackendForBranch`) where any exists. RACK-OS only composes
 and presents these four owners; it is not itself the canonical owner of any
-of them.
+of them. It presents no sales-cadence timing: `resolveBookstoreSalesCadenceForBranch`
+owns purely internal timing truth with no player-facing representation in
+this slice.
 
 Where no Branch resolves at all, BUSINESS truthfully states the resolved
 Network context and that no Business is configured; this is legitimate

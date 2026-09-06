@@ -43,7 +43,18 @@ function State() {
   return <output data-testid="state">{JSON.stringify(useGameState())}</output>
 }
 
-const canonical = (): GameState => JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
+/**
+ * Bookstore Sales Cadence timing is genuine canonical state that keeps
+ * advancing with real represented elapsed time regardless of what this
+ * suite's entirely unrelated VEYRA scenarios do. Every `canonical()`
+ * snapshot here is used to assert "nothing else changed" across some
+ * interaction, so it normalizes away that one continuously-ticking field
+ * rather than pinning every such assertion to incidental background timing.
+ */
+const canonical = (): GameState => {
+  const state = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
+  return { ...state, bookstoreSalesCadence: { records: [] } }
+}
 const accountBalance = (state: GameState, accountId: string) => state.dollarFinance.accounts.find(({ id }) => id === accountId)!.balanceCents
 const phoneSurface = () => screen.getByLabelText('VEYRA OS personal device environment')
 /** Everything the phone's owner would see, excluding the Shell's operating-context frame. */

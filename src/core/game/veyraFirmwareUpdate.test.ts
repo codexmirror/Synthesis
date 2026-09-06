@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { createInitialGameState } from './initialState'
+import { createInitialGameState as createSeededGameState } from './initialState'
+
+/**
+ * This file exercises VEYRA firmware update, an unrelated domain from
+ * Bookstore Sales Cadence. `installFully` advances canonical elapsed time
+ * well past 30,000 ms, which reaches the seeded Bookstore Branch's own
+ * 30-second cadence boundary and produces an incidental real sale —
+ * polluting assertions this file never intends to make about Bookstore
+ * state. Pushing the seeded cadence record's next opportunity far out keeps
+ * every scenario in this file free of that coincidental cross-domain
+ * interaction.
+ */
+function createInitialGameState(): GameState {
+  const state = createSeededGameState()
+  return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
+}
 import { connectRemoteFromObservation } from './remoteSession'
 import { advanceGameState } from './gameAdvancement'
 import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'

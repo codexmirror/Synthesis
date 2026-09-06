@@ -7,6 +7,7 @@ import { advanceGameState } from '../core/game/gameAdvancement'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import { RACK_OS_FIRMWARE_ID } from '../core/game/firmwareIdentity'
 import type { DeviceAccessFileTransfer, FirmwareState, GameState } from '../core/game/types'
+import { withoutBookstoreCadenceTiming } from '../test/canonicalSnapshot'
 import { Shell } from './Shell'
 import type { EditingViewportState } from './useEditingViewport'
 import shellCss from './shell.css?raw'
@@ -114,11 +115,11 @@ describe('Remote Session handoff', () => {
   it('enters without mutating GameState, disconnects canonically, and gates a later session again', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={connectedState()}><Shell /><Capture /></GameProvider>)
-    const beforeEntry = screen.getByTestId('state').textContent
+    const beforeEntry = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState)
 
     await user.click(screen.getByRole('button', { name: 'ENTER TRUTH-OS →' }))
     expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBeInTheDocument()
-    expect(screen.getByTestId('state')).toHaveTextContent(beforeEntry ?? '')
+    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState)).toEqual(beforeEntry)
 
     act(() => { actions.disconnectRemoteSession() })
     expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
@@ -156,14 +157,14 @@ describe('Remote Session handoff', () => {
     expect(screen.getByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' })).toBeInTheDocument()
     expect(screen.queryByText(/REMOTE · truth-server/)).not.toBeInTheDocument()
 
-    const beforeReturn = screen.getByTestId('state').textContent
+    const beforeReturn = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState)
     await user.click(screen.getByRole('button', { name: 'RETURN REMOTE · 198.51.100.47' }))
     expect(screen.getByLabelText('TRUTH-OS remote operating environment')).toBe(rackOs)
     expect(rackOs).not.toHaveAttribute('hidden')
     expect(document.querySelector('.rack-output')).toBe(remoteOutput)
     expect(remoteOutput).toHaveTextContent('198.51.100.47')
     expect(screen.queryByLabelText('Remote session handoff')).not.toBeInTheDocument()
-    expect(screen.getByTestId('state')).toHaveTextContent(beforeReturn ?? '')
+    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState)).toEqual(beforeReturn)
     expect((JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState).remoteSession.active).toEqual(session)
   })
 

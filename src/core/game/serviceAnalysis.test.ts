@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { createInitialGameState } from './initialState'
+import { createInitialGameState as createSeededGameState } from './initialState'
 import { SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
 import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage } from './processes'
-import type { GameProcess, ServiceAnalysisProcess } from './types'
+import type { GameProcess, GameState, ServiceAnalysisProcess } from './types'
+
+/**
+ * This file exercises Service Analysis, an unrelated domain from Bookstore
+ * Sales Cadence. Several scenarios here advance canonical elapsed time by
+ * 20,000 ms one or more times, which can cumulatively reach the seeded
+ * Bookstore Branch's own 30-second cadence boundary and produce an
+ * incidental real sale — polluting assertions this file never intends to
+ * make about Bookstore state. Pushing the seeded cadence record's next
+ * opportunity far out keeps every scenario in this file free of that
+ * coincidental cross-domain interaction.
+ */
+function createInitialGameState(): GameState {
+  const state = createSeededGameState()
+  return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
+}
 import { scanNetworkTarget } from './scan'
 import { inspectKnownTarget } from './inspect'
 import { rememberInspect, rememberScan } from './discovery'
@@ -76,7 +91,9 @@ describe('Service Analysis', () => {
     const done = advanceGameState(started(), 20_000); const process = done.process.processes[0]
     expect(process).toMatchObject({ status: 'completed', workCompleted: 1000, result: { status: 'weaknesses_detected' } })
     expect(done.knowledge.discoveredVulnerabilities).toEqual([{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }])
-    expect(advanceGameState(done, 20_000)).toBe(done)
+    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of Service Analysis outcome; nothing else does.
+    const rerun = advanceGameState(done, 20_000)
+    expect({ ...rerun, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
     const again = start(done); expect(again.status).toBe('started'); if (again.status !== 'started') return
     const twice = advanceGameState(again.state, 20_000); expect(twice.knowledge.discoveredVulnerabilities).toHaveLength(1)
     expect(analysis(twice.process.processes[0]).result).toBe(analysis(process).result)

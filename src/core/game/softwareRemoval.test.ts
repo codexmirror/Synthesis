@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { advanceGameState } from './gameAdvancement'
-import { createInitialGameState } from './initialState'
+import { createInitialGameState as createSeededGameState } from './initialState'
+
+/**
+ * This file exercises software removal, an unrelated domain from Bookstore
+ * Sales Cadence. Several scenarios here advance canonical elapsed time by
+ * 20,000 ms one or more times, which can cumulatively reach the seeded
+ * Bookstore Branch's own 30-second cadence boundary and produce an
+ * incidental real sale — polluting assertions this file never intends to
+ * make about Bookstore state. Pushing the seeded cadence record's next
+ * opportunity far out keeps every scenario in this file free of that
+ * coincidental cross-domain interaction.
+ */
+function createInitialGameState(): GameState {
+  const state = createSeededGameState()
+  return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
+}
 import { inspectKnownTarget } from './inspect'
 import { rememberInspect, rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
@@ -176,7 +191,9 @@ describe('software removal completion: NodeScan', () => {
     // Idempotent: repeated resolution/advancement never restores twice or mutates further.
     const twice = resolveCompletedSoftwareRemovals(done)
     expect(twice).toBe(done)
-    expect(advanceGameState(done, 20_000)).toBe(done)
+    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of removal completion; nothing else does.
+    const rerun = advanceGameState(done, 20_000)
+    expect({ ...rerun, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
   })
 
   it('removes future Inspect capability after restoration while a previously stored Enhanced Inspect Discovery snapshot remains untouched', () => {
@@ -337,7 +354,9 @@ describe('software removal completion idempotency', () => {
     const once = completeRemoval(removalStarted.state)
     const twice = resolveCompletedSoftwareRemovals(once)
     expect(twice).toBe(once)
-    expect(advanceGameState(once, 20_000)).toBe(once)
+    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of removal completion; nothing else does.
+    const rerun = advanceGameState(once, 20_000)
+    expect({ ...rerun, bookstoreSalesCadence: once.bookstoreSalesCadence }).toEqual(once)
     expect(once.player.localDevice.filesystem.files.filter((file) => file.kind === 'executable')).toHaveLength(0)
   })
 })
