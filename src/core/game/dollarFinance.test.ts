@@ -168,6 +168,16 @@ describe('Dollar transfers', () => {
     expect(result.state.dollarFinance.transactions).toEqual({ nextId: 1, records: [] })
   })
 
+  it('maps an unrepresentable resulting source balance to the same invalid_amount contract as any other representability refusal', () => {
+    const before = withRecipient()
+    const unsafeSource = { ...before.dollarFinance.accounts[0], balanceCents: 2 ** 60 }
+    const withUnsafeSource: GameState = { ...before, dollarFinance: { ...before.dollarFinance, accounts: before.dollarFinance.accounts.map((account) => account.id === 'dollar-account-local-v0' ? unsafeSource : account) } }
+    const result = transferDollars(withUnsafeSource, withUnsafeSource.player.localDevice.id, RECIPIENT.accountReference, 500)
+    expect(result).toEqual({ status: 'invalid_amount', state: withUnsafeSource })
+    expect(result.state.dollarFinance.accounts).toEqual(withUnsafeSource.dollarFinance.accounts)
+    expect(result.state.dollarFinance.transactions).toEqual({ nextId: 1, records: [] })
+  })
+
   it('fails closed when the recipient reference matches more than one Account', () => {
     const base = withRecipient()
     const ambiguous: GameState = { ...base, dollarFinance: { ...base.dollarFinance, accounts: [...base.dollarFinance.accounts, { ...RECIPIENT, id: 'dollar-account-fixture-c', balanceCents: 1 }] } }
@@ -290,12 +300,27 @@ describe('executeCivicDollarMovement — the canonical Account-to-Account moveme
     expect(result.state.dollarFinance.transactions).toEqual({ nextId: 1, records: [] })
   })
 
-  it('refuses a credit that could not be represented as an exact integer, unchanged', () => {
+  it('refuses when the resulting destination balance could not be represented as an exact integer, unchanged', () => {
     const before = withRecipient()
     const overflowRecipient = { ...RECIPIENT, balanceCents: Number.MAX_SAFE_INTEGER }
     const withOverflow = { ...before, dollarFinance: { ...before.dollarFinance, accounts: before.dollarFinance.accounts.map((account) => account.id === RECIPIENT.id ? overflowRecipient : account) } }
     const result = executeCivicDollarMovement(withOverflow, 'dollar-account-local-v0', RECIPIENT.id, 500)
     expect(result).toEqual({ status: 'invalid_amount', state: withOverflow })
+    expect(result.state.dollarFinance.accounts).toEqual(withOverflow.dollarFinance.accounts)
+    expect(result.state.dollarFinance.transactions).toEqual({ nextId: 1, records: [] })
+  })
+
+  it('refuses when the resulting source balance could not be represented as an exact integer, unchanged — both sides of the movement are protected symmetrically', () => {
+    const before = withRecipient()
+    // A corrupted/malformed source balance well beyond safe integer range; it
+    // still comfortably covers the amount, so this is not an insufficient-funds
+    // refusal — only the resulting debit's representability is at issue.
+    const unsafeSource = { ...before.dollarFinance.accounts[0], balanceCents: 2 ** 60 }
+    const withUnsafeSource: GameState = { ...before, dollarFinance: { ...before.dollarFinance, accounts: before.dollarFinance.accounts.map((account) => account.id === 'dollar-account-local-v0' ? unsafeSource : account) } }
+    const result = executeCivicDollarMovement(withUnsafeSource, 'dollar-account-local-v0', RECIPIENT.id, 500)
+    expect(result).toEqual({ status: 'invalid_amount', state: withUnsafeSource })
+    expect(result.state.dollarFinance.accounts).toEqual(withUnsafeSource.dollarFinance.accounts)
+    expect(result.state.dollarFinance.transactions).toEqual({ nextId: 1, records: [] })
   })
 
   it('performs no Petra reaction of its own — that stays owned by transferDollars at its existing semantic layer', () => {

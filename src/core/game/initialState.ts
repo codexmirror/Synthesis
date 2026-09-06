@@ -63,7 +63,7 @@ export function createInitialGameState(): GameState {
         { id: 'dollar-account-local-v0', accountReference: 'CD-1042-7781', balanceCents: 125_000 },
         // The Account the represented VEYRA phone is signed in to. It is an ordinary Civic Dollar Account like the player's, owned by the Provider rather than by VEYRA or by that Device.
         { id: 'dollar-account-veyra-phone-v0', accountReference: 'CD-3318-2204', balanceCents: 34_250 },
-        // A neutral payment-clearing source exists only to make the authored historical sale a real, balanced money movement. It has no Credential, Session, Device, or customer identity.
+        // The neutral finite aggregate Civic Dollar payment source for retail customers who are not individually simulated (see docs/current/BRANCH_COMMERCE.md). It has no Credential, Financial Session, Device, or represented Customer identity, and it is never automatically replenished. The authored historical sale below is its initial represented movement, not the only reason it exists.
         { id: 'dollar-account-retail-clearing-v0', accountReference: 'CD-9000-2000', balanceCents: 80_000 },
       ],
       credentials: [{ id: 'dollar-credential-local-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' }],

@@ -230,4 +230,36 @@ describe('executeBookstoreSale — atomic failure paths', () => {
     // Retail Clearing is never magically replenished to cover the shortfall.
     expect(balanceOf(result.state, RETAIL_CLEARING_ACCOUNT_ID)).toBe(500)
   })
+
+  it('refuses when the settlement credit could not be represented as an exact integer, unchanged', () => {
+    const initial = createInitialGameState()
+    const state: GameState = {
+      ...initial,
+      dollarFinance: {
+        ...initial.dollarFinance,
+        accounts: initial.dollarFinance.accounts.map((account) => account.id === BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID ? { ...account, balanceCents: 2 ** 60 } : account),
+      },
+    }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    expect(result).toEqual({ status: 'balance_not_representable', state })
+    expect(result.state).toBe(state)
+  })
+
+  it('refuses when the resulting Retail Clearing balance could not be represented as an exact integer, unchanged', () => {
+    const initial = createInitialGameState()
+    // A corrupted/malformed clearing balance well beyond safe integer range; it still
+    // comfortably covers the current unit price, so this is not an insufficient-funds
+    // refusal — only the resulting debit's representability is at issue, exactly like
+    // the symmetric guarantee executeCivicDollarMovement now enforces on both sides.
+    const state: GameState = {
+      ...initial,
+      dollarFinance: {
+        ...initial.dollarFinance,
+        accounts: initial.dollarFinance.accounts.map((account) => account.id === RETAIL_CLEARING_ACCOUNT_ID ? { ...account, balanceCents: 2 ** 60 } : account),
+      },
+    }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    expect(result).toEqual({ status: 'balance_not_representable', state })
+    expect(result.state).toBe(state)
+  })
 })

@@ -84,8 +84,11 @@ export type CivicDollarMovementResult =
  *
  * It refuses, changing nothing, when either Account cannot be found, when
  * they are the same Account, when the amount is not a positive safe integer,
- * or when the source lacks sufficient funds — including when the resulting
- * destination balance could not be represented as an exact integer.
+ * or when the source lacks sufficient funds — including when either
+ * resulting balance could not be represented as an exact integer. Both sides
+ * of the movement are protected symmetrically: a resulting source balance
+ * that could not be represented exactly refuses in exactly the same way as
+ * an unrepresentable resulting destination balance, never only one side.
  *
  * This performs no reaction of its own (Petra's transaction reaction stays
  * owned by `transferDollars`, at its existing semantic layer) and does not
@@ -99,8 +102,10 @@ export function executeCivicDollarMovement(state: GameState, sourceAccountId: st
   if (destination.id === source.id) return { status: 'same_account', state }
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0) return { status: 'invalid_amount', state }
   if (amountCents > source.balanceCents) return { status: 'insufficient_funds', state }
-  // Canonical money stays an exact integer: a credit that could not be represented exactly is refused rather than rounded.
-  if (!Number.isSafeInteger(destination.balanceCents + amountCents)) return { status: 'invalid_amount', state }
+  const resultingSourceBalance = source.balanceCents - amountCents
+  const resultingDestinationBalance = destination.balanceCents + amountCents
+  // Canonical money stays an exact integer on both sides: a resulting balance that could not be represented exactly is refused rather than rounded, for either the debit or the credit.
+  if (!Number.isSafeInteger(resultingSourceBalance) || !Number.isSafeInteger(resultingDestinationBalance)) return { status: 'invalid_amount', state }
 
   const transactions = state.dollarFinance.transactions
   const transaction: DollarTransaction = {
@@ -112,8 +117,8 @@ export function executeCivicDollarMovement(state: GameState, sourceAccountId: st
     destinationAccountReference: destination.accountReference,
   }
   const accounts = state.dollarFinance.accounts.map((account) => {
-    if (account.id === source.id) return { ...account, balanceCents: account.balanceCents - amountCents }
-    if (account.id === destination.id) return { ...account, balanceCents: account.balanceCents + amountCents }
+    if (account.id === source.id) return { ...account, balanceCents: resultingSourceBalance }
+    if (account.id === destination.id) return { ...account, balanceCents: resultingDestinationBalance }
     return account
   })
 

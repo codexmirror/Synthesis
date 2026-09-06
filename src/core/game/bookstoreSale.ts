@@ -72,6 +72,10 @@ export function executeBookstoreSale(state: GameState, branchId: string): Execut
   // Retail Clearing settled into itself is not a legitimate settlement configuration for this sale.
   if (retailClearingAccount.id === settlementAccount.id) return { status: 'settlement_unavailable', state }
   if (retailClearingAccount.balanceCents < commerce.unitPriceCents) return { status: 'insufficient_funds', state }
+  // Both resulting balances the canonical Civic Dollar movement will commit are preflighted here,
+  // exactly mirroring executeCivicDollarMovement's own symmetric source/destination representability guarantee —
+  // so that call is already proven safe and cannot itself refuse.
+  if (!Number.isSafeInteger(retailClearingAccount.balanceCents - commerce.unitPriceCents)) return { status: 'balance_not_representable', state }
   if (!Number.isSafeInteger(settlementAccount.balanceCents + commerce.unitPriceCents)) return { status: 'balance_not_representable', state }
 
   const movement = executeCivicDollarMovement(state, retailClearingAccount.id, settlementAccount.id, commerce.unitPriceCents)
