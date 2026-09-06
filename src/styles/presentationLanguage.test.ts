@@ -24,6 +24,10 @@ import dollarAccessSource from '../apps/wallet/DollarAccess.tsx?raw'
 import walletControlsSource from '../apps/wallet/walletControls.tsx?raw'
 import notesSource from '../apps/notes/Notes.tsx?raw'
 import mailSource from '../apps/mail/Mail.tsx?raw'
+import mailThreadSource from '../apps/mail/MailThreadView.tsx?raw'
+import mailComposeSource from '../apps/mail/MailCompose.tsx?raw'
+import mailAttachmentsSource from '../apps/mail/MailAttachments.tsx?raw'
+import mailConfirmSource from '../apps/mail/MailConfirm.tsx?raw'
 import terminalSource from '../apps/terminal/Terminal.tsx?raw'
 import networkSource from '../apps/network/Network.tsx?raw'
 import processesSource from '../apps/processes/Processes.tsx?raw'
@@ -44,7 +48,7 @@ import veyraFirmwareInstallSource from '../apps/veyra/VeyraFirmwareInstall.tsx?r
 
 const nodeOsStylesheets = [tokensCss, nodeUiCss, baseCss, appsCss, networkCss, processesCss, terminalCss, mailCss, walletCss, marketCss, flipperCss, shellCss]
 const allStylesheets = [...nodeOsStylesheets, rackosCss, veyraCss]
-const applicationSources = [filesSource, flipperSource, marketSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource]
+const applicationSources = [filesSource, flipperSource, marketSource, systemSource, walletSource, dollarClientSource, dollarSendSource, dollarAccessSource, walletControlsSource, notesSource, terminalSource, networkSource, processesSource, mailSource, mailThreadSource, mailComposeSource, mailAttachmentsSource, mailConfirmSource]
 
 function referencedCustomProperties(css: string): string[] {
   return [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1])

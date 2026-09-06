@@ -2,9 +2,12 @@
 
 Status: Accepted
 Scope: The player's represented in-world mail account and Petra's represented
-Company Chat, their authored messages, canonical mail read state, the
-deterministic reply operation, and the boundary between communicated
-information and Discovery/Knowledge, as currently implemented on `main`.
+Company Chat, their authored and runtime-created correspondence, canonical mail
+read state, the mailbox operations the player has over their own mailbox —
+reading, replying, composing, attaching represented local artifacts, and
+removing correspondence from the active mailbox — and the boundary between
+communicated information and Discovery/Knowledge, as currently implemented on
+`main`.
 
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
@@ -85,11 +88,14 @@ or any server; broader investigation and Firmware response remain unimplemented.
 
 ```text
 mail
-├── account          the player's represented in-world mail identity
-├── correspondents   the represented identities who have written
-├── threads          authored correspondences, in authored order
-├── nextMessageId    mailbox-monotonic message identity
-└── messages         every message actually said, in order
+├── account            the player's represented in-world mail identity
+├── correspondents     the represented identities the mailbox knows
+├── threads            correspondences, in mailbox order
+├── nextThreadId       mailbox-monotonic runtime thread identity
+├── nextMessageId      mailbox-monotonic message identity
+├── nextAttachmentId   mailbox-monotonic attachment identity
+├── messages           every message actually said, in order
+└── deletedThreadIds   correspondences removed from the active mailbox
 ```
 
 The mailbox belongs to the mail **account** (`user@node.mail`).
@@ -104,9 +110,22 @@ attributes, never identity (`A01`). A correspondent is a concrete represented
 identity only: it is not an NPC, Actor or Organization, and it carries no
 mood, stage, trust or relationship state.
 
-Threads are authored. Nothing creates a thread at runtime, so the mailbox
-allocates no thread identity. Thread order is authored order — the slice
-represents no time, so nothing is sorted by an invented chronology.
+A thread is either **authored** — its identity is a stable authored constant —
+or **created at runtime** by Compose, in which case the mailbox allocates the
+identity itself.
+
+Runtime thread identity is deterministic and mailbox-local:
+`mail-thread-0001`, `mail-thread-0002`, … allocated from `nextThreadId`, which
+never rewinds and is never reused, including after a correspondence is removed
+from the mailbox. Identity never comes from the subject, the recipient address,
+a display name, randomness, or wall-clock time — two correspondences may share
+every one of those and still be two different correspondences (`A01`). The
+authored `mail-thread-welcome` and `mail-thread-mira-staging` identities are
+unchanged by this and stay exactly as they were.
+
+Thread order is mailbox order: authored threads first, then runtime-created
+ones in the order they were created. That is insertion order, not chronology —
+the mailbox still represents no time, so nothing is sorted by an invented one.
 
 
 ## Messages
@@ -123,6 +142,49 @@ contribute to an unread count by construction.
 Message identity is deterministic and mailbox-monotonic (`message-0001`,
 `message-0002`, …), allocated from `nextMessageId`. No message identity, order
 or content comes from wall-clock time, randomness, or the browser.
+
+### Attachments
+
+A message may carry attachments: what was actually sent with it.
+
+An attachment is Mail-owned communication history, not a file. It is
+snapshotted from a concrete local `FilesystemFile` at the moment of sending and
+carries no source File identity, Device reference or path afterwards, so
+nothing can re-derive it from current filesystem truth. The two are different
+canonical things:
+
+```text
+Device filesystem owns Files      →   Mail owns what was sent
+(mutable, movable, deletable)         (fixed once communicated)
+```
+
+Every currently represented local artifact kind has its own attachment shape,
+because the facts genuinely differ: a text file's content; a software package's
+product, release, build, channel and publisher; a module's host product and
+module identity; the `deauth.ext` extension's host and compatible host release;
+an executable's program and release; a RATTLER payload's release, target Device
+and the address snapshot it already carried; a firmware installer's firmware
+release and build. Each also carries the filename it was sent as and the size
+it was, both read from the source File at send time. Flattening them into one
+generic blob would communicate less than the artifact actually stated.
+
+Consequences, all of which are load-bearing:
+
+- editing, moving or deleting the source File does not change or remove the
+  sent attachment;
+- removing the correspondence does not touch the source File;
+- a sent attachment is not a `FilesystemFile` residing on any Device, is never
+  rendered by resolving one, and offers nothing to open, install or transfer.
+
+Sending an attachment does not mutate or consume the source File, install
+software, grant ownership anywhere, or create Discovery or Knowledge. It is not
+a transfer: mail attachments deliberately do not use `FileTransfer`, and the
+mailbox represents no SMTP, mail server Device, bandwidth, transfer progress,
+delivery Process, NetworkActivity or delivery timer. Sending is immediate at
+the existing mail communication boundary.
+
+Receiving an attachment *into* a Device filesystem is not represented.
+
 
 ### Communicated facts are snapshots
 
@@ -143,6 +205,9 @@ Read/unread is canonical message state, not a presentation flag.
 - The mailbox unread count is **derived** from unread incoming messages.
 - Opening a thread is the canonical mail operation that marks that thread's
   unread incoming messages read. It touches no other thread.
+- The unread count is derived over the **active** mailbox: a correspondence the
+  player removed no longer contributes, even though its messages and their
+  canonical read state are deliberately still there.
 - A reply produced while the player is replying in that thread is created read:
   the conversation the player is looking at is never reported back to them as
   containing something new and unread.
@@ -151,24 +216,91 @@ No derived value (unread count, preview, latest sender, ordering) is stored in
 `GameState`.
 
 
-## Sending a reply
+## Sending into an existing correspondence
 
 Sending is one deterministic canonical transition:
 
 ```text
-append the player's message exactly as written
+append the player's message exactly as written, with exactly what they attached
 ↓
-resolve the thread's concrete authored reply from the real message history
+resolve the thread's concrete authored answer from the real message history
 ↓
-append that reply
+append that answer, if the thread has one
 ```
+
+Only Myra's authored first-contact correspondence has an answer. A
+correspondence the player started themselves accepts their further messages and
+stays outgoing-only: accepting a message is not a promise that anything answers
+it, and nothing generalizes the one authored interaction into a dialogue engine
+(`A16`).
+
+Whether a thread accepts anything at all is concrete cases rather than a
+canonical per-thread flag that could disagree with the correspondence itself:
+the authored NodeMail announcement is a statement and accepts nothing, a
+correspondence removed from the mailbox is not there to write into, and every
+other represented thread accepts the player's own messages.
 
 There is no delivery time, delay, typing simulation, scheduled work, or
 Process. The slice represents no communication time.
 
 `sendMailReply` refuses an empty or whitespace-only message, an unknown thread,
-and a thread with no authored interaction, in each case leaving the mailbox
-unchanged.
+the announcement thread, and a selection naming a File that no longer resolves
+on the local Device — in each case leaving the mailbox unchanged.
+
+
+## Composing a new correspondence
+
+`composeMail` is the one operation that creates a correspondence at runtime:
+
+```text
+resolve the typed address against represented correspondent truth
+↓
+allocate the mailbox's next thread identity
+↓
+append exactly one outgoing message, with exactly the attachments selected
+```
+
+**Resolution is closed.** A typed address is an addressing attribute, never
+identity (`A01`). It resolves only against an address a represented
+`MailCorrespondent` already carries, ignoring surrounding whitespace and case,
+which is addressing convention rather than identity. An address no represented
+correspondent carries resolves to nothing: the send is refused, no
+correspondent is invented, no thread and no message are created, and canonical
+state is unchanged. The account's own address is not a correspondent and does
+not resolve either.
+
+Compose also refuses an empty recipient, an empty or whitespace-only subject,
+an empty or whitespace-only message, and a selection naming a File that no
+longer resolves — each leaving the mailbox unchanged.
+
+**Nothing answers it.** A represented correspondent replying is a concrete
+authored interaction, and starting a correspondence is not one, so a new thread
+is outgoing-only unless and until something represented actually writes back.
+Compose fabricates no incoming message, no unread state, and no correspondent.
+
+Unsent compose input is presentation state in the client. The mailbox
+represents no Drafts.
+
+
+## Removing correspondence from the active mailbox
+
+`deleteMailThreads` records thread identities in `deletedThreadIds`. That is
+mailbox **presence**, not history.
+
+The thread and every message in it are deliberately retained, because what was
+actually communicated is the truth prior consequences were caused by. Removal:
+
+- takes the correspondence out of the active mailbox;
+- takes its incoming messages out of the derived unread summary;
+- leaves the source File of every sent attachment untouched;
+- leaves Discovery, Knowledge, DeviceAccess and every already-caused World
+  consequence untouched;
+- rewrites nothing Myra, or anyone else, actually said.
+
+It is deliberately not a Trash, folder, archive or restore system: there is one
+active/removed distinction and no second location for mail to live in. Removing
+an unknown or already-removed thread changes nothing, and mailbox identity
+allocation never rewinds because a correspondence was removed.
 
 
 ## Represented correspondence
@@ -176,8 +308,8 @@ unchanged.
 Two threads currently exist.
 
 **NodeMail · Welcome to NodeMail** (`system@node.mail`). One incoming message
-confirming the account is active. It is read-only: the mailbox accepts no reply
-into it.
+confirming the account is active. It is an announcement rather than a
+correspondence: the mailbox accepts nothing into that thread.
 
 **Myra Keller · something for you** (`mira@vector-node.net`). One unread
 incoming message tentatively offering the unfamiliar player a possible target,
@@ -185,6 +317,10 @@ without exposing its address. It is the one interactive correspondence.
 
 The player writes the whole reply themselves. There are no offered response
 options.
+
+Both are ordinary correspondences in every other respect: either can be
+removed from the active mailbox, and the player can attach represented local
+artifacts to a reply into Myra's thread.
 
 What Myra says is a concrete thread-specific authored rule
 (`resolveMyraFirstContactReply`), deliberately not a dialogue engine, intent
@@ -236,3 +372,11 @@ Reading, copying, or believing a communicated address grants nothing.
 - The one represented communication delay is Petra's concrete pending
   Technician response. Do not infer timestamps, general delivery timing,
   polling, or a scheduler from that authored case.
+- A sent attachment is not a file. Never render one by resolving a source File,
+  and never let the filesystem and the mailbox share one object.
+- Sending is not transfer. Do not route mail attachments through `FileTransfer`
+  or invent a delivery runtime for them.
+- Removing correspondence is presence, not erasure. Never delete messages to
+  implement it, and never let it reach the filesystem or the World.
+- A typed address is not a correspondent. An unresolved address must fail
+  closed rather than bring a new identity into existence.

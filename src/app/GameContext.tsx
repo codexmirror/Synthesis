@@ -41,7 +41,7 @@ import type { ChangeWalletProtectionForOperatedRemoteDeviceResult, VerifyDeviceP
 import type { StartVeyraFirmwareUpdateResult } from '../core/game/veyraFirmwareUpdate'
 import type { StartRackOsFirmwareUpdateResult } from '../core/game/rackOsFirmwareUpdate'
 import type { CreateRattlerPayloadResult, DeployRattlerResult } from '../core/game/rattler'
-import type { SendMailReplyResult } from '../core/game/mail'
+import type { ComposeMailInput, ComposeMailResult, SendMailReplyResult } from '../core/game/mail'
 import type { InstalledSoftware } from '../core/game/types'
 
 const GameContext = createContext<GameState | null>(null)
@@ -98,7 +98,9 @@ export interface GameActions {
   createRattlerPayload(targetAddress: string): CreateRattlerPayloadResult
   deployRattler?(): DeployRattlerResult
   openMailThread(threadId: string): void
-  sendMailReply(threadId: string, text: string): SendMailReplyResult
+  sendMailReply(threadId: string, text: string, attachmentFileIds?: readonly string[]): SendMailReplyResult
+  composeMail(input: ComposeMailInput): ComposeMailResult
+  deleteMailThreads(threadIds: readonly string[]): void
   clearRecentActivity(): void
   removeRecentActivity(activityId: string): void
 }
