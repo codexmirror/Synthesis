@@ -1550,6 +1550,107 @@ export interface MailCorrespondent {
   readonly address: string
 }
 
+/**
+ * What one attachment actually was at the moment it was sent.
+ *
+ * This is Mail-owned communication history, not a Device-owned artifact. A
+ * `FilesystemFile` lives on a Device filesystem and can be edited, moved,
+ * consumed or deleted; this snapshot is what was communicated and never
+ * changes afterwards. It therefore deliberately carries no source File or
+ * Device reference to resolve: nothing may re-derive a sent attachment from
+ * current filesystem truth (ARCHITECTURE.md A17), and a sent attachment is
+ * never a file residing anywhere.
+ *
+ * Every currently represented local artifact kind has its own member, because
+ * the represented facts genuinely differ — a text file's content, a release's
+ * product/build provenance, a module's host product, a firmware installer's
+ * firmware release. Flattening them into one generic blob would communicate
+ * less than the artifact actually stated.
+ */
+interface MailAttachmentBase {
+  /** Deterministic mailbox-monotonic attachment identity. */
+  readonly id: string
+  /** The filename as it was sent: the source File's own filename at send time, never its path or identity. */
+  readonly sentName: string
+  /** The represented size of what was sent, in bytes. */
+  readonly sizeBytes: number
+}
+
+export interface TextMailAttachment extends MailAttachmentBase {
+  readonly kind: 'text'
+  /** The text as sent. Editing the source File afterwards does not change this. */
+  readonly content: string
+}
+
+export interface SoftwarePackageMailAttachment extends MailAttachmentBase {
+  readonly kind: 'software_package'
+  readonly productId: string
+  readonly releaseId: string
+  readonly buildId: string
+  /** The release's own represented product name, distinct from `sentName`. */
+  readonly productName: string
+  readonly version: string
+  readonly channel?: string
+  readonly publisher?: string
+}
+
+export interface SoftwareModuleMailAttachment extends MailAttachmentBase {
+  readonly kind: 'software_module'
+  readonly hostProductId: string
+  readonly moduleId: string
+  readonly releaseId: string
+  readonly buildId: string
+  readonly moduleName: string
+  readonly version: string
+}
+
+export interface DeauthExtensionMailAttachment extends MailAttachmentBase {
+  readonly kind: 'deauth_extension'
+  readonly extensionId: string
+  readonly hostProductId: string
+  readonly compatibleHostReleaseId: string
+  readonly releaseId: string
+  readonly buildId: string
+  readonly version: string
+}
+
+export interface ExecutableMailAttachment extends MailAttachmentBase {
+  readonly kind: 'executable'
+  readonly programId: string
+  readonly releaseId: string
+  readonly buildId: string
+  readonly programName: string
+  readonly version: string
+}
+
+export interface RattlerPayloadMailAttachment extends MailAttachmentBase {
+  readonly kind: 'rattler_payload'
+  readonly rattlerReleaseId: string
+  readonly rattlerBuildId: string
+  /** The target Device this deployment artifact was authored against. */
+  readonly targetDeviceId: string
+  /** The address the artifact itself already carried as a snapshot when it was authored. */
+  readonly targetAddressSnapshot: string
+}
+
+export interface FirmwarePackageMailAttachment extends MailAttachmentBase {
+  readonly kind: 'firmware_package'
+  readonly firmwareId: string
+  readonly buildId: string
+  readonly firmwareName: string
+  readonly version: string
+  readonly publisher?: string
+}
+
+export type MailAttachment =
+  | TextMailAttachment
+  | SoftwarePackageMailAttachment
+  | SoftwareModuleMailAttachment
+  | DeauthExtensionMailAttachment
+  | ExecutableMailAttachment
+  | RattlerPayloadMailAttachment
+  | FirmwarePackageMailAttachment
+
 interface MailMessageBase {
   /** Deterministic mailbox-monotonic message identity and ordering. */
   readonly id: string
@@ -1560,6 +1661,11 @@ interface MailMessageBase {
    * live-projects mutable World Truth and never changes when the World does.
    */
   readonly body: string
+  /**
+   * What was actually sent with this message, snapshotted when it was sent.
+   * Absent where nothing was attached; never an empty array.
+   */
+  readonly attachments?: readonly MailAttachment[]
 }
 
 /** A message the represented correspondent sent to the player's account. */
@@ -1581,9 +1687,12 @@ export interface OutgoingMailMessage extends MailMessageBase {
 export type MailMessage = IncomingMailMessage | OutgoingMailMessage
 
 /**
- * One correspondence with one represented correspondent. V1 threads are
- * authored; nothing creates a thread at runtime, so the mailbox needs no
- * thread identity allocation.
+ * One correspondence with one represented correspondent.
+ *
+ * A thread is either authored (its identity is a stable authored constant) or
+ * created at runtime by Compose, in which case its identity is allocated
+ * mailbox-locally from `nextThreadId`. Identity never comes from the subject,
+ * the recipient address, a display name, randomness or wall-clock time.
  */
 export interface MailThread {
   readonly id: string
@@ -1602,7 +1711,22 @@ export interface MailState {
   readonly account: MailAccount
   readonly correspondents: readonly MailCorrespondent[]
   readonly threads: readonly MailThread[]
+  /** Mailbox-monotonic thread identity for runtime-created correspondence; never rewinds. */
+  readonly nextThreadId: number
   /** Mailbox-monotonic message identity; never rewinds. */
   readonly nextMessageId: number
+  /** Mailbox-monotonic attachment identity; never rewinds. */
+  readonly nextAttachmentId: number
   readonly messages: readonly MailMessage[]
+  /**
+   * Correspondences the player removed from their active mailbox.
+   *
+   * This is mailbox *presence*, not history: the thread and every message in
+   * it are deliberately retained, because what was actually communicated is
+   * the truth prior consequences were caused by. Deletion removes the
+   * correspondence from the active mailbox and from the derived unread
+   * summary, and does nothing else — no source File, Discovery, Knowledge or
+   * already-caused World consequence is touched.
+   */
+  readonly deletedThreadIds: readonly string[]
 }

@@ -1008,6 +1008,22 @@ both read the same Device-owned filesystem, installed software, and Process
 state.
 
 
+## Files as mail attachments
+
+A local File can be attached to outgoing mail. That reads the File once, at
+send time, and copies its represented facts into a Mail-owned snapshot of what
+was actually sent.
+
+It is not a transfer and not a filesystem operation. Attaching starts no
+`FileTransfer`, no `GameProcess` and no network activity, consumes no transfer
+capacity, and never mutates, moves, consumes or removes the source File. The
+sent attachment holds no File identity, Device reference or path, so it is
+never resolved back to a File and never appears as one; removing the
+correspondence it was sent in leaves the File exactly where it is. The
+attachment semantics themselves are owned by
+`docs/current/COMMUNICATION.md`.
+
+
 ## Gotchas
 
 - Artifact identity is not filename or path recognition. A package keeps its

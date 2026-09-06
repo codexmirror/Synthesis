@@ -125,15 +125,22 @@ below.
 ### Communication and mail
 
 The player's in-world mail account, correspondents, threads and messages, read
-state, authored replies, NodeMail.
+state, authored replies, runtime-created correspondence, sent attachment
+snapshots, active-mailbox deletion, NodeMail.
 
 - CURRENT TRUTH → [`current/COMMUNICATION.md`](current/COMMUNICATION.md)
-- ARCHITECTURE → A03–A04, A09 in
+- ARCHITECTURE → A01, A03–A04, A09 in
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md);
-  A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md)
+  A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md);
+  A17 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md)
+  when mail attachments and Device-owned filesystem truth meet
 - DESIGN → [`design/NODEMAIL_V1.md`](design/NODEMAIL_V1.md)
-- CODE → `src/core/game/mail.ts`,
-  `src/core/game/myraFirstContactCorrespondence.ts`, `src/apps/mail/`
+- RELATED CURRENT TRUTH → [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md)
+  (the Device-owned Files a sent attachment is snapshotted from, which mail
+  never mutates and never resolves back to)
+- CODE → `src/core/game/mail.ts`, `src/core/game/mailAttachments.ts`,
+  `src/core/game/myraFirstContactCorrespondence.ts`, `src/app/mailOperations.ts`,
+  `src/apps/mail/`
 - TESTS → `src/core/game/mail.test.ts`, `src/apps/mail/Mail.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/COMMUNICATION.md`](current/COMMUNICATION.md)
   (NodeMail presentation impact → [`current/INTERFACE_SHELL.md`](current/INTERFACE_SHELL.md))

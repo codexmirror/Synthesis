@@ -215,38 +215,62 @@ NodeMail is the NODE-OS client onto the player's represented in-world mailbox.
 It presents canonical mail state and calls the shared mail operations; it owns
 no communication truth (`docs/current/COMMUNICATION.md`).
 
-Navigation is one stacked path — inbox, thread, reply — at every width. There
-is no desktop split view. Which thread is open is application presentation
-state and never reaches `GameState`.
+Navigation is one stacked path at every width — inbox, then either a
+correspondence or Compose, each of which can open attachment selection as a
+sub-surface. There is no desktop split view. Which surface is open, which
+correspondences are selected, what has been typed but not sent, and which
+artifacts are staged are all application presentation state and never reach
+`GameState`.
 
 The application carries the shared masthead, whose subject is the mailbox
 account being presented: a different identity from the local Device that Shell
-chrome names. Inbox rows state correspondent, subject, and a preview projected
-from the latest canonical message, and mark unread threads with a filled
-marker, a brighter correspondent name, and an `UNREAD` chip. A thread states
-its subject, both parties, and its messages in order, each labeled `YOU` or
-with the correspondent's name.
+chrome names.
 
-A thread that represents no authored interaction presents no composer and says
-that the address does not accept replies.
+The inbox states three derived mailbox facts — unread, correspondences,
+messages — above one action bar (`COMPOSE`, `SELECT`) and one hairline-ruled
+index. An entry reads correspondent, subject and a preview projected from the
+latest canonical message, marks the player's own latest contribution `YOU`,
+states any sent-attachment count as a quiet chip, and marks unread three ways:
+an accent rail, brighter type, and an `UNREAD` chip. `SELECT` turns the index
+into an explicit selection mode so removal exists without putting a
+destructive control on every row.
+
+A correspondence states its subject, both parties, what it holds and its one
+`DELETE` action in a single lifted header, then lists its messages in order,
+each labeled `YOU` or with the correspondent's name and reinforced
+structurally rather than by alignment. A thread that accepts nothing presents
+no composer and says the announcement is not an open correspondence.
+
+Compose is a workspace: the sending account, a typed recipient beside the
+represented correspondents the mailbox knows, a live statement of what that
+address resolves to, a subject, a message and staged attachments. Attachment
+selection lists the local Device filesystem by stable File identity with kind,
+size, provenance and current path, and changes nothing. A sent attachment is
+presented from its own snapshot, with no path and nothing to open, install or
+transfer.
+
+Removing a correspondence is confirmed in the application, never through a
+browser-native sheet, and the confirmation states what is not removed with it.
 
 An address-shaped run of text inside a message body is rendered as a copy
 control over that literal communicated string. It is a copy affordance only: it
 offers no scan, connect or inspect action and resolves nothing.
 
-The reply composer is an ordinary multiline `textarea` plus an explicit `SEND`.
+Both composers are ordinary multiline `textarea`s plus an explicit `SEND`.
 Enter inserts a newline and never submits, because the draft is a textarea
-rather than a single-line input intercepted by a key handler. The composer is
-never autofocused, so opening a thread does not open the software keyboard, and
-`SEND` stays unavailable until the player has written something. NodeMail
-consumes the Shell-owned Editing presentation exactly as Notes and Terminal do
-and adds no VisualViewport reading, keyboard height, focus management, body
-transform, or scroll manipulation of its own.
+rather than a single-line input intercepted by a key handler. Neither is ever
+autofocused, so opening a correspondence or Compose does not open the software
+keyboard, and `SEND` stays unavailable until the player has written a message.
+NodeMail consumes the Shell-owned Editing presentation exactly as Notes and
+Terminal do and adds no VisualViewport reading, keyboard height, focus
+management, body transform, or scroll manipulation of its own; the docked send
+bar on the surfaces that hold a long draft or a long list is ordinary sticky
+positioning inside the application's own scroll container.
 
-An open thread declares two scrolling regions: the thread surface and the
-composer draft. Both are things a finger can move while the software keyboard
-is up — re-reading the correspondence while writing back, and moving through a
-long draft — and the Shell resolves the nearest one.
+Each open composer surface declares two scrolling regions: the surface and the
+draft. Both are things a finger can move while the software keyboard is up —
+re-reading the correspondence while writing back, and moving through a long
+draft — and the Shell resolves the nearest one.
 
 The presentation design behind these choices is owned by
 `docs/design/NODEMAIL_V1.md`.

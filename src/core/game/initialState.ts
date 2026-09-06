@@ -13,7 +13,7 @@ import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_M
 import { createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
 
-export const GAME_STATE_VERSION = 69
+export const GAME_STATE_VERSION = 70
 
 export function createInitialGameState(): GameState {
   return {
