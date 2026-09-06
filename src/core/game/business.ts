@@ -6,6 +6,8 @@ export const BOOKSTORE_BRANCH_ID = 'bookstore-branch-01'
 export const BOOKSTORE_BRANCH_NAME = 'Bookstore Branch 01'
 /** The existing represented foreign Network (`remote-segment-01`) this Branch explicitly operates through. */
 export const BOOKSTORE_BRANCH_NETWORK_ID = 'network-foreign-001'
+/** Current represented human-readable location/address this Branch operates from. Current mutable Branch truth, distinct from any Transaction's historical statement-context snapshot of it. */
+export const BOOKSTORE_BRANCH_LOCATION = '18 Mercer Street'
 
 export function createInitialBusinessState(): BusinessState {
   return {
@@ -13,6 +15,7 @@ export function createInitialBusinessState(): BusinessState {
     branches: [{
       id: BOOKSTORE_BRANCH_ID,
       displayName: BOOKSTORE_BRANCH_NAME,
+      location: BOOKSTORE_BRANCH_LOCATION,
       companyId: BOOKSTORE_COMPANY_ID,
       networkId: BOOKSTORE_BRANCH_NETWORK_ID,
     }],

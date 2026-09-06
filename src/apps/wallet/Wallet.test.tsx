@@ -577,6 +577,42 @@ describe('Wallet activity presentation', () => {
     expect(within(row).getByText('SENT')).toBeInTheDocument()
     expect(within(row).getByText('−$25.50')).toBeInTheDocument()
   })
+
+  it('presents a represented historical statement-context snapshot as the row subject, while keeping the actual counterparty reference and direction visible', () => {
+    const base = createInitialGameState()
+    const withContext: GameState = {
+      ...base,
+      dollarFinance: {
+        ...base.dollarFinance,
+        transactions: { nextId: 2, records: [{
+          id: 'dollar-transaction-fixture',
+          sourceAccountId: 'dollar-account-retail-clearing-v0',
+          destinationAccountId: 'dollar-account-local-v0',
+          amountCents: 2_000,
+          sourceAccountReference: 'CD-9000-2000',
+          destinationAccountReference: 'CD-1042-7781',
+          statementContext: { description: 'Bookstore Branch 01', purpose: 'Retail sale', location: '18 Mercer Street' },
+        }] },
+      },
+    }
+    render(<GameProvider initialState={withContext}><Wallet /></GameProvider>)
+
+    const row = screen.getByText('+$20.00').closest('.dollar-activity') as HTMLElement
+    expect(within(row).getByText('Bookstore Branch 01')).toBeInTheDocument()
+    expect(within(row).getByText('Retail sale · 18 Mercer Street')).toBeInTheDocument()
+    // The real financial counterparty reference and direction remain independently visible, not replaced by the description.
+    expect(within(row).getByText('RECEIVED · CD-9000-2000')).toBeInTheDocument()
+  })
+
+  it('keeps the prior compact two-line row for a Transaction with no statement context', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={withRecipient()}><Wallet /></GameProvider>)
+    await send(user, RECIPIENT.accountReference, '10.00')
+    await confirmSend(user)
+
+    const row = screen.getByText('−$10.00').closest('.dollar-activity') as HTMLElement
+    expect(row.textContent).toBe('CD-2000-0002SENT−$10.00')
+  })
 })
 
 describe('Wallet SEND composition', () => {

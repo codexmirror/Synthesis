@@ -1227,10 +1227,16 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business).toHaveTextContent('remote-segment-01')
     expect(business).toHaveTextContent('BOOK SALE')
     expect(business).toHaveTextContent('$20.00')
+    // The seeded Branch's own represented current location.
+    expect(within(business).getByText('LOCATION').closest('div')).toHaveTextContent('18 Mercer Street')
     // The seeded Branch has both a commerce record and an operations record represented.
     expect(business).toHaveTextContent('OPEN')
     expect(business).toHaveTextContent('360 / 480')
     expect(within(business).getByText('CHECKOUTS').closest('div')).toHaveTextContent('2')
+    // Demand is presented as opportunities, never as guaranteed sales, and derives from the represented cadence configuration (10/hour × 1.00).
+    expect(within(business).getByText('DEMAND OPPORTUNITIES').closest('div')).toHaveTextContent('~10 / HOUR')
+    expect(within(business).getByText('ATTRACTIVENESS').closest('div')).toHaveTextContent('1.00×')
+    expect(business.textContent).not.toMatch(/expected sales|guaranteed/i)
     // The seeded Branch also has a concrete backend represented, resolved from the real srv-02 Device/Service it references by stable ID.
     expect(business).toHaveTextContent('BACKEND')
     expect(business).toHaveTextContent('Bookstore Backend 1.0')
@@ -1240,6 +1246,8 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business.textContent).not.toContain('host-lan-002')
     expect(business.textContent).not.toContain('service-bookstore-backend-002')
     expect(business.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
+    // Internal simulation countdown truth, not player-facing Business information.
+    expect(business.textContent).not.toMatch(/remainingUntilOpportunity/i)
 
     await user.click(screen.getByRole('button', { name: /APPLICATIONS$/ }))
     expect(screen.getByRole('region', { name: 'Applications' })).toBeInTheDocument()

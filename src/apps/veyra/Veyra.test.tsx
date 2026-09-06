@@ -324,15 +324,22 @@ describe('VEYRA Wallet', () => {
     expect(wallet.textContent).not.toMatch(/pending|fee|categor|merchant|ago|today/i)
   })
 
-  it('naturally presents the real incoming branch payment from canonical activity', async () => {
+  it('naturally presents the real incoming branch payment from canonical activity, enriched with its represented historical statement context', async () => {
     const user = await enterPhone()
     await user.click(screen.getByRole('button', { name: 'Wallet' }))
 
     const wallet = screen.getByRole('region', { name: 'Wallet' })
+    // The seeded historical Transaction's statement-context snapshot makes the row read as the real Bookstore
+    // Branch payment it is, rather than a bare counterparty reference.
+    expect(wallet).toHaveTextContent('Bookstore Branch 01')
+    expect(wallet).toHaveTextContent('Retail sale')
+    expect(wallet).toHaveTextContent('18 Mercer Street')
+    // The actual financial facts — direction, counterparty reference, and signed amount — remain independently visible.
     expect(wallet).toHaveTextContent('Received')
     expect(wallet).toHaveTextContent('+$20.00')
     expect(wallet).toHaveTextContent('CD-9000-2000')
-    expect(wallet.textContent).not.toMatch(/book|sale|merchant/i)
+    // Nothing beyond the represented statement context is invented.
+    expect(wallet.textContent).not.toMatch(/fee|pending|categor|timestamp|merchant/i)
     expect(canonical().dollarFinance.transactions.records).toHaveLength(1)
   })
 

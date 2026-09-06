@@ -24,12 +24,14 @@ not implemented truth. Neither the Company nor the Branch is a generic
 Organization/Entity framework: `GameState.business` is a narrow
 `{ companies, branches }` collection specific to this domain.
 
-`BusinessBranchState` is deliberately generic structural identity only:
+`BusinessBranchState` is deliberately generic structural identity, plus the
+smallest current human-readable location this slice adds:
 
 ```text
 BusinessBranchState
 ├── id             — stable Branch identity
 ├── displayName
+├── location       — current mutable human-readable address, optional
 ├── companyId      — the owning Company, by stable identity
 └── networkId      — the LocalNetwork this Branch explicitly operates through
 ```
@@ -38,6 +40,17 @@ It carries no settlement configuration, sale history, or any other concrete
 commerce/operational field. The seeded Branch's `networkId` names the
 existing foreign LocalNetwork (`network-foreign-001`, presented as
 `remote-segment-01`) that also contains Petra's phone and `srv-02`.
+
+`location` is optional current mutable Branch truth — a structurally valid
+Branch (a future distribution or hosting Branch, for example) need not
+represent one — and is narrowly a human-readable address string, not a
+geography system, Location entity, postal-address framework, map model, or
+coordinate abstraction. The seeded Branch represents `18 Mercer Street`
+(`BOOKSTORE_BRANCH_LOCATION`). Like `displayName`, it is *current* truth: a
+Civic Dollar Transaction's own historical statement-context snapshot (below)
+captures whatever this value was at the moment a sale happened and never
+re-reads it, so renaming or relocating the Branch afterwards never rewrites
+an already-created Transaction.
 
 The Branch → Network relationship is explicit Business-owned World Truth, not
 derived from any Device's Network membership and not stored on `LocalNetwork`
@@ -229,6 +242,13 @@ record's current `settlementAccountId` later changes. There is exactly one
 authored initial sale; every other CompletedSale is the runtime consequence
 of an explicit sale execution below, never rewritten or re-priced.
 
+That authored Transaction also carries a historical statement-context
+snapshot (`docs/current/DOLLAR_FINANCE.md`) authored literally to match the
+seeded Branch's initial `displayName`/`location` — `Bookstore Branch 01`,
+`Retail sale`, `18 Mercer Street` — rather than derived dynamically from
+current Business state, so the initial represented Wallet/business history
+stays coherent with every later runtime sale's own snapshot.
+
 ### Sale execution
 
 `executeBookstoreSale(state, branchId)` (`src/core/game/bookstoreSale.ts`) is
@@ -258,6 +278,19 @@ Transaction without a CompletedSale. Backend unavailability (from either the
 Device's operational truth or a closed Service) refuses the sale the same
 way a CLOSED store or empty shelf does, without mutating Business,
 Operations, Commerce, or Civic Dollar state.
+
+On success, `executeBookstoreSale` supplies the Civic Dollar movement
+(`executeCivicDollarMovement` in `docs/current/DOLLAR_FINANCE.md`) with a
+historical statement-context snapshot of the Branch's *current*
+`displayName` and `location`, plus the fixed deterministic purpose
+`Retail sale` (`BOOKSTORE_SALE_STATEMENT_PURPOSE`) — captured once, at this
+exact moment, and never re-read afterwards. Civic Dollar itself understands
+nothing about what a Bookstore or a Business Branch is: it only stores
+whatever snapshot it is given, verbatim, on the Transaction it creates. A
+Branch's `location` is optional, so a Branch with none simply omits
+`location` from the snapshot rather than inventing one. A refused sale
+creates no Transaction and therefore no statement context, exactly like
+every other atomic failure path above.
 
 This is one explicit domain transition, not a cadence: nothing here decides
 *when* a sale is attempted, there is no timer, countdown, or autonomous
@@ -418,34 +451,41 @@ whether any Business Branch exists. Opening it resolves the operated Device's
 structural Business context (`resolveBusinessOperatingContext`) and, for each
 resolved Branch, separately composes that Branch's concrete commerce
 (`resolveBookstoreCommerceForBranch`), concrete operations
-(`resolveBookstoreOperationsForBranch`), and concrete backend
-(`resolveBookstoreBackendForBranch`) where any exists. RACK-OS only composes
-and presents these four owners; it is not itself the canonical owner of any
-of them. It presents no sales-cadence timing: `resolveBookstoreSalesCadenceForBranch`
-owns purely internal timing truth with no player-facing representation in
-this slice.
+(`resolveBookstoreOperationsForBranch`), concrete backend
+(`resolveBookstoreBackendForBranch`), and concrete sales-cadence demand
+(`resolveBookstoreSalesCadenceForBranch`) where any exists. RACK-OS only
+composes and presents these four owners; it is not itself the canonical owner
+of any of them.
 
 Where no Branch resolves at all, BUSINESS truthfully states the resolved
 Network context and that no Business is configured; this is legitimate
 represented World Truth, not an error, a missing installation, or a hidden
 Company. Where one or more Branches resolve, BUSINESS presents each Branch's
-Company identity, Branch identity, and associated Network unconditionally,
-and additionally presents:
+Company identity, Branch identity, current `location` (where represented),
+and associated Network unconditionally, and additionally presents:
 
 - OPEN/CLOSED, current inventory relative to shelf capacity, and checkout
   capacity, only where that Branch has a represented operations record;
+- `DEMAND OPPORTUNITIES` (opportunities/hour) and `ATTRACTIVENESS`, derived
+  fresh from that Branch's sales-cadence record via the existing
+  `deriveEffectiveBookstoreOpportunityRatePerHour`, only where that Branch has
+  a represented sales-cadence record. Worded as opportunities rather than
+  guaranteed sales, because OPEN/CLOSED, inventory, checkout, backend,
+  settlement, and finance truth can still refuse any given opportunity.
+  `remainingUntilOpportunityMs` is internal simulation timing, not
+  player-facing Business information, and is never presented;
 - current settlement Account reference and completed sale history, only
   where that Branch has a represented commerce record; and
 - the backend Service's own name/version and its derived ONLINE/OFFLINE
   availability, only where that Branch has a represented backend record.
 
-Operations, commerce, and backend are presented fully independently of each
-other: a structurally valid Branch with none of the three presents only its
-identity, with one presents only that one's facts, and with any combination
-presents exactly that combination — nothing invented in place of a subsystem
-that is not represented. It exposes no internal Account IDs, Credentials,
-Financial Sessions, balances, Device IDs, Service IDs, Player identity, or
-unrelated World Truth.
+Operations, commerce, backend, and sales cadence are presented fully
+independently of each other: a structurally valid Branch with none of the
+four presents only its identity, with one presents only that one's facts, and
+with any combination presents exactly that combination — nothing invented in
+place of a subsystem that is not represented. It exposes no internal Account
+IDs, Credentials, Financial Sessions, balances, Device IDs, Service IDs,
+Player identity, or unrelated World Truth.
 
 RACK-OS 1.0 is the old technical section environment and provides no
 application shell at all, so it presents no BUSINESS surface even where a

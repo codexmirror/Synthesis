@@ -7,6 +7,9 @@ import type { GameState } from './types'
 /** The neutral aggregate Civic Dollar payment source for retail customers who are not individually simulated. An ordinary Account: no Credential, Session, Device, or represented Customer identity, and never magically replenished. */
 export const RETAIL_CLEARING_ACCOUNT_ID = 'dollar-account-retail-clearing-v0'
 
+/** The fixed, deterministic V1 statement-context purpose label for every canonical Bookstore sale. Never randomized or generated. */
+export const BOOKSTORE_SALE_STATEMENT_PURPOSE = 'Retail sale'
+
 export type ExecuteBookstoreSaleResult =
   | { readonly status: 'sold'; readonly state: GameState; readonly saleId: string; readonly transactionId: string }
   | {
@@ -37,7 +40,10 @@ export type ExecuteBookstoreSaleResult =
  * One sale means exactly one inventory unit, exactly one Civic Dollar
  * Transaction moving exactly the current `unitPriceCents` from Retail
  * Clearing to the current settlement Account, and exactly one appended
- * CompletedSale referencing that Transaction by stable ID. Every legitimate
+ * CompletedSale referencing that Transaction by stable ID. That Transaction
+ * is created with a historical statement-context snapshot of the Branch's
+ * current `displayName`/`location` plus the fixed `Retail sale` purpose —
+ * captured once, at this exact moment, never re-read afterwards. Every legitimate
  * refusal is preflighted before anything is committed, so a failed attempt
  * always returns the original pre-attempt `GameState` unchanged: there is no
  * partially applied sale, and no failure path can produce an inventory
@@ -49,7 +55,8 @@ export type ExecuteBookstoreSaleResult =
  * independent explicit attempts.
  */
 export function executeBookstoreSale(state: GameState, branchId: string): ExecuteBookstoreSaleResult {
-  if (!state.business.branches.some((branch) => branch.id === branchId)) return { status: 'branch_not_found', state }
+  const branch = state.business.branches.find((candidate) => candidate.id === branchId)
+  if (!branch) return { status: 'branch_not_found', state }
 
   const operations = resolveBookstoreOperationsForBranch(state, branchId)
   if (!operations) return { status: 'operations_not_found', state }
@@ -78,7 +85,13 @@ export function executeBookstoreSale(state: GameState, branchId: string): Execut
   if (!Number.isSafeInteger(retailClearingAccount.balanceCents - commerce.unitPriceCents)) return { status: 'balance_not_representable', state }
   if (!Number.isSafeInteger(settlementAccount.balanceCents + commerce.unitPriceCents)) return { status: 'balance_not_representable', state }
 
-  const movement = executeCivicDollarMovement(state, retailClearingAccount.id, settlementAccount.id, commerce.unitPriceCents)
+  // Snapshot the Branch's current represented identity/location at the moment of the sale — historical statement
+  // context, never a live reference: a later Branch rename or relocation must never rewrite this Transaction.
+  const movement = executeCivicDollarMovement(state, retailClearingAccount.id, settlementAccount.id, commerce.unitPriceCents, {
+    description: branch.displayName,
+    purpose: BOOKSTORE_SALE_STATEMENT_PURPOSE,
+    ...(branch.location ? { location: branch.location } : {}),
+  })
   if (movement.status !== 'moved') {
     // Every refusable condition was already preflighted above; an unexpected refusal here is defensive only,
     // and still preserves atomicity by returning the original pre-attempt state.

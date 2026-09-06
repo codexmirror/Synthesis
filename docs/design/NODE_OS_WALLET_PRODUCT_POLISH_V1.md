@@ -206,8 +206,23 @@ Activity rows present exactly what the canonical projection carries: a direction
 mark, the historical counterparty reference, concise `SENT` / `RECEIVED`
 wording, and the signed amount aligned for comparison. Newest first.
 
-Nothing else is added: no timestamp, category, avatar, merchant, recipient name,
-status, fee or memo. The reference's populated activity list is composition
+Where the projected entry carries an optional historical statement-context
+snapshot (`docs/current/DOLLAR_FINANCE.md` — the Bookstore sale is the
+current caller that supplies one), the row may additionally present it: the
+snapshot's `description` becomes the row's human subject, and its
+`purpose`/`location` sit beneath it as secondary detail, while the
+counterparty reference and direction wording remain visible on their own
+line rather than being replaced — they stay the actual financial facts. A
+Transaction with no statement context keeps exactly the prior compact
+two-line row; this is the strong fallback and remains the common case.
+
+This is not a reopening of the prohibition below: nothing is added beyond
+what the canonical projection actually carries, no context is fabricated for
+a Transaction that does not have one, and Wallet still resolves nothing from
+Business state — it presents only the `statementContext` the Transaction was
+created with. No timestamp, category, avatar, status, fee or invented memo is
+added, and no name is invented for a counterparty that does not carry a
+represented one. The reference's populated activity list is composition
 guidance only. With no Transactions the honest empty state stands.
 
 
@@ -381,10 +396,20 @@ The Ordinary Phone, NPC Devices and any consumer Civic app; new Firmware;
 password reset, recovery authority, password rotation and Session revocation;
 merchants, purchases, payment requests, invoices, QR payment semantics and
 finance SCAN; fees, settlement, transfer timestamps, transaction categories,
-merchant or recipient names, fabricated Transactions and fabricated balance
-history; market price charts and investment analytics; multiple Providers; NODE
-transfers and any change to NODE mining; canonical Wallet styling state; a
-general chart framework; and a general design-system rewrite.
+a fabricated or inferred merchant/recipient name for a Transaction that
+carries no represented statement context, fabricated Transactions and
+fabricated balance history; market price charts and investment analytics;
+multiple Providers; NODE transfers and any change to NODE mining; canonical
+Wallet styling state; a general chart framework; and a general design-system
+rewrite.
+
+The prohibition above is narrower than it once was: a Transaction may now
+carry a real, narrow, historical `statementContext` snapshot supplied by the
+domain operation that created it (`docs/current/DOLLAR_FINANCE.md`), and
+Wallet may present that snapshot's `description` as the row's human subject
+exactly as section 7 states. What remains out of scope is *inventing* one —
+generating, inferring, or resolving from Business/Account/Device state a
+description a Transaction does not actually carry.
 
 
 ## 13. Contract self-test
@@ -397,7 +422,8 @@ general chart framework; and a general design-system rewrite.
 | 4 | Does the trajectory claim elapsed time? | No — it is Transaction sequence (6) |
 | 5 | What is drawn for an Account with no Transactions? | Nothing — there is one state (6) |
 | 6 | Is any derived trajectory stored? | No — it is rebuilt per render (6) |
-| 7 | Can activity gain a timestamp or a name? | No (7) |
+| 7 | Can activity gain a timestamp? | No — never represented (7) |
+| 7b | Can activity gain a name? | Only the Transaction's own real `statementContext.description`, never an invented one (7) |
 | 8 | Is NODE a Dollar sub-account or part of a total? | No (8) |
 | 9 | Does an open sub-surface reach `GameState`? | No (9) |
 | 10 | Is any control filled other than the consequential act? | No (5) |

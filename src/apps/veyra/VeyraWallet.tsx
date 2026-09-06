@@ -123,22 +123,40 @@ function VeyraWalletRoot({ account, providerName, activity, notice, onDetail }: 
 /**
  * Activity is exactly the canonical Transactions this Account is part of,
  * newest first. Each row carries only what the projection actually holds: the
- * direction, the counterparty reference as it was recorded, and the signed
- * amount. No timestamp, merchant, category, status, fee or grouping is added,
- * because the world represents none of them, and an Account with no
- * Transactions truthfully has nothing here.
+ * direction, the counterparty reference as it was recorded, the signed
+ * amount, and — where the Transaction actually carries one — its optional
+ * historical statement-context snapshot. No timestamp, category, status, fee
+ * or grouping is added, and no context is invented for a Transaction that
+ * does not carry one, because the world represents none of that. An Account
+ * with no Transactions truthfully has nothing here.
+ *
+ * Where a Transaction carries statement context, its `description` becomes
+ * the row's human subject and `purpose`/`location` sit beneath it as
+ * secondary detail; the direction word and the counterparty reference remain
+ * present on their own line rather than being replaced. A context-less
+ * Transaction keeps exactly the prior compact two-line row.
  */
 function VeyraActivity({ activity }: { activity: readonly DollarAccountActivityEntry[] }) {
   if (activity.length === 0) return <p className="veyra-empty">Money you send or receive will appear here.</p>
 
   return <div className="veyra-card veyra-card--rows">
-    {activity.map((entry) => <div className="veyra-row veyra-row--static" key={entry.id}>
-      <span className="veyra-row__copy">
-        <strong>{entry.direction === 'outgoing' ? 'Sent' : 'Received'}</strong>
-        <small>{entry.counterpartyReference}</small>
-      </span>
-      <span className={`veyra-amount veyra-amount--${entry.direction}`}>{formatSignedDollarCents(entry.amountCents)}</span>
-    </div>)}
+    {activity.map((entry) => {
+      const context = entry.statementContext
+      const directionWord = entry.direction === 'outgoing' ? 'Sent' : 'Received'
+      const meta = context ? [context.purpose, context.location].filter(Boolean).join(' · ') : undefined
+      return <div className="veyra-row veyra-row--static" key={entry.id}>
+        <span className="veyra-row__copy">
+          <strong>{context?.description ?? directionWord}</strong>
+          {context
+            ? <>
+              {meta && <small>{meta}</small>}
+              <small>{directionWord} · {entry.counterpartyReference}</small>
+            </>
+            : <small>{entry.counterpartyReference}</small>}
+        </span>
+        <span className={`veyra-amount veyra-amount--${entry.direction}`}>{formatSignedDollarCents(entry.amountCents)}</span>
+      </div>
+    })}
   </div>
 }
 

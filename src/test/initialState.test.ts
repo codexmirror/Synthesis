@@ -39,11 +39,11 @@ describe('createInitialGameState', () => {
 
   it('separates identities and seeds canonical local-device state in schema version 69', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(75)
+    expect(GAME_STATE_VERSION).toBe(76)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(75)
+    expect(state.version).toBe(76)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -259,6 +259,7 @@ describe('createInitialGameState', () => {
     expect(state.dollarFinance.transactions).toEqual({ nextId: 2, records: [{
       id: 'dollar-transaction-0001', sourceAccountId: 'dollar-account-retail-clearing-v0', destinationAccountId: 'dollar-account-veyra-phone-v0', amountCents: 2_000,
       sourceAccountReference: 'CD-9000-2000', destinationAccountReference: 'CD-3318-2204',
+      statementContext: { description: 'Bookstore Branch 01', purpose: 'Retail sale', location: '18 Mercer Street' },
     }] })
     // The phone stores no sign-in of its own: a Session is not saved material.
     expect(phone).not.toHaveProperty('savedDollarSignIn')

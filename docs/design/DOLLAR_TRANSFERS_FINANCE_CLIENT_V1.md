@@ -114,7 +114,16 @@ It carries the minimum that correct activity needs:
 - the source Account's stable ID;
 - the destination Account's stable ID;
 - the integer `amountCents` moved;
-- a historical snapshot of the user-facing account reference on **each** side.
+- a historical snapshot of the user-facing account reference on **each** side;
+- optionally, one small explicit historical statement-context snapshot
+  (`{ description?, purpose?, location? }`) supplied only by the domain
+  operation that created the movement — never by `transferDollars` itself,
+  which supplies none, and never invented, inferred, or live-resolved by
+  Civic Dollar. This is narrow financial-history shape, not a generic
+  `metadata` bag or an event framework, and it never substitutes for the
+  account-reference snapshots above: the counterparty reference remains the
+  sole financial-counterparty truth (`docs/current/BRANCH_COMMERCE.md` names
+  the current caller).
 
 The snapshot exists because an Account reference is a mutable attribute, not
 identity (A01). Historical activity must keep saying what the counterparty was
@@ -148,6 +157,12 @@ From the acting Account's point of view:
 
 Activity must not expose the counterparty's balance, any Credential, any Device
 identity, any Financial Session, or any internal Account ID. Newest first.
+
+Where the underlying Transaction carries an optional statement-context
+snapshot, the projected entry carries that same snapshot through unchanged;
+where it does not, the entry carries none. The projection itself constructs
+or supplements nothing — it only ever repeats what the Transaction already
+stored.
 
 
 ## 5. Device saved sign-in
@@ -308,6 +323,8 @@ Account takeover.
 | 2 | Does a failed transfer ever move part of the money? | No (2) |
 | 3 | Is an ambiguous recipient resolved by picking one? | No — it fails closed (2) |
 | 4 | Does a later Account-reference change rewrite old activity? | No — both sides are snapshotted (3) |
+| 4b | Does a later change to a statement context's originating domain state (e.g. a Branch rename) rewrite an existing Transaction's statement context? | No — it is a historical snapshot, captured once at creation (3) |
+| 4c | Can `transferDollars` invent or infer a statement context? | No — only a narrow domain caller may supply one, and `transferDollars` supplies none (3) |
 | 5 | Does a Transaction carry a represented time? | No — ordering is insertion order (3) |
 | 6 | Can activity reveal the counterparty's balance? | No (4) |
 | 7 | Is saved sign-in the Provider Credential? | No — distinct state, distinct owner (5) |
