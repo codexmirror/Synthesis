@@ -17,6 +17,8 @@ import type { GameState } from './types'
 
 const REMOTE_SEGMENT = 'network-foreign-001'
 const HOUR_MS = 3_600_000
+/** A uniform value landing inside the seeded sale-value mix's STANDARD boundary, [0.30, 0.80) — used wherever a test needs a deterministic, exact $20.00 sale amount without itself being about sale-value selection. */
+const U_STANDARD = 0.5
 
 function cadenceOf(state: GameState) {
   return resolveBookstoreSalesCadenceForBranch(state, BOOKSTORE_BRANCH_ID)!
@@ -161,7 +163,7 @@ describe('Bookstore Sales Cadence — boundary advancement', () => {
 describe('Bookstore Sales Cadence — one due opportunity is exactly one canonical sale attempt', () => {
   it('a successful opportunity produces exactly the existing executeBookstoreSale consequences', () => {
     const before = createInitialGameState()
-    const after = advanceGameState(before, 360_000, Math.random, () => 0.3)
+    const after = advanceGameState(before, 360_000, Math.random, () => 0.3, () => U_STANDARD)
 
     expect(inventoryOf(after)).toBe(inventoryOf(before) - 1)
     const retailClearingBefore = before.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-retail-clearing-v0')!.balanceCents
@@ -175,7 +177,7 @@ describe('Bookstore Sales Cadence — one due opportunity is exactly one canonic
     const newTransaction = after.dollarFinance.transactions.records[after.dollarFinance.transactions.records.length - 1]
     const commerce = after.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
     expect(commerce.completedSales).toHaveLength(2)
-    expect(commerce.completedSales[1]).toEqual({ id: commerce.completedSales[1].id, kind: 'book_sale', dollarTransactionId: newTransaction.id })
+    expect(commerce.completedSales[1]).toEqual({ id: commerce.completedSales[1].id, kind: 'book_sale', saleValueBand: 'STANDARD', dollarTransactionId: newTransaction.id })
 
     // Existing authored historical sale and Transaction remain unchanged.
     expect(commerce.completedSales[0]).toEqual(before.bookstoreCommerce.records[0].completedSales[0])
@@ -330,8 +332,8 @@ describe('Bookstore Sales Cadence — demand inputs affect only opportunity timi
     expect(deriveEffectiveBookstoreOpportunityRatePerHour(cadenceOf(moreAttractive))).toBe(20)
 
     const u = 0.4
-    const baselineAfter = advanceGameState(baseline, cadenceOf(baseline).remainingUntilOpportunityMs, Math.random, () => u)
-    const moreAttractiveAfter = advanceGameState(moreAttractive, cadenceOf(moreAttractive).remainingUntilOpportunityMs, Math.random, () => u)
+    const baselineAfter = advanceGameState(baseline, cadenceOf(baseline).remainingUntilOpportunityMs, Math.random, () => u, () => U_STANDARD)
+    const moreAttractiveAfter = advanceGameState(moreAttractive, cadenceOf(moreAttractive).remainingUntilOpportunityMs, Math.random, () => u, () => U_STANDARD)
 
     const baselineMeanMs = HOUR_MS / 10
     const moreAttractiveMeanMs = HOUR_MS / 20
@@ -339,10 +341,10 @@ describe('Bookstore Sales Cadence — demand inputs affect only opportunity timi
     expect(cadenceOf(moreAttractiveAfter).remainingUntilOpportunityMs).toBe(exponentialSampleMs(moreAttractiveMeanMs, u))
     expect(cadenceOf(moreAttractiveAfter).remainingUntilOpportunityMs).toBeLessThan(cadenceOf(baselineAfter).remainingUntilOpportunityMs)
 
-    // Sale value, inventory consequence, and fulfillment rules are entirely unaffected by demand configuration.
+    // Sale-value configuration, inventory consequence, and fulfillment rules are entirely unaffected by demand configuration.
     const baselineCommerce = baselineAfter.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
     const moreAttractiveCommerce = moreAttractiveAfter.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
-    expect(baselineCommerce.unitPriceCents).toBe(moreAttractiveCommerce.unitPriceCents)
+    expect(baselineCommerce.saleValueMix).toEqual(moreAttractiveCommerce.saleValueMix)
     expect(inventoryOf(baselineAfter)).toBe(inventoryOf(moreAttractiveAfter))
     expect(salesCountOf(baselineAfter)).toBe(salesCountOf(moreAttractiveAfter))
   })
@@ -387,6 +389,30 @@ describe('Bookstore Sales Cadence — randomness is independent from Credential 
   })
 })
 
+describe('Bookstore Sales Cadence — sale-value randomness is a separate channel from demand and Credential Access', () => {
+  it('draws demand and sale-value samples from their own independent sources, never sharing or advancing each other’s sequence', () => {
+    let demandSamples = 0
+    let saleValueSamples = 0
+    const advanced = advanceGameState(
+      createInitialGameState(),
+      360_000,
+      () => { throw new Error('must not touch credentialAccessRandom') },
+      () => { demandSamples += 1; return 0.42 },
+      () => { saleValueSamples += 1; return U_STANDARD },
+    )
+    expect(salesCountOf(advanced)).toBe(2)
+    expect(demandSamples).toBe(1)
+    expect(saleValueSamples).toBe(1)
+    // The demand sample still schedules exactly the same next interval regardless of the separate sale-value draw.
+    expect(cadenceOf(advanced).remainingUntilOpportunityMs).toBe(exponentialSampleMs(INITIAL_MEAN_INTERVAL_MS, 0.42))
+  })
+
+  it('never draws a sale-value sample on an ordinary tick that leaves no opportunity due', () => {
+    const advanced = advanceGameState(createInitialGameState(), 1_000, Math.random, Math.random, () => { throw new Error('must not sample sale value') })
+    expect(salesCountOf(advanced)).toBe(1)
+  })
+})
+
 describe('Bookstore Sales Cadence — large elapsed steps contain multiple chronological opportunities', () => {
   it('chaining two due opportunities (each freshly sampled) processes exactly two canonical sale attempts', () => {
     const afterFirst = advanceGameState(createInitialGameState(), 360_000, Math.random, () => 0.3)
@@ -403,10 +429,12 @@ describe('Bookstore Sales Cadence — large elapsed steps contain multiple chron
     const seed = createInitialGameState()
     const sequenceValues = [0.15, 0.55, 0.35, 0.75, 0.05]
 
-    const largeStep = advanceGameState(seed, 1_200_000, Math.random, fixedSequenceRandom(sequenceValues))
+    // Sale-value selection is a separate, independent random channel from demand sampling; holding it
+    // fixed here keeps this proof about demand-boundary equivalence, not sale-value selection.
+    const largeStep = advanceGameState(seed, 1_200_000, Math.random, fixedSequenceRandom(sequenceValues), () => U_STANDARD)
 
     const sharedRandom = fixedSequenceRandom(sequenceValues)
-    const partitioned = advanceGameState(advanceGameState(seed, 600_000, Math.random, sharedRandom), 600_000, Math.random, sharedRandom)
+    const partitioned = advanceGameState(advanceGameState(seed, 600_000, Math.random, sharedRandom, () => U_STANDARD), 600_000, Math.random, sharedRandom, () => U_STANDARD)
 
     // Every canonical business/world consequence — sales, inventory, finance, Backend, World —
     // is required to agree exactly between the two runs.
@@ -475,8 +503,8 @@ describe('Bookstore Sales Cadence — causal boundary: opportunities observe Bac
 
   it('one large step agrees with the equivalent chronological partition, under the same causal result', () => {
     const fixture = disruptedFixtureWithCompactCadence()
-    const largeStep = advanceGameState(fixture, FIRST_INTERVAL_MS + SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U))
-    const partitioned = advanceGameState(advanceGameState(fixture, FIRST_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U)), SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U))
+    const largeStep = advanceGameState(fixture, FIRST_INTERVAL_MS + SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), () => U_STANDARD)
+    const partitioned = advanceGameState(advanceGameState(fixture, FIRST_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), () => U_STANDARD), SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), () => U_STANDARD)
     // See the analogous note above: every canonical consequence besides the countdown must agree
     // exactly, and the countdown itself must still agree within ordinary floating-point tolerance.
     expect(withoutBookstoreCadenceTiming(largeStep)).toEqual(withoutBookstoreCadenceTiming(partitioned))
@@ -500,7 +528,9 @@ describe('Bookstore Sales Cadence — stack-safe processing of many due opportun
     const seed = createInitialGameState()
 
     let result: GameState | undefined
-    expect(() => { result = advanceBookstoreSalesCadence(seed, elapsedMs, identityWorld, () => 0.5) }).not.toThrow()
+    // Sale-value selection is held fixed at STANDARD so the well-known "80,000 / 2,000 = 40 sales" arithmetic
+    // below stays exact; this proof is about the demand-boundary walk's stack safety, not sale-value selection.
+    expect(() => { result = advanceBookstoreSalesCadence(seed, elapsedMs, identityWorld, () => 0.5, () => U_STANDARD) }).not.toThrow()
 
     // Every sampled subsequent interval used the same fixed random value, so a correct walk always
     // lands on a fresh, valid, positive countdown no larger than one full freshly sampled interval —

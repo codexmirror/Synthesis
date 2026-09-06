@@ -5,6 +5,7 @@ import { GameProvider, useGameActions, useGameState } from '../../app/GameContex
 import { connectRemoteFromObservation } from '../../core/game/remoteSession'
 import { installRemoteSoftwarePackage } from '../../core/game/softwareInstallation'
 import { createInitialGameState } from '../../core/game/initialState'
+import { BOOKSTORE_BRANCH_SALE_VALUE_MIX } from '../../core/game/bookstoreCommerce'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
 import { RACK_OS_1_1_BUSINESS_RELEASE, RACK_OS_FIRMWARE_UPDATE_DURATION_MS } from '../../core/game/rackOsFirmwareUpdate'
 import { Shell } from '../../shell/Shell'
@@ -1339,7 +1340,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
       bookstoreCommerce: {
         ...base.bookstoreCommerce,
         records: [...base.bookstoreCommerce.records, {
-          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', unitPriceCents: 2_000, completedSales: [],
+          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', saleValueMix: BOOKSTORE_BRANCH_SALE_VALUE_MIX, completedSales: [],
         }],
       },
     }

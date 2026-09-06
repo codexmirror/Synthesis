@@ -7,13 +7,13 @@ import { deriveDownloadDestinationPath } from '../../core/game/fileTransfer'
 import { deriveSoftwarePackageEligibility, representsInstallableSoftwareState } from '../../core/game/softwareInstallation'
 import { deriveNodeMinerRuntimeStatus, findNodeMinerExecutable, findRunningNodeMiner, NODE_MINER_PROGRAM_ID, NODE_MINER_RELEASE_ID, type StartRemoteNodeMinerResult } from '../../core/game/nodeMiner'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
-import type { AuthenticationHistoryRecord, GameState, ExecutableFile, FilesystemFile, FilesystemState, FirmwarePackageFile, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile, SoftwareModuleFile } from '../../core/game/types'
+import type { AuthenticationHistoryRecord, BookstoreSaleValueBand, GameState, ExecutableFile, FilesystemFile, FilesystemState, FirmwarePackageFile, InstalledSoftware, NodeMinerProcess, SoftwareInstallationProcess, SoftwarePackageFile, SoftwareModuleFile } from '../../core/game/types'
 import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
 import { runRemoteCommand } from './remoteCommands'
 import { resolveBusinessOperatingContext, type ResolvedBusinessBranch } from '../../core/game/business'
-import { resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
+import { formatBookstoreSaleValueBandPercentage, resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
 import { resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { resolveBookstoreBackendForBranch } from '../../core/game/bookstoreBackend'
 import { deriveEffectiveBookstoreOpportunityRatePerHour, resolveBookstoreSalesCadenceForBranch } from '../../core/game/bookstoreSalesCadence'
@@ -259,6 +259,9 @@ function formatOpportunityRate(effectiveOpportunityRatePerHour: number): string 
   return String(Number(effectiveOpportunityRatePerHour.toFixed(2)))
 }
 
+/** Fixed presentation order for the VALUE MODEL section, LOW to HIGH. */
+const BOOKSTORE_SALE_VALUE_BAND_ORDER: readonly BookstoreSaleValueBand[] = ['LOW', 'STANDARD', 'HIGH']
+
 function BusinessSurface({ state, context }: {
   state: GameState
   context: { readonly networks: readonly LocalNetwork[]; readonly branches: readonly ResolvedBusinessBranch[] }
@@ -300,9 +303,21 @@ function BusinessSurface({ state, context }: {
             <h3>RECENT SALES</h3>
             {commerce.sales.map((sale) => <dl className="rack-facts rack-facts--dense" key={sale.id}>
               <div><dt>SALE</dt><dd>BOOK SALE</dd></div>
+              <div><dt>VALUE</dt><dd>{sale.saleValueBand}</dd></div>
               <div><dt>AMOUNT</dt><dd>{formatDollarCents(sale.transaction.amountCents)}</dd></div>
               <div><dt>SETTLED TO</dt><dd>{sale.transaction.destinationAccountReference}</dd></div>
             </dl>)}
+          </>}
+          {commerce && <>
+            {/* Compact, subordinate technical/operator information: the current configured attempted-sale distribution
+                that produced the real amounts above — never a player-facing probability dashboard, chart, or control. */}
+            <h3>VALUE MODEL</h3>
+            <dl className="rack-facts rack-facts--dense">
+              {BOOKSTORE_SALE_VALUE_BAND_ORDER.map((band) => <div key={band}>
+                <dt>{band}</dt>
+                <dd>{formatDollarCents(commerce.saleValueMix[band].amountCents)} · {formatBookstoreSaleValueBandPercentage(commerce.saleValueMix, band)}%</dd>
+              </div>)}
+            </dl>
           </>}
           {backend && <>
             <h3>BACKEND</h3>

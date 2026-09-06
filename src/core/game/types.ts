@@ -700,8 +700,57 @@ export interface DollarFinanceState {
 export interface BusinessBranchSale {
   readonly id: string
   readonly kind: 'book_sale'
+  /**
+   * The represented aggregate sale-value band this completed sale actually
+   * carried, captured once at completion time. Historical Bookstore meaning,
+   * independent from Bookstore Commerce's own *current* `saleValueMix`
+   * configuration: a later change to that configuration must never rewrite
+   * this field, and this field is never re-derived from the referenced
+   * Transaction's amount.
+   */
+  readonly saleValueBand: BookstoreSaleValueBand
   /** The Provider-owned money movement that settled this sale. */
   readonly dollarTransactionId: string
+}
+
+/**
+ * One represented aggregate Bookstore sale-value outcome. These are economic
+ * outcome bands for one aggregate attempted sale — not a Product, SKU, book
+ * category, merchandise-quality tier, or customer class. A LOW sale does not
+ * mean a cheap book was represented; a HIGH sale does not mean a premium
+ * product was represented. The world represents only that this particular
+ * attempted Bookstore sale carried a higher or lower aggregate economic
+ * value.
+ */
+export type BookstoreSaleValueBand = 'LOW' | 'STANDARD' | 'HIGH'
+
+/**
+ * One sale-value band's concrete configuration: its exact attempted Dollar
+ * value in integer cents, and its relative selection weight against its
+ * sibling bands. Weights are not required to be percentages or to sum to any
+ * particular total — `selectBookstoreSaleValueBand` always normalizes
+ * against the sum of all three current weights — but the seeded configuration
+ * below happens to use whole percentage points (30/50/20) for legibility.
+ */
+export interface BookstoreSaleValueBandConfig {
+  /** Exact attempted Dollar value in integer cents this band moves when selected. Must be a positive safe integer. */
+  readonly amountCents: number
+  /** Relative selection weight against this mix's other two bands. Must be a positive finite number. */
+  readonly weight: number
+}
+
+/**
+ * The current concrete Bookstore aggregate sale-value distribution: exactly
+ * three represented bands, LOW/STANDARD/HIGH, each with its own current
+ * configuration. This is a narrow, concrete Bookstore Commerce mechanic, not
+ * a generic weighted-distribution framework — a different concrete subsystem
+ * would own its own separate shape rather than reusing or generalizing this
+ * one.
+ */
+export interface BookstoreSaleValueMix {
+  readonly LOW: BookstoreSaleValueBandConfig
+  readonly STANDARD: BookstoreSaleValueBandConfig
+  readonly HIGH: BookstoreSaleValueBandConfig
 }
 
 /**
@@ -769,13 +818,15 @@ export interface BookstoreBranchCommerceRecord {
   readonly branchId: string
   readonly settlementAccountId: string
   /**
-   * Current canonical sale price in integer cents, read fresh by sale
+   * Current canonical aggregate sale-value distribution, read fresh by sale
    * execution — never inferred from a historical Transaction or
-   * CompletedSale. Must be a positive safe integer for a sale to execute; V1
-   * has no product catalogue, SKU, or variable/dynamic pricing, so this is
-   * the one price a Bookstore Branch sale moves.
+   * CompletedSale. V1 has no product catalogue, SKU, or per-item pricing, so
+   * this is the one distribution a Bookstore Branch sale draws its attempted
+   * value from. Selection (`selectBookstoreSaleValueBand`) happens exactly
+   * once per sale that reaches value resolution; a refused attempt is never
+   * re-drawn against this same configuration.
    */
-  readonly unitPriceCents: number
+  readonly saleValueMix: BookstoreSaleValueMix
   readonly completedSales: readonly BusinessBranchSale[]
 }
 

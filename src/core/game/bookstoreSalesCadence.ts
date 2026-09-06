@@ -229,6 +229,13 @@ function scheduleNextBookstoreOpportunity(state: GameState, branchId: string, st
  * ordinary tick that leaves no opportunity due, and never merely because
  * `advanceGameState` was called.
  *
+ * `bookstoreSaleValueRandom` is threaded straight through to
+ * `executeBookstoreSale` for that same one attempt — a third random channel,
+ * semantically independent from both `bookstoreDemandRandom` and
+ * `credentialAccessRandom`. It draws exactly once per attempt that reaches
+ * value resolution inside `executeBookstoreSale`, never here, and never for
+ * an attempt refused before value resolution.
+ *
  * Cadence mutates canonical state only where represented cadence truth
  * actually advances: a non-positive `elapsedMs` has no timer to advance, and
  * a Branch with no represented cadence record at all has no cadence truth to
@@ -242,6 +249,7 @@ export function advanceBookstoreSalesCadence(
   elapsedMs: number,
   advanceWorld: (state: GameState, elapsedMs: number) => GameState,
   bookstoreDemandRandom: () => number = Math.random,
+  bookstoreSaleValueRandom: () => number = Math.random,
 ): GameState {
   if (elapsedMs <= 0 || state.bookstoreSalesCadence.records.length === 0) return advanceWorld(state, elapsedMs)
 
@@ -277,7 +285,7 @@ export function advanceBookstoreSalesCadence(
         continue
       }
       // Consumed whether this attempt sells or refuses — the next interval is freshly sampled either way.
-      const attempted = executeBookstoreSale(nextState, record.branchId)
+      const attempted = executeBookstoreSale(nextState, record.branchId, bookstoreSaleValueRandom)
       nextState = replaceCadenceRecord(attempted.state, scheduleNextBookstoreOpportunity(attempted.state, record.branchId, record, bookstoreDemandRandom))
     }
 

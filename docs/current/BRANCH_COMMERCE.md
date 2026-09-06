@@ -85,30 +85,98 @@ record rather than being embedded on generic Branch identity:
 BookstoreBranchCommerceRecord
 ├── branchId              — the Business Branch this record belongs to, by stable ID
 ├── settlementAccountId   — mutable current settlement-destination configuration
-├── unitPriceCents        — mutable current canonical sale price, in integer cents
+├── saleValueMix          — mutable current canonical aggregate sale-value distribution
 └── completedSales        — completed book_sale history
 ```
 
-`unitPriceCents` is Bookstore Commerce's own current sale/settlement
+`saleValueMix` is Bookstore Commerce's own current sale/settlement
 configuration, exactly like `settlementAccountId`: V1 has no product
-catalogue, SKU, category, basket size, discount, tax, fee, or dynamic
-pricing, so this is the one price a sale moves. The seeded Branch configures
-`unitPriceCents = 2000` (`BOOKSTORE_BRANCH_UNIT_PRICE_CENTS`). It happens to
-equal the historical authored sale amount below, but the two truths remain
-independent — sale execution always reads this current configuration, never
-a historical Transaction or CompletedSale. `BookstoreCommerceState` also
-carries its own monotonic `nextSaleId` allocator for runtime CompletedSale
-identity, following the existing Transaction/Session allocation pattern
-(`bookstore-sale-0002`, `-0003`, ...) — never derived from array length,
-time, or randomness.
+catalogue, SKU, category, basket size, discount, tax, fee, or per-item
+pricing, so this is the one distribution a sale draws its attempted value
+from. It replaces V1's earlier single fixed `unitPriceCents`: there is
+exactly one current Bookstore Commerce sale-value truth, never two competing
+ones.
+
+```text
+BookstoreSaleValueMix
+├── LOW
+│   ├── amountCents — exact attempted Dollar value in integer cents when selected
+│   └── weight      — relative selection weight against the other two bands
+├── STANDARD
+│   ├── amountCents
+│   └── weight
+└── HIGH
+    ├── amountCents
+    └── weight
+```
+
+`LOW`, `STANDARD`, and `HIGH` are aggregate represented sale-value *outcome*
+bands for one attempted Bookstore sale — not a Product, SKU, book category,
+merchandise-quality tier, or customer class. A `LOW` sale never means a cheap
+book was represented, and a `HIGH` sale never means a premium product was
+represented; the world represents only that this one aggregate attempted
+sale carried a lower or higher economic value. There is still no product
+catalogue, basket, or per-item price of any kind.
+
+The seeded Branch configures `BOOKSTORE_BRANCH_SALE_VALUE_MIX`:
+LOW = 1,200 cents at weight 30, STANDARD = 2,000 cents at weight 50, HIGH =
+3,200 cents at weight 20. Weights are relative, not required percentages —
+`selectBookstoreSaleValueBand` always normalizes against the current sum of
+all three — but this seeded configuration uses whole percentage points
+(30/50/20) for legibility, giving this configured *attempted*-sale
+distribution an expected value of exactly $20.00:
+
+```text
+0.30 × $12.00 + 0.50 × $20.00 + 0.20 × $32.00 = $20.00
+```
+
+That statement describes only the configured distribution of attempted sale
+values, before any downstream value-dependent refusal (below). It does not
+mean realized completed-sale revenue must itself average $20.00, that a
+represented hour's sales must average $20 each, or that the simulation
+compensates after a run of LOW or HIGH outcomes. A selected HIGH attempt that
+Retail Clearing cannot fund simply refuses — atomically, exactly like every
+other refusal `executeBookstoreSale` already recognized — and is never
+re-drawn, downgraded to a cheaper band, or compensated by a later draw.
+
+`isValidBookstoreSaleValueMix` requires every band's `amountCents` to be a
+positive safe integer and every band's `weight` to be a positive finite
+number whose total is itself a positive finite number — the minimum a
+well-defined weighted selection needs. An impossible configuration (a
+non-finite/non-positive weight, a non-integer/non-positive amount, or a total
+weight that overflows or collapses to zero) is never silently normalized,
+clamped, or reinterpreted into something selectable, and never silently
+falls back to `STANDARD`; sale execution refuses outright instead
+(`invalid_sale_value_mix`, below), exactly the value-independent way the
+retired `invalid_price` check used to.
+
+`selectBookstoreSaleValueBand(mix, u)` selects exactly one band for one
+normalized uniform value `u` in `[0, 1)`, walking cumulative weight
+boundaries in fixed `LOW -> STANDARD -> HIGH` order — derived fresh from the
+given mix's own weights, never hardcoded to the seeded 30/50/20. For the
+seeded configuration this resolves exactly:
+
+```text
+u ∈ [0.00, 0.30) -> LOW
+u ∈ [0.30, 0.80) -> STANDARD
+u ∈ [0.80, 1.00) -> HIGH
+```
+
+`BookstoreCommerceState` also carries its own monotonic `nextSaleId`
+allocator for runtime CompletedSale identity, following the existing
+Transaction/Session allocation pattern (`bookstore-sale-0002`, `-0003`, ...)
+— never derived from array length, time, or randomness.
 
 V1 seeds exactly one such record, keyed to `bookstore-branch-01`:
 `dollar-account-veyra-phone-v0` as current settlement configuration, and one
-completed `book_sale` referencing `dollar-transaction-0001`.
+completed `book_sale` referencing `dollar-transaction-0001`, historically
+authored as the `STANDARD` band.
 `resolveBookstoreCommerceForBranch(state, branchId)` resolves this record for
 one Branch, joined against current Civic-Dollar-owned Account and Transaction
 truth, and returns `undefined` where a Branch has no such record at all — a
-legitimate structural state, never an error.
+legitimate structural state, never an error. The resolved projection also
+carries the record's current `saleValueMix` verbatim (no Civic Dollar join
+needed for it) so presentation can show it without a second lookup.
 
 This record is deliberately narrow and concrete, not a generic Business-commerce
 framework: a different concrete subsystem owns its own separate branch-linked
@@ -234,13 +302,19 @@ exclusively owns the corresponding cents movement. Neither the Branch nor its
 commerce record keeps a balance or shadow ledger; the record's Account and
 Transaction IDs are stable references into Provider-owned finance truth.
 
-The authored historical Transaction moves 2,000 cents from the neutral
-retail-clearing Account (`CD-9000-2000`) to the Account initially configured
-at that historical moment (`CD-3318-2204`). Its destination reference
-snapshot remains the sale's historical settlement truth even if the commerce
-record's current `settlementAccountId` later changes. There is exactly one
-authored initial sale; every other CompletedSale is the runtime consequence
-of an explicit sale execution below, never rewritten or re-priced.
+The authored historical Transaction moves 2,000 cents — the `STANDARD` band
+— from the neutral retail-clearing Account (`CD-9000-2000`) to the Account
+initially configured at that historical moment (`CD-3318-2204`). Its
+destination reference snapshot remains the sale's historical settlement
+truth even if the commerce record's current `settlementAccountId` later
+changes, and its authored `STANDARD` band remains that CompletedSale's
+historical identity even if the current `saleValueMix` configuration later
+changes: CompletedSale retains which band a sale represented, but never
+duplicates the amount that band moved, and a later configuration change can
+never rewrite an already-completed sale's band or Transaction. There is
+exactly one authored initial sale; every other CompletedSale is the runtime
+consequence of an explicit sale execution below, never rewritten or
+re-priced.
 
 That authored Transaction also carries a historical statement-context
 snapshot (`docs/current/DOLLAR_FINANCE.md`) authored literally to match the
@@ -251,33 +325,45 @@ stays coherent with every later runtime sale's own snapshot.
 
 ### Sale execution
 
-`executeBookstoreSale(state, branchId)` (`src/core/game/bookstoreSale.ts`) is
-the one canonical explicit state transition that turns current Business
-Branch, Bookstore Operations, Bookstore Commerce, Bookstore Backend and Civic
-Dollar truth into one completed sale. It accepts only the Branch's stable
-ID — never a price, an Account, a Device, a Service, or a capacity — and
-resolves every other fact fresh from canonical state. One sale means exactly
-one inventory unit, exactly one Civic Dollar Transaction moving exactly the
-current `unitPriceCents` from Retail Clearing to the current settlement
-Account, and exactly one appended CompletedSale referencing that Transaction
-by stable ID.
+`executeBookstoreSale(state, branchId, bookstoreSaleValueRandom?)`
+(`src/core/game/bookstoreSale.ts`) is the one canonical explicit state
+transition that turns current Business Branch, Bookstore Operations,
+Bookstore Commerce, Bookstore Backend and Civic Dollar truth into one
+completed sale. It accepts only the Branch's stable ID and an optional
+sale-value random source (defaulting to `Math.random` in production) —
+never a value, an Account, a Device, a Service, or a capacity — and resolves
+every other fact fresh from canonical state. One sale means exactly one
+inventory unit, exactly one Civic Dollar Transaction moving exactly the
+selected band's amount from Retail Clearing to the current settlement
+Account, and exactly one appended CompletedSale retaining that band and
+referencing the Transaction by stable ID.
 
-A sale completes only when all of the following resolve at execution time:
-the Branch exists in canonical Business state; Bookstore Operations exists
-for it, is `open`, and has `currentInventory > 0` and `checkoutCapacity > 0`;
-Bookstore Commerce exists for it with a positive safe-integer
-`unitPriceCents` and a settlement Account that resolves; Bookstore Backend
-exists for it and its Device/Service resolve as currently available through
-the existing backend resolver; `dollar-account-retail-clearing-v0` resolves,
-is distinct from the settlement Account, and holds sufficient funds; and the
-resulting balances stay exactly representable. Every one of these is
-preflighted before anything is committed, so a failed attempt always returns
-the original pre-attempt `GameState` unchanged — there is no partially
-applied sale, no inventory decrement without its Transaction, and no
-Transaction without a CompletedSale. Backend unavailability (from either the
-Device's operational truth or a closed Service) refuses the sale the same
-way a CLOSED store or empty shelf does, without mutating Business,
-Operations, Commerce, or Civic Dollar state.
+Every value-independent prerequisite is checked first, before any sale-value
+random sample is drawn: the Branch exists in canonical Business state;
+Bookstore Operations exists for it, is `open`, and has `currentInventory > 0`
+and `checkoutCapacity > 0`; Bookstore Commerce exists for it with a valid
+`saleValueMix` (`isValidBookstoreSaleValueMix`, `invalid_sale_value_mix`
+otherwise) and a settlement Account that resolves; Bookstore Backend exists
+for it and its Device/Service resolve as currently available through the
+existing backend resolver; and `dollar-account-retail-clearing-v0` resolves
+and is distinct from the settlement Account. Only once every one of those
+resolves does `executeBookstoreSale` draw exactly one sample from
+`bookstoreSaleValueRandom` and select exactly one `LOW`/`STANDARD`/`HIGH`
+band (`selectBookstoreSaleValueBand`) for this attempt. That selected band's
+exact integer-cent amount is then used for the remaining amount-dependent
+checks — Retail Clearing holds sufficient funds, and the resulting balances
+stay exactly representable — and a refusal at this stage never re-draws,
+never falls back to a cheaper band, and never compensates a later draw: a
+selected `HIGH` attempt may refuse for insufficient funds where a `LOW`
+attempt on the same balance would have succeeded. Every one of these checks
+is preflighted before anything is committed, so a failed attempt always
+returns the original pre-attempt `GameState` unchanged — there is no
+partially applied sale, no inventory decrement without its Transaction, and
+no Transaction without a CompletedSale. Backend unavailability (from either
+the Device's operational truth or a closed Service) refuses the sale the
+same way a CLOSED store or empty shelf does, without mutating Business,
+Operations, Commerce, or Civic Dollar state, and without ever reaching
+sale-value selection.
 
 On success, `executeBookstoreSale` supplies the Civic Dollar movement
 (`executeCivicDollarMovement` in `docs/current/DOLLAR_FINANCE.md`) with a
@@ -387,14 +473,14 @@ configuration actually accepted as canonical state, into a zero-time or
 infinite countdown.
 
 `bookstoreDemandRandom` is threaded through `advanceGameState` as its own
-parameter, entirely independent from `credentialAccessRandom`: the two
-mechanics never share or advance each other's random sequence merely because
-both happen to occur within one `advanceGameState` call. This is a separate
-semantic channel and test-injection point, not a separate PRNG
-implementation: production leaves both parameters at their default, and both
-defaults are the same `Math.random`. Neither channel is a deterministic
-production random stream — only test code substitutes a controlled function
-for either one.
+parameter, entirely independent from `credentialAccessRandom` and from the
+sale-value channel below: none of the three mechanics ever share or advance
+each other's random sequence merely because more than one happens to occur
+within one `advanceGameState` call. This is a separate semantic channel and
+test-injection point per mechanic, not a separate PRNG implementation:
+production leaves every parameter at its default, and every default is the
+same `Math.random`. No channel is a deterministic production random stream
+— only test code substitutes a controlled function for any one of them.
 
 `advanceBookstoreSalesCadence` (called from `advanceGameState` in
 `gameAdvancement.ts`, ahead of the rest of canonical advancement) is the
@@ -403,22 +489,28 @@ chronologically partitions the given `elapsedMs` at each Branch's own
 opportunity boundary: it advances the remainder of canonical state
 (`advanceGameStateCore`, the same composition `advanceGameState` used before
 this mechanic existed) up to exactly the next due instant, calls the existing
-canonical `executeBookstoreSale(state, branchId)` exactly once for that
-Branch, draws exactly one `bookstoreDemandRandom` sample to schedule the next
-interval from the Branch's *current* effective opportunity rate, and only
-then continues with whatever elapsed time is left — so a due opportunity
-always observes the World/Business truth that exists at its own due time,
-never truth from the start or the end of a larger `elapsedMs` alone, and a
-large elapsed step correctly contains multiple chronological opportunities
-rather than at most one. Randomness is sampled only at that one moment —
-never on an ordinary tick that leaves no opportunity due, and never merely
-because `advanceGameState` was called — so browser tick frequency cannot
-change how many random samples are consumed. A due opportunity is always
-consumed — whether `executeBookstoreSale` sells or refuses — and the next
-interval is always freshly sampled either way: cadence stores no missed
-opportunity, backlog, waiting customer, retry, or lost-revenue state, and a
-prerequisite that becomes valid again after a missed opportunity never
-triggers an immediate retry or recovery burst.
+canonical `executeBookstoreSale(state, branchId, bookstoreSaleValueRandom)`
+exactly once for that Branch, draws exactly one `bookstoreDemandRandom`
+sample to schedule the next interval from the Branch's *current* effective
+opportunity rate, and only then continues with whatever elapsed time is
+left — so a due opportunity always observes the World/Business truth that
+exists at its own due time, never truth from the start or the end of a
+larger `elapsedMs` alone, and a large elapsed step correctly contains
+multiple chronological opportunities rather than at most one. Demand
+randomness is sampled only at that one moment, once per consumed
+opportunity — never on an ordinary tick that leaves no opportunity due, and
+never merely because `advanceGameState` was called — so browser tick
+frequency cannot change how many random samples are consumed. The
+`bookstoreSaleValueRandom` sample this same attempt may consume happens
+inside `executeBookstoreSale` itself (above), a third, semantically
+independent channel: it draws exactly once per attempt that reaches value
+resolution, never here, and never for an attempt refused before value
+resolution. A due opportunity is always consumed — whether
+`executeBookstoreSale` sells or refuses — and the next interval is always
+freshly sampled either way: cadence stores no missed opportunity, backlog,
+waiting customer, retry, or lost-revenue state, and a prerequisite that
+becomes valid again after a missed opportunity never triggers an immediate
+retry or recovery burst.
 
 Changing `locationOpportunityRatePerHour` or `attractivenessMultiplier` never
 retroactively rescales an already-scheduled `remainingUntilOpportunityMs`: the
@@ -475,7 +567,19 @@ and associated Network unconditionally, and additionally presents:
   `remainingUntilOpportunityMs` is internal simulation timing, not
   player-facing Business information, and is never presented;
 - current settlement Account reference and completed sale history, only
-  where that Branch has a represented commerce record; and
+  where that Branch has a represented commerce record. Each recent sale
+  presents its historical `LOW`/`STANDARD`/`HIGH` band alongside its real
+  amount, read from the referenced Transaction's own `amountCents` — never
+  re-derived from current configuration. This is the primary visible result
+  of this mechanic: real completed sales now carry genuinely different real
+  Dollar amounts, and every amount shown exists because that exact canonical
+  money movement actually happened;
+- a compact, subordinate `VALUE MODEL` summary of the current configured
+  `saleValueMix` (each band's amount and its weight as a percentage of the
+  current total), only where that Branch has a represented commerce record.
+  This is deliberately minor technical/operator information — never a
+  player-facing probability dashboard, chart, slider, or tuning control, and
+  never more prominent than the real recent-sale amounts above; and
 - the backend Service's own name/version and its derived ONLINE/OFFLINE
   availability, only where that Branch has a represented backend record.
 

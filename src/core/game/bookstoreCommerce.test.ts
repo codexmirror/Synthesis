@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
-import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_BRANCH_UNIT_PRICE_CENTS, BOOKSTORE_SALE_TRANSACTION_ID, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
+import {
+  BOOKSTORE_BRANCH_SALE_VALUE_MIX,
+  BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
+  BOOKSTORE_SALE_TRANSACTION_ID,
+  isValidBookstoreSaleValueMix,
+  resolveBookstoreCommerceForBranch,
+  selectBookstoreSaleValueBand,
+} from './bookstoreCommerce'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
+import type { BookstoreSaleValueMix } from './types'
 
 describe('bookstore commerce initial truth', () => {
   it('keeps one concrete branch-linked commerce record referencing the generic Branch by stable ID', () => {
@@ -11,12 +19,80 @@ describe('bookstore commerce initial truth', () => {
     expect(state.bookstoreCommerce.records).toEqual([{
       branchId: BOOKSTORE_BRANCH_ID,
       settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
-      unitPriceCents: BOOKSTORE_BRANCH_UNIT_PRICE_CENTS,
-      completedSales: [{ id: 'bookstore-sale-0001', kind: 'book_sale', dollarTransactionId: BOOKSTORE_SALE_TRANSACTION_ID }],
+      saleValueMix: BOOKSTORE_BRANCH_SALE_VALUE_MIX,
+      completedSales: [{ id: 'bookstore-sale-0001', kind: 'book_sale', saleValueBand: 'STANDARD', dollarTransactionId: BOOKSTORE_SALE_TRANSACTION_ID }],
     }])
-    expect(BOOKSTORE_BRANCH_UNIT_PRICE_CENTS).toBe(2_000)
   })
 
+  it('seeds the exact represented LOW/STANDARD/HIGH sale-value distribution, with an expected attempted value of exactly $20.00', () => {
+    expect(BOOKSTORE_BRANCH_SALE_VALUE_MIX).toEqual({
+      LOW: { amountCents: 1_200, weight: 30 },
+      STANDARD: { amountCents: 2_000, weight: 50 },
+      HIGH: { amountCents: 3_200, weight: 20 },
+    })
+    const { LOW, STANDARD, HIGH } = BOOKSTORE_BRANCH_SALE_VALUE_MIX
+    const totalWeight = LOW.weight + STANDARD.weight + HIGH.weight
+    const expectedValueCents = (LOW.weight / totalWeight) * LOW.amountCents
+      + (STANDARD.weight / totalWeight) * STANDARD.amountCents
+      + (HIGH.weight / totalWeight) * HIGH.amountCents
+    expect(expectedValueCents).toBe(2_000)
+  })
+
+  it('the seeded mix is a valid represented configuration', () => {
+    expect(isValidBookstoreSaleValueMix(BOOKSTORE_BRANCH_SALE_VALUE_MIX)).toBe(true)
+  })
+})
+
+describe('selectBookstoreSaleValueBand — deterministic boundaries', () => {
+  it.each([
+    [0, 'LOW'],
+    [0.1, 'LOW'],
+    [0.2999999, 'LOW'],
+    [0.3, 'STANDARD'],
+    [0.5, 'STANDARD'],
+    [0.7999999, 'STANDARD'],
+    [0.8, 'HIGH'],
+    [0.9, 'HIGH'],
+    [0.9999999, 'HIGH'],
+  ] as const)('selects %s -> %s for the seeded 30/50/20 mix', (u, expected) => {
+    expect(selectBookstoreSaleValueBand(BOOKSTORE_BRANCH_SALE_VALUE_MIX, u)).toBe(expected)
+  })
+
+  it('re-derives boundaries fresh from a different, still-valid mix rather than hardcoding 30/50/20', () => {
+    const evenMix: BookstoreSaleValueMix = {
+      LOW: { amountCents: 1_000, weight: 1 },
+      STANDARD: { amountCents: 2_000, weight: 1 },
+      HIGH: { amountCents: 3_000, weight: 1 },
+    }
+    expect(selectBookstoreSaleValueBand(evenMix, 0.1)).toBe('LOW')
+    expect(selectBookstoreSaleValueBand(evenMix, 0.4)).toBe('STANDARD')
+    expect(selectBookstoreSaleValueBand(evenMix, 0.7)).toBe('HIGH')
+  })
+
+  it('tolerates a degenerate/out-of-range random sample by resolving to the last band, never throwing', () => {
+    expect(selectBookstoreSaleValueBand(BOOKSTORE_BRANCH_SALE_VALUE_MIX, Number.NaN)).toBe('HIGH')
+    expect(selectBookstoreSaleValueBand(BOOKSTORE_BRANCH_SALE_VALUE_MIX, 1)).toBe('HIGH')
+    expect(selectBookstoreSaleValueBand(BOOKSTORE_BRANCH_SALE_VALUE_MIX, 1.5)).toBe('HIGH')
+  })
+})
+
+describe('isValidBookstoreSaleValueMix — configuration invariants', () => {
+  const valid = BOOKSTORE_BRANCH_SALE_VALUE_MIX
+
+  it.each([
+    ['zero amount', { ...valid, LOW: { ...valid.LOW, amountCents: 0 } }],
+    ['negative amount', { ...valid, LOW: { ...valid.LOW, amountCents: -1_200 } }],
+    ['fractional amount', { ...valid, LOW: { ...valid.LOW, amountCents: 1_200.5 } }],
+    ['non-finite amount', { ...valid, LOW: { ...valid.LOW, amountCents: Number.NaN } }],
+    ['zero weight', { ...valid, STANDARD: { ...valid.STANDARD, weight: 0 } }],
+    ['negative weight', { ...valid, STANDARD: { ...valid.STANDARD, weight: -50 } }],
+    ['non-finite weight', { ...valid, HIGH: { ...valid.HIGH, weight: Number.POSITIVE_INFINITY } }],
+  ] as const)('rejects an impossible configuration (%s) rather than normalizing or falling back to STANDARD', (_label, mix) => {
+    expect(isValidBookstoreSaleValueMix(mix)).toBe(false)
+  })
+})
+
+describe('bookstore commerce initial finance truth', () => {
   it('links the one book sale to one real incoming $20 Transaction and coherent current balances', () => {
     const state = createInitialGameState()
     const transaction = state.dollarFinance.transactions.records.find(({ id }) => id === BOOKSTORE_SALE_TRANSACTION_ID)
@@ -49,7 +125,9 @@ describe('resolveBookstoreCommerceForBranch', () => {
     const state = createInitialGameState()
     const commerce = resolveBookstoreCommerceForBranch(state, BOOKSTORE_BRANCH_ID)
     expect(commerce?.settlementAccount.accountReference).toBe('CD-3318-2204')
+    expect(commerce?.saleValueMix).toEqual(BOOKSTORE_BRANCH_SALE_VALUE_MIX)
     expect(commerce?.sales).toHaveLength(1)
+    expect(commerce?.sales[0].saleValueBand).toBe('STANDARD')
     expect(commerce?.sales[0].transaction.amountCents).toBe(2_000)
   })
 
