@@ -2,47 +2,152 @@ import { BOOKSTORE_BRANCH_ID } from './business'
 import { executeBookstoreSale } from './bookstoreSale'
 import type { BookstoreBranchSalesCadenceRecord, BookstoreSalesCadenceState, GameState } from './types'
 
+const HOUR_MS = 3_600_000
+
 /**
- * The seeded Bookstore Branch's authored V1 cadence fixture: a sale
- * opportunity becomes due every 30 real represented seconds. This is an
- * authored fixture for this one Branch, not a universal law for every
- * Bookstore or Business.
+ * The seeded Bookstore Branch's authored V1 demand fixture: this Branch's
+ * location/context is authored to produce 10 opportunities per represented
+ * hour before any Store attractiveness effect. This is an authored fixture
+ * for this one Branch, not a universal law for every Bookstore or Business.
  */
-export const BOOKSTORE_BRANCH_SALE_OPPORTUNITY_INTERVAL_MS = 30_000
+export const BOOKSTORE_BRANCH_LOCATION_OPPORTUNITY_RATE_PER_HOUR = 10
+
+/**
+ * The seeded Bookstore Branch's authored V1 attractiveness fixture: neutral
+ * (no effect on the location rate). Upgrades are the accepted future path to
+ * changing this value; none are implemented in this slice.
+ */
+export const BOOKSTORE_BRANCH_ATTRACTIVENESS_MULTIPLIER = 1.0
+
+/**
+ * Derive one Branch's current effective sale-opportunity rate, in
+ * opportunities per represented hour, from its two represented demand
+ * inputs. Always derived fresh from current configuration — never stored
+ * redundantly on the record — so it can never drift from the inputs it
+ * describes. This is a plain, unvalidated derivation for read-only/informational
+ * use (comparing two configurations, presenting a rate); `deriveValidatedMeanBookstoreOpportunityIntervalMs`
+ * below is the one path that also enforces the derived invariant a countdown
+ * actually needs.
+ */
+export function deriveEffectiveBookstoreOpportunityRatePerHour(record: BookstoreBranchSalesCadenceRecord): number {
+  return record.locationOpportunityRatePerHour * record.attractivenessMultiplier
+}
+
+/**
+ * Derive and validate the mean represented milliseconds between
+ * opportunities implied by one demand configuration — the one shared path
+ * construction and scheduling both go through, so they can never disagree
+ * about what counts as valid derived demand.
+ *
+ * Two individually finite, positive factors are not enough: their product
+ * (the effective opportunity rate) can still overflow to `Infinity` (an
+ * enormous rate times an enormous multiplier) or underflow to `0` (a tiny
+ * rate times a tiny multiplier), and even a validly finite positive
+ * effective rate can still divide out to an invalid mean interval — `0` from
+ * an astronomically large rate, `Infinity` from an astronomically small one.
+ * Every one of those is a canonical configuration defect, exactly like the
+ * individual-factor checks in `createBookstoreBranchSalesCadenceRecord`:
+ * this fails clearly with a `RangeError` rather than silently clamping,
+ * reinterpreting, or capping the input to some arbitrary "realistic" range.
+ */
+function deriveValidatedMeanBookstoreOpportunityIntervalMs(locationOpportunityRatePerHour: number, attractivenessMultiplier: number): number {
+  const effectiveOpportunityRatePerHour = locationOpportunityRatePerHour * attractivenessMultiplier
+  if (!Number.isFinite(effectiveOpportunityRatePerHour) || effectiveOpportunityRatePerHour <= 0) {
+    throw new RangeError('Represented Bookstore effective opportunity rate (locationOpportunityRatePerHour × attractivenessMultiplier) must be a positive finite number')
+  }
+  const meanIntervalMs = HOUR_MS / effectiveOpportunityRatePerHour
+  if (!Number.isFinite(meanIntervalMs) || meanIntervalMs <= 0) {
+    throw new RangeError('Represented Bookstore mean opportunity interval derived from the effective opportunity rate must be a positive finite number')
+  }
+  return meanIntervalMs
+}
+
+/**
+ * Sample one irregular next-opportunity interval from the given mean
+ * interval, using inverse-CDF exponential sampling (`-mean * ln(1 - U)` for
+ * `U` uniform on `[0, 1)`) so that a represented rate of N/hour means
+ * approximately N opportunities per represented hour over time, while
+ * individual gaps naturally vary.
+ *
+ * `meanIntervalMs` is always already a validated positive finite number by
+ * the time it reaches this function — `deriveValidatedMeanBookstoreOpportunityIntervalMs`
+ * is the only caller-visible way to produce one. This function's own
+ * remaining defense is therefore narrower and purely about the RNG input:
+ * `random`'s contract matches `Math.random` — a value in `[0, 1)` — but a
+ * value at or past either edge of that range (including exactly `0`, which
+ * `Math.random` can legitimately return, and which would otherwise sample a
+ * degenerate zero-length interval) is never trusted blindly. Any input or
+ * resulting sample that is not a finite positive number falls back to the
+ * mean interval itself, so a valid or broken `Math.random`-style source can
+ * never make this function hand back a zero, negative, or infinite
+ * countdown — and, combined with the validated mean it is always given, no
+ * step of the whole scheduling path can either.
+ */
+function sampleBookstoreOpportunityIntervalMs(meanIntervalMs: number, random: () => number): number {
+  const raw = random()
+  const uniform = Number.isFinite(raw) && raw > 0 && raw < 1 ? raw : 0.5
+  const sampledMs = -meanIntervalMs * Math.log(1 - uniform)
+  return Number.isFinite(sampledMs) && sampledMs > 0 ? sampledMs : meanIntervalMs
+}
 
 /**
  * Construct one Bookstore Branch sales cadence record with its canonical
  * numeric invariants enforced at construction, matching the existing
- * `createBookstoreBranchOperationsRecord` convention: both `opportunityIntervalMs`
- * and `remainingUntilOpportunityMs` must be positive finite numbers. A caller
- * that authors an impossible cadence (zero or negative interval) has a bug to
- * fix, not a value to have silently reinterpreted — a non-positive interval
- * would make opportunities due without any represented elapsed time passing.
+ * `createBookstoreBranchOperationsRecord` convention: `locationOpportunityRatePerHour`,
+ * `attractivenessMultiplier`, and `remainingUntilOpportunityMs` must each be
+ * positive finite numbers. A caller that authors impossible demand
+ * configuration (zero, negative, non-finite) has a bug to fix, not a value
+ * to have silently reinterpreted — a non-positive rate cannot derive a
+ * finite mean interval, and a non-positive countdown would make an
+ * opportunity due without any represented elapsed time passing.
+ *
+ * Individually valid factors are not sufficient on their own: this also
+ * runs the pair through `deriveValidatedMeanBookstoreOpportunityIntervalMs`,
+ * the same derivation `scheduleNextBookstoreOpportunity` uses, so a
+ * configuration whose derived effective rate or mean interval would overflow
+ * or underflow is rejected here too — construction and scheduling can never
+ * disagree about what counts as valid derived demand.
  */
 export function createBookstoreBranchSalesCadenceRecord(params: {
   readonly branchId: string
-  readonly opportunityIntervalMs: number
+  readonly locationOpportunityRatePerHour: number
+  readonly attractivenessMultiplier: number
   readonly remainingUntilOpportunityMs: number
 }): BookstoreBranchSalesCadenceRecord {
-  if (!Number.isFinite(params.opportunityIntervalMs) || params.opportunityIntervalMs <= 0) {
-    throw new RangeError('Represented Bookstore sale opportunity interval must be a positive finite number')
+  if (!Number.isFinite(params.locationOpportunityRatePerHour) || params.locationOpportunityRatePerHour <= 0) {
+    throw new RangeError('Represented Bookstore location opportunity rate must be a positive finite number')
+  }
+  if (!Number.isFinite(params.attractivenessMultiplier) || params.attractivenessMultiplier <= 0) {
+    throw new RangeError('Represented Bookstore attractiveness multiplier must be a positive finite number')
   }
   if (!Number.isFinite(params.remainingUntilOpportunityMs) || params.remainingUntilOpportunityMs <= 0) {
     throw new RangeError('Represented Bookstore remaining-until-opportunity time must be a positive finite number')
   }
+  // Throws its own RangeError when the two individually valid factors above still derive an
+  // invalid effective rate or mean interval (IEEE-754 overflow to Infinity, or underflow to 0).
+  deriveValidatedMeanBookstoreOpportunityIntervalMs(params.locationOpportunityRatePerHour, params.attractivenessMultiplier)
   return {
     branchId: params.branchId,
-    opportunityIntervalMs: params.opportunityIntervalMs,
+    locationOpportunityRatePerHour: params.locationOpportunityRatePerHour,
+    attractivenessMultiplier: params.attractivenessMultiplier,
     remainingUntilOpportunityMs: params.remainingUntilOpportunityMs,
   }
 }
 
+/**
+ * There is no free or random sale at game construction: the first
+ * `remainingUntilOpportunityMs` is seeded deterministically to the mean
+ * interval implied by the authored starting demand (10/hour ->
+ * 360,000 ms), never sampled. Stochastic sampling begins only once that
+ * first opportunity is actually consumed.
+ */
 export function createInitialBookstoreSalesCadenceState(): BookstoreSalesCadenceState {
   return {
     records: [createBookstoreBranchSalesCadenceRecord({
       branchId: BOOKSTORE_BRANCH_ID,
-      opportunityIntervalMs: BOOKSTORE_BRANCH_SALE_OPPORTUNITY_INTERVAL_MS,
-      remainingUntilOpportunityMs: BOOKSTORE_BRANCH_SALE_OPPORTUNITY_INTERVAL_MS,
+      locationOpportunityRatePerHour: BOOKSTORE_BRANCH_LOCATION_OPPORTUNITY_RATE_PER_HOUR,
+      attractivenessMultiplier: BOOKSTORE_BRANCH_ATTRACTIVENESS_MULTIPLIER,
+      remainingUntilOpportunityMs: deriveValidatedMeanBookstoreOpportunityIntervalMs(BOOKSTORE_BRANCH_LOCATION_OPPORTUNITY_RATE_PER_HOUR, BOOKSTORE_BRANCH_ATTRACTIVENESS_MULTIPLIER),
     })],
   }
 }
@@ -69,6 +174,25 @@ function replaceCadenceRecord(state: GameState, next: BookstoreBranchSalesCadenc
 }
 
 /**
+ * Schedule the next opportunity for one Branch immediately after its current
+ * due opportunity was consumed. Demand configuration is read fresh from
+ * `state` at this exact instant — never from the stale pre-attempt record —
+ * so that a future Upgrade mechanic (not implemented in this slice) that
+ * changes `locationOpportunityRatePerHour` or `attractivenessMultiplier`
+ * during the same segment affects only the *next* schedule, never the
+ * opportunity that was just consumed. Exactly one `random` sample is drawn
+ * here per due opportunity, whether it sold or refused. The mean interval is
+ * derived through the same validated `deriveValidatedMeanBookstoreOpportunityIntervalMs`
+ * path construction uses, so this can never schedule from an effective rate
+ * or mean interval that overflowed or underflowed into something invalid.
+ */
+function scheduleNextBookstoreOpportunity(state: GameState, branchId: string, staleRecord: BookstoreBranchSalesCadenceRecord, random: () => number): BookstoreBranchSalesCadenceRecord {
+  const current = resolveBookstoreSalesCadenceForBranch(state, branchId) ?? staleRecord
+  const meanIntervalMs = deriveValidatedMeanBookstoreOpportunityIntervalMs(current.locationOpportunityRatePerHour, current.attractivenessMultiplier)
+  return { ...current, remainingUntilOpportunityMs: sampleBookstoreOpportunityIntervalMs(meanIntervalMs, random) }
+}
+
+/**
  * Canonical advancement for every represented Bookstore sales cadence,
  * called from `advanceGameState` as the outermost composition so that a due
  * opportunity always observes the canonical World/Business truth that exists
@@ -85,18 +209,25 @@ function replaceCadenceRecord(state: GameState, next: BookstoreBranchSalesCadenc
  * segment instead of one large call, so the two are equivalent whenever the
  * composed mechanics are themselves deterministic and partition-coherent
  * (as `advanceGameState`'s own module documentation already requires of its
- * per-Device causal composition). Segments are walked iteratively rather
- * than recursively, so a large `elapsedMs` containing many thousands of due
- * opportunities (a seeded 30-second interval makes this an ordinary
- * consequence of a large but legitimate canonical elapsed value) advances in
- * a bounded loop instead of consuming call-stack depth per opportunity.
+ * per-Device causal composition) and the same `bookstoreDemandRandom`
+ * sequence is supplied in both cases. Segments are walked iteratively rather
+ * than recursively, so a large `elapsedMs` containing many due opportunities
+ * advances in a bounded loop instead of consuming call-stack depth per
+ * opportunity.
  *
  * One due opportunity always calls the existing canonical
  * `executeBookstoreSale` exactly once for that Branch and is consumed
  * whether the sale succeeds or refuses — this function never inspects why a
  * sale did or did not complete, never retries a refused opportunity, and
- * never stores backlog, missed-opportunity, or waiting-customer state. The
- * next full cycle begins immediately after every due opportunity.
+ * never stores backlog, missed-opportunity, or waiting-customer state.
+ * Immediately after that one attempt, exactly one `bookstoreDemandRandom`
+ * sample schedules the next interval from the Branch's current effective
+ * opportunity rate (`scheduleNextBookstoreOpportunity`) — semantically
+ * isolated from `credentialAccessRandom`, which `advanceWorld` may itself
+ * consume for an unrelated mechanic during the same segment. Randomness is
+ * sampled only here, exactly once per consumed opportunity: never on an
+ * ordinary tick that leaves no opportunity due, and never merely because
+ * `advanceGameState` was called.
  *
  * Cadence mutates canonical state only where represented cadence truth
  * actually advances: a non-positive `elapsedMs` has no timer to advance, and
@@ -110,6 +241,7 @@ export function advanceBookstoreSalesCadence(
   state: GameState,
   elapsedMs: number,
   advanceWorld: (state: GameState, elapsedMs: number) => GameState,
+  bookstoreDemandRandom: () => number = Math.random,
 ): GameState {
   if (elapsedMs <= 0 || state.bookstoreSalesCadence.records.length === 0) return advanceWorld(state, elapsedMs)
 
@@ -144,9 +276,9 @@ export function advanceBookstoreSalesCadence(
         nextState = replaceCadenceRecord(nextState, { ...record, remainingUntilOpportunityMs: record.remainingUntilOpportunityMs - segmentMs })
         continue
       }
-      // Consumed whether this attempt sells or refuses — the next full cycle begins immediately either way.
+      // Consumed whether this attempt sells or refuses — the next interval is freshly sampled either way.
       const attempted = executeBookstoreSale(nextState, record.branchId)
-      nextState = replaceCadenceRecord(attempted.state, { ...record, remainingUntilOpportunityMs: record.opportunityIntervalMs })
+      nextState = replaceCadenceRecord(attempted.state, scheduleNextBookstoreOpportunity(attempted.state, record.branchId, record, bookstoreDemandRandom))
     }
 
     currentState = nextState

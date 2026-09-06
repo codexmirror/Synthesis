@@ -265,7 +265,7 @@ demand, and calling it twice is two independent explicit attempts. Sales
 Cadence (below) decides when this operation is attempted; this remains the
 sole definition of what one attempt means.
 
-### Sales cadence
+### Sales cadence and demand
 
 A fourth, separate branch-linked record represents the currently implemented
 Bookstore *sales cadence* mechanic — when a sale opportunity for a Bookstore
@@ -275,24 +275,93 @@ Branch becomes due — owned by `GameState.bookstoreSalesCadence`
 ```text
 BookstoreBranchSalesCadenceRecord
 ├── branchId                      — the Business Branch this record belongs to, by stable ID
-├── opportunityIntervalMs         — configuration-like: represented elapsed ms between opportunities
+├── locationOpportunityRatePerHour — configuration-like: authored location/context demand potential, opportunities/hour
+├── attractivenessMultiplier      — configuration-like: current Store attractiveness effect on that rate
 └── remainingUntilOpportunityMs   — mutable runtime: represented elapsed ms left until the next opportunity
 ```
 
-This record owns timing and configuration only; it never reads or duplicates
-any of `executeBookstoreSale`'s prerequisites, and it never writes inventory,
-Accounts, Transactions, CompletedSales, Backend, or Business state directly.
-`createBookstoreBranchSalesCadenceRecord` is the one sanctioned constructor
-and enforces, at construction, that both fields are positive finite numbers.
+This record owns timing and demand configuration only; it never reads or
+duplicates any of `executeBookstoreSale`'s prerequisites, and it never writes
+inventory, Accounts, Transactions, CompletedSales, Backend, or Business state
+directly. `createBookstoreBranchSalesCadenceRecord` is the one sanctioned
+constructor and enforces, at construction, that all three fields are positive
+finite numbers.
+
+**Demand model.** Sale-opportunity timing is derived from a compact
+rate-driven demand model rather than authored as a fixed interval:
+
+```text
+locationOpportunityRatePerHour × attractivenessMultiplier = effectiveOpportunityRatePerHour
+```
+
+`locationOpportunityRatePerHour` represents the Branch's authored
+location/context demand potential; `attractivenessMultiplier` represents the
+current Store's own customer-attraction effect on that rate (1.0 is
+neutral). `deriveEffectiveBookstoreOpportunityRatePerHour` derives their
+product fresh wherever needed — it is never stored redundantly on the record,
+so it can never drift from the inputs it describes. These two inputs mean
+only "how frequently the unsimulated surrounding world is expected to produce
+a sale opportunity for this concrete Bookstore": V1 represents no Customer,
+visit, queue, foot-traffic record, popularity, or reputation system, and nothing
+here reads Business money, organization quality, or fulfillment state —
+those remain owned by Bookstore Operations/Backend/Commerce and Civic Dollar,
+exactly as before. The accepted future causal chain from money to demand runs
+through a represented Upgrade changing these inputs or Store capability,
+never a direct "balance -> more customers" shortcut; Upgrades are accepted
+future direction and are not implemented in this slice.
+
 V1 seeds exactly one such record for `bookstore-branch-01`:
-`opportunityIntervalMs = 30_000` and initially `remainingUntilOpportunityMs =
-30_000` — an authored V1 Bookstore fixture, not a universal law for every
-Bookstore or Business. There is no free sale at game start, initial-state
-construction, or a zero-elapsed advancement; the first opportunity exists
-only after 30,000 ms of actual canonical elapsed advancement.
+`locationOpportunityRatePerHour = 10` and `attractivenessMultiplier = 1.0` —
+authored V1 fixture values, not a universal law for every Bookstore or
+Business — giving an initial effective rate of 10 opportunities/hour and a
+mean inter-opportunity interval of 3,600,000 / 10 = 360,000 ms. There is no
+free sale at game start, initial-state construction, or a zero-elapsed
+advancement: initial-state construction seeds `remainingUntilOpportunityMs`
+deterministically to that mean interval (360,000 ms) and never samples
+randomness; the first opportunity exists only after 360,000 ms of actual
+canonical elapsed advancement.
 `resolveBookstoreSalesCadenceForBranch(state, branchId)` resolves this record
 for one Branch and returns `undefined` where a Branch has no such record at
 all, exactly like the three sibling resolvers above.
+
+**Irregular sampled arrivals.** Every opportunity after the first is
+scheduled by one exponential inter-arrival sample — `sampledIntervalMs =
+-meanIntervalMs * ln(1 - u)` for one uniform `u` drawn from a dedicated
+Bookstore-demand random source (`bookstoreDemandRandom`, defaulting to
+`Math.random` in production) — so a represented rate of N/hour means
+approximately N opportunities per represented hour over time while
+individual gaps naturally vary, rather than a mechanically fixed interval.
+
+Deriving that `meanIntervalMs` is itself validated, not just the sampler's
+RNG input: `deriveValidatedMeanBookstoreOpportunityIntervalMs` requires both
+the derived effective rate (`locationOpportunityRatePerHour ×
+attractivenessMultiplier`) and the derived mean interval
+(`3,600,000 / effectiveRate`) to themselves be positive finite numbers. Two
+individually valid positive finite factors are not enough on their own — their
+product can still overflow to `Infinity` or underflow to `0`, and even a
+validly finite positive effective rate can still divide out to an invalid
+mean interval — so this check runs identically wherever a mean interval is
+derived, at construction (`createBookstoreBranchSalesCadenceRecord`) and at
+scheduling (`scheduleNextBookstoreOpportunity`), and rejects an impossible
+configuration with a `RangeError` rather than silently clamping or
+reinterpreting it into some arbitrary "realistic" range. Given that
+already-validated mean interval, the sampler itself only has to defend
+against a degenerate `u` (including exactly `0`, which `Math.random` can
+legitimately return) by falling back to the mean interval itself. Together,
+this means the whole scheduling path — not the sampler alone — can never
+turn a valid or broken `Math.random`-style source, together with any demand
+configuration actually accepted as canonical state, into a zero-time or
+infinite countdown.
+
+`bookstoreDemandRandom` is threaded through `advanceGameState` as its own
+parameter, entirely independent from `credentialAccessRandom`: the two
+mechanics never share or advance each other's random sequence merely because
+both happen to occur within one `advanceGameState` call. This is a separate
+semantic channel and test-injection point, not a separate PRNG
+implementation: production leaves both parameters at their default, and both
+defaults are the same `Math.random`. Neither channel is a deterministic
+production random stream — only test code substitutes a controlled function
+for either one.
 
 `advanceBookstoreSalesCadence` (called from `advanceGameState` in
 `gameAdvancement.ts`, ahead of the rest of canonical advancement) is the
@@ -302,16 +371,29 @@ opportunity boundary: it advances the remainder of canonical state
 (`advanceGameStateCore`, the same composition `advanceGameState` used before
 this mechanic existed) up to exactly the next due instant, calls the existing
 canonical `executeBookstoreSale(state, branchId)` exactly once for that
-Branch, and only then continues with whatever elapsed time is left — so a due
-opportunity always observes the World/Business truth that exists at its own
-due time, never truth from the start or the end of a larger `elapsedMs`
-alone, and a large elapsed step correctly contains multiple chronological
-opportunities rather than at most one. A due opportunity is always consumed —
-whether `executeBookstoreSale` sells or refuses — and the next full
-`opportunityIntervalMs` cycle begins immediately either way: cadence stores
-no missed opportunity, backlog, waiting customer, retry, or lost-revenue
-state, and a prerequisite that becomes valid again after a missed opportunity
-never triggers an immediate retry or recovery burst.
+Branch, draws exactly one `bookstoreDemandRandom` sample to schedule the next
+interval from the Branch's *current* effective opportunity rate, and only
+then continues with whatever elapsed time is left — so a due opportunity
+always observes the World/Business truth that exists at its own due time,
+never truth from the start or the end of a larger `elapsedMs` alone, and a
+large elapsed step correctly contains multiple chronological opportunities
+rather than at most one. Randomness is sampled only at that one moment —
+never on an ordinary tick that leaves no opportunity due, and never merely
+because `advanceGameState` was called — so browser tick frequency cannot
+change how many random samples are consumed. A due opportunity is always
+consumed — whether `executeBookstoreSale` sells or refuses — and the next
+interval is always freshly sampled either way: cadence stores no missed
+opportunity, backlog, waiting customer, retry, or lost-revenue state, and a
+prerequisite that becomes valid again after a missed opportunity never
+triggers an immediate retry or recovery burst.
+
+Changing `locationOpportunityRatePerHour` or `attractivenessMultiplier` never
+retroactively rescales an already-scheduled `remainingUntilOpportunityMs`: the
+current countdown represents an opportunity already scheduled in canonical
+time, and new demand configuration is read only when the *next* interval is
+scheduled after the current due opportunity is consumed. This gives a future
+Upgrade mechanic (not implemented in this slice) a narrow, causally clean
+integration point without magically rewriting already-scheduled time.
 
 This is a narrow concrete Bookstore record, not a generic Business
 scheduler, demand system, or universal recurrence framework — exactly like

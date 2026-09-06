@@ -824,12 +824,27 @@ export interface BookstoreBackendState {
  * `executeBookstoreSale` (`bookstoreSale.ts`), which this record never reads
  * or duplicates.
  *
- * `opportunityIntervalMs` is configuration-like: how often this Branch
- * produces a sale opportunity. `remainingUntilOpportunityMs` is mutable
- * runtime truth: represented elapsed time left until the next opportunity.
- * A due opportunity is always consumed — successful or refused — and the
- * next full cycle begins immediately; this record stores no missed
- * opportunity, backlog, waiting customer, or retry state.
+ * `locationOpportunityRatePerHour` and `attractivenessMultiplier` are
+ * configuration-like represented demand inputs: how often this Branch's
+ * location/context is expected to produce a sale opportunity, and the
+ * current Store's own customer-attraction effect on that rate. Their product
+ * is this Branch's effective opportunity rate — derived fresh wherever
+ * needed, never stored redundantly on this record. `remainingUntilOpportunityMs`
+ * is mutable runtime truth: represented elapsed time left until the next
+ * opportunity, sampled from that effective rate exactly once whenever a due
+ * opportunity is consumed and a new one is scheduled (`advanceBookstoreSalesCadence`
+ * in `bookstoreSalesCadence.ts`). A due opportunity is always consumed —
+ * successful or refused — and the next interval is always freshly sampled;
+ * this record stores no missed opportunity, backlog, waiting customer, or
+ * retry state.
+ *
+ * These demand inputs represent only "how frequently the unsimulated
+ * surrounding world is expected to produce a sale opportunity for this
+ * concrete Bookstore" — never an individually represented Customer, visit,
+ * queue, or foot-traffic record, and never a generic Business quality score.
+ * Organization/fulfillment quality and Business money never modify these
+ * inputs directly; they remain narrow authored/future-Upgrade-owned
+ * configuration.
  *
  * This is a narrow concrete Bookstore record, not a generic Business
  * scheduler, demand system, or universal recurrence framework: a future
@@ -838,9 +853,11 @@ export interface BookstoreBackendState {
  */
 export interface BookstoreBranchSalesCadenceRecord {
   readonly branchId: string
-  /** Configuration-like: represented elapsed milliseconds between sale opportunities. Must be a positive finite number. */
-  readonly opportunityIntervalMs: number
-  /** Mutable runtime: represented elapsed milliseconds remaining until the next sale opportunity becomes due. Must be a positive finite number; a due opportunity always resets this to `opportunityIntervalMs`, never to zero or a negative remainder. */
+  /** Configuration-like: this Branch's authored location/context demand potential, in opportunities per represented hour. Must be a positive finite number. */
+  readonly locationOpportunityRatePerHour: number
+  /** Configuration-like: the current Store's customer-attraction effect on the location rate above. Must be a positive finite number; 1.0 is neutral. */
+  readonly attractivenessMultiplier: number
+  /** Mutable runtime: represented elapsed milliseconds remaining until the next sale opportunity becomes due. Must be a positive finite number, freshly sampled from the current effective opportunity rate whenever the previous opportunity is consumed. */
   readonly remainingUntilOpportunityMs: number
 }
 
