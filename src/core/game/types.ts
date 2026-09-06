@@ -732,10 +732,20 @@ export interface BusinessState {
 export interface BookstoreBranchCommerceRecord {
   readonly branchId: string
   readonly settlementAccountId: string
+  /**
+   * Current canonical sale price in integer cents, read fresh by sale
+   * execution — never inferred from a historical Transaction or
+   * CompletedSale. Must be a positive safe integer for a sale to execute; V1
+   * has no product catalogue, SKU, or variable/dynamic pricing, so this is
+   * the one price a Bookstore Branch sale moves.
+   */
+  readonly unitPriceCents: number
   readonly completedSales: readonly BusinessBranchSale[]
 }
 
 export interface BookstoreCommerceState {
+  /** Monotonic allocator for runtime `BusinessBranchSale` identity, following the existing Transaction/Session allocation pattern. Never derived from array length, time, or randomness. */
+  readonly nextSaleId: number
   readonly records: readonly BookstoreBranchCommerceRecord[]
 }
 

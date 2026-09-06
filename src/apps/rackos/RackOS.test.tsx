@@ -285,7 +285,7 @@ describe('RACK-OS', () => {
     const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
     // A changed current destination must not rewrite or hide the completed
     // sale's canonical historical settlement.
-    const withChangedSettlement = { ...connected, bookstoreCommerce: { records: connected.bookstoreCommerce.records.map((record) => record.branchId === 'bookstore-branch-01' ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) } }
+    const withChangedSettlement = { ...connected, bookstoreCommerce: { ...connected.bookstoreCommerce, records: connected.bookstoreCommerce.records.map((record) => record.branchId === 'bookstore-branch-01' ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) } }
     render(<GameProvider initialState={withChangedSettlement}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
 
@@ -1253,7 +1253,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
   it('keeps the current settlement Account distinct from the completed sale historical settlement', async () => {
     const user = userEvent.setup()
     const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
-    const redirected = { ...base, bookstoreCommerce: { records: base.bookstoreCommerce.records.map((record) => record.branchId === 'bookstore-branch-01' ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) } }
+    const redirected = { ...base, bookstoreCommerce: { ...base.bookstoreCommerce, records: base.bookstoreCommerce.records.map((record) => record.branchId === 'bookstore-branch-01' ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) } }
     render(<GameProvider initialState={redirected}><Shell /></GameProvider>)
     await enterRemote(user)
     await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
@@ -1328,8 +1328,9 @@ describe('RACK-OS 1.1 Business application shell', () => {
         }],
       },
       bookstoreCommerce: {
+        ...base.bookstoreCommerce,
         records: [...base.bookstoreCommerce.records, {
-          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', completedSales: [],
+          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', unitPriceCents: 2_000, completedSales: [],
         }],
       },
     }

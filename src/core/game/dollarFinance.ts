@@ -52,6 +52,78 @@ export function logoutDollarAccount(state: GameState, clientDeviceId: string): L
   return { status: 'logged_out', state: { ...state, dollarFinance: { ...state.dollarFinance, sessions: { ...state.dollarFinance.sessions, active } } } }
 }
 
+export type CivicDollarMovementResult =
+  | { readonly status: 'moved'; readonly state: GameState; readonly transaction: DollarTransaction }
+  | {
+      readonly status:
+        | 'source_not_found'
+        | 'destination_not_found'
+        | 'same_account'
+        | 'invalid_amount'
+        | 'insufficient_funds'
+      readonly state: GameState
+    }
+
+/**
+ * The canonical Civic Dollar Account-to-Account movement invariant: the
+ * Provider-owned money-movement half of a transfer (source/destination exist
+ * and differ, the amount is a positive safe integer, funds suffice, the
+ * resulting balances stay exactly representable, exactly one Transaction is
+ * allocated and appended, and debit/credit happen together) with no opinion
+ * about *who is allowed to move whose money* — that authority question stays
+ * with each caller.
+ *
+ * `transferDollars` below is the one caller that derives its source Account
+ * from Device -> Financial Session authority and is the only path a player
+ * interface can reach; this primitive takes both Accounts by stable ID
+ * because a narrow internal domain caller (a Bookstore sale, for example)
+ * legitimately identifies both sides by already-resolved canonical identity
+ * rather than through any Device or Session. Exposing this primitive is not
+ * a new player-facing transfer path: nothing routes an arbitrary interface
+ * caller to it directly.
+ *
+ * It refuses, changing nothing, when either Account cannot be found, when
+ * they are the same Account, when the amount is not a positive safe integer,
+ * or when the source lacks sufficient funds — including when the resulting
+ * destination balance could not be represented as an exact integer.
+ *
+ * This performs no reaction of its own (Petra's transaction reaction stays
+ * owned by `transferDollars`, at its existing semantic layer) and does not
+ * decide whose money is allowed to move.
+ */
+export function executeCivicDollarMovement(state: GameState, sourceAccountId: string, destinationAccountId: string, amountCents: number): CivicDollarMovementResult {
+  const source = state.dollarFinance.accounts.find(({ id }) => id === sourceAccountId)
+  if (!source) return { status: 'source_not_found', state }
+  const destination = state.dollarFinance.accounts.find(({ id }) => id === destinationAccountId)
+  if (!destination) return { status: 'destination_not_found', state }
+  if (destination.id === source.id) return { status: 'same_account', state }
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) return { status: 'invalid_amount', state }
+  if (amountCents > source.balanceCents) return { status: 'insufficient_funds', state }
+  // Canonical money stays an exact integer: a credit that could not be represented exactly is refused rather than rounded.
+  if (!Number.isSafeInteger(destination.balanceCents + amountCents)) return { status: 'invalid_amount', state }
+
+  const transactions = state.dollarFinance.transactions
+  const transaction: DollarTransaction = {
+    id: `dollar-transaction-${String(transactions.nextId).padStart(4, '0')}`,
+    sourceAccountId: source.id,
+    destinationAccountId: destination.id,
+    amountCents,
+    sourceAccountReference: source.accountReference,
+    destinationAccountReference: destination.accountReference,
+  }
+  const accounts = state.dollarFinance.accounts.map((account) => {
+    if (account.id === source.id) return { ...account, balanceCents: account.balanceCents - amountCents }
+    if (account.id === destination.id) return { ...account, balanceCents: account.balanceCents + amountCents }
+    return account
+  })
+
+  return {
+    status: 'moved',
+    transaction,
+    state: { ...state, dollarFinance: { ...state.dollarFinance, accounts, transactions: { nextId: transactions.nextId + 1, records: [...transactions.records, transaction] } } },
+  }
+}
+
 export type TransferDollarsResult =
   | { readonly status: 'transferred'; readonly state: GameState; readonly transactionId: string }
   | {
@@ -86,34 +158,19 @@ export function transferDollars(state: GameState, clientDeviceId: string, recipi
   if (recipients.length > 1) return { status: 'recipient_ambiguous', state }
   const recipient = recipients[0]
   if (recipient.id === source.id) return { status: 'recipient_is_source', state }
-  if (amountCents > source.balanceCents) return { status: 'insufficient_funds', state }
-  // Canonical money stays an exact integer: a credit that could not be represented exactly is refused rather than rounded.
-  if (!Number.isSafeInteger(recipient.balanceCents + amountCents)) return { status: 'invalid_amount', state }
 
-  const transactions = state.dollarFinance.transactions
-  const transaction: DollarTransaction = {
-    id: `dollar-transaction-${String(transactions.nextId).padStart(4, '0')}`,
-    sourceAccountId: source.id,
-    destinationAccountId: recipient.id,
-    amountCents,
-    sourceAccountReference: source.accountReference,
-    destinationAccountReference: recipient.accountReference,
-  }
-  const accounts = state.dollarFinance.accounts.map((account) => {
-    if (account.id === source.id) return { ...account, balanceCents: account.balanceCents - amountCents }
-    if (account.id === recipient.id) return { ...account, balanceCents: account.balanceCents + amountCents }
-    return account
-  })
-
-  const transferredState: GameState = {
-    ...state,
-    dollarFinance: { ...state.dollarFinance, accounts, transactions: { nextId: transactions.nextId + 1, records: [...transactions.records, transaction] } },
+  const movement = executeCivicDollarMovement(state, source.id, recipient.id, amountCents)
+  if (movement.status === 'insufficient_funds') return { status: 'insufficient_funds', state }
+  if (movement.status !== 'moved') {
+    // source and recipient are already resolved, existing, distinct Accounts and amountCents is already a
+    // positive safe integer at this point, so only the balance-overflow branch of `invalid_amount` remains reachable.
+    return { status: 'invalid_amount', state }
   }
   return {
     status: 'transferred',
-    transactionId: transaction.id,
-    // The Transaction exists in transferredState before the separate concrete reaction resolves.
-    state: resolvePetraTransactionReaction(transferredState, transaction),
+    transactionId: movement.transaction.id,
+    // The Transaction exists in movement.state before the separate concrete reaction resolves.
+    state: resolvePetraTransactionReaction(movement.state, movement.transaction),
   }
 }
 
