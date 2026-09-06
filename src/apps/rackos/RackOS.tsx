@@ -14,6 +14,7 @@ import { describeUploadFailure } from '../uploadFailure'
 import { runRemoteCommand } from './remoteCommands'
 import { resolveBusinessOperatingContext, type ResolvedBusinessBranch } from '../../core/game/business'
 import { resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
+import { resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import type { LocalNetwork } from '../../core/game/types'
 import { formatDollarCents } from '../dollarFormat'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
@@ -224,11 +225,16 @@ function RackApplications({ deviceName, firmware, open }: {
  * exactly one.
  *
  * `context` carries only generic structural identity (Branch/Company/Network).
- * Any concrete commerce is a separate, optional composition on top: this
- * component resolves `resolveBookstoreCommerceForBranch` per Branch itself,
- * rather than the structural resolver depending on it, so a structurally
- * valid Branch with no represented commerce subsystem still presents its
- * Company/Branch/Network identity without inventing settlement or sale data.
+ * Any concrete commerce or operations is a separate, optional composition on
+ * top: this component resolves `resolveBookstoreCommerceForBranch` and
+ * `resolveBookstoreOperationsForBranch` per Branch itself, rather than the
+ * structural resolver depending on either, so a structurally valid Branch
+ * presents its Company/Branch/Network identity regardless of which (if any)
+ * of those two concrete subsystems it has represented, without inventing
+ * settlement, sale, OPEN/CLOSED, or inventory data in place of an absent one.
+ * The two subsystems are independent optional joins: a Branch may have
+ * operations without commerce, commerce without operations, both, or
+ * neither.
  */
 function BusinessSurface({ state, context }: {
   state: GameState
@@ -247,12 +253,16 @@ function BusinessSurface({ state, context }: {
       </div>
       : context.branches.map((resolved) => {
         const commerce = resolveBookstoreCommerceForBranch(state, resolved.branch.id)
+        const operations = resolveBookstoreOperationsForBranch(state, resolved.branch.id)
         return <div className="rack-artifact" key={resolved.branch.id}>
           <p className="rack-artifact-kind">BUSINESS BRANCH</p>
           <h2>{resolved.branch.displayName}</h2>
           <dl className="rack-facts">
             <div><dt>COMPANY</dt><dd>{resolved.company.displayName}</dd></div>
             <div><dt>NETWORK</dt><dd>{resolved.network.name}</dd></div>
+            {operations && <div><dt>STATUS</dt><dd>{operations.open ? 'OPEN' : 'CLOSED'}</dd></div>}
+            {operations && <div><dt>STOCK</dt><dd>{operations.currentInventory} / {operations.shelfCapacity}</dd></div>}
+            {operations && <div><dt>CHECKOUTS</dt><dd>{operations.checkoutCapacity}</dd></div>}
             {commerce && <div><dt>SETTLEMENT ACCOUNT</dt><dd>{commerce.settlementAccount.accountReference}</dd></div>}
           </dl>
           {commerce && commerce.sales.length > 0 && <>

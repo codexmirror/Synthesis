@@ -51,6 +51,11 @@ describe('resolveBusinessOperatingContext', () => {
     // Structural resolution carries no commerce/finance projection of its own.
     expect(resolved).not.toHaveProperty('settlementAccount')
     expect(resolved).not.toHaveProperty('sales')
+    // Nor any Bookstore-operations projection — that remains a separate optional join.
+    expect(resolved).not.toHaveProperty('open')
+    expect(resolved).not.toHaveProperty('currentInventory')
+    expect(resolved).not.toHaveProperty('shelfCapacity')
+    expect(resolved).not.toHaveProperty('checkoutCapacity')
   })
 
   it('resolves a structurally valid Branch with no bookstore-commerce record at all, independent of Civic Dollar', () => {

@@ -1226,6 +1226,10 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business).toHaveTextContent('remote-segment-01')
     expect(business).toHaveTextContent('BOOK SALE')
     expect(business).toHaveTextContent('$20.00')
+    // The seeded Branch has both a commerce record and an operations record represented.
+    expect(business).toHaveTextContent('OPEN')
+    expect(business).toHaveTextContent('360 / 480')
+    expect(within(business).getByText('CHECKOUTS').closest('div')).toHaveTextContent('2')
     // Read-only: no internal identifiers, credentials, or Player identity.
     expect(business.textContent).not.toContain('dollar-account-veyra-phone-v0')
     expect(business.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
@@ -1272,13 +1276,13 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business.textContent).not.toMatch(/error|not installed|not found/i)
   })
 
-  it('presents a structurally valid Branch with no commerce subsystem beside one that has commerce, without inventing settlement or sale data', async () => {
+  it('presents a structurally valid Branch with neither concrete subsystem beside one that has commerce, without inventing settlement, sale, or operations data', async () => {
     const user = userEvent.setup()
     const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
     // A second Branch on the same Network, owned by the same Company, with no
-    // bookstoreCommerce record at all — a legitimate structural Branch for a
-    // future concrete subsystem (hosting, distribution, ...) this slice does
-    // not implement.
+    // bookstoreCommerce or bookstoreOperations record at all — a legitimate
+    // structural Branch for a future concrete subsystem (hosting,
+    // distribution, ...) this slice does not implement.
     const noCommerceBranch = { id: 'branch-fixture-hosting', displayName: 'Fixture Hosting Branch', companyId: base.business.companies[0].id, networkId: 'network-foreign-001' }
     const initial = { ...base, business: { ...base.business, branches: [...base.business.branches, noCommerceBranch] } }
     render(<GameProvider initialState={initial}><Shell /></GameProvider>)
@@ -1293,10 +1297,55 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business).toHaveTextContent('Fixture Hosting Branch')
     const fixtureHeading = within(business).getByRole('heading', { name: 'Fixture Hosting Branch' })
     const fixtureBlock = fixtureHeading.closest('.rack-artifact')!
-    // ...but invents no settlement, sale, or error state for the subsystem it does not have.
+    // ...but invents no settlement, sale, status, or error state for the subsystems it does not have.
     expect(fixtureBlock).not.toHaveTextContent('SETTLEMENT ACCOUNT')
     expect(fixtureBlock).not.toHaveTextContent('RECENT SALES')
+    expect(fixtureBlock).not.toHaveTextContent('STATUS')
+    expect(fixtureBlock).not.toHaveTextContent('STOCK')
+    expect(fixtureBlock).not.toHaveTextContent('CHECKOUTS')
     expect(fixtureBlock.textContent).not.toMatch(/error|not configured|missing/i)
+  })
+
+  it('presents a Branch with operations but no commerce, and a Branch with commerce but no operations, each independently and without fabricating the missing subsystem', async () => {
+    const user = userEvent.setup()
+    const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
+    const companyId = base.business.companies[0].id
+    const operationsOnlyBranch = { id: 'branch-fixture-operations-only', displayName: 'Fixture Operations-Only Branch', companyId, networkId: 'network-foreign-001' }
+    const commerceOnlyBranch = { id: 'branch-fixture-commerce-only', displayName: 'Fixture Commerce-Only Branch', companyId, networkId: 'network-foreign-001' }
+    const initial = {
+      ...base,
+      business: { ...base.business, branches: [...base.business.branches, operationsOnlyBranch, commerceOnlyBranch] },
+      bookstoreOperations: {
+        records: [...base.bookstoreOperations.records, {
+          branchId: operationsOnlyBranch.id, shelfCapacity: 150, checkoutCapacity: 1, open: false, currentInventory: 90,
+        }],
+      },
+      bookstoreCommerce: {
+        records: [...base.bookstoreCommerce.records, {
+          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', completedSales: [],
+        }],
+      },
+    }
+    render(<GameProvider initialState={initial}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+
+    const business = screen.getByRole('region', { name: 'Business' })
+
+    const operationsHeading = within(business).getByRole('heading', { name: 'Fixture Operations-Only Branch' })
+    const operationsBlock = operationsHeading.closest('.rack-artifact') as HTMLElement
+    expect(operationsBlock).toHaveTextContent('CLOSED')
+    expect(operationsBlock).toHaveTextContent('90 / 150')
+    expect(within(operationsBlock).getByText('CHECKOUTS').closest('div')).toHaveTextContent('1')
+    expect(operationsBlock).not.toHaveTextContent('SETTLEMENT ACCOUNT')
+    expect(operationsBlock).not.toHaveTextContent('RECENT SALES')
+
+    const commerceHeading = within(business).getByRole('heading', { name: 'Fixture Commerce-Only Branch' })
+    const commerceBlock = commerceHeading.closest('.rack-artifact') as HTMLElement
+    expect(within(commerceBlock).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-1042-7781')
+    expect(commerceBlock).not.toHaveTextContent('STATUS')
+    expect(commerceBlock).not.toHaveTextContent('STOCK')
+    expect(commerceBlock).not.toHaveTextContent('CHECKOUTS')
   })
 })
 

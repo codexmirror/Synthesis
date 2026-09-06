@@ -739,6 +739,42 @@ export interface BookstoreCommerceState {
   readonly records: readonly BookstoreBranchCommerceRecord[]
 }
 
+/**
+ * Concrete branch-linked Bookstore *operations* truth: the represented shelf
+ * and checkout capacity a Bookstore Branch is configured with, and its
+ * current OPEN/CLOSED state and sellable inventory quantity. Keyed by stable
+ * Branch `id`, exactly like `BookstoreBranchCommerceRecord`, and deliberately
+ * a separate record from it — operational inventory/state is never folded
+ * into settlement/sale commerce truth, and neither is embedded on generic
+ * `BusinessBranchState`.
+ *
+ * `shelfCapacity` and `checkoutCapacity` are configuration-like: they express
+ * how this Branch is set up, not what it is doing right now. `open` and
+ * `currentInventory` are mutable runtime truth. `checkoutCapacity` is only a
+ * count of represented physical checkout positions — it carries no
+ * throughput, demand, timing, or autonomous-sale meaning.
+ *
+ * This is a narrow concrete Bookstore record, not a generic Business
+ * operations/archetype framework: a future concrete archetype (Laundry, Bank,
+ * ...) owns its own separate branch-linked shape rather than extending this
+ * one or a shared engine.
+ */
+export interface BookstoreBranchOperationsRecord {
+  readonly branchId: string
+  /** Configuration-like: maximum sellable inventory this Branch can shelve. */
+  readonly shelfCapacity: number
+  /** Configuration-like: represented physical checkout positions. Not a throughput, demand, or timing figure. */
+  readonly checkoutCapacity: number
+  /** Mutable runtime: whether this Branch currently presents as open for business. */
+  readonly open: boolean
+  /** Mutable runtime: current sellable inventory quantity. Never greater than `shelfCapacity`. */
+  readonly currentInventory: number
+}
+
+export interface BookstoreOperationsState {
+  readonly records: readonly BookstoreBranchOperationsRecord[]
+}
+
 /** One represented balance-changing event in the local NODE Wallet. */
 export type NodeWalletActivityRecord = NodeWalletMiningPayoutActivityRecord | NodeWalletMarketPurchaseActivityRecord
 
@@ -1478,6 +1514,8 @@ export interface GameState {
   readonly business: BusinessState
   /** Concrete branch-linked bookstore commerce truth; not embedded in generic Business Branch identity. */
   readonly bookstoreCommerce: BookstoreCommerceState
+  /** Concrete branch-linked bookstore operations truth (OPEN/CLOSED, inventory, shelf/checkout capacity); a separate optional join from `bookstoreCommerce`, not embedded in generic Business Branch identity. */
+  readonly bookstoreOperations: BookstoreOperationsState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
   /** The represented software Market and the player's purchase entitlements in it. */
