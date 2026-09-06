@@ -256,25 +256,32 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 ### Branch commerce
 
 Concrete Company and Business Branch identity, the Branch's explicit Network
-relationship, completed-sale meaning, settlement configuration, and the
-separate concrete bookstore-operations record (OPEN/CLOSED, current
-inventory, shelf capacity, checkout capacity).
+relationship, completed-sale meaning, settlement configuration, the separate
+concrete bookstore-operations record (OPEN/CLOSED, current inventory, shelf
+capacity, checkout capacity), and the separate concrete bookstore-backend
+record referencing the real represented Device/Service that technically
+implements a Branch's backend.
 
 - CURRENT TRUTH → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - ARCHITECTURE → A01–A04 in
   [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md),
-  A07 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md),
+  A07–A08 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md),
   A16 in [`architecture/SIMULATION_EVOLUTION.md`](architecture/SIMULATION_EVOLUTION.md),
   A18 in [`architecture/ECONOMY_AND_WALLETS.md`](architecture/ECONOMY_AND_WALLETS.md)
 - RELATED CURRENT TRUTH → [`current/DOLLAR_FINANCE.md`](current/DOLLAR_FINANCE.md),
   [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md),
-  [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
+  [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md),
+  [`current/DEVICE_SYSTEM.md`](current/DEVICE_SYSTEM.md) (the real srv-02
+  Device/Service the bookstore-backend record references)
 - CODE → `src/core/game/business.ts` (generic Company/Branch/Network structure),
   `src/core/game/bookstoreCommerce.ts` (the one concrete branch-linked
   bookstore-commerce record), `src/core/game/bookstoreOperations.ts` (the
-  separate concrete branch-linked bookstore-operations record), `src/apps/rackos/`
+  separate concrete branch-linked bookstore-operations record),
+  `src/core/game/bookstoreBackend.ts` (the separate concrete branch-linked
+  backend reference and its availability derivation), `src/apps/rackos/`
 - TESTS → `src/core/game/business.test.ts`, `src/core/game/bookstoreCommerce.test.ts`,
-  `src/core/game/bookstoreOperations.test.ts`, `src/apps/rackos/RackOS.test.tsx`
+  `src/core/game/bookstoreOperations.test.ts`, `src/core/game/bookstoreBackend.test.ts`,
+  `src/apps/rackos/RackOS.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
 

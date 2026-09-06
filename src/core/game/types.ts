@@ -775,6 +775,34 @@ export interface BookstoreOperationsState {
   readonly records: readonly BookstoreBranchOperationsRecord[]
 }
 
+/**
+ * Concrete branch-linked Bookstore *backend* truth: which real represented
+ * technical Device and Service on it implement this Bookstore Branch's
+ * backend, referenced by stable identity alone. Keyed by stable Branch `id`,
+ * exactly like `BookstoreBranchCommerceRecord` and
+ * `BookstoreBranchOperationsRecord`, and equally a separate record from
+ * both — this holds no settlement, sale, OPEN/CLOSED, or inventory truth of
+ * its own, and neither of those two records nor generic `BusinessBranchState`
+ * holds this technical reference.
+ *
+ * This record carries no `online`/status field of its own: the backend's
+ * availability is derived fresh from the referenced Device's and Service's
+ * own canonical operational truth (`resolveBookstoreBackendForBranch` in
+ * `bookstoreBackend.ts`), never stored here as a shadow flag that could drift
+ * from it.
+ */
+export interface BookstoreBranchBackendRecord {
+  readonly branchId: string
+  /** Stable `NetworkHost` identity hosting this backend; never a display name or IP. */
+  readonly deviceId: string
+  /** Stable `NetworkService` identity on that Device implementing this backend; never a display name or port. */
+  readonly serviceId: string
+}
+
+export interface BookstoreBackendState {
+  readonly records: readonly BookstoreBranchBackendRecord[]
+}
+
 /** One represented balance-changing event in the local NODE Wallet. */
 export type NodeWalletActivityRecord = NodeWalletMiningPayoutActivityRecord | NodeWalletMarketPurchaseActivityRecord
 
@@ -1516,6 +1544,8 @@ export interface GameState {
   readonly bookstoreCommerce: BookstoreCommerceState
   /** Concrete branch-linked bookstore operations truth (OPEN/CLOSED, inventory, shelf/checkout capacity); a separate optional join from `bookstoreCommerce`, not embedded in generic Business Branch identity. */
   readonly bookstoreOperations: BookstoreOperationsState
+  /** Concrete branch-linked reference to the real represented Device/Service implementing a Bookstore Branch's technical backend; a separate optional join from both `bookstoreCommerce` and `bookstoreOperations`, not embedded in generic Business Branch identity. */
+  readonly bookstoreBackend: BookstoreBackendState
   readonly nodeWallet: NodeWalletState
   readonly nodeEconomy: NodeEconomyState
   /** The represented software Market and the player's purchase entitlements in it. */

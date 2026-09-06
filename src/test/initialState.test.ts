@@ -39,11 +39,11 @@ describe('createInitialGameState', () => {
 
   it('separates identities and seeds canonical local-device state in schema version 69', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(71)
+    expect(GAME_STATE_VERSION).toBe(72)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(71)
+    expect(state.version).toBe(72)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -178,6 +178,7 @@ describe('createInitialGameState', () => {
     expect(server?.services).toEqual([
       { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' }, credentialAccess: { privilege: 'USER' } },
       { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', buildId: 'build-rack-update-1.0-v0', name: 'RackUpdate', version: '1.0' } },
+      { id: 'service-bookstore-backend-002', name: 'Bookstore Backend', port: 8090, protocol: 'TCP', open: true, implementation: { productId: 'bookstore-backend', releaseId: 'bookstore-backend-1.0', buildId: 'build-bookstore-backend-1.0-v0', name: 'Bookstore Backend', version: '1.0' } },
     ])
     expect(server?.id).not.toBe('host-lan-001')
     expect(server?.installedSoftware).toContainEqual({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' })

@@ -15,6 +15,7 @@ import { runRemoteCommand } from './remoteCommands'
 import { resolveBusinessOperatingContext, type ResolvedBusinessBranch } from '../../core/game/business'
 import { resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
 import { resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
+import { resolveBookstoreBackendForBranch } from '../../core/game/bookstoreBackend'
 import type { LocalNetwork } from '../../core/game/types'
 import { formatDollarCents } from '../dollarFormat'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
@@ -225,16 +226,21 @@ function RackApplications({ deviceName, firmware, open }: {
  * exactly one.
  *
  * `context` carries only generic structural identity (Branch/Company/Network).
- * Any concrete commerce or operations is a separate, optional composition on
- * top: this component resolves `resolveBookstoreCommerceForBranch` and
- * `resolveBookstoreOperationsForBranch` per Branch itself, rather than the
- * structural resolver depending on either, so a structurally valid Branch
- * presents its Company/Branch/Network identity regardless of which (if any)
- * of those two concrete subsystems it has represented, without inventing
- * settlement, sale, OPEN/CLOSED, or inventory data in place of an absent one.
- * The two subsystems are independent optional joins: a Branch may have
- * operations without commerce, commerce without operations, both, or
- * neither.
+ * Any concrete commerce, operations, or backend is a separate, optional
+ * composition on top: this component resolves
+ * `resolveBookstoreCommerceForBranch`, `resolveBookstoreOperationsForBranch`,
+ * and `resolveBookstoreBackendForBranch` per Branch itself, rather than the
+ * structural resolver depending on any of them, so a structurally valid
+ * Branch presents its Company/Branch/Network identity regardless of which (if
+ * any) of those three concrete subsystems it has represented, without
+ * inventing settlement, sale, OPEN/CLOSED, inventory, or backend data in
+ * place of an absent one. The three subsystems are independent optional
+ * joins: a Branch may have any combination of operations, commerce, and
+ * backend, or none. Backend presence and status are the referenced Device's
+ * and Service's own current represented World Truth (resolved fresh, never a
+ * stored flag) — browsing this read-only surface grants no DeviceAccess,
+ * NetworkManagementAuthority, Discovery, Knowledge, or Business authority
+ * over either.
  */
 function BusinessSurface({ state, context }: {
   state: GameState
@@ -254,6 +260,7 @@ function BusinessSurface({ state, context }: {
       : context.branches.map((resolved) => {
         const commerce = resolveBookstoreCommerceForBranch(state, resolved.branch.id)
         const operations = resolveBookstoreOperationsForBranch(state, resolved.branch.id)
+        const backend = resolveBookstoreBackendForBranch(state, resolved.branch.id)
         return <div className="rack-artifact" key={resolved.branch.id}>
           <p className="rack-artifact-kind">BUSINESS BRANCH</p>
           <h2>{resolved.branch.displayName}</h2>
@@ -272,6 +279,13 @@ function BusinessSurface({ state, context }: {
               <div><dt>AMOUNT</dt><dd>{formatDollarCents(sale.transaction.amountCents)}</dd></div>
               <div><dt>SETTLED TO</dt><dd>{sale.transaction.destinationAccountReference}</dd></div>
             </dl>)}
+          </>}
+          {backend && <>
+            <h3>BACKEND</h3>
+            <dl className="rack-facts rack-facts--dense">
+              <div><dt>NAME</dt><dd>{backend.name} {backend.version}</dd></div>
+              <div><dt>BACKEND STATUS</dt><dd>{backend.available ? 'ONLINE' : 'OFFLINE'}</dd></div>
+            </dl>
           </>}
         </div>
       })}
