@@ -58,6 +58,23 @@ function fixedSequenceRandom(values: readonly number[]): () => number {
   }
 }
 
+/**
+ * A single continuous elapsed run and its equivalent chronological partition can each accumulate
+ * the exact same sampled intervals through a different floating-point addition/subtraction path
+ * (one continuous running total vs. a value carried across separate calls), so their in-flight
+ * `remainingUntilOpportunityMs` can differ by ordinary floating-point rounding noise even when both
+ * consumed the exact same random sequence in the exact same causal order. Measured noise for the
+ * magnitudes these tests use is on the order of 1e-10 ms; this tolerance is generous by several
+ * orders of magnitude over that while remaining many orders of magnitude below anything that could
+ * ever matter to represented gameplay timing (whole milliseconds).
+ */
+const CADENCE_COUNTDOWN_FLOATING_POINT_TOLERANCE_MS = 1e-6
+
+/** Canonical countdown truth must still agree between an equivalent large-step and partitioned run — just not to the bit — so this is asserted on its own, separately from `withoutBookstoreCadenceTiming`'s exact comparison of everything else. */
+function expectCadenceCountdownsToAgree(a: GameState, b: GameState): void {
+  expect(Math.abs(cadenceOf(a).remainingUntilOpportunityMs - cadenceOf(b).remainingUntilOpportunityMs)).toBeLessThan(CADENCE_COUNTDOWN_FLOATING_POINT_TOLERANCE_MS)
+}
+
 const INITIAL_MEAN_INTERVAL_MS = HOUR_MS / (BOOKSTORE_BRANCH_LOCATION_OPPORTUNITY_RATE_PER_HOUR * BOOKSTORE_BRANCH_ATTRACTIVENESS_MULTIPLIER)
 
 describe('Bookstore Sales Cadence — initial state and schema', () => {
@@ -242,6 +259,53 @@ describe('Bookstore Sales Cadence — irregular sampled arrivals', () => {
   })
 })
 
+describe('Bookstore Sales Cadence — derived demand invariant (overflow/underflow protection)', () => {
+  it('rejects a configuration whose individually valid factors overflow the derived effective rate to Infinity', () => {
+    // 1e200 and 1e200 are each an ordinary positive finite number on their own; their product is not.
+    expect(() => createBookstoreBranchSalesCadenceRecord({ branchId: BOOKSTORE_BRANCH_ID, locationOpportunityRatePerHour: 1e200, attractivenessMultiplier: 1e200, remainingUntilOpportunityMs: 360_000 })).toThrow(RangeError)
+  })
+
+  it('rejects a configuration whose individually valid factors underflow the derived effective rate to 0', () => {
+    // 1e-200 and 1e-200 are each an ordinary positive finite number on their own; their product underflows to exactly 0.
+    expect(() => createBookstoreBranchSalesCadenceRecord({ branchId: BOOKSTORE_BRANCH_ID, locationOpportunityRatePerHour: 1e-200, attractivenessMultiplier: 1e-200, remainingUntilOpportunityMs: 360_000 })).toThrow(RangeError)
+  })
+
+  it('rejects a configuration whose validly finite positive effective rate still overflows the derived mean interval to Infinity', () => {
+    // 1e-300 * 1e-10 = 1e-310: a legitimately finite, positive effective rate on its own (this test
+    // confirms that first), but dividing the represented hour by it overflows past Number.MAX_VALUE —
+    // proving the separate mean-interval check catches what the effective-rate check alone would miss.
+    const locationOpportunityRatePerHour = 1e-300
+    const attractivenessMultiplier = 1e-10
+    const effectiveRate = locationOpportunityRatePerHour * attractivenessMultiplier
+    expect(Number.isFinite(effectiveRate)).toBe(true)
+    expect(effectiveRate).toBeGreaterThan(0)
+    expect(() => createBookstoreBranchSalesCadenceRecord({ branchId: BOOKSTORE_BRANCH_ID, locationOpportunityRatePerHour, attractivenessMultiplier, remainingUntilOpportunityMs: 360_000 })).toThrow(RangeError)
+  })
+
+  it('accepts an ordinary large-but-sane rate/multiplier pair without throwing, so the new check is not overzealous', () => {
+    expect(() => createBookstoreBranchSalesCadenceRecord({ branchId: BOOKSTORE_BRANCH_ID, locationOpportunityRatePerHour: 100_000, attractivenessMultiplier: 10, remainingUntilOpportunityMs: 1 })).not.toThrow()
+  })
+
+  it('rejects at scheduling time too: a due opportunity backed by demand configuration that bypassed the constructor and derives an invalid rate throws rather than silently producing an invalid countdown', () => {
+    const initial = createInitialGameState()
+    // Directly reconfigures the record (as a future Upgrade mechanic might, or as this exact
+    // fixture does deliberately) so this exercises `scheduleNextBookstoreOpportunity`'s own
+    // validation, independent of `createBookstoreBranchSalesCadenceRecord`'s construction-time check.
+    const invalidlyConfigured: GameState = {
+      ...initial,
+      bookstoreSalesCadence: {
+        records: initial.bookstoreSalesCadence.records.map((record) => ({
+          ...record,
+          locationOpportunityRatePerHour: 1e200,
+          attractivenessMultiplier: 1e200,
+          remainingUntilOpportunityMs: 1,
+        })),
+      },
+    }
+    expect(() => advanceGameState(invalidlyConfigured, 1)).toThrow(RangeError)
+  })
+})
+
 describe('Bookstore Sales Cadence — demand inputs affect only opportunity timing', () => {
   function withAttractiveness(multiplier: number): GameState {
     const initial = createInitialGameState()
@@ -344,12 +408,14 @@ describe('Bookstore Sales Cadence — large elapsed steps contain multiple chron
     const sharedRandom = fixedSequenceRandom(sequenceValues)
     const partitioned = advanceGameState(advanceGameState(seed, 600_000, Math.random, sharedRandom), 600_000, Math.random, sharedRandom)
 
-    // The two runs reach the split point via different floating-point accumulation paths (one
-    // continuous 1,200,000 ms run vs. two 600,000 ms runs), so the volatile in-flight countdown can
-    // differ from the other by less than a floating-point ulp even though both consumed the exact
-    // same random sequence in the exact same causal order; every canonical business/world
-    // consequence — sales, inventory, finance, Backend, World — is still required to agree exactly.
+    // Every canonical business/world consequence — sales, inventory, finance, Backend, World —
+    // is required to agree exactly between the two runs.
     expect(withoutBookstoreCadenceTiming(largeStep)).toEqual(withoutBookstoreCadenceTiming(partitioned))
+    // The countdown itself is canonical runtime truth, not something to ignore: the two runs reach
+    // the split point via different floating-point accumulation paths (one continuous 1,200,000 ms
+    // run vs. two 600,000 ms runs), so it is asserted separately, within ordinary floating-point
+    // tolerance, rather than folded into the exact comparison above or dropped entirely.
+    expectCadenceCountdownsToAgree(largeStep, partitioned)
   })
 })
 
@@ -411,9 +477,10 @@ describe('Bookstore Sales Cadence — causal boundary: opportunities observe Bac
     const fixture = disruptedFixtureWithCompactCadence()
     const largeStep = advanceGameState(fixture, FIRST_INTERVAL_MS + SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U))
     const partitioned = advanceGameState(advanceGameState(fixture, FIRST_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U)), SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U))
-    // See the analogous note above: the volatile in-flight countdown can differ from the
-    // continuous run by less than a floating-point ulp; every canonical consequence must not.
+    // See the analogous note above: every canonical consequence besides the countdown must agree
+    // exactly, and the countdown itself must still agree within ordinary floating-point tolerance.
     expect(withoutBookstoreCadenceTiming(largeStep)).toEqual(withoutBookstoreCadenceTiming(partitioned))
+    expectCadenceCountdownsToAgree(largeStep, partitioned)
 
     // The single large step itself must show the same one-refusal-then-one-sale causal result,
     // proving it did not blindly observe only the start-of-interval or end-of-interval truth.

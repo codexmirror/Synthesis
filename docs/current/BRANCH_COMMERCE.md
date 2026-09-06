@@ -331,14 +331,37 @@ Bookstore-demand random source (`bookstoreDemandRandom`, defaulting to
 `Math.random` in production) — so a represented rate of N/hour means
 approximately N opportunities per represented hour over time while
 individual gaps naturally vary, rather than a mechanically fixed interval.
-The sampler defends against a degenerate `u` (including exactly `0`, which
-`Math.random` can legitimately return) by falling back to the mean interval
-itself, so a valid or broken `Math.random`-style source can never produce a
-zero-time or infinite countdown. `bookstoreDemandRandom` is threaded through
-`advanceGameState` as its own parameter, entirely independent from
-`credentialAccessRandom`: the two mechanics never share or advance each
-other's random sequence merely because both happen to occur within one
-`advanceGameState` call.
+
+Deriving that `meanIntervalMs` is itself validated, not just the sampler's
+RNG input: `deriveValidatedMeanBookstoreOpportunityIntervalMs` requires both
+the derived effective rate (`locationOpportunityRatePerHour ×
+attractivenessMultiplier`) and the derived mean interval
+(`3,600,000 / effectiveRate`) to themselves be positive finite numbers. Two
+individually valid positive finite factors are not enough on their own — their
+product can still overflow to `Infinity` or underflow to `0`, and even a
+validly finite positive effective rate can still divide out to an invalid
+mean interval — so this check runs identically wherever a mean interval is
+derived, at construction (`createBookstoreBranchSalesCadenceRecord`) and at
+scheduling (`scheduleNextBookstoreOpportunity`), and rejects an impossible
+configuration with a `RangeError` rather than silently clamping or
+reinterpreting it into some arbitrary "realistic" range. Given that
+already-validated mean interval, the sampler itself only has to defend
+against a degenerate `u` (including exactly `0`, which `Math.random` can
+legitimately return) by falling back to the mean interval itself. Together,
+this means the whole scheduling path — not the sampler alone — can never
+turn a valid or broken `Math.random`-style source, together with any demand
+configuration actually accepted as canonical state, into a zero-time or
+infinite countdown.
+
+`bookstoreDemandRandom` is threaded through `advanceGameState` as its own
+parameter, entirely independent from `credentialAccessRandom`: the two
+mechanics never share or advance each other's random sequence merely because
+both happen to occur within one `advanceGameState` call. This is a separate
+semantic channel and test-injection point, not a separate PRNG
+implementation: production leaves both parameters at their default, and both
+defaults are the same `Math.random`. Neither channel is a deterministic
+production random stream — only test code substitutes a controlled function
+for either one.
 
 `advanceBookstoreSalesCadence` (called from `advanceGameState` in
 `gameAdvancement.ts`, ahead of the rest of canonical advancement) is the
