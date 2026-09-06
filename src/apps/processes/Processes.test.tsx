@@ -6,8 +6,10 @@ import type { DeviceAccessFileTransfer, GameState } from '../../core/game/types'
 import { appEntries, appRegistry } from '../../shell/appRegistry'
 import { Processes } from './Processes'
 import processesCss from './processes.css?raw'
+import nodeUiCss from '../../styles/nodeui.css?raw'
 import monitorSource from './activityMonitor.ts?raw'
 import processesSource from './Processes.tsx?raw'
+import detailSource from './ActivityDetail.tsx?raw'
 import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
 import { rememberScan } from '../../core/game/discovery'
 import { scanNetworkTarget } from '../../core/game/scan'
@@ -61,26 +63,35 @@ const withLocalDownloadCapacity = (bytesPerSecond: number): GameState => {
 }
 
 const monitor = () => document.querySelector('.activity-monitor') as HTMLElement
-const stat = (label: string) => within(document.querySelector('.am-summary') as HTMLElement).getByText(label).closest('.am-stat') as HTMLElement
-const card = (kindLabel: string) => within(monitor()).getAllByText(kindLabel).map((node) => node.closest('.am-activity')).find(Boolean) as HTMLElement
-const cards = () => Array.from(monitor().querySelectorAll('.am-activity')) as HTMLElement[]
+const load = () => document.querySelector('.am-load') as HTMLElement
+const meter = (label: string) => within(load()).getByText(label).closest('.am-meter') as HTMLElement
+const rows = () => Array.from(monitor().querySelectorAll('.am-row')) as HTMLElement[]
+const rowsOf = (kindLabel: string) => rows().filter((row) => within(row).queryByText(kindLabel))
+const row = (kindLabel: string) => rowsOf(kindLabel)[0]
+const openRow = (kindLabel: string) => fireEvent.click(row(kindLabel))
+const detail = () => document.querySelector('.am-detail') as HTMLElement
+const back = () => fireEvent.click(screen.getByRole('button', { name: 'Back to the runtime overview' }))
 const fact = (scope: HTMLElement, label: string) => within(scope).getByText(label).parentElement?.querySelector('dd')?.textContent
+const section = (heading: string) => within(detail()).getByText(heading).closest('.am-detail-section') as HTMLElement
+const railWidths = (scope: HTMLElement) => Array.from(scope.querySelectorAll('.am-rail--stacked i')).map((bar) => (bar as HTMLElement).style.width)
 
 describe('Processes application integration', () => {
   it('is a canonical app while NodeScan remains the one registered network surface', () => { expect(appEntries).toHaveLength(9); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network'); expect(appRegistry).not.toHaveProperty('networkManagement') })
 
-  it('presents a truthful idle system summary and empty state', () => {
+  it('presents a truthful idle Device load and an explicit idle state', () => {
     render(<GameProvider><Processes /></GameProvider>)
-    expect(within(stat('CPU')).getByText('18%')).toBeInTheDocument()
-    expect(within(stat('CPU')).getByText('18% BASELINE')).toBeInTheDocument()
-    expect(within(stat('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
-    expect(within(stat('NET DOWN')).getByText('0 B/s')).toBeInTheDocument()
-    expect(within(stat('NET DOWN')).getByText('2 MiB/s CAPACITY')).toBeInTheDocument()
-    expect(within(stat('NET UP')).getByText('0 B/s')).toBeInTheDocument()
-    expect(within(stat('NET UP')).getByText('1 MiB/s CAPACITY')).toBeInTheDocument()
-    expect(within(stat('ACTIVE')).getByText('0')).toBeInTheDocument()
+    expect(within(meter('CPU')).getByText('18%')).toBeInTheDocument()
+    expect(within(meter('CPU')).getByText('18% BASELINE · NO PROCESS LOAD')).toBeInTheDocument()
+    expect(within(meter('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
+    expect(within(meter('RAM')).getByText('3154 MiB AVAILABLE')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('NO TRANSFER')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('0 B/s / 2 MiB/s')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('0 B/s / 1 MiB/s')).toBeInTheDocument()
+
+    // An idle Device still has a baseline; it has no Process segments.
+    expect(railWidths(meter('CPU'))).toEqual(['18%'])
     expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
-    expect(cards()).toHaveLength(0)
+    expect(rows()).toHaveLength(0)
     expect(screen.queryByRole('button', { name: 'Clear recent activity' })).not.toBeInTheDocument()
   })
 
@@ -91,51 +102,10 @@ describe('Processes application integration', () => {
     function Snapshot() { return <output>{JSON.stringify(useGameState().process.processes)}</output> }
     render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
     expect(screen.queryByText('REMOTE WORK')).not.toBeInTheDocument()
-    expect(within(stat('CPU')).getByText('18%')).toBeInTheDocument()
-    expect(within(stat('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
+    expect(within(meter('CPU')).getByText('18%')).toBeInTheDocument()
+    expect(within(meter('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear recent activity' })).not.toBeInTheDocument()
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual([remote])
-  })
-
-  it('renders running Service Analysis target, progress, CPU allocation, and RAM requirement', () => {
-    render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
-    const analysis = card('SERVICE ANALYSIS')
-    expect(within(analysis).getByText('198.51.100.47:22')).toBeInTheDocument()
-    expect(within(analysis).getByText('RUNNING')).toBeInTheDocument()
-    expect(fact(analysis, 'PROGRESS')).toBe('25%')
-    expect(fact(analysis, 'CPU')).toBe('82%')
-    expect(fact(analysis, 'RAM')).toBe('768 MiB')
-    expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
-    expect(within(stat('RAM')).getByText('1710 / 4096 MiB')).toBeInTheDocument()
-  })
-
-  it('separates running allocation from quieter retained completion', () => {
-    render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
-    const running = card('PROCESS')
-    expect(within(running).getByText('Active analysis')).toBeInTheDocument()
-    expect(fact(running, 'PROGRESS')).toBe('25%')
-    expect(fact(running, 'CPU')).toBe('82%')
-    expect(fact(running, 'RAM')).toBe('512 MiB')
-    const finished = within(monitor()).getByText('Finished analysis').closest('.am-activity') as HTMLElement
-    expect(finished.dataset.status).toBe('recent')
-    expect(within(finished).queryByText(/COMPLETED|STOPPED|CANCELLED/)).not.toBeInTheDocument()
-    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
-    expect(fact(finished, 'CPU')).toBe('0%')
-    expect(fact(finished, 'RAM')).toBe('0 MiB')
-    expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
-  })
-
-  it('counts only active activity in badges while retaining completed operations in filtered history', () => {
-    const completed = withProcesses()
-    const completedOnly = { ...completed, process: { ...completed.process, processes: completed.process.processes.filter(({ status }) => status === 'completed') } }
-    const { unmount } = render(<GameProvider initialState={completedOnly}><Processes /></GameProvider>)
-    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual(['ALL0', 'OPERATIONS0', 'TRANSFERS0'])
-    fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
-    expect(screen.getByText('Finished analysis')).toBeInTheDocument()
-    unmount()
-
-    render(<GameProvider initialState={withDownload(withProcesses())}><Processes /></GameProvider>)
-    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual(['ALL2', 'OPERATIONS1', 'TRANSFERS1'])
   })
 
   it('advances at the provider boundary even when the app is not mounted', () => {
@@ -150,15 +120,161 @@ describe('Processes application integration', () => {
     act(() => vi.advanceTimersByTime(500))
     expect(Number(screen.getByRole('status').textContent)).toBeGreaterThan(25)
   })
+})
 
+describe('Runtime overview', () => {
+  it('leads a running operation with its subject and the one number its runtime reports', () => {
+    render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
+    const analysis = row('SERVICE ANALYSIS')
+    expect(within(analysis).getByText('198.51.100.47:22')).toBeInTheDocument()
+    expect(analysis.querySelector('.am-row-metric')?.textContent).toBe('25%')
+    expect(Array.from(analysis.querySelectorAll('.am-row-summary span')).map((part) => part.textContent)).toEqual(['82% CPU', '768 MiB'])
+    expect(analysis.dataset.status).toBe('running')
+    expect(within(document.querySelector('.node-section') as HTMLElement).getByText('RUNNING')).toBeInTheDocument()
+  })
+
+  it('ties Device load to the running work causing it rather than presenting a free-standing gauge', () => {
+    render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
+    // Baseline first, then this Process's own canonical allocation/reservation.
+    expect(railWidths(meter('CPU'))).toEqual(['18%', '82%'])
+    expect(railWidths(meter('RAM'))).toEqual(['23%', '18.75%'])
+    expect(within(meter('CPU')).getByText('100%')).toBeInTheDocument()
+    expect(within(meter('CPU')).getByText('18% BASELINE · 1 PROCESS')).toBeInTheDocument()
+    expect(within(meter('RAM')).getByText('1710 / 4096 MiB')).toBeInTheDocument()
+    expect(within(meter('RAM')).getByText('2386 MiB AVAILABLE')).toBeInTheDocument()
+  })
+
+  it('carries one load segment per concurrently running Process and none for a transfer', () => {
+    const base = withProcesses()
+    const concurrent: GameState = { ...base, process: { ...base.process, processes: [
+      base.process.processes[0],
+      { kind: 'generic', id: 'process-0003', label: 'Second work', executorDeviceId: 'device-local-v0', status: 'running', workRequired: 100, workCompleted: 0, ramRequiredMiB: 256 },
+    ] } }
+    render(<GameProvider initialState={withDownload(concurrent)}><Processes /></GameProvider>)
+    expect(within(meter('CPU')).getByText('18% BASELINE · 2 PROCESSES')).toBeInTheDocument()
+    expect(railWidths(meter('CPU'))).toEqual(['18%', '41%', '41%'])
+    // The transfer runs at the same time and adds nothing to either rail.
+    expect(railWidths(meter('RAM'))).toEqual(['23%', '12.5%', '6.25%'])
+    expect(rows()).toHaveLength(3)
+  })
+
+  it('keeps running work loud and ended work quiet in separate sections', () => {
+    render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
+    const running = rows().find((candidate) => candidate.dataset.status === 'running') as HTMLElement
+    expect(within(running).getByText('Active analysis')).toBeInTheDocument()
+    const finished = within(monitor()).getByText('Finished analysis').closest('.am-row') as HTMLElement
+    expect(finished.dataset.status).toBe('recent')
+    // Ended work is told by placement and concrete outcome, not by a generic lifecycle label.
+    expect(within(finished).queryByText(/COMPLETED|STOPPED|CANCELLED/)).not.toBeInTheDocument()
+    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
+    // Only running work reports what it is currently holding.
+    expect(finished.querySelector('.am-row-summary')).toBeNull()
+    expect(running.querySelector('.am-row-summary')?.textContent).toContain('512 MiB')
+  })
+
+  it('counts only running activity in the filter badges while retaining ended work in filtered history', () => {
+    const completed = withProcesses()
+    const completedOnly = { ...completed, process: { ...completed.process, processes: completed.process.processes.filter(({ status }) => status === 'completed') } }
+    const { unmount } = render(<GameProvider initialState={completedOnly}><Processes /></GameProvider>)
+    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual(['ALL0', 'OPERATIONS0', 'TRANSFERS0'])
+    fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
+    expect(screen.getByText('Finished analysis')).toBeInTheDocument()
+    unmount()
+
+    render(<GameProvider initialState={withDownload(withProcesses())}><Processes /></GameProvider>)
+    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual(['ALL2', 'OPERATIONS1', 'TRANSFERS1'])
+  })
+
+  it('excludes transfer activity from OPERATIONS and Process activity from TRANSFERS', () => {
+    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
+    expect(rows()).toHaveLength(1)
+    expect(within(monitor()).getByText('SERVICE ANALYSIS')).toBeInTheDocument()
+    expect(within(monitor()).queryByText('DOWNLOAD')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
+    expect(rows()).toHaveLength(1)
+    expect(within(monitor()).getByText('DOWNLOAD')).toBeInTheDocument()
+    expect(within(monitor()).queryByText('SERVICE ANALYSIS')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'All activity' }))
+    expect(rows()).toHaveLength(2)
+  })
+
+  it('keeps every empty state truthful for its own filter', () => {
+    render(<GameProvider><Processes /></GameProvider>)
+    expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
+    expect(screen.getByText('NO ACTIVE TRANSFER')).toBeInTheDocument()
+    expect(screen.getByText('No transfer is currently running.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
+    expect(screen.getByText('NO RUNNING OPERATIONS')).toBeInTheDocument()
+  })
+
+  it('shows operations and the active transfer together under ALL', () => {
+    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
+    expect(row('SERVICE ANALYSIS')).toBeInTheDocument()
+    expect(within(row('DOWNLOAD')).getByText('nodescan-exp-1.1.pkg')).toBeInTheDocument()
+    expect(rows()).toHaveLength(2)
+  })
+
+  it('carries no lifecycle control in the overview, so a busy list stays scannable', () => {
+    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
+    for (const candidate of rows()) expect(within(candidate).queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Cancel|^Stop|^Payout|^Remove/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('Activity detail navigation', () => {
+  it('opens one activity, presents what its runtime supports, and returns to the overview', () => {
+    render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
+    openRow('SERVICE ANALYSIS')
+    expect(load()).toBeNull()
+    expect(within(detail()).getByText('SERVICE ANALYSIS')).toBeInTheDocument()
+    expect(within(detail()).getByText('RUNNING')).toBeInTheDocument()
+    expect(within(detail()).getByText('198.51.100.47:22')).toBeInTheDocument()
+    expect(within(detail()).getByText('LOCAL · node-01')).toBeInTheDocument()
+    expect(fact(section('WORK'), 'COMPLETION')).toBe('FINITE')
+    expect(fact(section('WORK'), 'COMPUTE')).toBe('246 / 1,000')
+    expect(fact(section('RESOURCES'), 'CPU')).toBe('82%')
+    expect(fact(section('RESOURCES'), 'RAM')).toBe('768 MiB')
+
+    back()
+    expect(load()).toBeInTheDocument()
+    expect(row('SERVICE ANALYSIS')).toBeInTheDocument()
+  })
+
+  it('keeps the player on the activity they are inspecting when it ends beneath them', () => {
+    render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
+    openRow('SERVICE ANALYSIS')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel active SERVICE ANALYSIS' }))
+    // Still the same activity's surface, now stating its own end.
+    expect(detail().dataset.status).toBe('recent')
+    expect(within(detail()).getByText('CANCELLED')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel active SERVICE ANALYSIS' })).not.toBeInTheDocument()
+  })
+
+  it('returns to the overview when the inspected activity no longer exists', () => {
+    render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
+    fireEvent.click(within(monitor()).getByText('Finished analysis').closest('.am-row') as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove recent PROCESS activity' }))
+    expect(detail()).toBeNull()
+    expect(load()).toBeInTheDocument()
+    expect(screen.queryByText('Finished analysis')).not.toBeInTheDocument()
+    expect(screen.getByText('Active analysis')).toBeInTheDocument()
+  })
+})
+
+describe('Activity detail: finite operations', () => {
   it('renders every concrete completed Process result', () => {
     const weakness = render(<GameProvider initialState={completedAnalysis()}><Processes /></GameProvider>)
-    expect(screen.getByText('WEAKNESS DETECTED')).toBeInTheDocument()
+    expect(within(row('SERVICE ANALYSIS')).getByText('WEAKNESS DETECTED')).toBeInTheDocument()
+    openRow('SERVICE ANALYSIS')
     expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
     weakness.unmount()
+
     const none = render(<GameProvider initialState={completedAnalysis('service-http-001')}><Processes /></GameProvider>)
     expect(screen.getByText('NO WEAKNESS DETECTED')).toBeInTheDocument()
     none.unmount()
+
     const running = runningAnalysis(); const host = running.world.network.hosts[0]
     const unavailable = advanceGameState({ ...running, world: { network: { ...running.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, open: false } : service) }, ...running.world.network.hosts.slice(1)] } } }, 20_000)
     const offline = render(<GameProvider initialState={unavailable}><Processes /></GameProvider>)
@@ -174,12 +290,50 @@ describe('Processes application integration', () => {
       ] } }
     render(<GameProvider initialState={credential}><Processes /></GameProvider>)
     expect(screen.getByText('ACCESS ESTABLISHED')).toBeInTheDocument()
-    expect(screen.getByText('USER PRIVILEGE')).toBeInTheDocument()
     expect(screen.getByText('ATTEMPT FAILED')).toBeInTheDocument()
-    expect(screen.getByText('Authentication attempt failed.')).toBeInTheDocument()
+    fireEvent.click(rowsOf('CREDENTIAL ACCESS')[0])
+    expect(within(detail()).getByText('USER PRIVILEGE')).toBeInTheDocument()
+    expect(within(detail()).getByText('198.51.100.47:22')).toBeInTheDocument()
+    expect(fact(section('SURFACE'), 'WEAKNESS')).toBe('AUTH-017')
   })
 
-  it('confirms before clearing completed cards while running work remains visible', () => {
+  it('CANCEL reaches the canonical operation, preserves partial progress, and claims no resources afterwards', () => {
+    render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
+    openRow('SERVICE ANALYSIS')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel active SERVICE ANALYSIS' }))
+    expect(within(detail()).getByText('CANCELLED')).toBeInTheDocument()
+    // Cancellation preserves the partial progress it reached, and claims nothing.
+    expect(detail().querySelector('.am-detail-progress-value')?.textContent).toBe('25%')
+    expect(fact(section('WORK'), 'COMPUTE')).toBe('246 / 1,000')
+    expect(within(detail()).queryByText('RESOURCES')).not.toBeInTheDocument()
+    back()
+    expect(row('SERVICE ANALYSIS').dataset.status).toBe('recent')
+    expect(within(meter('CPU')).getByText('18%')).toBeInTheDocument()
+    expect(within(meter('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
+  })
+
+  it('claims no resource ownership for work that has ended', () => {
+    render(<GameProvider initialState={completedAnalysis()}><Processes /></GameProvider>)
+    openRow('SERVICE ANALYSIS')
+    // Ended work released its allocation; it states no resource block at all
+    // rather than a block of zeroes.
+    expect(within(detail()).queryByText('RESOURCES')).not.toBeInTheDocument()
+    expect(within(detail()).queryByText('CPU')).not.toBeInTheDocument()
+    expect(within(detail()).queryByText('RAM')).not.toBeInTheDocument()
+    expect(fact(section('WORK'), 'COMPUTE')).toBe('1,000 / 1,000')
+  })
+
+  it('does not rewrite the historical target when the current service port changes', () => {
+    const completed = completedAnalysis(); const host = completed.world.network.hosts[0]
+    const moved: GameState = { ...completed, world: { network: { ...completed.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) }, ...completed.world.network.hosts.slice(1)] } } }
+    render(<GameProvider initialState={moved}><Processes /></GameProvider>)
+    expect(screen.getByText('198.51.100.47:22')).toBeInTheDocument()
+    expect(screen.queryByText('198.51.100.47:2222')).not.toBeInTheDocument()
+  })
+})
+
+describe('Activity Monitor: Recent Activity', () => {
+  it('confirms before clearing history while running work remains visible', () => {
     // The confirmation is asked inside the Firmware surface. A browser dialog
     // would be an operating-system sheet over NODE-OS, so reaching for one is
     // itself the regression.
@@ -197,7 +351,6 @@ describe('Processes application integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear recent activity' }))
     fireEvent.click(within(screen.getByRole('group', { name: 'Clear recent activity?' })).getByRole('button', { name: 'CLEAR' }))
     expect(screen.queryByText('Finished analysis')).not.toBeInTheDocument()
-    expect(screen.queryByText('COMPLETED')).not.toBeInTheDocument()
     expect(screen.getByText('Active analysis')).toBeInTheDocument()
     expect(confirm).not.toHaveBeenCalled()
   })
@@ -212,7 +365,7 @@ describe('Processes application integration', () => {
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017' }] } })
   })
 
-  it('removes one completed Process through GameActions without changing gameplay truth or other work', () => {
+  it('removes one ended activity through GameActions without changing gameplay truth or other work', () => {
     const base = completedAnalysis()
     const first = base.process.processes[0]
     const initial: GameState = { ...base, process: { nextId: 3, processes: [first, { ...first, id: 'process-0002', label: 'SECOND COMPLETION' }] } }
@@ -222,220 +375,136 @@ describe('Processes application integration', () => {
       return <output>{JSON.stringify({ ids: state.process.processes.map(({ id }) => id), nextId: state.process.nextId, worldSame: state.world === truth.world, knowledgeSame: state.knowledge === truth.knowledge, accessSame: state.deviceAccess === truth.deviceAccess, filesystemSame: state.player.localDevice.filesystem === truth.filesystem })}</output>
     }
     render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Remove recent SERVICE ANALYSIS activity' })[0])
+    fireEvent.click(rowsOf('SERVICE ANALYSIS')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Remove recent SERVICE ANALYSIS activity' }))
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual({ ids: ['process-0002'], nextId: 3, worldSame: true, knowledgeSame: true, accessSame: true, filesystemSame: true })
     expect(screen.getByText('SECOND COMPLETION')).toBeInTheDocument()
   })
 
-  it('does not rewrite the historical target when the current service port changes', () => {
-    const completed = completedAnalysis(); const host = completed.world.network.hosts[0]
-    const moved: GameState = { ...completed, world: { network: { ...completed.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, port: 2222 } : service) }, ...completed.world.network.hosts.slice(1)] } } }
-    render(<GameProvider initialState={moved}><Processes /></GameProvider>)
-    expect(screen.getByText('198.51.100.47:22')).toBeInTheDocument()
-    expect(screen.queryByText('198.51.100.47:2222')).not.toBeInTheDocument()
+  it('offers no history controls where no history is represented', () => {
+    render(<GameProvider initialState={withDownload(withProcesses())}><Processes /></GameProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
+    expect(screen.queryByText('RECENT ACTIVITY')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear recent activity' })).not.toBeInTheDocument()
   })
 })
 
-describe('Activity Monitor aggregation', () => {
-  it('offers finite CANCEL while preserving NODE Miner STOP and transfer CANCEL semantics', () => {
-    const finite = render(<GameProvider initialState={runningAnalysis()}><Processes /></GameProvider>)
-    const analysis = card('SERVICE ANALYSIS')
-    expect(within(analysis).getByRole('button', { name: 'Cancel active SERVICE ANALYSIS' })).toHaveTextContent('CANCEL')
-    expect(within(analysis).queryByText('STOP')).not.toBeInTheDocument()
-    fireEvent.click(within(analysis).getByRole('button', { name: 'Cancel active SERVICE ANALYSIS' }))
-    const historical = card('SERVICE ANALYSIS')
-    expect(historical.dataset.status).toBe('recent')
-    expect(within(historical).getByText('CANCELLED')).toBeInTheDocument()
-    expect(within(historical).queryByRole('button', { name: /Cancel/ })).not.toBeInTheDocument()
-    expect(within(historical).queryByText('RAM')).not.toBeInTheDocument()
-    expect(within(historical).queryByText('CPU')).not.toBeInTheDocument()
-    finite.unmount()
-
-    const base = createInitialGameState()
-    const minerFile = { kind: 'executable' as const, id: 'file-fixture-matrix-miner', path: '/home/user/node-miner-1.0.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
-    const withMinerFile: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, filesystem: { ...base.player.localDevice.filesystem, files: [...base.player.localDevice.filesystem.files, minerFile] } } } }
-    const minerStarted = startNodeMiner(withMinerFile, minerFile.path, base.nodeWallet.address)
-    if (minerStarted.status !== 'started') throw Error(minerStarted.status)
-    const minerView = render(<GameProvider initialState={minerStarted.state}><Processes /></GameProvider>)
-    expect(within(card('NODE MINER')).getByRole('button', { name: 'Stop NODE MINER' })).toHaveTextContent('STOP')
-    expect(within(card('NODE MINER')).queryByRole('button', { name: /Cancel/ })).not.toBeInTheDocument()
-    minerView.unmount()
-
-    render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
-    expect(within(card('DOWNLOAD')).getByRole('button', { name: 'Cancel active DOWNLOAD' })).toHaveTextContent('CANCEL')
-    expect(within(card('DOWNLOAD')).queryByText('STOP')).not.toBeInTheDocument()
-  })
-  it('shows operations and the active transfer under ALL', () => {
-    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
-    expect(card('SERVICE ANALYSIS')).toBeInTheDocument()
-    const download = card('DOWNLOAD')
-    expect(within(download).getByText('nodescan-exp-1.1.pkg')).toBeInTheDocument()
-    expect(within(download).queryByText(/srv-01|198\.51\.100\.47/)).not.toBeInTheDocument()
-    expect(within(download).getByText('/opt/packages/nodescan-exp-1.1.pkg')).toBeInTheDocument()
-    expect(within(download).getByText('/home/user/downloads/nodescan-exp-1.1.pkg')).toBeInTheDocument()
-    expect(cards()).toHaveLength(2)
-  })
-
-  it('derives the active count from running operations plus the active transfer', () => {
-    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
-    expect(within(stat('ACTIVE')).getByText('2')).toBeInTheDocument()
-    expect(within(stat('ACTIVE')).getByText('ACTIVITIES')).toBeInTheDocument()
-  })
-
-  it('excludes transfer activity from OPERATIONS and Process activity from TRANSFERS', () => {
-    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
-    fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
-    expect(cards()).toHaveLength(1)
-    expect(within(monitor()).getByText('SERVICE ANALYSIS')).toBeInTheDocument()
-    expect(within(monitor()).queryByText('DOWNLOAD')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
-    expect(cards()).toHaveLength(1)
-    expect(within(monitor()).getByText('DOWNLOAD')).toBeInTheDocument()
-    expect(within(monitor()).queryByText('SERVICE ANALYSIS')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'All activity' }))
-    expect(cards()).toHaveLength(2)
-  })
-
+describe('Activity Monitor: FileTransfer', () => {
   it('derives Download progress and transferred bytes from the canonical transfer', () => {
     const { unmount } = render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
-    expect(fact(card('DOWNLOAD'), 'PROGRESS')).toBe('25%')
-    expect(fact(card('DOWNLOAD'), 'TRANSFERRED')).toBe('4.6 / 18.4 MB')
+    expect(row('DOWNLOAD').querySelector('.am-row-metric')?.textContent).toBe('25%')
+    expect(row('DOWNLOAD').querySelector('.am-row-summary')?.textContent).toContain('4.6 / 18.4 MB')
     unmount()
     const { unmount: unmount2 } = render(<GameProvider initialState={withDownload(createInitialGameState(), { bytesTransferred: 13_800_000 })}><Processes /></GameProvider>)
-    expect(fact(card('DOWNLOAD'), 'PROGRESS')).toBe('75%')
-    expect(fact(card('DOWNLOAD'), 'TRANSFERRED')).toBe('13.8 / 18.4 MB')
+    expect(row('DOWNLOAD').querySelector('.am-row-metric')?.textContent).toBe('75%')
     unmount2()
     render(<GameProvider initialState={withDownload(createInitialGameState(), { bytesTransferred: 400_000 })}><Processes /></GameProvider>)
-    expect(fact(card('DOWNLOAD'), 'PROGRESS')).toBe('2%')
-    expect(fact(card('DOWNLOAD'), 'TRANSFERRED')).toBe('400 KB / 18.4 MB')
+    expect(row('DOWNLOAD').querySelector('.am-row-metric')?.textContent).toBe('2%')
+    openRow('DOWNLOAD')
+    expect(fact(section('TRANSFER'), 'TRANSFERRED')).toBe('400 KB / 18.4 MB')
+    // The subject line already leads with progress; the block must not repeat it.
+    expect(detail().querySelector('.am-detail-progress-value')?.textContent).toBe('2%')
+    expect(within(section('TRANSFER')).queryByText('PROGRESS')).not.toBeInTheDocument()
+  })
+
+  it('presents the transfer route and artifact relationship in detail, not in the overview row', () => {
+    render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
+    expect(row('DOWNLOAD').textContent).not.toContain('/opt/packages/nodescan-exp-1.1.pkg')
+    openRow('DOWNLOAD')
+    expect(within(detail()).getByText('nodescan-exp-1.1.pkg')).toBeInTheDocument()
+    expect(fact(section('ROUTE'), 'SOURCE')).toBe('/opt/packages/nodescan-exp-1.1.pkg')
+    expect(fact(section('ROUTE'), 'DESTINATION')).toBe('/home/user/downloads/nodescan-exp-1.1.pkg')
   })
 
   it('derives current Download speed and network usage from current endpoint capacities', () => {
     const { unmount } = render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
     // srv-01 uploads at 8 MiB/s, so the local 2 MiB/s download capacity is the limit.
-    expect(fact(card('DOWNLOAD'), 'RATE')).toBe('2 MiB/s')
-    expect(within(stat('NET DOWN')).getByText('2 MiB/s')).toBeInTheDocument()
-    expect(within(stat('NET UP')).getByText('0 B/s')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('2 MiB/s DOWNLOAD')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('2 MiB/s / 2 MiB/s')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('0 B/s / 1 MiB/s')).toBeInTheDocument()
+    openRow('DOWNLOAD')
+    expect(fact(section('TRANSFER'), 'RATE')).toBe('2 MiB/s')
+    expect(fact(section('TRANSFER'), 'LINK CAPACITY')).toBe('2 MiB/s')
     unmount()
+
     render(<GameProvider initialState={withDownload(withLocalDownloadCapacity(524_288))}><Processes /></GameProvider>)
-    expect(fact(card('DOWNLOAD'), 'RATE')).toBe('512 KiB/s')
-    expect(within(stat('NET DOWN')).getByText('512 KiB/s')).toBeInTheDocument()
-    expect(within(stat('NET DOWN')).getByText('512 KiB/s CAPACITY')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('512 KiB/s DOWNLOAD')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('512 KiB/s / 512 KiB/s')).toBeInTheDocument()
   })
 
-  it('never represents the FileTransfer as a GameProcess', () => {
+  it('never represents the FileTransfer as a GameProcess or gives it Process CPU or RAM', () => {
     function Snapshot() { const state = useGameState(); return <output>{JSON.stringify({ processes: state.process.processes.length, transfer: Boolean(state.fileTransfer.active) })}</output> }
     render(<GameProvider initialState={withDownload()}><Processes /><Snapshot /></GameProvider>)
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual({ processes: 0, transfer: true })
-    const download = card('DOWNLOAD')
-    expect(within(download).queryByText('CPU')).not.toBeInTheDocument()
-    expect(within(download).queryByText('RAM')).not.toBeInTheDocument()
+    // A transfer contributes no segment to either Process rail.
+    expect(railWidths(meter('CPU'))).toEqual(['18%'])
+    expect(railWidths(meter('RAM'))).toEqual(['23%'])
+    expect(within(meter('CPU')).getByText('18% BASELINE · NO PROCESS LOAD')).toBeInTheDocument()
+    openRow('DOWNLOAD')
+    expect(within(detail()).queryByText('RESOURCES')).not.toBeInTheDocument()
+    expect(within(detail()).queryByText('CPU')).not.toBeInTheDocument()
+    expect(within(detail()).queryByText('RAM')).not.toBeInTheDocument()
+    back()
     fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
     expect(screen.getByText('NO RUNNING OPERATIONS')).toBeInTheDocument()
-    expect(cards()).toHaveLength(0)
+    expect(rows()).toHaveLength(0)
   })
 
-  it('keeps every empty state truthful for its own filter', () => {
-    render(<GameProvider><Processes /></GameProvider>)
-    expect(screen.getByText('SYSTEM IDLE')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
-    expect(screen.getByText('NO ACTIVE TRANSFER')).toBeInTheDocument()
-    expect(screen.getByText('No transfer is currently running.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Operations' }))
-    expect(screen.getByText('NO RUNNING OPERATIONS')).toBeInTheDocument()
-  })
-
-  it('offers no completed transfer history, because none is represented', () => {
-    render(<GameProvider initialState={withDownload(withProcesses())}><Processes /></GameProvider>)
-    fireEvent.click(screen.getByRole('button', { name: 'Transfers' }))
-    expect(screen.queryByText('COMPLETED')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear recent activity' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Remove recent/ })).not.toBeInTheDocument()
-  })
-
-  it('offers individual removal only on completed Process cards', () => {
-    render(<GameProvider initialState={withProcesses()}><Processes /></GameProvider>)
-    expect(within(card('PROCESS')).queryByRole('button', { name: /Remove recent/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove recent PROCESS activity' })).toBeInTheDocument()
-    const removeRule = processesCss.match(/\.am-remove\s*\{([^}]+)\}/)?.[1] ?? ''
-    expect(removeRule).toMatch(/min-height:\s*44px/)
-  })
-
-  it('displays the active Download and derives correct source/progress/rate with no active RemoteSession', () => {
+  it('displays the active Download with no active RemoteSession and leaks no remote identity', () => {
     render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
-    const download = card('DOWNLOAD')
-    expect(within(download).queryByText(/srv-01|198\.51\.100\.47/)).not.toBeInTheDocument()
-    expect(fact(download, 'RATE')).toBe('2 MiB/s')
-    expect(fact(download, 'TRANSFERRED')).toBe('4.6 / 18.4 MB')
+    expect(row('DOWNLOAD').textContent).not.toMatch(/srv-01|198\.51\.100\.47/)
+    openRow('DOWNLOAD')
+    expect(detail().textContent).not.toMatch(/srv-01|198\.51\.100\.47/)
+    expect(fact(section('TRANSFER'), 'RATE')).toBe('2 MiB/s')
   })
 
   it('uses only the matching Session retained address and omits a route after disconnect', () => {
     const { unmount } = render(<GameProvider initialState={withDownload(createInitialGameState(), {}, true)}><Processes /></GameProvider>)
-    const withSession = card('DOWNLOAD').textContent
+    const withSession = row('DOWNLOAD').textContent
     unmount()
     render(<GameProvider initialState={withDownload(createInitialGameState(), {}, false)}><Processes /></GameProvider>)
     expect(withSession).toContain('198.51.100.47 → node-01')
-    expect(card('DOWNLOAD').textContent).not.toContain('198.51.100.47')
-    expect(card('DOWNLOAD').textContent).not.toContain('srv-01')
+    expect(row('DOWNLOAD').textContent).not.toContain('198.51.100.47')
+    expect(row('DOWNLOAD').textContent).not.toContain('srv-01')
   })
 
   it('presents Upload orientation, canonical progress, upload network usage, and survives disconnect privately', () => {
     const { unmount } = render(<GameProvider initialState={withUpload(createInitialGameState(), true)}><Processes /></GameProvider>)
-    const upload = card('UPLOAD')
+    const upload = row('UPLOAD')
     expect(within(upload).getByText('node-01 → 203.0.113.88')).toBeInTheDocument()
-    expect(fact(upload, 'PROGRESS')).toBe('41%')
-    expect(fact(upload, 'SOURCE')).toBe('/home/user/downloads/node-miner-1.0.pkg')
-    expect(fact(upload, 'DESTINATION')).toBe('/home/user/node-miner-1.0.pkg')
-    expect(within(stat('NET UP')).getByText('1 MiB/s')).toBeInTheDocument()
-    expect(within(stat('NET DOWN')).getByText('0 B/s')).toBeInTheDocument()
+    expect(upload.querySelector('.am-row-metric')?.textContent).toBe('41%')
+    expect(within(meter('NETWORK')).getByText('1 MiB/s UPLOAD')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('1 MiB/s / 1 MiB/s')).toBeInTheDocument()
+    expect(within(meter('NETWORK')).getByText('0 B/s / 2 MiB/s')).toBeInTheDocument()
+    openRow('UPLOAD')
+    expect(fact(section('ROUTE'), 'SOURCE')).toBe('/home/user/downloads/node-miner-1.0.pkg')
+    expect(fact(section('ROUTE'), 'DESTINATION')).toBe('/home/user/node-miner-1.0.pkg')
     unmount()
+
     render(<GameProvider initialState={withUpload()}><Processes /></GameProvider>)
-    expect(card('UPLOAD')).toBeInTheDocument()
-    expect(card('UPLOAD').textContent).not.toMatch(/203\.0\.113\.88|srv-01/)
+    expect(row('UPLOAD')).toBeInTheDocument()
+    expect(row('UPLOAD').textContent).not.toMatch(/203\.0\.113\.88|srv-01/)
   })
 
-  it('offers CANCEL, not REMOVE, on the running FileTransfer card, and invokes the canonical GameAction', () => {
-    render(<GameProvider initialState={withDownload()}><Processes /></GameProvider>)
-    const download = card('DOWNLOAD')
-    expect(within(download).getByRole('button', { name: 'Cancel active DOWNLOAD' })).toBeInTheDocument()
-    expect(within(download).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
-
-    fireEvent.click(within(download).getByRole('button', { name: 'Cancel active DOWNLOAD' }))
-    expect(card('DOWNLOAD').dataset.status).toBe('recent')
-    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
-  })
-
-  it('CANCEL preserves DeviceAccess and does not create a GameProcess', () => {
+  it('offers CANCEL, not REMOVE, on the running transfer, and invokes the canonical GameAction', () => {
     const initial = withDownload()
     function Snapshot() {
       const state = useGameState()
       return <output>{JSON.stringify({ accessCount: state.deviceAccess.established.length, processCount: state.process.processes.length, nextId: state.fileTransfer.nextId })}</output>
     }
     render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
+    openRow('DOWNLOAD')
+    expect(screen.getByRole('button', { name: 'Cancel active DOWNLOAD' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Stop/ })).not.toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('button', { name: 'Cancel active DOWNLOAD' }))
+    expect(detail().dataset.status).toBe('recent')
+    expect(screen.queryByRole('button', { name: 'Cancel active DOWNLOAD' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove recent DOWNLOAD activity' })).toBeInTheDocument()
     expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual({ accessCount: 1, processCount: 0, nextId: 2 })
-  })
-
-  it('keeps CANCEL touch-safe', () => {
-    const cancelRule = processesCss.match(/\.am-cancel\s*\{([^}]+)\}/)?.[1] ?? ''
-    expect(cancelRule).toMatch(/min-height:\s*44px/)
-  })
-
-  it('represents only currently implemented activity types', () => {
-    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
-    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent))
-      .toEqual(['ALL2', 'OPERATIONS1', 'TRANSFERS1'])
-    expect(monitor().textContent).not.toMatch(/UPLOAD|CRACK|MALWARE/i)
-    expect(monitorSource + processesSource).not.toMatch(/cracking|malware/i)
-  })
-
-  it('keeps the filter row compact and touch-safe without horizontal overflow', () => {
-    const filterRule = processesCss.match(/\.am-filter\s*\{([^}]+)\}/)?.[1] ?? ''
-    expect(filterRule).toMatch(/min-height:\s*44px/)
-    expect(filterRule).toMatch(/flex:\s*1/)
-    expect(filterRule).toMatch(/min-width:\s*0/)
-    expect(processesCss).toMatch(/\.am-filters\s*\{[^}]*display:\s*flex/)
-    expect(processesSource + monitorSource).not.toMatch(/scrollIntoView|window\.scrollTo|visualViewport/)
+    back()
+    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
   })
 })
 
@@ -449,51 +518,65 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
     return started.state
   }
 
-  it('shows continuous runtime with real CPU/RAM/payout facts and no misleading completion bar', () => {
+  it('marks continuous runtime as continuous instead of giving it a completion bar', () => {
     render(<GameProvider initialState={minerState()}><Processes /></GameProvider>)
-    const minerCard = card('NODE MINER')
-    expect(within(minerCard).getByText('RUNNING')).toBeInTheDocument()
-    expect(minerCard.querySelector('progress')).not.toBeInTheDocument()
-    expect(fact(minerCard, 'CPU')).toBe('82%')
-    expect(fact(minerCard, 'RAM')).toBe('512 MiB')
-    expect(fact(minerCard, 'PRODUCED')).toBe('0 units')
-    expect(fact(minerCard, 'UNPAID')).toBe('0 units')
-    expect(within(minerCard).getByText('node-wallet-addr-0001')).toBeInTheDocument()
-    expect(within(stat('ACTIVE')).getByText('1')).toBeInTheDocument()
+    const miner = row('NODE MINER')
+    expect(miner.querySelector('progress')).not.toBeInTheDocument()
+    expect(within(miner).getByText('CONTINUOUS')).toBeInTheDocument()
+    expect(miner.querySelector('.am-row-metric')?.textContent).toBe('82 units/s')
+    expect(Array.from(miner.querySelectorAll('.am-row-summary span')).map((part) => part.textContent)).toEqual(['82% CPU', '512 MiB', '0 units unpaid'])
+
+    openRow('NODE MINER')
+    expect(detail().querySelector('progress')).not.toBeInTheDocument()
+    expect(within(detail()).getByText(/CONTINUOUS RUNTIME/)).toBeInTheDocument()
+    expect(fact(section('PRODUCTION'), 'COMPLETION')).toBe('CONTINUOUS')
+    expect(fact(section('RESOURCES'), 'CPU')).toBe('82%')
+    expect(fact(section('RESOURCES'), 'RAM')).toBe('512 MiB')
+    expect(fact(section('CONFIGURATION'), 'PAYOUT ADDRESS')).toBe('node-wallet-addr-0001')
   })
 
   it('derives gross produced and unpaid production from real deterministic elapsed compute', () => {
     const advanced = advanceGameState(minerState(), 3000)
     render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
-    const minerCard = card('NODE MINER')
     // node-01: computeCapacity 100, baseline 18% -> ~82 atomic NODE units/s allocated while running alone.
-    expect(fact(minerCard, 'PRODUCED')).toBe('246 units')
-    expect(fact(minerCard, 'UNPAID')).toBe('246 units')
+    openRow('NODE MINER')
+    expect(fact(section('PRODUCTION'), 'PRODUCED')).toBe('246 units')
+    expect(fact(section('PRODUCTION'), 'UNPAID')).toBe('246 units')
+    expect(fact(section('PRODUCTION'), 'RATE')).toBe('82 units/s')
   })
 
   it('presents the same unpaid production whether or not the address matches the represented Wallet', () => {
     const advanced = advanceGameState(minerState('an-unmatched-fictional-address'), 3000)
     render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
-    const minerCard = card('NODE MINER')
-    expect(fact(minerCard, 'PRODUCED')).toBe('246 units')
-    expect(fact(minerCard, 'UNPAID')).toBe('246 units')
-    expect(within(minerCard).getByText('an-unmatched-fictional-address')).toBeInTheDocument()
+    openRow('NODE MINER')
+    expect(fact(section('PRODUCTION'), 'PRODUCED')).toBe('246 units')
+    expect(fact(section('PRODUCTION'), 'UNPAID')).toBe('246 units')
+    expect(fact(section('CONFIGURATION'), 'PAYOUT ADDRESS')).toBe('an-unmatched-fictional-address')
   })
 
   it('never exposes the embedded developer destination of the running release', () => {
     const advanced = advanceGameState(minerState(), 3000)
     render(<GameProvider initialState={advanced}><Processes /></GameProvider>)
-    expect(monitor().textContent).not.toContain(NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS)
-    expect(monitor().textContent).not.toMatch(/DEVELOPER|FEE/i)
+    openRow('NODE MINER')
+    expect(document.body.textContent).not.toContain(NODE_MINER_1_0_DEVELOPER_PAYOUT_ADDRESS)
+    expect(document.body.textContent).not.toMatch(/DEVELOPER|FEE/i)
   })
 
-  it('STOP invokes the canonical operation, removing the Process and releasing its resources', () => {
-    render(<GameProvider initialState={minerState()}><Processes /></GameProvider>)
-    const minerCard = card('NODE MINER')
-    fireEvent.click(within(minerCard).getByRole('button', { name: 'Stop NODE MINER' }))
-    expect(card('NODE MINER').dataset.status).toBe('recent')
-    expect(within(card('NODE MINER')).queryByText(/STOPPED|COMPLETED|CANCELLED/)).not.toBeInTheDocument()
-    expect(within(stat('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
+  it('offers PAYOUT and STOP rather than CANCEL, and STOP releases the reserved resources', () => {
+    render(<GameProvider initialState={advanceGameState(minerState(), 3000)}><Processes /></GameProvider>)
+    openRow('NODE MINER')
+    expect(screen.getByRole('button', { name: 'Payout NODE MINER' })).toHaveTextContent('PAYOUT')
+    expect(screen.getByRole('button', { name: 'Stop NODE MINER' })).toHaveTextContent('STOP')
+    expect(screen.queryByRole('button', { name: /Cancel/ })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stop NODE MINER' }))
+    expect(detail().dataset.status).toBe('recent')
+    expect(within(detail()).queryByText(/STOPPED|COMPLETED|CANCELLED/)).not.toBeInTheDocument()
+    back()
+    expect(within(meter('RAM')).getByText('942 / 4096 MiB')).toBeInTheDocument()
+    expect(within(meter('CPU')).getByText('18%')).toBeInTheDocument()
+    expect(row('NODE MINER').dataset.status).toBe('recent')
+    expect(row('NODE MINER').querySelector('.am-row-metric')?.textContent).toBe('246 units')
   })
 
   it('STOP preserves Process ID progression, so a later RUN receives a new identity', () => {
@@ -501,9 +584,9 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
     const originalId = state.process.processes[0].id
     function Snapshot() { return <output>{JSON.stringify({ ids: useGameState().process.processes.map(({ id }) => id), nextId: useGameState().process.nextId })}</output> }
     render(<GameProvider initialState={state}><Processes /><Snapshot /></GameProvider>)
-    fireEvent.click(within(card('NODE MINER')).getByRole('button', { name: 'Stop NODE MINER' }))
-    const afterStop = JSON.parse(screen.getByRole('status').textContent ?? '')
-    expect(afterStop).toEqual({ ids: [], nextId: state.process.nextId })
+    openRow('NODE MINER')
+    fireEvent.click(screen.getByRole('button', { name: 'Stop NODE MINER' }))
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toEqual({ ids: [], nextId: state.process.nextId })
 
     const minerFile = { kind: 'executable' as const, id: 'file-fixture-miner-2', path: '/home/user/node-miner-again.bin', programId: 'node-miner', releaseId: 'node-miner-1.0', buildId: 'build-fixture-v0', name: 'NODE Miner', version: '1.0', sizeBytes: 2_100_000 }
     const withFile: GameState = { ...state, process: { nextId: state.process.nextId, processes: [] }, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { nextFileId: 51, files: [...state.player.localDevice.filesystem.files, minerFile] } } } }
@@ -514,72 +597,58 @@ describe('Activity Monitor: continuous NODE Miner runtime', () => {
   })
 })
 
-describe('Activity Monitor: Software Installation', () => {
-  const started = () => {
+describe('Activity Monitor: Software Installation and Removal', () => {
+  const installing = () => {
     const result = installLocalSoftwarePackage(createInitialGameState(), '/home/user/downloads/node-miner-1.0.pkg')
     if (result.status !== 'started') throw Error(result.status)
     return result.state
   }
+  const removing = () => {
+    const result = removeInstalledSoftware(advanceGameState(installing(), 20_000), 'node-miner')
+    if (result.status !== 'started') throw Error(result.status)
+    return result.state
+  }
 
-  it('shows a running installation Process with package, progress, CPU, and RAM', () => {
-    render(<GameProvider initialState={started()}><Processes /></GameProvider>)
-    const installing = card('SOFTWARE INSTALLATION')
-    expect(within(installing).getByText('RUNNING')).toBeInTheDocument()
-    expect(within(installing).getByText('PACKAGE')).toBeInTheDocument()
-    expect(within(installing).getByText('NODE Miner 1.0')).toBeInTheDocument()
-    expect(fact(installing, 'PROGRESS')).toBe('0%')
-    expect(fact(installing, 'CPU')).toBe('82%')
-    expect(fact(installing, 'RAM')).toBe('256 MiB')
+  it('shows a running installation with its package, progress, and reserved resources', () => {
+    render(<GameProvider initialState={installing()}><Processes /></GameProvider>)
+    const install = row('SOFTWARE INSTALLATION')
+    expect(within(install).getByText('PACKAGE')).toBeInTheDocument()
+    expect(within(install).getByText('NODE Miner 1.0')).toBeInTheDocument()
+    expect(install.querySelector('.am-row-metric')?.textContent).toBe('0%')
+    openRow('SOFTWARE INSTALLATION')
+    expect(fact(section('RESOURCES'), 'CPU')).toBe('82%')
+    expect(fact(section('RESOURCES'), 'RAM')).toBe('256 MiB')
+    expect(fact(section('SUBJECT'), 'RELEASE')).toBe('node-miner-1.0')
   })
 
   it('appears in Recent Activity with a concrete INSTALLED outcome once the Process ends', () => {
-    const done = advanceGameState(started(), 20_000)
-    render(<GameProvider initialState={done}><Processes /></GameProvider>)
-    const installing = card('SOFTWARE INSTALLATION')
-    expect(installing.dataset.status).toBe('recent')
-    expect(within(installing).getByText('INSTALLED')).toBeInTheDocument()
+    render(<GameProvider initialState={advanceGameState(installing(), 20_000)}><Processes /></GameProvider>)
+    const install = row('SOFTWARE INSTALLATION')
+    expect(install.dataset.status).toBe('recent')
+    expect(within(install).getByText('INSTALLED')).toBeInTheDocument()
     expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
   })
-})
 
-describe('Activity Monitor: Software Removal', () => {
-  const installedMiner = () => advanceGameState((() => {
-    const result = installLocalSoftwarePackage(createInitialGameState(), '/home/user/downloads/node-miner-1.0.pkg')
-    if (result.status !== 'started') throw Error(result.status)
-    return result.state
-  })(), 20_000)
+  it('shows a running removal and its concrete REMOVED outcome once the Process ends', () => {
+    const { unmount } = render(<GameProvider initialState={removing()}><Processes /></GameProvider>)
+    const removal = row('SOFTWARE REMOVAL')
+    expect(within(removal).getByText('SOFTWARE')).toBeInTheDocument()
+    expect(within(removal).getByText('NODE Miner 1.0')).toBeInTheDocument()
+    openRow('SOFTWARE REMOVAL')
+    expect(fact(section('RESOURCES'), 'RAM')).toBe('128 MiB')
+    unmount()
 
-  const started = () => {
-    const result = removeInstalledSoftware(installedMiner(), 'node-miner')
-    if (result.status !== 'started') throw Error(result.status)
-    return result.state
-  }
-
-  it('shows a running removal Process with package, progress, CPU, and RAM under RUNNING', () => {
-    render(<GameProvider initialState={started()}><Processes /></GameProvider>)
-    const removing = card('SOFTWARE REMOVAL')
-    expect(within(removing).getByText('RUNNING')).toBeInTheDocument()
-    expect(within(removing).getByText('SOFTWARE')).toBeInTheDocument()
-    expect(within(removing).getByText('NODE Miner 1.0')).toBeInTheDocument()
-    expect(fact(removing, 'PROGRESS')).toBe('0%')
-    expect(fact(removing, 'RAM')).toBe('128 MiB')
-  })
-
-  it('appears in Recent Activity with a concrete REMOVED outcome once the Process ends', () => {
-    const done = advanceGameState(started(), 20_000)
-    render(<GameProvider initialState={done}><Processes /></GameProvider>)
-    const removing = card('SOFTWARE REMOVAL')
-    expect(removing.dataset.status).toBe('recent')
-    expect(within(removing).getByText('REMOVED')).toBeInTheDocument()
-    expect(screen.getByText('RECENT ACTIVITY')).toBeInTheDocument()
+    render(<GameProvider initialState={advanceGameState(removing(), 20_000)}><Processes /></GameProvider>)
+    expect(row('SOFTWARE REMOVAL').dataset.status).toBe('recent')
+    expect(within(row('SOFTWARE REMOVAL')).getByText('REMOVED')).toBeInTheDocument()
   })
 
   it('contends for shared Device CPU/RAM with another running local Process', () => {
-    const base = started()
+    const base = removing()
     const state: GameState = { ...base, process: { ...base.process, processes: [...base.process.processes, { kind: 'generic', id: 'process-contention', label: 'Other work', executorDeviceId: 'device-local-v0', status: 'running', workRequired: 100, workCompleted: 0, ramRequiredMiB: 100 }] } }
     render(<GameProvider initialState={state}><Processes /></GameProvider>)
-    const removing = card('SOFTWARE REMOVAL')
-    expect(fact(removing, 'CPU')).toBe('41%')
+    openRow('SOFTWARE REMOVAL')
+    expect(fact(section('RESOURCES'), 'CPU')).toBe('41%')
   })
 })
 
@@ -600,13 +669,12 @@ describe('Activity Monitor: operation subjects', () => {
 
   it('names the concrete Service each Analysis is working on while keeping one operation kind', () => {
     render(<GameProvider initialState={twoAnalyses()}><Processes /></GameProvider>)
-    const analyses = cards().filter((activity) => within(activity).queryByText('SERVICE ANALYSIS'))
+    const analyses = rowsOf('SERVICE ANALYSIS')
     expect(analyses).toHaveLength(2)
 
     // Same operation identity, different subjects — readable without comparing ports.
-    expect(analyses.map((activity) => activity.querySelector('.am-title strong')?.textContent)).toEqual(['SSH', 'HTTP'])
-    expect(analyses.map((activity) => activity.querySelector('.am-route')?.textContent)).toEqual(['198.51.100.47:22', '198.51.100.47:80'])
-    for (const activity of analyses) expect(within(activity).getByText('SERVICE ANALYSIS')).toBeInTheDocument()
+    expect(analyses.map((activity) => activity.querySelector('.am-row-title')?.textContent)).toEqual(['SSH', 'HTTP'])
+    expect(analyses.map((activity) => activity.querySelector('.am-row-route')?.textContent)).toEqual(['198.51.100.47:22', '198.51.100.47:80'])
   })
 
   it('resolves each subject from remembered Discovery rather than current target truth', () => {
@@ -624,11 +692,11 @@ describe('Activity Monitor: operation subjects', () => {
   it('falls back to the historical endpoint when no Service is remembered at that identity', () => {
     // Terminal `analyze` can legitimately start work against a never-scanned endpoint.
     render(<GameProvider initialState={twoAnalyses(false)}><Processes /></GameProvider>)
-    const analyses = cards().filter((activity) => within(activity).queryByText('SERVICE ANALYSIS'))
+    const analyses = rowsOf('SERVICE ANALYSIS')
 
-    expect(analyses.map((activity) => activity.querySelector('.am-title strong')?.textContent)).toEqual(['198.51.100.47:22', '198.51.100.47:80'])
+    expect(analyses.map((activity) => activity.querySelector('.am-row-title')?.textContent)).toEqual(['198.51.100.47:22', '198.51.100.47:80'])
     expect(analyses.every((activity) => within(activity).queryByText('TARGET'))).toBe(true)
-    expect(analyses.every((activity) => activity.querySelector('.am-route') === null)).toBe(true)
+    expect(analyses.every((activity) => activity.querySelector('.am-row-route') === null)).toBe(true)
   })
 
   it('keeps each Analysis an independent Process with its own resources and cancellation', () => {
@@ -639,9 +707,49 @@ describe('Activity Monitor: operation subjects', () => {
       { id: 'process-0001', kind: 'service_analysis', ramRequiredMiB: 768 },
       { id: 'process-0002', kind: 'service_analysis', ramRequiredMiB: 768 },
     ])
-    expect(screen.getAllByRole('button', { name: 'Cancel active SERVICE ANALYSIS' })).toHaveLength(2)
     // Two real Processes share the executor's compute, exactly as before.
-    const analyses = cards().filter((activity) => within(activity).queryByText('SERVICE ANALYSIS'))
-    expect(analyses.map((activity) => fact(activity, 'CPU'))).toEqual(['41%', '41%'])
+    expect(rowsOf('SERVICE ANALYSIS').map((activity) => Array.from(activity.querySelectorAll('.am-row-summary span')).map((part) => part.textContent)))
+      .toEqual([['41% CPU', '768 MiB'], ['41% CPU', '768 MiB']])
+
+    fireEvent.click(rowsOf('SERVICE ANALYSIS')[1])
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel active SERVICE ANALYSIS' }))
+    back()
+    expect(rowsOf('SERVICE ANALYSIS').filter((activity) => activity.dataset.status === 'running')).toHaveLength(1)
+    expect(within(meter('CPU')).getByText('18% BASELINE · 1 PROCESS')).toBeInTheDocument()
+  })
+})
+
+describe('Activity Monitor presentation contract', () => {
+  it('represents only currently implemented activity types', () => {
+    render(<GameProvider initialState={withDownload(runningAnalysis())}><Processes /></GameProvider>)
+    expect(within(document.querySelector('.am-filters') as HTMLElement).getAllByRole('button').map((button) => button.textContent))
+      .toEqual(['ALL2', 'OPERATIONS1', 'TRANSFERS1'])
+    expect(monitor().textContent).not.toMatch(/UPLOAD|CRACK|MALWARE/i)
+    expect(monitorSource + processesSource + detailSource).not.toMatch(/cracking|malware/i)
+  })
+
+  it('keeps every interactive surface touch-safe and introduces no viewport system of its own', () => {
+    const filterRule = processesCss.match(/\.am-filter\s*\{([^}]+)\}/)?.[1] ?? ''
+    expect(filterRule).toMatch(/min-height:\s*44px/)
+    expect(filterRule).toMatch(/flex:\s*1/)
+    expect(filterRule).toMatch(/min-width:\s*0/)
+    expect(processesCss).toMatch(/\.am-filters\s*\{[^}]*display:\s*flex/)
+    expect(processesCss.match(/\.am-clear\s*\{([^}]+)\}/)?.[1] ?? '').toMatch(/min-height:\s*44px/)
+    // Rows and lifecycle actions are the two tap targets the redesign added.
+    expect(processesCss.match(/\.am-row\s*\{([^}]+)\}/)?.[1] ?? '').toMatch(/min-height:\s*64px/)
+    expect(nodeUiCss.match(/\.node-action\s*\{([^}]+)\}/)?.[1] ?? '').toMatch(/min-height:\s*44px/)
+    expect(nodeUiCss.match(/\.node-back\s*\{([^}]+)\}/)?.[1] ?? '').toMatch(/min-height:\s*44px/)
+    expect(processesSource + monitorSource + detailSource).not.toMatch(/scrollIntoView|window\.scrollTo|visualViewport/)
+  })
+
+  it('reaches canonical operations rather than mutating presentation-owned state', () => {
+    // Every lifecycle control on the detail surface is a GameActions call.
+    expect(detailSource).not.toMatch(/useGameState|useGameActions/)
+    expect(processesSource).toMatch(/actions\.cancelLocalProcess/)
+    expect(processesSource).toMatch(/actions\.cancelFileTransfer/)
+    expect(processesSource).toMatch(/actions\.stopNodeMiner/)
+    expect(processesSource).toMatch(/actions\.payoutLocalNodeMiner/)
+    expect(processesSource).toMatch(/actions\.removeRecentActivity/)
+    expect(processesSource).toMatch(/actions\.clearRecentActivity/)
   })
 })
