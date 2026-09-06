@@ -36,6 +36,8 @@ GameState
 ├── dollarFinance
 ├── business — generic Company/Branch/Network structure; routed to the dedicated branch-commerce owner
 ├── bookstoreCommerce — the one concrete branch-linked commerce record; routed to the same owner
+├── bookstoreOperations — the one concrete branch-linked operations record; routed to the same owner
+├── bookstoreBackend — the one concrete branch-linked backend reference into real Device/Service World Truth; routed to the same owner
 ├── nodeWallet
 ├── nodeEconomy
 ├── world
@@ -74,11 +76,13 @@ The top-level `business` slice is canonical Business-domain World Truth —
 represented Companies and the generic structural Business Branches they
 own, including each Branch's explicit Network relationship — separate from
 World Device and Civic Dollar state. The separate top-level
-`bookstoreCommerce` slice holds the one concrete branch-linked commerce
-record (settlement configuration and sale history) for the currently
-represented bookstore mechanic, keyed by stable Branch ID rather than
-embedded on generic Branch identity. Their detailed semantics belong to
-`docs/current/BRANCH_COMMERCE.md`.
+`bookstoreCommerce`, `bookstoreOperations`, and `bookstoreBackend` slices each
+hold one concrete branch-linked record for the currently represented
+bookstore mechanic — settlement configuration and sale history; OPEN/CLOSED,
+inventory, and capacity; and a stable reference to the real Device/Service
+implementing the Branch's technical backend, respectively — each keyed by
+stable Branch ID rather than embedded on generic Branch identity. Their
+detailed semantics belong to `docs/current/BRANCH_COMMERCE.md`.
 
 The concretely represented foreign filesystems are normal Device-owned state.
 A successful Upload may create its normal destination artifact in the remote
@@ -156,7 +160,7 @@ The current World contains `home-net` with node-01 and `srv-01`, plus the neutra
 
 `srv-01` owns RACK-OS 1.0, GateSSH 1.3.2 on its stable SSH Service, Basic HTTP, and its independent filesystem. GateSSH 1.3.2 derives `AUTH-017`; this weakness is never stored separately.
 
-`srv-02` (`host-lan-002`) owns RACK-OS 1.0, GateSSH 1.3.3 on `service-ssh-002`, and RackUpdate 1.0 on the separate open TCP/8443 `service-rack-update-002`. GateSSH 1.3.3 is patched for `AUTH-017`. RackUpdate 1.0 derives `UPD-001` (rollback protection not enforced) and exposes its concrete public package-submission protocol. These are Device-owned Service implementations, distinct from the matching GateSSH InstalledSoftware represented on each server.
+`srv-02` (`host-lan-002`) owns RACK-OS 1.0, GateSSH 1.3.3 on `service-ssh-002`, RackUpdate 1.0 on the separate open TCP/8443 `service-rack-update-002`, and the concrete Bookstore Branch 01 backend on the separate open TCP/8090 `service-bookstore-backend-002` (`Bookstore Backend 1.0`). GateSSH 1.3.3 is patched for `AUTH-017`. RackUpdate 1.0 derives `UPD-001` (rollback protection not enforced) and exposes its concrete public package-submission protocol. The Bookstore Backend Service derives no vulnerability and grants no credential-based access — this slice represents its technical surface only. These are Device-owned Service implementations, distinct from the matching GateSSH InstalledSoftware represented on each server. `docs/current/BRANCH_COMMERCE.md` owns how the Bookstore domain resolves this Service by stable reference as its concrete backend.
 
 Successful RackUpdate submission stores one exact pending GateSSH activation on the target Device while leaving active GateSSH InstalledSoftware and its managed Service implementation coherent and unchanged. `srv-02` therefore remains actively on 1.3.3 after accepting 1.3.2, and derives no `AUTH-017` until a represented boot activates it. The canonical boot-activation operation is only the software consequence of an already-established real Device boot: it atomically applies the preserved pending identity to InstalledSoftware and the managed Service, clears pending, and otherwise does nothing when coherent activation is impossible. It does not cause a boot, model lifecycle or connectivity, or update Player Information. Pending software remains neither InstalledSoftware, a Service implementation, a filesystem artifact, nor Player Information.
 

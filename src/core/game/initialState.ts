@@ -13,8 +13,9 @@ import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_M
 import { createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
 import { createInitialBookstoreOperationsState } from './bookstoreOperations'
+import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
 
-export const GAME_STATE_VERSION = 71
+export const GAME_STATE_VERSION = 72
 
 export function createInitialGameState(): GameState {
   return {
@@ -84,6 +85,7 @@ export function createInitialGameState(): GameState {
     business: createInitialBusinessState(),
     bookstoreCommerce: createInitialBookstoreCommerceState(),
     bookstoreOperations: createInitialBookstoreOperationsState(),
+    bookstoreBackend: createInitialBookstoreBackendState(),
     nodeWallet: {
       id: 'wallet-node-local-v0',
       address: 'node-wallet-addr-0001',
@@ -172,6 +174,8 @@ export function createInitialGameState(): GameState {
             services: [
               { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, credentialAccess: { privilege: 'USER' } },
               { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', buildId: RACK_UPDATE_1_0_BUILD_ID, name: 'RackUpdate', version: '1.0' } },
+              // The concrete Bookstore Branch 01 backend's real technical presence on this Device: an ordinary open Service like the two above, with no credential-based access and no derived vulnerability.
+              { id: BOOKSTORE_BACKEND_SERVICE_ID, name: 'Bookstore Backend', port: 8090, protocol: 'TCP', open: true, implementation: BOOKSTORE_BACKEND_IMPLEMENTATION },
             ],
             authenticationHistory: { nextId: 1, records: [] },
           },

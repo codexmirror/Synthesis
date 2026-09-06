@@ -1230,8 +1230,14 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business).toHaveTextContent('OPEN')
     expect(business).toHaveTextContent('360 / 480')
     expect(within(business).getByText('CHECKOUTS').closest('div')).toHaveTextContent('2')
+    // The seeded Branch also has a concrete backend represented, resolved from the real srv-02 Device/Service it references by stable ID.
+    expect(business).toHaveTextContent('BACKEND')
+    expect(business).toHaveTextContent('Bookstore Backend 1.0')
+    expect(within(business).getByText('BACKEND STATUS').closest('div')).toHaveTextContent('ONLINE')
     // Read-only: no internal identifiers, credentials, or Player identity.
     expect(business.textContent).not.toContain('dollar-account-veyra-phone-v0')
+    expect(business.textContent).not.toContain('host-lan-002')
+    expect(business.textContent).not.toContain('service-bookstore-backend-002')
     expect(business.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
 
     await user.click(screen.getByRole('button', { name: /APPLICATIONS$/ }))
@@ -1297,12 +1303,13 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business).toHaveTextContent('Fixture Hosting Branch')
     const fixtureHeading = within(business).getByRole('heading', { name: 'Fixture Hosting Branch' })
     const fixtureBlock = fixtureHeading.closest('.rack-artifact')!
-    // ...but invents no settlement, sale, status, or error state for the subsystems it does not have.
+    // ...but invents no settlement, sale, status, backend, or error state for the subsystems it does not have.
     expect(fixtureBlock).not.toHaveTextContent('SETTLEMENT ACCOUNT')
     expect(fixtureBlock).not.toHaveTextContent('RECENT SALES')
     expect(fixtureBlock).not.toHaveTextContent('STATUS')
     expect(fixtureBlock).not.toHaveTextContent('STOCK')
     expect(fixtureBlock).not.toHaveTextContent('CHECKOUTS')
+    expect(fixtureBlock).not.toHaveTextContent('BACKEND')
     expect(fixtureBlock.textContent).not.toMatch(/error|not configured|missing/i)
   })
 
@@ -1339,6 +1346,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(within(operationsBlock).getByText('CHECKOUTS').closest('div')).toHaveTextContent('1')
     expect(operationsBlock).not.toHaveTextContent('SETTLEMENT ACCOUNT')
     expect(operationsBlock).not.toHaveTextContent('RECENT SALES')
+    expect(operationsBlock).not.toHaveTextContent('BACKEND')
 
     const commerceHeading = within(business).getByRole('heading', { name: 'Fixture Commerce-Only Branch' })
     const commerceBlock = commerceHeading.closest('.rack-artifact') as HTMLElement
@@ -1346,6 +1354,46 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(commerceBlock).not.toHaveTextContent('STATUS')
     expect(commerceBlock).not.toHaveTextContent('STOCK')
     expect(commerceBlock).not.toHaveTextContent('CHECKOUTS')
+    expect(commerceBlock).not.toHaveTextContent('BACKEND')
+  })
+
+  it('presents the backend as truthfully OFFLINE when the referenced Device is not currently network-usable, without inventing an error state', async () => {
+    const user = userEvent.setup()
+    const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
+    // The backend's referenced Device (srv-02 itself) is temporarily unusable; the Branch and its other subsystems are untouched.
+    const initial = {
+      ...base,
+      world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((host) =>
+        host.id === 'host-lan-002' ? { ...host, services: host.services!.map((service) => service.id === 'service-bookstore-backend-002' ? { ...service, open: false } : service) } : host) } },
+    }
+    render(<GameProvider initialState={initial}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+
+    const business = screen.getByRole('region', { name: 'Business' })
+    expect(business).toHaveTextContent('Bookstore Backend 1.0')
+    expect(within(business).getByText('BACKEND STATUS').closest('div')).toHaveTextContent('OFFLINE')
+    expect(business.textContent).not.toMatch(/error|not found|missing/i)
+    // The Branch, its operations, and its commerce remain unaffected by the backend's own availability.
+    expect(business).toHaveTextContent('Bookstore Branch 01')
+    expect(business).toHaveTextContent('OPEN')
+  })
+
+  it('presents no BACKEND section for a Branch with no represented backend record, without fabricating one', async () => {
+    const user = userEvent.setup()
+    const base = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
+    const noBackendBranch = { id: 'branch-fixture-no-backend', displayName: 'Fixture No-Backend Branch', companyId: base.business.companies[0].id, networkId: 'network-foreign-001' }
+    const initial = { ...base, business: { ...base.business, branches: [...base.business.branches, noBackendBranch] } }
+    render(<GameProvider initialState={initial}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+
+    const business = screen.getByRole('region', { name: 'Business' })
+    const heading = within(business).getByRole('heading', { name: 'Fixture No-Backend Branch' })
+    const block = heading.closest('.rack-artifact') as HTMLElement
+    expect(block).not.toHaveTextContent('BACKEND')
+    // The seeded Branch's own backend is unaffected by the sibling Branch having none.
+    expect(business).toHaveTextContent('Bookstore Backend 1.0')
   })
 })
 

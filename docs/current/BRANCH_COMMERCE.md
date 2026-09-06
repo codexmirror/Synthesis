@@ -3,9 +3,11 @@
 Status: Accepted
 Scope: Current Company and Business Branch structural identity, the Branch's
 explicit Network relationship, the concrete bookstore-commerce record attached
-to the seeded Branch, completed-sale meaning, settlement configuration, and
-the separate concrete bookstore-operations record (OPEN/CLOSED, current
-inventory, shelf capacity, checkout capacity).
+to the seeded Branch, completed-sale meaning, settlement configuration, the
+separate concrete bookstore-operations record (OPEN/CLOSED, current
+inventory, shelf capacity, checkout capacity), and the separate concrete
+bookstore-backend record referencing the real represented Device/Service
+that technically implements the Branch's backend.
 
 ## Generic Company / Branch / Network structural truth
 
@@ -134,17 +136,66 @@ demand, or autonomous/scheduled sales. It does not touch the existing Petra
 Technician incident-response mechanic, which remains separately implemented
 current truth (`docs/current/NETWORK_ACCESS.md`).
 
+## The current concrete bookstore-backend record
+
+A third, separate branch-linked record represents which real, concretely
+represented technical Device and Service implement a Bookstore Branch's
+backend — the technical infrastructure later Bookstore mechanics, VEYRA
+Business, and hacking consequences can legitimately depend on — owned by
+`GameState.bookstoreBackend` (`src/core/game/bookstoreBackend.ts`):
+
+```text
+BookstoreBranchBackendRecord
+├── branchId    — the Business Branch this record belongs to, by stable ID
+├── deviceId    — the real represented NetworkHost hosting the backend, by stable ID
+└── serviceId   — the real represented NetworkService on that Device implementing the backend, by stable ID
+```
+
+This record carries no settlement, sale, OPEN/CLOSED, inventory, or shadow
+`online` status of its own. It is exactly a stable reference into existing
+Device/Service World Truth, following the same "real technical ownership,
+never a parallel model" precedent the rest of this repository's Device/
+Service/Software architecture already establishes
+(`docs/current/DEVICE_SYSTEM.md`). `srv-02` (`host-lan-002`) owns the seeded
+backend's concrete technical presence as an ordinary open `NetworkService`,
+`Bookstore Backend 1.0` (`service-bookstore-backend-002`, TCP/8090) —
+represented exactly like its neighboring GateSSH and RackUpdate Services,
+with no credential-based access and no derived vulnerability. It is never
+inferred from the Branch's display name, from `srv-02`'s display name or IP,
+or from RACK-OS presentation.
+
+`resolveBookstoreBackendForBranch(state, branchId)` resolves this record for
+one Branch and returns `undefined` where a Branch has no such record at all,
+or where its referenced Device or Service no longer resolves at all — all
+legitimate structural states, never an error. Where the reference does
+resolve, availability is derived fresh from that Device's own
+`isDeviceNetworkUsable` operational truth together with the Service's own
+`open` truth — never a stored status flag on the record itself, so backend
+availability can never drift from the real technical state it describes.
+This is a wholly separate, independent join from
+`resolveBookstoreCommerceForBranch` and `resolveBookstoreOperationsForBranch`:
+a Branch may have any combination of the three concrete subsystems, or none.
+
+This slice implements no writable backend administration, no Business
+authentication/permission model, no vulnerability or exploit on the backend
+Service, no settlement redirection, and no sale consequence of backend
+availability. `srv-02` grants no DeviceAccess, NetworkManagementAuthority,
+Discovery, Knowledge, or Business authority merely by being referenced here;
+the reference is read-only World Truth, and reaching the Service still
+follows the same generic Scan/Inspect/credential-access rules any other
+represented Service does (`docs/current/NETWORK_ACCESS.md`).
+
 ### No universal Business archetype framework
 
-Bookstore is the first concrete Business archetype; commerce and operations
-are its own two narrow branch-linked records, not instances of a generic
-Business-operations/archetype engine, registry, or rules system — none
-exists. A future archetype (Laundry, Bank, ...) is expected to introduce its
-own concrete branch-linked model(s) the same way, varying through its own
+Bookstore is the first concrete Business archetype; commerce, operations, and
+backend are its own three narrow branch-linked records, not instances of a
+generic Business-operations/archetype engine, registry, or rules system —
+none exists. A future archetype (Laundry, Bank, ...) is expected to introduce
+its own concrete branch-linked model(s) the same way, varying through its own
 configuration/runtime data rather than seeded-identity dispatch. Generalizing
 into a shared abstraction is deferred until multiple concrete
 archetype implementations actually justify it; it is not implemented now and
-is not implied by this pattern repeating twice.
+is not implied by this pattern repeating three times.
 
 ## Sale and finance ownership
 
@@ -168,10 +219,11 @@ Applications home, alongside Terminal, Files and System — regardless of
 whether any Business Branch exists. Opening it resolves the operated Device's
 structural Business context (`resolveBusinessOperatingContext`) and, for each
 resolved Branch, separately composes that Branch's concrete commerce
-(`resolveBookstoreCommerceForBranch`) and concrete operations
-(`resolveBookstoreOperationsForBranch`) where either exists. RACK-OS only
-composes and presents these three owners; it is not itself the canonical
-owner of any of them.
+(`resolveBookstoreCommerceForBranch`), concrete operations
+(`resolveBookstoreOperationsForBranch`), and concrete backend
+(`resolveBookstoreBackendForBranch`) where any exists. RACK-OS only composes
+and presents these four owners; it is not itself the canonical owner of any
+of them.
 
 Where no Branch resolves at all, BUSINESS truthfully states the resolved
 Network context and that no Business is configured; this is legitimate
@@ -181,25 +233,28 @@ Company identity, Branch identity, and associated Network unconditionally,
 and additionally presents:
 
 - OPEN/CLOSED, current inventory relative to shelf capacity, and checkout
-  capacity, only where that Branch has a represented operations record; and
+  capacity, only where that Branch has a represented operations record;
 - current settlement Account reference and completed sale history, only
-  where that Branch has a represented commerce record.
+  where that Branch has a represented commerce record; and
+- the backend Service's own name/version and its derived ONLINE/OFFLINE
+  availability, only where that Branch has a represented backend record.
 
-Operations and commerce are presented fully independently of each other: a
-structurally valid Branch with neither presents only its identity, with one
-presents only that one's facts, and with both presents both — nothing invented
-in place of a subsystem that is not represented. It exposes no internal
-Account IDs, Credentials, Financial Sessions, balances, Player identity, or
+Operations, commerce, and backend are presented fully independently of each
+other: a structurally valid Branch with none of the three presents only its
+identity, with one presents only that one's facts, and with any combination
+presents exactly that combination — nothing invented in place of a subsystem
+that is not represented. It exposes no internal Account IDs, Credentials,
+Financial Sessions, balances, Device IDs, Service IDs, Player identity, or
 unrelated World Truth.
 
 RACK-OS 1.0 is the old technical section environment and provides no
 application shell at all, so it presents no BUSINESS surface even where a
 Branch's associated Network reaches the operated Device. Installing RACK-OS
 1.1 Business creates no Company, Branch, commerce record, operations record,
-financial state, or Network association of its own — it only makes the
-built-in BUSINESS read surface available; whether that surface finds any
-Business Branch, commerce record, or operations record is unrelated to the
-Firmware.
+backend record, financial state, or Network association of its own — it only
+makes the built-in BUSINESS read surface available; whether that surface
+finds any Business Branch, commerce record, operations record, or backend
+record is unrelated to the Firmware.
 
 Browsing changes no GameState, Discovery, Knowledge, finance, access, or
 business state. Settlement editing/redirection and future sales are not

@@ -89,6 +89,7 @@ describe('scanNetworkTarget outward discovery', () => {
       status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote', networks: [], services: [
         { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP' },
         { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP' },
+        { id: 'service-bookstore-backend-002', name: 'Bookstore Backend', port: 8090, protocol: 'TCP' },
       ],
     })
   })
