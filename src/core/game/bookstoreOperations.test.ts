@@ -23,15 +23,48 @@ describe('bookstore operations initial truth', () => {
 })
 
 describe('createBookstoreBranchOperationsRecord', () => {
-  it('never represents current inventory above shelf capacity, even when constructed with an over-capacity value', () => {
-    const record = createBookstoreBranchOperationsRecord({
+  it('rejects current inventory above shelf capacity rather than silently clamping or accepting it', () => {
+    expect(() => createBookstoreBranchOperationsRecord({
       branchId: 'branch-fixture-overstocked',
       shelfCapacity: 100,
       checkoutCapacity: 1,
       open: true,
       currentInventory: 250,
+    })).toThrow(RangeError)
+  })
+
+  it('rejects negative current inventory', () => {
+    expect(() => createBookstoreBranchOperationsRecord({
+      branchId: 'branch-fixture-negative-inventory', shelfCapacity: 100, checkoutCapacity: 1, open: true, currentInventory: -1,
+    })).toThrow(RangeError)
+  })
+
+  it('rejects negative shelf capacity', () => {
+    expect(() => createBookstoreBranchOperationsRecord({
+      branchId: 'branch-fixture-negative-shelf', shelfCapacity: -10, checkoutCapacity: 1, open: true, currentInventory: 0,
+    })).toThrow(RangeError)
+  })
+
+  it('rejects negative checkout capacity', () => {
+    expect(() => createBookstoreBranchOperationsRecord({
+      branchId: 'branch-fixture-negative-checkout', shelfCapacity: 100, checkoutCapacity: -1, open: true, currentInventory: 0,
+    })).toThrow(RangeError)
+  })
+
+  it('rejects non-finite shelf capacity, checkout capacity, and current inventory', () => {
+    const base = { branchId: 'branch-fixture-non-finite', open: true } as const
+    expect(() => createBookstoreBranchOperationsRecord({ ...base, shelfCapacity: Infinity, checkoutCapacity: 1, currentInventory: 0 })).toThrow(RangeError)
+    expect(() => createBookstoreBranchOperationsRecord({ ...base, shelfCapacity: NaN, checkoutCapacity: 1, currentInventory: 0 })).toThrow(RangeError)
+    expect(() => createBookstoreBranchOperationsRecord({ ...base, shelfCapacity: 100, checkoutCapacity: NaN, currentInventory: 0 })).toThrow(RangeError)
+    expect(() => createBookstoreBranchOperationsRecord({ ...base, shelfCapacity: 100, checkoutCapacity: 1, currentInventory: NaN })).toThrow(RangeError)
+    expect(() => createBookstoreBranchOperationsRecord({ ...base, shelfCapacity: 100, checkoutCapacity: 1, currentInventory: Infinity })).toThrow(RangeError)
+  })
+
+  it('accepts a zero shelf capacity, checkout capacity, and current inventory — the boundary is >= 0, not > 0', () => {
+    const record = createBookstoreBranchOperationsRecord({
+      branchId: 'branch-fixture-zeroed', shelfCapacity: 0, checkoutCapacity: 0, open: false, currentInventory: 0,
     })
-    expect(record.currentInventory).toBe(100)
+    expect(record).toEqual({ branchId: 'branch-fixture-zeroed', shelfCapacity: 0, checkoutCapacity: 0, open: false, currentInventory: 0 })
   })
 
   it('leaves current inventory unchanged when it is already within shelf capacity', () => {

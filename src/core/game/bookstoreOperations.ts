@@ -25,13 +25,28 @@ export function createInitialBookstoreOperationsState(): BookstoreOperationsStat
   }
 }
 
+/** A represented Bookstore capacity/inventory quantity must be finite and never negative. */
+function isValidBookstoreQuantity(value: number): boolean {
+  return Number.isFinite(value) && value >= 0
+}
+
 /**
- * Construct one Bookstore Branch operations record with the represented
- * inventory-never-exceeds-shelf-capacity invariant enforced at construction,
- * rather than trusted to every caller. This is the one sanctioned way to
- * author a `BookstoreBranchOperationsRecord`, used identically for the seeded
- * Branch and for any other Bookstore Branch — nothing here reads or branches
- * on a specific Branch identity.
+ * Construct one Bookstore Branch operations record with the canonical
+ * numeric invariants enforced at construction, rather than trusted to every
+ * caller: `shelfCapacity`, `checkoutCapacity`, and `currentInventory` must
+ * each be a finite number >= 0, and `currentInventory` must never exceed
+ * `shelfCapacity`. This is the one sanctioned way to author a
+ * `BookstoreBranchOperationsRecord`, used identically for the seeded Branch
+ * and for any other Bookstore Branch — nothing here reads or branches on a
+ * specific Branch identity.
+ *
+ * Invalid input throws a `RangeError` rather than being silently clamped or
+ * normalized, matching the repository's existing convention for canonical
+ * capacity/quantity construction (for example
+ * `deriveEffectiveTransferRateBytesPerSecond` in `networkTransferCapacity.ts`
+ * and `purchaseMarketOffer` in `market.ts`): a caller that authors impossible
+ * canonical state has a bug to fix, not a value to have quietly reinterpreted
+ * for it.
  */
 export function createBookstoreBranchOperationsRecord(params: {
   readonly branchId: string
@@ -40,12 +55,24 @@ export function createBookstoreBranchOperationsRecord(params: {
   readonly open: boolean
   readonly currentInventory: number
 }): BookstoreBranchOperationsRecord {
+  if (!isValidBookstoreQuantity(params.shelfCapacity)) {
+    throw new RangeError('Represented Bookstore shelf capacity must be a finite number >= 0')
+  }
+  if (!isValidBookstoreQuantity(params.checkoutCapacity)) {
+    throw new RangeError('Represented Bookstore checkout capacity must be a finite number >= 0')
+  }
+  if (!isValidBookstoreQuantity(params.currentInventory)) {
+    throw new RangeError('Represented Bookstore current inventory must be a finite number >= 0')
+  }
+  if (params.currentInventory > params.shelfCapacity) {
+    throw new RangeError('Represented Bookstore current inventory must not exceed shelf capacity')
+  }
   return {
     branchId: params.branchId,
     shelfCapacity: params.shelfCapacity,
     checkoutCapacity: params.checkoutCapacity,
     open: params.open,
-    currentInventory: Math.min(params.currentInventory, params.shelfCapacity),
+    currentInventory: params.currentInventory,
   }
 }
 
