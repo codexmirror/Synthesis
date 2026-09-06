@@ -70,8 +70,22 @@ record rather than being embedded on generic Branch identity:
 BookstoreBranchCommerceRecord
 ├── branchId              — the Business Branch this record belongs to, by stable ID
 ├── settlementAccountId   — mutable current settlement-destination configuration
+├── unitPriceCents        — mutable current canonical sale price, in integer cents
 └── completedSales        — completed book_sale history
 ```
+
+`unitPriceCents` is Bookstore Commerce's own current sale/settlement
+configuration, exactly like `settlementAccountId`: V1 has no product
+catalogue, SKU, category, basket size, discount, tax, fee, or dynamic
+pricing, so this is the one price a sale moves. The seeded Branch configures
+`unitPriceCents = 2000` (`BOOKSTORE_BRANCH_UNIT_PRICE_CENTS`). It happens to
+equal the historical authored sale amount below, but the two truths remain
+independent — sale execution always reads this current configuration, never
+a historical Transaction or CompletedSale. `BookstoreCommerceState` also
+carries its own monotonic `nextSaleId` allocator for runtime CompletedSale
+identity, following the existing Transaction/Session allocation pattern
+(`bookstore-sale-0002`, `-0003`, ...) — never derived from array length,
+time, or randomness.
 
 V1 seeds exactly one such record, keyed to `bookstore-branch-01`:
 `dollar-account-veyra-phone-v0` as current settlement configuration, and one
@@ -200,17 +214,64 @@ is not implied by this pattern repeating three times.
 ## Sale and finance ownership
 
 The completed sale owns the business meaning "book sale," while Civic Dollar
-exclusively owns the corresponding 2,000-cent movement. Neither the Branch nor
-its commerce record keeps a balance or shadow ledger; the record's Account and
+exclusively owns the corresponding cents movement. Neither the Branch nor its
+commerce record keeps a balance or shadow ledger; the record's Account and
 Transaction IDs are stable references into Provider-owned finance truth.
 
-The authored Transaction moves 2,000 cents from the neutral retail-clearing
-Account (`CD-9000-2000`) to the Account initially configured at that historical
-moment (`CD-3318-2204`). Its destination reference snapshot remains the sale's
-historical settlement truth even if the commerce record's current
-`settlementAccountId` later changes. The clearing Account has no Credential,
-Financial Session, Device, or represented customer. There is exactly one
-initial sale and no live, scheduled, recurring, or autonomous sale mechanic.
+The authored historical Transaction moves 2,000 cents from the neutral
+retail-clearing Account (`CD-9000-2000`) to the Account initially configured
+at that historical moment (`CD-3318-2204`). Its destination reference
+snapshot remains the sale's historical settlement truth even if the commerce
+record's current `settlementAccountId` later changes. There is exactly one
+authored initial sale; every other CompletedSale is the runtime consequence
+of an explicit sale execution below, never rewritten or re-priced.
+
+### Sale execution
+
+`executeBookstoreSale(state, branchId)` (`src/core/game/bookstoreSale.ts`) is
+the one canonical explicit state transition that turns current Business
+Branch, Bookstore Operations, Bookstore Commerce, Bookstore Backend and Civic
+Dollar truth into one completed sale. It accepts only the Branch's stable
+ID — never a price, an Account, a Device, a Service, or a capacity — and
+resolves every other fact fresh from canonical state. One sale means exactly
+one inventory unit, exactly one Civic Dollar Transaction moving exactly the
+current `unitPriceCents` from Retail Clearing to the current settlement
+Account, and exactly one appended CompletedSale referencing that Transaction
+by stable ID.
+
+A sale completes only when all of the following resolve at execution time:
+the Branch exists in canonical Business state; Bookstore Operations exists
+for it, is `open`, and has `currentInventory > 0` and `checkoutCapacity > 0`;
+Bookstore Commerce exists for it with a positive safe-integer
+`unitPriceCents` and a settlement Account that resolves; Bookstore Backend
+exists for it and its Device/Service resolve as currently available through
+the existing backend resolver; `dollar-account-retail-clearing-v0` resolves,
+is distinct from the settlement Account, and holds sufficient funds; and the
+resulting balances stay exactly representable. Every one of these is
+preflighted before anything is committed, so a failed attempt always returns
+the original pre-attempt `GameState` unchanged — there is no partially
+applied sale, no inventory decrement without its Transaction, and no
+Transaction without a CompletedSale. Backend unavailability (from either the
+Device's operational truth or a closed Service) refuses the sale the same
+way a CLOSED store or empty shelf does, without mutating Business,
+Operations, Commerce, or Civic Dollar state.
+
+This is one explicit domain transition, not a cadence: nothing here decides
+*when* a sale is attempted, there is no timer, countdown, or autonomous
+demand, and calling it twice is two independent explicit attempts. A later
+Sales Cadence slice decides when this operation is attempted; this slice only
+defines what one attempt means.
+
+### Retail Clearing
+
+`dollar-account-retail-clearing-v0` is the neutral aggregate Civic Dollar
+payment source for retail customers who are not individually simulated. It
+remains an ordinary Civic Dollar Account with a real finite balance: no
+Credential, Financial Session, Device, or represented Customer identity is
+introduced to authorize a sale. It is never magically replenished and never
+exempt from ordinary balance rules — a sale that would overdraw it simply
+fails, leaving state unchanged, and sustainable external retail funding or
+automatic replenishment is a later product decision, not implemented here.
 
 ## RACK-OS presentation
 

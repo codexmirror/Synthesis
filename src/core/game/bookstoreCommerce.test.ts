@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID } from './business'
-import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_SALE_TRANSACTION_ID, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
+import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_BRANCH_UNIT_PRICE_CENTS, BOOKSTORE_SALE_TRANSACTION_ID, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
 
 describe('bookstore commerce initial truth', () => {
   it('keeps one concrete branch-linked commerce record referencing the generic Branch by stable ID', () => {
     const state = createInitialGameState()
+    expect(state.bookstoreCommerce.nextSaleId).toBe(2)
     expect(state.bookstoreCommerce.records).toEqual([{
       branchId: BOOKSTORE_BRANCH_ID,
       settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
+      unitPriceCents: BOOKSTORE_BRANCH_UNIT_PRICE_CENTS,
       completedSales: [{ id: 'bookstore-sale-0001', kind: 'book_sale', dollarTransactionId: BOOKSTORE_SALE_TRANSACTION_ID }],
     }])
+    expect(BOOKSTORE_BRANCH_UNIT_PRICE_CENTS).toBe(2_000)
   })
 
   it('links the one book sale to one real incoming $20 Transaction and coherent current balances', () => {
@@ -58,7 +61,7 @@ describe('resolveBookstoreCommerceForBranch', () => {
     const transactionBefore = initial.dollarFinance.transactions.records.find(({ id }) => id === BOOKSTORE_SALE_TRANSACTION_ID)!
     const changed = {
       ...initial,
-      bookstoreCommerce: { records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) },
+      bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) },
     }
 
     const commerce = resolveBookstoreCommerceForBranch(changed, BOOKSTORE_BRANCH_ID)
@@ -75,7 +78,7 @@ describe('resolveBookstoreCommerceForBranch', () => {
     const initial = createInitialGameState()
     const dangling = {
       ...initial,
-      bookstoreCommerce: { records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, settlementAccountId: 'dollar-account-does-not-exist' } : record) },
+      bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, settlementAccountId: 'dollar-account-does-not-exist' } : record) },
     }
     expect(resolveBookstoreCommerceForBranch(dangling, BOOKSTORE_BRANCH_ID)).toBeUndefined()
   })

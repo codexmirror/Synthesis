@@ -118,6 +118,19 @@ describe('VEYRA Home', () => {
 
 describe('VEYRA Communication', () => {
   it('presents Petra’s represented Company Chat message after the qualifying transfer', async () => {
+    // This qualifying transfer schedules a pending Technician reaction whose
+    // `remainingMs` legitimately ticks down under GameProvider's own real
+    // 250ms advancement interval (`GameContext.tsx`) — canonical time owned by
+    // that timer, not by this presentation. A slow test run can let that
+    // interval genuinely fire between the `before` snapshot and the click
+    // below, which is real advancement working as designed, not a bug this
+    // test should be proving. Disabling only `window.setInterval` for this one
+    // test removes GameProvider's own timer without touching real time
+    // anywhere else (clicks, effects, and every other timer in the app keep
+    // behaving exactly as before), so the actual intent — that opening and
+    // navigating Communication performs no canonical mutation of its own — is
+    // proven deterministically instead of racing a real tick window.
+    const setIntervalSpy = vi.spyOn(window, 'setInterval').mockReturnValue(0 as unknown as ReturnType<typeof window.setInterval>)
     const base = createInitialGameState()
     const transferred = transferDollars(base, PHONE_DEVICE_ID, PLAYER_REFERENCE, 2_000)
     if (transferred.status !== 'transferred') throw new Error(transferred.status)
@@ -130,6 +143,7 @@ describe('VEYRA Communication', () => {
     expect(communication).toHaveTextContent('There’s a transaction from the work phone that I don’t recognize. Can someone take a look?')
     expect(communication.textContent).not.toMatch(/exploit|credential|attacker|technician|timestamp/i)
     expect(canonical()).toEqual(before)
+    setIntervalSpy.mockRestore()
   })
 
   it('presents the delayed Technician as a distinct Company Chat correspondent', async () => {

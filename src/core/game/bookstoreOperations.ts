@@ -88,3 +88,21 @@ export function createBookstoreBranchOperationsRecord(params: {
 export function resolveBookstoreOperationsForBranch(state: GameState, branchId: string): BookstoreBranchOperationsRecord | undefined {
   return state.bookstoreOperations.records.find((candidate) => candidate.branchId === branchId)
 }
+
+/**
+ * Consume exactly one unit of current inventory for one Branch's operations
+ * record. The caller is responsible for having already established that
+ * `branchId` names an existing operations record with `currentInventory > 0`
+ * — this assumes it rather than re-validating, since it is only ever called
+ * as a deterministic consequence already proven safe by sale preflight.
+ */
+export function decrementBookstoreInventory(state: GameState, branchId: string): GameState {
+  return {
+    ...state,
+    bookstoreOperations: {
+      records: state.bookstoreOperations.records.map((record) => record.branchId === branchId
+        ? { ...record, currentInventory: record.currentInventory - 1 }
+        : record),
+    },
+  }
+}

@@ -43,7 +43,9 @@ Switching Accounts is exactly this authentication, nothing more: a successful si
 
 ## Transfers and Transactions
 
-`transferDollars` accepts a client Device ID, a recipient account reference and integer `amountCents`. The source Account is derived from that Device's Financial Session and is not a parameter, so no caller can name whose money moves.
+The canonical Account-to-Account movement itself — source/destination exist and differ, the amount is a positive safe integer, funds suffice, the resulting balances stay exactly representable, exactly one Transaction is allocated and appended, and debit/credit happen together — is owned by `executeCivicDollarMovement(state, sourceAccountId, destinationAccountId, amountCents)`. It carries no opinion about who is allowed to move whose money and performs no reaction of its own; it is not a new player-facing transfer path, since nothing routes an arbitrary interface caller to it directly. A narrow internal domain caller that already holds both Accounts' stable identity (the Bookstore sale, `docs/current/BRANCH_COMMERCE.md`, is the current example) may call it directly with both Account IDs.
+
+`transferDollars` accepts a client Device ID, a recipient account reference and integer `amountCents`. The source Account is derived from that Device's Financial Session and is not a parameter, so no caller can name whose money moves. It resolves the recipient Account by exact reference, then calls `executeCivicDollarMovement` for the movement itself; the Device → Financial Session → Account authority chain and the recipient-reference resolution stay entirely at this layer, never moved into the lower-level primitive.
 
 It refuses, changing nothing at all, with `not_signed_in` (no Session, an invented Device, or a dangling Session), `invalid_amount` (non-integer, zero, negative, or an amount whose credit would leave exact integer range), `recipient_not_found`, `recipient_ambiguous` (more than one Account carries the reference), `recipient_is_source`, or `insufficient_funds`. Checks run in that order and every refusal returns the original state object.
 
@@ -57,7 +59,11 @@ rule uses the Transaction's stable source and destination Account IDs; see
 `docs/current/COMMUNICATION.md` for the authored and idempotent communication.
 That complaint also starts the separate delayed Technician response; the
 Transaction remains finance-owned evidence and neither the response timing nor
-its Device-security consequence belongs to finance.
+its Device-security consequence belongs to finance. This reaction is resolved
+only by `transferDollars` itself, at its existing semantic layer — the lower
+`executeCivicDollarMovement` primitive never calls it, so a Bookstore sale
+built on the same movement invariant acquires no unrelated Petra reaction
+semantics merely by using it.
 
 A Transaction carries a stable monotonic ID (`dollar-transaction-0001`, following the Authentication History pattern), the source and destination stable Account IDs, the integer `amountCents`, and a snapshot of each side's account reference as it was at the moment of the transfer. The snapshots exist because an account reference is a mutable attribute: renaming an Account afterwards changes nothing about historical activity. Transactions carry no timestamp, no Device, no Session and no Credential material; ordering is canonical insertion order, and records are retained without eviction.
 
@@ -80,6 +86,13 @@ settlement configuration are owned by
 [`BRANCH_COMMERCE.md`](BRANCH_COMMERCE.md). Because the VEYRA phone's existing
 Financial Session authorizes the destination Account, ordinary Account activity
 naturally projects the incoming $20.00 without special Wallet metadata.
+
+This same retail-clearing Account is now also the neutral aggregate Civic
+Dollar payment source a Bookstore sale execution moves from
+(`docs/current/BRANCH_COMMERCE.md`): a finite, ordinary Account with a real
+balance, never magically replenished and never exempt from ordinary balance
+rules. A sale that would overdraw it simply fails, leaving finance state
+unchanged, exactly like any other insufficient-funds refusal.
 
 ## Wallet presentation
 
