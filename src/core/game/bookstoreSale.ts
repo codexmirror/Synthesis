@@ -1,6 +1,6 @@
 import { appendCompletedBookstoreSale, findBookstoreCommerceRecord, isBookstoreMerchandiseCatalogSufficient } from './bookstoreCommerce'
 import { resolveBookstoreBackendForBranch } from './bookstoreBackend'
-import { decrementBookstoreStock, deriveBookstoreTotalStock, resolveBookstoreOperationsForBranch } from './bookstoreOperations'
+import { decrementBookstoreStock, resolveBookstoreOperationsForBranch } from './bookstoreOperations'
 import { executeCivicDollarMovement } from './dollarFinance'
 import type { BookstoreMerchandiseRecord, BusinessBranchSaleLine, GameState } from './types'
 
@@ -42,14 +42,22 @@ function uniformSample(random: () => number): number {
  * Select one provisional basket item-count from the configured 70/25/5 mix,
  * restricted to sizes that are actually feasible given `totalAvailableStock`
  * (a basket can never be sized larger than the represented stock actually on
- * hand). Exactly one `random` sample is drawn regardless of how many sizes
- * are feasible — including the degenerate case where only one size is
- * feasible — so the number of purchase-random draws a basket consumes never
- * varies with current stock levels, keeping large-step and partitioned
- * advancement equivalent under the same supplied random sequence.
+ * hand). Exactly one `random` sample is drawn for this step itself, whether
+ * one, two, or three sizes are currently feasible; a composed N-item basket
+ * then draws exactly one further sample per selected unit
+ * (`selectBookstoreMerchandiseId`), so a full basket consumes exactly
+ * `1 + N` purchase samples overall. `totalAvailableStock` can therefore
+ * legitimately change which sizes are feasible — and so which `N` gets
+ * selected — as stock changes; large-step and partitioned advancement stay
+ * equivalent not because total draw count is independent of stock, but
+ * because both observe the same chronological stock/catalog state at each
+ * opportunity and consume the same semantic purchase-random sequence in the
+ * same causal order.
  *
  * `totalAvailableStock` must be > 0; callers only reach this after preflight
- * has already established at least one unit of stock exists.
+ * has already established at least one currently sellable unit of stock
+ * exists (the intersection of current Commerce merchandise and positive
+ * Operations stock — see `deriveSellableBookstoreTotalStock`).
  */
 export function selectBookstoreBasketSize(totalAvailableStock: number, random: () => number): number {
   const feasible = BOOKSTORE_PURCHASE_BASKET_SIZE_WEIGHTS.filter((entry) => entry.size <= totalAvailableStock)
@@ -77,13 +85,45 @@ export function selectBookstoreMerchandiseId(availableIds: readonly string[], ra
 }
 
 /**
+ * The current stock actually purchasable through one Branch's *current*
+ * represented merchandise catalog, by merchandise ID: the intersection of
+ * catalog identity and positive physical Operations stock. Physical stock
+ * for a merchandise identity no longer listed in the current catalog
+ * ("orphan" stock — Commerce and Operations are separate owners, and
+ * removing a catalog entry never deletes or rewrites its physical stock) is
+ * deliberately excluded here, so it can never inflate purchase feasibility
+ * or be selected into a basket. This is distinct from
+ * `deriveBookstoreTotalStock` (`bookstoreOperations.ts`), which remains the
+ * *physical* total used for shelf-capacity accounting and RACK-OS's total
+ * STOCK presentation — that derivation is intentionally unaware of the
+ * current catalog.
+ */
+export function deriveSellableBookstoreStockByMerchandise(
+  merchandise: readonly BookstoreMerchandiseRecord[],
+  stock: readonly { readonly merchandiseId: string; readonly quantity: number }[],
+): ReadonlyMap<string, number> {
+  return new Map(merchandise.map((item) => [item.id, stock.find((entry) => entry.merchandiseId === item.id)?.quantity ?? 0]))
+}
+
+/** The total current stock actually purchasable through one Branch's current represented merchandise catalog — see `deriveSellableBookstoreStockByMerchandise`. */
+export function deriveSellableBookstoreTotalStock(
+  merchandise: readonly BookstoreMerchandiseRecord[],
+  stock: readonly { readonly merchandiseId: string; readonly quantity: number }[],
+): number {
+  return [...deriveSellableBookstoreStockByMerchandise(merchandise, stock).values()].reduce((sum, quantity) => sum + quantity, 0)
+}
+
+/**
  * Compose one provisional Bookstore purchase: a basket item-count drawn from
- * the configured 70/25/5 mix (restricted to currently feasible sizes), then
- * that many individual unit selections, each drawn uniformly from whichever
- * merchandise identities still have positive *provisional* remaining stock at
- * that point in the basket's own construction — so a single basket can never
- * provisionally select more units of one merchandise than currently exist.
- * Repeated selections of the same merchandise are aggregated into one
+ * the configured 70/25/5 mix (restricted to currently feasible sizes, using
+ * currently *sellable* stock — above — never raw physical stock), then that
+ * many individual unit selections, each drawn uniformly from whichever
+ * currently sellable merchandise identities still have positive
+ * *provisional* remaining stock at that point in the basket's own
+ * construction — so a single basket can never provisionally select more
+ * units of one merchandise than currently exist, and orphan stock for
+ * merchandise the current catalog no longer lists is never selectable at
+ * all. Repeated selections of the same merchandise are aggregated into one
  * resulting line with `quantity > 1`.
  *
  * This is the one point in Bookstore sale execution that consumes purchase
@@ -94,15 +134,16 @@ export function selectBookstoreMerchandiseId(availableIds: readonly string[], ra
  * the returned lines.
  *
  * Callers are responsible for having already established that `merchandise`
- * is a structurally sufficient catalog and that total available stock is
- * positive; this assumes both.
+ * is a structurally sufficient catalog and that currently sellable stock
+ * (`deriveSellableBookstoreTotalStock`) is positive; this assumes both, and
+ * never reaches an empty candidate set on a structurally valid call.
  */
 export function composeBookstorePurchase(
   merchandise: readonly BookstoreMerchandiseRecord[],
   stock: readonly { readonly merchandiseId: string; readonly quantity: number }[],
   random: () => number,
 ): readonly ComposedBookstorePurchaseLine[] {
-  const remaining = new Map(merchandise.map((item) => [item.id, stock.find((entry) => entry.merchandiseId === item.id)?.quantity ?? 0]))
+  const remaining = new Map(deriveSellableBookstoreStockByMerchandise(merchandise, stock))
   const totalAvailableStock = [...remaining.values()].reduce((sum, quantity) => sum + quantity, 0)
   const basketSize = selectBookstoreBasketSize(totalAvailableStock, random)
 
@@ -155,12 +196,16 @@ export type ExecuteBookstoreSaleResult =
  * Every prerequisite that makes a sale impossible independently of what gets
  * purchased is preflighted first, so that a conclusively refused attempt
  * never consumes `bookstorePurchaseRandom` at all: Branch existence,
- * Operations existence/OPEN/checkout capacity, a structurally sufficient
- * merchandise catalog, at least one unit of stock, Commerce/settlement
- * structure, Backend availability, and Retail Clearing existence/
- * distinctness. Only once every one of those resolves does this compose
- * exactly one provisional purchase (`composeBookstorePurchase`) — the one
- * point purchase randomness is consumed. That basket's deterministic total
+ * Operations existence/OPEN, a structurally sufficient current merchandise
+ * catalog (Commerce), at least one currently *sellable* unit of stock — the
+ * intersection of that catalog and physical Operations stock
+ * (`deriveSellableBookstoreTotalStock`), never raw physical stock alone, so
+ * stock orphaned by a since-removed catalog entry can neither inflate
+ * feasibility nor be selected — checkout capacity, settlement structure,
+ * Backend availability, and Retail Clearing existence/distinctness. Only
+ * once every one of those resolves does this compose exactly one
+ * provisional purchase (`composeBookstorePurchase`) — the one point
+ * purchase randomness is consumed. That basket's deterministic total
  * (`deriveBookstoreBasketTotalCents`) is then the *only* further reason a
  * sale might still refuse (insufficient funds or unrepresentable balances);
  * such a refusal never re-rolls a cheaper or different basket; the originally
@@ -193,13 +238,19 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
   const operations = resolveBookstoreOperationsForBranch(state, branchId)
   if (!operations) return { status: 'operations_not_found', state }
   if (!operations.open) return { status: 'closed', state }
-  const totalAvailableStock = deriveBookstoreTotalStock(operations)
-  if (totalAvailableStock <= 0) return { status: 'out_of_stock', state }
-  if (operations.checkoutCapacity <= 0) return { status: 'no_checkout_capacity', state }
 
   const commerce = findBookstoreCommerceRecord(state, branchId)
   if (!commerce) return { status: 'commerce_not_found', state }
   if (!isBookstoreMerchandiseCatalogSufficient(commerce.merchandise)) return { status: 'invalid_price', state }
+
+  // Sellable stock — the intersection of the current catalog and physical Operations stock — is what
+  // purchase feasibility must be measured against, never physical stock alone: stock for a merchandise
+  // identity the current catalog no longer lists ("orphan" stock) must never inflate feasibility or be
+  // reachable by composition. `deriveBookstoreTotalStock(operations)` remains the separate physical total
+  // used for shelf-capacity accounting and RACK-OS's STOCK presentation; it is deliberately not read here.
+  const sellableTotalStock = deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)
+  if (sellableTotalStock <= 0) return { status: 'out_of_stock', state }
+  if (operations.checkoutCapacity <= 0) return { status: 'no_checkout_capacity', state }
 
   const settlementAccount = state.dollarFinance.accounts.find(({ id }) => id === commerce.settlementAccountId)
   if (!settlementAccount) return { status: 'settlement_unavailable', state }

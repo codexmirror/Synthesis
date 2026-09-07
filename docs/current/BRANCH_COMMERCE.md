@@ -339,29 +339,40 @@ basket of represented merchandise, not yet any form of persisted or
 historical World Truth — before deciding whether the sale actually
 completes. `composeBookstorePurchase` (`src/core/game/bookstoreSale.ts`)
 does this in two steps, both driven by a dedicated Bookstore-local random
-channel, `bookstorePurchaseRandom`:
+channel, `bookstorePurchaseRandom`, and both restricted to *currently
+sellable* stock rather than raw physical stock (below):
 
 1. **Basket size.** One of 1, 2, or 3 units, drawn from the authored
    `BOOKSTORE_PURCHASE_BASKET_SIZE_WEIGHTS` mix — weights 70/25/5 — restricted
-   to sizes actually feasible given current total available stock (a basket
-   is never sized larger than represented stock on hand: at 1 unit of total
-   stock only size 1 is feasible; at 2, only sizes 1–2). Exactly one random
-   sample is drawn for this regardless of how many sizes are feasible, so the
-   number of purchase-random draws a basket consumes never varies with
-   current stock levels. This mix is a concrete, Bookstore-local
-   approximation of currently unsimulated purchasing behavior — not a generic
-   Customer rule, a Customer class, or a represented preference model, and it
-   is never generalized beyond this one mechanic.
+   to sizes actually feasible given current sellable stock (a basket is
+   never sized larger than currently sellable stock on hand: at 1 sellable
+   unit only size 1 is feasible; at 2, only sizes 1–2). Exactly one random
+   sample is drawn for this step itself, regardless of how many sizes are
+   feasible. This mix is a concrete, Bookstore-local approximation of
+   currently unsimulated purchasing behavior — not a generic Customer rule, a
+   Customer class, or a represented preference model, and it is never
+   generalized beyond this one mechanic.
 2. **Merchandise selection**, once per unit in the basket. Each draw selects
-   uniformly at random among whichever merchandise identities still have
-   positive *provisional* remaining stock at that point in the basket's own
-   construction, so one basket can never provisionally select more units of
-   one merchandise than currently exist; an identity that reaches zero
-   provisional remaining stock mid-basket is no longer selectable for the
-   rest of that basket. This is a simple neutral selection — never a
-   Customer preference, bestseller weight, popularity score, or marketing
-   affinity. Repeated selections of the same merchandise aggregate into one
-   resulting basket line with `quantity > 1`.
+   uniformly at random among whichever currently sellable merchandise
+   identities still have positive *provisional* remaining stock at that point
+   in the basket's own construction, so one basket can never provisionally
+   select more units of one merchandise than currently exist; an identity
+   that reaches zero provisional remaining stock mid-basket is no longer
+   selectable for the rest of that basket. This is a simple neutral
+   selection — never a Customer preference, bestseller weight, popularity
+   score, or marketing affinity. Repeated selections of the same merchandise
+   aggregate into one resulting basket line with `quantity > 1`.
+
+A composed N-item basket therefore consumes exactly `1 + N` purchase-random
+samples: one for basket size, plus one per selected unit. Current sellable
+stock can legitimately change which sizes are feasible from one opportunity
+to the next — and so can legitimately change `N`, and therefore the total
+draw count — as stock rises or falls; that total is never claimed to be
+independent of stock. Large-step and chronologically partitioned advancement
+stay canonically equivalent not because draw count is fixed, but because
+both observe the identical chronological stock/catalog state at each
+opportunity and consume the identical semantic `bookstorePurchaseRandom`
+sequence, in the identical causal order, for identical composition results.
 
 `bookstorePurchaseRandom` may choose composition — basket size and which
 currently available merchandise is selected — and never chooses an amount in
@@ -380,6 +391,41 @@ within the same call, and each defaults independently to `Math.random` in
 production. `advanceBookstoreSalesCadence` threads it straight through to
 `executeBookstoreSale` for that one due opportunity's own attempt — never
 sampled on an ordinary tick that leaves no opportunity due.
+
+#### Sellable stock: the Commerce/Operations intersection
+
+Bookstore Commerce and Bookstore Operations remain separate owners (above),
+so Operations may legitimately retain physical stock for a merchandise
+identity that Commerce's *current* catalog no longer lists — "orphan" stock,
+left behind because a historical sale must survive current catalog removal
+and because physical stock and current catalog configuration are
+intentionally separate truths. Neither owner ever rewrites the other to
+reconcile this: Operations is never required to delete orphan stock merely
+because Commerce's catalog changed.
+
+Purchase feasibility and composition must therefore never read
+`deriveBookstoreTotalStock` (the physical total — still the correct
+derivation for shelf-capacity accounting and RACK-OS's own total STOCK
+presentation) as a stand-in for what is actually purchasable.
+`deriveSellableBookstoreStockByMerchandise`/`deriveSellableBookstoreTotalStock`
+(`src/core/game/bookstoreSale.ts`) instead derive the intersection of current
+Commerce merchandise identities and positive Operations stock — orphan stock
+is excluded entirely, so it can never inflate basket-size feasibility and is
+never a candidate for merchandise selection. Sale execution's `out_of_stock`
+preflight, and `composeBookstorePurchase` itself, both read only this
+sellable derivation: a Branch may have substantial physical stock and still
+correctly refuse `out_of_stock` before consuming any purchase randomness, if
+none of that physical stock currently belongs to catalogued merchandise.
+
+A sale-usable current catalog additionally requires every stable merchandise
+ID to be unique (`isBookstoreMerchandiseCatalogSufficient`,
+`src/core/game/bookstoreCommerce.ts`) — matching the same
+no-duplicate-identity convention `createBookstoreBranchOperationsRecord`
+already enforces for per-merchandise stock. A duplicate ID would make
+Map-keyed selection, aggregation, and historical-line semantics ambiguous, so
+a catalog containing one is not sale-usable at all: sale execution refuses
+with `invalid_price` before consuming any purchase randomness, exactly like
+an empty catalog or an individually invalid price.
 
 A provisional basket is not itself canonical World Truth: it is local
 transition data inside one `executeBookstoreSale` call, never persisted as a
@@ -409,14 +455,17 @@ purchase lines) referencing that Transaction by stable ID.
 Every prerequisite that makes a sale impossible independently of what gets
 purchased is preflighted, and conclusively refusing on any of them consumes
 no `bookstorePurchaseRandom` at all: the Branch exists in canonical Business
-state; Bookstore Operations exists for it, is `open`, has positive total
-stock (`deriveBookstoreTotalStock > 0`) and `checkoutCapacity > 0`; Bookstore
-Commerce exists for it with a structurally sufficient merchandise catalog
-(at least one entry, every entry a positive safe-integer price) and a
-settlement Account that resolves; Bookstore Backend exists for it and its
-Device/Service resolve as currently available through the existing backend
-resolver; and `dollar-account-retail-clearing-v0` resolves and is distinct
-from the settlement Account. Only once every one of these resolves does sale
+state; Bookstore Operations exists for it and is `open`; Bookstore Commerce
+exists for it with a structurally sufficient current merchandise catalog (at
+least one entry, every entry a positive safe-integer price, and every
+entry's stable ID unique within the catalog); currently *sellable* stock —
+the intersection of that catalog and physical Operations stock, never
+physical stock alone — is positive (`deriveSellableBookstoreTotalStock > 0`)
+and `checkoutCapacity > 0`; a settlement Account resolves; Bookstore Backend
+exists for it and its Device/Service resolve as currently available through
+the existing backend resolver; and `dollar-account-retail-clearing-v0`
+resolves and is distinct from the settlement Account. Only once every one of
+these resolves does sale
 execution compose exactly one provisional purchase (above) — the one point
 purchase randomness is consumed. That basket's deterministic total is then
 the only further reason a sale might still refuse: insufficient Retail

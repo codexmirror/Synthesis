@@ -2,7 +2,21 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
 import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
-import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
+import { BOOKSTORE_SALE_STATEMENT_PURPOSE, executeBookstoreSale } from './bookstoreSale'
+import type { GameState } from './types'
+
+/**
+ * Plays back a fixed sequence of raw samples, holding the last value once
+ * exhausted. With the seeded 8-title catalog and the default 70/25/5
+ * basket-size mix, `[0.1, 0.9]` deterministically composes a single-item
+ * basket of the catalog's last entry (`bookstore-merch-008`) — one
+ * basket-size draw (0.1 < 0.70 selects size 1) plus one item-selection draw
+ * (0.9 selects index 7 of 8).
+ */
+function fixedRandom(values: readonly number[]): () => number {
+  let index = 0
+  return () => values[Math.min(index++, values.length - 1)]
+}
 
 describe('bookstore commerce initial truth', () => {
   it('keeps one concrete branch-linked commerce record referencing the generic Branch by stable ID', () => {
@@ -98,6 +112,22 @@ describe('isBookstoreMerchandiseCatalogSufficient', () => {
     const broken = [...BOOKSTORE_MERCHANDISE_CATALOG.slice(0, -1), { id: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents }]
     expect(isBookstoreMerchandiseCatalogSufficient(broken)).toBe(false)
   })
+
+  it('rejects a catalog containing a duplicate stable merchandise ID, even where every individual price is otherwise valid', () => {
+    const duplicated = [
+      ...BOOKSTORE_MERCHANDISE_CATALOG,
+      { id: 'bookstore-merch-001', name: 'Night Transit (duplicate entry)', unitPriceCents: 999 },
+    ]
+    expect(isBookstoreMerchandiseCatalogSufficient(duplicated)).toBe(false)
+  })
+
+  it('rejects two duplicate IDs even when they are the only two entries', () => {
+    const onlyDuplicates = [
+      { id: 'fixture-merch-a', name: 'Fixture A', unitPriceCents: 500 },
+      { id: 'fixture-merch-a', name: 'Fixture A (again)', unitPriceCents: 700 },
+    ]
+    expect(isBookstoreMerchandiseCatalogSufficient(onlyDuplicates)).toBe(false)
+  })
 })
 
 describe('resolveBookstoreCommerceForBranch', () => {
@@ -143,9 +173,11 @@ describe('resolveBookstoreCommerceForBranch', () => {
     expect(resolveBookstoreCommerceForBranch(dangling, BOOKSTORE_BRANCH_ID)).toBeUndefined()
   })
 
-  it('renaming/repricing current merchandise never rewrites a prior CompletedSale, and a later sale captures the new current values', () => {
+  it('renaming/repricing current merchandise never rewrites a prior CompletedSale, a later real sale captures the new current values, and removing that merchandise afterwards still leaves every sale fully explainable', () => {
     const initial = createInitialGameState()
-    const repriced = {
+
+    // Rename and reprice the current catalog entry the historical sale used.
+    const repriced: GameState = {
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
@@ -154,11 +186,44 @@ describe('resolveBookstoreCommerceForBranch', () => {
           : record),
       },
     }
-    const oldSale = resolveBookstoreCommerceForBranch(repriced, BOOKSTORE_BRANCH_ID)!.sales[0]
-    expect(oldSale.lines).toEqual([{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 }])
-    expect(oldSale.transaction.amountCents).toBe(2_000)
-    const newCatalogEntry = repriced.bookstoreCommerce.records[0].merchandise.find(({ id }) => id === 'bookstore-merch-008')!
-    expect(newCatalogEntry.name).toBe('Systems of Dust (Second Edition)')
-    expect(newCatalogEntry.unitPriceCents).toBe(2_500)
+
+    // The already-completed historical sale is untouched by the current catalog change.
+    const oldSaleAfterReprice = resolveBookstoreCommerceForBranch(repriced, BOOKSTORE_BRANCH_ID)!.sales[0]
+    expect(oldSaleAfterReprice.lines).toEqual([{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 }])
+    expect(oldSaleAfterReprice.transaction.amountCents).toBe(2_000)
+
+    // A real later sale, deterministically composing a single-item basket of the same merchandise
+    // identity, captures the merchandise's new current name and price — not the earlier captured ones.
+    const later = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID, fixedRandom([0.1, 0.9]))
+    expect(later.status).toBe('sold')
+    if (later.status !== 'sold') return
+    const laterCommerce = later.state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    const newSale = laterCommerce.completedSales[laterCommerce.completedSales.length - 1]
+    expect(newSale.lines).toEqual([{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust (Second Edition)', quantity: 1, capturedUnitPriceCents: 2_500 }])
+    const newTransaction = later.state.dollarFinance.transactions.records.find(({ id }) => id === newSale.dollarTransactionId)!
+    expect(newTransaction.amountCents).toBe(2_500)
+
+    // The earlier historical sale still remains exactly as it was, unaffected by the later real sale.
+    expect(laterCommerce.completedSales[0].lines).toEqual([{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 }])
+
+    // Removing the merchandise from the current catalog entirely afterwards must never make either
+    // sale inexplicable: current catalog state is never required to explain old sales.
+    const removed: GameState = {
+      ...later.state,
+      bookstoreCommerce: {
+        ...later.state.bookstoreCommerce,
+        records: later.state.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
+          ? { ...record, merchandise: record.merchandise.filter((item) => item.id !== 'bookstore-merch-008') }
+          : record),
+      },
+    }
+    const resolvedAfterRemoval = resolveBookstoreCommerceForBranch(removed, BOOKSTORE_BRANCH_ID)!
+    expect(resolvedAfterRemoval.merchandise.some((item) => item.id === 'bookstore-merch-008')).toBe(false)
+    for (const sale of resolvedAfterRemoval.sales) {
+      const lineSum = sale.lines.reduce((sum, line) => sum + line.quantity * line.capturedUnitPriceCents, 0)
+      expect(lineSum).toBe(sale.transaction.amountCents)
+    }
+    expect(resolvedAfterRemoval.sales[0].lines).toEqual([{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 }])
+    expect(resolvedAfterRemoval.sales[resolvedAfterRemoval.sales.length - 1].lines).toEqual([{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust (Second Edition)', quantity: 1, capturedUnitPriceCents: 2_500 }])
   })
 })

@@ -57,13 +57,21 @@ export function findBookstoreCommerceRecord(state: GameState, branchId: string):
 
 /**
  * Whether one Branch's current represented merchandise catalog is
- * structurally sufficient to compose a purchase from: at least one entry, and
- * every entry's `unitPriceCents` a positive safe integer. This is a
- * structural precondition, independent of stock or any other prerequisite —
- * it never reads `BookstoreBranchOperationsRecord` stock.
+ * structurally sufficient to compose a purchase from: at least one entry,
+ * every entry's `unitPriceCents` a positive safe integer, and every entry's
+ * stable `id` unique within the catalog — matching the same
+ * no-duplicate-identity convention `createBookstoreBranchOperationsRecord`
+ * already enforces for per-merchandise stock. A duplicate stable ID would
+ * make Map-keyed selection, aggregation, and historical-line semantics
+ * ambiguous (which entry's name/price actually applies?), so it is rejected
+ * here rather than left to resolve arbitrarily. This is a structural
+ * precondition, independent of stock or any other prerequisite — it never
+ * reads `BookstoreBranchOperationsRecord` stock.
  */
 export function isBookstoreMerchandiseCatalogSufficient(merchandise: readonly BookstoreMerchandiseRecord[]): boolean {
-  return merchandise.length > 0 && merchandise.every((item) => Number.isSafeInteger(item.unitPriceCents) && item.unitPriceCents > 0)
+  if (merchandise.length === 0) return false
+  if (!merchandise.every((item) => Number.isSafeInteger(item.unitPriceCents) && item.unitPriceCents > 0)) return false
+  return new Set(merchandise.map((item) => item.id)).size === merchandise.length
 }
 
 /**
