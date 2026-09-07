@@ -1,6 +1,6 @@
 import { placeBookstoreRestockOrder, type PlaceBookstoreRestockOrderResult } from './bookstoreRestock'
 import { resolveActiveRemoteTarget } from './remoteSession'
-import type { CompanyAdministrationSession, GameState } from './types'
+import type { CompanyAdministrationSession, CompanyState, GameState } from './types'
 
 /**
  * Resolve explicit Device-bound authority for one Company from represented
@@ -23,6 +23,55 @@ export function resolveCompanyAdministrationSession(
   return state.business.administrationSessions.filter(({ id }) => id === sessions[0].id).length === 1
     ? sessions[0]
     : undefined
+}
+
+/**
+ * What exactly one Device may currently administer, for a management client
+ * that supports a single unambiguous Company context.
+ *
+ * `ambiguous` is deliberately distinct from `unavailable`: a Device that holds
+ * administration authority for several Companies genuinely has authority, and
+ * silently managing whichever one happened to be listed first would be an
+ * invented choice. Selecting between them is unimplemented, not resolved.
+ */
+export type SoleCompanyAdministrationContext =
+  | { readonly status: 'administered'; readonly session: CompanyAdministrationSession; readonly company: CompanyState }
+  | { readonly status: 'unavailable' }
+  | { readonly status: 'ambiguous' }
+
+/**
+ * Resolve the one Company this Device may administer, or state honestly that
+ * there is none or more than one.
+ *
+ * The raw `administrationSessions` collection only proposes candidate Company
+ * identities; it is never itself the authority. Every candidate is validated
+ * through the canonical pair resolver, `resolveCompanyAdministrationSession`,
+ * before it counts toward anything, so a dangling reference, a duplicated
+ * Device + Company Session, or a duplicated stable Session identity is
+ * dropped rather than counted as a second genuine Company. `ambiguous` means
+ * more than one distinct Company relationship each individually resolved as
+ * valid administration authority — never merely that raw records mentioned
+ * more than one Company ID.
+ */
+export function resolveSoleCompanyAdministrationContextForDevice(state: GameState, clientDeviceId: string): SoleCompanyAdministrationContext {
+  const candidateCompanyIds = [...new Set(state.business.administrationSessions
+    .filter((session) => session.clientDeviceId === clientDeviceId)
+    .map(({ companyId }) => companyId))]
+  const validated = candidateCompanyIds.flatMap((companyId) => {
+    const session = resolveCompanyAdministrationSession(state, clientDeviceId, companyId)
+    if (!session) return []
+    const companies = state.business.companies.filter(({ id }) => id === session.companyId)
+    return companies.length === 1 ? [{ session, company: companies[0] }] : []
+  })
+  if (validated.length === 0) return { status: 'unavailable' }
+  if (validated.length > 1) return { status: 'ambiguous' }
+  return { status: 'administered', session: validated[0].session, company: validated[0].company }
+}
+
+/** The same resolution for whichever Device the player currently operates; RemoteSession supplies only that identity. */
+export function resolveSoleCompanyAdministrationContextForOperatedRemoteDevice(state: GameState): SoleCompanyAdministrationContext {
+  const remote = resolveActiveRemoteTarget(state)
+  return remote ? resolveSoleCompanyAdministrationContextForDevice(state, remote.target.id) : { status: 'unavailable' }
 }
 
 export type PlaceAuthorizedBookstoreRestockOrderResult =

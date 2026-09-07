@@ -9,6 +9,7 @@ import { advanceGameState } from '../../core/game/gameAdvancement'
 import { PETRA_TECHNICIAN_MESSAGE, PETRA_TECHNICIAN_RESPONSE_DELAY_MS } from '../../core/game/technician'
 import { VEYRA_FIRMWARE_UPDATE_DURATION_MS } from '../../core/game/veyraFirmwareUpdate'
 import { VEYRA_OS_4_1_FIRMWARE_ID, VEYRA_OS_4_2_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
+import { BUSINESS_1_0_INSTALLATION } from '../../core/game/businessSoftware'
 import { Shell } from '../../shell/Shell'
 import { Wallet } from '../wallet/Wallet'
 import type { GameState } from '../../core/game/types'
@@ -103,7 +104,7 @@ describe('VEYRA Home', () => {
     const home = screen.getByRole('region', { name: 'Home' })
 
     const apps = within(home).getAllByRole('button')
-    expect(apps.map((app) => app.textContent)).toEqual(['Communication', 'Wallet', 'Settings'])
+    expect(apps.map((app) => app.textContent)).toEqual(['Communication', 'Wallet', 'Business', 'Settings'])
     // Icons are decoration beside a real label, never the control itself.
     for (const app of apps) {
       expect(app.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
@@ -122,7 +123,8 @@ describe('VEYRA Home', () => {
 
     // The player is still signed in on their own Device; that is not this phone's basis.
     expect(withoutPhoneSession.dollarFinance.sessions.active).toHaveLength(1)
-    expect(within(home).getAllByRole('button').map((app) => app.textContent)).toEqual(['Communication', 'Settings'])
+    // Business stays: it is installed software, and removing the Financial Session is not its basis.
+    expect(within(home).getAllByRole('button').map((app) => app.textContent)).toEqual(['Communication', 'Business', 'Settings'])
   })
 })
 
@@ -416,7 +418,7 @@ describe('VEYRA Settings', () => {
 
   it('exposes no machine, access or hacker context anywhere in the owner-facing phone', async () => {
     const user = await enterPhone()
-    for (const app of ['Communication', 'Wallet', 'Settings']) {
+    for (const app of ['Communication', 'Wallet', 'Business', 'Settings']) {
       await user.click(screen.getByRole('button', { name: app }))
       const owner = ownerFacing().textContent ?? ''
       expect(owner).not.toContain('session-0001')
@@ -804,7 +806,10 @@ describe('VEYRA System Update', () => {
     expect(phone.services!.find(({ id }) => id === 'service-ssh-003')!.implementation).toEqual({
       productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3',
     })
-    expect(phone.installedSoftware).toEqual([])
+    // A firmware update moves firmware, and only firmware: the phone's own
+    // software inventory is exactly what it was, with no GateSSH entry created
+    // and the installed Business client neither added nor removed by it.
+    expect(phone.installedSoftware).toEqual([BUSINESS_1_0_INSTALLATION])
     expect(phone.filesystem?.files).toEqual([])
 
     expect(canonical().remoteSession.active).toBeNull()
