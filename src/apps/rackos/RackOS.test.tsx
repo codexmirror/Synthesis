@@ -1428,9 +1428,12 @@ describe('RACK-OS 1.1 Business application shell', () => {
   })
 
   /*
-   * ops-01 (`host-lan-003`): the Branch's own small represented operations
-   * server, seeded directly on the canonical RACK-OS 1.1 Business Firmware
-   * release rather than reached through a Firmware installation. DeviceAccess
+   * ops-01 (`host-lan-003`): a small operations-oriented RACK-OS 1.1 Business
+   * server on `network-foreign-001`, the LocalNetwork Bookstore Branch 01
+   * explicitly operates through — not a Device owned by or assigned to that
+   * Branch; no such relationship is represented anywhere in this slice.
+   * Seeded directly on the canonical RACK-OS 1.1 Business Firmware release
+   * rather than reached through a Firmware installation. DeviceAccess
    * is established the same canonical way `srv01OnBusiness` above already
    * establishes it for srv-01 — no Device-specific mechanic exists to grant
    * it, and fresh `createInitialGameState()` grants none of it by itself

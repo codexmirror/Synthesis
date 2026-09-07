@@ -200,7 +200,7 @@ describe('createInitialGameState', () => {
     ])
   })
 
-  it('gives the Bookstore Branch operations server its own identity, coherent GateSSH truth, and RACK-OS 1.1 Business Firmware from the start', () => {
+  it('gives ops-01, the operations-oriented RACK-OS 1.1 Business server on network-foreign-001, its own identity, coherent GateSSH truth, and RACK-OS 1.1 Business Firmware from the start', () => {
     const state = createInitialGameState()
     const opsServer = state.world.network.hosts.find(({ id }) => id === 'host-lan-003')
 
@@ -223,6 +223,8 @@ describe('createInitialGameState', () => {
     // No AuthGuard.
     expect(opsServer?.installedSoftware?.some((software) => software.id === 'auth-guard')).toBe(false)
     // A member of the same represented foreign LocalNetwork the Bookstore Branch and its backend already reference.
+    // There is no represented Branch -> Device ownership or assignment relationship: BUSINESS resolves the Branch
+    // from this Device solely through this real Network membership, never because the Branch "owns" it.
     expect(state.world.network.localNetworks[1].id).toBe('network-foreign-001')
     expect(state.world.network.localNetworks[1].memberDeviceIds).toContain('host-lan-003')
     // No pre-granted player Access, Session, or Network authority.

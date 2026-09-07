@@ -40,8 +40,12 @@ It carries no settlement configuration, sale history, or any other concrete
 commerce/operational field. The seeded Branch's `networkId` names the
 existing foreign LocalNetwork (`network-foreign-001`, presented as
 `remote-segment-01`) that also contains Petra's phone, `srv-02`, and `ops-01`
-(`host-lan-003`) — the Branch's own small represented operations server,
-seeded directly on RACK-OS 1.1 Business (`docs/current/DEVICE_SYSTEM.md`).
+(`host-lan-003`) — a small operations-oriented RACK-OS 1.1 Business server on
+that same LocalNetwork, seeded directly on that release
+(`docs/current/DEVICE_SYSTEM.md`). There is no represented Branch -> Device
+ownership or assignment relationship: `ops-01` is not owned by this Branch,
+and BUSINESS resolves the Branch from it solely through real Network
+membership.
 
 `location` is optional current mutable Branch truth — a structurally valid
 Branch (a future distribution or hosting Branch, for example) need not

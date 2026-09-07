@@ -187,7 +187,7 @@ export function createInitialGameState(): GameState {
             authenticationHistory: { nextId: 1, records: [] },
           },
           {
-            // The Bookstore Branch's own small operations/admin server, on the same represented foreign LocalNetwork as the Branch's backend and the phone. Reached through the same existing GateSSH 1.3.2 / Credential Access route the phone already uses, never a Device-specific mechanic, and seeded directly on RACK-OS 1.1 Business so BUSINESS is present without an in-world firmware installation. It is not the Bookstore backend: that remains `srv-02`'s own represented Service (`bookstoreBackend.ts`), and BUSINESS resolves the Branch here only through actual `network-foreign-001` membership (`resolveBusinessOperatingContext`).
+            // A small operations-oriented RACK-OS 1.1 Business server, on the same represented foreign LocalNetwork as the Bookstore Branch's backend and the phone. There is no represented Branch -> Device ownership or assignment relationship: this Device is not owned by or assigned to Bookstore Branch 01, and BUSINESS resolves that Branch here only because this Device is a real member of `network-foreign-001`, the LocalNetwork the Branch's own `networkId` names (`resolveBusinessOperatingContext`). Reached through the same existing GateSSH 1.3.2 / Credential Access route the phone already uses, never a Device-specific mechanic, and seeded directly on RACK-OS 1.1 Business so BUSINESS is present without an in-world firmware installation. It is not the Bookstore backend: that remains `srv-02`'s own represented Service (`bookstoreBackend.ts`).
             id: 'host-lan-003',
             displayName: 'ops-01',
             deviceType: 'SERVER',
