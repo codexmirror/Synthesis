@@ -12,6 +12,7 @@ export const BOOKSTORE_BRANCH_NAME = 'Bookstore Branch 01'
 export const BOOKSTORE_BRANCH_NETWORK_ID = 'network-foreign-001'
 /** Current represented human-readable location/address this Branch operates from. Current mutable Branch truth, distinct from any Transaction's historical statement-context snapshot of it. */
 export const BOOKSTORE_BRANCH_LOCATION = '18 Mercer Street'
+export const BOOKSTORE_PHONE_ADMINISTRATION_SESSION_ID = 'company-administration-session-bookstore-phone-v0'
 
 export function createInitialBusinessState(): BusinessState {
   return {
@@ -23,6 +24,11 @@ export function createInitialBusinessState(): BusinessState {
       { companyId: BOOKSTORE_COMPANY_ID, accountId: BOOKSTORE_TREASURY_ACCOUNT_ID },
       { companyId: ATLAS_DISTRIBUTION_COMPANY_ID, accountId: ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID },
     ],
+    administrationSessions: [{
+      id: BOOKSTORE_PHONE_ADMINISTRATION_SESSION_ID,
+      clientDeviceId: 'host-phone-001',
+      companyId: BOOKSTORE_COMPANY_ID,
+    }],
     branches: [{
       id: BOOKSTORE_BRANCH_ID,
       displayName: BOOKSTORE_BRANCH_NAME,

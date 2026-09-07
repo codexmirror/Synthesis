@@ -2,7 +2,7 @@
 
 Status: Accepted
 Scope: Current Company and Business Branch structural identity, Company
-Treasury designation, the Branch's explicit Network relationship, the concrete bookstore-commerce record attached
+Treasury designation, Device-bound Company Administration Sessions, the Branch's explicit Network relationship, the concrete bookstore-commerce record attached
 to the seeded Branch, completed-sale meaning, settlement configuration, the
 separate concrete bookstore-operations record (OPEN/CLOSED, current
 inventory, shelf capacity, checkout capacity), and the separate concrete
@@ -23,8 +23,31 @@ Companies have no represented owner, employees, hierarchy, or valuation; the
 future ability to acquire a Company is accepted direction (`docs/FUTURE.md`),
 not implemented truth. Neither the Company nor the Branch is a generic
 Organization/Entity framework: `GameState.business` is a narrow
-`{ companies, branches, treasuryDesignations }` collection specific to this
+`{ companies, branches, treasuryDesignations, administrationSessions }` collection specific to this
 domain.
+
+The Business domain also owns `CompanyAdministrationSession`, one deliberately
+narrow active authority relationship containing stable `{ id, clientDeviceId,
+companyId }` identities. It means that the referenced represented Device may
+submit supported management actions for exactly the referenced represented
+Company. It is not Company ownership, employment, a person, a generic role or
+permission hierarchy, DeviceAccess, Network management, or Civic Dollar
+financial authority. It contains no Firmware, software, Device type, Network,
+Account, Credential, or Player identity, so its meaning is platform- and
+Firmware-independent. The shape permits multiple Devices to administer one
+Company and one Device to hold Sessions for multiple Companies.
+
+`resolveCompanyAdministrationSession` requires the Device and Company each to
+exist uniquely and exactly one active matching Device + Company relationship.
+Missing, dangling, duplicate, or otherwise ambiguous represented truth fails
+closed; Treasury designation, Branch ownership, Network membership,
+`NetworkManagementAuthority`, DeviceAccess, RemoteSession, FinancialSession,
+and saved sign-in never substitute for this relationship. Initial state seeds
+exactly one such Session:
+`company-administration-session-bookstore-phone-v0`, binding
+`host-phone-001` to `company-bookstore-01`. No Session is seeded for the local
+NODE Device, `ops-01`, or Atlas Distribution, and no preceding login event,
+credential, employee, owner, or Business account is fabricated.
 
 The Business domain additionally owns one narrow Company-linked role:
 `CompanyTreasuryDesignation` stores only `{ companyId, accountId }`, stable
@@ -558,6 +581,26 @@ validated represented Bookstore action is the cause. Restock funding follows
 Company Treasury independently of Branch sale settlement, and Atlas receives
 the exact real payment in its ordinary Treasury Account.
 
+`placeBookstoreRestockOrderForDevice` is the narrow authorized entry boundary:
+the caller supplies only acting Device, Branch, and offer identities. The
+Branch resolves its owning Company, that Device must resolve exactly one active
+Company Administration Session for the Company, and then the existing
+Bookstore operation runs unchanged. The caller cannot name either Company or
+Treasury Account, an arbitrary destination, or an amount. Consequently this
+authority permits this supported represented purchase but creates no general
+Treasury-transfer authority; Bookstore still owns all offer, capacity, order,
+delivery, and stock semantics, while Company-to-Company settlement still owns
+current Treasury resolution and exact Civic Dollar movement.
+
+`placeBookstoreRestockOrderFromOperatedRemoteDevice` adds only current player
+operating context: `resolveActiveRemoteTarget` resolves the target Device from
+the active RemoteSession, and that Device is passed to the Device-level entry
+boundary. RemoteSession answers which Device is operated, never which Company
+it may administer. Disconnecting therefore removes no Company Administration
+Session. Likewise, removing the phone's independent FinancialSession neither
+removes Company administration nor changes restock funding: the Bookstore
+Treasury still pays Atlas, while the phone Account remains uninvolved.
+
 Successful settlement creates one in-transit historical order referencing the
 Provider-owned Transaction; the order does not duplicate its paid amount.
 Current offers or names cannot rewrite captured order lines. Incoming units
@@ -570,8 +613,9 @@ chronologically, so only delivered ordinary stock can be sold.
 RACK-OS BUSINESS remains read-only. It may show derived incoming-unit and
 in-transit-order counts, but exposes neither live Treasury balance nor
 restock/payment controls: Treasury account-reference observation grants no
-finance authority. VEYRA Business management and its future administration
-authority remain deferred.
+finance authority. No VEYRA Business client or other administration UI exists
+yet; future clients consume this Business-owned authority rather than create or
+own it.
 
 ### Sales cadence and demand
 
