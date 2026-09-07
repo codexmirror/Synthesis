@@ -6,8 +6,9 @@ runtime (Download and Upload), software packages and recognition, Software
 Installation on the local Device and on a represented remote Device, Software
 Removal, executables and RUN admission, Flipper module artifacts and the
 concrete module-integration mechanic that transforms an installed Flipper into
-a different build of the same release, and the local software
-information/management lifecycle, as currently implemented on `main`.
+a different build of the same release, the local software
+information/management lifecycle, and the one represented installation that has
+no acquisition path at all, as currently implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
@@ -1006,6 +1007,29 @@ represented package or installation metadata and simply omit unavailable
 release documentation. Neither application owns software truth of its own:
 both read the same Device-owned filesystem, installed software, and Process
 state.
+
+
+## Software with no represented acquisition path
+
+Not every represented installation was acquired in play. `Business 1.0`
+(`business` / `business-1.0` / `build-business-1.0-v0`, name `Business`,
+version `1.0`, `src/core/game/businessSoftware.ts`) is ordinary Device-owned
+`InstalledSoftware` seeded on `host-phone-001` alone, exactly as the servers
+simply start with the GateSSH release they run
+(`docs/current/DEVICE_SYSTEM.md`). Nothing about acquiring it is represented:
+there is no package artifact, Market offering, purchase entitlement, download,
+installation Process, installation history, entitlement or launcher flag for
+it anywhere, and no App Store or acquisition surface exists.
+
+It behaves as installed software and nothing more. `findInstalledBusinessSoftware`
+answers only whether a given Device's own inventory holds that product, by
+stable product identity; holding it is not authority over any Company, and a
+Firmware update installs, removes and changes no software (see the phone's own
+VEYRA update in `docs/current/DEVICE_SYSTEM.md`). What a VEYRA phone presents
+for it belongs to `docs/current/VEYRA_OS.md`, and the Company management it
+performs belongs to `docs/current/BRANCH_COMMERCE.md`. Removing it through a
+represented removal path is not implemented: Software Removal above remains the
+local Device's own lifecycle.
 
 
 ## Files as mail attachments

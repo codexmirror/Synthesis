@@ -8,6 +8,7 @@ import { VeyraCommunication } from './VeyraCommunication'
 import { VeyraPinChallenge } from './VeyraPinChallenge'
 import { VeyraSettings, type VeyraSettingsDetail } from './VeyraSettings'
 import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
+import { VeyraBusiness, type VeyraBusinessDetail } from './VeyraBusiness'
 import { VeyraFirmwareInstall, VeyraFirmwareWelcome } from './VeyraFirmwareInstall'
 import { deriveRattlerProcessForDevice } from '../../core/game/rattler'
 import { resolveInstallingVeyraFirmwareRelease, type VeyraFirmwareRelease } from '../../core/game/veyraFirmwareUpdate'
@@ -28,6 +29,7 @@ type VeyraLocation =
   | { readonly app: 'communication' }
   | { readonly app: 'wallet-locked' }
   | { readonly app: 'wallet'; readonly detail?: VeyraWalletDetail }
+  | { readonly app: 'business'; readonly detail?: VeyraBusinessDetail }
   | { readonly app: 'settings'; readonly detail?: VeyraSettingsDetail }
 
 /**
@@ -57,6 +59,17 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
   const [location, setLocation] = useState<VeyraLocation>({ app: 'home' })
   const [requested, setRequested] = useState<VeyraLocation>()
   const entries = deriveVeyraHomeEntries(state, target)
+  /*
+   * Opening an application never authorizes it for the rest of the Session.
+   * Business is ordinary Device-owned software, so if that installation stops
+   * being represented while the client is open, the phone simply no longer has
+   * it: the surface falls back to Home the same way RACK-OS falls back to a
+   * section its release can actually present. Nothing about the Company
+   * Administration authority underneath is touched by that.
+   */
+  const current: VeyraLocation = location.app === 'business' && !entries.some(({ id }) => id === 'business')
+    ? { app: 'home' }
+    : location
   const rattler = deriveRattlerProcessForDevice(state, target.id)
   const [observedRattlerId, setObservedRattlerId] = useState<string>()
   const release = selectVeyraReleasePresentation(target.firmware)
@@ -110,12 +123,12 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
   }
 
   function back() {
-    if (location.app === 'home') return
-    if (location.app === 'communication' || location.app === 'wallet-locked' || !location.detail) {
+    if (current.app === 'home') return
+    if (current.app === 'communication' || current.app === 'wallet-locked' || !current.detail) {
       go({ app: 'home' })
       return
     }
-    go({ app: location.app })
+    go({ app: current.app })
   }
 
   /**
@@ -157,9 +170,9 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
     <main className="veyra-viewport">
       {installing && <VeyraFirmwareInstall progress={installing} release={installingRelease} />}
       {!installing && installed && <VeyraFirmwareWelcome release={installed} onContinue={() => { setInstalled(undefined); go({ app: 'home' }) }} />}
-      {!systemBusy && location.app === 'home' && <VeyraHome entries={entries} onOpen={openHomeEntry} deviceName={target.displayName!} release={release} />}
-      {!systemBusy && location.app === 'communication' && <VeyraCommunication />}
-      {!systemBusy && location.app === 'wallet-locked' && <VeyraPinChallenge
+      {!systemBusy && current.app === 'home' && <VeyraHome entries={entries} onOpen={openHomeEntry} deviceName={target.displayName!} release={release} />}
+      {!systemBusy && current.app === 'communication' && <VeyraCommunication />}
+      {!systemBusy && current.app === 'wallet-locked' && <VeyraPinChallenge
         note="Enter this Device's PIN to open Wallet."
         verify={(pin) => verifyDevicePinForOperatedRemoteDevice(pin).status === 'verified'}
         onSuccess={() => go({ app: 'wallet' })}
@@ -167,13 +180,17 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
         observedCandidate={rattler?.status === 'running' ? rattler.currentCandidate : undefined}
         observedAttemptNumber={rattler?.status === 'running' ? rattler.attemptsCompleted : undefined}
       />}
-      {!systemBusy && location.app === 'wallet' && <VeyraWallet
-        detail={location.detail}
+      {!systemBusy && current.app === 'wallet' && <VeyraWallet
+        detail={current.detail}
         onDetail={(detail) => go(detail ? { app: 'wallet', detail } : { app: 'wallet' })}
         editingRecoveryReady={editingRecoveryReady}
         onEndEditing={onEndEditing}
       />}
-      {!systemBusy && location.app === 'settings' && <VeyraSettings device={target} detail={location.detail} release={release} onDetail={(detail) => go(detail ? { app: 'settings', detail } : { app: 'settings' })} />}
+      {!systemBusy && current.app === 'business' && <VeyraBusiness
+        detail={current.detail}
+        onDetail={(detail) => go(detail ? { app: 'business', detail } : { app: 'business' })}
+      />}
+      {!systemBusy && current.app === 'settings' && <VeyraSettings device={target} detail={current.detail} release={release} onDetail={(detail) => go(detail ? { app: 'settings', detail } : { app: 'settings' })} />}
     </main>
 
     {/*
@@ -184,10 +201,10 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
       */}
     {/* A phone installing its own operating system offers no navigation at all. */}
     {!systemBusy && <nav className="veyra-nav" aria-label="VEYRA navigation">
-      {location.app === 'home'
+      {current.app === 'home'
         ? <span aria-hidden="true" />
         : <button className="veyra-nav__back" type="button" onClick={back}><VeyraIcon name="back" />Back</button>}
-      <button className="veyra-nav__home" type="button" onClick={() => go({ app: 'home' })} disabled={location.app === 'home'} aria-current={location.app === 'home' ? 'page' : undefined}>
+      <button className="veyra-nav__home" type="button" onClick={() => go({ app: 'home' })} disabled={current.app === 'home'} aria-current={current.app === 'home' ? 'page' : undefined}>
         <VeyraIcon name="home" />Home
       </button>
       <span aria-hidden="true" />

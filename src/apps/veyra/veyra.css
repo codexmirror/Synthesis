@@ -259,6 +259,9 @@ button.veyra-frame__disconnect { color: #d4a099; }
 button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra-surface-sunk); outline: 0; }
 
 .veyra-amount { font: 500 1rem/1.2 var(--veyra-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* An order's own status column: the same two-line row copy, read from the right. */
+.veyra-business-status { justify-items: end; text-align: right; }
+.veyra-business-status strong { font-weight: 500; }
 .veyra-amount--incoming { color: #3a6b4c; }
 
 .veyra-terms dt { color: var(--veyra-ink-mute); font-size: .95rem; }

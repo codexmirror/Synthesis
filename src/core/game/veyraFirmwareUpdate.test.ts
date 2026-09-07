@@ -263,7 +263,11 @@ describe('what the completed release actually changes', () => {
 
   it('keeps firmware-owned GateSSH out of the phone’s InstalledSoftware inventory', () => {
     const after = installed()
-    expect(phoneOf(after).installedSoftware).toEqual([])
+    // The inventory still holds exactly what it held before the update: the
+    // firmware's own GateSSH never enters it, and installing firmware neither
+    // installs nor removes software.
+    expect(phoneOf(after).installedSoftware).toEqual(phoneOf(phoneConnectedState()).installedSoftware)
+    expect(phoneOf(after).installedSoftware?.some(({ id }) => id === 'gate-ssh')).toBe(false)
     expect(phoneOf(after).pendingGateSshActivation).toBeUndefined()
     expect(phoneOf(after).filesystem?.files).toEqual([])
   })

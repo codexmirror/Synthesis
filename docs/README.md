@@ -163,7 +163,8 @@ module-integration mechanic.
   [`design/RACKUPDATE_PENDING_ACTIVATION_V1.md`](design/RACKUPDATE_PENDING_ACTIVATION_V1.md)
   (RackUpdate pending GateSSH software state only)
 - CODE → `src/core/game/filesystem.ts`, `src/core/game/fileTransfer.ts`,
-  `src/core/game/software.ts`, `src/core/game/softwareInstallation.ts`,
+  `src/core/game/software.ts`, `src/core/game/businessSoftware.ts`,
+  `src/core/game/softwareInstallation.ts`,
   `src/core/game/softwareRemoval.ts`, `src/core/game/flipper.ts`,
   `src/apps/files/`, `src/apps/flipper/`,
   `src/apps/softwareReleaseInformation.ts`, `src/apps/rackos/`
@@ -290,7 +291,11 @@ backend.
   execution transition coordinating the above with Civic Dollar),
   `src/core/game/bookstoreSalesCadence.ts` (the separate concrete branch-linked
   sales-cadence record and its canonical advancement, composed into
-  `src/core/game/gameAdvancement.ts`), `src/apps/rackos/`
+  `src/core/game/gameAdvancement.ts`),
+  `src/core/game/companyAdministration.ts` (Device-bound Company Administration
+  authority and the authorized restock entry boundaries), `src/apps/rackos/`,
+  `src/apps/veyra/veyraBusiness.ts` (the VEYRA Business client's read-only
+  projection over this domain)
 - TESTS → `src/core/game/business.test.ts`, `src/core/game/bookstoreCommerce.test.ts`,
   `src/core/game/bookstoreOperations.test.ts`, `src/core/game/bookstoreBackend.test.ts`,
   `src/core/game/bookstoreSale.test.ts`, `src/core/game/bookstoreRestock.test.ts`,
@@ -390,11 +395,18 @@ VEYRA Device presentation direction.
 - CODE → `src/apps/veyra/`, `src/shell/remoteOperatingSurface.ts`,
   `src/core/game/firmwareIdentity.ts`, `src/core/game/veyraFirmwareUpdate.ts`,
   `src/core/game/deviceFirmwareUpdate.ts` (the shared firmware-update
-  advancement owner, not VEYRA-specific)
+  advancement owner, not VEYRA-specific),
+  `src/core/game/businessSoftware.ts` (the represented Business client
+  installation identity, ordinary Device-owned software rather than VEYRA
+  Firmware), `src/core/game/companyAdministration.ts` and
+  `src/app/businessOperations.ts` (the Company authority the Business client
+  consumes and the adapter its one supported action goes through)
 - TESTS → `src/apps/veyra/Veyra.test.tsx`,
+  `src/apps/veyra/VeyraBusiness.test.tsx`, `src/apps/veyra/veyraBusiness.test.ts`,
   `src/shell/remoteOperatingSurface.test.ts`,
   `src/core/game/veyraPhoneAccess.test.ts`,
-  `src/core/game/veyraFirmwareUpdate.test.ts`
+  `src/core/game/veyraFirmwareUpdate.test.ts`,
+  `src/core/game/companyAdministration.test.ts`
 - DOCUMENTATION IMPACT OWNER →
   [`current/VEYRA_OS.md`](current/VEYRA_OS.md) for implemented VEYRA behavior,
   or the design authority owning the changed VEYRA product direction above

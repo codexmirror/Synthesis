@@ -2,17 +2,23 @@
 
 Status: Accepted
 Scope: The implemented VEYRA OS operating surface — Firmware-driven selection
-of it, its Home launcher, its Communication, Wallet, Settings and System Update
-surfaces, its firmware-installation surface, its internal navigation, and its
-release-specific presentation ownership — as currently implemented on `main`.
+of it, its Home launcher, its Communication, Wallet, Business, Settings and
+System Update surfaces, its firmware-installation surface, its internal
+navigation, and its release-specific presentation ownership — as currently
+implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
 scope. It owns what VEYRA *presents* and how it is reached; it owns none of the
-facts it presents. The represented phone Device belongs to
-`docs/current/DEVICE_SYSTEM.md`, the access loop that reaches it and the
-Remote Session it is operated through to `docs/current/NETWORK_ACCESS.md`, and
+facts it presents. The represented phone Device — including the Business client
+it owns as ordinary `InstalledSoftware` — belongs to
+`docs/current/DEVICE_SYSTEM.md` and `docs/current/FILES_SOFTWARE.md`, the access
+loop that reaches it and the
+Remote Session it is operated through to `docs/current/NETWORK_ACCESS.md`,
 every Civic Dollar Account, Session, transfer and Transaction to
-`docs/current/DOLLAR_FINANCE.md`. The selected product direction behind it
+`docs/current/DOLLAR_FINANCE.md`, and every Company, Company Administration
+Session, Branch, Treasury designation, supply offer, restock order and stock
+quantity the Business client presents to
+`docs/current/BRANCH_COMMERCE.md`. The selected product direction behind it
 belongs to `docs/design/VEYRA_FIRST_ORDINARY_PHONE_V1.md` and its parent
 `docs/design/VEYRA_COMPANY_PRODUCT_IDENTITY_V1.md`; where this document and
 those contracts differ, this document describes what is built.
@@ -83,6 +89,7 @@ represented bases it observes:
 ```text
 Communication <- this VEYRA OS Firmware's client -> Petra's Company Chat
 Wallet        <- this Device -> its Civic Dollar Financial Session -> Account
+Business      <- this Device -> its represented Business InstalledSoftware
 Settings      <- this Device's represented VEYRA OS Firmware
 ```
 
@@ -90,6 +97,18 @@ There is no `homeApps[]`, launcher inventory, app registry, `LauncherState`,
 `HomeLayoutState` or per-application presentation flag anywhere in
 `GameState` or in presentation. Removing the phone's Financial Session removes
 Wallet from Home; the player's own Financial Session is not a basis for it.
+
+Those bases are deliberately different kinds of fact, and each entry follows
+only its own. Business is the one that is ordinary Device-owned
+software: `findInstalledBusinessSoftware` (`src/core/game/businessSoftware.ts`)
+answers whether this Device's own `installedSoftware` holds the Business
+product, by stable product identity rather than display name. Nothing else is
+consulted — not the Company Administration Session, a Company, a Treasury
+designation, a Remote Session, a Financial Session, the Device type, or the
+VEYRA Firmware. So a phone with Business installed and no Company to manage
+still has the tile, a phone holding Company authority without the software does
+not, and removing the phone's Financial Session removes Wallet while leaving
+Business exactly where it was.
 
 Communication is a built-in VEYRA OS client and appears first. It presents the
 one concrete Company Chat owned by `GameState.petraCompanyChat`, including
@@ -209,6 +228,126 @@ The consumer hierarchy is balance, Provider, SEND / RECEIVE, ACCOUNT, ACTIVITY:
 
 Which Wallet surface is open is presentation state held by the component; it
 never reaches `GameState`.
+
+
+## Business
+
+Business is the phone's client for the Company the operated Device may actually
+administer, and the first writable Company-management surface in the product.
+It is not a VEYRA feature: it is the represented `Business 1.0` installation the
+phone owns (`docs/current/FILES_SOFTWARE.md`), presented by
+`src/apps/veyra/VeyraBusiness.tsx` over the projection in
+`src/apps/veyra/veyraBusiness.ts`. It owns no Business, Bookstore or Civic
+Dollar truth whatsoever, holds no timer, cache or copy of any of it, and reads
+every fact it states from canonical state on every render.
+
+Installation is not authority. Opening Business resolves what this Device may
+manage through `resolveSoleCompanyAdministrationContextForOperatedRemoteDevice`
+(`src/core/game/companyAdministration.ts`): the active Remote Session supplies
+only which Device is operated, and that Device's own Company Administration
+Sessions decide the rest. Three outcomes are possible, and no Company identity
+is ever hardcoded as the basis:
+
+```text
+exactly one administered Company -> that Company is managed
+no administered Company         -> `No company access available.`
+several administered Companies  -> selection unsupported; nothing is chosen
+```
+
+Both unavailable states expose no Treasury balance, inventory, supplier offer,
+restock order or action at all — only the honest sentence. The Business tile
+stays on Home throughout, because the software is still installed.
+
+The manageable Branch is resolved the same way: the one Branch of that Company
+that represents both a Bookstore commerce record and a Bookstore operations
+record. Zero or several resolve as no manageable Branch rather than as a
+choice, and Company and Branch selection surfaces are deliberately
+unimplemented.
+
+The root presents, entirely from represented truth:
+
+- **Company** — the administered Company's display name.
+- **Company funds** — the Company's current Treasury balance, resolved
+  `Company -> current Treasury designation -> Civic Dollar Account -> balance`
+  (`resolveCompanyTreasuryAccount`). A missing or ambiguous designation is
+  stated as unavailable; it never falls back to the phone's own Wallet Account.
+  This is observation only: it creates no Financial Session, Treasury
+  Credential, saved sign-in or Account ownership, and Business offers no SEND,
+  RECEIVE, transfer or counterparty control of any kind.
+- **Branch** — the Branch display name and its represented location.
+- **Inventory** — current total sellable stock against shelf capacity, current
+  incoming units, and every represented merchandise item's on-hand quantity,
+  all read from Bookstore Operations. Incoming units are paid for and in
+  transit; they are deliberately not part of current stock.
+- **Supply** — every currently represented Bookstore supply offer, each stating
+  its own display name, seller Company display name, total units, exact price
+  and represented delivery duration. An offer whose seller Company does not
+  resolve is not presented at all rather than presented anonymously.
+- **Restock orders** — this Branch's represented orders, each from its own
+  captured facts: the captured offer and seller display names, the captured
+  total units, the status, and the remaining represented delivery duration
+  while `IN_TRANSIT`. Renaming a current offer never rewrites an order's
+  captured history.
+
+No score, efficiency, forecast, projection, profit, valuation, supplier rating,
+discount, recommendation, wall-clock arrival, tracking number or logistics
+event appears anywhere: the world represents none of them.
+
+### Placing a restock order
+
+Selecting an offer opens a presentation-local review — the supplier, the
+bundle's own item lines, the exact total price, the delivery duration and the
+Company's current funds — with **Place order** and an ordinary Cancel. Opening
+or leaving the review changes no canonical state, and there is no cart,
+reservation, draft or pending order anywhere.
+
+**Place order** calls
+`placeBookstoreRestockOrderFromOperatedRemoteDevice`, the existing authorized
+operated-Device path, through the ordinary `GameActions` adapter in
+`src/app/businessOperations.ts`. React mutates nothing. The client names only
+the Branch and the offer:
+
+```text
+VEYRA Business
+-> active RemoteSession identifies the operated Device
+-> Company Administration authorizes the Company
+-> Branch identifies the buyer Company
+-> Offer identifies the seller and the commercial terms
+-> Bookstore Restock validates capacity and terms
+-> Company-to-Company settlement resolves current Treasuries
+-> Civic Dollar moves the exact amount
+-> the represented Restock Order enters transit
+```
+
+Buyer Company, buyer and seller Treasury, destination Account and amount are
+all resolved inside that path and cannot be supplied by this surface, and the
+lower-level unrestricted restock mutation is never called from presentation. One
+rendered review can commit at most one canonical order. A refusal is restated
+in ordinary product wording that claims no more than the canonical result
+proves — the collapsed `payment_refused` in particular never asserts
+insufficient funds specifically — and leaves state exactly as it was: no
+Transaction, no order, no stock change, no balance change.
+
+A successful placement is acknowledged locally, and the surface immediately
+shows what canonically changed: lower Company funds, higher incoming units and
+the new `IN_TRANSIT` order. Nothing sellable increases yet. Delivery is
+canonical advancement's alone (`docs/current/BRANCH_COMMERCE.md`): the order
+counts down, becomes `DELIVERED`, and its captured quantities appear as
+Bookstore Operations stock, all of which Business simply reflects on its next
+render. Business causes no delivery, no stock change and no consequence of its
+own, and it runs no polling, timer or duplicated live state to observe any of
+it.
+
+Business is also not permanently authorized by being opened. Home presence is
+derived on every render, so if the represented installation stops being present
+while the client is open, the phone stops presenting Business and falls back to
+Home — without touching the Company Administration authority underneath, which
+is not the client's to remove.
+
+RACK-OS BUSINESS remains a separate, read-only operational view of Network-local
+Business context (`docs/current/NETWORK_ACCESS.md`,
+`docs/current/BRANCH_COMMERCE.md`). It gains no Company Administration
+authority, Treasury spending or restock control from this client existing.
 
 
 ## Settings
@@ -424,6 +563,16 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
   is a Firmware-bundled client over represented Company Chat history, not the
   owner of that history. Wallet with no Transactions has a represented Account
   basis and may show a truthful empty Activity.
+- Installed software is not authority, and authority is not installed software.
+  Business is on Home exactly while the phone owns that installation, and what
+  it may then manage is exactly what that Device's own Company Administration
+  Sessions say. Neither fact is ever inferred from the other, and a VEYRA
+  firmware update installs no software.
+- Observing Company Funds is not operating an Account. Business reads the
+  Company's current Treasury balance and offers nothing that moves money except
+  the one validated Bookstore restock; no Financial Session, Credential or saved
+  sign-in for a Treasury exists, and the phone's own Wallet Account never funds
+  a Company purchase.
 - A Remote Session is operating context, not financial authority. It decides
   which Device is acting and grants no Account: a phone with no Financial
   Session refuses a transfer even while the player operates it.

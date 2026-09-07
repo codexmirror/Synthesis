@@ -613,9 +613,19 @@ chronologically, so only delivered ordinary stock can be sold.
 RACK-OS BUSINESS remains read-only. It may show derived incoming-unit and
 in-transit-order counts, but exposes neither live Treasury balance nor
 restock/payment controls: Treasury account-reference observation grants no
-finance authority. No VEYRA Business client or other administration UI exists
-yet; future clients consume this Business-owned authority rather than create or
-own it.
+finance authority, and it holds no Company Administration Session of its own.
+
+The VEYRA Business client is now the first management client that consumes this
+Business-owned authority (`docs/current/VEYRA_OS.md`). It creates and owns none
+of it. It resolves at most one administered Company from the operated Device's
+own Company Administration Sessions, states zero and ambiguous authority
+honestly instead of choosing, observes the Company's current Treasury balance
+through `resolveCompanyTreasuryAccount` without creating any Financial Session,
+Credential or transfer capability, and submits exactly one supported action —
+`placeBookstoreRestockOrderFromOperatedRemoteDevice`, naming only Branch and
+offer. Presentation causes no delivery, stock or settlement consequence of its
+own. Company selection, Branch selection and every other Company management
+action remain unimplemented.
 
 ### Sales cadence and demand
 

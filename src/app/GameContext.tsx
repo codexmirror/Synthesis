@@ -19,6 +19,7 @@ import { createFlipperActions } from './flipperOperations'
 import { createNodeMinerActions } from './nodeMinerOperations'
 import { createDollarFinanceActions } from './dollarFinanceOperations'
 import { createDeviceSecurityActions } from './deviceSecurityOperations'
+import { createBusinessActions } from './businessOperations'
 import { createFirmwareActions } from './firmwareOperations'
 import { createRattlerActions } from './rattlerOperations'
 import { createMailActions } from './mailOperations'
@@ -38,6 +39,7 @@ import type { StartFlipperModuleIntegrationResult } from '../core/game/flipper'
 import type { PayoutNodeMinerResult, RetargetLocalNodeMinerPayoutResult, RetargetNodeMinerPayoutResult, StartNodeMinerResult, StartRemoteNodeMinerResult, StopNodeMinerResult, StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
 import type { AuthenticateDollarAccountResult, AuthenticateWithSavedDollarSignInResult, LogoutDollarAccountResult, TransferDollarsResult, TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 import type { ChangeWalletProtectionForOperatedRemoteDeviceResult, VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
+import type { PlaceOperatedBookstoreRestockOrderResult } from '../core/game/companyAdministration'
 import type { StartVeyraFirmwareUpdateResult } from '../core/game/veyraFirmwareUpdate'
 import type { StartRackOsFirmwareUpdateResult } from '../core/game/rackOsFirmwareUpdate'
 import type { CreateRattlerPayloadResult, DeployRattlerResult } from '../core/game/rattler'
@@ -95,6 +97,8 @@ export interface GameActions {
   startRackOsFirmwareUpdateForOperatedRemoteDevice(artifactPath: string): StartRackOsFirmwareUpdateResult
   /** Checks a submitted PIN against the operated remote Device's own PIN without committing anything. */
   verifyDevicePinForOperatedRemoteDevice(pin: string): VerifyDevicePinForOperatedRemoteDeviceResult
+  /** Submits the existing authorized Bookstore restock for the operated Device; Company authority and settlement stay inside the domain. */
+  placeBookstoreRestockOrderFromOperatedRemoteDevice(branchId: string, offerId: string): PlaceOperatedBookstoreRestockOrderResult
   createRattlerPayload(targetAddress: string): CreateRattlerPayloadResult
   deployRattler?(): DeployRattlerResult
   openMailThread(threadId: string): void
@@ -146,6 +150,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
     ...createNodeMinerActions(accessor),
     ...createDollarFinanceActions(accessor),
     ...createDeviceSecurityActions(accessor),
+    ...createBusinessActions(accessor),
     ...createFirmwareActions(accessor),
     ...createRattlerActions(accessor),
     ...createMailActions(accessor),

@@ -9,6 +9,7 @@ import { DEAUTH_EXTENSION } from './deauth'
 import { BASIC_HTTP_1_0_BUILD_ID, GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_3_BUILD_ID, RACK_UPDATE_1_0_BUILD_ID } from './serviceImplementations'
 import type { GameState } from './types'
 import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_INSTALLATION, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_ID } from './authGuard'
+import { BUSINESS_1_0_INSTALLATION } from './businessSoftware'
 import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
 import { BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME, createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
@@ -226,8 +227,8 @@ export function createInitialGameState(): GameState {
             firmware: { id: VEYRA_OS_4_1_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },
             hardware: { cpu: { name: 'Mobile CPU', computeCapacity: 70 }, ram: { name: '6 GB', capacityMiB: 6144 } },
             runtime: { baselineCpuLoad: 6, baselineRamUsage: 34 },
-            // Represented like any other concretely operable Device: it owns a software inventory and a filesystem, both of which are simply empty rather than filled with invented personal content.
-            installedSoftware: [],
+            // Represented like any other concretely operable Device: it owns a software inventory and a filesystem. The inventory holds exactly the one concrete client this phone starts with; the filesystem is simply empty rather than filled with invented personal content.
+            installedSoftware: [BUSINESS_1_0_INSTALLATION],
             filesystem: { nextFileId: 1, files: [] },
             services: [
               // The same concrete vulnerable GateSSH release the existing access loop already resolves. The phone is reachable through that represented weakness, not through a phone-specific mechanic.

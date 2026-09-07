@@ -6,6 +6,7 @@ import { VEYRA_OS_4_1_FIRMWARE_ID } from '../core/game/firmwareIdentity'
 import { resolveDollarAccountForDevice } from '../core/game/dollarFinance'
 import { AUTH_017, vulnerabilitiesForService } from '../core/game/serviceImplementations'
 import { isValidNetworkTransferCapacity } from '../core/game/networkTransferCapacity'
+import { BUSINESS_1_0_BUILD_ID, BUSINESS_1_0_INSTALLATION, BUSINESS_1_0_RELEASE_ID, BUSINESS_PRODUCT_ID, findInstalledBusinessSoftware } from '../core/game/businessSoftware'
 
 describe('createInitialGameState', () => {
   it('creates an independent local-device and world graph for every session', () => {
@@ -265,8 +266,8 @@ describe('createInitialGameState', () => {
     // An ordinary personal Device, not a server: it carries no server role.
     expect(phone?.role).toBeUndefined()
     expect(phone?.deviceModel).toBeUndefined()
-    // Represented like any other concretely operable Device, and empty rather than filled with invented personal content.
-    expect(phone?.installedSoftware).toEqual([])
+    // Represented like any other concretely operable Device: it owns exactly the one concrete client this world starts it with, and nothing invented besides.
+    expect(phone?.installedSoftware).toEqual([{ id: 'business', releaseId: 'business-1.0', buildId: 'build-business-1.0-v0', name: 'Business', version: '1.0' }])
     expect(phone?.filesystem).toEqual({ nextFileId: 1, files: [] })
     // Reachable through the same represented weakness the existing loop already resolves.
     expect(phone?.services).toEqual([
@@ -279,6 +280,32 @@ describe('createInitialGameState', () => {
     // The phone starts on its current firmware with nothing installing: a
     // newer release is offered, never pre-applied.
     expect(phone?.firmwareUpdate).toBeUndefined()
+  })
+
+  it('seeds the concrete Business 1.0 client on the phone alone, as ordinary Device-owned software', () => {
+    const state = createInitialGameState()
+    const phone = state.world.network.hosts.find(({ id }) => id === 'host-phone-001')
+
+    // One concrete product / release / build identity, exactly like every other represented installation.
+    expect(BUSINESS_1_0_INSTALLATION).toEqual({
+      id: BUSINESS_PRODUCT_ID, releaseId: BUSINESS_1_0_RELEASE_ID, buildId: BUSINESS_1_0_BUILD_ID,
+      name: 'Business', version: '1.0',
+    })
+    expect(findInstalledBusinessSoftware(phone!)).toEqual(BUSINESS_1_0_INSTALLATION)
+
+    // No other represented Device receives it, and nothing about acquiring it exists: no package artifact,
+    // Market offer, entitlement, download, installation history or launcher flag anywhere.
+    expect(findInstalledBusinessSoftware(state.player.localDevice)).toBeUndefined()
+    for (const host of state.world.network.hosts.filter(({ id }) => id !== 'host-phone-001')) {
+      expect(findInstalledBusinessSoftware(host)).toBeUndefined()
+    }
+    const everyFile = [state.player.localDevice.filesystem, ...state.world.network.hosts.flatMap((host) => host.filesystem ?? [])]
+      .flatMap((filesystem) => filesystem.files)
+    expect(everyFile.some((file) => JSON.stringify(file).includes(BUSINESS_PRODUCT_ID))).toBe(false)
+    expect(state.market.offers.some(({ distribution }) => 'productId' in distribution && distribution.productId === BUSINESS_PRODUCT_ID)).toBe(false)
+
+    // The software is on the phone; the authority to manage a Company is separate represented truth.
+    expect(state.business.administrationSessions.map(({ clientDeviceId }) => clientDeviceId)).toEqual(['host-phone-001'])
   })
 
   it('gives the VEYRA phone its own Civic Dollar Account through its own Device-bound Financial Session', () => {
