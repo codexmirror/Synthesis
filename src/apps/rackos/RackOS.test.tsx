@@ -16,6 +16,9 @@ import { withoutBookstoreCadenceTiming } from '../../test/canonicalSnapshot'
 import rackSource from './RackOS.tsx?raw'
 import rackUpdateSource from './RackFirmwareUpdate.tsx?raw'
 import rackCss from './rackos.css?raw'
+import { executeBookstoreSale } from '../../core/game/bookstoreSale'
+import { BOOKSTORE_BRANCH_ID } from '../../core/game/business'
+import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, placeBookstoreRestockOrder } from '../../core/game/bookstoreRestock'
 
 function StateSnapshot() { return <output data-testid="game-state">{JSON.stringify(useGameState())}</output> }
 
@@ -1191,6 +1194,20 @@ function ops01Connected(): GameState {
   return connectRemoteFromObservation(authorized, { targetDeviceId: 'host-lan-003', address: '203.0.113.43' }).state
 }
 
+function ops01WithIncomingRestock(): GameState {
+  let state = createInitialGameState()
+  for (let index = 0; index < 7; index += 1) {
+    const samples = [0, 0.999999]
+    const sale = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => samples.shift() ?? 0)
+    if (sale.status !== 'sold') throw new Error('expected fixture sale')
+    state = sale.state
+  }
+  const order = placeBookstoreRestockOrder(state, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+  if (order.status !== 'ordered') throw new Error('expected fixture restock order')
+  const access = { id: 'access-ops-01', sourceDeviceId: order.state.player.localDevice.id, targetDeviceId: 'host-lan-003', viaServiceId: 'service-ssh-004', privilege: 'USER' as const }
+  return connectRemoteFromObservation({ ...order.state, deviceAccess: { nextId: 2, established: [access] } }, { targetDeviceId: 'host-lan-003', address: '203.0.113.43' }).state
+}
+
 function ReconnectControl() {
   const actions = useGameActions()
   return <button onClick={() => actions.connectRemoteFromObservation({ targetDeviceId: 'host-lan-002', address: '203.0.113.42' })}>test reconnect</button>
@@ -1272,6 +1289,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business.textContent).not.toContain('service-bookstore-backend-002')
     expect(business.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)
     expect(business.textContent).not.toMatch(/\b(pay|buy|transfer|switch account)\b/i)
+    expect(business.textContent).not.toMatch(/treasury balance/i)
     // Internal simulation countdown truth, not player-facing Business information.
     expect(business.textContent).not.toMatch(/remainingUntilOpportunity/i)
 
@@ -1283,6 +1301,18 @@ describe('RACK-OS 1.1 Business application shell', () => {
     await user.type(screen.getByLabelText('Remote command'), 'cat /srv/backup-manifest.txt{enter}')
     expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('Backup manifest for srv-02.')
     expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? ''))).toEqual(before)
+  })
+
+  it('observes incoming Bookstore stock read-only without exposing Treasury balance or purchase controls', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={ops01WithIncomingRestock()}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+    const business = screen.getByRole('region', { name: 'Business' })
+    expect(within(business).getByText('INCOMING STOCK').closest('div')).toHaveTextContent('16')
+    expect(within(business).getByText('RESTOCK ORDERS').closest('div')).toHaveTextContent('1 IN TRANSIT')
+    expect(business.textContent).not.toMatch(/treasury balance/i)
+    expect(within(business).queryByRole('button')).toBeNull()
   })
 
   it('keeps the current settlement Account distinct from the completed sale historical settlement', async () => {

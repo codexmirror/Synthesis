@@ -16,6 +16,7 @@ import { resolveCompletedDeauthAttempts } from './deauth'
 import { advanceTechnicianReaction } from './technician'
 import { advanceDeviceFirmwareUpdatesWithRemainder } from './deviceFirmwareUpdate'
 import { advanceBookstoreSalesCadence } from './bookstoreSalesCadence'
+import { advanceBookstoreRestockDeliveries } from './bookstoreRestock'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -120,5 +121,6 @@ function advanceGameStateCore(state: GameState, elapsedMs: number, credentialAcc
   for (const remainder of firmwareAdvancement.recoveryRemainders) {
     nextState = advanceDeviceConnectivityRecoveryForDevice(nextState, remainder.deviceId, remainder.elapsedMs)
   }
-  return advanceTechnicianReaction(nextState, elapsedMs)
+  nextState = advanceTechnicianReaction(nextState, elapsedMs)
+  return advanceBookstoreRestockDeliveries(nextState, elapsedMs)
 }

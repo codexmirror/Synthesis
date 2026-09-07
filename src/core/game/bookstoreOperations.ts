@@ -137,3 +137,16 @@ export function decrementBookstoreStock(state: GameState, branchId: string, line
     },
   }
 }
+
+/** Apply one already-validated delivered restock to the owning operations record. */
+export function incrementBookstoreStock(state: GameState, branchId: string, lines: readonly { readonly merchandiseId: string; readonly quantity: number }[]): GameState {
+  const increments = new Map(lines.map((line) => [line.merchandiseId, line.quantity]))
+  return {
+    ...state,
+    bookstoreOperations: {
+      records: state.bookstoreOperations.records.map((record) => record.branchId === branchId
+        ? { ...record, stock: record.stock.map((entry) => increments.has(entry.merchandiseId) ? { ...entry, quantity: entry.quantity + increments.get(entry.merchandiseId)! } : entry) }
+        : record),
+    },
+  }
+}

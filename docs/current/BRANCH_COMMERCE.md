@@ -13,12 +13,13 @@ the Branch becomes due.
 
 ## Generic Company / Branch / Network structural truth
 
-V1 represents one persistent Company World Entity, `Bookstore`, and one
-concrete Business Branch it owns, `Bookstore Branch 01`
-(`GameState.business`, `src/core/game/business.ts`). Both have their own
+V1 represents two persistent Company World Entities: `Bookstore` and the
+ordinary Company `Atlas Distribution` (`company-atlas-distribution-01`). The
+Bookstore owns one concrete Business Branch, `Bookstore Branch 01`
+(`GameState.business`, `src/core/game/business.ts`). Each has its own
 stable identity, independent from each other and from any LocalNetwork,
 Device, Firmware, InstalledSoftware, Civic Dollar Account, and the Player. The
-Company has no represented owner, employees, hierarchy, or valuation; the
+Companies have no represented owner, employees, hierarchy, or valuation; the
 future ability to acquire a Company is accepted direction (`docs/FUTURE.md`),
 not implemented truth. Neither the Company nor the Branch is a generic
 Organization/Entity framework: `GameState.business` is a narrow
@@ -28,8 +29,9 @@ domain.
 The Business domain additionally owns one narrow Company-linked role:
 `CompanyTreasuryDesignation` stores only `{ companyId, accountId }`, stable
 identity references stating which existing Civic Dollar Account the Company
-currently uses as its treasury. The initial state designates
-`company-bookstore-01 -> dollar-account-bookstore-treasury-v0`.
+currently uses as its treasury. The initial state designates both
+`company-bookstore-01 -> dollar-account-bookstore-treasury-v0` and
+`company-atlas-distribution-01 -> dollar-account-atlas-distribution-treasury-v0`.
 `resolveCompanyTreasuryAccount` requires exactly one designation for an
 existing Company and exactly one matching current Civic Dollar Account; a
 missing, dangling, or ambiguous relationship resolves unavailable, with no
@@ -84,8 +86,10 @@ an already-created Transaction.
 The Branch → Network relationship is explicit Business-owned World Truth, not
 derived from any Device's Network membership and not stored on `LocalNetwork`
 itself. A Network may have zero, one, or multiple associated Branches, and a
-Company may own multiple Branches; V1 seeds exactly one Company and one
-Branch, but the domain shape does not assume a single result. There is no
+Company may own multiple Branches; V1 seeds two Companies and one Branch, but
+the domain shape does not assume a single result. Atlas has no fabricated
+Branch, Network, Device, warehouse, employee, or server: its represented
+Bookstore offers are sufficient truth that it currently acts as a supplier. There is no
 `operationsDeviceId` relationship, and no InstalledSoftware requirement gates
 whether the Branch exists or where its business context lives — BranchOps 1.0
 and its Device-bound resolver are retired (`docs/current/NETWORK_ACCESS.md`,
@@ -528,6 +532,46 @@ This is one explicit domain transition, not a cadence: nothing here decides
 demand, and calling it twice is two independent explicit attempts. Sales
 Cadence (below) decides when this operation is attempted; this remains the
 sole definition of what one attempt means.
+
+### Bookstore supply and restock
+
+`GameState.bookstoreRestock` is the narrow Bookstore-specific owner of current
+supply offers and placed restock orders, not a generic supplier, procurement,
+product, inventory, or order framework. A Company acts as a supplier because a
+current offer names it as seller; supplier inventory, production, warehouses,
+and logistics infrastructure are unrepresented. Atlas currently authors
+exactly `Compact Shelf Refill` (two of each of the eight stable merchandise
+identities, 16 units, 14,000 cents, 30 represented minutes) and `Standard
+Shelf Refill` (five each, 40 units, 34,000 cents, 60 represented minutes).
+Bundle prices are exact authored commercial truth, never derived from retail
+prices.
+
+`placeBookstoreRestockOrder` owns offer and Branch validation, derives current
+stock plus all in-transit units for shelf-capacity admission, and captures the
+seller/offer/merchandise display meaning and quantities of the purchase. Only
+after complete preflight does it ask `settleValidatedCompanyPurchase` to
+resolve buyer and seller through their current Treasury designations and
+execute exactly one canonical Civic Dollar movement for the offer total. That
+narrow settlement boundary owns no product, offer, order, delivery, stock, or
+amount choice. Treasury designation itself grants no spending authority: the
+validated represented Bookstore action is the cause. Restock funding follows
+Company Treasury independently of Branch sale settlement, and Atlas receives
+the exact real payment in its ordinary Treasury Account.
+
+Successful settlement creates one in-transit historical order referencing the
+Provider-owned Transaction; the order does not duplicate its paid amount.
+Current offers or names cannot rewrite captured order lines. Incoming units
+are derived from in-transit orders, remain separate from current sellable
+Operations stock, and reserve shelf capacity. Canonical advancement counts
+each order down and applies its captured quantities to Operations exactly once
+on `IN_TRANSIT -> DELIVERED`. Sales cadence segments that same advancement
+chronologically, so only delivered ordinary stock can be sold.
+
+RACK-OS BUSINESS remains read-only. It may show derived incoming-unit and
+in-transit-order counts, but exposes neither live Treasury balance nor
+restock/payment controls: Treasury account-reference observation grants no
+finance authority. VEYRA Business management and its future administration
+authority remain deferred.
 
 ### Sales cadence and demand
 

@@ -15,10 +15,11 @@ import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
 import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
 import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence'
+import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 78
+export const GAME_STATE_VERSION = 79
 
 export function createInitialGameState(): GameState {
   return {
@@ -68,6 +69,8 @@ export function createInitialGameState(): GameState {
         { id: 'dollar-account-veyra-phone-v0', accountReference: 'CD-3318-2204', balanceCents: 34_250 },
         // An ordinary Civic Dollar Account designated independently by Business as Company Treasury and by Bookstore Commerce as current settlement. It has no Credential, Financial Session, saved sign-in, Device, or Player relationship.
         { id: 'dollar-account-bookstore-treasury-v0', accountReference: 'CD-4827-6109', balanceCents: 0 },
+        // Atlas Distribution's ordinary Company Treasury. It has no Credential, Session, saved sign-in, Device, or Player relationship.
+        { id: 'dollar-account-atlas-distribution-treasury-v0', accountReference: 'CD-5721-6408', balanceCents: 0 },
         // The neutral finite aggregate Civic Dollar payment source for retail customers who are not individually simulated (see docs/current/BRANCH_COMMERCE.md). It has no Credential, Financial Session, Device, or represented Customer identity, and it is never automatically replenished. The authored historical sale below is its initial represented movement, not the only reason it exists.
         { id: 'dollar-account-retail-clearing-v0', accountReference: 'CD-9000-2000', balanceCents: 80_000 },
       ],
@@ -93,6 +96,7 @@ export function createInitialGameState(): GameState {
     business: createInitialBusinessState(),
     bookstoreCommerce: createInitialBookstoreCommerceState(),
     bookstoreOperations: createInitialBookstoreOperationsState(),
+    bookstoreRestock: createInitialBookstoreRestockState(),
     bookstoreBackend: createInitialBookstoreBackendState(),
     bookstoreSalesCadence: createInitialBookstoreSalesCadenceState(),
     nodeWallet: {

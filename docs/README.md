@@ -280,6 +280,10 @@ backend.
   `src/core/game/bookstoreCommerce.ts` (the one concrete branch-linked
   bookstore-commerce record), `src/core/game/bookstoreOperations.ts` (the
   separate concrete branch-linked bookstore-operations record),
+  `src/core/game/bookstoreRestock.ts` (Bookstore-specific offers, orders,
+  capacity admission, and delivery consequence),
+  `src/core/game/businessPurchaseSettlement.ts` (current Company Treasury
+  resolution plus exact validated Company-purchase Dollar movement),
   `src/core/game/bookstoreBackend.ts` (the separate concrete branch-linked
   backend reference and its availability derivation),
   `src/core/game/bookstoreSale.ts` (the one canonical explicit Bookstore sale
@@ -289,7 +293,8 @@ backend.
   `src/core/game/gameAdvancement.ts`), `src/apps/rackos/`
 - TESTS → `src/core/game/business.test.ts`, `src/core/game/bookstoreCommerce.test.ts`,
   `src/core/game/bookstoreOperations.test.ts`, `src/core/game/bookstoreBackend.test.ts`,
-  `src/core/game/bookstoreSale.test.ts`, `src/core/game/bookstoreSalesCadence.test.ts`,
+  `src/core/game/bookstoreSale.test.ts`, `src/core/game/bookstoreRestock.test.ts`,
+  `src/core/game/bookstoreSalesCadence.test.ts`,
   `src/apps/rackos/RackOS.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
