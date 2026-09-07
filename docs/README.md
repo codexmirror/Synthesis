@@ -256,11 +256,13 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 ### Branch commerce
 
 Concrete Company and Business Branch identity, the Branch's explicit Network
-relationship, completed-sale meaning, settlement configuration, the separate
-concrete bookstore-operations record (OPEN/CLOSED, current inventory, shelf
-capacity, checkout capacity), and the separate concrete bookstore-backend
-record referencing the real represented Device/Service that technically
-implements a Branch's backend.
+relationship, the represented Bookstore merchandise catalog, completed-sale
+meaning (including each sale's captured purchase-line history), settlement
+configuration, the separate concrete bookstore-operations record (OPEN/CLOSED,
+item-level stock, shelf capacity, checkout capacity), provisional purchase
+composition, and the separate concrete bookstore-backend record referencing
+the real represented Device/Service that technically implements a Branch's
+backend.
 
 - CURRENT TRUTH → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - ARCHITECTURE → A01–A04 in

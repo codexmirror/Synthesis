@@ -74,37 +74,75 @@ it grants no `NetworkManagementAuthority`, `DeviceAccess`, Discovery, or
 Knowledge: it reads only Network membership (World Truth) and the Branch's own
 explicit `networkId` reference (Business-owned World Truth).
 
+## Represented commerce, not randomized revenue
+
+**Revenue is a consequence of represented commerce, not a primitive that is
+randomized.** A successful Bookstore sale amount is always explainable by
+concrete World Truth — the represented merchandise actually purchased, at
+its represented unit price — never by a directly configured, generated, or
+randomly banded monetary outcome. The full causal chain a successful sale
+must always be explainable by is:
+
+```text
+represented merchandise + represented stock
+  -> provisional purchase composition (randomness chooses this)
+  -> deterministic basket total (Σ quantity × current unitPriceCents)
+  -> real Civic Dollar Transaction for exactly that total
+  -> exact per-merchandise stock decrement
+  -> immutable CompletedSale explanation
+```
+
+Randomness (`bookstorePurchaseRandom`, below) may choose which represented
+merchandise ends up in a basket and how many units; it never chooses an
+amount in cents, a monetary band, or any other direct revenue primitive.
+
 ## The current concrete bookstore-commerce record
 
-The one currently represented commerce mechanic — a bookstore's settlement
-configuration and sale history — is owned by a separate, narrow, branch-linked
-record rather than being embedded on generic Branch identity:
-`GameState.bookstoreCommerce` (`src/core/game/bookstoreCommerce.ts`):
+The one currently represented commerce mechanic — a bookstore's represented
+merchandise catalog, settlement configuration, and sale history — is owned by
+a separate, narrow, branch-linked record rather than being embedded on
+generic Branch identity: `GameState.bookstoreCommerce`
+(`src/core/game/bookstoreCommerce.ts`):
 
 ```text
 BookstoreBranchCommerceRecord
 ├── branchId              — the Business Branch this record belongs to, by stable ID
 ├── settlementAccountId   — mutable current settlement-destination configuration
-├── unitPriceCents        — mutable current canonical sale price, in integer cents
-└── completedSales        — completed book_sale history
+├── merchandise           — the current represented merchandise catalog
+└── completedSales        — completed book_sale history, each with its own captured purchase lines
+
+BookstoreMerchandiseRecord
+├── id             — stable merchandise identity
+├── name           — current human-readable name
+└── unitPriceCents — current canonical unit price, in integer cents
 ```
 
-`unitPriceCents` is Bookstore Commerce's own current sale/settlement
-configuration, exactly like `settlementAccountId`: V1 has no product
-catalogue, SKU, category, basket size, discount, tax, fee, or dynamic
-pricing, so this is the one price a sale moves. The seeded Branch configures
-`unitPriceCents = 2000` (`BOOKSTORE_BRANCH_UNIT_PRICE_CENTS`). It happens to
-equal the historical authored sale amount below, but the two truths remain
-independent — sale execution always reads this current configuration, never
-a historical Transaction or CompletedSale. `BookstoreCommerceState` also
+`merchandise` is Bookstore Commerce's own current catalog configuration,
+exactly like `settlementAccountId`: a small concrete fixture, not a generic
+Product/SKU/catalogue framework. Each entry carries only stable identity, a
+current name, and a current unit price — no ISBN, author, genre, publisher,
+tax, cost basis, supplier, margin, popularity, quality tier, or dynamic
+pricing. V1 seeds exactly eight authored titles
+(`BOOKSTORE_MERCHANDISE_CATALOG`), `bookstore-merch-001` through
+`bookstore-merch-008`, priced from $8.99 to $20.00: `Night Transit` ($8.99),
+`Static Bloom` ($10.99), `Glass District` ($12.99), `The Quiet Archive`
+($13.99), `After the Relay` ($14.99), `Northbound` ($15.99), `A Map of Empty
+Rooms` ($17.99), and `Systems of Dust` ($20.00). These current values are read
+fresh, by stable merchandise ID, at the moment purchase composition selects
+that merchandise (below) — never inferred from a historical Transaction or
+CompletedSale, and a sale's actual amount is always the deterministic sum of
+whatever merchandise a purchase composition actually selected, never this
+catalog's price read as a standalone primitive. `BookstoreCommerceState` also
 carries its own monotonic `nextSaleId` allocator for runtime CompletedSale
 identity, following the existing Transaction/Session allocation pattern
 (`bookstore-sale-0002`, `-0003`, ...) — never derived from array length,
 time, or randomness.
 
-V1 seeds exactly one such record, keyed to `bookstore-branch-01`:
-`dollar-account-veyra-phone-v0` as current settlement configuration, and one
-completed `book_sale` referencing `dollar-transaction-0001`.
+V1 seeds exactly one such commerce record, keyed to `bookstore-branch-01`:
+the eight-title catalog above, `dollar-account-veyra-phone-v0` as current
+settlement configuration, and one completed historical `book_sale`
+referencing `dollar-transaction-0001` (its own captured purchase composition
+is described below, under "Historical versus current merchandise truth").
 `resolveBookstoreCommerceForBranch(state, branchId)` resolves this record for
 one Branch, joined against current Civic-Dollar-owned Account and Transaction
 truth, and returns `undefined` where a Branch has no such record at all — a
@@ -122,8 +160,8 @@ pattern rather than extending either existing record.
 
 A second, separate branch-linked record represents the currently implemented
 Bookstore *operations* mechanic — how a Bookstore Branch is configured to
-sell and whether it is presently open — owned by
-`GameState.bookstoreOperations` (`src/core/game/bookstoreOperations.ts`):
+sell, whether it is presently open, and its current item-level stock — owned
+by `GameState.bookstoreOperations` (`src/core/game/bookstoreOperations.ts`):
 
 ```text
 BookstoreBranchOperationsRecord
@@ -131,26 +169,41 @@ BookstoreBranchOperationsRecord
 ├── shelfCapacity      — configuration-like: maximum sellable inventory this Branch can shelve
 ├── checkoutCapacity   — configuration-like: represented physical checkout positions
 ├── open               — mutable runtime: OPEN or CLOSED
-└── currentInventory   — mutable runtime: current sellable inventory quantity
+└── stock              — mutable runtime: current per-merchandise stock quantities
+
+BookstoreMerchandiseStockRecord
+├── merchandiseId — the represented merchandise this quantity is for, by stable ID
+└── quantity      — current non-negative integer stock quantity
 ```
 
 `shelfCapacity` and `checkoutCapacity` are configuration-like — how this
-Branch is set up — while `open` and `currentInventory` are mutable runtime
-truth; the shape keeps the two distinguishable rather than blending them.
+Branch is set up — while `open` and `stock` are mutable runtime truth; the
+shape keeps the two distinguishable rather than blending them.
 `checkoutCapacity` represents only a count of physical/operational checkout
 positions: it carries no customer-throughput, sales-per-hour, demand, timing,
 or autonomous-sale meaning.
 
+`stock` is item-level canonical inventory truth, keyed by stable merchandise
+ID. There is no second mutable aggregate inventory total stored alongside
+it: any "current total stock" a caller needs — including RACK-OS BUSINESS's
+own STOCK line — is always derived fresh by summing `stock`
+(`deriveBookstoreTotalStock`), never stored redundantly, so the two can never
+drift apart. `findBookstoreStockQuantity` looks up one merchandise
+identity's current quantity, defaulting to `0` where none is represented.
+
 `createBookstoreBranchOperationsRecord` is the one sanctioned constructor for
-this record and enforces, at construction, that `currentInventory` can never
-be represented above `shelfCapacity`. V1 seeds exactly one such record for
-`bookstore-branch-01`: shelf capacity 480, checkout capacity 2, OPEN, and 360
-units of current inventory — conservative authored fixture values, not a
-generation range, minimum/maximum, or economic tier. A different Bookstore
-Branch varies purely through this same record's configuration/runtime values
-(different capacities, inventory, or OPEN/CLOSED) — never through
-branch-specific code, and never by branching on `bookstore-branch-01`'s
-literal ID or display name.
+this record and enforces, at construction, that every stock quantity is a
+non-negative integer, that no merchandise identity repeats within `stock`,
+and that the *sum* of every stock quantity can never be represented above
+`shelfCapacity`. V1 seeds exactly one such record for `bookstore-branch-01`:
+shelf capacity 480, checkout capacity 2, OPEN, and 45 units of each of the
+eight authored catalog entries — 8 × 45 = 360 total units, exactly the same
+initial total this Branch represented before item-level stock existed.
+These are conservative authored fixture values, not a generation range,
+minimum/maximum, or economic tier. A different Bookstore Branch varies
+purely through this same record's configuration/runtime values (different
+capacities, stock, or OPEN/CLOSED) — never through branch-specific code, and
+never by branching on `bookstore-branch-01`'s literal ID or display name.
 
 `resolveBookstoreOperationsForBranch(state, branchId)` resolves this record
 for one Branch and returns `undefined` where a Branch has no such record at
@@ -229,10 +282,13 @@ not implemented now and is not implied by this pattern repeating.
 
 ## Sale and finance ownership
 
-The completed sale owns the business meaning "book sale," while Civic Dollar
-exclusively owns the corresponding cents movement. Neither the Branch nor its
-commerce record keeps a balance or shadow ledger; the record's Account and
-Transaction IDs are stable references into Provider-owned finance truth.
+The completed sale owns the business meaning "book sale" — including the
+immutable historical purchase-line truth that explains it — while Civic
+Dollar exclusively owns the corresponding cents movement. Neither the Branch
+nor its commerce record keeps a balance or shadow ledger; the record's
+Account and Transaction IDs are stable references into Provider-owned
+finance truth, and a CompletedSale never separately duplicates the total its
+referenced Transaction already carries.
 
 The authored historical Transaction moves 2,000 cents from the neutral
 retail-clearing Account (`CD-9000-2000`) to the Account initially configured
@@ -249,35 +305,130 @@ seeded Branch's initial `displayName`/`location` — `Bookstore Branch 01`,
 current Business state, so the initial represented Wallet/business history
 stays coherent with every later runtime sale's own snapshot.
 
+### Historical versus current merchandise truth
+
+Every `BusinessBranchSale` carries its own immutable `lines`: for each
+purchased merchandise identity, that stable ID plus a *captured* snapshot of
+its name and unit price at the exact moment the sale completed —
+`BusinessBranchSaleLine`. This is deliberately not a live reference to
+current catalog state: renaming or repricing a `BookstoreMerchandiseRecord`
+afterwards, or removing it from the catalog entirely, never rewrites or
+invalidates an already-completed sale's captured lines. The invariant this
+record always satisfies is:
+
+```text
+Σ(historicalLine.quantity × historicalLine.capturedUnitPriceCents)
+  = referenced DollarTransaction.amountCents
+```
+
+The authored historical sale (`bookstore-sale-0001` / `dollar-transaction-0001`,
+$20.00) predates represented purchase composition; it is reconciled with this
+model rather than re-priced, deleted, or reconstructed: its `lines` are
+authored directly as 1 × `bookstore-merch-008` captured as `Systems of Dust`
+at 2,000 cents, summing to exactly its existing $20.00 Transaction. The
+360-unit initial stock this Branch represents is authored current truth in
+its own right (above); it is not reconstructed or mutated to explain how
+stock reached that level before this history existed.
+
+### Provisional purchase composition
+
+When a due sale opportunity (`docs/current/BRANCH_COMMERCE.md`'s Sales
+Cadence section, below) reaches the point where a purchase can legitimately
+be attempted, sale execution composes exactly one *provisional* purchase — a
+basket of represented merchandise, not yet any form of persisted or
+historical World Truth — before deciding whether the sale actually
+completes. `composeBookstorePurchase` (`src/core/game/bookstoreSale.ts`)
+does this in two steps, both driven by a dedicated Bookstore-local random
+channel, `bookstorePurchaseRandom`:
+
+1. **Basket size.** One of 1, 2, or 3 units, drawn from the authored
+   `BOOKSTORE_PURCHASE_BASKET_SIZE_WEIGHTS` mix — weights 70/25/5 — restricted
+   to sizes actually feasible given current total available stock (a basket
+   is never sized larger than represented stock on hand: at 1 unit of total
+   stock only size 1 is feasible; at 2, only sizes 1–2). Exactly one random
+   sample is drawn for this regardless of how many sizes are feasible, so the
+   number of purchase-random draws a basket consumes never varies with
+   current stock levels. This mix is a concrete, Bookstore-local
+   approximation of currently unsimulated purchasing behavior — not a generic
+   Customer rule, a Customer class, or a represented preference model, and it
+   is never generalized beyond this one mechanic.
+2. **Merchandise selection**, once per unit in the basket. Each draw selects
+   uniformly at random among whichever merchandise identities still have
+   positive *provisional* remaining stock at that point in the basket's own
+   construction, so one basket can never provisionally select more units of
+   one merchandise than currently exist; an identity that reaches zero
+   provisional remaining stock mid-basket is no longer selectable for the
+   rest of that basket. This is a simple neutral selection — never a
+   Customer preference, bestseller weight, popularity score, or marketing
+   affinity. Repeated selections of the same merchandise aggregate into one
+   resulting basket line with `quantity > 1`.
+
+`bookstorePurchaseRandom` may choose composition — basket size and which
+currently available merchandise is selected — and never chooses an amount in
+cents, a LOW/STANDARD/HIGH band, a percentage markup, or any other direct
+monetary outcome. The basket's deterministic total,
+`deriveBookstoreBasketTotalCents` — exact integer
+`Σ(quantity × current unitPriceCents)` — is the only value ever supplied to
+the generic Civic Dollar movement primitive; no random adjustment ever
+follows it.
+
+`bookstorePurchaseRandom` is a third semantically independent random channel,
+alongside `bookstoreDemandRandom` and `credentialAccessRandom`
+(`advanceGameState` in `src/core/game/gameAdvancement.ts`): none of the three
+shares or advances another's sequence merely because more than one occurs
+within the same call, and each defaults independently to `Math.random` in
+production. `advanceBookstoreSalesCadence` threads it straight through to
+`executeBookstoreSale` for that one due opportunity's own attempt — never
+sampled on an ordinary tick that leaves no opportunity due.
+
+A provisional basket is not itself canonical World Truth: it is local
+transition data inside one `executeBookstoreSale` call, never persisted as a
+`PendingBasket`, `PurchaseAttempt`, or any other intermediate GameState
+before the sale actually succeeds. If a downstream condition (insufficient
+funds, an unrepresentable resulting balance) refuses the sale after this
+point, the composed basket is simply discarded — sale execution never
+re-rolls a cheaper or different basket to try to make a refused sale
+succeed; the originally composed basket was the one concrete attempted
+purchase.
+
 ### Sale execution
 
-`executeBookstoreSale(state, branchId)` (`src/core/game/bookstoreSale.ts`) is
-the one canonical explicit state transition that turns current Business
-Branch, Bookstore Operations, Bookstore Commerce, Bookstore Backend and Civic
-Dollar truth into one completed sale. It accepts only the Branch's stable
-ID — never a price, an Account, a Device, a Service, or a capacity — and
-resolves every other fact fresh from canonical state. One sale means exactly
-one inventory unit, exactly one Civic Dollar Transaction moving exactly the
-current `unitPriceCents` from Retail Clearing to the current settlement
-Account, and exactly one appended CompletedSale referencing that Transaction
-by stable ID.
+`executeBookstoreSale(state, branchId, bookstorePurchaseRandom?)`
+(`src/core/game/bookstoreSale.ts`) is the one canonical explicit state
+transition that turns current Business Branch, Bookstore Operations,
+Bookstore Commerce, Bookstore Backend and Civic Dollar truth into one
+completed sale. It accepts only the Branch's stable ID and the optional
+purchase-random channel — never a price, a basket, an Account, a Device, a
+Service, or a capacity — and resolves every other fact fresh from canonical
+state. One sale means exact stock decrements for every purchased merchandise
+line, exactly one Civic Dollar Transaction moving exactly the composed
+basket's deterministic total from Retail Clearing to the current settlement
+Account, and exactly one appended CompletedSale (carrying its own captured
+purchase lines) referencing that Transaction by stable ID.
 
-A sale completes only when all of the following resolve at execution time:
-the Branch exists in canonical Business state; Bookstore Operations exists
-for it, is `open`, and has `currentInventory > 0` and `checkoutCapacity > 0`;
-Bookstore Commerce exists for it with a positive safe-integer
-`unitPriceCents` and a settlement Account that resolves; Bookstore Backend
-exists for it and its Device/Service resolve as currently available through
-the existing backend resolver; `dollar-account-retail-clearing-v0` resolves,
-is distinct from the settlement Account, and holds sufficient funds; and the
-resulting balances stay exactly representable. Every one of these is
-preflighted before anything is committed, so a failed attempt always returns
-the original pre-attempt `GameState` unchanged — there is no partially
-applied sale, no inventory decrement without its Transaction, and no
-Transaction without a CompletedSale. Backend unavailability (from either the
-Device's operational truth or a closed Service) refuses the sale the same
-way a CLOSED store or empty shelf does, without mutating Business,
-Operations, Commerce, or Civic Dollar state.
+Every prerequisite that makes a sale impossible independently of what gets
+purchased is preflighted, and conclusively refusing on any of them consumes
+no `bookstorePurchaseRandom` at all: the Branch exists in canonical Business
+state; Bookstore Operations exists for it, is `open`, has positive total
+stock (`deriveBookstoreTotalStock > 0`) and `checkoutCapacity > 0`; Bookstore
+Commerce exists for it with a structurally sufficient merchandise catalog
+(at least one entry, every entry a positive safe-integer price) and a
+settlement Account that resolves; Bookstore Backend exists for it and its
+Device/Service resolve as currently available through the existing backend
+resolver; and `dollar-account-retail-clearing-v0` resolves and is distinct
+from the settlement Account. Only once every one of these resolves does sale
+execution compose exactly one provisional purchase (above) — the one point
+purchase randomness is consumed. That basket's deterministic total is then
+the only further reason a sale might still refuse: insufficient Retail
+Clearing funds, or a resulting balance that could not stay exactly
+representable. Every one of these is checked before anything is committed,
+so a failed attempt always returns the original pre-attempt `GameState`
+unchanged — there is no partially applied sale, no persisted provisional
+basket, no stock decrement without its Transaction, and no Transaction
+without a CompletedSale. Backend unavailability (from either the Device's
+operational truth or a closed Service) refuses the sale the same way a
+CLOSED store or an empty shelf does, without mutating Business, Operations,
+Commerce, or Civic Dollar state.
 
 On success, `executeBookstoreSale` supplies the Civic Dollar movement
 (`executeCivicDollarMovement` in `docs/current/DOLLAR_FINANCE.md`) with a
@@ -403,10 +554,12 @@ chronologically partitions the given `elapsedMs` at each Branch's own
 opportunity boundary: it advances the remainder of canonical state
 (`advanceGameStateCore`, the same composition `advanceGameState` used before
 this mechanic existed) up to exactly the next due instant, calls the existing
-canonical `executeBookstoreSale(state, branchId)` exactly once for that
-Branch, draws exactly one `bookstoreDemandRandom` sample to schedule the next
-interval from the Branch's *current* effective opportunity rate, and only
-then continues with whatever elapsed time is left — so a due opportunity
+canonical `executeBookstoreSale(state, branchId, bookstorePurchaseRandom)`
+exactly once for that Branch — which itself draws from `bookstorePurchaseRandom`
+only if it reaches provisional purchase composition (above) — draws exactly
+one `bookstoreDemandRandom` sample to schedule the next interval from the
+Branch's *current* effective opportunity rate, and only then continues with
+whatever elapsed time is left — so a due opportunity
 always observes the World/Business truth that exists at its own due time,
 never truth from the start or the end of a larger `elapsedMs` alone, and a
 large elapsed step correctly contains multiple chronological opportunities
@@ -464,18 +617,28 @@ Company. Where one or more Branches resolve, BUSINESS presents each Branch's
 Company identity, Branch identity, current `location` (where represented),
 and associated Network unconditionally, and additionally presents:
 
-- OPEN/CLOSED, current inventory relative to shelf capacity, and checkout
-  capacity, only where that Branch has a represented operations record;
+- OPEN/CLOSED, current total stock (derived fresh from that Branch's
+  operations record via `deriveBookstoreTotalStock` — never a stored
+  aggregate) relative to shelf capacity, and checkout capacity, only where
+  that Branch has a represented operations record;
 - `DEMAND OPPORTUNITIES` (opportunities/hour) and `ATTRACTIVENESS`, derived
   fresh from that Branch's sales-cadence record via the existing
   `deriveEffectiveBookstoreOpportunityRatePerHour`, only where that Branch has
   a represented sales-cadence record. Worded as opportunities rather than
-  guaranteed sales, because OPEN/CLOSED, inventory, checkout, backend,
+  guaranteed sales, because OPEN/CLOSED, stock, checkout, backend,
   settlement, and finance truth can still refuse any given opportunity.
   `remainingUntilOpportunityMs` is internal simulation timing, not
   player-facing Business information, and is never presented;
 - current settlement Account reference and completed sale history, only
-  where that Branch has a represented commerce record; and
+  where that Branch has a represented commerce record. Each recent sale is
+  presented through its own captured purchase lines — name, quantity, and
+  captured unit price — and its real Transaction total, never a generic
+  "book sale" label and never a LOW/STANDARD/HIGH classification;
+- a compact current merchandise catalog — name, current unit price, and
+  (where that Branch also has a represented operations record) current
+  stock, looked up by stable merchandise ID via `findBookstoreStockQuantity`
+  — only where that Branch has a represented commerce record with at least
+  one merchandise entry; and
 - the backend Service's own name/version and its derived ONLINE/OFFLINE
   availability, only where that Branch has a represented backend record.
 
