@@ -15,6 +15,7 @@ import {
   executeBookstoreSale,
   selectBookstoreBasketSize,
   selectBookstoreMerchandiseId,
+  selectDemandWeightedBookstoreMerchandiseId,
 } from './bookstoreSale'
 import type { GameState } from './types'
 
@@ -43,15 +44,40 @@ function cyclicRandom(values: readonly number[]): () => number {
 /**
  * With the seeded catalog's 8 equally-available merchandise identities and
  * the default 70/25/5 basket-size mix, `sizeU = 0.1` always selects basket
- * size 1 (0.1 < 0.70) and `itemU = 0.9` always selects the catalog's last
+ * size 1 (0.1 < 0.70) and `itemU = 0.95` selects the catalog's last
  * entry, `bookstore-merch-008` ("Systems of Dust", $20.00) — reproducing
  * exactly the pre-existing fixed-$20/one-unit sale this Branch represented
  * before purchase composition existed. Tests that only care about sale
  * mechanics (not composition itself) use this to stay deterministic.
  */
-const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.9])
+const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.95])
 
 describe('executeBookstoreSale — success path', () => {
+  it('changes only the selected Book through Demand, then uses ordinary stock and exact-price settlement with the same two purchase draws', () => {
+    const initial = createInitialGameState()
+    const neutral: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookDemand: initial.bookstoreCommerce.bookDemand.map((record) => ({ ...record, weight: 1 })) } }
+    const weighted: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookDemand: initial.bookstoreCommerce.bookDemand.map((record) => ({ ...record, weight: record.bookId === 'bookstore-merch-001' ? 10 : 1 })) } }
+    const execute = (state: GameState) => {
+      const samples = [0.1, 0.2]
+      let draws = 0
+      const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
+      expect(draws).toBe(2)
+      expect(result.status).toBe('sold')
+      if (result.status !== 'sold') throw new Error('expected represented sale')
+      return result.state
+    }
+
+    const neutralResult = execute(neutral)
+    const weightedResult = execute(weighted)
+    expect(neutralResult.bookstoreCommerce.records[0].completedSales.at(-1)?.lines[0].merchandiseId).toBe('bookstore-merch-002')
+    expect(weightedResult.bookstoreCommerce.records[0].completedSales.at(-1)?.lines).toEqual([
+      { merchandiseId: 'bookstore-merch-001', capturedName: 'Night Transit', quantity: 1, capturedUnitPriceCents: 899 },
+    ])
+    expect(findBookstoreStockQuantity(operationsOf(weightedResult), 'bookstore-merch-001')).toBe(44)
+    expect(findBookstoreStockQuantity(operationsOf(weightedResult), 'bookstore-merch-002')).toBe(45)
+    expect(weightedResult.dollarFinance.transactions.records.at(-1)?.amountCents).toBe(899)
+  })
+
   it('consumes one stock unit, moves exactly its deterministic basket total, and appends exactly one Transaction and one CompletedSale', () => {
     const before = createInitialGameState()
     const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
@@ -189,6 +215,20 @@ describe('executeBookstoreSale — atomic failure paths', () => {
     const state: GameState = { ...initial, bookstoreOperations: { records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, checkoutCapacity: 0 } : record) } }
     const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'no_checkout_capacity', state })
+    expect(result.state).toBe(state)
+  })
+
+  it.each([
+    ['missing', (state: GameState) => state.bookstoreCommerce.bookDemand.filter(({ bookId }) => bookId !== 'bookstore-merch-001')],
+    ['duplicate', (state: GameState) => [...state.bookstoreCommerce.bookDemand, state.bookstoreCommerce.bookDemand[0]]],
+    ['zero', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-merch-001' ? { ...record, weight: 0 } : record)],
+    ['non-finite', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-merch-001' ? { ...record, weight: Number.POSITIVE_INFINITY } : record)],
+    ['overflowing aggregate', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => ({ ...record, weight: Number.MAX_VALUE }))],
+  ])('refuses %s Demand truth atomically before consuming purchase randomness', (_label, mutateDemand) => {
+    const initial = createInitialGameState()
+    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookDemand: mutateDemand(initial) } }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
+    expect(result).toEqual({ status: 'invalid_demand', state })
     expect(result.state).toBe(state)
   })
 
@@ -513,17 +553,34 @@ describe('Bookstore purchase composition — merchandise selection', () => {
   })
 })
 
+describe('Bookstore Demand-weighted merchandise selection', () => {
+  it('preserves uniform selection boundaries exactly when every weight is neutral', () => {
+    const ids = ['a', 'b', 'c', 'd']
+    const neutral = new Map(ids.map((id) => [id, 1]))
+    for (const sample of [0, 0.24, 0.25, 0.5, 0.99]) {
+      expect(selectDemandWeightedBookstoreMerchandiseId(ids, neutral, () => sample)).toBe(selectBookstoreMerchandiseId(ids, () => sample))
+    }
+  })
+
+  it('uses deterministic proportional boundaries without reordering candidates', () => {
+    const demand = new Map([['a', 1], ['b', 3]])
+    expect(selectDemandWeightedBookstoreMerchandiseId(['a', 'b'], demand, () => 0.249)).toBe('a')
+    expect(selectDemandWeightedBookstoreMerchandiseId(['a', 'b'], demand, () => 0.25)).toBe('b')
+  })
+})
+
 describe('composeBookstorePurchase', () => {
+  const demand = new Map(BOOKSTORE_MERCHANDISE_CATALOG.map(({ id }) => [id, 1]))
   const stockOf = (quantity: number) => BOOKSTORE_MERCHANDISE_CATALOG.map((item) => ({ merchandiseId: item.id, quantity }))
 
   it('composes a deterministic single-item basket', () => {
-    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), cyclicRandom([0.1, 0.9]))
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), demand, cyclicRandom([0.1, 0.9]))
     expect(lines).toEqual([{ merchandiseId: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents: 2_000, quantity: 1 }])
     expect(deriveBookstoreBasketTotalCents(lines)).toBe(2_000)
   })
 
   it('aggregates repeated selections of the same merchandise into one line with quantity > 1', () => {
-    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), cyclicRandom([0.99, 0.0, 0.0, 0.0]))
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), demand, cyclicRandom([0.99, 0.0, 0.0, 0.0]))
     expect(lines).toEqual([{ merchandiseId: 'bookstore-merch-001', name: 'Night Transit', unitPriceCents: 899, quantity: 3 }])
     expect(deriveBookstoreBasketTotalCents(lines)).toBe(3 * 899)
   })
@@ -534,14 +591,14 @@ describe('composeBookstorePurchase', () => {
     // draws must land on it regardless of the raw sample.
     const stock = BOOKSTORE_MERCHANDISE_CATALOG.map((item) => ({ merchandiseId: item.id, quantity: item.id === 'bookstore-merch-001' ? 2 : 0 }))
     // 0.8 selects basket size 2 at total available stock 2 (feasible sizes {1,2}, weights 70/25; threshold for size 1 is 70/95 ≈ 0.7368).
-    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stock, cyclicRandom([0.8, 0.99, 0.99]))
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stock, demand, cyclicRandom([0.8, 0.99, 0.99]))
     expect(lines).toEqual([{ merchandiseId: 'bookstore-merch-001', name: 'Night Transit', unitPriceCents: 899, quantity: 2 }])
   })
 
   it('the exact deterministic sum of a composed basket is what a $31.98 sale must be explainable by', () => {
     // bookstore-merch-001 ($8.99) + bookstore-merch-008 ($20.00) does not sum to $31.98, but this proves
     // the mechanism: any successful basket total is always exactly this sum, never a rounded or randomized figure.
-    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), cyclicRandom([0.75, 0.0, 0.99]))
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), demand, cyclicRandom([0.75, 0.0, 0.99]))
     const total = deriveBookstoreBasketTotalCents(lines)
     const recomputed = lines.reduce((sum, line) => sum + line.quantity * line.unitPriceCents, 0)
     expect(total).toBe(recomputed)
@@ -636,7 +693,7 @@ describe('Bookstore cross-owner stock/catalog integrity — sellable-stock inter
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
-        bookCatalog: [...initial.bookstoreCommerce.bookCatalog, { id: 'bookstore-merch-001', name: 'Night Transit (duplicate)', unitPriceCents: 501 }],
+        bookCatalog: [...initial.bookstoreCommerce.bookCatalog, { id: 'bookstore-merch-001', name: 'Night Transit (duplicate)', genre: 'THRILLER', unitPriceCents: 501 }],
       },
     }
     const forbiddenRandom = () => { throw new Error('must not sample bookstorePurchaseRandom') }

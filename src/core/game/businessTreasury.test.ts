@@ -13,8 +13,8 @@ const oneBook = () => {
 describe('Company Treasury designation', () => {
   it('seeds every Company-linked stable Account designation and resolves current Civic Dollar truth', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(81)
-    expect(state.version).toBe(81)
+    expect(GAME_STATE_VERSION).toBe(82)
+    expect(state.version).toBe(82)
     expect(state.business.treasuryDesignations).toEqual([
       { companyId: BOOKSTORE_COMPANY_ID, accountId: BOOKSTORE_TREASURY_ACCOUNT_ID },
       { companyId: ATLAS_DISTRIBUTION_COMPANY_ID, accountId: ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID },

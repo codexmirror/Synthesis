@@ -607,7 +607,7 @@ offer. Presentation causes no delivery, stock or settlement consequence of its
 own. Company selection, Branch selection and every other Company management
 action remain unimplemented.
 
-### Sales cadence and demand
+### Sale-opportunity cadence and Book Demand
 
 A fourth, separate branch-linked record represents the currently implemented
 Bookstore *sales cadence* mechanic — when a sale opportunity for a Bookstore
@@ -629,7 +629,7 @@ directly. `createBookstoreBranchSalesCadenceRecord` is the one sanctioned
 constructor and enforces, at construction, that all three fields are positive
 finite numbers.
 
-**Demand model.** Sale-opportunity timing is derived from a compact
+**Sale-opportunity cadence model.** Sale-opportunity timing is derived from a compact
 rate-driven demand model rather than authored as a fixed interval:
 
 ```text
@@ -742,6 +742,46 @@ integration point without magically rewriting already-scheduled time.
 This is a narrow concrete Bookstore record, not a generic Business
 scheduler, demand system, or universal recurrence framework — exactly like
 its three siblings above.
+
+### Current Book Demand
+
+Book Demand is separate from sale-opportunity cadence. Cadence answers *when*
+another purchase opportunity occurs; current Book Demand answers only *which*
+already-sellable Book is relatively more likely to enter that opportunity's
+provisional basket. The cadence-owned `bookstoreDemandRandom` remains solely a
+scheduling source. Basket size and per-unit composition remain owned by the
+existing `bookstorePurchaseRandom`, with exactly one size draw plus one draw
+per selected unit.
+
+Every global Catalog Book carries exactly one authored broad Bookstore Genre:
+`SCIENCE_FICTION`, `THRILLER`, `MYSTERY`, or `LITERARY_FICTION`. Genre describes
+what the Book is; it is canonical World Truth, but is neither a Demand target
+nor a player-facing label in the current implementation. Alongside the Catalog,
+`BookstoreCommerceState.bookDemand` owns exactly one global current relative
+purchase weight per stable Book identity. A weight of `1.0` is neutral; weights
+must be finite and strictly positive and have no monetary or percentage meaning.
+Genre and Demand are not Branch-local truth.
+
+Sale execution first establishes the unchanged sellable intersection: valid
+global Catalog identity, present in the Branch assortment, and positive physical
+Branch stock. Only then does it resolve Demand for those candidates. Missing,
+duplicate, non-positive, non-finite, or non-representable aggregate Demand fails
+closed before purchase randomness is consumed. For each provisional basket unit,
+the existing ordered positive-stock candidates are selected proportionally to
+their current weights and only provisional remaining stock is decremented. All
+neutral weights therefore preserve the former uniform selector's deterministic
+identity boundaries for the same candidate order and samples.
+
+Demand changes no eligibility, opportunity timing/count, basket-size mix, price,
+revenue, stock, assortment, Supplier Offer or delivery, Treasury balance, or
+conversion directly. Once a Book is selected, its current Catalog price flows
+through the ordinary exact Transaction, physical stock decrement, and immutable
+CompletedSale line. CompletedSale captures neither Genre nor Demand, so later
+changes cannot rewrite historical truth. Genre and current Demand remain hidden
+World Truth: no current Business, Inventory, Supplier, RACK-OS, Wallet, or other
+observation surface exposes them. Trends, Genre-targeted causes, modifier stacks,
+market research/Knowledge, Publisher, historical market analytics, and generic
+Demand frameworks remain unimplemented.
 
 ### Retail Clearing
 

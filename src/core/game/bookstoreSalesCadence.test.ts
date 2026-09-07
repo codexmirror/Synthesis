@@ -78,7 +78,7 @@ function cyclicPurchaseRandom(values: readonly number[]): () => number {
   }
 }
 
-const ONE_BOOK_PURCHASE_RANDOM = (): (() => number) => cyclicPurchaseRandom([0.1, 0.9])
+const ONE_BOOK_PURCHASE_RANDOM = (): (() => number) => cyclicPurchaseRandom([0.1, 0.95])
 
 /** A random source that fails the test immediately if ever called — proves a given advancement consumes no purchase randomness at all. */
 function forbiddenRandom(): () => number {

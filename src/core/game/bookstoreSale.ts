@@ -84,6 +84,37 @@ export function selectBookstoreMerchandiseId(availableIds: readonly string[], ra
   return availableIds[index]
 }
 
+/** Select proportionally from an already validated, ordered candidate list. Equal weights preserve the uniform selector's exact interval boundaries. */
+export function selectDemandWeightedBookstoreMerchandiseId(
+  availableIds: readonly string[],
+  demandByBookId: ReadonlyMap<string, number>,
+  random: () => number,
+): string {
+  const totalWeight = availableIds.reduce((sum, id) => sum + demandByBookId.get(id)!, 0)
+  const target = uniformSample(random) * totalWeight
+  let cumulative = 0
+  for (const id of availableIds) {
+    cumulative += demandByBookId.get(id)!
+    if (target < cumulative) return id
+  }
+  return availableIds[availableIds.length - 1]
+}
+
+/** Resolve exactly one positive finite current Demand weight for every sellable Book, with a representable positive total. */
+export function resolveValidBookstoreDemand(
+  sellableBookIds: readonly string[],
+  demand: GameState['bookstoreCommerce']['bookDemand'],
+): ReadonlyMap<string, number> | undefined {
+  const resolved = new Map<string, number>()
+  for (const bookId of sellableBookIds) {
+    const matches = demand.filter((record) => record.bookId === bookId)
+    if (matches.length !== 1 || !Number.isFinite(matches[0].weight) || matches[0].weight <= 0) return undefined
+    resolved.set(bookId, matches[0].weight)
+  }
+  const total = [...resolved.values()].reduce((sum, weight) => sum + weight, 0)
+  return Number.isFinite(total) && total > 0 ? resolved : undefined
+}
+
 /**
  * The current stock actually purchasable through one Branch's *current*
  * represented merchandise catalog, by merchandise ID: the intersection of
@@ -117,9 +148,9 @@ export function deriveSellableBookstoreTotalStock(
  * Compose one provisional Bookstore purchase: a basket item-count drawn from
  * the configured 70/25/5 mix (restricted to currently feasible sizes, using
  * currently *sellable* stock — above — never raw physical stock), then that
- * many individual unit selections, each drawn uniformly from whichever
- * currently sellable merchandise identities still have positive
- * *provisional* remaining stock at that point in the basket's own
+ * many individual unit selections, each drawn proportionally to current per-Book
+ * Demand from whichever currently sellable merchandise identities still have
+ * positive *provisional* remaining stock at that point in the basket's own
  * construction — so a single basket can never provisionally select more
  * units of one merchandise than currently exist, and orphan stock for
  * merchandise the current catalog no longer lists is never selectable at
@@ -141,6 +172,7 @@ export function deriveSellableBookstoreTotalStock(
 export function composeBookstorePurchase(
   merchandise: readonly BookstoreBookRecord[],
   stock: readonly { readonly merchandiseId: string; readonly quantity: number }[],
+  demandByBookId: ReadonlyMap<string, number>,
   random: () => number,
 ): readonly ComposedBookstorePurchaseLine[] {
   const remaining = new Map(deriveSellableBookstoreStockByMerchandise(merchandise, stock))
@@ -150,7 +182,7 @@ export function composeBookstorePurchase(
   const quantitiesById = new Map<string, number>()
   for (let unit = 0; unit < basketSize; unit += 1) {
     const availableIds = merchandise.filter((item) => (remaining.get(item.id) ?? 0) > 0).map((item) => item.id)
-    const selectedId = selectBookstoreMerchandiseId(availableIds, random)
+    const selectedId = selectDemandWeightedBookstoreMerchandiseId(availableIds, demandByBookId, random)
     remaining.set(selectedId, remaining.get(selectedId)! - 1)
     quantitiesById.set(selectedId, (quantitiesById.get(selectedId) ?? 0) + 1)
   }
@@ -176,6 +208,7 @@ export type ExecuteBookstoreSaleResult =
         | 'no_checkout_capacity'
         | 'commerce_not_found'
         | 'invalid_price'
+        | 'invalid_demand'
         | 'settlement_unavailable'
         | 'backend_unavailable'
         | 'retail_clearing_unavailable'
@@ -253,6 +286,9 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
   // used for shelf-capacity accounting and RACK-OS's STOCK presentation; it is deliberately not read here.
   const sellableTotalStock = deriveSellableBookstoreTotalStock(merchandise, operations.stock)
   if (sellableTotalStock <= 0) return { status: 'out_of_stock', state }
+  const sellableBookIds = merchandise.filter((item) => operations.stock.some((entry) => entry.merchandiseId === item.id && entry.quantity > 0)).map((item) => item.id)
+  const demandByBookId = resolveValidBookstoreDemand(sellableBookIds, state.bookstoreCommerce.bookDemand)
+  if (!demandByBookId) return { status: 'invalid_demand', state }
   if (operations.checkoutCapacity <= 0) return { status: 'no_checkout_capacity', state }
 
   const settlementAccount = state.dollarFinance.accounts.find(({ id }) => id === commerce.settlementAccountId)
@@ -268,7 +304,7 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
 
   // Every prerequisite independent of what gets purchased has now resolved. This is the one
   // point that consumes bookstorePurchaseRandom — a conclusive refusal above never reaches it.
-  const basket = composeBookstorePurchase(merchandise, operations.stock, bookstorePurchaseRandom)
+  const basket = composeBookstorePurchase(merchandise, operations.stock, demandByBookId, bookstorePurchaseRandom)
   const basketTotalCents = deriveBookstoreBasketTotalCents(basket)
   if (!Number.isSafeInteger(basketTotalCents) || basketTotalCents <= 0) return { status: 'invalid_price', state }
 
