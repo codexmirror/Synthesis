@@ -4,7 +4,7 @@ import { advanceFileTransfer, startMarketPackageDownload, startRemoteFileUpload 
 import { getFilesystemFile } from './filesystem'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation } from './remoteSession'
-import { createRattlerPayload, deployRattler, deriveRattlerPayloadPath, RATTLER_INSTALLED_EXECUTABLE_PATH, RATTLER_PROGRAM_ID, rattlerCandidateAt } from './rattler'
+import { advanceRattlerPinSearches, createRattlerPayload, deployRattler, deriveRattlerPayloadPath, RATTLER_INSTALLED_EXECUTABLE_PATH, RATTLER_PROGRAM_ID, rattlerCandidateAt } from './rattler'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { purchaseMarketOffer } from './market'
 import { RATTLER_1_0 } from './softwareReleaseContent'
@@ -91,6 +91,28 @@ describe('RATTLER 1.0', () => {
     if (active.status !== 'started') throw new Error(active.status)
     const removed = { ...active.state, world: { ...active.state.world, network: { ...active.state.world.network, hosts: active.state.world.network.hosts.map((host) => host.id === 'host-phone-001' ? { ...host, filesystem: { ...host.filesystem!, files: [] } } : host) } } }
     expect(advanceGameState(removed, 500).process.processes[0]).toMatchObject({ status: 'completed', attemptsCompleted: 0, result: { status: 'payload_interrupted' } })
+  })
+
+  it('is invariant at the exact exhaustion boundary when Bookstore cadence segments canonical advancement', () => {
+    const outside = deployRattler(deployedPhone('10000'))
+    if (outside.status !== 'started') throw new Error(outside.status)
+
+    const oneStep = advanceRattlerPinSearches(outside.state, 960_000)
+    // This deterministic demand sample creates non-integer Bookstore segment
+    // lengths whose accumulated IEEE-754 value is just below 960,000 ms.
+    const segmented = advanceGameState(outside.state, 960_000, () => 0.5, () => 0.536, () => 0.5)
+
+    expect(segmented.process.processes[0]).toMatchObject({
+      status: oneStep.process.processes[0].status,
+      attemptsCompleted: 10_000,
+      currentCandidate: '9999',
+      result: { status: 'search_exhausted' },
+    })
+
+    const insufficient = advanceRattlerPinSearches(outside.state, 959_999)
+    expect(insufficient.process.processes[0]).toMatchObject({
+      status: 'running', attemptsCompleted: 9_999, currentCandidate: '9998',
+    })
   })
   it('uses Market purchase and elapsed download to create the exact ordinary package', () => {
     const base = createInitialGameState()
