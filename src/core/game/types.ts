@@ -903,7 +903,11 @@ export interface BookstoreOperationsState {
   readonly records: readonly BookstoreBranchOperationsRecord[]
 }
 
-/** One current Atlas-authored Bookstore supply offer. Product and fulfillment meaning stay Bookstore-specific. */
+/**
+ * One current represented Bookstore supply offer. Its `sellerCompanyId` names
+ * the ordinary Company selling the represented bundle; this remains concrete
+ * Bookstore supply truth, not a generic CompanyOffer or Supplier framework.
+ */
 export interface BookstoreSupplyOffer {
   readonly id: string
   readonly displayName: string

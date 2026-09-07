@@ -59,7 +59,7 @@ export interface VeyraBusinessOfferView {
   readonly totalUnits: number
   readonly totalPriceCents: number
   readonly deliveryDurationMs: number
-  /** The bundle's own lines, named from the Branch's current merchandise catalog. */
+  /** The bundle's own lines, named from the global Bookstore Book Catalog. */
   readonly lines: readonly { readonly merchandiseId: string; readonly name: string; readonly quantity: number }[]
 }
 
