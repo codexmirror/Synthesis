@@ -18,7 +18,7 @@ import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 77
+export const GAME_STATE_VERSION = 78
 
 export function createInitialGameState(): GameState {
   return {
@@ -66,6 +66,8 @@ export function createInitialGameState(): GameState {
         { id: 'dollar-account-local-v0', accountReference: 'CD-1042-7781', balanceCents: 125_000 },
         // The Account the represented VEYRA phone is signed in to. It is an ordinary Civic Dollar Account like the player's, owned by the Provider rather than by VEYRA or by that Device.
         { id: 'dollar-account-veyra-phone-v0', accountReference: 'CD-3318-2204', balanceCents: 34_250 },
+        // An ordinary Civic Dollar Account designated independently by Business as Company Treasury and by Bookstore Commerce as current settlement. It has no Credential, Financial Session, saved sign-in, Device, or Player relationship.
+        { id: 'dollar-account-bookstore-treasury-v0', accountReference: 'CD-4827-6109', balanceCents: 0 },
         // The neutral finite aggregate Civic Dollar payment source for retail customers who are not individually simulated (see docs/current/BRANCH_COMMERCE.md). It has no Credential, Financial Session, Device, or represented Customer identity, and it is never automatically replenished. The authored historical sale below is its initial represented movement, not the only reason it exists.
         { id: 'dollar-account-retail-clearing-v0', accountReference: 'CD-9000-2000', balanceCents: 80_000 },
       ],

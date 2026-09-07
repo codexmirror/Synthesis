@@ -738,6 +738,18 @@ export interface CompanyState {
 }
 
 /**
+ * Business-owned designation of the existing Civic Dollar Account a Company
+ * currently uses as its treasury. This stores stable identities only: Account
+ * identity, reference, balance, Transactions, Credentials and Sessions remain
+ * exclusively in `DollarFinanceState`, and this relationship grants no
+ * financial authority.
+ */
+export interface CompanyTreasuryDesignation {
+  readonly companyId: string
+  readonly accountId: string
+}
+
+/**
  * A concrete Business Branch belonging to one Company by stable identity. Its
  * technical-site relationship is an explicit reference to the LocalNetwork it
  * operates through — never derived from Device/Network membership, and never
@@ -769,10 +781,12 @@ export interface BusinessBranchState {
   readonly networkId: string
 }
 
-/** Canonical Business-domain World Truth: represented Companies and the Business Branches they own. Structural identity only — see `BusinessBranchState`. */
+/** Canonical Business-domain World Truth: structural Company/Branch identity plus narrow Company Treasury designations. */
 export interface BusinessState {
   readonly companies: readonly CompanyState[]
   readonly branches: readonly BusinessBranchState[]
+  /** Company-linked roles only; never Account ownership or duplicated finance truth. */
+  readonly treasuryDesignations: readonly CompanyTreasuryDesignation[]
 }
 
 /**

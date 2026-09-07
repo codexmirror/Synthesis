@@ -255,8 +255,8 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 
 ### Branch commerce
 
-Concrete Company and Business Branch identity, the Branch's explicit Network
-relationship, the represented Bookstore merchandise catalog, completed-sale
+Concrete Company and Business Branch identity, Company Treasury designation,
+the Branch's explicit Network relationship, the represented Bookstore merchandise catalog, completed-sale
 meaning (including each sale's captured purchase-line history), settlement
 configuration, the separate concrete bookstore-operations record (OPEN/CLOSED,
 item-level stock, shelf capacity, checkout capacity), provisional purchase
@@ -275,7 +275,8 @@ backend.
   [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md),
   [`current/DEVICE_SYSTEM.md`](current/DEVICE_SYSTEM.md) (the real srv-02
   Device/Service the bookstore-backend record references)
-- CODE → `src/core/game/business.ts` (generic Company/Branch/Network structure),
+- CODE → `src/core/game/business.ts` (generic Company/Branch/Network structure
+  and the narrow Company Treasury designation/resolver),
   `src/core/game/bookstoreCommerce.ts` (the one concrete branch-linked
   bookstore-commerce record), `src/core/game/bookstoreOperations.ts` (the
   separate concrete branch-linked bookstore-operations record),
