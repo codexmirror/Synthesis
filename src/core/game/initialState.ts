@@ -16,6 +16,7 @@ import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
 import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
+import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
 export const GAME_STATE_VERSION = 77
 
@@ -130,7 +131,7 @@ export function createInitialGameState(): GameState {
           // External connectivity capacity, deliberately well above every member Device's own endpoint capacity so it is never the bottleneck for the currently authored same-Network home-net route.
           { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
           // srv-02's and the phone's shared external uplink/downlink; deliberately the cross-Network route node-01 actually exercises.
-          { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+          { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
         ],
         hosts: [
           {
@@ -182,6 +183,27 @@ export function createInitialGameState(): GameState {
               { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP', open: true, implementation: { productId: 'rack-update', releaseId: 'rack-update-1.0', buildId: RACK_UPDATE_1_0_BUILD_ID, name: 'RackUpdate', version: '1.0' } },
               // The concrete Bookstore Branch 01 backend's real technical presence on this Device: an ordinary open Service like the two above, with no credential-based access and no derived vulnerability.
               { id: BOOKSTORE_BACKEND_SERVICE_ID, name: 'Bookstore Backend', port: 8090, protocol: 'TCP', open: true, implementation: BOOKSTORE_BACKEND_IMPLEMENTATION },
+            ],
+            authenticationHistory: { nextId: 1, records: [] },
+          },
+          {
+            // A small operations-oriented RACK-OS 1.1 Business server, on the same represented foreign LocalNetwork as the Bookstore Branch's backend and the phone. There is no represented Branch -> Device ownership or assignment relationship: this Device is not owned by or assigned to Bookstore Branch 01, and BUSINESS resolves that Branch here only because this Device is a real member of `network-foreign-001`, the LocalNetwork the Branch's own `networkId` names (`resolveBusinessOperatingContext`). Reached through the same existing GateSSH 1.3.2 / Credential Access route the phone already uses, never a Device-specific mechanic, and seeded directly on RACK-OS 1.1 Business so BUSINESS is present without an in-world firmware installation. It is not the Bookstore backend: that remains `srv-02`'s own represented Service (`bookstoreBackend.ts`).
+            id: 'host-lan-003',
+            displayName: 'ops-01',
+            deviceType: 'SERVER',
+            deviceModel: RACK_CORE_120_DEVICE_MODEL,
+            ip: '203.0.113.43',
+            operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
+            role: 'server',
+            transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
+            firmware: RACK_OS_1_1_BUSINESS_RELEASE.firmware,
+            hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
+            runtime: { baselineCpuLoad: 8, baselineRamUsage: 14 },
+            // Coherent with the managed SSH Service below, exactly like srv-01's own GateSSH 1.3.2 inventory. No AuthGuard: this Device carries none of srv-02's hardened protection.
+            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' }],
+            filesystem: { nextFileId: 1, files: [] },
+            services: [
+              { id: 'service-ssh-004', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
             ],
             authenticationHistory: { nextId: 1, records: [] },
           },

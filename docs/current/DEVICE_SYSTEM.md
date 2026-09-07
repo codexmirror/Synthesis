@@ -42,7 +42,7 @@ GameState
 ├── nodeEconomy
 ├── world
 │   └── network
-│       ├── two independent foreign servers
+│       ├── three independent foreign servers
 │       │   ├── display identity and Firmware
 │       │   ├── canonical Device-owned filesystem
 │       │   └── canonical Device-owned installed software
@@ -88,13 +88,13 @@ The concretely represented foreign filesystems are normal Device-owned state.
 A successful Upload may create its normal destination artifact in the remote
 Device filesystem; this does not imply a generic filesystem-write mechanic.
 
-Both concretely represented servers also own their own installed-software
+All three concretely represented servers also own their own installed-software
 inventory (`NetworkHost.installedSoftware`), the same semantic concern the
 local Device owns and entirely independent of it: the same product may exist at
 different releases on different Devices, and installing or replacing software on
-one never mutates another's inventory. Both servers start with GateSSH
+one never mutates another's inventory. All three servers start with GateSSH
 InstalledSoftware coherent with their managed Service implementation (srv-01
-at 1.3.2 and srv-02 at 1.3.3). Each inventory remains a distinct
+and ops-01 at 1.3.2, srv-02 at 1.3.3). Each inventory remains a distinct
 collection rather than a shared one. The field is optional precisely so
 the shallow training hosts keep no fabricated inventory; a host that represents
 none simply cannot install software (see
@@ -128,8 +128,9 @@ that represents none simply has none. Its semantics belong to
 `DeviceType` is the narrow physical classification represented today: `NODE`,
 `SERVER`, or `PHONE`. It is authored on concrete Devices and is never derived
 from an instance/display name, server role, Firmware, or Hardware. The local
-`device-local-v0` is `NODE`; srv-01 and srv-02 are `SERVER`; Petra's Phone is
-`PHONE`. Shallow training hosts remain shallow and receive no fabricated type.
+`device-local-v0` is `NODE`; srv-01, srv-02 and ops-01 are `SERVER`; Petra's
+Phone is `PHONE`. Shallow training hosts remain shallow and receive no
+fabricated type.
 
 `DeviceModel` is a reusable physical product identity, distinct from the Device
 instance, its type, its installed Hardware, and its Firmware. V1 defines one
@@ -147,6 +148,7 @@ current represented capabilities rather than inventing upgrade headroom:
 | node-01 (`device-local-v0`) | NODE | NODE 1 (`device-model-node-1-v0`) | 100 | 1 MiB/s / 2 MiB/s |
 | srv-01 (`host-lan-001`) | SERVER | RACK Core 160 (`device-model-rack-core-160-v0`) | 160 | 8 MiB/s / 8 MiB/s |
 | srv-02 (`host-lan-002`) | SERVER | RACK Core 120 (`device-model-rack-core-120-v0`) | 120 | 1 MiB/s / 1 MiB/s |
+| ops-01 (`host-lan-003`) | SERVER | RACK Core 120 (`device-model-rack-core-120-v0`) | 120 | 1 MiB/s / 1 MiB/s |
 
 Petra's Phone has no authored consumer product model, so its `deviceModel` is
 honestly absent. VEYRA OS remains its Firmware and supplies no physical model
@@ -156,11 +158,13 @@ NodeScan presentation.
 
 ## Represented World
 
-The current World contains `home-net` with node-01 and `srv-01`, plus the neutral foreign LocalNetwork `remote-segment-01` with the personal phone `host-phone-001` and `srv-02` (`host-lan-002`). `srv-02` remains the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Myra's authored first-target mail communicates the phone address as historical text and creates no Discovery.
+The current World contains `home-net` with node-01 and `srv-01`, plus the neutral foreign LocalNetwork `remote-segment-01` with the personal phone `host-phone-001`, `srv-02` (`host-lan-002`), and `ops-01` (`host-lan-003`). `srv-02` remains the fully represented remote Device at `203.0.113.42`. The old shallow host at that address and the former `srv-02` address are absent. Myra's authored first-target mail communicates the phone address as historical text and creates no Discovery.
 
 `srv-01` owns RACK-OS 1.0, GateSSH 1.3.2 on its stable SSH Service, Basic HTTP, and its independent filesystem. GateSSH 1.3.2 derives `AUTH-017`; this weakness is never stored separately.
 
 `srv-02` (`host-lan-002`) owns RACK-OS 1.0, GateSSH 1.3.3 on `service-ssh-002`, RackUpdate 1.0 on the separate open TCP/8443 `service-rack-update-002`, and the concrete Bookstore Branch 01 backend on the separate open TCP/8090 `service-bookstore-backend-002` (`Bookstore Backend 1.0`). GateSSH 1.3.3 is patched for `AUTH-017`. RackUpdate 1.0 derives `UPD-001` (rollback protection not enforced) and exposes its concrete public package-submission protocol. The Bookstore Backend Service derives no vulnerability and grants no credential-based access — this slice represents its technical surface only. These are Device-owned Service implementations, distinct from the matching GateSSH InstalledSoftware represented on each server. `docs/current/BRANCH_COMMERCE.md` owns how the Bookstore domain resolves this Service by stable reference as its concrete backend.
+
+`ops-01` (`host-lan-003`, `203.0.113.43`) is a small operations-oriented RACK-OS 1.1 Business server on `network-foreign-001`, the same LocalNetwork Bookstore Branch 01 explicitly operates through: a third `remote-segment-01` member, modeled on the same RACK Core 120 Device Model as `srv-02`. It owns GateSSH 1.3.2 on its stable SSH Service exactly like `srv-01` — the same represented weakness, reached through the same existing Credential Access route, with no AuthGuard and no Device-specific access mechanic. Unlike either other server, it starts directly on the RACK-OS 1.1 Business Firmware release (`firmware-rack-os-v1-1-business`) rather than on RACK-OS 1.0: BUSINESS is present from a fresh game without any in-world Firmware installation. It is not the Bookstore backend — that remains `srv-02`'s own concrete Service — and it carries no Business-specific metadata of its own. There is no represented Branch -> Device ownership or assignment relationship anywhere in this slice: `ops-01` is not owned by, or assigned to, Bookstore Branch 01 or the Bookstore Company. BUSINESS resolves Bookstore Branch 01 from it purely through its real `network-foreign-001` membership, the same structural resolution (`resolveBusinessOperatingContext`) any other Business-capable Device on that Network would get. Fresh canonical state grants it no DeviceAccess, Remote Session, NetworkManagementAuthority, Discovery, or Knowledge; it is reached only through the same reconnaissance and Credential Access loop as any other represented server.
 
 Successful RackUpdate submission stores one exact pending GateSSH activation on the target Device while leaving active GateSSH InstalledSoftware and its managed Service implementation coherent and unchanged. `srv-02` therefore remains actively on 1.3.3 after accepting 1.3.2, and derives no `AUTH-017` until a represented boot activates it. The canonical boot-activation operation is only the software consequence of an already-established real Device boot: it atomically applies the preserved pending identity to InstalledSoftware and the managed Service, clears pending, and otherwise does nothing when coherent activation is impossible. It does not cause a boot, model lifecycle or connectivity, or update Player Information. Pending software remains neither InstalledSoftware, a Service implementation, a filesystem artifact, nor Player Information.
 
@@ -369,13 +373,13 @@ NETWORK TRANSFER CAPACITY = the represented external connectivity capacity of th
 CURRENT USAGE / CONGESTION = not represented yet
 ```
 
-The local Device (`node-01`) and both concretely represented servers
-(`srv-01`, `srv-02`) each own a canonical `NetworkTransferCapacity`
+The local Device (`node-01`) and all three concretely represented servers
+(`srv-01`, `srv-02`, `ops-01`) each own a canonical `NetworkTransferCapacity`
 (`uploadBytesPerSecond`, `downloadBytesPerSecond`) on their network state:
 node-01 is 1 MiB/s upload and 2 MiB/s download; srv-01 is a symmetric 8 MiB/s;
-srv-02 is a symmetric 1 MiB/s, deliberately slower than srv-01; the personal
-phone is 2 MiB/s upload and 4 MiB/s download. The shallow training hosts are
-deliberately given none. Upload and
+srv-02 and ops-01 are each a symmetric 1 MiB/s, deliberately slower than
+srv-01; the personal phone is 2 MiB/s upload and 4 MiB/s download. The
+shallow training hosts are deliberately given none. Upload and
 download are always interpreted from the perspective of the Device that owns
 the capacity. This capacity is the endpoint's current maximum throughput, not
 runtime usage or its model's physical ceiling, and remains distinct from
@@ -452,7 +456,7 @@ consumer of this same model: its finite upload runtime reuses
 duplicating a parallel rate derivation, so the same same-Network/cross-Network
 and ambiguous-membership rules that govern `FileTransfer` govern it too.
 
-Both represented servers and the represented personal phone also own concrete
+All three represented servers and the represented personal phone also own concrete
 CPU, RAM, and baseline CPU/RAM runtime state. This resource truth is not exposed through Scan, Discovery, or
 Inspect. The shallow training hosts remain non-resource-capable but still
 own ordinary `operational` truth (below): Device operational state is
@@ -516,9 +520,9 @@ A Device may own a concrete, configured reaction to losing connectivity —
 Neither the interruption operation above nor this advancement reads an
 attack name, Firmware display name, or Device identity to select a
 reaction: only the Device's own `connectivityRecoveryBehavior` configuration
-decides, and a Device with none configured (srv-01, the shallow training
-hosts) simply stays disconnected — a future Device or Firmware release
-remains free to configure a different reaction, or none.
+decides, and a Device with none configured (srv-01, ops-01, the shallow
+training hosts) simply stays disconnected — a future Device or Firmware
+release remains free to configure a different reaction, or none.
 
 The first two concretely configured Devices, both on `remote-segment-01`,
 establish the precedent named in

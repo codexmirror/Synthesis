@@ -78,7 +78,7 @@ describe('refreshNetwork', () => {
     const state = store(changed)
 
     expect(stale).not.toBe('1.4.0')
-    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toMatchObject({ status: 'refreshed', inspected: 2 })
+    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toMatchObject({ status: 'refreshed', inspected: 3 })
     expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-002')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect!.implementation!.version).toBe('1.4.0')
     expect(state.current.process.processes).toEqual([])
   })
@@ -100,7 +100,7 @@ describe('refreshNetwork', () => {
         : host.id === 'host-phone-001' ? { ...host, displayName: 'Fresh Petra' } : host) } } }
     const state = store(changed)
 
-    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toEqual({ status: 'refreshed', inspected: 1, unavailable: 1 })
+    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toEqual({ status: 'refreshed', inspected: 2, unavailable: 1 })
     expect(state.current.discovery.devices.find(({ id }) => id === 'host-phone-001')?.inspect?.displayName).toBe('Fresh Petra')
   })
 })
