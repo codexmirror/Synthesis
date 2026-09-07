@@ -63,8 +63,8 @@ describe('VEYRA Business projection', () => {
     expect(projectVeyraBusiness(withoutAuthority)).toEqual({ status: 'no_company_access' })
 
     // The Company, its Treasury, the Branch, the offers and the phone's own Financial Session are all still represented.
-    expect(withoutAuthority.business.companies).toHaveLength(2)
-    expect(withoutAuthority.business.treasuryDesignations).toHaveLength(2)
+    expect(withoutAuthority.business.companies).toHaveLength(3)
+    expect(withoutAuthority.business.treasuryDesignations).toHaveLength(3)
     expect(withoutAuthority.dollarFinance.sessions.active.some(({ clientDeviceId }) => clientDeviceId === PHONE_ID)).toBe(true)
   })
 
@@ -130,11 +130,12 @@ describe('VEYRA Business projection', () => {
       })),
     })
 
-    // The authored Atlas offers, with their own represented values rather than restated ones.
+    // All represented offers, with their own represented values rather than restated ones.
     expect(branch.offers.map(({ id, displayName, sellerDisplayName, totalUnits, totalPriceCents, deliveryDurationMs }) => ({ id, displayName, sellerDisplayName, totalUnits, totalPriceCents, deliveryDurationMs })))
       .toEqual([
         { id: BOOKSTORE_COMPACT_REFILL_OFFER_ID, displayName: 'Compact Shelf Refill', sellerDisplayName: 'Atlas Distribution', totalUnits: 16, totalPriceCents: 14_000, deliveryDurationMs: 1_800_000 },
         { id: BOOKSTORE_STANDARD_REFILL_OFFER_ID, displayName: 'Standard Shelf Refill', sellerDisplayName: 'Atlas Distribution', totalUnits: 40, totalPriceCents: 34_000, deliveryDurationMs: 3_600_000 },
+        { id: 'bookstore-supply-offer-northline-new-titles-v0', displayName: 'New Titles Pack', sellerDisplayName: 'Northline Book Supply', totalUnits: 12, totalPriceCents: 12_000, deliveryDurationMs: 2_700_000 },
       ])
     expect(branch.offers[0].lines).toHaveLength(8)
     expect(branch.orders).toEqual([])

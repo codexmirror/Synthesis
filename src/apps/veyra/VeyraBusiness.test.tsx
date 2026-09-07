@@ -7,6 +7,7 @@ import {
   ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID,
   BOOKSTORE_BRANCH_ID,
   BOOKSTORE_TREASURY_ACCOUNT_ID,
+  NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID,
 } from '../../core/game/business'
 import { executeBookstoreSale } from '../../core/game/bookstoreSale'
 import { BUSINESS_PRODUCT_ID } from '../../core/game/businessSoftware'
@@ -204,6 +205,18 @@ describe('VEYRA Business surface', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
     expect(canonicalSettled()).toEqual(before)
+
+    await user.click(screen.getByRole('button', { name: /New Titles Pack/ }))
+    const northlineReview = screen.getByRole('region', { name: 'Review order' })
+    expect(northlineReview).toHaveTextContent('Northline Book Supply')
+    expect(northlineReview).toHaveTextContent('$120.00')
+    expect(northlineReview).toHaveTextContent('12 units')
+    expect(northlineReview).toHaveTextContent('45 minutes')
+    for (const title of ['Terminal Light', 'Red Harbor', 'Field Notes', 'Borrowed Signal']) {
+      expect(northlineReview).toHaveTextContent(title)
+    }
+    expect(northlineReview).not.toHaveTextContent('Winter Circuit')
+    expect(canonicalSettled()).toEqual(before)
   })
 
   it('refuses honestly and changes nothing when the Company cannot pay', async () => {
@@ -234,45 +247,47 @@ describe('VEYRA Business surface', () => {
     expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
   })
 
-  it('runs the whole represented loop: sales fund the order, delivery restocks the shelves', async () => {
+  it('runs the whole represented Northline loop through the authorized Business path', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       const funded = earnRestockPrice(createInitialGameState())
       const user = await openBusiness(phoneConnectedState(funded), userEvent.setup({ advanceTimers: vi.advanceTimersByTime }))
       const before = canonical()
-      expect(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBeGreaterThanOrEqual(14_000)
+      expect(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBeGreaterThanOrEqual(12_000)
       const phoneBefore = balance(before, PHONE_ACCOUNT_ID)
       const stockBefore = totalStock(before)
 
-      await user.click(screen.getByRole('button', { name: /Compact Shelf Refill/ }))
+      await user.click(screen.getByRole('button', { name: /New Titles Pack/ }))
       await user.click(screen.getByRole('button', { name: 'Place order' }))
 
-      // The order exists, the Bookstore Treasury paid Atlas exactly, and the phone Account funded nothing.
+      // The order exists, the Bookstore Treasury paid Northline exactly, and the phone Account funded nothing.
       const placed = canonical()
       expect(placed.bookstoreRestock.orders).toHaveLength(1)
       expect(placed.bookstoreRestock.orders[0].status).toBe('IN_TRANSIT')
-      expect(balance(placed, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID) - 14_000)
-      expect(balance(placed, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(balance(before, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID) + 14_000)
+      expect(balance(placed, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID) - 12_000)
+      expect(balance(placed, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID)).toBe(balance(before, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID) + 12_000)
+      expect(balance(placed, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(balance(before, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID))
       expect(balance(placed, PHONE_ACCOUNT_ID)).toBe(phoneBefore)
       expect(placed.dollarFinance.transactions.records.at(-1)).toMatchObject({
-        sourceAccountId: BOOKSTORE_TREASURY_ACCOUNT_ID, destinationAccountId: ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID, amountCents: 14_000,
+        sourceAccountId: BOOKSTORE_TREASURY_ACCOUNT_ID, destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID, amountCents: 12_000,
       })
       // Paid for is not yet sellable.
       expect(totalStock(placed)).toBe(stockBefore)
 
       const ordered = screen.getByRole('region', { name: 'Business' })
-      expect(ordered).toHaveTextContent('Order placed with Atlas Distribution.')
+      expect(ordered).toHaveTextContent('Order placed with Northline Book Supply.')
       expect(ordered).toHaveTextContent('In transit')
-      expect(ordered).toHaveTextContent('Compact Shelf Refill')
+      expect(ordered).toHaveTextContent('New Titles Pack')
 
       // Canonical advancement alone delivers it; the client causes nothing.
-      await act(async () => { vi.advanceTimersByTime(1_800_000) })
+      await act(async () => { vi.advanceTimersByTime(2_700_000) })
       const delivered = canonical()
       expect(delivered.bookstoreRestock.orders[0].status).toBe('DELIVERED')
       expect(screen.getByRole('region', { name: 'Business' })).toHaveTextContent('Delivered')
       // Delivery landed in Bookstore Operations, which ordinary sales then keep consuming.
-      expect(delivered.bookstoreRestock.orders[0].lines.reduce((sum, line) => sum + line.quantity, 0)).toBe(16)
-      expect(totalStock(delivered)).toBeGreaterThan(stockBefore - 16)
+      expect(delivered.bookstoreRestock.orders[0].lines.reduce((sum, line) => sum + line.quantity, 0)).toBe(12)
+      expect(delivered.bookstoreCommerce.records[0].assortment).toHaveLength(12)
+      expect(totalStock(delivered)).toBeGreaterThan(stockBefore - 12)
     } finally {
       vi.useRealTimers()
     }

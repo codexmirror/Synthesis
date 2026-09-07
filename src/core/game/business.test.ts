@@ -5,6 +5,7 @@ import {
   BOOKSTORE_BRANCH_NETWORK_ID,
   BOOKSTORE_COMPANY_ID,
   ATLAS_DISTRIBUTION_COMPANY_ID,
+  NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
   resolveBusinessOperatingContext,
 } from './business'
 
@@ -14,11 +15,12 @@ const SRV_01_ID = 'host-lan-001'
 const SRV_02_ID = 'host-lan-002'
 
 describe('business domain initial truth', () => {
-  it('keeps both ordinary Companies independent from Branch, Network, Device and concrete commerce subsystems', () => {
+  it('keeps all ordinary Companies independent from Branch, Network, Device and concrete commerce subsystems', () => {
     const state = createInitialGameState()
     expect(state.business.companies).toEqual([
       { id: BOOKSTORE_COMPANY_ID, displayName: 'Bookstore' },
       { id: ATLAS_DISTRIBUTION_COMPANY_ID, displayName: 'Atlas Distribution' },
+      { id: NORTHLINE_BOOK_SUPPLY_COMPANY_ID, displayName: 'Northline Book Supply' },
     ])
     expect(state.business.companies[0].id).not.toBe(BOOKSTORE_BRANCH_NETWORK_ID)
     expect(state.business.companies[0].id).not.toBe(SRV_02_ID)

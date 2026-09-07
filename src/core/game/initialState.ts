@@ -72,6 +72,8 @@ export function createInitialGameState(): GameState {
         { id: 'dollar-account-bookstore-treasury-v0', accountReference: 'CD-4827-6109', balanceCents: 0 },
         // Atlas Distribution's ordinary Company Treasury. It has no Credential, Session, saved sign-in, Device, or Player relationship.
         { id: 'dollar-account-atlas-distribution-treasury-v0', accountReference: 'CD-5721-6408', balanceCents: 0 },
+        // Northline Book Supply's ordinary Company Treasury. Economic value here creates no technical access path.
+        { id: 'dollar-account-northline-book-supply-treasury-v0', accountReference: 'CD-6843-1906', balanceCents: 0 },
         // The neutral finite aggregate Civic Dollar payment source for retail customers who are not individually simulated (see docs/current/BRANCH_COMMERCE.md). It has no Credential, Financial Session, Device, or represented Customer identity, and it is never automatically replenished. The authored historical sale below is its initial represented movement, not the only reason it exists.
         { id: 'dollar-account-retail-clearing-v0', accountReference: 'CD-9000-2000', balanceCents: 80_000 },
       ],

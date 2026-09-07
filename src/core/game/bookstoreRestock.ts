@@ -1,4 +1,4 @@
-import { ATLAS_DISTRIBUTION_COMPANY_ID } from './business'
+import { ATLAS_DISTRIBUTION_COMPANY_ID, NORTHLINE_BOOK_SUPPLY_COMPANY_ID } from './business'
 import { findBookstoreCommerceRecord, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreBookById } from './bookstoreCommerce'
 import { deriveBookstoreTotalStock, incrementBookstoreStock, resolveBookstoreOperationsForBranch } from './bookstoreOperations'
 import { settleValidatedCompanyPurchase } from './businessPurchaseSettlement'
@@ -6,6 +6,7 @@ import type { BookstoreRestockOrder, BookstoreRestockState, BookstoreSupplyOffer
 
 export const BOOKSTORE_COMPACT_REFILL_OFFER_ID = 'bookstore-supply-offer-atlas-compact-v0'
 export const BOOKSTORE_STANDARD_REFILL_OFFER_ID = 'bookstore-supply-offer-atlas-standard-v0'
+export const BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID = 'bookstore-supply-offer-northline-new-titles-v0'
 
 /** Atlas's authored commercial relationship, independent from every Branch assortment. */
 const ATLAS_REFILL_BOOK_IDS: readonly string[] = [
@@ -19,7 +20,7 @@ const ATLAS_REFILL_BOOK_IDS: readonly string[] = [
   'bookstore-merch-008',
 ]
 
-function authoredOffer(id: string, displayName: string, quantity: number, totalPriceCents: number, deliveryDurationMs: number): BookstoreSupplyOffer {
+function authoredAtlasRefillOffer(id: string, displayName: string, quantity: number, totalPriceCents: number, deliveryDurationMs: number): BookstoreSupplyOffer {
   return { id, displayName, sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID, lines: ATLAS_REFILL_BOOK_IDS.map((merchandiseId) => ({ merchandiseId, quantity })), totalPriceCents, deliveryDurationMs }
 }
 
@@ -27,8 +28,21 @@ export function createInitialBookstoreRestockState(): BookstoreRestockState {
   return {
     nextOrderId: 1,
     offers: [
-      authoredOffer(BOOKSTORE_COMPACT_REFILL_OFFER_ID, 'Compact Shelf Refill', 2, 14_000, 1_800_000),
-      authoredOffer(BOOKSTORE_STANDARD_REFILL_OFFER_ID, 'Standard Shelf Refill', 5, 34_000, 3_600_000),
+      authoredAtlasRefillOffer(BOOKSTORE_COMPACT_REFILL_OFFER_ID, 'Compact Shelf Refill', 2, 14_000, 1_800_000),
+      authoredAtlasRefillOffer(BOOKSTORE_STANDARD_REFILL_OFFER_ID, 'Standard Shelf Refill', 5, 34_000, 3_600_000),
+      {
+        id: BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID,
+        displayName: 'New Titles Pack',
+        sellerCompanyId: NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
+        lines: [
+          { merchandiseId: 'bookstore-book-010', quantity: 3 },
+          { merchandiseId: 'bookstore-book-009', quantity: 3 },
+          { merchandiseId: 'bookstore-book-011', quantity: 3 },
+          { merchandiseId: 'bookstore-book-013', quantity: 3 },
+        ],
+        totalPriceCents: 12_000,
+        deliveryDurationMs: 2_700_000,
+      },
     ],
     orders: [],
   }

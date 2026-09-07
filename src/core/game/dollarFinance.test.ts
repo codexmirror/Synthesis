@@ -10,8 +10,8 @@ const secondDevice = (state: GameState): NetworkHost => state.world.network.host
 describe('Dollar Financial Provider', () => {
   it('seeds separate Provider, Account, Credential and local Device-bound Session identities with preserved wealth and unique references', () => {
     const state = createInitialGameState(); const account = state.dollarFinance.accounts[0]; const credential = state.dollarFinance.credentials[0]
-    // Five ordinary Accounts: the player's, phone-authorized, Bookstore and Atlas Treasuries, and neutral retail clearing.
-    expect(state.dollarFinance.accounts).toHaveLength(5); expect(account.balanceCents).toBe(125_000)
+    // Six ordinary Accounts: the player's, phone-authorized, three Company Treasuries, and neutral retail clearing.
+    expect(state.dollarFinance.accounts).toHaveLength(6); expect(account.balanceCents).toBe(125_000)
     expect(new Set(state.dollarFinance.accounts.map(({ accountReference }) => accountReference)).size).toBe(state.dollarFinance.accounts.length)
     expect(new Set(state.dollarFinance.credentials.map(({ loginIdentifier }) => loginIdentifier)).size).toBe(state.dollarFinance.credentials.length)
     expect(account.id).not.toBe(account.accountReference); expect(account.id).not.toBe(credential.loginIdentifier)
@@ -26,6 +26,10 @@ describe('Dollar Financial Provider', () => {
     expect(atlasTreasury).toEqual({ id: 'dollar-account-atlas-distribution-treasury-v0', accountReference: 'CD-5721-6408', balanceCents: 0 })
     expect(state.dollarFinance.credentials.some(({ accountId }) => accountId === atlasTreasury.id)).toBe(false)
     expect(state.dollarFinance.sessions.active.some(({ accountId }) => accountId === atlasTreasury.id)).toBe(false)
+    const northlineTreasury = state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-northline-book-supply-treasury-v0')!
+    expect(northlineTreasury).toEqual({ id: 'dollar-account-northline-book-supply-treasury-v0', accountReference: 'CD-6843-1906', balanceCents: 0 })
+    expect(state.dollarFinance.credentials.some(({ accountId }) => accountId === northlineTreasury.id)).toBe(false)
+    expect(state.dollarFinance.sessions.active.some(({ accountId }) => accountId === northlineTreasury.id)).toBe(false)
   })
 
   it('authenticates exact credentials on represented Devices without copying secrets or mutating economic/Credential truth', () => {
