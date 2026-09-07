@@ -75,6 +75,15 @@ A Transaction may additionally carry one small optional `statementContext` snaps
 
 ## Initial branch-sale finance truth
 
+The Business domain may refer to an Account's stable identity to designate a
+Company treasury (`docs/current/BRANCH_COMMERCE.md`). That role is not Account
+ownership or financial authority. Civic Dollar remains the sole owner of the
+actual Account identity, current account reference, balance, Transactions,
+Credentials, and Financial Sessions; Business duplicates none of them. A
+treasury resolver joins the stable designation to current Account truth and
+fails closed when that Account does not exist. It does not consult or create a
+Player or Device Financial Session.
+
 The Provider's neutral retail-clearing Account has no
 Credential, Session, Device, or customer identity. One authored historical
 Transaction (`dollar-transaction-0001`) moves 2,000 cents from its

@@ -115,6 +115,7 @@ describe('resolveBusinessOperatingContext', () => {
     const state = {
       ...initial,
       business: {
+        ...initial.business,
         companies: [...initial.business.companies, { id: secondCompanyId, displayName: 'Fixture Co' }],
         branches: [...initial.business.branches, secondBranchOnSameNetwork, secondBranchOfSameCompany],
       },

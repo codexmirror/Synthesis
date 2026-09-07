@@ -1,8 +1,8 @@
 # Branch commerce
 
 Status: Accepted
-Scope: Current Company and Business Branch structural identity, the Branch's
-explicit Network relationship, the concrete bookstore-commerce record attached
+Scope: Current Company and Business Branch structural identity, Company
+Treasury designation, the Branch's explicit Network relationship, the concrete bookstore-commerce record attached
 to the seeded Branch, completed-sale meaning, settlement configuration, the
 separate concrete bookstore-operations record (OPEN/CLOSED, current
 inventory, shelf capacity, checkout capacity), and the separate concrete
@@ -22,7 +22,30 @@ Company has no represented owner, employees, hierarchy, or valuation; the
 future ability to acquire a Company is accepted direction (`docs/FUTURE.md`),
 not implemented truth. Neither the Company nor the Branch is a generic
 Organization/Entity framework: `GameState.business` is a narrow
-`{ companies, branches }` collection specific to this domain.
+`{ companies, branches, treasuryDesignations }` collection specific to this
+domain.
+
+The Business domain additionally owns one narrow Company-linked role:
+`CompanyTreasuryDesignation` stores only `{ companyId, accountId }`, stable
+identity references stating which existing Civic Dollar Account the Company
+currently uses as its treasury. The initial state designates
+`company-bookstore-01 -> dollar-account-veyra-phone-v0`.
+`resolveCompanyTreasuryAccount` requires exactly one designation for an
+existing Company and exactly one matching current Civic Dollar Account; a
+missing, dangling, or ambiguous relationship resolves unavailable, with no
+fallback Account. The resolver reads no Credential, Financial Session, saved
+sign-in, DeviceAccess, or Remote Session and grants no financial authority.
+Business stores no Account reference, balance, Transaction, Credential,
+Session, revenue total, or expense total: all actual Account and money truth
+remains owned by Civic Dollar.
+
+**Company Treasury Account is not Branch Settlement Account.** The seeded
+treasury designation and the seeded Bookstore commerce record currently name
+the same Account, but that equality is authored configuration rather than an
+invariant. Treasury is a Company role; `settlementAccountId` is independently
+owned Branch commerce configuration, and every Bookstore sale continues to
+resolve its destination only from that settlement field. Changing either role
+does not change or retarget the other.
 
 `BusinessBranchState` is deliberately generic structural identity, plus the
 smallest current human-readable location this slice adds:

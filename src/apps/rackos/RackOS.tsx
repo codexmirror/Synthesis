@@ -12,7 +12,7 @@ import { formatBytes } from '../byteFormat'
 import { describeInstallFailure } from '../installFailure'
 import { describeUploadFailure } from '../uploadFailure'
 import { runRemoteCommand } from './remoteCommands'
-import { resolveBusinessOperatingContext, type ResolvedBusinessBranch } from '../../core/game/business'
+import { resolveBusinessOperatingContext, resolveCompanyTreasuryAccount, type ResolvedBusinessBranch } from '../../core/game/business'
 import { resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
 import { deriveBookstoreTotalStock, findBookstoreStockQuantity, resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { resolveBookstoreBackendForBranch } from '../../core/game/bookstoreBackend'
@@ -281,6 +281,9 @@ function BusinessSurface({ state, context }: {
         // Presentation-only, optional join, resolved independently and exactly like the three siblings above:
         // this Branch's own concrete demand configuration, never a stored/derived value of RACK-OS's own.
         const cadence = resolveBookstoreSalesCadenceForBranch(state, resolved.branch.id)
+        // A separate Business-owned Company designation, resolved to current
+        // Civic Dollar truth. It is independent from Branch settlement.
+        const treasuryAccount = resolveCompanyTreasuryAccount(state, resolved.company.id)
         return <div className="rack-artifact" key={resolved.branch.id}>
           <p className="rack-artifact-kind">BUSINESS BRANCH</p>
           <h2>{resolved.branch.displayName}</h2>
@@ -294,6 +297,7 @@ function BusinessSurface({ state, context }: {
             {cadence && <div><dt>ATTRACTIVENESS</dt><dd>{cadence.attractivenessMultiplier.toFixed(2)}×</dd></div>}
             {operations && <div><dt>STOCK</dt><dd>{deriveBookstoreTotalStock(operations)} / {operations.shelfCapacity}</dd></div>}
             {operations && <div><dt>CHECKOUTS</dt><dd>{operations.checkoutCapacity}</dd></div>}
+            {treasuryAccount && <div><dt>TREASURY ACCOUNT</dt><dd>{treasuryAccount.accountReference}</dd></div>}
             {commerce && <div><dt>SETTLEMENT ACCOUNT</dt><dd>{commerce.settlementAccount.accountReference}</dd></div>}
           </dl>
           {commerce && commerce.merchandise.length > 0 && <>
