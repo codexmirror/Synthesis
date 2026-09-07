@@ -750,6 +750,18 @@ export interface CompanyTreasuryDesignation {
 }
 
 /**
+ * One active, Business-owned authority relationship allowing exactly one
+ * represented Device to submit supported management actions for exactly one
+ * represented Company. This is not ownership, employment, a role or financial
+ * authority, and carries no Firmware, software, Network or Player identity.
+ */
+export interface CompanyAdministrationSession {
+  readonly id: string
+  readonly clientDeviceId: string
+  readonly companyId: string
+}
+
+/**
  * A concrete Business Branch belonging to one Company by stable identity. Its
  * technical-site relationship is an explicit reference to the LocalNetwork it
  * operates through — never derived from Device/Network membership, and never
@@ -781,12 +793,14 @@ export interface BusinessBranchState {
   readonly networkId: string
 }
 
-/** Canonical Business-domain World Truth: structural Company/Branch identity plus narrow Company Treasury designations. */
+/** Canonical Business-domain World Truth: structural identity plus narrow Treasury and administration relationships. */
 export interface BusinessState {
   readonly companies: readonly CompanyState[]
   readonly branches: readonly BusinessBranchState[]
   /** Company-linked roles only; never Account ownership or duplicated finance truth. */
   readonly treasuryDesignations: readonly CompanyTreasuryDesignation[]
+  /** Currently active Device-bound Company administration authority. */
+  readonly administrationSessions: readonly CompanyAdministrationSession[]
 }
 
 /**
