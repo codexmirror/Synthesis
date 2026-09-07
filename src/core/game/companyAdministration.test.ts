@@ -116,6 +116,44 @@ describe('Company Administration Session', () => {
     expect(resolveSoleCompanyAdministrationContextForDevice(duplicated, PHONE_ID)).toEqual({ status: 'unavailable' })
   })
 
+  it('never reports ambiguous merely because raw sessions name more than one Company ID', () => {
+    const state = createInitialGameState()
+    const seededAdministered = {
+      status: 'administered' as const,
+      session: state.business.administrationSessions[0],
+      company: state.business.companies.find(({ id }) => id === BOOKSTORE_COMPANY_ID),
+    }
+
+    // A dangling relationship to a Company that does not exist is not a second administered Company.
+    const withDangling: GameState = { ...state, business: { ...state.business, administrationSessions: [
+      ...state.business.administrationSessions,
+      { id: 'company-administration-session-dangling-v0', clientDeviceId: PHONE_ID, companyId: 'company-missing' },
+    ] } }
+    expect(resolveSoleCompanyAdministrationContextForDevice(withDangling, PHONE_ID)).toEqual(seededAdministered)
+
+    // A duplicated Device + Company relationship for a distinct Company is malformed, not a second administered Company.
+    const withMalformedAtlas: GameState = { ...state, business: { ...state.business, administrationSessions: [
+      ...state.business.administrationSessions,
+      { id: 'company-administration-session-atlas-a-v0', clientDeviceId: PHONE_ID, companyId: ATLAS_DISTRIBUTION_COMPANY_ID },
+      { id: 'company-administration-session-atlas-b-v0', clientDeviceId: PHONE_ID, companyId: ATLAS_DISTRIBUTION_COMPANY_ID },
+    ] } }
+    expect(resolveSoleCompanyAdministrationContextForDevice(withMalformedAtlas, PHONE_ID)).toEqual(seededAdministered)
+
+    // A stable Session identity reused across two distinct Company relationships invalidates both, not just one.
+    const withDuplicatedIdentity: GameState = { ...state, business: { ...state.business, administrationSessions: [
+      ...state.business.administrationSessions,
+      { id: BOOKSTORE_PHONE_ADMINISTRATION_SESSION_ID, clientDeviceId: PHONE_ID, companyId: ATLAS_DISTRIBUTION_COMPANY_ID },
+    ] } }
+    expect(resolveSoleCompanyAdministrationContextForDevice(withDuplicatedIdentity, PHONE_ID)).toEqual({ status: 'unavailable' })
+
+    // Two genuinely valid, distinct Company relationships are the only case that is actually ambiguous.
+    const genuinelyBoth: GameState = { ...state, business: { ...state.business, administrationSessions: [
+      ...state.business.administrationSessions,
+      { id: 'company-administration-session-atlas-phone-genuine-v0', clientDeviceId: PHONE_ID, companyId: ATLAS_DISTRIBUTION_COMPANY_ID },
+    ] } }
+    expect(resolveSoleCompanyAdministrationContextForDevice(genuinelyBoth, PHONE_ID)).toEqual({ status: 'ambiguous' })
+  })
+
   it('resolves the operated Device only from the active RemoteSession', () => {
     const state = createInitialGameState()
     expect(resolveSoleCompanyAdministrationContextForOperatedRemoteDevice(state)).toEqual({ status: 'unavailable' })

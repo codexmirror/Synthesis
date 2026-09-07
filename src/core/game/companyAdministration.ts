@@ -41,21 +41,31 @@ export type SoleCompanyAdministrationContext =
 
 /**
  * Resolve the one Company this Device may administer, or state honestly that
- * there is none or more than one. Every individual relationship still goes
- * through `resolveCompanyAdministrationSession`, so duplicate, dangling and
- * otherwise malformed represented truth continues to fail closed rather than
- * being resolved here a second, weaker way.
+ * there is none or more than one.
+ *
+ * The raw `administrationSessions` collection only proposes candidate Company
+ * identities; it is never itself the authority. Every candidate is validated
+ * through the canonical pair resolver, `resolveCompanyAdministrationSession`,
+ * before it counts toward anything, so a dangling reference, a duplicated
+ * Device + Company Session, or a duplicated stable Session identity is
+ * dropped rather than counted as a second genuine Company. `ambiguous` means
+ * more than one distinct Company relationship each individually resolved as
+ * valid administration authority — never merely that raw records mentioned
+ * more than one Company ID.
  */
 export function resolveSoleCompanyAdministrationContextForDevice(state: GameState, clientDeviceId: string): SoleCompanyAdministrationContext {
-  const companyIds = [...new Set(state.business.administrationSessions
+  const candidateCompanyIds = [...new Set(state.business.administrationSessions
     .filter((session) => session.clientDeviceId === clientDeviceId)
     .map(({ companyId }) => companyId))]
-  if (companyIds.length === 0) return { status: 'unavailable' }
-  if (companyIds.length > 1) return { status: 'ambiguous' }
-  const session = resolveCompanyAdministrationSession(state, clientDeviceId, companyIds[0])
-  if (!session) return { status: 'unavailable' }
-  const companies = state.business.companies.filter(({ id }) => id === session.companyId)
-  return companies.length === 1 ? { status: 'administered', session, company: companies[0] } : { status: 'unavailable' }
+  const validated = candidateCompanyIds.flatMap((companyId) => {
+    const session = resolveCompanyAdministrationSession(state, clientDeviceId, companyId)
+    if (!session) return []
+    const companies = state.business.companies.filter(({ id }) => id === session.companyId)
+    return companies.length === 1 ? [{ session, company: companies[0] }] : []
+  })
+  if (validated.length === 0) return { status: 'unavailable' }
+  if (validated.length > 1) return { status: 'ambiguous' }
+  return { status: 'administered', session: validated[0].session, company: validated[0].company }
 }
 
 /** The same resolution for whichever Device the player currently operates; RemoteSession supplies only that identity. */

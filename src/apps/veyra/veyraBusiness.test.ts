@@ -77,6 +77,23 @@ describe('VEYRA Business projection', () => {
     expect(projectVeyraBusiness(both)).toEqual({ status: 'company_selection_unsupported' })
   })
 
+  it('does not treat a dangling or malformed relationship as a second administered Company', () => {
+    const state = operating(createInitialGameState())
+    const withDangling: GameState = { ...state, business: { ...state.business, administrationSessions: [
+      ...state.business.administrationSessions,
+      { id: 'company-administration-session-dangling-v0', clientDeviceId: PHONE_ID, companyId: 'company-missing' },
+    ] } }
+    // Still exactly the Bookstore Company, never the truthful "you manage several" refusal.
+    expect(company(withDangling).company.displayName).toBe('Bookstore')
+
+    const withDuplicatedAtlas: GameState = { ...state, business: { ...state.business, administrationSessions: [
+      ...state.business.administrationSessions,
+      { id: 'company-administration-session-atlas-a-v0', clientDeviceId: PHONE_ID, companyId: ATLAS_DISTRIBUTION_COMPANY_ID },
+      { id: 'company-administration-session-atlas-b-v0', clientDeviceId: PHONE_ID, companyId: ATLAS_DISTRIBUTION_COMPANY_ID },
+    ] } }
+    expect(company(withDuplicatedAtlas).company.displayName).toBe('Bookstore')
+  })
+
   it('reads Company Funds from the Company’s own Treasury designation, never the phone Wallet', () => {
     const earned = operating(earnRestockPrice(createInitialGameState()))
     const treasury = earned.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_TREASURY_ACCOUNT_ID)!
