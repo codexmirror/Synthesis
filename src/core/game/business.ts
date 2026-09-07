@@ -2,6 +2,9 @@ import type { BusinessBranchState, BusinessState, CompanyState, DollarFinancialA
 
 export const BOOKSTORE_COMPANY_ID = 'company-bookstore-01'
 export const BOOKSTORE_COMPANY_NAME = 'Bookstore'
+export const ATLAS_DISTRIBUTION_COMPANY_ID = 'company-atlas-distribution-01'
+export const ATLAS_DISTRIBUTION_COMPANY_NAME = 'Atlas Distribution'
+export const ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID = 'dollar-account-atlas-distribution-treasury-v0'
 export const BOOKSTORE_TREASURY_ACCOUNT_ID = 'dollar-account-bookstore-treasury-v0'
 export const BOOKSTORE_BRANCH_ID = 'bookstore-branch-01'
 export const BOOKSTORE_BRANCH_NAME = 'Bookstore Branch 01'
@@ -12,8 +15,14 @@ export const BOOKSTORE_BRANCH_LOCATION = '18 Mercer Street'
 
 export function createInitialBusinessState(): BusinessState {
   return {
-    companies: [{ id: BOOKSTORE_COMPANY_ID, displayName: BOOKSTORE_COMPANY_NAME }],
-    treasuryDesignations: [{ companyId: BOOKSTORE_COMPANY_ID, accountId: BOOKSTORE_TREASURY_ACCOUNT_ID }],
+    companies: [
+      { id: BOOKSTORE_COMPANY_ID, displayName: BOOKSTORE_COMPANY_NAME },
+      { id: ATLAS_DISTRIBUTION_COMPANY_ID, displayName: ATLAS_DISTRIBUTION_COMPANY_NAME },
+    ],
+    treasuryDesignations: [
+      { companyId: BOOKSTORE_COMPANY_ID, accountId: BOOKSTORE_TREASURY_ACCOUNT_ID },
+      { companyId: ATLAS_DISTRIBUTION_COMPANY_ID, accountId: ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID },
+    ],
     branches: [{
       id: BOOKSTORE_BRANCH_ID,
       displayName: BOOKSTORE_BRANCH_NAME,

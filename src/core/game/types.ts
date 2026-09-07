@@ -887,6 +887,44 @@ export interface BookstoreOperationsState {
   readonly records: readonly BookstoreBranchOperationsRecord[]
 }
 
+/** One current Atlas-authored Bookstore supply offer. Product and fulfillment meaning stay Bookstore-specific. */
+export interface BookstoreSupplyOffer {
+  readonly id: string
+  readonly displayName: string
+  readonly sellerCompanyId: string
+  readonly lines: readonly { readonly merchandiseId: string; readonly quantity: number }[]
+  readonly totalPriceCents: number
+  readonly deliveryDurationMs: number
+}
+
+/** Immutable historical composition captured when a represented restock purchase settles. */
+export interface BookstoreRestockOrderLine {
+  readonly merchandiseId: string
+  readonly capturedMerchandiseDisplayName: string
+  readonly quantity: number
+}
+
+export interface BookstoreRestockOrder {
+  readonly id: string
+  readonly buyerBranchId: string
+  readonly sellerCompanyId: string
+  readonly capturedSellerDisplayName: string
+  readonly offerId: string
+  readonly capturedOfferDisplayName: string
+  readonly lines: readonly BookstoreRestockOrderLine[]
+  readonly dollarTransactionId: string
+  readonly capturedDeliveryDurationMs: number
+  readonly remainingDeliveryMs: number
+  readonly status: 'IN_TRANSIT' | 'DELIVERED'
+}
+
+/** Narrow Bookstore-owned supply, restock-order, and delivery truth. */
+export interface BookstoreRestockState {
+  readonly nextOrderId: number
+  readonly offers: readonly BookstoreSupplyOffer[]
+  readonly orders: readonly BookstoreRestockOrder[]
+}
+
 /**
  * Concrete branch-linked Bookstore *backend* truth: which real represented
  * technical Device and Service on it implement this Bookstore Branch's
@@ -1708,6 +1746,8 @@ export interface GameState {
   readonly bookstoreCommerce: BookstoreCommerceState
   /** Concrete branch-linked bookstore operations truth (OPEN/CLOSED, inventory, shelf/checkout capacity); a separate optional join from `bookstoreCommerce`, not embedded in generic Business Branch identity. */
   readonly bookstoreOperations: BookstoreOperationsState
+  /** Bookstore-specific current supply offers and captured restock delivery lifecycle. */
+  readonly bookstoreRestock: BookstoreRestockState
   /** Concrete branch-linked reference to the real represented Device/Service implementing a Bookstore Branch's technical backend; a separate optional join from both `bookstoreCommerce` and `bookstoreOperations`, not embedded in generic Business Branch identity. */
   readonly bookstoreBackend: BookstoreBackendState
   /** Concrete branch-linked Bookstore sales cadence truth: when a sale opportunity becomes due for a Bookstore Branch. Owns timing only — a separate optional join from `bookstoreCommerce`, `bookstoreOperations`, and `bookstoreBackend`, not embedded in generic Business Branch identity, and never itself a sale-execution owner. */

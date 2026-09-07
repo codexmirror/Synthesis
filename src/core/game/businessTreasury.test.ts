@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPANY_ID, BOOKSTORE_TREASURY_ACCOUNT_ID, resolveCompanyTreasuryAccount } from './business'
+import { ATLAS_DISTRIBUTION_COMPANY_ID, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPANY_ID, BOOKSTORE_TREASURY_ACCOUNT_ID, resolveCompanyTreasuryAccount } from './business'
 import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID } from './bookstoreCommerce'
 import { executeBookstoreSale } from './bookstoreSale'
 import { createInitialGameState, GAME_STATE_VERSION } from './initialState'
@@ -11,19 +11,22 @@ const oneBook = () => {
 }
 
 describe('Company Treasury designation', () => {
-  it('seeds exactly one Company-linked stable Account designation and resolves current Civic Dollar truth', () => {
+  it('seeds both Company-linked stable Account designations and resolves current Civic Dollar truth', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(78)
-    expect(state.version).toBe(78)
-    expect(state.business.treasuryDesignations).toEqual([{
-      companyId: BOOKSTORE_COMPANY_ID,
-      accountId: BOOKSTORE_TREASURY_ACCOUNT_ID,
-    }])
+    expect(GAME_STATE_VERSION).toBe(79)
+    expect(state.version).toBe(79)
+    expect(state.business.treasuryDesignations).toEqual([
+      { companyId: BOOKSTORE_COMPANY_ID, accountId: BOOKSTORE_TREASURY_ACCOUNT_ID },
+      { companyId: ATLAS_DISTRIBUTION_COMPANY_ID, accountId: ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID },
+    ])
     expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)).toBe(
       state.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_TREASURY_ACCOUNT_ID),
     )
     expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)?.accountReference).toBe('CD-4827-6109')
     expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)?.balanceCents).toBe(0)
+    expect(resolveCompanyTreasuryAccount(state, ATLAS_DISTRIBUTION_COMPANY_ID)).toMatchObject({ accountReference: 'CD-5721-6408', balanceCents: 0 })
+    expect(state.dollarFinance.credentials.some(({ accountId }) => accountId === ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(false)
+    expect(state.dollarFinance.sessions.active.some(({ accountId }) => accountId === ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(false)
     expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)?.id).not.toBe('dollar-account-veyra-phone-v0')
     expect(state.dollarFinance.credentials.some(({ accountId }) => accountId === BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(false)
     expect(state.dollarFinance.sessions.active.some(({ accountId }) => accountId === BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(false)
