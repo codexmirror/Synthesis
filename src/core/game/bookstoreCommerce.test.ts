@@ -25,7 +25,7 @@ describe('bookstore commerce initial truth', () => {
     expect(state.bookstoreCommerce.records).toEqual([{
       branchId: BOOKSTORE_BRANCH_ID,
       settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
-      merchandise: BOOKSTORE_MERCHANDISE_CATALOG,
+      assortment: BOOKSTORE_MERCHANDISE_CATALOG.map(({ id }) => id),
       completedSales: [{
         id: 'bookstore-sale-0001',
         kind: 'book_sale',
@@ -182,9 +182,7 @@ describe('resolveBookstoreCommerceForBranch', () => {
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
-        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
-          ? { ...record, merchandise: record.merchandise.map((item) => item.id === 'bookstore-merch-008' ? { ...item, name: 'Systems of Dust (Second Edition)', unitPriceCents: 2_500 } : item) }
-          : record),
+        bookCatalog: initial.bookstoreCommerce.bookCatalog.map((item) => item.id === 'bookstore-merch-008' ? { ...item, name: 'Systems of Dust (Second Edition)', unitPriceCents: 2_500 } : item),
       },
     }
 
@@ -213,9 +211,7 @@ describe('resolveBookstoreCommerceForBranch', () => {
       ...later.state,
       bookstoreCommerce: {
         ...later.state.bookstoreCommerce,
-        records: later.state.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
-          ? { ...record, merchandise: record.merchandise.filter((item) => item.id !== 'bookstore-merch-008') }
-          : record),
+        records: later.state.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, assortment: record.assortment.filter((id) => id !== 'bookstore-merch-008') } : record),
       },
     }
     const resolvedAfterRemoval = resolveBookstoreCommerceForBranch(removed, BOOKSTORE_BRANCH_ID)!

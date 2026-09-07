@@ -6,7 +6,7 @@ import { projectVeyraBusiness, type VeyraBusinessBranchView, type VeyraBusinessC
 import { VeyraIcon } from './VeyraIcon'
 
 /** Which Business surface is open. Presentation only; it never reaches `GameState`. */
-export type VeyraBusinessDetail = { readonly offerId: string }
+export type VeyraBusinessDetail = { readonly offerId: string } | { readonly inventory: true }
 
 /**
  * Business: the phone's client for the Company this Device may actually
@@ -49,7 +49,11 @@ export function VeyraBusiness({ detail, onDetail }: {
   const { company, branch } = projection
   // The review is presentation-local and reads the offer fresh: an offer that
   // is no longer represented simply has no review to show.
-  const reviewed = detail && branch?.offers.find(({ id }) => id === detail.offerId)
+  const reviewed = detail && 'offerId' in detail && branch?.offers.find(({ id }) => id === detail.offerId)
+
+  if (detail && 'inventory' in detail && branch) {
+    return <VeyraBusinessInventory branch={branch} onBack={() => onDetail(undefined)} />
+  }
 
   if (detail && reviewed && branch) {
     return <VeyraBusinessReview
@@ -66,6 +70,7 @@ export function VeyraBusiness({ detail, onDetail }: {
     branch={branch}
     notice={notice}
     onOffer={(offerId) => { setNotice(undefined); onDetail({ offerId }) }}
+    onInventory={() => onDetail({ inventory: true })}
   />
 }
 
@@ -75,11 +80,12 @@ export function VeyraBusiness({ detail, onDetail }: {
  * be bought, and what has been ordered. Every value is represented truth; no
  * score, projection, forecast or other invented metric is derived from it.
  */
-function VeyraBusinessRoot({ company, branch, notice, onOffer }: {
+function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
   company: VeyraBusinessCompanyView
   branch?: VeyraBusinessBranchView
   notice?: string
   onOffer: (offerId: string) => void
+  onInventory: () => void
 }) {
   return <section className="veyra-screen" aria-label="Business">
     <p className="veyra-eyebrow">Company</p>
@@ -105,9 +111,8 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer }: {
         <dl className="veyra-card veyra-card--rows veyra-terms">
           <div className="veyra-row veyra-row--static"><dt>In stock</dt><dd>{branch.inventory.totalStock} of {branch.inventory.shelfCapacity}</dd></div>
           <div className="veyra-row veyra-row--static"><dt>Incoming</dt><dd>{branch.inventory.incomingStock}</dd></div>
-          {branch.inventory.items.map((item) => <div className="veyra-row veyra-row--static" key={item.merchandiseId}>
-            <dt>{item.name}</dt><dd>{item.quantity}</dd>
-          </div>)}
+          <div className="veyra-row veyra-row--static"><dt>Titles</dt><dd>{branch.inventory.titleCount}</dd></div>
+          <button className="veyra-row" type="button" onClick={onInventory}><span>View inventory</span><VeyraIcon name="chevron" /></button>
         </dl>
 
         <h2 className="veyra-section">Supply</h2>
@@ -143,6 +148,19 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer }: {
             </div>)}
           </div>}
       </>}
+  </section>
+}
+
+function VeyraBusinessInventory({ branch, onBack }: { branch: VeyraBusinessBranchView; onBack: () => void }) {
+  return <section className="veyra-screen" aria-label="Inventory">
+    <button className="veyra-quiet" type="button" onClick={onBack}>Back</button>
+    <p className="veyra-eyebrow">{branch.displayName}</p>
+    <h1 className="veyra-title">Inventory</h1>
+    <dl className="veyra-card veyra-card--rows veyra-terms">
+      {branch.inventory.items.map((item) => <div className="veyra-row veyra-row--static" key={item.merchandiseId}>
+        <dt>{item.name}</dt><dd>{item.quantity > 0 ? item.quantity : 'Out of stock'}</dd>
+      </div>)}
+    </dl>
   </section>
 }
 

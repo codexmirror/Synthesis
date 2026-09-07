@@ -20,7 +20,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 80
+export const GAME_STATE_VERSION = 81
 
 export function createInitialGameState(): GameState {
   return {

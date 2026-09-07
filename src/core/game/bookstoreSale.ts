@@ -2,7 +2,7 @@ import { appendCompletedBookstoreSale, findBookstoreCommerceRecord, isBookstoreM
 import { resolveBookstoreBackendForBranch } from './bookstoreBackend'
 import { decrementBookstoreStock, resolveBookstoreOperationsForBranch } from './bookstoreOperations'
 import { executeCivicDollarMovement } from './dollarFinance'
-import type { BookstoreMerchandiseRecord, BusinessBranchSaleLine, GameState } from './types'
+import type { BookstoreBookRecord, BusinessBranchSaleLine, GameState } from './types'
 
 /** The neutral aggregate Civic Dollar payment source for retail customers who are not individually simulated. An ordinary Account: no Credential, Session, Device, or represented Customer identity, and never magically replenished. */
 export const RETAIL_CLEARING_ACCOUNT_ID = 'dollar-account-retail-clearing-v0'
@@ -99,7 +99,7 @@ export function selectBookstoreMerchandiseId(availableIds: readonly string[], ra
  * current catalog.
  */
 export function deriveSellableBookstoreStockByMerchandise(
-  merchandise: readonly BookstoreMerchandiseRecord[],
+  merchandise: readonly BookstoreBookRecord[],
   stock: readonly { readonly merchandiseId: string; readonly quantity: number }[],
 ): ReadonlyMap<string, number> {
   return new Map(merchandise.map((item) => [item.id, stock.find((entry) => entry.merchandiseId === item.id)?.quantity ?? 0]))
@@ -107,7 +107,7 @@ export function deriveSellableBookstoreStockByMerchandise(
 
 /** The total current stock actually purchasable through one Branch's current represented merchandise catalog — see `deriveSellableBookstoreStockByMerchandise`. */
 export function deriveSellableBookstoreTotalStock(
-  merchandise: readonly BookstoreMerchandiseRecord[],
+  merchandise: readonly BookstoreBookRecord[],
   stock: readonly { readonly merchandiseId: string; readonly quantity: number }[],
 ): number {
   return [...deriveSellableBookstoreStockByMerchandise(merchandise, stock).values()].reduce((sum, quantity) => sum + quantity, 0)
@@ -139,7 +139,7 @@ export function deriveSellableBookstoreTotalStock(
  * never reaches an empty candidate set on a structurally valid call.
  */
 export function composeBookstorePurchase(
-  merchandise: readonly BookstoreMerchandiseRecord[],
+  merchandise: readonly BookstoreBookRecord[],
   stock: readonly { readonly merchandiseId: string; readonly quantity: number }[],
   random: () => number,
 ): readonly ComposedBookstorePurchaseLine[] {
@@ -241,14 +241,17 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
 
   const commerce = findBookstoreCommerceRecord(state, branchId)
   if (!commerce) return { status: 'commerce_not_found', state }
-  if (!isBookstoreMerchandiseCatalogSufficient(commerce.merchandise)) return { status: 'invalid_price', state }
+  const assortment = new Set(commerce.assortment)
+  if (assortment.size !== commerce.assortment.length) return { status: 'invalid_price', state }
+  const merchandise = state.bookstoreCommerce.bookCatalog.filter((book) => assortment.has(book.id))
+  if (merchandise.length !== assortment.size || !isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog)) return { status: 'invalid_price', state }
 
   // Sellable stock — the intersection of the current catalog and physical Operations stock — is what
   // purchase feasibility must be measured against, never physical stock alone: stock for a merchandise
   // identity the current catalog no longer lists ("orphan" stock) must never inflate feasibility or be
   // reachable by composition. `deriveBookstoreTotalStock(operations)` remains the separate physical total
   // used for shelf-capacity accounting and RACK-OS's STOCK presentation; it is deliberately not read here.
-  const sellableTotalStock = deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)
+  const sellableTotalStock = deriveSellableBookstoreTotalStock(merchandise, operations.stock)
   if (sellableTotalStock <= 0) return { status: 'out_of_stock', state }
   if (operations.checkoutCapacity <= 0) return { status: 'no_checkout_capacity', state }
 
@@ -265,7 +268,7 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
 
   // Every prerequisite independent of what gets purchased has now resolved. This is the one
   // point that consumes bookstorePurchaseRandom — a conclusive refusal above never reaches it.
-  const basket = composeBookstorePurchase(commerce.merchandise, operations.stock, bookstorePurchaseRandom)
+  const basket = composeBookstorePurchase(merchandise, operations.stock, bookstorePurchaseRandom)
   const basketTotalCents = deriveBookstoreBasketTotalCents(basket)
   if (!Number.isSafeInteger(basketTotalCents) || basketTotalCents <= 0) return { status: 'invalid_price', state }
 

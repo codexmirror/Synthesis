@@ -1395,7 +1395,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
       bookstoreCommerce: {
         ...base.bookstoreCommerce,
         records: [...base.bookstoreCommerce.records, {
-          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', merchandise: [{ id: 'fixture-merch-002', name: 'Fixture Title', unitPriceCents: 2_000 }], completedSales: [],
+          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', assortment: ['fixture-merch-002'], completedSales: [],
         }],
       },
     }

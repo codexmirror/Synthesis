@@ -122,6 +122,7 @@ describe('VEYRA Business projection', () => {
       totalStock: 360,
       shelfCapacity: operations.shelfCapacity,
       incomingStock: 0,
+      titleCount: 8,
       items: operations.stock.map((entry) => ({
         merchandiseId: entry.merchandiseId,
         name: expect.any(String),
@@ -222,5 +223,32 @@ describe('VEYRA Business projection', () => {
     const ops = operating(createInitialGameState(), OPS_ID, 'service-ssh-004', '203.0.113.43')
     expect(projectVeyraBusiness(ops)).toEqual({ status: 'no_company_access' })
     expect(projectVeyraBusiness(createInitialGameState())).toEqual({ status: 'no_company_access' })
+  })
+})
+
+describe('VEYRA Business catalog disclosure boundary', () => {
+  it('projects only carried Books in inventory while naming a non-carried Book referenced by an offer', () => {
+    const state = operating(createInitialGameState())
+    const terminalLight = state.bookstoreCommerce.bookCatalog.find(({ name }) => name === 'Terminal Light')!
+    const offer = {
+      id: 'test-terminal-offer', displayName: 'Terminal Light Delivery', sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID,
+      lines: [{ merchandiseId: terminalLight.id, quantity: 3 }], totalPriceCents: 1_000, deliveryDurationMs: 60_000,
+    }
+    const projected = projectVeyraBusiness({ ...state, bookstoreRestock: { ...state.bookstoreRestock, offers: [offer] } })
+    expect(projected.status).toBe('company')
+    if (projected.status !== 'company' || !projected.branch) return
+    expect(projected.branch.inventory.items.map(({ merchandiseId }) => merchandiseId)).not.toContain(terminalLight.id)
+    expect(projected.branch.inventory.items).toHaveLength(8)
+    expect(projected.branch.offers[0].lines).toEqual([{ merchandiseId: terminalLight.id, name: 'Terminal Light', quantity: 3 }])
+  })
+
+  it('keeps a carried zero-stock Book visible as distinct from a catalog-only Book', () => {
+    const state = operating(createInitialGameState())
+    const zeroed: GameState = { ...state, bookstoreOperations: { records: state.bookstoreOperations.records.map((record) => ({ ...record, stock: record.stock.map((entry) => entry.merchandiseId === 'bookstore-merch-001' ? { ...entry, quantity: 0 } : entry) })) } }
+    const projected = projectVeyraBusiness(zeroed)
+    expect(projected.status).toBe('company')
+    if (projected.status !== 'company' || !projected.branch) return
+    expect(projected.branch.inventory.items.find(({ merchandiseId }) => merchandiseId === 'bookstore-merch-001')?.quantity).toBe(0)
+    expect(projected.branch.inventory.items.some(({ name }) => name === 'Terminal Light')).toBe(false)
   })
 })

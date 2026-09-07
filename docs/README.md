@@ -257,7 +257,7 @@ Dollar Provider Accounts, Credentials, Financial Sessions, transfers, Transactio
 ### Branch commerce
 
 Concrete Company and Business Branch identity, Company Treasury designation,
-the Branch's explicit Network relationship, the represented Bookstore merchandise catalog, completed-sale
+the Branch's explicit Network relationship, the global Bookstore Book Catalog, Branch assortment, completed-sale
 meaning (including each sale's captured purchase-line history), settlement
 configuration, the separate concrete bookstore-operations record (OPEN/CLOSED,
 item-level stock, shelf capacity, checkout capacity), provisional purchase
