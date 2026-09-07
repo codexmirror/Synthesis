@@ -76,7 +76,12 @@ export function advanceRattlerPinSearches(state: GameState, elapsedMs: number): 
       return { ...process, status: 'completed' as const, result: { status: 'payload_interrupted' as const } }
     }
     const elapsed = process.elapsedMs + elapsedMs
-    const due = Math.min(RATTLER_CANDIDATE_BUDGET, Math.floor(elapsed * RATTLER_ATTEMPTS_PER_MINUTE / 60_000))
+    const rawDue = elapsed * RATTLER_ATTEMPTS_PER_MINUTE / 60_000
+    // Canonical advancement may partition one elapsed interval at unrelated
+    // mechanic boundaries. Allow one relative floating-point epsilon so those
+    // additions cannot leave an exact attempt boundary infinitesimally below
+    // its integer value; meaningful sub-boundary elapsed time still floors.
+    const due = Math.min(RATTLER_CANDIDATE_BUDGET, Math.floor(rawDue + Number.EPSILON * Math.max(1, rawDue)))
     if (due <= process.attemptsCompleted) return elapsed === process.elapsedMs ? process : (changed = true, { ...process, elapsedMs: elapsed })
     let attempts = process.attemptsCompleted
     let current = process.currentCandidate
