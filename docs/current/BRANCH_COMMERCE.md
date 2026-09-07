@@ -152,65 +152,35 @@ Randomness (`bookstorePurchaseRandom`, below) may choose which represented
 merchandise ends up in a basket and how many units; it never chooses an
 amount in cents, a monetary band, or any other direct revenue primitive.
 
-## The current concrete bookstore-commerce record
+## Book Catalog and branch commerce
 
-The one currently represented commerce mechanic — a bookstore's represented
-merchandise catalog, settlement configuration, and sale history — is owned by
-a separate, narrow, branch-linked record rather than being embedded on
-generic Branch identity: `GameState.bookstoreCommerce`
-(`src/core/game/bookstoreCommerce.ts`):
+`GameState.bookstoreCommerce.bookCatalog` is one canonical, Bookstore-domain
+World Truth independent from any Branch. It contains exactly 24 authored Books.
+Each entry owns only stable identity, current human-readable title (`name`), and
+current retail price in integer Civic Dollar cents. The original identities
+`bookstore-merch-001` through `bookstore-merch-008`, their titles, and their
+prices are unchanged; sixteen additional authored Books exist without initial
+stock or automatic player disclosure. This remains concrete Bookstore state,
+not a generic Product, SKU, Catalog, Retail, or Inventory framework.
 
-```text
-BookstoreBranchCommerceRecord
-├── branchId              — the Business Branch this record belongs to, by stable ID
-├── settlementAccountId   — mutable current settlement-destination configuration
-├── merchandise           — the current represented merchandise catalog
-└── completedSales        — completed book_sale history, each with its own captured purchase lines
+Each `BookstoreBranchCommerceRecord` owns current settlement configuration,
+immutable CompletedSale history, and an explicit ordered `assortment` of stable
+Book identities. Relation presence means the Branch carries the Book; it is not
+inferred from catalog membership, stock, sales, offers, or Branch identity.
+Mercer Street initially carries exactly the original eight Books. A carried
+Book may have zero stock and remains carried (OUT OF STOCK); a catalog Book
+absent from the assortment is NOT CARRIED. Retail price is global Book Catalog
+truth in V1, with no Branch override.
 
-BookstoreMerchandiseRecord
-├── id             — stable merchandise identity
-├── name           — current human-readable name
-└── unitPriceCents — current canonical unit price, in integer cents
-```
+Sale composition resolves the exact intersection of valid Book Catalog identity,
+Branch assortment, and positive physical Operations stock. Physical stock for
+an uncarried or dangling identity remains part of physical capacity accounting
+but is not sellable. CompletedSale lines continue to capture stable identity,
+title, quantity, and unit price at sale time, so later catalog edits or
+assortment removal never rewrite history.
 
-`merchandise` is Bookstore Commerce's own current catalog configuration,
-exactly like `settlementAccountId`: a small concrete fixture, not a generic
-Product/SKU/catalogue framework. Each entry carries only stable identity, a
-current name, and a current unit price — no ISBN, author, genre, publisher,
-tax, cost basis, supplier, margin, popularity, quality tier, or dynamic
-pricing. V1 seeds exactly eight authored titles
-(`BOOKSTORE_MERCHANDISE_CATALOG`), `bookstore-merch-001` through
-`bookstore-merch-008`, priced from $8.99 to $20.00: `Night Transit` ($8.99),
-`Static Bloom` ($10.99), `Glass District` ($12.99), `The Quiet Archive`
-($13.99), `After the Relay` ($14.99), `Northbound` ($15.99), `A Map of Empty
-Rooms` ($17.99), and `Systems of Dust` ($20.00). These current values are read
-fresh, by stable merchandise ID, at the moment purchase composition selects
-that merchandise (below) — never inferred from a historical Transaction or
-CompletedSale, and a sale's actual amount is always the deterministic sum of
-whatever merchandise a purchase composition actually selected, never this
-catalog's price read as a standalone primitive. `BookstoreCommerceState` also
-carries its own monotonic `nextSaleId` allocator for runtime CompletedSale
-identity, following the existing Transaction/Session allocation pattern
-(`bookstore-sale-0002`, `-0003`, ...) — never derived from array length,
-time, or randomness.
-
-V1 seeds exactly one such commerce record, keyed to `bookstore-branch-01`:
-the eight-title catalog above, `dollar-account-bookstore-treasury-v0` as
-current settlement configuration, and one completed historical `book_sale`
-referencing `dollar-transaction-0001` (its own captured purchase composition
-is described below, under "Historical versus current merchandise truth").
-`resolveBookstoreCommerceForBranch(state, branchId)` resolves this record for
-one Branch, joined against current Civic-Dollar-owned Account and Transaction
-truth, and returns `undefined` where a Branch has no such record at all — a
-legitimate structural state, never an error.
-
-This record is deliberately narrow and concrete, not a generic Business-commerce
-framework: a different concrete subsystem owns its own separate branch-linked
-record, keyed the same way by stable Branch ID, rather than extending this one
-or being embedded on `BusinessBranchState`. The one currently represented
-sibling is bookstore *operations*, below; a still-later concrete subsystem
-(distribution, cameras, payments, storage, ...) would follow the same
-pattern rather than extending either existing record.
+The Book Catalog contains no stock. Assortment contains no quantity. Physical
+quantity remains exclusively in Bookstore Operations below.
 
 ## The current concrete bookstore-operations record
 
@@ -514,10 +484,10 @@ Every prerequisite that makes a sale impossible independently of what gets
 purchased is preflighted, and conclusively refusing on any of them consumes
 no `bookstorePurchaseRandom` at all: the Branch exists in canonical Business
 state; Bookstore Operations exists for it and is `open`; Bookstore Commerce
-exists for it with a structurally sufficient current merchandise catalog (at
-least one entry, every entry a positive safe-integer price, and every
-entry's stable ID unique within the catalog); currently *sellable* stock —
-the intersection of that catalog and physical Operations stock, never
+exists for it with a unique explicit assortment whose identities all resolve
+through the structurally sufficient global Book Catalog (every Book has a
+positive safe-integer price and every stable ID is unique); currently
+*sellable* stock — the intersection of that catalog, Branch assortment, and physical Operations stock, never
 physical stock alone — is positive (`deriveSellableBookstoreTotalStock > 0`)
 and `checkoutCapacity > 0`; a settlement Account resolves; Bookstore Backend
 exists for it and its Device/Service resolve as currently available through
@@ -812,11 +782,11 @@ and associated Network unconditionally, and additionally presents:
   presented through its own captured purchase lines — name, quantity, and
   captured unit price — and its real Transaction total, never a generic
   "book sale" label and never a LOW/STANDARD/HIGH classification;
-- a compact current merchandise catalog — name, current unit price, and
+- the compact current Branch assortment — Book title, current catalog price, and
   (where that Branch also has a represented operations record) current
   stock, looked up by stable merchandise ID via `findBookstoreStockQuantity`
   — only where that Branch has a represented commerce record with at least
-  one merchandise entry; and
+  one resolvable carried Book; the global Book Catalog is never exposed; and
 - the backend Service's own name/version and its derived ONLINE/OFFLINE
   availability, only where that Branch has a represented backend record.
 
@@ -840,3 +810,15 @@ record is unrelated to the Firmware.
 Browsing changes no GameState, Discovery, Knowledge, finance, access, or
 business state. Settlement editing/redirection and future sales are not
 implemented.
+
+## Supplier catalog resolution and assortment expansion
+
+Atlas's two live offers retain their original eight identities, quantities,
+prices, and delivery durations. Offer lines validate against the global Book
+Catalog, not the buyer Branch assortment or existing stock rows; a dangling
+Book identity invalidates the offer. Placement captures current Book titles in
+the immutable RestockOrder but does not add assortment or sellable stock. On
+the exact-once `IN_TRANSIT -> DELIVERED` transition, delivery adds each missing
+assortment identity once and creates or increments its Operations stock row.
+Multiple deliveries therefore share one assortment relation while quantities
+accumulate. Current catalog title changes never rewrite captured order names.

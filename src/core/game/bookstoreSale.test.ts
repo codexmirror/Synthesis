@@ -99,9 +99,7 @@ describe('executeBookstoreSale — success path', () => {
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
-        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
-          ? { ...record, merchandise: record.merchandise.map((item) => item.id === 'bookstore-merch-008' ? { ...item, unitPriceCents: 3_500 } : item) }
-          : record),
+        bookCatalog: initial.bookstoreCommerce.bookCatalog.map((item) => item.id === 'bookstore-merch-008' ? { ...item, unitPriceCents: 3_500 } : item),
       },
     }
     const result = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
@@ -116,11 +114,12 @@ describe('executeBookstoreSale — success path', () => {
     const fixture: GameState = {
       ...initial,
       bookstoreCommerce: {
+        ...initial.bookstoreCommerce,
         nextSaleId: 47,
         records: [{
           branchId: BOOKSTORE_BRANCH_ID,
           settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
-          merchandise: [{ id: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents: 2_000 }],
+          assortment: ['bookstore-merch-008'],
           completedSales: [],
         }],
       },
@@ -203,9 +202,9 @@ describe('executeBookstoreSale — atomic failure paths', () => {
 
   it('refuses an empty merchandise catalog, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
-    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, merchandise: [] } : record) } }
+    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, assortment: [] } : record) } }
     const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
-    expect(result).toEqual({ status: 'invalid_price', state })
+    expect(result).toEqual({ status: 'out_of_stock', state })
     expect(result.state).toBe(state)
   })
 
@@ -220,9 +219,7 @@ describe('executeBookstoreSale — atomic failure paths', () => {
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
-        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
-          ? { ...record, merchandise: record.merchandise.map((item) => item.id === 'bookstore-merch-001' ? { ...item, unitPriceCents } : item) }
-          : record),
+        bookCatalog: initial.bookstoreCommerce.bookCatalog.map((item) => item.id === 'bookstore-merch-001' ? { ...item, unitPriceCents } : item),
       },
     }
     const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
@@ -571,11 +568,11 @@ describe('Bookstore cross-owner stock/catalog integrity — sellable-stock inter
     const state = withOrphanStockOnly()
     const operations = operationsOf(state)
     const commerce = state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
-    const sellable = deriveSellableBookstoreStockByMerchandise(commerce.merchandise, operations.stock)
+    const sellable = deriveSellableBookstoreStockByMerchandise(state.bookstoreCommerce.bookCatalog.filter((item) => commerce.assortment.includes(item.id)), operations.stock)
     expect(sellable.has(ORPHAN_MERCHANDISE_ID)).toBe(false)
-    expect([...sellable.keys()]).toEqual(commerce.merchandise.map((item) => item.id))
+    expect([...sellable.keys()]).toEqual(state.bookstoreCommerce.bookCatalog.filter((item) => commerce.assortment.includes(item.id)).map((item) => item.id))
     expect([...sellable.values()].every((quantity) => quantity === 0)).toBe(true)
-    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)).toBe(0)
+    expect(deriveSellableBookstoreTotalStock(state.bookstoreCommerce.bookCatalog.filter((item) => commerce.assortment.includes(item.id)), operations.stock)).toBe(0)
     // Physical stock still reflects the orphan quantity — Operations never loses physical truth merely
     // because Commerce no longer lists it, and this is a distinct derivation from the sellable one.
     expect(deriveBookstoreTotalStock(operations)).toBe(44)
@@ -585,8 +582,8 @@ describe('Bookstore cross-owner stock/catalog integrity — sellable-stock inter
     const state = createInitialGameState()
     const operations = operationsOf(state)
     const commerce = state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
-    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)).toBe(deriveBookstoreTotalStock(operations))
-    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)).toBe(360)
+    expect(deriveSellableBookstoreTotalStock(state.bookstoreCommerce.bookCatalog.filter((item) => commerce.assortment.includes(item.id)), operations.stock)).toBe(deriveBookstoreTotalStock(operations))
+    expect(deriveSellableBookstoreTotalStock(state.bookstoreCommerce.bookCatalog.filter((item) => commerce.assortment.includes(item.id)), operations.stock)).toBe(360)
   })
 
   it('(A) orphan stock only: refuses cleanly with out_of_stock, unchanged, and consumes no purchase randomness', () => {
@@ -616,7 +613,7 @@ describe('Bookstore cross-owner stock/catalog integrity — sellable-stock inter
     }
     const commerce = withPartialSellableStock.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
     const operationsBefore = operationsOf(withPartialSellableStock)
-    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operationsBefore.stock)).toBe(1)
+    expect(deriveSellableBookstoreTotalStock(withPartialSellableStock.bookstoreCommerce.bookCatalog.filter((item) => commerce.assortment.includes(item.id)), operationsBefore.stock)).toBe(1)
     // The physical total (what shelf-capacity accounting and RACK-OS present) still includes the orphan units.
     expect(deriveBookstoreTotalStock(operationsBefore)).toBe(1_001)
 
@@ -639,9 +636,7 @@ describe('Bookstore cross-owner stock/catalog integrity — sellable-stock inter
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
-        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
-          ? { ...record, merchandise: [...record.merchandise, { id: 'bookstore-merch-001', name: 'Night Transit (duplicate)', unitPriceCents: 501 }] }
-          : record),
+        bookCatalog: [...initial.bookstoreCommerce.bookCatalog, { id: 'bookstore-merch-001', name: 'Night Transit (duplicate)', unitPriceCents: 501 }],
       },
     }
     const forbiddenRandom = () => { throw new Error('must not sample bookstorePurchaseRandom') }

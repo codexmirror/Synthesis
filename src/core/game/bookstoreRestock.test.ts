@@ -34,7 +34,28 @@ describe('Bookstore restock represented truth', () => {
       { id: BOOKSTORE_COMPACT_REFILL_OFFER_ID, seller: ATLAS_DISTRIBUTION_COMPANY_ID, units: 16, price: 14_000, duration: 1_800_000 },
       { id: BOOKSTORE_STANDARD_REFILL_OFFER_ID, seller: ATLAS_DISTRIBUTION_COMPANY_ID, units: 40, price: 34_000, duration: 3_600_000 },
     ])
-    expect(state.bookstoreRestock.offers.every((offer) => offer.lines.map((line) => line.merchandiseId).join(',') === state.bookstoreCommerce.records[0].merchandise.map(({ id }) => id).join(','))).toBe(true)
+    const intendedIds = [
+      'bookstore-merch-001', 'bookstore-merch-002', 'bookstore-merch-003', 'bookstore-merch-004',
+      'bookstore-merch-005', 'bookstore-merch-006', 'bookstore-merch-007', 'bookstore-merch-008',
+    ]
+    expect(state.bookstoreRestock.offers[0].lines).toEqual(intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 2 })))
+    expect(state.bookstoreRestock.offers[1].lines).toEqual(intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 5 })))
+  })
+
+  it('fails closed atomically when global Book identity is ambiguous', () => {
+    const funded = earn(createInitialGameState(), 7)
+    const input: GameState = {
+      ...funded,
+      bookstoreCommerce: {
+        ...funded.bookstoreCommerce,
+        bookCatalog: [...funded.bookstoreCommerce.bookCatalog, { ...funded.bookstoreCommerce.bookCatalog[0], name: 'Ambiguous Night Transit' }],
+      },
+    }
+    const before = structuredClone(input)
+    const result = placeBookstoreRestockOrder(input, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    expect(result).toEqual({ status: 'invalid_offer', state: input })
+    expect(result.state).toBe(input)
+    expect(result.state).toEqual(before)
   })
 
   it('uses represented sales revenue to atomically pay the current Company Treasuries and capture one in-transit historical order', () => {
@@ -110,7 +131,7 @@ describe('Bookstore restock represented truth', () => {
     const changed: GameState = {
       ...placed.state,
       business: { ...placed.state.business, companies: placed.state.business.companies.map((company) => company.id === ATLAS_DISTRIBUTION_COMPANY_ID ? { ...company, displayName: 'Renamed Atlas' } : company) },
-      bookstoreCommerce: { ...placed.state.bookstoreCommerce, records: placed.state.bookstoreCommerce.records.map((record) => ({ ...record, merchandise: record.merchandise.map((item) => ({ ...item, name: `Renamed ${item.id}` })) })) },
+      bookstoreCommerce: { ...placed.state.bookstoreCommerce, bookCatalog: placed.state.bookstoreCommerce.bookCatalog.map((item) => ({ ...item, name: `Renamed ${item.id}` })) },
       bookstoreRestock: { ...placed.state.bookstoreRestock, offers: placed.state.bookstoreRestock.offers.map((offer) => ({ ...offer, displayName: 'Changed offer' })) },
     }
     expect(changed.bookstoreRestock.orders[0]).toBe(historical)
@@ -146,5 +167,40 @@ describe('Bookstore restock represented truth', () => {
     expect(partitioned).toEqual(large)
     expect(large.bookstoreRestock.orders[0].status).toBe('DELIVERED')
     expect(large.bookstoreCommerce.records[0].completedSales).toHaveLength(timed.bookstoreCommerce.records[0].completedSales.length + 1)
+  })
+})
+
+describe('Bookstore assortment expansion', () => {
+  it('keeps a represented non-carried Book unavailable until its exact-once canonical delivery', () => {
+    const terminalLightId = 'bookstore-book-010'
+    const funded = earn(createInitialGameState(), 7)
+    expect(funded.bookstoreCommerce.bookCatalog.find(({ id }) => id === terminalLightId)?.name).toBe('Terminal Light')
+    expect(funded.bookstoreCommerce.bookCatalog).toHaveLength(24)
+    expect(funded.bookstoreCommerce.records[0].assortment).not.toContain(terminalLightId)
+    expect(findBookstoreStockQuantity(funded.bookstoreOperations.records[0], terminalLightId)).toBe(0)
+
+    const offerId = 'test-terminal-light-offer'
+    const offered: GameState = {
+      ...funded,
+      bookstoreRestock: { ...funded.bookstoreRestock, offers: [...funded.bookstoreRestock.offers, {
+        id: offerId, displayName: 'Terminal Light Delivery', sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID,
+        lines: [{ merchandiseId: terminalLightId, quantity: 3 }], totalPriceCents: 14_000, deliveryDurationMs: 60_000,
+      }] },
+    }
+    const placed = placeBookstoreRestockOrder(offered, BOOKSTORE_BRANCH_ID, offerId)
+    expect(placed.status).toBe('ordered')
+    if (placed.status !== 'ordered') throw new Error('expected order')
+    expect(placed.state.bookstoreCommerce.records[0].assortment).not.toContain(terminalLightId)
+    expect(findBookstoreStockQuantity(placed.state.bookstoreOperations.records[0], terminalLightId)).toBe(0)
+    expect(placed.state.bookstoreRestock.orders.at(-1)?.lines).toEqual([{
+      merchandiseId: terminalLightId, capturedMerchandiseDisplayName: 'Terminal Light', quantity: 3,
+    }])
+
+    const delivered = advanceGameState(placed.state, 60_000, () => 0.5, () => 0.5, lastBook())
+    expect(delivered.bookstoreCommerce.records[0].assortment.filter((id) => id === terminalLightId)).toHaveLength(1)
+    expect(findBookstoreStockQuantity(delivered.bookstoreOperations.records[0], terminalLightId)).toBe(3)
+    const repeated = advanceGameState(delivered, 60_000, () => 0.5, () => 0.5, lastBook())
+    expect(repeated.bookstoreCommerce.records[0].assortment.filter((id) => id === terminalLightId)).toHaveLength(1)
+    expect(findBookstoreStockQuantity(repeated.bookstoreOperations.records[0], terminalLightId)).toBe(3)
   })
 })

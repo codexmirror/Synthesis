@@ -813,7 +813,7 @@ export interface BusinessState {
  * a completed sale instead captures its own immutable snapshot
  * (`BusinessBranchSaleLine`) that never changes when this record does.
  */
-export interface BookstoreMerchandiseRecord {
+export interface BookstoreBookRecord {
   readonly id: string
   readonly name: string
   readonly unitPriceCents: number
@@ -839,12 +839,14 @@ export interface BookstoreMerchandiseRecord {
 export interface BookstoreBranchCommerceRecord {
   readonly branchId: string
   readonly settlementAccountId: string
-  /** The current represented merchandise this Branch sells. Read fresh by purchase composition — never inferred from historical CompletedSale lines. */
-  readonly merchandise: readonly BookstoreMerchandiseRecord[]
+  /** Stable Book identities this Branch currently carries. Presence, not stock, expresses assortment. */
+  readonly assortment: readonly string[]
   readonly completedSales: readonly BusinessBranchSale[]
 }
 
 export interface BookstoreCommerceState {
+  /** Canonical current Bookstore World Truth, independent from every Branch. */
+  readonly bookCatalog: readonly BookstoreBookRecord[]
   /** Monotonic allocator for runtime `BusinessBranchSale` identity, following the existing Transaction/Session allocation pattern. Never derived from array length, time, or randomness. */
   readonly nextSaleId: number
   readonly records: readonly BookstoreBranchCommerceRecord[]

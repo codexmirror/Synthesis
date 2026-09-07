@@ -1,12 +1,12 @@
 import { BOOKSTORE_BRANCH_ID } from './business'
-import type { BookstoreBranchCommerceRecord, BookstoreCommerceState, BookstoreMerchandiseRecord, BusinessBranchSaleLine, DollarFinancialAccount, DollarTransaction, GameState } from './types'
+import type { BookstoreBranchCommerceRecord, BookstoreBookRecord, BookstoreCommerceState, BusinessBranchSaleLine, DollarFinancialAccount, DollarTransaction, GameState } from './types'
 
 export const BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID = 'dollar-account-bookstore-treasury-v0'
 export const BOOKSTORE_SALE_ID = 'bookstore-sale-0001'
 export const BOOKSTORE_SALE_TRANSACTION_ID = 'dollar-transaction-0001'
 
 /**
- * The seeded Bookstore Branch's authored V1 represented merchandise catalog —
+ * The Bookstore domain's authored V1 represented Book Catalog —
  * a small concrete fixture, not a generic Product/SKU/catalogue framework.
  * Each entry carries only stable identity, a current human-readable name, and
  * a current unit price in integer cents: no ISBN, author, genre, publisher,
@@ -16,7 +16,7 @@ export const BOOKSTORE_SALE_TRANSACTION_ID = 'dollar-transaction-0001'
  * merchandise actually purchased, read fresh from here at the moment of
  * purchase composition.
  */
-export const BOOKSTORE_MERCHANDISE_CATALOG: readonly BookstoreMerchandiseRecord[] = [
+export const BOOKSTORE_BOOK_CATALOG: readonly BookstoreBookRecord[] = [
   { id: 'bookstore-merch-001', name: 'Night Transit', unitPriceCents: 899 },
   { id: 'bookstore-merch-002', name: 'Static Bloom', unitPriceCents: 1_099 },
   { id: 'bookstore-merch-003', name: 'Glass District', unitPriceCents: 1_299 },
@@ -25,7 +25,36 @@ export const BOOKSTORE_MERCHANDISE_CATALOG: readonly BookstoreMerchandiseRecord[
   { id: 'bookstore-merch-006', name: 'Northbound', unitPriceCents: 1_599 },
   { id: 'bookstore-merch-007', name: 'A Map of Empty Rooms', unitPriceCents: 1_799 },
   { id: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents: 2_000 },
+  { id: 'bookstore-book-009', name: 'Red Harbor', unitPriceCents: 1_249 },
+  { id: 'bookstore-book-010', name: 'Terminal Light', unitPriceCents: 1_649 },
+  { id: 'bookstore-book-011', name: 'Field Notes', unitPriceCents: 999 },
+  { id: 'bookstore-book-012', name: 'Winter Circuit', unitPriceCents: 1_549 },
+  { id: 'bookstore-book-013', name: 'Borrowed Signal', unitPriceCents: 1_399 },
+  { id: 'bookstore-book-014', name: 'Low Orbit', unitPriceCents: 1_199 },
+  { id: 'bookstore-book-015', name: 'The Last Platform', unitPriceCents: 1_799 },
+  { id: 'bookstore-book-016', name: 'Copper Rain', unitPriceCents: 1_299 },
+  { id: 'bookstore-book-017', name: 'Distant Current', unitPriceCents: 1_499 },
+  { id: 'bookstore-book-018', name: 'Signal House', unitPriceCents: 1_899 },
+  { id: 'bookstore-book-019', name: 'The Pale Exchange', unitPriceCents: 1_449 },
+  { id: 'bookstore-book-020', name: 'Midnight Index', unitPriceCents: 1_599 },
+  { id: 'bookstore-book-021', name: 'Concrete Sky', unitPriceCents: 1_349 },
+  { id: 'bookstore-book-022', name: 'Rooms Without Doors', unitPriceCents: 1_749 },
+  { id: 'bookstore-book-023', name: 'Silent Frequency', unitPriceCents: 1_529 },
+  { id: 'bookstore-book-024', name: 'East of the Grid', unitPriceCents: 1_929 },
 ]
+/** Mercer Street's authored Branch assortment, independent from Catalog ordering. */
+export const BOOKSTORE_INITIAL_ASSORTMENT: readonly string[] = [
+  'bookstore-merch-001',
+  'bookstore-merch-002',
+  'bookstore-merch-003',
+  'bookstore-merch-004',
+  'bookstore-merch-005',
+  'bookstore-merch-006',
+  'bookstore-merch-007',
+  'bookstore-merch-008',
+]
+/** Compatibility name for the original eight-title authored set. */
+export const BOOKSTORE_MERCHANDISE_CATALOG = BOOKSTORE_INITIAL_ASSORTMENT.map((id) => resolveBookstoreBookById(BOOKSTORE_BOOK_CATALOG, id)!)
 
 /**
  * The authored historical sale (`bookstore-sale-0001`) predates represented
@@ -40,11 +69,12 @@ const BOOKSTORE_SALE_0001_LINES: readonly BusinessBranchSaleLine[] = [
 
 export function createInitialBookstoreCommerceState(): BookstoreCommerceState {
   return {
+    bookCatalog: BOOKSTORE_BOOK_CATALOG,
     nextSaleId: 2,
     records: [{
       branchId: BOOKSTORE_BRANCH_ID,
       settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
-      merchandise: BOOKSTORE_MERCHANDISE_CATALOG,
+      assortment: BOOKSTORE_INITIAL_ASSORTMENT,
       completedSales: [{ id: BOOKSTORE_SALE_ID, kind: 'book_sale', dollarTransactionId: BOOKSTORE_SALE_TRANSACTION_ID, lines: BOOKSTORE_SALE_0001_LINES }],
     }],
   }
@@ -68,10 +98,16 @@ export function findBookstoreCommerceRecord(state: GameState, branchId: string):
  * precondition, independent of stock or any other prerequisite — it never
  * reads `BookstoreBranchOperationsRecord` stock.
  */
-export function isBookstoreMerchandiseCatalogSufficient(merchandise: readonly BookstoreMerchandiseRecord[]): boolean {
+export function isBookstoreMerchandiseCatalogSufficient(merchandise: readonly BookstoreBookRecord[]): boolean {
   if (merchandise.length === 0) return false
   if (!merchandise.every((item) => Number.isSafeInteger(item.unitPriceCents) && item.unitPriceCents > 0)) return false
   return new Set(merchandise.map((item) => item.id)).size === merchandise.length
+}
+
+/** Resolve one stable Book identity only when Catalog truth provides exactly one match. */
+export function resolveBookstoreBookById(catalog: readonly BookstoreBookRecord[], bookId: string): BookstoreBookRecord | undefined {
+  const matches = catalog.filter(({ id }) => id === bookId)
+  return matches.length === 1 ? matches[0] : undefined
 }
 
 /**
@@ -92,7 +128,7 @@ export function appendCompletedBookstoreSale(state: GameState, branchId: string,
     : record)
   return {
     saleId,
-    state: { ...state, bookstoreCommerce: { nextSaleId: state.bookstoreCommerce.nextSaleId + 1, records } },
+    state: { ...state, bookstoreCommerce: { ...state.bookstoreCommerce, nextSaleId: state.bookstoreCommerce.nextSaleId + 1, records } },
   }
 }
 
@@ -106,7 +142,7 @@ export function appendCompletedBookstoreSale(state: GameState, branchId: string,
  * branch-linked record already holds.
  */
 export interface ResolvedBookstoreCommerce {
-  readonly merchandise: readonly BookstoreMerchandiseRecord[]
+  readonly merchandise: readonly BookstoreBookRecord[]
   readonly settlementAccount: DollarFinancialAccount
   readonly sales: readonly { readonly id: string; readonly kind: 'book_sale'; readonly transaction: DollarTransaction; readonly lines: readonly BusinessBranchSaleLine[] }[]
 }
@@ -128,5 +164,6 @@ export function resolveBookstoreCommerceForBranch(state: GameState, branchId: st
     const transaction = state.dollarFinance.transactions.records.find(({ id }) => id === sale.dollarTransactionId)
     return transaction ? [{ id: sale.id, kind: sale.kind, transaction, lines: sale.lines }] : []
   })
-  return { merchandise: record.merchandise, settlementAccount, sales }
+  const assortment = new Set(record.assortment)
+  return { merchandise: state.bookstoreCommerce.bookCatalog.filter((book) => assortment.has(book.id)), settlementAccount, sales }
 }

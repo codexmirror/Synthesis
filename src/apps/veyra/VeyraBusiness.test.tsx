@@ -149,7 +149,7 @@ describe('VEYRA Business presence', () => {
 
 describe('VEYRA Business surface', () => {
   it('presents Company, Branch, funds, inventory, supply and orders from represented truth', async () => {
-    await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
+    const user = await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
     const business = screen.getByRole('region', { name: 'Business' })
     const state = canonical()
 
@@ -159,7 +159,9 @@ describe('VEYRA Business surface', () => {
     // Company funds are the Company Treasury balance, never the phone's own Account.
     expect(business).toHaveTextContent(`$${(balance(state, BOOKSTORE_TREASURY_ACCOUNT_ID) / 100).toFixed(2)}`)
     expect(business.textContent).not.toContain('CD-3318-2204')
-    expect(business).toHaveTextContent('Night Transit')
+    expect(business).not.toHaveTextContent('Night Transit')
+    await user.click(within(business).getByRole('button', { name: /View inventory/i }))
+    expect(screen.getByRole('region', { name: 'Inventory' })).toHaveTextContent('Night Transit')
     expect(business).toHaveTextContent('Compact Shelf Refill')
     expect(business).toHaveTextContent('Atlas Distribution')
     expect(business).toHaveTextContent('$140.00')

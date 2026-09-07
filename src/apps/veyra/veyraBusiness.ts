@@ -1,5 +1,5 @@
 import { resolveCompanyTreasuryAccount } from '../../core/game/business'
-import { findBookstoreCommerceRecord } from '../../core/game/bookstoreCommerce'
+import { findBookstoreCommerceRecord, resolveBookstoreBookById } from '../../core/game/bookstoreCommerce'
 import { deriveBookstoreTotalStock, resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { deriveBookstoreIncomingStock } from '../../core/game/bookstoreRestock'
 import { resolveSoleCompanyAdministrationContextForOperatedRemoteDevice } from '../../core/game/companyAdministration'
@@ -48,6 +48,7 @@ export interface VeyraBusinessInventoryView {
   readonly shelfCapacity: number
   /** Units already paid for and still in transit; they reserve shelf capacity but cannot be sold. */
   readonly incomingStock: number
+  readonly titleCount: number
   readonly items: readonly { readonly merchandiseId: string; readonly name: string; readonly quantity: number }[]
 }
 
@@ -104,7 +105,8 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
   if (supported.length !== 1) return undefined
   const { branch, commerce, operations } = supported[0]
 
-  const merchandiseName = (merchandiseId: string) => commerce.merchandise.find(({ id }) => id === merchandiseId)?.name
+  const merchandiseName = (merchandiseId: string) => resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, merchandiseId)?.name
+  const assortment = new Set(commerce.assortment)
 
   return {
     branchId: branch.id,
@@ -114,9 +116,10 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
       totalStock: deriveBookstoreTotalStock(operations),
       shelfCapacity: operations.shelfCapacity,
       incomingStock: deriveBookstoreIncomingStock(state, branch.id),
-      items: operations.stock.flatMap((entry) => {
-        const name = merchandiseName(entry.merchandiseId)
-        return name ? [{ merchandiseId: entry.merchandiseId, name, quantity: entry.quantity }] : []
+      titleCount: commerce.assortment.filter((id, index) => commerce.assortment.indexOf(id) === index && Boolean(merchandiseName(id))).length,
+      items: commerce.assortment.flatMap((merchandiseId) => {
+        const name = merchandiseName(merchandiseId)
+        return name && assortment.has(merchandiseId) ? [{ merchandiseId, name, quantity: operations.stock.find((entry) => entry.merchandiseId === merchandiseId)?.quantity ?? 0 }] : []
       }),
     },
     // Every currently represented supply offer, in represented order. An offer

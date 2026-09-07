@@ -1,5 +1,5 @@
 import { BOOKSTORE_BRANCH_ID } from './business'
-import { BOOKSTORE_MERCHANDISE_CATALOG } from './bookstoreCommerce'
+import { BOOKSTORE_INITIAL_ASSORTMENT } from './bookstoreCommerce'
 import type { BookstoreBranchOperationsRecord, BookstoreMerchandiseStockRecord, BookstoreOperationsState, GameState } from './types'
 
 /**
@@ -23,7 +23,7 @@ export function createInitialBookstoreOperationsState(): BookstoreOperationsStat
       shelfCapacity: BOOKSTORE_BRANCH_INITIAL_SHELF_CAPACITY,
       checkoutCapacity: BOOKSTORE_BRANCH_INITIAL_CHECKOUT_CAPACITY,
       open: BOOKSTORE_BRANCH_INITIAL_OPEN,
-      stock: BOOKSTORE_MERCHANDISE_CATALOG.map((item) => ({ merchandiseId: item.id, quantity: BOOKSTORE_BRANCH_INITIAL_STOCK_PER_MERCHANDISE })),
+      stock: BOOKSTORE_INITIAL_ASSORTMENT.map((merchandiseId) => ({ merchandiseId, quantity: BOOKSTORE_BRANCH_INITIAL_STOCK_PER_MERCHANDISE })),
     })],
   }
 }
@@ -145,7 +145,10 @@ export function incrementBookstoreStock(state: GameState, branchId: string, line
     ...state,
     bookstoreOperations: {
       records: state.bookstoreOperations.records.map((record) => record.branchId === branchId
-        ? { ...record, stock: record.stock.map((entry) => increments.has(entry.merchandiseId) ? { ...entry, quantity: entry.quantity + increments.get(entry.merchandiseId)! } : entry) }
+        ? { ...record, stock: [
+          ...record.stock.map((entry) => increments.has(entry.merchandiseId) ? { ...entry, quantity: entry.quantity + increments.get(entry.merchandiseId)! } : entry),
+          ...lines.filter((line) => !record.stock.some((entry) => entry.merchandiseId === line.merchandiseId)).map((line) => ({ merchandiseId: line.merchandiseId, quantity: line.quantity })),
+        ] }
         : record),
     },
   }

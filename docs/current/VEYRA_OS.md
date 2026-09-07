@@ -275,10 +275,12 @@ The root presents, entirely from represented truth:
   Credential, saved sign-in or Account ownership, and Business offers no SEND,
   RECEIVE, transfer or counterparty control of any kind.
 - **Branch** — the Branch display name and its represented location.
-- **Inventory** — current total sellable stock against shelf capacity, current
-  incoming units, and every represented merchandise item's on-hand quantity,
-  all read from Bookstore Operations. Incoming units are paid for and in
-  transit; they are deliberately not part of current stock.
+- **Inventory** — a compact root summary of current physical stock against shelf capacity,
+  incoming units, and the number of Book identities in the Branch assortment. One clear
+  **View inventory** route opens a detail surface listing only carried Books and their
+  physical quantities; a carried zero-quantity Book remains visible as **Out of stock**.
+  Catalog-only Books are not disclosed. Incoming units are paid for and in transit and are
+  deliberately not part of current stock or assortment until canonical delivery.
 - **Supply** — every currently represented Bookstore supply offer, each stating
   its own display name, seller Company display name, total units, exact price
   and represented delivery duration. An offer whose seller Company does not

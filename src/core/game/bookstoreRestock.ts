@@ -1,5 +1,5 @@
 import { ATLAS_DISTRIBUTION_COMPANY_ID } from './business'
-import { BOOKSTORE_MERCHANDISE_CATALOG, findBookstoreCommerceRecord } from './bookstoreCommerce'
+import { findBookstoreCommerceRecord, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreBookById } from './bookstoreCommerce'
 import { deriveBookstoreTotalStock, incrementBookstoreStock, resolveBookstoreOperationsForBranch } from './bookstoreOperations'
 import { settleValidatedCompanyPurchase } from './businessPurchaseSettlement'
 import type { BookstoreRestockOrder, BookstoreRestockState, BookstoreSupplyOffer, GameState } from './types'
@@ -7,8 +7,20 @@ import type { BookstoreRestockOrder, BookstoreRestockState, BookstoreSupplyOffer
 export const BOOKSTORE_COMPACT_REFILL_OFFER_ID = 'bookstore-supply-offer-atlas-compact-v0'
 export const BOOKSTORE_STANDARD_REFILL_OFFER_ID = 'bookstore-supply-offer-atlas-standard-v0'
 
+/** Atlas's authored commercial relationship, independent from every Branch assortment. */
+const ATLAS_REFILL_BOOK_IDS: readonly string[] = [
+  'bookstore-merch-001',
+  'bookstore-merch-002',
+  'bookstore-merch-003',
+  'bookstore-merch-004',
+  'bookstore-merch-005',
+  'bookstore-merch-006',
+  'bookstore-merch-007',
+  'bookstore-merch-008',
+]
+
 function authoredOffer(id: string, displayName: string, quantity: number, totalPriceCents: number, deliveryDurationMs: number): BookstoreSupplyOffer {
-  return { id, displayName, sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID, lines: BOOKSTORE_MERCHANDISE_CATALOG.map(({ id: merchandiseId }) => ({ merchandiseId, quantity })), totalPriceCents, deliveryDurationMs }
+  return { id, displayName, sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID, lines: ATLAS_REFILL_BOOK_IDS.map((merchandiseId) => ({ merchandiseId, quantity })), totalPriceCents, deliveryDurationMs }
 }
 
 export function createInitialBookstoreRestockState(): BookstoreRestockState {
@@ -30,11 +42,11 @@ function validOfferForBranch(state: GameState, branchId: string, offer: Bookstor
   const commerce = findBookstoreCommerceRecord(state, branchId)
   const operations = resolveBookstoreOperationsForBranch(state, branchId)
   if (!commerce || !operations || !Number.isSafeInteger(offer.totalPriceCents) || offer.totalPriceCents <= 0 || !Number.isFinite(offer.deliveryDurationMs) || offer.deliveryDurationMs <= 0 || offer.lines.length === 0) return false
+  if (!isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog)) return false
   const ids = offer.lines.map(({ merchandiseId }) => merchandiseId)
   if (new Set(ids).size !== ids.length) return false
   return offer.lines.every((line) => Number.isSafeInteger(line.quantity) && line.quantity > 0
-    && commerce.merchandise.some(({ id }) => id === line.merchandiseId)
-    && operations.stock.some(({ merchandiseId }) => merchandiseId === line.merchandiseId))
+    && resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, line.merchandiseId) !== undefined)
 }
 
 export function deriveBookstoreIncomingStock(state: GameState, branchId: string): number {
@@ -66,7 +78,7 @@ export function placeBookstoreRestockOrder(state: GameState, branchId: string, o
   const orderId = `bookstore-restock-order-${String(state.bookstoreRestock.nextOrderId).padStart(4, '0')}`
   const lines = offer.lines.map((line) => ({
     merchandiseId: line.merchandiseId,
-    capturedMerchandiseDisplayName: commerce.merchandise.find(({ id }) => id === line.merchandiseId)!.name,
+    capturedMerchandiseDisplayName: resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, line.merchandiseId)!.name,
     quantity: line.quantity,
   }))
   const order: BookstoreRestockOrder = {
@@ -95,6 +107,9 @@ export function advanceBookstoreRestockDeliveries(state: GameState, elapsedMs: n
       continue
     }
     next = incrementBookstoreStock(next, stale.buyerBranchId, stale.lines)
+    next = { ...next, bookstoreCommerce: { ...next.bookstoreCommerce, records: next.bookstoreCommerce.records.map((record) => record.branchId === stale.buyerBranchId
+      ? { ...record, assortment: [...record.assortment, ...stale.lines.map((line) => line.merchandiseId).filter((id) => !record.assortment.includes(id))] }
+      : record) } }
     next = { ...next, bookstoreRestock: { ...next.bookstoreRestock, orders: next.bookstoreRestock.orders.map((order) => order.id === stale.id ? { ...order, remainingDeliveryMs: 0, status: 'DELIVERED' as const } : order) } }
   }
   return next
