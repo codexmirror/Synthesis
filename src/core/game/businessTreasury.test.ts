@@ -22,7 +22,13 @@ describe('Company Treasury designation', () => {
     expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)).toBe(
       state.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_TREASURY_ACCOUNT_ID),
     )
-    expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)?.accountReference).toBe('CD-3318-2204')
+    expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)?.accountReference).toBe('CD-4827-6109')
+    expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)?.balanceCents).toBe(0)
+    expect(resolveCompanyTreasuryAccount(state, BOOKSTORE_COMPANY_ID)?.id).not.toBe('dollar-account-veyra-phone-v0')
+    expect(state.dollarFinance.credentials.some(({ accountId }) => accountId === BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(false)
+    expect(state.dollarFinance.sessions.active.some(({ accountId }) => accountId === BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(false)
+    expect(state.dollarFinance.sessions.active).toContainEqual({ id: 'dollar-session-0002', accountId: 'dollar-account-veyra-phone-v0', clientDeviceId: 'host-phone-001' })
+    expect(state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')?.balanceCents).toBe(34_250)
     expect(state.business.treasuryDesignations[0]).not.toHaveProperty('balanceCents')
     expect(state.business.companies[0]).toEqual({ id: BOOKSTORE_COMPANY_ID, displayName: 'Bookstore' })
   })

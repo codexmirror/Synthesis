@@ -1257,7 +1257,8 @@ describe('RACK-OS 1.1 Business application shell', () => {
     // Demand is presented as opportunities, never as guaranteed sales, and derives from the represented cadence configuration (10/hour × 1.00).
     expect(within(business).getByText('DEMAND OPPORTUNITIES').closest('div')).toHaveTextContent('~10 / HOUR')
     expect(within(business).getByText('ATTRACTIVENESS').closest('div')).toHaveTextContent('1.00×')
-    expect(within(business).getByText('TREASURY ACCOUNT').closest('div')).toHaveTextContent('CD-3318-2204')
+    expect(within(business).getByText('TREASURY ACCOUNT').closest('div')).toHaveTextContent('CD-4827-6109')
+    expect(within(business).getByText('SETTLEMENT ACCOUNT').closest('div')).toHaveTextContent('CD-4827-6109')
     expect(business.textContent).not.toMatch(/expected sales|guaranteed/i)
     // The seeded Branch also has a concrete backend represented, resolved from the real srv-02 Device/Service it references by stable ID.
     expect(business).toHaveTextContent('BACKEND')
@@ -1265,6 +1266,8 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(within(business).getByText('BACKEND STATUS').closest('div')).toHaveTextContent('ONLINE')
     // Read-only: no internal identifiers, credentials, or Player identity.
     expect(business.textContent).not.toContain('dollar-account-veyra-phone-v0')
+    expect(within(business).getByText('TREASURY ACCOUNT').closest('div')).not.toHaveTextContent('CD-3318-2204')
+    expect(within(business).getByText('SETTLEMENT ACCOUNT').closest('div')).not.toHaveTextContent('CD-3318-2204')
     expect(business.textContent).not.toContain('host-lan-002')
     expect(business.textContent).not.toContain('service-bookstore-backend-002')
     expect(business.textContent).not.toMatch(/credential|session|violet-orbit|player-local/i)

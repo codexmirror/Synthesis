@@ -194,8 +194,8 @@ describe('Bookstore Sales Cadence — one due opportunity is exactly one canonic
     const retailClearingBefore = before.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-retail-clearing-v0')!.balanceCents
     const retailClearingAfter = after.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-retail-clearing-v0')!.balanceCents
     expect(retailClearingAfter).toBe(retailClearingBefore - 2_000)
-    const settlementBefore = before.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')!.balanceCents
-    const settlementAfter = after.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')!.balanceCents
+    const settlementBefore = before.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-bookstore-treasury-v0')!.balanceCents
+    const settlementAfter = after.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-bookstore-treasury-v0')!.balanceCents
     expect(settlementAfter).toBe(settlementBefore + 2_000)
 
     expect(transactionCountOf(after)).toBe(transactionCountOf(before) + 1)

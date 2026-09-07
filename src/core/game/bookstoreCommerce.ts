@@ -1,7 +1,7 @@
 import { BOOKSTORE_BRANCH_ID } from './business'
 import type { BookstoreBranchCommerceRecord, BookstoreCommerceState, BookstoreMerchandiseRecord, BusinessBranchSaleLine, DollarFinancialAccount, DollarTransaction, GameState } from './types'
 
-export const BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID = 'dollar-account-veyra-phone-v0'
+export const BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID = 'dollar-account-bookstore-treasury-v0'
 export const BOOKSTORE_SALE_ID = 'bookstore-sale-0001'
 export const BOOKSTORE_SALE_TRANSACTION_ID = 'dollar-transaction-0001'
 

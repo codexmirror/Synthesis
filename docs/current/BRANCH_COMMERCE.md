@@ -29,7 +29,7 @@ The Business domain additionally owns one narrow Company-linked role:
 `CompanyTreasuryDesignation` stores only `{ companyId, accountId }`, stable
 identity references stating which existing Civic Dollar Account the Company
 currently uses as its treasury. The initial state designates
-`company-bookstore-01 -> dollar-account-veyra-phone-v0`.
+`company-bookstore-01 -> dollar-account-bookstore-treasury-v0`.
 `resolveCompanyTreasuryAccount` requires exactly one designation for an
 existing Company and exactly one matching current Civic Dollar Account; a
 missing, dangling, or ambiguous relationship resolves unavailable, with no
@@ -41,9 +41,9 @@ remains owned by Civic Dollar.
 
 **Company Treasury Account is not Branch Settlement Account.** The seeded
 treasury designation and the seeded Bookstore commerce record currently name
-the same Account, but that equality is authored configuration rather than an
-invariant. Treasury is a Company role; `settlementAccountId` is independently
-owned Branch commerce configuration, and every Bookstore sale continues to
+the same dedicated Account, but that equality is authored configuration rather
+than an invariant. Treasury is a Company role; `settlementAccountId` is
+independently owned Branch commerce configuration, and every Bookstore sale continues to
 resolve its destination only from that settlement field. Changing either role
 does not change or retarget the other.
 
@@ -168,8 +168,8 @@ identity, following the existing Transaction/Session allocation pattern
 time, or randomness.
 
 V1 seeds exactly one such commerce record, keyed to `bookstore-branch-01`:
-the eight-title catalog above, `dollar-account-veyra-phone-v0` as current
-settlement configuration, and one completed historical `book_sale`
+the eight-title catalog above, `dollar-account-bookstore-treasury-v0` as
+current settlement configuration, and one completed historical `book_sale`
 referencing `dollar-transaction-0001` (its own captured purchase composition
 is described below, under "Historical versus current merchandise truth").
 `resolveBookstoreCommerceForBranch(state, branchId)` resolves this record for
@@ -320,10 +320,12 @@ finance truth, and a CompletedSale never separately duplicates the total its
 referenced Transaction already carries.
 
 The authored historical Transaction moves 2,000 cents from the neutral
-retail-clearing Account (`CD-9000-2000`) to the Account initially configured
-at that historical moment (`CD-3318-2204`). Its destination reference
-snapshot remains the sale's historical settlement truth even if the commerce
-record's current `settlementAccountId` later changes. There is exactly one
+retail-clearing Account (`CD-9000-2000`) to the VEYRA phone-accessible Account
+that received that past sale (`dollar-account-veyra-phone-v0`,
+`CD-3318-2204`). Its destination reference snapshot remains the sale's
+historical settlement truth; current settlement now independently names the
+dedicated Treasury Account (`dollar-account-bookstore-treasury-v0`,
+`CD-4827-6109`). There is exactly one
 authored initial sale; every other CompletedSale is the runtime consequence
 of an explicit sale execution below, never rewritten or re-priced.
 

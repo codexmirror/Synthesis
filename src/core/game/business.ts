@@ -2,7 +2,7 @@ import type { BusinessBranchState, BusinessState, CompanyState, DollarFinancialA
 
 export const BOOKSTORE_COMPANY_ID = 'company-bookstore-01'
 export const BOOKSTORE_COMPANY_NAME = 'Bookstore'
-export const BOOKSTORE_TREASURY_ACCOUNT_ID = 'dollar-account-veyra-phone-v0'
+export const BOOKSTORE_TREASURY_ACCOUNT_ID = 'dollar-account-bookstore-treasury-v0'
 export const BOOKSTORE_BRANCH_ID = 'bookstore-branch-01'
 export const BOOKSTORE_BRANCH_NAME = 'Bookstore Branch 01'
 /** The existing represented foreign Network (`remote-segment-01`) this Branch explicitly operates through. */

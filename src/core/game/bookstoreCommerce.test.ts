@@ -64,14 +64,15 @@ describe('bookstore commerce initial truth', () => {
     expect(transaction).toEqual({
       id: BOOKSTORE_SALE_TRANSACTION_ID,
       sourceAccountId: 'dollar-account-retail-clearing-v0',
-      destinationAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
+      destinationAccountId: 'dollar-account-veyra-phone-v0',
       amountCents: 2_000,
       sourceAccountReference: 'CD-9000-2000',
       destinationAccountReference: 'CD-3318-2204',
       statementContext: { description: BOOKSTORE_BRANCH_NAME, purpose: BOOKSTORE_SALE_STATEMENT_PURPOSE, location: BOOKSTORE_BRANCH_LOCATION },
     })
     expect(state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-retail-clearing-v0')?.balanceCents).toBe(80_000)
-    expect(state.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)?.balanceCents).toBe(34_250)
+    expect(state.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)?.balanceCents).toBe(0)
+    expect(state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')?.balanceCents).toBe(34_250)
     expect(state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-local-v0')?.balanceCents).toBe(125_000)
     expect(transaction).not.toHaveProperty('memo')
     expect(transaction).not.toHaveProperty('category')
@@ -135,7 +136,7 @@ describe('resolveBookstoreCommerceForBranch', () => {
     const state = createInitialGameState()
     const commerce = resolveBookstoreCommerceForBranch(state, BOOKSTORE_BRANCH_ID)
     expect(commerce?.merchandise).toEqual(BOOKSTORE_MERCHANDISE_CATALOG)
-    expect(commerce?.settlementAccount.accountReference).toBe('CD-3318-2204')
+    expect(commerce?.settlementAccount.accountReference).toBe('CD-4827-6109')
     expect(commerce?.sales).toHaveLength(1)
     expect(commerce?.sales[0].transaction.amountCents).toBe(2_000)
     expect(commerce?.sales[0].lines).toEqual([{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 }])

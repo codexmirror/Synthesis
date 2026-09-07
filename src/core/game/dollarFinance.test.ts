@@ -10,14 +10,18 @@ const secondDevice = (state: GameState): NetworkHost => state.world.network.host
 describe('Dollar Financial Provider', () => {
   it('seeds separate Provider, Account, Credential and local Device-bound Session identities with preserved wealth and unique references', () => {
     const state = createInitialGameState(); const account = state.dollarFinance.accounts[0]; const credential = state.dollarFinance.credentials[0]
-    // Three concrete Accounts: the player's, the phone-authorized branch settlement Account, and the sale's neutral clearing source.
-    expect(state.dollarFinance.accounts).toHaveLength(3); expect(account.balanceCents).toBe(125_000)
+    // Four concrete Accounts: the player's, the phone-authorized Account, the dedicated Bookstore Treasury, and the sale's neutral clearing source.
+    expect(state.dollarFinance.accounts).toHaveLength(4); expect(account.balanceCents).toBe(125_000)
     expect(new Set(state.dollarFinance.accounts.map(({ accountReference }) => accountReference)).size).toBe(state.dollarFinance.accounts.length)
     expect(new Set(state.dollarFinance.credentials.map(({ loginIdentifier }) => loginIdentifier)).size).toBe(state.dollarFinance.credentials.length)
     expect(account.id).not.toBe(account.accountReference); expect(account.id).not.toBe(credential.loginIdentifier)
     expect(account.id).not.toBe(state.player.id); expect(account.id).not.toBe(state.player.localDevice.id)
     expect(account.accountReference).not.toBe(credential.loginIdentifier)
     expect(resolveDollarAccountForDevice(state, state.player.localDevice.id)).toBe(account)
+    const treasury = state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-bookstore-treasury-v0')!
+    expect(treasury).toEqual({ id: 'dollar-account-bookstore-treasury-v0', accountReference: 'CD-4827-6109', balanceCents: 0 })
+    expect(state.dollarFinance.credentials.some(({ accountId }) => accountId === treasury.id)).toBe(false)
+    expect(state.dollarFinance.sessions.active.some(({ accountId }) => accountId === treasury.id)).toBe(false)
   })
 
   it('authenticates exact credentials on represented Devices without copying secrets or mutating economic/Credential truth', () => {

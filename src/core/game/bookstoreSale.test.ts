@@ -62,7 +62,8 @@ describe('executeBookstoreSale — success path', () => {
     expect(findBookstoreStockQuantity(operations, 'bookstore-merch-008')).toBe(44)
     expect(deriveBookstoreTotalStock(operations)).toBe(359)
     expect(balanceOf(result.state, RETAIL_CLEARING_ACCOUNT_ID)).toBe(80_000 - 2_000)
-    expect(balanceOf(result.state, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)).toBe(34_250 + 2_000)
+    expect(balanceOf(result.state, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)).toBe(2_000)
+    expect(balanceOf(result.state, 'dollar-account-veyra-phone-v0')).toBe(34_250)
 
     expect(result.state.dollarFinance.transactions.records).toHaveLength(2)
     const newTransaction = result.state.dollarFinance.transactions.records[1]
@@ -72,7 +73,7 @@ describe('executeBookstoreSale — success path', () => {
       destinationAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
       amountCents: 2_000,
       sourceAccountReference: 'CD-9000-2000',
-      destinationAccountReference: 'CD-3318-2204',
+      destinationAccountReference: 'CD-4827-6109',
       statementContext: { description: BOOKSTORE_BRANCH_NAME, purpose: BOOKSTORE_SALE_STATEMENT_PURPOSE, location: BOOKSTORE_BRANCH_LOCATION },
     })
     expect(result.transactionId).toBe(newTransaction.id)
@@ -348,7 +349,7 @@ describe('executeBookstoreSale — historical statement-context snapshot truth',
     expect(firstTransaction.statementContext).toEqual({ description: 'Bookstore Branch 01', purpose: 'Retail sale', location: '18 Mercer Street' })
     // The actual financial counterparty reference remains the separate, real historical Account-reference snapshot — never replaced by the description.
     expect(firstTransaction.sourceAccountReference).toBe('CD-9000-2000')
-    expect(firstTransaction.destinationAccountReference).toBe('CD-3318-2204')
+    expect(firstTransaction.destinationAccountReference).toBe('CD-4827-6109')
 
     // Rename and relocate the Branch after the first sale.
     const renamed: GameState = {
@@ -363,7 +364,7 @@ describe('executeBookstoreSale — historical statement-context snapshot truth',
     // The later sale snapshots the Branch's new current identity/location...
     expect(secondTransaction.statementContext).toEqual({ description: 'Downtown Books', purpose: 'Retail sale', location: '900 Founders Way' })
     expect(secondTransaction.sourceAccountReference).toBe('CD-9000-2000')
-    expect(secondTransaction.destinationAccountReference).toBe('CD-3318-2204')
+    expect(secondTransaction.destinationAccountReference).toBe('CD-4827-6109')
 
     // ...without ever rewriting the earlier Transaction's own historical snapshot.
     const firstTransactionAfterRename = second.state.dollarFinance.transactions.records.find(({ id }) => id === first.transactionId)!
