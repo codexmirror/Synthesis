@@ -57,6 +57,8 @@ export interface VeyraBusinessOfferView {
   readonly displayName: string
   readonly sellerDisplayName: string
   readonly totalUnits: number
+  /** Exact average, derived from represented offer price and quantity. */
+  readonly averageUnitCostCents: number
   readonly totalPriceCents: number
   readonly deliveryDurationMs: number
   /** The bundle's own lines, named from the global Bookstore Book Catalog. */
@@ -143,13 +145,15 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
 }
 
 function projectOffer(offer: BookstoreSupplyOffer, sellerDisplayName: string, merchandiseName: (merchandiseId: string) => string | undefined): VeyraBusinessOfferView {
+  const totalUnits = offer.lines.reduce((sum, line) => sum + line.quantity, 0)
   return {
     id: offer.id,
     displayName: offer.displayName,
     sellerDisplayName,
     // The bundle's real total, summed from its own lines whether or not this
     // Branch currently names every one of them.
-    totalUnits: offer.lines.reduce((sum, line) => sum + line.quantity, 0),
+    totalUnits,
+    averageUnitCostCents: offer.totalPriceCents / totalUnits,
     totalPriceCents: offer.totalPriceCents,
     deliveryDurationMs: offer.deliveryDurationMs,
     lines: offer.lines.flatMap((line) => {

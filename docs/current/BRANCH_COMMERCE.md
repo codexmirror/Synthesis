@@ -537,15 +537,20 @@ supply offers and placed restock orders, not a generic supplier, procurement,
 product, inventory, or order framework. A Company acts as a supplier because a
 current offer names it as seller; supplier inventory, production, warehouses,
 and logistics infrastructure are unrepresented. Atlas currently publishes
-exactly `Compact Shelf Refill` (two of each of the eight stable merchandise
-identities, 16 units, 14,000 cents, 30 represented minutes) and `Standard
-Shelf Refill` (five each, 40 units, 34,000 cents, 60 represented minutes).
-Northline publishes `New Titles Pack` (three each of Terminal Light, Red
-Harbor, Field Notes, and Borrowed Signal; 12 units, 12,000 cents, 45
-represented minutes). Those four Books are global Catalog truth but are not
-in Mercer Street's initial assortment.
-Bundle prices are exact authored commercial truth, never derived from retail
-prices.
+exactly two mixed-title bulk offers: `Compact Shelf Refill` (two of each of the
+eight stable original Mercer identities, 16 units, 14,000 cents, 30 represented
+minutes) and `Standard Shelf Refill` (five each, 40 units, 34,000 cents, 60
+represented minutes). Northline currently publishes six static, title-specific
+six-unit Cases with 45 represented minute delivery: Northbound (6,000 cents),
+A Map of Empty Rooms (6,600 cents), Terminal Light (6,300 cents), Winter
+Circuit (6,300 cents), Signal House (6,600 cents), and East of the Grid (6,600
+cents). Northbound and A Map of Empty Rooms are in Mercer Street's initial
+assortment; the other four are global Catalog truth initially not carried there.
+These authored offer terms, not supplier role, specialization, rating, discount,
+or unit-price fields, make Atlas a bulk generalist and Northline a targeted
+supplier. Offer totals are exact authored commercial truth, never derived from
+retail prices; presentation may derive exact average purchase cost per unit by
+dividing an offer's total cents by the sum of its represented quantities.
 
 `placeBookstoreRestockOrder` owns offer and Branch validation, derives current
 stock plus all in-transit units for shelf-capacity admission, and captures the
@@ -867,13 +872,17 @@ implemented.
 ## Supplier catalog resolution and assortment expansion
 
 Atlas's two live offers retain their original eight identities, quantities,
-prices, and delivery durations. Northline's live New Titles Pack exposes only
-its four named Catalog Books and represented terms; it does not disclose any
-other uncarried Catalog entry. Offer lines validate against the global Book
+prices, and delivery durations. Northline's six live title-specific Cases expose
+only their six named Catalog Books and represented terms; they do not disclose
+any other uncarried Catalog entry. The current portfolio is static authored
+World Truth: offer rotation, availability lifecycles, supplier stock, and market
+refresh are unimplemented. Book Demand neither changes nor controls offers,
+their availability, prices, or delivery. Offer lines validate against the global Book
 Catalog, not the buyer Branch assortment or existing stock rows; a dangling
 Book identity invalidates the offer. Placement captures current Book titles in
 the immutable RestockOrder but does not add assortment or sellable stock. On
 the exact-once `IN_TRANSIT -> DELIVERED` transition, delivery adds each missing
 assortment identity once and creates or increments its Operations stock row.
 Multiple deliveries therefore share one assortment relation while quantities
-accumulate. Current catalog title changes never rewrite captured order names.
+accumulate; a targeted Case for an already-carried Book only increases its
+stock. Current catalog title changes never rewrite captured order names.

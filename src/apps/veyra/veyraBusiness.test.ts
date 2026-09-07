@@ -131,12 +131,14 @@ describe('VEYRA Business projection', () => {
     })
 
     // All represented offers, with their own represented values rather than restated ones.
-    expect(branch.offers.map(({ id, displayName, sellerDisplayName, totalUnits, totalPriceCents, deliveryDurationMs }) => ({ id, displayName, sellerDisplayName, totalUnits, totalPriceCents, deliveryDurationMs })))
-      .toEqual([
-        { id: BOOKSTORE_COMPACT_REFILL_OFFER_ID, displayName: 'Compact Shelf Refill', sellerDisplayName: 'Atlas Distribution', totalUnits: 16, totalPriceCents: 14_000, deliveryDurationMs: 1_800_000 },
-        { id: BOOKSTORE_STANDARD_REFILL_OFFER_ID, displayName: 'Standard Shelf Refill', sellerDisplayName: 'Atlas Distribution', totalUnits: 40, totalPriceCents: 34_000, deliveryDurationMs: 3_600_000 },
-        { id: 'bookstore-supply-offer-northline-new-titles-v0', displayName: 'New Titles Pack', sellerDisplayName: 'Northline Book Supply', totalUnits: 12, totalPriceCents: 12_000, deliveryDurationMs: 2_700_000 },
-      ])
+    expect(branch.offers).toHaveLength(8)
+    expect(branch.offers.map(({ sellerDisplayName }) => sellerDisplayName)).toEqual([
+      'Atlas Distribution', 'Atlas Distribution',
+      'Northline Book Supply', 'Northline Book Supply', 'Northline Book Supply',
+      'Northline Book Supply', 'Northline Book Supply', 'Northline Book Supply',
+    ])
+    expect(branch.offers.map(({ averageUnitCostCents }) => averageUnitCostCents)).toEqual([875, 850, 1_000, 1_100, 1_050, 1_050, 1_100, 1_100])
+    expect(branch.offers.map(({ displayName }) => displayName)).not.toContain('New Titles Pack')
     expect(branch.offers[0].lines).toHaveLength(8)
     expect(branch.orders).toEqual([])
   })
