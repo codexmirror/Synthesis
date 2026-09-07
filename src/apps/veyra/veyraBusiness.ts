@@ -1,5 +1,5 @@
 import { resolveCompanyTreasuryAccount } from '../../core/game/business'
-import { findBookstoreCommerceRecord } from '../../core/game/bookstoreCommerce'
+import { findBookstoreCommerceRecord, resolveBookstoreBookById } from '../../core/game/bookstoreCommerce'
 import { deriveBookstoreTotalStock, resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { deriveBookstoreIncomingStock } from '../../core/game/bookstoreRestock'
 import { resolveSoleCompanyAdministrationContextForOperatedRemoteDevice } from '../../core/game/companyAdministration'
@@ -105,7 +105,7 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
   if (supported.length !== 1) return undefined
   const { branch, commerce, operations } = supported[0]
 
-  const merchandiseName = (merchandiseId: string) => state.bookstoreCommerce.bookCatalog.find(({ id }) => id === merchandiseId)?.name
+  const merchandiseName = (merchandiseId: string) => resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, merchandiseId)?.name
   const assortment = new Set(commerce.assortment)
 
   return {

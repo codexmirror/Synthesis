@@ -6,7 +6,7 @@ export const BOOKSTORE_SALE_ID = 'bookstore-sale-0001'
 export const BOOKSTORE_SALE_TRANSACTION_ID = 'dollar-transaction-0001'
 
 /**
- * The seeded Bookstore Branch's authored V1 represented merchandise catalog —
+ * The Bookstore domain's authored V1 represented Book Catalog —
  * a small concrete fixture, not a generic Product/SKU/catalogue framework.
  * Each entry carries only stable identity, a current human-readable name, and
  * a current unit price in integer cents: no ISBN, author, genre, publisher,
@@ -42,9 +42,19 @@ export const BOOKSTORE_BOOK_CATALOG: readonly BookstoreBookRecord[] = [
   { id: 'bookstore-book-023', name: 'Silent Frequency', unitPriceCents: 1_529 },
   { id: 'bookstore-book-024', name: 'East of the Grid', unitPriceCents: 1_929 },
 ]
-export const BOOKSTORE_INITIAL_ASSORTMENT = BOOKSTORE_BOOK_CATALOG.slice(0, 8).map(({ id }) => id)
+/** Mercer Street's authored Branch assortment, independent from Catalog ordering. */
+export const BOOKSTORE_INITIAL_ASSORTMENT: readonly string[] = [
+  'bookstore-merch-001',
+  'bookstore-merch-002',
+  'bookstore-merch-003',
+  'bookstore-merch-004',
+  'bookstore-merch-005',
+  'bookstore-merch-006',
+  'bookstore-merch-007',
+  'bookstore-merch-008',
+]
 /** Compatibility name for the original eight-title authored set. */
-export const BOOKSTORE_MERCHANDISE_CATALOG = BOOKSTORE_BOOK_CATALOG.slice(0, 8)
+export const BOOKSTORE_MERCHANDISE_CATALOG = BOOKSTORE_INITIAL_ASSORTMENT.map((id) => resolveBookstoreBookById(BOOKSTORE_BOOK_CATALOG, id)!)
 
 /**
  * The authored historical sale (`bookstore-sale-0001`) predates represented
@@ -92,6 +102,12 @@ export function isBookstoreMerchandiseCatalogSufficient(merchandise: readonly Bo
   if (merchandise.length === 0) return false
   if (!merchandise.every((item) => Number.isSafeInteger(item.unitPriceCents) && item.unitPriceCents > 0)) return false
   return new Set(merchandise.map((item) => item.id)).size === merchandise.length
+}
+
+/** Resolve one stable Book identity only when Catalog truth provides exactly one match. */
+export function resolveBookstoreBookById(catalog: readonly BookstoreBookRecord[], bookId: string): BookstoreBookRecord | undefined {
+  const matches = catalog.filter(({ id }) => id === bookId)
+  return matches.length === 1 ? matches[0] : undefined
 }
 
 /**

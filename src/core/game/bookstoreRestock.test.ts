@@ -34,7 +34,28 @@ describe('Bookstore restock represented truth', () => {
       { id: BOOKSTORE_COMPACT_REFILL_OFFER_ID, seller: ATLAS_DISTRIBUTION_COMPANY_ID, units: 16, price: 14_000, duration: 1_800_000 },
       { id: BOOKSTORE_STANDARD_REFILL_OFFER_ID, seller: ATLAS_DISTRIBUTION_COMPANY_ID, units: 40, price: 34_000, duration: 3_600_000 },
     ])
-    expect(state.bookstoreRestock.offers.every((offer) => offer.lines.map((line) => line.merchandiseId).join(',') === state.bookstoreCommerce.records[0].assortment.join(','))).toBe(true)
+    const intendedIds = [
+      'bookstore-merch-001', 'bookstore-merch-002', 'bookstore-merch-003', 'bookstore-merch-004',
+      'bookstore-merch-005', 'bookstore-merch-006', 'bookstore-merch-007', 'bookstore-merch-008',
+    ]
+    expect(state.bookstoreRestock.offers[0].lines).toEqual(intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 2 })))
+    expect(state.bookstoreRestock.offers[1].lines).toEqual(intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 5 })))
+  })
+
+  it('fails closed atomically when global Book identity is ambiguous', () => {
+    const funded = earn(createInitialGameState(), 7)
+    const input: GameState = {
+      ...funded,
+      bookstoreCommerce: {
+        ...funded.bookstoreCommerce,
+        bookCatalog: [...funded.bookstoreCommerce.bookCatalog, { ...funded.bookstoreCommerce.bookCatalog[0], name: 'Ambiguous Night Transit' }],
+      },
+    }
+    const before = structuredClone(input)
+    const result = placeBookstoreRestockOrder(input, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    expect(result).toEqual({ status: 'invalid_offer', state: input })
+    expect(result.state).toBe(input)
+    expect(result.state).toEqual(before)
   })
 
   it('uses represented sales revenue to atomically pay the current Company Treasuries and capture one in-transit historical order', () => {
@@ -171,6 +192,9 @@ describe('Bookstore assortment expansion', () => {
     if (placed.status !== 'ordered') throw new Error('expected order')
     expect(placed.state.bookstoreCommerce.records[0].assortment).not.toContain(terminalLightId)
     expect(findBookstoreStockQuantity(placed.state.bookstoreOperations.records[0], terminalLightId)).toBe(0)
+    expect(placed.state.bookstoreRestock.orders.at(-1)?.lines).toEqual([{
+      merchandiseId: terminalLightId, capturedMerchandiseDisplayName: 'Terminal Light', quantity: 3,
+    }])
 
     const delivered = advanceGameState(placed.state, 60_000, () => 0.5, () => 0.5, lastBook())
     expect(delivered.bookstoreCommerce.records[0].assortment.filter((id) => id === terminalLightId)).toHaveLength(1)

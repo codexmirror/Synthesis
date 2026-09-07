@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
-import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
+import { BOOKSTORE_BOOK_CATALOG, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_INITIAL_ASSORTMENT, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE, executeBookstoreSale } from './bookstoreSale'
 import type { GameState } from './types'
 
@@ -25,7 +25,10 @@ describe('bookstore commerce initial truth', () => {
     expect(state.bookstoreCommerce.records).toEqual([{
       branchId: BOOKSTORE_BRANCH_ID,
       settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
-      assortment: BOOKSTORE_MERCHANDISE_CATALOG.map(({ id }) => id),
+      assortment: [
+        'bookstore-merch-001', 'bookstore-merch-002', 'bookstore-merch-003', 'bookstore-merch-004',
+        'bookstore-merch-005', 'bookstore-merch-006', 'bookstore-merch-007', 'bookstore-merch-008',
+      ],
       completedSales: [{
         id: 'bookstore-sale-0001',
         kind: 'book_sale',
@@ -33,6 +36,13 @@ describe('bookstore commerce initial truth', () => {
         lines: [{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 }],
       }],
     }])
+  })
+
+  it('authors Mercer Street assortment explicitly by the intended stable Book identities', () => {
+    expect(BOOKSTORE_INITIAL_ASSORTMENT).toEqual([
+      'bookstore-merch-001', 'bookstore-merch-002', 'bookstore-merch-003', 'bookstore-merch-004',
+      'bookstore-merch-005', 'bookstore-merch-006', 'bookstore-merch-007', 'bookstore-merch-008',
+    ])
   })
 
   it('seeds exactly eight authored merchandise identities with the specified names and integer-cent prices', () => {
@@ -49,9 +59,10 @@ describe('bookstore commerce initial truth', () => {
   })
 
   it('gives every catalog entry a unique stable identity and a positive safe-integer price', () => {
-    const ids = BOOKSTORE_MERCHANDISE_CATALOG.map((item) => item.id)
+    expect(BOOKSTORE_BOOK_CATALOG).toHaveLength(24)
+    const ids = BOOKSTORE_BOOK_CATALOG.map((item) => item.id)
     expect(new Set(ids).size).toBe(ids.length)
-    for (const item of BOOKSTORE_MERCHANDISE_CATALOG) {
+    for (const item of BOOKSTORE_BOOK_CATALOG) {
       expect(Number.isSafeInteger(item.unitPriceCents)).toBe(true)
       expect(item.unitPriceCents).toBeGreaterThan(0)
     }

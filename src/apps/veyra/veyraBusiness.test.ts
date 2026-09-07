@@ -251,4 +251,17 @@ describe('VEYRA Business catalog disclosure boundary', () => {
     expect(projected.branch.inventory.items.find(({ merchandiseId }) => merchandiseId === 'bookstore-merch-001')?.quantity).toBe(0)
     expect(projected.branch.inventory.items.some(({ name }) => name === 'Terminal Light')).toBe(false)
   })
+
+  it('does not present an ambiguous Catalog identity as a resolved offer title', () => {
+    const state = operating(createInitialGameState())
+    const ambiguous: GameState = {
+      ...state,
+      bookstoreCommerce: { ...state.bookstoreCommerce, bookCatalog: [...state.bookstoreCommerce.bookCatalog, { ...state.bookstoreCommerce.bookCatalog[0], name: 'Ambiguous Night Transit' }] },
+    }
+    const projected = projectVeyraBusiness(ambiguous)
+    expect(projected.status).toBe('company')
+    if (projected.status !== 'company' || !projected.branch) return
+    expect(projected.branch.inventory.items.some(({ merchandiseId }) => merchandiseId === 'bookstore-merch-001')).toBe(false)
+    expect(projected.branch.offers[0].lines.some(({ merchandiseId }) => merchandiseId === 'bookstore-merch-001')).toBe(false)
+  })
 })
