@@ -1225,8 +1225,13 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(business).toHaveTextContent('Bookstore Branch 01')
     expect(business).toHaveTextContent('Bookstore')
     expect(business).toHaveTextContent('remote-segment-01')
-    expect(business).toHaveTextContent('BOOK SALE')
+    // Recent Sales explains the actual historical purchase through its captured line items, never a generic label.
+    expect(business).toHaveTextContent('Systems of Dust ×1')
     expect(business).toHaveTextContent('$20.00')
+    // The current merchandise catalog is inspectable: name, current price, and current stock.
+    expect(business).toHaveTextContent('Night Transit')
+    expect(business).toHaveTextContent('$8.99')
+    expect(business).toHaveTextContent('45 in stock')
     // The seeded Branch's own represented current location.
     expect(within(business).getByText('LOCATION').closest('div')).toHaveTextContent('18 Mercer Street')
     // The seeded Branch has both a commerce record and an operations record represented.
@@ -1333,13 +1338,13 @@ describe('RACK-OS 1.1 Business application shell', () => {
       business: { ...base.business, branches: [...base.business.branches, operationsOnlyBranch, commerceOnlyBranch] },
       bookstoreOperations: {
         records: [...base.bookstoreOperations.records, {
-          branchId: operationsOnlyBranch.id, shelfCapacity: 150, checkoutCapacity: 1, open: false, currentInventory: 90,
+          branchId: operationsOnlyBranch.id, shelfCapacity: 150, checkoutCapacity: 1, open: false, stock: [{ merchandiseId: 'fixture-merch-001', quantity: 90 }],
         }],
       },
       bookstoreCommerce: {
         ...base.bookstoreCommerce,
         records: [...base.bookstoreCommerce.records, {
-          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', unitPriceCents: 2_000, completedSales: [],
+          branchId: commerceOnlyBranch.id, settlementAccountId: 'dollar-account-local-v0', merchandise: [{ id: 'fixture-merch-002', name: 'Fixture Title', unitPriceCents: 2_000 }], completedSales: [],
         }],
       },
     }

@@ -696,12 +696,34 @@ export interface DollarFinanceState {
   readonly transactions: { readonly nextId: number; readonly records: readonly DollarTransaction[] }
 }
 
-/** Business-owned meaning for one completed sale. */
+/**
+ * One immutable historical purchase line captured at the moment a sale
+ * completed: stable merchandise identity plus a *captured* snapshot of that
+ * merchandise's name and unit price at that exact moment — never a live
+ * reference to current catalog state. Renaming or repricing the current
+ * `BookstoreMerchandiseRecord` afterwards, or removing it from the catalog
+ * entirely, must never change or invalidate this line.
+ */
+export interface BusinessBranchSaleLine {
+  readonly merchandiseId: string
+  readonly capturedName: string
+  readonly quantity: number
+  readonly capturedUnitPriceCents: number
+}
+
+/**
+ * Business-owned meaning for one completed sale. `lines` is the immutable
+ * historical purchase composition that produced this sale's Transaction
+ * amount: `Σ(quantity × capturedUnitPriceCents)` always equals the
+ * referenced Transaction's `amountCents`, and this record never separately
+ * duplicates that total.
+ */
 export interface BusinessBranchSale {
   readonly id: string
   readonly kind: 'book_sale'
   /** The Provider-owned money movement that settled this sale. */
   readonly dollarTransactionId: string
+  readonly lines: readonly BusinessBranchSaleLine[]
 }
 
 /**
@@ -754,28 +776,43 @@ export interface BusinessState {
 }
 
 /**
+ * One concrete, Bookstore-specific represented merchandise identity: a
+ * stable ID, a current human-readable name, and a current unit price in
+ * integer cents. This is deliberately not a generic Product/SKU framework —
+ * V1 carries no ISBN, author, genre, publisher, tax, cost basis, supplier,
+ * margin, popularity, quality tier, or dynamic pricing. `name`/`unitPriceCents`
+ * are *current* truth, read fresh at the moment of purchase composition;
+ * a completed sale instead captures its own immutable snapshot
+ * (`BusinessBranchSaleLine`) that never changes when this record does.
+ */
+export interface BookstoreMerchandiseRecord {
+  readonly id: string
+  readonly name: string
+  readonly unitPriceCents: number
+}
+
+/**
  * Concrete branch-linked commerce truth for the one currently represented
- * bookstore mechanic: current settlement-destination configuration and
- * completed sale history, keyed by stable Branch `id` rather than embedded on
- * `BusinessBranchState`. This is deliberately a narrow concrete record for
- * this one mechanic, not a generic Business-commerce framework — a different
- * future concrete subsystem (distribution, inventory, cameras, payments, ...)
- * owns its own separate branch-linked record rather than extending this one.
- * Civic Dollar remains the sole owner of Accounts, balances, and
- * Transactions; this record holds only stable references into that
- * Provider-owned truth.
+ * bookstore mechanic: current settlement-destination configuration, the
+ * current represented merchandise catalog, and completed sale history, keyed
+ * by stable Branch `id` rather than embedded on `BusinessBranchState`. This
+ * is deliberately a narrow concrete record for this one mechanic, not a
+ * generic Business-commerce framework — a different future concrete
+ * subsystem (distribution, cameras, payments, ...) owns its own separate
+ * branch-linked record rather than extending this one. Civic Dollar remains
+ * the sole owner of Accounts, balances, and Transactions; this record holds
+ * only stable references into that Provider-owned truth.
+ *
+ * Revenue is never a primitive stored here: a sale's amount is always the
+ * deterministic sum of the merchandise actually purchased
+ * (`quantity × current unitPriceCents`), never a separately configured or
+ * randomized value.
  */
 export interface BookstoreBranchCommerceRecord {
   readonly branchId: string
   readonly settlementAccountId: string
-  /**
-   * Current canonical sale price in integer cents, read fresh by sale
-   * execution — never inferred from a historical Transaction or
-   * CompletedSale. Must be a positive safe integer for a sale to execute; V1
-   * has no product catalogue, SKU, or variable/dynamic pricing, so this is
-   * the one price a Bookstore Branch sale moves.
-   */
-  readonly unitPriceCents: number
+  /** The current represented merchandise this Branch sells. Read fresh by purchase composition — never inferred from historical CompletedSale lines. */
+  readonly merchandise: readonly BookstoreMerchandiseRecord[]
   readonly completedSales: readonly BusinessBranchSale[]
 }
 
@@ -786,19 +823,34 @@ export interface BookstoreCommerceState {
 }
 
 /**
+ * One represented merchandise identity's current sellable stock quantity, by
+ * stable merchandise ID. Always a non-negative integer.
+ */
+export interface BookstoreMerchandiseStockRecord {
+  readonly merchandiseId: string
+  readonly quantity: number
+}
+
+/**
  * Concrete branch-linked Bookstore *operations* truth: the represented shelf
- * and checkout capacity a Bookstore Branch is configured with, and its
- * current OPEN/CLOSED state and sellable inventory quantity. Keyed by stable
- * Branch `id`, exactly like `BookstoreBranchCommerceRecord`, and deliberately
- * a separate record from it — operational inventory/state is never folded
- * into settlement/sale commerce truth, and neither is embedded on generic
- * `BusinessBranchState`.
+ * and checkout capacity a Bookstore Branch is configured with, its current
+ * OPEN/CLOSED state, and its current per-merchandise sellable stock. Keyed by
+ * stable Branch `id`, exactly like `BookstoreBranchCommerceRecord`, and
+ * deliberately a separate record from it — operational stock/state is never
+ * folded into settlement/sale commerce truth, and neither is embedded on
+ * generic `BusinessBranchState`.
  *
  * `shelfCapacity` and `checkoutCapacity` are configuration-like: they express
  * how this Branch is set up, not what it is doing right now. `open` and
- * `currentInventory` are mutable runtime truth. `checkoutCapacity` is only a
- * count of represented physical checkout positions — it carries no
- * throughput, demand, timing, or autonomous-sale meaning.
+ * `stock` are mutable runtime truth. `checkoutCapacity` is only a count of
+ * represented physical checkout positions — it carries no throughput,
+ * demand, timing, or autonomous-sale meaning.
+ *
+ * `stock` is item-level canonical inventory truth, keyed by stable
+ * merchandise ID — there is no separate mutable aggregate inventory total:
+ * any "current total stock" a caller needs is always derived fresh by
+ * summing `stock` (`deriveBookstoreTotalStock` in `bookstoreOperations.ts`),
+ * never stored redundantly alongside it.
  *
  * This is a narrow concrete Bookstore record, not a generic Business
  * operations/archetype framework: a future concrete archetype (Laundry, Bank,
@@ -807,14 +859,14 @@ export interface BookstoreCommerceState {
  */
 export interface BookstoreBranchOperationsRecord {
   readonly branchId: string
-  /** Configuration-like: maximum sellable inventory this Branch can shelve. */
+  /** Configuration-like: maximum sellable inventory (summed across all merchandise) this Branch can shelve. */
   readonly shelfCapacity: number
   /** Configuration-like: represented physical checkout positions. Not a throughput, demand, or timing figure. */
   readonly checkoutCapacity: number
   /** Mutable runtime: whether this Branch currently presents as open for business. */
   readonly open: boolean
-  /** Mutable runtime: current sellable inventory quantity. Never greater than `shelfCapacity`. */
-  readonly currentInventory: number
+  /** Mutable runtime: current per-merchandise sellable stock. The sum of every quantity here is never greater than `shelfCapacity`. */
+  readonly stock: readonly BookstoreMerchandiseStockRecord[]
 }
 
 export interface BookstoreOperationsState {

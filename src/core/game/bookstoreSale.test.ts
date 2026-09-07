@@ -2,21 +2,65 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
 import { BOOKSTORE_BACKEND_DEVICE_ID, BOOKSTORE_BACKEND_SERVICE_ID } from './bookstoreBackend'
-import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_SALE_TRANSACTION_ID } from './bookstoreCommerce'
-import { BOOKSTORE_SALE_STATEMENT_PURPOSE, RETAIL_CLEARING_ACCOUNT_ID, executeBookstoreSale } from './bookstoreSale'
+import { BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID } from './bookstoreCommerce'
+import { deriveBookstoreTotalStock, findBookstoreStockQuantity } from './bookstoreOperations'
+import {
+  BOOKSTORE_PURCHASE_BASKET_SIZE_WEIGHTS,
+  BOOKSTORE_SALE_STATEMENT_PURPOSE,
+  RETAIL_CLEARING_ACCOUNT_ID,
+  composeBookstorePurchase,
+  deriveBookstoreBasketTotalCents,
+  deriveSellableBookstoreStockByMerchandise,
+  deriveSellableBookstoreTotalStock,
+  executeBookstoreSale,
+  selectBookstoreBasketSize,
+  selectBookstoreMerchandiseId,
+} from './bookstoreSale'
 import type { GameState } from './types'
 
 const balanceOf = (state: GameState, accountId: string): number => state.dollarFinance.accounts.find(({ id }) => id === accountId)!.balanceCents
+const operationsOf = (state: GameState) => state.bookstoreOperations.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+const totalStockOf = (state: GameState) => deriveBookstoreTotalStock(operationsOf(state))
+
+/**
+ * Cycles through the given raw sample values forever, wrapping back to the
+ * start. `composeBookstorePurchase` always draws exactly one basket-size
+ * sample followed by one sample per selected unit, so a 2-value cycle
+ * `[sizeU, itemU]` reproduces the identical single-item basket on every
+ * successive call as long as `sizeU` always selects size 1 — the shape most
+ * of this file's non-composition-focused tests rely on for a deterministic,
+ * repeatable "one book" purchase.
+ */
+function cyclicRandom(values: readonly number[]): () => number {
+  let index = 0
+  return () => {
+    const value = values[index % values.length]
+    index += 1
+    return value
+  }
+}
+
+/**
+ * With the seeded catalog's 8 equally-available merchandise identities and
+ * the default 70/25/5 basket-size mix, `sizeU = 0.1` always selects basket
+ * size 1 (0.1 < 0.70) and `itemU = 0.9` always selects the catalog's last
+ * entry, `bookstore-merch-008` ("Systems of Dust", $20.00) — reproducing
+ * exactly the pre-existing fixed-$20/one-unit sale this Branch represented
+ * before purchase composition existed. Tests that only care about sale
+ * mechanics (not composition itself) use this to stay deterministic.
+ */
+const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.9])
 
 describe('executeBookstoreSale — success path', () => {
-  it('consumes one inventory unit, moves exactly the current unit price, and appends exactly one Transaction and one CompletedSale', () => {
+  it('consumes one stock unit, moves exactly its deterministic basket total, and appends exactly one Transaction and one CompletedSale', () => {
     const before = createInitialGameState()
-    const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
     expect(result.status).toBe('sold')
     if (result.status !== 'sold') return
 
-    const operations = result.state.bookstoreOperations.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)
-    expect(operations?.currentInventory).toBe(359)
+    const operations = operationsOf(result.state)
+    expect(findBookstoreStockQuantity(operations, 'bookstore-merch-008')).toBe(44)
+    expect(deriveBookstoreTotalStock(operations)).toBe(359)
     expect(balanceOf(result.state, RETAIL_CLEARING_ACCOUNT_ID)).toBe(80_000 - 2_000)
     expect(balanceOf(result.state, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)).toBe(34_250 + 2_000)
 
@@ -35,7 +79,12 @@ describe('executeBookstoreSale — success path', () => {
 
     const commerce = result.state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)
     expect(commerce?.completedSales).toHaveLength(2)
-    expect(commerce?.completedSales[1]).toEqual({ id: result.saleId, kind: 'book_sale', dollarTransactionId: newTransaction.id })
+    expect(commerce?.completedSales[1]).toEqual({
+      id: result.saleId,
+      kind: 'book_sale',
+      dollarTransactionId: newTransaction.id,
+      lines: [{ merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 }],
+    })
     expect(result.saleId).toBe('bookstore-sale-0002')
 
     // Existing authored historical sale and Transaction remain exactly as they were.
@@ -43,16 +92,18 @@ describe('executeBookstoreSale — success path', () => {
     expect(result.state.dollarFinance.transactions.records[0]).toEqual(before.dollarFinance.transactions.records.find(({ id }) => id === BOOKSTORE_SALE_TRANSACTION_ID))
   })
 
-  it('reads the current represented price configuration rather than any historical Transaction or CompletedSale', () => {
+  it('reads the current represented merchandise price rather than any historical Transaction or CompletedSale', () => {
     const initial = createInitialGameState()
     const repriced: GameState = {
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
-        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, unitPriceCents: 3_500 } : record),
+        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
+          ? { ...record, merchandise: record.merchandise.map((item) => item.id === 'bookstore-merch-008' ? { ...item, unitPriceCents: 3_500 } : item) }
+          : record),
       },
     }
-    const result = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
     expect(result.status).toBe('sold')
     if (result.status !== 'sold') return
     expect(result.state.dollarFinance.transactions.records[1].amountCents).toBe(3_500)
@@ -68,7 +119,7 @@ describe('executeBookstoreSale — success path', () => {
         records: [{
           branchId: BOOKSTORE_BRANCH_ID,
           settlementAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID,
-          unitPriceCents: 2_000,
+          merchandise: [{ id: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents: 2_000 }],
           completedSales: [],
         }],
       },
@@ -86,16 +137,15 @@ describe('executeBookstoreSale — success path', () => {
   })
 
   it('is one explicit domain transition: calling it twice performs two independent sales, never a cadence', () => {
-    const first = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID)
+    const first = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
     expect(first.status).toBe('sold')
     if (first.status !== 'sold') return
-    const second = executeBookstoreSale(first.state, BOOKSTORE_BRANCH_ID)
+    const second = executeBookstoreSale(first.state, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
     expect(second.status).toBe('sold')
     if (second.status !== 'sold') return
     expect(second.saleId).not.toBe(first.saleId)
     expect(second.transactionId).not.toBe(first.transactionId)
-    const operations = second.state.bookstoreOperations.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)
-    expect(operations?.currentInventory).toBe(358)
+    expect(totalStockOf(second.state)).toBe(358)
   })
 })
 
@@ -123,27 +173,38 @@ describe('executeBookstoreSale — atomic failure paths', () => {
     expect(result.state).toBe(state)
   })
 
-  it('refuses at zero current inventory, unchanged', () => {
+  it('refuses at zero total stock, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
-    const state: GameState = { ...initial, bookstoreOperations: { records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, currentInventory: 0 } : record) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const state: GameState = {
+      ...initial,
+      bookstoreOperations: { records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, stock: record.stock.map((entry) => ({ ...entry, quantity: 0 })) } : record) },
+    }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'out_of_stock', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses at zero checkout capacity, unchanged', () => {
+  it('refuses at zero checkout capacity, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
     const state: GameState = { ...initial, bookstoreOperations: { records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, checkoutCapacity: 0 } : record) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'no_checkout_capacity', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses when Bookstore Commerce does not exist for the Branch, unchanged', () => {
+  it('refuses when Bookstore Commerce does not exist for the Branch, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
     const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.filter((record) => record.branchId !== BOOKSTORE_BRANCH_ID) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'commerce_not_found', state })
+    expect(result.state).toBe(state)
+  })
+
+  it('refuses an empty merchandise catalog, unchanged, and consumes no purchase randomness', () => {
+    const initial = createInitialGameState()
+    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, merchandise: [] } : record) } }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
+    expect(result).toEqual({ status: 'invalid_price', state })
     expect(result.state).toBe(state)
   })
 
@@ -152,31 +213,39 @@ describe('executeBookstoreSale — atomic failure paths', () => {
     ['negative', -2_000],
     ['fractional', 19.99],
     ['non-finite', Number.NaN],
-  ])('refuses an invalid current unitPriceCents (%s), unchanged', (_label, unitPriceCents) => {
+  ])('refuses when a catalog entry has an invalid unitPriceCents (%s), unchanged, and consumes no purchase randomness', (_label, unitPriceCents) => {
     const initial = createInitialGameState()
-    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, unitPriceCents } : record) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const state: GameState = {
+      ...initial,
+      bookstoreCommerce: {
+        ...initial.bookstoreCommerce,
+        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
+          ? { ...record, merchandise: record.merchandise.map((item) => item.id === 'bookstore-merch-001' ? { ...item, unitPriceCents } : item) }
+          : record),
+      },
+    }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'invalid_price', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses when the settlement Account does not resolve, unchanged', () => {
+  it('refuses when the settlement Account does not resolve, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
     const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID ? { ...record, settlementAccountId: 'dollar-account-does-not-exist' } : record) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'settlement_unavailable', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses when Bookstore Backend has no represented record for the Branch, unchanged', () => {
+  it('refuses when Bookstore Backend has no represented record for the Branch, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
     const state: GameState = { ...initial, bookstoreBackend: { records: initial.bookstoreBackend.records.filter((record) => record.branchId !== BOOKSTORE_BRANCH_ID) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'backend_unavailable', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses when the backend Device is not network-usable, unchanged', () => {
+  it('refuses when the backend Device is not network-usable, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
     const state: GameState = {
       ...initial,
@@ -190,12 +259,12 @@ describe('executeBookstoreSale — atomic failure paths', () => {
         },
       },
     }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'backend_unavailable', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses when the backend Service is closed, unchanged', () => {
+  it('refuses when the backend Service is closed, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
     const state: GameState = {
       ...initial,
@@ -209,26 +278,29 @@ describe('executeBookstoreSale — atomic failure paths', () => {
         },
       },
     }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'backend_unavailable', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses when Retail Clearing does not resolve, unchanged', () => {
+  it('refuses when Retail Clearing does not resolve, unchanged, and consumes no purchase randomness', () => {
     const initial = createInitialGameState()
     const state: GameState = { ...initial, dollarFinance: { ...initial.dollarFinance, accounts: initial.dollarFinance.accounts.filter(({ id }) => id !== RETAIL_CLEARING_ACCOUNT_ID) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'retail_clearing_unavailable', state })
     expect(result.state).toBe(state)
   })
 
-  it('refuses with insufficient Retail Clearing funds, unchanged', () => {
+  it('refuses with insufficient Retail Clearing funds, unchanged, having composed (and discarded) a basket rather than re-rolling a cheaper one', () => {
     const initial = createInitialGameState()
     const state: GameState = { ...initial, dollarFinance: { ...initial.dollarFinance, accounts: initial.dollarFinance.accounts.map((account) => account.id === RETAIL_CLEARING_ACCOUNT_ID ? { ...account, balanceCents: 500 } : account) } }
-    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID)
+    let draws = 0
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return 0.1 })
     expect(result).toEqual({ status: 'insufficient_funds', state })
     expect(result.state).toBe(state)
-    // Retail Clearing is never magically replenished to cover the shortfall.
+    // Every catalog price exceeds the 500-cent balance, so composition was reached and consumed randomness...
+    expect(draws).toBeGreaterThan(0)
+    // ...yet nothing was committed: Retail Clearing is never magically replenished to cover the shortfall.
     expect(balanceOf(result.state, RETAIL_CLEARING_ACCOUNT_ID)).toBe(500)
   })
 
@@ -249,7 +321,7 @@ describe('executeBookstoreSale — atomic failure paths', () => {
   it('refuses when the resulting Retail Clearing balance could not be represented as an exact integer, unchanged', () => {
     const initial = createInitialGameState()
     // A corrupted/malformed clearing balance well beyond safe integer range; it still
-    // comfortably covers the current unit price, so this is not an insufficient-funds
+    // comfortably covers any composed basket, so this is not an insufficient-funds
     // refusal — only the resulting debit's representability is at issue, exactly like
     // the symmetric guarantee executeCivicDollarMovement now enforces on both sides.
     const state: GameState = {
@@ -269,7 +341,7 @@ describe('executeBookstoreSale — historical statement-context snapshot truth',
   it('snapshots the current Branch displayName/location into the created Transaction, and a later Branch rename/relocation never rewrites it', () => {
     const initial = createInitialGameState()
 
-    const first = executeBookstoreSale(initial, BOOKSTORE_BRANCH_ID)
+    const first = executeBookstoreSale(initial, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
     expect(first.status).toBe('sold')
     if (first.status !== 'sold') return
     const firstTransaction = first.state.dollarFinance.transactions.records.find(({ id }) => id === first.transactionId)!
@@ -284,7 +356,7 @@ describe('executeBookstoreSale — historical statement-context snapshot truth',
       business: { ...first.state.business, branches: first.state.business.branches.map((branch) => branch.id === BOOKSTORE_BRANCH_ID ? { ...branch, displayName: 'Downtown Books', location: '900 Founders Way' } : branch) },
     }
 
-    const second = executeBookstoreSale(renamed, BOOKSTORE_BRANCH_ID)
+    const second = executeBookstoreSale(renamed, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
     expect(second.status).toBe('sold')
     if (second.status !== 'sold') return
     const secondTransaction = second.state.dollarFinance.transactions.records.find(({ id }) => id === second.transactionId)!
@@ -319,5 +391,261 @@ describe('executeBookstoreSale — historical statement-context snapshot truth',
     const transaction = result.state.dollarFinance.transactions.records.find(({ id }) => id === result.transactionId)!
     expect(transaction.statementContext).toEqual({ description: 'Bookstore Branch 01', purpose: 'Retail sale' })
     expect(transaction.statementContext).not.toHaveProperty('location')
+  })
+})
+
+describe('executeBookstoreSale — multi-item and multi-quantity baskets', () => {
+  it('a 2-item basket of two distinct titles decrements exactly those two stock lines and moves exactly their summed price', () => {
+    const initial = createInitialGameState()
+    // size draw 0.75 -> basket size 2 (>= 0.70, < 0.95); item draws 0.0 -> bookstore-merch-001 ($8.99), then
+    // 0.0 again -> still bookstore-merch-001 (7 units remain after the first pick, still first available).
+    const result = executeBookstoreSale(initial, BOOKSTORE_BRANCH_ID, cyclicRandom([0.75, 0.0, 0.0]))
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    const commerce = result.state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    const sale = commerce.completedSales[commerce.completedSales.length - 1]
+    expect(sale.lines).toEqual([{ merchandiseId: 'bookstore-merch-001', capturedName: 'Night Transit', quantity: 2, capturedUnitPriceCents: 899 }])
+    const transaction = result.state.dollarFinance.transactions.records.find(({ id }) => id === sale.dollarTransactionId)!
+    expect(transaction.amountCents).toBe(2 * 899)
+    expect(findBookstoreStockQuantity(operationsOf(result.state), 'bookstore-merch-001')).toBe(43)
+    expect(totalStockOf(result.state)).toBe(358)
+  })
+
+  it('a basket of two distinct titles (A ×1, B ×1) decrements exactly those two lines and nothing else', () => {
+    const initial = createInitialGameState()
+    // size draw 0.75 -> basket size 2; first item draw 0.0 -> bookstore-merch-001 (index 0 of 8);
+    // second item draw 0.99 -> the last still-available identity, which is now index 6 of the remaining 7
+    // (bookstore-merch-001 dropped out at zero *provisional* remaining stock only after all 45 of its
+    // units are gone — here it still has stock, so this proves selection among multiple always-available
+    // identities rather than exhaustion). Using distinct u values for the two item draws exercises two
+    // different indices deterministically.
+    const result = executeBookstoreSale(initial, BOOKSTORE_BRANCH_ID, cyclicRandom([0.75, 0.0, 0.99]))
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    const commerce = result.state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    const sale = commerce.completedSales[commerce.completedSales.length - 1]
+    expect(sale.lines).toEqual([
+      { merchandiseId: 'bookstore-merch-001', capturedName: 'Night Transit', quantity: 1, capturedUnitPriceCents: 899 },
+      { merchandiseId: 'bookstore-merch-008', capturedName: 'Systems of Dust', quantity: 1, capturedUnitPriceCents: 2_000 },
+    ])
+    const transaction = result.state.dollarFinance.transactions.records.find(({ id }) => id === sale.dollarTransactionId)!
+    expect(transaction.amountCents).toBe(899 + 2_000)
+    const operations = operationsOf(result.state)
+    expect(findBookstoreStockQuantity(operations, 'bookstore-merch-001')).toBe(44)
+    expect(findBookstoreStockQuantity(operations, 'bookstore-merch-008')).toBe(44)
+    expect(totalStockOf(result.state)).toBe(358)
+  })
+
+  it('never provisionally selects more units of one merchandise than currently exist', () => {
+    const initial = createInitialGameState()
+    const nearlyDepleted: GameState = {
+      ...initial,
+      bookstoreOperations: {
+        records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
+          ? { ...record, stock: record.stock.map((entry) => entry.merchandiseId === 'bookstore-merch-001' ? { ...entry, quantity: 1 } : { ...entry, quantity: 0 }) }
+          : record),
+      },
+    }
+    // Only bookstore-merch-001 has any stock (1 unit); total available stock is 1, so only basket size 1 is feasible.
+    const result = executeBookstoreSale(nearlyDepleted, BOOKSTORE_BRANCH_ID, cyclicRandom([0.99, 0.0]))
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    const commerce = result.state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    const sale = commerce.completedSales[commerce.completedSales.length - 1]
+    expect(sale.lines).toEqual([{ merchandiseId: 'bookstore-merch-001', capturedName: 'Night Transit', quantity: 1, capturedUnitPriceCents: 899 }])
+    expect(findBookstoreStockQuantity(operationsOf(result.state), 'bookstore-merch-001')).toBe(0)
+  })
+})
+
+describe('Bookstore purchase composition — basket size selection', () => {
+  it('is configured with the authored 70/25/5 mix for 1/2/3 items', () => {
+    expect(BOOKSTORE_PURCHASE_BASKET_SIZE_WEIGHTS).toEqual([{ size: 1, weight: 70 }, { size: 2, weight: 25 }, { size: 3, weight: 5 }])
+  })
+
+  it('selects size 1 for a uniform sample below 0.70, size 2 between 0.70 and 0.95, and size 3 above 0.95, when >= 3 units are available', () => {
+    expect(selectBookstoreBasketSize(360, () => 0)).toBe(1)
+    expect(selectBookstoreBasketSize(360, () => 0.69)).toBe(1)
+    expect(selectBookstoreBasketSize(360, () => 0.70)).toBe(2)
+    expect(selectBookstoreBasketSize(360, () => 0.94)).toBe(2)
+    expect(selectBookstoreBasketSize(360, () => 0.95)).toBe(3)
+    expect(selectBookstoreBasketSize(360, () => 0.999)).toBe(3)
+  })
+
+  it('restricts selection to feasible sizes when only 2 units of total stock are available', () => {
+    // Feasible weights become {1: 70, 2: 25}, total 95; threshold for size 1 is 70/95.
+    expect(selectBookstoreBasketSize(2, () => 0)).toBe(1)
+    expect(selectBookstoreBasketSize(2, () => 0.7368)).toBe(1)
+    expect(selectBookstoreBasketSize(2, () => 0.74)).toBe(2)
+    expect(selectBookstoreBasketSize(2, () => 0.999)).toBe(2)
+  })
+
+  it('always selects size 1 when only 1 unit of total stock is available, regardless of the sample', () => {
+    expect(selectBookstoreBasketSize(1, () => 0)).toBe(1)
+    expect(selectBookstoreBasketSize(1, () => 0.5)).toBe(1)
+    expect(selectBookstoreBasketSize(1, () => 0.999)).toBe(1)
+  })
+
+  it('never generates a basket size larger than currently feasible, across a spread of samples', () => {
+    for (const totalAvailableStock of [1, 2, 3, 4, 50]) {
+      for (const u of [0, 0.1, 0.5, 0.7, 0.9, 0.95, 0.999]) {
+        expect(selectBookstoreBasketSize(totalAvailableStock, () => u)).toBeLessThanOrEqual(Math.min(3, totalAvailableStock))
+      }
+    }
+  })
+
+  it('falls back to a safe minimum size for a degenerate or out-of-range sample from a broken random source', () => {
+    expect(selectBookstoreBasketSize(360, () => -1)).toBe(1)
+    expect(selectBookstoreBasketSize(360, () => 1)).toBe(1)
+    expect(selectBookstoreBasketSize(360, () => Number.NaN)).toBe(1)
+  })
+})
+
+describe('Bookstore purchase composition — merchandise selection', () => {
+  it('selects uniformly by index across the given available identities', () => {
+    const ids = ['a', 'b', 'c', 'd']
+    expect(selectBookstoreMerchandiseId(ids, () => 0)).toBe('a')
+    expect(selectBookstoreMerchandiseId(ids, () => 0.24)).toBe('a')
+    expect(selectBookstoreMerchandiseId(ids, () => 0.25)).toBe('b')
+    expect(selectBookstoreMerchandiseId(ids, () => 0.5)).toBe('c')
+    expect(selectBookstoreMerchandiseId(ids, () => 0.99)).toBe('d')
+  })
+
+  it('selects the only available identity regardless of sample', () => {
+    expect(selectBookstoreMerchandiseId(['solo'], () => 0.99)).toBe('solo')
+  })
+})
+
+describe('composeBookstorePurchase', () => {
+  const stockOf = (quantity: number) => BOOKSTORE_MERCHANDISE_CATALOG.map((item) => ({ merchandiseId: item.id, quantity }))
+
+  it('composes a deterministic single-item basket', () => {
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), cyclicRandom([0.1, 0.9]))
+    expect(lines).toEqual([{ merchandiseId: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents: 2_000, quantity: 1 }])
+    expect(deriveBookstoreBasketTotalCents(lines)).toBe(2_000)
+  })
+
+  it('aggregates repeated selections of the same merchandise into one line with quantity > 1', () => {
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), cyclicRandom([0.99, 0.0, 0.0, 0.0]))
+    expect(lines).toEqual([{ merchandiseId: 'bookstore-merch-001', name: 'Night Transit', unitPriceCents: 899, quantity: 3 }])
+    expect(deriveBookstoreBasketTotalCents(lines)).toBe(3 * 899)
+  })
+
+  it('never selects a merchandise identity with zero remaining provisional stock within the same basket', () => {
+    // Only bookstore-merch-001 has 2 units; every other identity is at 0. Item draws of 0.99 would
+    // otherwise pick the *last* catalog identity, but with only one identity ever available, both
+    // draws must land on it regardless of the raw sample.
+    const stock = BOOKSTORE_MERCHANDISE_CATALOG.map((item) => ({ merchandiseId: item.id, quantity: item.id === 'bookstore-merch-001' ? 2 : 0 }))
+    // 0.8 selects basket size 2 at total available stock 2 (feasible sizes {1,2}, weights 70/25; threshold for size 1 is 70/95 ≈ 0.7368).
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stock, cyclicRandom([0.8, 0.99, 0.99]))
+    expect(lines).toEqual([{ merchandiseId: 'bookstore-merch-001', name: 'Night Transit', unitPriceCents: 899, quantity: 2 }])
+  })
+
+  it('the exact deterministic sum of a composed basket is what a $31.98 sale must be explainable by', () => {
+    // bookstore-merch-001 ($8.99) + bookstore-merch-008 ($20.00) does not sum to $31.98, but this proves
+    // the mechanism: any successful basket total is always exactly this sum, never a rounded or randomized figure.
+    const lines = composeBookstorePurchase(BOOKSTORE_MERCHANDISE_CATALOG, stockOf(45), cyclicRandom([0.75, 0.0, 0.99]))
+    const total = deriveBookstoreBasketTotalCents(lines)
+    const recomputed = lines.reduce((sum, line) => sum + line.quantity * line.unitPriceCents, 0)
+    expect(total).toBe(recomputed)
+  })
+})
+
+describe('Bookstore cross-owner stock/catalog integrity — sellable-stock intersection', () => {
+  /** An orphan merchandise identity: physically stocked in Operations but absent from the current Commerce catalog, e.g. because it was since removed. Commerce and Operations are separate owners — removing a catalog entry never deletes or rewrites its physical stock. */
+  const ORPHAN_MERCHANDISE_ID = 'bookstore-merch-removed'
+
+  function withOrphanStockOnly(): GameState {
+    const initial = createInitialGameState()
+    return {
+      ...initial,
+      bookstoreOperations: {
+        records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
+          ? { ...record, stock: [...record.stock.map((entry) => ({ ...entry, quantity: 0 })), { merchandiseId: ORPHAN_MERCHANDISE_ID, quantity: 44 }] }
+          : record),
+      },
+    }
+  }
+
+  it('deriveSellableBookstoreStockByMerchandise/TotalStock exclude orphan stock entirely', () => {
+    const state = withOrphanStockOnly()
+    const operations = operationsOf(state)
+    const commerce = state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    const sellable = deriveSellableBookstoreStockByMerchandise(commerce.merchandise, operations.stock)
+    expect(sellable.has(ORPHAN_MERCHANDISE_ID)).toBe(false)
+    expect([...sellable.keys()]).toEqual(commerce.merchandise.map((item) => item.id))
+    expect([...sellable.values()].every((quantity) => quantity === 0)).toBe(true)
+    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)).toBe(0)
+    // Physical stock still reflects the orphan quantity — Operations never loses physical truth merely
+    // because Commerce no longer lists it, and this is a distinct derivation from the sellable one.
+    expect(deriveBookstoreTotalStock(operations)).toBe(44)
+  })
+
+  it('agrees with the physical total when every stocked identity is still in the current catalog (no orphans)', () => {
+    const state = createInitialGameState()
+    const operations = operationsOf(state)
+    const commerce = state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)).toBe(deriveBookstoreTotalStock(operations))
+    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operations.stock)).toBe(360)
+  })
+
+  it('(A) orphan stock only: refuses cleanly with out_of_stock, unchanged, and consumes no purchase randomness', () => {
+    const state = withOrphanStockOnly()
+    const forbiddenRandom = () => { throw new Error('must not sample bookstorePurchaseRandom') }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, forbiddenRandom)
+    expect(result).toEqual({ status: 'out_of_stock', state })
+    // Reference equality proves no Transaction, no CompletedSale, and no stock mutation of any kind occurred.
+    expect(result.state).toBe(state)
+  })
+
+  it('(B) partial sellable stock: basket-size feasibility is exactly 1 even though large orphan stock exists, and orphan stock is untouched', () => {
+    const initial = createInitialGameState()
+    const withPartialSellableStock: GameState = {
+      ...initial,
+      bookstoreOperations: {
+        records: initial.bookstoreOperations.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
+          ? {
+              ...record,
+              stock: [
+                ...record.stock.map((entry) => entry.merchandiseId === 'bookstore-merch-001' ? { ...entry, quantity: 1 } : { ...entry, quantity: 0 }),
+                { merchandiseId: ORPHAN_MERCHANDISE_ID, quantity: 1_000 },
+              ],
+            }
+          : record),
+      },
+    }
+    const commerce = withPartialSellableStock.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    const operationsBefore = operationsOf(withPartialSellableStock)
+    expect(deriveSellableBookstoreTotalStock(commerce.merchandise, operationsBefore.stock)).toBe(1)
+    // The physical total (what shelf-capacity accounting and RACK-OS present) still includes the orphan units.
+    expect(deriveBookstoreTotalStock(operationsBefore)).toBe(1_001)
+
+    // A sample that would otherwise favor a 3-item basket cannot produce more than the one sellable unit.
+    const result = executeBookstoreSale(withPartialSellableStock, BOOKSTORE_BRANCH_ID, cyclicRandom([0.99, 0.0]))
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    const soldCommerce = result.state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
+    const sale = soldCommerce.completedSales[soldCommerce.completedSales.length - 1]
+    expect(sale.lines).toEqual([{ merchandiseId: 'bookstore-merch-001', capturedName: 'Night Transit', quantity: 1, capturedUnitPriceCents: 899 }])
+    const operationsAfter = operationsOf(result.state)
+    expect(findBookstoreStockQuantity(operationsAfter, 'bookstore-merch-001')).toBe(0)
+    // Orphan stock is never selected and never decremented.
+    expect(findBookstoreStockQuantity(operationsAfter, ORPHAN_MERCHANDISE_ID)).toBe(1_000)
+  })
+
+  it('(C) duplicate current merchandise IDs: the catalog is not sale-usable, refusing before purchase randomness, unchanged', () => {
+    const initial = createInitialGameState()
+    const state: GameState = {
+      ...initial,
+      bookstoreCommerce: {
+        ...initial.bookstoreCommerce,
+        records: initial.bookstoreCommerce.records.map((record) => record.branchId === BOOKSTORE_BRANCH_ID
+          ? { ...record, merchandise: [...record.merchandise, { id: 'bookstore-merch-001', name: 'Night Transit (duplicate)', unitPriceCents: 501 }] }
+          : record),
+      },
+    }
+    const forbiddenRandom = () => { throw new Error('must not sample bookstorePurchaseRandom') }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, forbiddenRandom)
+    expect(result).toEqual({ status: 'invalid_price', state })
+    expect(result.state).toBe(state)
   })
 })

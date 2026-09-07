@@ -14,7 +14,7 @@ import { describeUploadFailure } from '../uploadFailure'
 import { runRemoteCommand } from './remoteCommands'
 import { resolveBusinessOperatingContext, type ResolvedBusinessBranch } from '../../core/game/business'
 import { resolveBookstoreCommerceForBranch } from '../../core/game/bookstoreCommerce'
-import { resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
+import { deriveBookstoreTotalStock, findBookstoreStockQuantity, resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { resolveBookstoreBackendForBranch } from '../../core/game/bookstoreBackend'
 import { deriveEffectiveBookstoreOpportunityRatePerHour, resolveBookstoreSalesCadenceForBranch } from '../../core/game/bookstoreSalesCadence'
 import type { LocalNetwork } from '../../core/game/types'
@@ -292,15 +292,27 @@ function BusinessSurface({ state, context }: {
             {/* "Opportunities," never "expected sales": OPEN/CLOSED, inventory, checkout, backend, settlement and finance truth can still refuse any given opportunity. */}
             {cadence && <div><dt>DEMAND OPPORTUNITIES</dt><dd>~{formatOpportunityRate(deriveEffectiveBookstoreOpportunityRatePerHour(cadence))} / HOUR</dd></div>}
             {cadence && <div><dt>ATTRACTIVENESS</dt><dd>{cadence.attractivenessMultiplier.toFixed(2)}×</dd></div>}
-            {operations && <div><dt>STOCK</dt><dd>{operations.currentInventory} / {operations.shelfCapacity}</dd></div>}
+            {operations && <div><dt>STOCK</dt><dd>{deriveBookstoreTotalStock(operations)} / {operations.shelfCapacity}</dd></div>}
             {operations && <div><dt>CHECKOUTS</dt><dd>{operations.checkoutCapacity}</dd></div>}
             {commerce && <div><dt>SETTLEMENT ACCOUNT</dt><dd>{commerce.settlementAccount.accountReference}</dd></div>}
           </dl>
+          {commerce && commerce.merchandise.length > 0 && <>
+            <h3>CATALOG</h3>
+            <dl className="rack-facts rack-facts--dense">
+              {commerce.merchandise.map((item) => <div key={item.id}>
+                <dt>{item.name}</dt>
+                <dd>{formatDollarCents(item.unitPriceCents)}{operations && ` — ${findBookstoreStockQuantity(operations, item.id)} in stock`}</dd>
+              </div>)}
+            </dl>
+          </>}
           {commerce && commerce.sales.length > 0 && <>
             <h3>RECENT SALES</h3>
             {commerce.sales.map((sale) => <dl className="rack-facts rack-facts--dense" key={sale.id}>
-              <div><dt>SALE</dt><dd>BOOK SALE</dd></div>
-              <div><dt>AMOUNT</dt><dd>{formatDollarCents(sale.transaction.amountCents)}</dd></div>
+              <div><dt>SALE</dt><dd>{formatDollarCents(sale.transaction.amountCents)}</dd></div>
+              {sale.lines.map((line, index) => <div key={`${sale.id}-${line.merchandiseId}-${index}`}>
+                <dt>{line.capturedName} ×{line.quantity}</dt>
+                <dd>{formatDollarCents(line.quantity * line.capturedUnitPriceCents)}</dd>
+              </div>)}
               <div><dt>SETTLED TO</dt><dd>{sale.transaction.destinationAccountReference}</dd></div>
             </dl>)}
           </>}
