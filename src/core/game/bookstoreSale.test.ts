@@ -219,10 +219,11 @@ describe('executeBookstoreSale — atomic failure paths', () => {
   })
 
   it.each([
-    ['missing', (state: GameState) => state.bookstoreCommerce.bookDemand.filter(({ bookId }) => bookId !== 'bookstore-merch-001')],
-    ['duplicate', (state: GameState) => [...state.bookstoreCommerce.bookDemand, state.bookstoreCommerce.bookDemand[0]]],
-    ['zero', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-merch-001' ? { ...record, weight: 0 } : record)],
-    ['non-finite', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-merch-001' ? { ...record, weight: Number.POSITIVE_INFINITY } : record)],
+    ['missing for non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.filter(({ bookId }) => bookId !== 'bookstore-book-010')],
+    ['duplicate for non-carried Terminal Light', (state: GameState) => [...state.bookstoreCommerce.bookDemand, state.bookstoreCommerce.bookDemand.find(({ bookId }) => bookId === 'bookstore-book-010')!]],
+    ['zero for non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-book-010' ? { ...record, weight: 0 } : record)],
+    ['non-finite for non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-book-010' ? { ...record, weight: Number.POSITIVE_INFINITY } : record)],
+    ['dangling identity replacing non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-book-010' ? { ...record, bookId: 'bookstore-book-unknown' } : record)],
     ['overflowing aggregate', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => ({ ...record, weight: Number.MAX_VALUE }))],
   ])('refuses %s Demand truth atomically before consuming purchase randomness', (_label, mutateDemand) => {
     const initial = createInitialGameState()

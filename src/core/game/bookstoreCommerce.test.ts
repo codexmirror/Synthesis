@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
 import { BOOKSTORE_BOOK_CATALOG, BOOKSTORE_BOOK_DEMAND, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_INITIAL_ASSORTMENT, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
-import { BOOKSTORE_SALE_STATEMENT_PURPOSE, executeBookstoreSale } from './bookstoreSale'
+import { BOOKSTORE_SALE_STATEMENT_PURPOSE, executeBookstoreSale, resolveValidBookstoreDemand } from './bookstoreSale'
 import type { GameState } from './types'
 
 /**
@@ -67,13 +67,23 @@ describe('bookstore commerce initial truth', () => {
       ['Distant Current', 'SCIENCE_FICTION'], ['Signal House', 'MYSTERY'], ['The Pale Exchange', 'THRILLER'], ['Midnight Index', 'MYSTERY'],
       ['Concrete Sky', 'LITERARY_FICTION'], ['Rooms Without Doors', 'MYSTERY'], ['Silent Frequency', 'SCIENCE_FICTION'], ['East of the Grid', 'SCIENCE_FICTION'],
     ])
-    expect(BOOKSTORE_BOOK_DEMAND.map(({ weight }) => weight)).toEqual([
-      0.8, 1.4, 1.0, 1.2, 0.9, 1.0, 1.1, 0.8, 1.3, 1.8, 0.9, 1.4,
-      1.2, 1.0, 0.9, 1.1, 1.0, 1.3, 0.8, 1.2, 0.9, 1.0, 1.3, 1.1,
-    ])
-    expect(BOOKSTORE_BOOK_DEMAND.map(({ bookId }) => bookId)).toEqual(BOOKSTORE_BOOK_CATALOG.map(({ id }) => id))
+    expect(Object.fromEntries(BOOKSTORE_BOOK_DEMAND.map(({ bookId, weight }) => [bookId, weight]))).toEqual({
+      'bookstore-merch-001': 0.8, 'bookstore-merch-002': 1.4, 'bookstore-merch-003': 1.0, 'bookstore-merch-004': 1.2,
+      'bookstore-merch-005': 0.9, 'bookstore-merch-006': 1.0, 'bookstore-merch-007': 1.1, 'bookstore-merch-008': 0.8,
+      'bookstore-book-009': 1.3, 'bookstore-book-010': 1.8, 'bookstore-book-011': 0.9, 'bookstore-book-012': 1.4,
+      'bookstore-book-013': 1.2, 'bookstore-book-014': 1.0, 'bookstore-book-015': 0.9, 'bookstore-book-016': 1.1,
+      'bookstore-book-017': 1.0, 'bookstore-book-018': 1.3, 'bookstore-book-019': 0.8, 'bookstore-book-020': 1.2,
+      'bookstore-book-021': 0.9, 'bookstore-book-022': 1.0, 'bookstore-book-023': 1.3, 'bookstore-book-024': 1.1,
+    })
     expect(BOOKSTORE_BOOK_DEMAND.every(({ weight }) => Number.isFinite(weight) && weight > 0)).toBe(true)
     expect(new Set(BOOKSTORE_BOOK_DEMAND.map(({ bookId }) => bookId)).size).toBe(24)
+  })
+
+  it('resolves the same Demand by stable Book identity when Catalog order changes', () => {
+    const resolved = resolveValidBookstoreDemand([...BOOKSTORE_BOOK_CATALOG].reverse(), BOOKSTORE_BOOK_DEMAND)
+    expect(resolved?.get('bookstore-merch-001')).toBe(0.8)
+    expect(resolved?.get('bookstore-book-010')).toBe(1.8)
+    expect(resolved?.get('bookstore-book-024')).toBe(1.1)
   })
 
   it('gives every catalog entry a unique stable identity and a positive safe-integer price', () => {

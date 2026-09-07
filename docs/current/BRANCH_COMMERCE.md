@@ -762,11 +762,14 @@ purchase weight per stable Book identity. A weight of `1.0` is neutral; weights
 must be finite and strictly positive and have no monetary or percentage meaning.
 Genre and Demand are not Branch-local truth.
 
-Sale execution first establishes the unchanged sellable intersection: valid
-global Catalog identity, present in the Branch assortment, and positive physical
-Branch stock. Only then does it resolve Demand for those candidates. Missing,
-duplicate, non-positive, non-finite, or non-representable aggregate Demand fails
-closed before purchase randomness is consumed. For each provisional basket unit,
+Sale execution requires the global Catalog and Demand relationship to be
+structurally coherent by stable identity: every Catalog Book has exactly one
+positive finite Demand record, every Demand record names a Catalog Book, and no
+identity is missing, duplicated, or dangling. It then establishes the unchanged
+sellable intersection: valid global Catalog identity, present in the Branch
+assortment, and positive physical Branch stock. Only the weights for those
+candidates participate, and a non-positive or non-finite candidate-weight total
+fails closed before purchase randomness is consumed. For each provisional basket unit,
 the existing ordered positive-stock candidates are selected proportionally to
 their current weights and only provisional remaining stock is decremented. All
 neutral weights therefore preserve the former uniform selector's deterministic

@@ -100,19 +100,20 @@ export function selectDemandWeightedBookstoreMerchandiseId(
   return availableIds[availableIds.length - 1]
 }
 
-/** Resolve exactly one positive finite current Demand weight for every sellable Book, with a representable positive total. */
+/** Resolve a complete one-to-one Catalog/Demand relationship by stable Book identity. */
 export function resolveValidBookstoreDemand(
-  sellableBookIds: readonly string[],
+  catalog: readonly BookstoreBookRecord[],
   demand: GameState['bookstoreCommerce']['bookDemand'],
 ): ReadonlyMap<string, number> | undefined {
+  if (demand.length !== catalog.length) return undefined
+  const catalogIds = new Set(catalog.map(({ id }) => id))
   const resolved = new Map<string, number>()
-  for (const bookId of sellableBookIds) {
-    const matches = demand.filter((record) => record.bookId === bookId)
-    if (matches.length !== 1 || !Number.isFinite(matches[0].weight) || matches[0].weight <= 0) return undefined
-    resolved.set(bookId, matches[0].weight)
+  for (const record of demand) {
+    if (!catalogIds.has(record.bookId) || resolved.has(record.bookId)) return undefined
+    if (!Number.isFinite(record.weight) || record.weight <= 0) return undefined
+    resolved.set(record.bookId, record.weight)
   }
-  const total = [...resolved.values()].reduce((sum, weight) => sum + weight, 0)
-  return Number.isFinite(total) && total > 0 ? resolved : undefined
+  return resolved.size === catalogIds.size ? resolved : undefined
 }
 
 /**
@@ -278,6 +279,8 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
   if (assortment.size !== commerce.assortment.length) return { status: 'invalid_price', state }
   const merchandise = state.bookstoreCommerce.bookCatalog.filter((book) => assortment.has(book.id))
   if (merchandise.length !== assortment.size || !isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog)) return { status: 'invalid_price', state }
+  const demandByBookId = resolveValidBookstoreDemand(state.bookstoreCommerce.bookCatalog, state.bookstoreCommerce.bookDemand)
+  if (!demandByBookId) return { status: 'invalid_demand', state }
 
   // Sellable stock — the intersection of the current catalog and physical Operations stock — is what
   // purchase feasibility must be measured against, never physical stock alone: stock for a merchandise
@@ -287,8 +290,8 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
   const sellableTotalStock = deriveSellableBookstoreTotalStock(merchandise, operations.stock)
   if (sellableTotalStock <= 0) return { status: 'out_of_stock', state }
   const sellableBookIds = merchandise.filter((item) => operations.stock.some((entry) => entry.merchandiseId === item.id && entry.quantity > 0)).map((item) => item.id)
-  const demandByBookId = resolveValidBookstoreDemand(sellableBookIds, state.bookstoreCommerce.bookDemand)
-  if (!demandByBookId) return { status: 'invalid_demand', state }
+  const candidateDemandTotal = sellableBookIds.reduce((sum, bookId) => sum + demandByBookId.get(bookId)!, 0)
+  if (!Number.isFinite(candidateDemandTotal) || candidateDemandTotal <= 0) return { status: 'invalid_demand', state }
   if (operations.checkoutCapacity <= 0) return { status: 'no_checkout_capacity', state }
 
   const settlementAccount = state.dollarFinance.accounts.find(({ id }) => id === commerce.settlementAccountId)

@@ -44,9 +44,31 @@ export const BOOKSTORE_BOOK_CATALOG: readonly BookstoreBookRecord[] = [
 ]
 
 export const BOOKSTORE_BOOK_DEMAND: readonly BookstoreBookDemandRecord[] = [
-  0.8, 1.4, 1.0, 1.2, 0.9, 1.0, 1.1, 0.8, 1.3, 1.8, 0.9, 1.4,
-  1.2, 1.0, 0.9, 1.1, 1.0, 1.3, 0.8, 1.2, 0.9, 1.0, 1.3, 1.1,
-].map((weight, index) => ({ bookId: BOOKSTORE_BOOK_CATALOG[index].id, weight }))
+  { bookId: 'bookstore-merch-001', weight: 0.8 },
+  { bookId: 'bookstore-merch-002', weight: 1.4 },
+  { bookId: 'bookstore-merch-003', weight: 1.0 },
+  { bookId: 'bookstore-merch-004', weight: 1.2 },
+  { bookId: 'bookstore-merch-005', weight: 0.9 },
+  { bookId: 'bookstore-merch-006', weight: 1.0 },
+  { bookId: 'bookstore-merch-007', weight: 1.1 },
+  { bookId: 'bookstore-merch-008', weight: 0.8 },
+  { bookId: 'bookstore-book-009', weight: 1.3 },
+  { bookId: 'bookstore-book-010', weight: 1.8 },
+  { bookId: 'bookstore-book-011', weight: 0.9 },
+  { bookId: 'bookstore-book-012', weight: 1.4 },
+  { bookId: 'bookstore-book-013', weight: 1.2 },
+  { bookId: 'bookstore-book-014', weight: 1.0 },
+  { bookId: 'bookstore-book-015', weight: 0.9 },
+  { bookId: 'bookstore-book-016', weight: 1.1 },
+  { bookId: 'bookstore-book-017', weight: 1.0 },
+  { bookId: 'bookstore-book-018', weight: 1.3 },
+  { bookId: 'bookstore-book-019', weight: 0.8 },
+  { bookId: 'bookstore-book-020', weight: 1.2 },
+  { bookId: 'bookstore-book-021', weight: 0.9 },
+  { bookId: 'bookstore-book-022', weight: 1.0 },
+  { bookId: 'bookstore-book-023', weight: 1.3 },
+  { bookId: 'bookstore-book-024', weight: 1.1 },
+]
 /** Mercer Street's authored Branch assortment, independent from Catalog ordering. */
 export const BOOKSTORE_INITIAL_ASSORTMENT: readonly string[] = [
   'bookstore-merch-001',
