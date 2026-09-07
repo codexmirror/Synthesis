@@ -805,9 +805,9 @@ export interface BusinessState {
 
 /**
  * One concrete, Bookstore-specific represented merchandise identity: a
- * stable ID, a current human-readable name, and a current unit price in
+ * stable ID, a current human-readable name, broad Genre, and a current unit price in
  * integer cents. This is deliberately not a generic Product/SKU framework —
- * V1 carries no ISBN, author, genre, publisher, tax, cost basis, supplier,
+ * V1 carries no ISBN, author, publisher, tax, cost basis, supplier,
  * margin, popularity, quality tier, or dynamic pricing. `name`/`unitPriceCents`
  * are *current* truth, read fresh at the moment of purchase composition;
  * a completed sale instead captures its own immutable snapshot
@@ -816,7 +816,16 @@ export interface BusinessState {
 export interface BookstoreBookRecord {
   readonly id: string
   readonly name: string
+  readonly genre: BookstoreBookGenre
   readonly unitPriceCents: number
+}
+
+export type BookstoreBookGenre = 'SCIENCE_FICTION' | 'THRILLER' | 'MYSTERY' | 'LITERARY_FICTION'
+
+/** One Bookstore-market-owned current relative purchase weight for a stable Book identity. */
+export interface BookstoreBookDemandRecord {
+  readonly bookId: string
+  readonly weight: number
 }
 
 /**
@@ -847,6 +856,8 @@ export interface BookstoreBranchCommerceRecord {
 export interface BookstoreCommerceState {
   /** Canonical current Bookstore World Truth, independent from every Branch. */
   readonly bookCatalog: readonly BookstoreBookRecord[]
+  /** Canonical current global Bookstore Demand by stable Book identity, independent from every Branch and from Genre. */
+  readonly bookDemand: readonly BookstoreBookDemandRecord[]
   /** Monotonic allocator for runtime `BusinessBranchSale` identity, following the existing Transaction/Session allocation pattern. Never derived from array length, time, or randomness. */
   readonly nextSaleId: number
   readonly records: readonly BookstoreBranchCommerceRecord[]

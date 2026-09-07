@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
-import { BOOKSTORE_BOOK_CATALOG, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_INITIAL_ASSORTMENT, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
-import { BOOKSTORE_SALE_STATEMENT_PURPOSE, executeBookstoreSale } from './bookstoreSale'
+import { BOOKSTORE_BOOK_CATALOG, BOOKSTORE_BOOK_DEMAND, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_INITIAL_ASSORTMENT, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
+import { BOOKSTORE_SALE_STATEMENT_PURPOSE, executeBookstoreSale, resolveValidBookstoreDemand } from './bookstoreSale'
 import type { GameState } from './types'
 
 /**
  * Plays back a fixed sequence of raw samples, holding the last value once
  * exhausted. With the seeded 8-title catalog and the default 70/25/5
- * basket-size mix, `[0.1, 0.9]` deterministically composes a single-item
+ * basket-size mix, `[0.1, 0.95]` deterministically composes a single-item
  * basket of the catalog's last entry (`bookstore-merch-008`) — one
  * basket-size draw (0.1 < 0.70 selects size 1) plus one item-selection draw
- * (0.9 selects index 7 of 8).
+ * (0.95 falls in the final Demand-weighted interval).
  */
 function fixedRandom(values: readonly number[]): () => number {
   let index = 0
@@ -46,7 +46,7 @@ describe('bookstore commerce initial truth', () => {
   })
 
   it('seeds exactly eight authored merchandise identities with the specified names and integer-cent prices', () => {
-    expect(BOOKSTORE_MERCHANDISE_CATALOG).toEqual([
+    expect(BOOKSTORE_MERCHANDISE_CATALOG.map(({ id, name, unitPriceCents }) => ({ id, name, unitPriceCents }))).toEqual([
       { id: 'bookstore-merch-001', name: 'Night Transit', unitPriceCents: 899 },
       { id: 'bookstore-merch-002', name: 'Static Bloom', unitPriceCents: 1_099 },
       { id: 'bookstore-merch-003', name: 'Glass District', unitPriceCents: 1_299 },
@@ -56,6 +56,34 @@ describe('bookstore commerce initial truth', () => {
       { id: 'bookstore-merch-007', name: 'A Map of Empty Rooms', unitPriceCents: 1_799 },
       { id: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents: 2_000 },
     ])
+  })
+
+  it('authors exactly one broad Genre and one valid current Demand weight for all 24 Books', () => {
+    expect(BOOKSTORE_BOOK_CATALOG.map(({ name, genre }) => [name, genre])).toEqual([
+      ['Night Transit', 'THRILLER'], ['Static Bloom', 'SCIENCE_FICTION'], ['Glass District', 'MYSTERY'], ['The Quiet Archive', 'MYSTERY'],
+      ['After the Relay', 'LITERARY_FICTION'], ['Northbound', 'LITERARY_FICTION'], ['A Map of Empty Rooms', 'LITERARY_FICTION'], ['Systems of Dust', 'SCIENCE_FICTION'],
+      ['Red Harbor', 'THRILLER'], ['Terminal Light', 'SCIENCE_FICTION'], ['Field Notes', 'LITERARY_FICTION'], ['Winter Circuit', 'SCIENCE_FICTION'],
+      ['Borrowed Signal', 'LITERARY_FICTION'], ['Low Orbit', 'SCIENCE_FICTION'], ['The Last Platform', 'LITERARY_FICTION'], ['Copper Rain', 'THRILLER'],
+      ['Distant Current', 'SCIENCE_FICTION'], ['Signal House', 'MYSTERY'], ['The Pale Exchange', 'THRILLER'], ['Midnight Index', 'MYSTERY'],
+      ['Concrete Sky', 'LITERARY_FICTION'], ['Rooms Without Doors', 'MYSTERY'], ['Silent Frequency', 'SCIENCE_FICTION'], ['East of the Grid', 'SCIENCE_FICTION'],
+    ])
+    expect(Object.fromEntries(BOOKSTORE_BOOK_DEMAND.map(({ bookId, weight }) => [bookId, weight]))).toEqual({
+      'bookstore-merch-001': 0.8, 'bookstore-merch-002': 1.4, 'bookstore-merch-003': 1.0, 'bookstore-merch-004': 1.2,
+      'bookstore-merch-005': 0.9, 'bookstore-merch-006': 1.0, 'bookstore-merch-007': 1.1, 'bookstore-merch-008': 0.8,
+      'bookstore-book-009': 1.3, 'bookstore-book-010': 1.8, 'bookstore-book-011': 0.9, 'bookstore-book-012': 1.4,
+      'bookstore-book-013': 1.2, 'bookstore-book-014': 1.0, 'bookstore-book-015': 0.9, 'bookstore-book-016': 1.1,
+      'bookstore-book-017': 1.0, 'bookstore-book-018': 1.3, 'bookstore-book-019': 0.8, 'bookstore-book-020': 1.2,
+      'bookstore-book-021': 0.9, 'bookstore-book-022': 1.0, 'bookstore-book-023': 1.3, 'bookstore-book-024': 1.1,
+    })
+    expect(BOOKSTORE_BOOK_DEMAND.every(({ weight }) => Number.isFinite(weight) && weight > 0)).toBe(true)
+    expect(new Set(BOOKSTORE_BOOK_DEMAND.map(({ bookId }) => bookId)).size).toBe(24)
+  })
+
+  it('resolves the same Demand by stable Book identity when Catalog order changes', () => {
+    const resolved = resolveValidBookstoreDemand([...BOOKSTORE_BOOK_CATALOG].reverse(), BOOKSTORE_BOOK_DEMAND)
+    expect(resolved?.get('bookstore-merch-001')).toBe(0.8)
+    expect(resolved?.get('bookstore-book-010')).toBe(1.8)
+    expect(resolved?.get('bookstore-book-024')).toBe(1.1)
   })
 
   it('gives every catalog entry a unique stable identity and a positive safe-integer price', () => {
@@ -121,22 +149,22 @@ describe('isBookstoreMerchandiseCatalogSufficient', () => {
     ['fractional', 19.99],
     ['non-finite', Number.NaN],
   ])('rejects a catalog containing an invalid unitPriceCents (%s)', (_label, unitPriceCents) => {
-    const broken = [...BOOKSTORE_MERCHANDISE_CATALOG.slice(0, -1), { id: 'bookstore-merch-008', name: 'Systems of Dust', unitPriceCents }]
+    const broken = [...BOOKSTORE_MERCHANDISE_CATALOG.slice(0, -1), { id: 'bookstore-merch-008', name: 'Systems of Dust', genre: 'SCIENCE_FICTION' as const, unitPriceCents }]
     expect(isBookstoreMerchandiseCatalogSufficient(broken)).toBe(false)
   })
 
   it('rejects a catalog containing a duplicate stable merchandise ID, even where every individual price is otherwise valid', () => {
     const duplicated = [
       ...BOOKSTORE_MERCHANDISE_CATALOG,
-      { id: 'bookstore-merch-001', name: 'Night Transit (duplicate entry)', unitPriceCents: 999 },
+      { id: 'bookstore-merch-001', name: 'Night Transit (duplicate entry)', genre: 'THRILLER' as const, unitPriceCents: 999 },
     ]
     expect(isBookstoreMerchandiseCatalogSufficient(duplicated)).toBe(false)
   })
 
   it('rejects two duplicate IDs even when they are the only two entries', () => {
     const onlyDuplicates = [
-      { id: 'fixture-merch-a', name: 'Fixture A', unitPriceCents: 500 },
-      { id: 'fixture-merch-a', name: 'Fixture A (again)', unitPriceCents: 700 },
+      { id: 'fixture-merch-a', name: 'Fixture A', genre: 'MYSTERY' as const, unitPriceCents: 500 },
+      { id: 'fixture-merch-a', name: 'Fixture A (again)', genre: 'MYSTERY' as const, unitPriceCents: 700 },
     ]
     expect(isBookstoreMerchandiseCatalogSufficient(onlyDuplicates)).toBe(false)
   })
@@ -204,7 +232,7 @@ describe('resolveBookstoreCommerceForBranch', () => {
 
     // A real later sale, deterministically composing a single-item basket of the same merchandise
     // identity, captures the merchandise's new current name and price — not the earlier captured ones.
-    const later = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID, fixedRandom([0.1, 0.9]))
+    const later = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID, fixedRandom([0.1, 0.95]))
     expect(later.status).toBe('sold')
     if (later.status !== 'sold') return
     const laterCommerce = later.state.bookstoreCommerce.records.find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!
