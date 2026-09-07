@@ -22,6 +22,8 @@ describe('createInitialGameState', () => {
     expect(first.player.localDevice.hardware).not.toBe(second.player.localDevice.hardware)
     expect(first.player.localDevice.runtime).not.toBe(second.player.localDevice.runtime)
     expect(first.dollarFinance).not.toBe(second.dollarFinance)
+    expect(first.business).not.toBe(second.business)
+    expect(first.business.administrationSessions).not.toBe(second.business.administrationSessions)
     expect(first.mail).not.toBe(second.mail)
     expect(first.mail.messages).not.toBe(second.mail.messages)
     expect(first.mail.threads).not.toBe(second.mail.threads)
@@ -37,13 +39,13 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds canonical local-device state in schema version 79', () => {
+  it('separates identities and seeds canonical local-device state in schema version 80', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(79)
+    expect(GAME_STATE_VERSION).toBe(80)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(79)
+    expect(state.version).toBe(80)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
