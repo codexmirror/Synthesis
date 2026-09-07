@@ -39,7 +39,9 @@ BusinessBranchState
 It carries no settlement configuration, sale history, or any other concrete
 commerce/operational field. The seeded Branch's `networkId` names the
 existing foreign LocalNetwork (`network-foreign-001`, presented as
-`remote-segment-01`) that also contains Petra's phone and `srv-02`.
+`remote-segment-01`) that also contains Petra's phone, `srv-02`, and `ops-01`
+(`host-lan-003`) — the Branch's own small represented operations server,
+seeded directly on RACK-OS 1.1 Business (`docs/current/DEVICE_SYSTEM.md`).
 
 `location` is optional current mutable Branch truth — a structurally valid
 Branch (a future distribution or hosting Branch, for example) need not

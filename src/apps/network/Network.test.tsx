@@ -987,8 +987,12 @@ describe('NodeScan target topology', () => {
   it('summarizes other remembered foreign members without leaking the selected or hidden Devices', async () => {
     const scanned = knownRemote(withNodeScan12(createInitialGameState()))
     const uninspectedMembers = selectTarget(scanned, 'host-lan-002', scanned)!.networks[0].members
-    expect(uninspectedMembers).toEqual([expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, liveStatus: { label: 'ONLINE', tone: 'available' } })])
+    expect(uninspectedMembers).toEqual([
+      expect.objectContaining({ id: 'host-lan-003', address: '203.0.113.43', liveStatus: { label: 'ONLINE', tone: 'available' } }),
+      expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, liveStatus: { label: 'ONLINE', tone: 'available' } }),
+    ])
     expect(uninspectedMembers[0].displayName).toBeUndefined()
+    expect(uninspectedMembers[1].displayName).toBeUndefined()
     expect(selectTarget(withNodeScan11(scanned), 'host-lan-002', withNodeScan11(scanned))!.networks[0].members[0].liveStatus).toBeUndefined()
 
     const targets = { localDevice: scanned.player.localDevice, network: scanned.world.network }
@@ -1000,8 +1004,9 @@ describe('NodeScan target topology', () => {
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_02_ADDRESS}` }))
     const members = screen.getByLabelText('Known members of remote-segment-01')
     expect(members).toHaveTextContent('Petra’s Phone')
+    expect(members).toHaveTextContent('ops-01')
     expect(members).not.toHaveTextContent('srv-02')
-    expect(within(members).getAllByText('ONLINE')).toHaveLength(1)
+    expect(within(members).getAllByText('ONLINE')).toHaveLength(2)
     expect(members).not.toHaveTextContent('srv-01')
   })
 

@@ -107,12 +107,13 @@ describe('createInitialGameState', () => {
     expect(state.world.network.hosts.map(({ id, ip }) => ({ id, ip }))).toEqual([
       { id: 'host-lan-001', ip: '198.51.100.47' },
       { id: 'host-lan-002', ip: '203.0.113.42' },
+      { id: 'host-lan-003', ip: '203.0.113.43' },
       { id: 'host-phone-001', ip: '198.51.100.61' },
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([
       { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
-      { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+      { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
     ])
     for (const localNetwork of state.world.network.localNetworks) {
       expect(isValidNetworkTransferCapacity(localNetwork.transferCapacity)).toBe(true)
@@ -153,7 +154,7 @@ describe('createInitialGameState', () => {
     // The operable server owns coherent installed truth for its managed GateSSH release.
     expect(server?.installedSoftware).toEqual([{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0', name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' }])
     expect(server?.installedSoftware).not.toBe(state.player.localDevice.installedSoftware)
-    const concreteHostIds = ['host-lan-001', 'host-lan-002', 'host-phone-001']
+    const concreteHostIds = ['host-lan-001', 'host-lan-002', 'host-lan-003', 'host-phone-001']
     const shallowTrainingHosts = state.world.network.hosts.filter(({ id }) => !concreteHostIds.includes(id))
     expect(shallowTrainingHosts.length).toBeGreaterThan(0)
     expect(shallowTrainingHosts.every((host) => !host.displayName && !host.firmware && !host.filesystem && !host.hardware && !host.runtime)).toBe(true)
@@ -188,14 +189,51 @@ describe('createInitialGameState', () => {
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })
 
-  it('seeds srv-01 vulnerable, srv-02 patched, and the phone vulnerable GateSSH release identities', () => {
+  it('seeds srv-01 vulnerable, srv-02 patched, ops-01 vulnerable, and the phone vulnerable GateSSH release identities', () => {
     const ssh = createInitialGameState().world.network.hosts.flatMap((host) => host.services ?? []).filter((service) => service.name === 'SSH')
-    expect(ssh).toHaveLength(3)
+    expect(ssh).toHaveLength(4)
     expect(ssh.map(({ implementation }) => implementation)).toEqual([
       { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0', name: 'GateSSH', version: '1.3.2' },
       { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' },
       { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0', name: 'GateSSH', version: '1.3.2' },
+      { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0', name: 'GateSSH', version: '1.3.2' },
     ])
+  })
+
+  it('gives the Bookstore Branch operations server its own identity, coherent GateSSH truth, and RACK-OS 1.1 Business Firmware from the start', () => {
+    const state = createInitialGameState()
+    const opsServer = state.world.network.hosts.find(({ id }) => id === 'host-lan-003')
+
+    expect(opsServer).toMatchObject({
+      id: 'host-lan-003',
+      displayName: 'ops-01',
+      ip: '203.0.113.43',
+      role: 'server',
+      deviceType: 'SERVER',
+      deviceModel: { id: 'device-model-rack-core-120-v0', name: 'RACK Core 120', maximumComputeCapacity: 120, maximumNetworkCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 } },
+      operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
+      firmware: { id: 'firmware-rack-os-v1-1-business', name: 'RACK-OS', version: '1.1 Business' },
+    })
+    // Coherent GateSSH 1.3.2 truth in both installed-software and Service implementation, exactly like srv-01 and the phone.
+    expect(opsServer?.installedSoftware).toEqual([{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0', name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' }])
+    expect(opsServer?.services).toEqual([
+      { id: 'service-ssh-004', name: 'SSH', port: 22, protocol: 'TCP', open: true, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0', name: 'GateSSH', version: '1.3.2' }, credentialAccess: { privilege: 'USER' } },
+    ])
+    expect(vulnerabilitiesForService(opsServer!.services![0])).toEqual([AUTH_017])
+    // No AuthGuard.
+    expect(opsServer?.installedSoftware?.some((software) => software.id === 'auth-guard')).toBe(false)
+    // A member of the same represented foreign LocalNetwork the Bookstore Branch and its backend already reference.
+    expect(state.world.network.localNetworks[1].id).toBe('network-foreign-001')
+    expect(state.world.network.localNetworks[1].memberDeviceIds).toContain('host-lan-003')
+    // No pre-granted player Access, Session, or Network authority.
+    expect(state.deviceAccess.established.some((access) => access.targetDeviceId === 'host-lan-003')).toBe(false)
+    expect(state.remoteSession.active).toBeNull()
+    expect(state.networkManagement.established.some((authority) => authority.deviceId === 'host-lan-003')).toBe(false)
+    // No pre-seeded Discovery or Knowledge merely for convenience.
+    expect(state.discovery.devices.some((device) => device.id === 'host-lan-003')).toBe(false)
+    expect(state.knowledge.discoveredVulnerabilities.some((vuln) => vuln.targetDeviceId === 'host-lan-003')).toBe(false)
+    // Never the Bookstore backend: that remains srv-02's own concrete record.
+    expect(state.bookstoreBackend.records.every((record) => record.deviceId !== 'host-lan-003')).toBe(true)
   })
 
   /*

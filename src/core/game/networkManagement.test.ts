@@ -17,10 +17,11 @@ describe('networkManagement', () => {
     expect(state.world.network.localNetworks[0].memberDeviceIds).toContain('host-lan-001')
     expect(hasNetworkManagementAuthority(state, 'host-lan-001', 'network-local-001')).toBe(false)
     expect(resolveManagedNetworks(state, 'host-lan-001')).toEqual([])
-    // host-phone-001 and host-lan-002 are members of remote-segment-01 but hold no authority over it either.
-    expect(state.world.network.localNetworks[1].memberDeviceIds).toEqual(['host-phone-001', 'host-lan-002'])
+    // host-phone-001, host-lan-002 and host-lan-003 are members of remote-segment-01 but hold no authority over it either.
+    expect(state.world.network.localNetworks[1].memberDeviceIds).toEqual(['host-phone-001', 'host-lan-002', 'host-lan-003'])
     expect(hasNetworkManagementAuthority(state, 'host-phone-001', 'network-foreign-001')).toBe(false)
     expect(hasNetworkManagementAuthority(state, 'host-lan-002', 'network-foreign-001')).toBe(false)
+    expect(hasNetworkManagementAuthority(state, 'host-lan-003', 'network-foreign-001')).toBe(false)
   })
 
   it('leaves remote-segment-01 unadministrable by the local Device in the initial world', () => {

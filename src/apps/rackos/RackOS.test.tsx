@@ -1175,6 +1175,22 @@ function srv01OnBusiness(): GameState {
   return connectRemoteFromObservation(authorized, { targetDeviceId: 'host-lan-001', address: '198.51.100.47' }).state
 }
 
+/**
+ * ops-01 (`host-lan-003`), already reached: fresh `createInitialGameState()`
+ * grants this Device no DeviceAccess or Remote Session of its own, so this
+ * establishes both the same canonical way `srv01OnBusiness` above does for
+ * srv-01 — a plain `DeviceAccess` record over its real GateSSH Service and
+ * `connectRemoteFromObservation` — rather than through any Device-specific
+ * shortcut. `host-lan-003` starts directly on RACK-OS 1.1 Business, so unlike
+ * `srv02WithInstaller` this fixture performs no Firmware installation at all.
+ */
+function ops01Connected(): GameState {
+  const base = createInitialGameState()
+  const access = { id: 'access-ops-01', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-003', viaServiceId: 'service-ssh-004', privilege: 'USER' as const }
+  const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
+  return connectRemoteFromObservation(authorized, { targetDeviceId: 'host-lan-003', address: '203.0.113.43' }).state
+}
+
 function ReconnectControl() {
   const actions = useGameActions()
   return <button onClick={() => actions.connectRemoteFromObservation({ targetDeviceId: 'host-lan-002', address: '203.0.113.42' })}>test reconnect</button>
@@ -1409,6 +1425,66 @@ describe('RACK-OS 1.1 Business application shell', () => {
     expect(block).not.toHaveTextContent('BACKEND')
     // The seeded Branch's own backend is unaffected by the sibling Branch having none.
     expect(business).toHaveTextContent('Bookstore Backend 1.0')
+  })
+
+  /*
+   * ops-01 (`host-lan-003`): the Branch's own small represented operations
+   * server, seeded directly on the canonical RACK-OS 1.1 Business Firmware
+   * release rather than reached through a Firmware installation. DeviceAccess
+   * is established the same canonical way `srv01OnBusiness` above already
+   * establishes it for srv-01 — no Device-specific mechanic exists to grant
+   * it, and fresh `createInitialGameState()` grants none of it by itself
+   * (`src/test/initialState.test.ts` proves that absence at the state level).
+   */
+  it('resolves Bookstore Branch 01 and current Purchase Composition V1 truth from ops-01, on its own seeded RACK-OS 1.1 Business Firmware and with no Firmware installation performed', async () => {
+    const user = userEvent.setup()
+    const initial = ops01Connected()
+    // Never installed: this Device starts on the release directly.
+    expect(initial.world.network.hosts.find(({ id }) => id === 'host-lan-003')?.firmwareUpdate).toBeUndefined()
+
+    render(<GameProvider initialState={initial}><Shell /></GameProvider>)
+    await enterRemote(user)
+    expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('RACK-OS 1.1 Business')
+
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+    const business = screen.getByRole('region', { name: 'Business' })
+    // Resolved through ops-01's own real membership in network-foreign-001 — the same Network Bookstore Branch 01 references — never a Device-specific Business link.
+    expect(business).toHaveTextContent('BUSINESS BRANCH')
+    expect(business).toHaveTextContent('Bookstore Branch 01')
+    expect(business).toHaveTextContent('remote-segment-01')
+    // Current Purchase Composition V1 truth, read from the same canonical owners srv-02 presents it from — never duplicated onto ops-01.
+    expect(business).toHaveTextContent('Systems of Dust ×1')
+    expect(business).toHaveTextContent('$20.00')
+    expect(business).toHaveTextContent('Night Transit')
+    expect(business).toHaveTextContent('45 in stock')
+    expect(business).toHaveTextContent('OPEN')
+    // The Bookstore backend remains srv-02's own concrete record; ops-01 carries no backend state of its own.
+    expect(business).toHaveTextContent('BACKEND')
+    expect(business).toHaveTextContent('Bookstore Backend 1.0')
+    expect(within(business).getByText('BACKEND STATUS').closest('div')).toHaveTextContent('ONLINE')
+    expect(business.textContent).not.toContain('host-lan-002')
+    expect(business.textContent).not.toContain('host-lan-003')
+  })
+
+  it('still reflects real srv-02 backend truth when BUSINESS is opened from ops-01', async () => {
+    const user = userEvent.setup()
+    const base = ops01Connected()
+    // srv-02's own backend Service goes unavailable; nothing about ops-01 or the Branch itself changes.
+    const initial = {
+      ...base,
+      world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((host) =>
+        host.id === 'host-lan-002' ? { ...host, services: host.services!.map((service) => service.id === 'service-bookstore-backend-002' ? { ...service, open: false } : service) } : host) } },
+    }
+    render(<GameProvider initialState={initial}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
+
+    const business = screen.getByRole('region', { name: 'Business' })
+    expect(business).toHaveTextContent('Bookstore Backend 1.0')
+    expect(within(business).getByText('BACKEND STATUS').closest('div')).toHaveTextContent('OFFLINE')
+    // The Branch itself remains unaffected by its backend's own availability.
+    expect(business).toHaveTextContent('Bookstore Branch 01')
+    expect(business).toHaveTextContent('OPEN')
   })
 })
 
