@@ -124,7 +124,7 @@ describe('VEYRA Business presence', () => {
 
     const business = screen.getByRole('region', { name: 'Business' })
     expect(business).toHaveTextContent('more than one company')
-    expect(business.textContent).not.toContain('Compact Shelf Refill')
+    expect(business.textContent).not.toContain('Mixed Shelf Refill')
   })
 
   it('stops presenting Business if the installation stops being represented while it is open', async () => {
@@ -163,15 +163,14 @@ describe('VEYRA Business surface', () => {
     expect(business).not.toHaveTextContent('Night Transit')
     await user.click(within(business).getByRole('button', { name: /View inventory/i }))
     expect(screen.getByRole('region', { name: 'Inventory' })).toHaveTextContent('Night Transit')
-    expect(business).toHaveTextContent('Compact Shelf Refill')
+    expect(business).toHaveTextContent('Mixed Shelf Refill')
     expect(business).toHaveTextContent('Atlas Distribution')
     expect(business).toHaveTextContent('$140.00')
     expect(business).toHaveTextContent('30 minutes')
-    expect(business).toHaveTextContent('Standard Shelf Refill')
-    expect(business).toHaveTextContent('$340.00')
-    expect(within(business).getByRole('region', { name: 'Atlas Distribution offers' })).toHaveTextContent('$8.75/unit')
-    expect(within(business).getByRole('region', { name: 'Northline Book Supply offers' })).toHaveTextContent('Winter Circuit Case')
-    expect(within(business).getByRole('region', { name: 'Northline Book Supply offers' })).toHaveTextContent('$10.50/unit')
+    expect(business).toHaveTextContent('Title Case')
+    expect(business).toHaveTextContent('$63.00')
+    expect(within(business).getAllByRole('button').filter(button => /units \/ case/.test(button.textContent ?? ''))).toHaveLength(2)
+    expect(business.textContent).not.toContain('/unit')
     expect(business.textContent).not.toContain('New Titles Pack')
 
     // No invented metric of any kind.
@@ -193,7 +192,7 @@ describe('VEYRA Business surface', () => {
     expect(business.textContent).not.toContain(`$${(balance(undesignated, PHONE_ACCOUNT_ID) / 100).toFixed(2)}`)
   })
 
-  it('keeps seller groups separate by stable Company identity when display names collide', async () => {
+  it('keeps exactly two quiet rows without supplier grouping headings', async () => {
     const connected = phoneConnectedState(earnRestockPrice(createInitialGameState()))
     const sameNames: GameState = {
       ...connected,
@@ -205,19 +204,16 @@ describe('VEYRA Business surface', () => {
     }
     await openBusiness(sameNames)
 
-    const groups = screen.getAllByRole('region', { name: 'Northline Book Supply offers' })
-    expect(groups).toHaveLength(2)
-    expect(groups[0]).toHaveTextContent('Compact Shelf Refill')
-    expect(groups[0]).not.toHaveTextContent('Northbound Case')
-    expect(groups[1]).toHaveTextContent('Northbound Case')
-    expect(groups[1]).not.toHaveTextContent('Compact Shelf Refill')
+    const business = screen.getByRole('region', { name: 'Business' })
+    expect(within(business).getAllByRole('button').filter(button => /units \/ case/.test(button.textContent ?? ''))).toHaveLength(2)
+    expect(screen.queryByRole('region', { name: /offers/ })).not.toBeInTheDocument()
   })
 
   it('reviews an offer without mutating any canonical state', async () => {
     const user = await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
     const before = canonicalSettled()
 
-    await user.click(screen.getByRole('button', { name: /Compact Shelf Refill/ }))
+    await user.click(screen.getByRole('button', { name: /Mixed Shelf Refill/ }))
     const review = screen.getByRole('region', { name: 'Review order' })
     expect(review).toHaveTextContent('Atlas Distribution')
     expect(review).toHaveTextContent('$140.00')
@@ -231,22 +227,23 @@ describe('VEYRA Business surface', () => {
     expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
     expect(canonicalSettled()).toEqual(before)
 
-    await user.click(screen.getByRole('button', { name: /Terminal Light Case/ }))
+    await user.click(screen.getByRole('button', { name: /Title Case/ }))
     const northlineReview = screen.getByRole('region', { name: 'Review order' })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Book' }), 'bookstore-book-010')
     expect(northlineReview).toHaveTextContent('Northline Book Supply')
     expect(northlineReview).toHaveTextContent('$63.00')
     expect(northlineReview).toHaveTextContent('6 units')
     expect(northlineReview).toHaveTextContent('45 minutes')
     expect(northlineReview).toHaveTextContent('$10.50 / unit')
     expect(northlineReview).toHaveTextContent('Terminal Light')
-    expect(northlineReview).not.toHaveTextContent('Winter Circuit')
+    expect(northlineReview).toHaveTextContent('Winter Circuit')
     expect(canonicalSettled()).toEqual(before)
   })
 
   it('refuses honestly and changes nothing when the Company cannot pay', async () => {
     // No sales have happened, so the Bookstore Treasury is empty.
     const user = await openBusiness()
-    await user.click(screen.getByRole('button', { name: /Compact Shelf Refill/ }))
+    await user.click(screen.getByRole('button', { name: /Mixed Shelf Refill/ }))
     const before = canonical()
 
     await user.click(screen.getByRole('button', { name: 'Place order' }))
@@ -266,7 +263,7 @@ describe('VEYRA Business surface', () => {
 
     const business = screen.getByRole('region', { name: 'Business' })
     expect(business).toHaveTextContent('No company access available.')
-    expect(business.textContent).not.toContain('Compact Shelf Refill')
+    expect(business.textContent).not.toContain('Mixed Shelf Refill')
     // Wallet, whose basis is the untouched Financial Session, is still on Home.
     expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
   })
@@ -281,7 +278,8 @@ describe('VEYRA Business surface', () => {
       const phoneBefore = balance(before, PHONE_ACCOUNT_ID)
       const stockBefore = totalStock(before)
 
-      await user.click(screen.getByRole('button', { name: /Terminal Light Case/ }))
+      await user.click(screen.getByRole('button', { name: /Title Case/ }))
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Book' }), 'bookstore-book-010')
       await user.click(screen.getByRole('button', { name: 'Place order' }))
 
       // The order exists, the Bookstore Treasury paid Northline exactly, and the phone Account funded nothing.
@@ -301,7 +299,7 @@ describe('VEYRA Business surface', () => {
       const ordered = screen.getByRole('region', { name: 'Business' })
       expect(ordered).toHaveTextContent('Order placed with Northline Book Supply.')
       expect(ordered).toHaveTextContent('In transit')
-      expect(ordered).toHaveTextContent('Terminal Light Case')
+      expect(ordered).toHaveTextContent('Title Case')
 
       // Canonical advancement alone delivers it; the client causes nothing.
       await act(async () => { vi.advanceTimersByTime(2_700_000) })

@@ -923,8 +923,14 @@ export interface BookstoreSupplyOffer {
   readonly id: string
   readonly displayName: string
   readonly sellerCompanyId: string
-  readonly lines: readonly { readonly merchandiseId: string; readonly quantity: number }[]
-  readonly totalPriceCents: number
+  readonly kind: 'MIXED_SHELF_REFILL' | 'TITLE_CASE'
+  readonly caseSize: number
+  readonly casePriceCents: number
+  /** Books explicitly sourceable through a targeted Title Case. Empty for Atlas. */
+  readonly sourceableMerchandiseIds: readonly string[]
+  /** @deprecated Legacy fixed-bundle fields are not present on current authored offers. */
+  readonly lines?: readonly { readonly merchandiseId: string; readonly quantity: number }[]
+  readonly totalPriceCents?: number
   readonly deliveryDurationMs: number
 }
 

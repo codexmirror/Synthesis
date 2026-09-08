@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  placeBookstoreRestockOrderForDevice,
-  placeBookstoreRestockOrderFromOperatedRemoteDevice,
+  placeBookstoreRestockOrderForDevice as placeForDevice,
+  placeBookstoreRestockOrderFromOperatedRemoteDevice as placeFromOperated,
   resolveCompanyAdministrationSession,
   resolveSoleCompanyAdministrationContextForDevice,
   resolveSoleCompanyAdministrationContextForOperatedRemoteDevice,
@@ -14,8 +14,12 @@ import {
   BOOKSTORE_PHONE_ADMINISTRATION_SESSION_ID,
   BOOKSTORE_TREASURY_ACCOUNT_ID,
 } from './business'
-import { BOOKSTORE_COMPACT_REFILL_OFFER_ID } from './bookstoreRestock'
+import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, proposeBookstoreRestockOrder } from './bookstoreRestock'
 import { executeBookstoreSale } from './bookstoreSale'
+
+function reviewed(state: GameState, branchId: string, offerId: string) { const result = proposeBookstoreRestockOrder(state, branchId, offerId, { caseCount: 1 }); if (result.status !== 'proposed') throw new Error(result.status); return result.proposal }
+const placeBookstoreRestockOrderForDevice = (state: GameState, deviceId: string, branchId: string, offerId: string) => placeForDevice(state, deviceId, branchId, { caseCount: 1 }, reviewed(state, branchId, offerId))
+const placeBookstoreRestockOrderFromOperatedRemoteDevice = (state: GameState, branchId: string, offerId: string) => placeFromOperated(state, branchId, { caseCount: 1 }, reviewed(state, branchId, offerId))
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { createInitialGameState } from './initialState'
 import type { GameState } from './types'

@@ -1,4 +1,4 @@
-import { placeBookstoreRestockOrder, type PlaceBookstoreRestockOrderResult } from './bookstoreRestock'
+import { placeBookstoreRestockOrder, type BookstoreOrderDecisions, type BookstoreOrderProposal, type PlaceBookstoreRestockOrderResult } from './bookstoreRestock'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import type { CompanyAdministrationSession, CompanyState, GameState } from './types'
 
@@ -87,14 +87,15 @@ export function placeBookstoreRestockOrderForDevice(
   state: GameState,
   actingDeviceId: string,
   branchId: string,
-  offerId: string,
+  decisions: BookstoreOrderDecisions,
+  reviewedProposal: BookstoreOrderProposal,
 ): PlaceAuthorizedBookstoreRestockOrderResult {
   const branches = state.business.branches.filter(({ id }) => id === branchId)
   if (branches.length !== 1) return { status: 'branch_unavailable', state }
   if (!resolveCompanyAdministrationSession(state, actingDeviceId, branches[0].companyId)) {
     return { status: 'administration_unavailable', state }
   }
-  return placeBookstoreRestockOrder(state, branchId, offerId)
+  return placeBookstoreRestockOrder(state, branchId, decisions, reviewedProposal)
 }
 
 export type PlaceOperatedBookstoreRestockOrderResult =
@@ -105,9 +106,10 @@ export type PlaceOperatedBookstoreRestockOrderResult =
 export function placeBookstoreRestockOrderFromOperatedRemoteDevice(
   state: GameState,
   branchId: string,
-  offerId: string,
+  decisions: BookstoreOrderDecisions,
+  reviewedProposal: BookstoreOrderProposal,
 ): PlaceOperatedBookstoreRestockOrderResult {
   const remote = resolveActiveRemoteTarget(state)
   if (!remote) return { status: 'session_unavailable', state }
-  return placeBookstoreRestockOrderForDevice(state, remote.target.id, branchId, offerId)
+  return placeBookstoreRestockOrderForDevice(state, remote.target.id, branchId, decisions, reviewedProposal)
 }
