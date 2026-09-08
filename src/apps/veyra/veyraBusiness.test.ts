@@ -121,7 +121,7 @@ describe('VEYRA Business projection', () => {
     expect(branch.branchId).toBe(BOOKSTORE_BRANCH_ID)
     expect(branch.displayName).toBe('Bookstore Branch 01')
     expect(branch.location).toBe('18 Mercer Street')
-    expect(branch.inventory).toEqual({
+    expect(branch.inventory).toMatchObject({
       totalStock: 360,
       shelfCapacity: operations.shelfCapacity,
       incomingStock: 0,

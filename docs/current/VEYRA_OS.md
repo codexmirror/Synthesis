@@ -279,6 +279,10 @@ The root presents, entirely from represented truth:
   incoming units, and the number of Book identities in the Branch assortment. One clear
   **View inventory** route opens a detail surface listing only carried Books and their
   physical quantities; a carried zero-quantity Book remains visible as **Out of stock**.
+  Each carried row opens Product Detail by stable Book identity. It re-resolves title, human-readable
+  Genre, retail price and Baseline Popularity from the Catalog, **In stock** from Operations,
+  **Incoming** from in-transit Order lines, and **Last acquisition cost** from the latest delivered
+  captured line (or **Not recorded** where no represented delivery exists). Back returns to Inventory.
   Catalog-only Books are not disclosed. Incoming units are paid for and in transit and are
   deliberately not part of current stock or assortment until canonical delivery.
 - **Supply** — exactly two quiet procurement rows, `Mixed Shelf Refill` and

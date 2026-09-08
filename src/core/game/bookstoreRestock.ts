@@ -9,7 +9,7 @@ export const BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID = 'bookstore-supply-offer-n
 export const NORTHLINE_SOURCEABLE_BOOK_IDS = ['bookstore-merch-006', 'bookstore-merch-007', 'bookstore-book-010', 'bookstore-book-012', 'bookstore-book-018', 'bookstore-book-024'] as const
 
 export function createInitialBookstoreRestockState(): BookstoreRestockState {
-  return { nextOrderId: 1, offers: [
+  return { nextOrderId: 1, nextDeliverySequence: 1, offers: [
     { id: BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, displayName: 'Mixed Shelf Refill', sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID, kind: 'MIXED_SHELF_REFILL', caseSize: 16, casePriceCents: 14_000, deliveryDurationMs: 1_800_000, sourceableMerchandiseIds: [] },
     { id: BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID, displayName: 'Title Case', sellerCompanyId: NORTHLINE_BOOK_SUPPLY_COMPANY_ID, kind: 'TITLE_CASE', caseSize: 6, casePriceCents: 6_300, deliveryDurationMs: 2_700_000, sourceableMerchandiseIds: [...NORTHLINE_SOURCEABLE_BOOK_IDS] },
   ], orders: [] }
@@ -18,13 +18,18 @@ export function createInitialBookstoreRestockState(): BookstoreRestockState {
 export interface BookstoreOrderDecisions { readonly caseCount: number; readonly selectedMerchandiseId?: string }
 export interface BookstoreOrderProposal {
   readonly offerId: string; readonly sellerCompanyId: string; readonly caseCount: number; readonly selectedMerchandiseId?: string
-  readonly lines: readonly { readonly merchandiseId: string; readonly capturedMerchandiseDisplayName: string; readonly quantity: number }[]
+  readonly lines: readonly { readonly merchandiseId: string; readonly capturedMerchandiseDisplayName: string; readonly quantity: number; readonly capturedUnitAcquisitionCostCents: number }[]
   readonly totalUnits: number; readonly totalPriceCents: number; readonly deliveryDurationMs: number; readonly maxOrderableCases: number
 }
 export type ProposeBookstoreOrderResult = { readonly status: 'proposed'; readonly proposal: BookstoreOrderProposal } | { readonly status: 'branch_unavailable' | 'commerce_unavailable' | 'operations_unavailable' | 'offer_unavailable' | 'seller_unavailable' | 'invalid_offer' | 'invalid_decisions' | 'capacity_exceeded' }
 export type PlaceBookstoreRestockOrderResult = { readonly status: 'ordered'; readonly state: GameState; readonly orderId: string; readonly transactionId: string } | { readonly status: Exclude<ProposeBookstoreOrderResult['status'], 'proposed'> | 'proposal_changed' | 'payment_refused'; readonly state: GameState }
 
 export function deriveBookstoreIncomingStock(state: GameState, branchId: string): number { return state.bookstoreRestock.orders.filter(o => o.buyerBranchId === branchId && o.status === 'IN_TRANSIT').flatMap(o => o.lines).reduce((n, l) => n + l.quantity, 0) }
+export function deriveBookstoreIncomingStockForBook(state: GameState, branchId: string, bookId: string): number { return state.bookstoreRestock.orders.filter(o => o.buyerBranchId === branchId && o.status === 'IN_TRANSIT').flatMap(o => o.lines).filter(l => l.merchandiseId === bookId).reduce((n, l) => n + l.quantity, 0) }
+export function deriveBookstoreLastAcquisitionCost(state: GameState, branchId: string, bookId: string): number | undefined {
+  const latest = state.bookstoreRestock.orders.filter(o => o.buyerBranchId === branchId && o.status === 'DELIVERED' && o.deliveredSequence !== undefined && o.lines.some(l => l.merchandiseId === bookId)).sort((a, b) => b.deliveredSequence! - a.deliveredSequence!)[0]
+  return latest?.lines.find(l => l.merchandiseId === bookId)?.capturedUnitAcquisitionCostCents
+}
 export function deriveBookstoreMaxOrderableCases(state: GameState, branchId: string, offer: BookstoreSupplyOffer): number {
   const operations = resolveBookstoreOperationsForBranch(state, branchId)
   if (!operations || !Number.isSafeInteger(offer.caseSize) || offer.caseSize <= 0) return 0
@@ -32,7 +37,7 @@ export function deriveBookstoreMaxOrderableCases(state: GameState, branchId: str
 }
 
 function offerValid(state: GameState, offer: BookstoreSupplyOffer): boolean {
-  if (!isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog) || !Number.isSafeInteger(offer.caseSize) || offer.caseSize <= 0 || !Number.isSafeInteger(offer.casePriceCents) || offer.casePriceCents <= 0 || !Number.isFinite(offer.deliveryDurationMs) || offer.deliveryDurationMs <= 0) return false
+  if (!isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog) || !Number.isSafeInteger(offer.caseSize) || offer.caseSize <= 0 || !Number.isSafeInteger(offer.casePriceCents) || offer.casePriceCents <= 0 || !Number.isSafeInteger(offer.casePriceCents / offer.caseSize) || offer.casePriceCents / offer.caseSize <= 0 || !Number.isFinite(offer.deliveryDurationMs) || offer.deliveryDurationMs <= 0) return false
   if (offer.kind === 'MIXED_SHELF_REFILL') return offer.sourceableMerchandiseIds.length === 0
   if (offer.kind === 'TITLE_CASE') return offer.sourceableMerchandiseIds.length > 0 && new Set(offer.sourceableMerchandiseIds).size === offer.sourceableMerchandiseIds.length && offer.sourceableMerchandiseIds.every(id => resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, id))
   return false
@@ -60,7 +65,8 @@ export function proposeBookstoreRestockOrder(state: GameState, branchId: string,
     quantities = new Map()
     for (let unit = 0; unit < totalUnits; unit++) { const id = ids.reduce((best, id) => projected.get(id)! < projected.get(best)! ? id : best); projected.set(id, projected.get(id)! + 1); quantities.set(id, (quantities.get(id) ?? 0) + 1) }
   }
-  const lines = [...quantities].sort(([a], [b]) => a.localeCompare(b)).map(([merchandiseId, quantity]) => ({ merchandiseId, capturedMerchandiseDisplayName: resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, merchandiseId)!.name, quantity }))
+  const unitCost = offer.casePriceCents / offer.caseSize
+  const lines = [...quantities].sort(([a], [b]) => a.localeCompare(b)).map(([merchandiseId, quantity]) => ({ merchandiseId, capturedMerchandiseDisplayName: resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, merchandiseId)!.name, quantity, capturedUnitAcquisitionCostCents: unitCost }))
   return { status: 'proposed', proposal: { offerId, sellerCompanyId: offer.sellerCompanyId, caseCount: decisions.caseCount, selectedMerchandiseId: decisions.selectedMerchandiseId, lines, totalUnits, totalPriceCents: offer.casePriceCents * decisions.caseCount, deliveryDurationMs: offer.deliveryDurationMs, maxOrderableCases } }
 }
 
@@ -78,10 +84,12 @@ export function placeBookstoreRestockOrder(state: GameState, branchId: string, d
 
 export function advanceBookstoreRestockDeliveries(state: GameState, elapsedMs: number): GameState {
   if (elapsedMs <= 0) return state; let next = state
-  for (const stale of state.bookstoreRestock.orders) { if (stale.status !== 'IN_TRANSIT') continue; const remaining = stale.remainingDeliveryMs - elapsedMs
+  const chronological = state.bookstoreRestock.orders.filter(o => o.status === 'IN_TRANSIT').sort((a, b) => a.remainingDeliveryMs - b.remainingDeliveryMs || a.id.localeCompare(b.id))
+  for (const stale of chronological) { const remaining = stale.remainingDeliveryMs - elapsedMs
     if (remaining > 0) { next = { ...next, bookstoreRestock: { ...next.bookstoreRestock, orders: next.bookstoreRestock.orders.map(o => o.id === stale.id ? { ...o, remainingDeliveryMs: remaining } : o) } }; continue }
     next = incrementBookstoreStock(next, stale.buyerBranchId, stale.lines)
     next = { ...next, bookstoreCommerce: { ...next.bookstoreCommerce, records: next.bookstoreCommerce.records.map(r => r.branchId === stale.buyerBranchId ? { ...r, assortment: [...r.assortment, ...stale.lines.map(l => l.merchandiseId).filter(id => !r.assortment.includes(id))] } : r) } }
-    next = { ...next, bookstoreRestock: { ...next.bookstoreRestock, orders: next.bookstoreRestock.orders.map(o => o.id === stale.id ? { ...o, remainingDeliveryMs: 0, status: 'DELIVERED' as const } : o) } }
+    const deliveredSequence = next.bookstoreRestock.nextDeliverySequence
+    next = { ...next, bookstoreRestock: { ...next.bookstoreRestock, nextDeliverySequence: deliveredSequence + 1, orders: next.bookstoreRestock.orders.map(o => o.id === stale.id ? { ...o, remainingDeliveryMs: 0, status: 'DELIVERED' as const, deliveredSequence } : o) } }
   } return next
 }

@@ -808,7 +808,7 @@ export interface BusinessState {
  * stable ID, a current human-readable name, broad Genre, and a current unit price in
  * integer cents. This is deliberately not a generic Product/SKU framework —
  * V1 carries no ISBN, author, publisher, tax, cost basis, supplier,
- * margin, popularity, quality tier, or dynamic pricing. `name`/`unitPriceCents`
+ * margin, quality tier, or dynamic pricing. `name`/`unitPriceCents`/`baselinePopularity`
  * are *current* truth, read fresh at the moment of purchase composition;
  * a completed sale instead captures its own immutable snapshot
  * (`BusinessBranchSaleLine`) that never changes when this record does.
@@ -818,15 +818,11 @@ export interface BookstoreBookRecord {
   readonly name: string
   readonly genre: BookstoreBookGenre
   readonly unitPriceCents: number
+  /** Stable neutral relative sales-selection index. 100 is neutral; this is not a percentage. */
+  readonly baselinePopularity: number
 }
 
 export type BookstoreBookGenre = 'SCIENCE_FICTION' | 'THRILLER' | 'MYSTERY' | 'LITERARY_FICTION'
-
-/** One Bookstore-market-owned current relative purchase weight for a stable Book identity. */
-export interface BookstoreBookDemandRecord {
-  readonly bookId: string
-  readonly weight: number
-}
 
 /**
  * Concrete branch-linked commerce truth for the one currently represented
@@ -856,8 +852,6 @@ export interface BookstoreBranchCommerceRecord {
 export interface BookstoreCommerceState {
   /** Canonical current Bookstore World Truth, independent from every Branch. */
   readonly bookCatalog: readonly BookstoreBookRecord[]
-  /** Canonical current global Bookstore Demand by stable Book identity, independent from every Branch and from Genre. */
-  readonly bookDemand: readonly BookstoreBookDemandRecord[]
   /** Monotonic allocator for runtime `BusinessBranchSale` identity, following the existing Transaction/Session allocation pattern. Never derived from array length, time, or randomness. */
   readonly nextSaleId: number
   readonly records: readonly BookstoreBranchCommerceRecord[]
@@ -936,6 +930,7 @@ export interface BookstoreRestockOrderLine {
   readonly merchandiseId: string
   readonly capturedMerchandiseDisplayName: string
   readonly quantity: number
+  readonly capturedUnitAcquisitionCostCents: number
 }
 
 export interface BookstoreRestockOrder {
@@ -950,11 +945,14 @@ export interface BookstoreRestockOrder {
   readonly capturedDeliveryDurationMs: number
   readonly remainingDeliveryMs: number
   readonly status: 'IN_TRANSIT' | 'DELIVERED'
+  /** Allocated exactly once on delivery; absent while in transit. */
+  readonly deliveredSequence?: number
 }
 
 /** Narrow Bookstore-owned supply, restock-order, and delivery truth. */
 export interface BookstoreRestockState {
   readonly nextOrderId: number
+  readonly nextDeliverySequence: number
   readonly offers: readonly BookstoreSupplyOffer[]
   readonly orders: readonly BookstoreRestockOrder[]
 }

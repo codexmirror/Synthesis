@@ -53,10 +53,10 @@ function cyclicRandom(values: readonly number[]): () => number {
 const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.95])
 
 describe('executeBookstoreSale — success path', () => {
-  it('changes only the selected Book through Demand, then uses ordinary stock and exact-price settlement with the same two purchase draws', () => {
+  it('changes only the selected Book through Baseline Popularity, then uses ordinary stock and exact-price settlement with the same two purchase draws', () => {
     const initial = createInitialGameState()
-    const neutral: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookDemand: initial.bookstoreCommerce.bookDemand.map((record) => ({ ...record, weight: 1 })) } }
-    const weighted: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookDemand: initial.bookstoreCommerce.bookDemand.map((record) => ({ ...record, weight: record.bookId === 'bookstore-merch-001' ? 10 : 1 })) } }
+    const neutral: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(record => ({ ...record, baselinePopularity: 100 })) } }
+    const weighted: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(record => ({ ...record, baselinePopularity: record.id === 'bookstore-merch-001' ? 1000 : 100 })) } }
     const execute = (state: GameState) => {
       const samples = [0.1, 0.2]
       let draws = 0
@@ -219,15 +219,10 @@ describe('executeBookstoreSale — atomic failure paths', () => {
   })
 
   it.each([
-    ['missing for non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.filter(({ bookId }) => bookId !== 'bookstore-book-010')],
-    ['duplicate for non-carried Terminal Light', (state: GameState) => [...state.bookstoreCommerce.bookDemand, state.bookstoreCommerce.bookDemand.find(({ bookId }) => bookId === 'bookstore-book-010')!]],
-    ['zero for non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-book-010' ? { ...record, weight: 0 } : record)],
-    ['non-finite for non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-book-010' ? { ...record, weight: Number.POSITIVE_INFINITY } : record)],
-    ['dangling identity replacing non-carried Terminal Light', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => record.bookId === 'bookstore-book-010' ? { ...record, bookId: 'bookstore-book-unknown' } : record)],
-    ['overflowing aggregate', (state: GameState) => state.bookstoreCommerce.bookDemand.map((record) => ({ ...record, weight: Number.MAX_VALUE }))],
-  ])('refuses %s Demand truth atomically before consuming purchase randomness', (_label, mutateDemand) => {
+    ['zero', 0], ['fractional', 1.5], ['non-finite', Number.POSITIVE_INFINITY],
+  ])('refuses %s Baseline Popularity atomically before consuming purchase randomness', (_label, baselinePopularity) => {
     const initial = createInitialGameState()
-    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookDemand: mutateDemand(initial) } }
+    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(book => book.id === 'bookstore-book-010' ? { ...book, baselinePopularity } : book) } }
     const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
     expect(result).toEqual({ status: 'invalid_demand', state })
     expect(result.state).toBe(state)
@@ -554,7 +549,7 @@ describe('Bookstore purchase composition — merchandise selection', () => {
   })
 })
 
-describe('Bookstore Demand-weighted merchandise selection', () => {
+describe('Bookstore Baseline-Popularity-weighted merchandise selection', () => {
   it('preserves uniform selection boundaries exactly when every weight is neutral', () => {
     const ids = ['a', 'b', 'c', 'd']
     const neutral = new Map(ids.map((id) => [id, 1]))
@@ -694,7 +689,7 @@ describe('Bookstore cross-owner stock/catalog integrity — sellable-stock inter
       ...initial,
       bookstoreCommerce: {
         ...initial.bookstoreCommerce,
-        bookCatalog: [...initial.bookstoreCommerce.bookCatalog, { id: 'bookstore-merch-001', name: 'Night Transit (duplicate)', genre: 'THRILLER', unitPriceCents: 501 }],
+        bookCatalog: [...initial.bookstoreCommerce.bookCatalog, { id: 'bookstore-merch-001', name: 'Night Transit (duplicate)', genre: 'THRILLER', baselinePopularity: 100, unitPriceCents: 501 }],
       },
     }
     const forbiddenRandom = () => { throw new Error('must not sample bookstorePurchaseRandom') }
