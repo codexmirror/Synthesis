@@ -1,5 +1,5 @@
 import { BOOKSTORE_BRANCH_ID } from './business'
-import type { BookstoreBranchCommerceRecord, BookstoreBookDemandRecord, BookstoreBookRecord, BookstoreCommerceState, BusinessBranchSaleLine, DollarFinancialAccount, DollarTransaction, GameState } from './types'
+import type { BookstoreBranchCommerceRecord, BookstoreBookRecord, BookstoreCommerceState, BusinessBranchSaleLine, DollarFinancialAccount, DollarTransaction, GameState } from './types'
 
 export const BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID = 'dollar-account-bookstore-treasury-v0'
 export const BOOKSTORE_SALE_ID = 'bookstore-sale-0001'
@@ -10,65 +10,39 @@ export const BOOKSTORE_SALE_TRANSACTION_ID = 'dollar-transaction-0001'
  * a small concrete fixture, not a generic Product/SKU/catalogue framework.
  * Each entry carries stable identity, a current human-readable name, one broad
  * Bookstore Genre, and a current unit price in integer cents: no ISBN, author, publisher,
- * tax, cost basis, supplier, margin, popularity, quality tier, or dynamic
+ * tax, cost basis, supplier, margin, quality tier, or dynamic
  * pricing. Revenue is never a primitive stored independently of this
  * catalog — a sale's amount is always the deterministic sum of the
  * merchandise actually purchased, read fresh from here at the moment of
  * purchase composition.
  */
 export const BOOKSTORE_BOOK_CATALOG: readonly BookstoreBookRecord[] = [
-  { id: 'bookstore-merch-001', name: 'Night Transit', genre: 'THRILLER', unitPriceCents: 899 },
-  { id: 'bookstore-merch-002', name: 'Static Bloom', genre: 'SCIENCE_FICTION', unitPriceCents: 1_099 },
-  { id: 'bookstore-merch-003', name: 'Glass District', genre: 'MYSTERY', unitPriceCents: 1_299 },
-  { id: 'bookstore-merch-004', name: 'The Quiet Archive', genre: 'MYSTERY', unitPriceCents: 1_399 },
-  { id: 'bookstore-merch-005', name: 'After the Relay', genre: 'LITERARY_FICTION', unitPriceCents: 1_499 },
-  { id: 'bookstore-merch-006', name: 'Northbound', genre: 'LITERARY_FICTION', unitPriceCents: 1_599 },
-  { id: 'bookstore-merch-007', name: 'A Map of Empty Rooms', genre: 'LITERARY_FICTION', unitPriceCents: 1_799 },
-  { id: 'bookstore-merch-008', name: 'Systems of Dust', genre: 'SCIENCE_FICTION', unitPriceCents: 2_000 },
-  { id: 'bookstore-book-009', name: 'Red Harbor', genre: 'THRILLER', unitPriceCents: 1_249 },
-  { id: 'bookstore-book-010', name: 'Terminal Light', genre: 'SCIENCE_FICTION', unitPriceCents: 1_649 },
-  { id: 'bookstore-book-011', name: 'Field Notes', genre: 'LITERARY_FICTION', unitPriceCents: 999 },
-  { id: 'bookstore-book-012', name: 'Winter Circuit', genre: 'SCIENCE_FICTION', unitPriceCents: 1_549 },
-  { id: 'bookstore-book-013', name: 'Borrowed Signal', genre: 'LITERARY_FICTION', unitPriceCents: 1_399 },
-  { id: 'bookstore-book-014', name: 'Low Orbit', genre: 'SCIENCE_FICTION', unitPriceCents: 1_199 },
-  { id: 'bookstore-book-015', name: 'The Last Platform', genre: 'LITERARY_FICTION', unitPriceCents: 1_799 },
-  { id: 'bookstore-book-016', name: 'Copper Rain', genre: 'THRILLER', unitPriceCents: 1_299 },
-  { id: 'bookstore-book-017', name: 'Distant Current', genre: 'SCIENCE_FICTION', unitPriceCents: 1_499 },
-  { id: 'bookstore-book-018', name: 'Signal House', genre: 'MYSTERY', unitPriceCents: 1_899 },
-  { id: 'bookstore-book-019', name: 'The Pale Exchange', genre: 'THRILLER', unitPriceCents: 1_449 },
-  { id: 'bookstore-book-020', name: 'Midnight Index', genre: 'MYSTERY', unitPriceCents: 1_599 },
-  { id: 'bookstore-book-021', name: 'Concrete Sky', genre: 'LITERARY_FICTION', unitPriceCents: 1_349 },
-  { id: 'bookstore-book-022', name: 'Rooms Without Doors', genre: 'MYSTERY', unitPriceCents: 1_749 },
-  { id: 'bookstore-book-023', name: 'Silent Frequency', genre: 'SCIENCE_FICTION', unitPriceCents: 1_529 },
-  { id: 'bookstore-book-024', name: 'East of the Grid', genre: 'SCIENCE_FICTION', unitPriceCents: 1_929 },
+  { id: 'bookstore-merch-001', baselinePopularity: 80, name: 'Night Transit', genre: 'THRILLER', unitPriceCents: 899 },
+  { id: 'bookstore-merch-002', baselinePopularity: 140, name: 'Static Bloom', genre: 'SCIENCE_FICTION', unitPriceCents: 1_099 },
+  { id: 'bookstore-merch-003', baselinePopularity: 100, name: 'Glass District', genre: 'MYSTERY', unitPriceCents: 1_299 },
+  { id: 'bookstore-merch-004', baselinePopularity: 120, name: 'The Quiet Archive', genre: 'MYSTERY', unitPriceCents: 1_399 },
+  { id: 'bookstore-merch-005', baselinePopularity: 90, name: 'After the Relay', genre: 'LITERARY_FICTION', unitPriceCents: 1_499 },
+  { id: 'bookstore-merch-006', baselinePopularity: 100, name: 'Northbound', genre: 'LITERARY_FICTION', unitPriceCents: 1_599 },
+  { id: 'bookstore-merch-007', baselinePopularity: 110, name: 'A Map of Empty Rooms', genre: 'LITERARY_FICTION', unitPriceCents: 1_799 },
+  { id: 'bookstore-merch-008', baselinePopularity: 80, name: 'Systems of Dust', genre: 'SCIENCE_FICTION', unitPriceCents: 2_000 },
+  { id: 'bookstore-book-009', baselinePopularity: 130, name: 'Red Harbor', genre: 'THRILLER', unitPriceCents: 1_249 },
+  { id: 'bookstore-book-010', baselinePopularity: 180, name: 'Terminal Light', genre: 'SCIENCE_FICTION', unitPriceCents: 1_649 },
+  { id: 'bookstore-book-011', baselinePopularity: 90, name: 'Field Notes', genre: 'LITERARY_FICTION', unitPriceCents: 999 },
+  { id: 'bookstore-book-012', baselinePopularity: 140, name: 'Winter Circuit', genre: 'SCIENCE_FICTION', unitPriceCents: 1_549 },
+  { id: 'bookstore-book-013', baselinePopularity: 120, name: 'Borrowed Signal', genre: 'LITERARY_FICTION', unitPriceCents: 1_399 },
+  { id: 'bookstore-book-014', baselinePopularity: 100, name: 'Low Orbit', genre: 'SCIENCE_FICTION', unitPriceCents: 1_199 },
+  { id: 'bookstore-book-015', baselinePopularity: 90, name: 'The Last Platform', genre: 'LITERARY_FICTION', unitPriceCents: 1_799 },
+  { id: 'bookstore-book-016', baselinePopularity: 110, name: 'Copper Rain', genre: 'THRILLER', unitPriceCents: 1_299 },
+  { id: 'bookstore-book-017', baselinePopularity: 100, name: 'Distant Current', genre: 'SCIENCE_FICTION', unitPriceCents: 1_499 },
+  { id: 'bookstore-book-018', baselinePopularity: 130, name: 'Signal House', genre: 'MYSTERY', unitPriceCents: 1_899 },
+  { id: 'bookstore-book-019', baselinePopularity: 80, name: 'The Pale Exchange', genre: 'THRILLER', unitPriceCents: 1_449 },
+  { id: 'bookstore-book-020', baselinePopularity: 120, name: 'Midnight Index', genre: 'MYSTERY', unitPriceCents: 1_599 },
+  { id: 'bookstore-book-021', baselinePopularity: 90, name: 'Concrete Sky', genre: 'LITERARY_FICTION', unitPriceCents: 1_349 },
+  { id: 'bookstore-book-022', baselinePopularity: 100, name: 'Rooms Without Doors', genre: 'MYSTERY', unitPriceCents: 1_749 },
+  { id: 'bookstore-book-023', baselinePopularity: 130, name: 'Silent Frequency', genre: 'SCIENCE_FICTION', unitPriceCents: 1_529 },
+  { id: 'bookstore-book-024', baselinePopularity: 110, name: 'East of the Grid', genre: 'SCIENCE_FICTION', unitPriceCents: 1_929 },
 ]
 
-export const BOOKSTORE_BOOK_DEMAND: readonly BookstoreBookDemandRecord[] = [
-  { bookId: 'bookstore-merch-001', weight: 0.8 },
-  { bookId: 'bookstore-merch-002', weight: 1.4 },
-  { bookId: 'bookstore-merch-003', weight: 1.0 },
-  { bookId: 'bookstore-merch-004', weight: 1.2 },
-  { bookId: 'bookstore-merch-005', weight: 0.9 },
-  { bookId: 'bookstore-merch-006', weight: 1.0 },
-  { bookId: 'bookstore-merch-007', weight: 1.1 },
-  { bookId: 'bookstore-merch-008', weight: 0.8 },
-  { bookId: 'bookstore-book-009', weight: 1.3 },
-  { bookId: 'bookstore-book-010', weight: 1.8 },
-  { bookId: 'bookstore-book-011', weight: 0.9 },
-  { bookId: 'bookstore-book-012', weight: 1.4 },
-  { bookId: 'bookstore-book-013', weight: 1.2 },
-  { bookId: 'bookstore-book-014', weight: 1.0 },
-  { bookId: 'bookstore-book-015', weight: 0.9 },
-  { bookId: 'bookstore-book-016', weight: 1.1 },
-  { bookId: 'bookstore-book-017', weight: 1.0 },
-  { bookId: 'bookstore-book-018', weight: 1.3 },
-  { bookId: 'bookstore-book-019', weight: 0.8 },
-  { bookId: 'bookstore-book-020', weight: 1.2 },
-  { bookId: 'bookstore-book-021', weight: 0.9 },
-  { bookId: 'bookstore-book-022', weight: 1.0 },
-  { bookId: 'bookstore-book-023', weight: 1.3 },
-  { bookId: 'bookstore-book-024', weight: 1.1 },
-]
 /** Mercer Street's authored Branch assortment, independent from Catalog ordering. */
 export const BOOKSTORE_INITIAL_ASSORTMENT: readonly string[] = [
   'bookstore-merch-001',
@@ -97,7 +71,6 @@ const BOOKSTORE_SALE_0001_LINES: readonly BusinessBranchSaleLine[] = [
 export function createInitialBookstoreCommerceState(): BookstoreCommerceState {
   return {
     bookCatalog: BOOKSTORE_BOOK_CATALOG,
-    bookDemand: BOOKSTORE_BOOK_DEMAND,
     nextSaleId: 2,
     records: [{
       branchId: BOOKSTORE_BRANCH_ID,

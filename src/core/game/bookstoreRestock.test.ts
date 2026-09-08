@@ -3,7 +3,7 @@ import { ATLAS_DISTRIBUTION_COMPANY_ID, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID, 
 import { executeBookstoreSale } from './bookstoreSale'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
-import { advanceBookstoreRestockDeliveries, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID, deriveBookstoreMaxOrderableCases, NORTHLINE_SOURCEABLE_BOOK_IDS, placeBookstoreRestockOrder, proposeBookstoreRestockOrder } from './bookstoreRestock'
+import { advanceBookstoreRestockDeliveries, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID, deriveBookstoreIncomingStockForBook, deriveBookstoreLastAcquisitionCost, deriveBookstoreMaxOrderableCases, NORTHLINE_SOURCEABLE_BOOK_IDS, placeBookstoreRestockOrder, proposeBookstoreRestockOrder } from './bookstoreRestock'
 import { deriveBookstoreTotalStock, findBookstoreStockQuantity } from './bookstoreOperations'
 import type { GameState } from './types'
 
@@ -43,7 +43,7 @@ describe('Bookstore Case Procurement V1', () => {
     const first = proposal(zeroed, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, 1)
     expect(first.lines.map(l => l.merchandiseId)).toEqual([...zeroed.bookstoreCommerce.records[0].assortment].sort())
     expect(first.lines.every(l => l.quantity === 2)).toBe(true)
-    const changedDemand = { ...zeroed, bookstoreCommerce: { ...zeroed.bookstoreCommerce, bookDemand: zeroed.bookstoreCommerce.bookDemand.map(d => ({ ...d, weight: d.weight * 9 })) } }
+    const changedDemand = { ...zeroed, bookstoreCommerce: { ...zeroed.bookstoreCommerce, bookCatalog: zeroed.bookstoreCommerce.bookCatalog.map(d => ({ ...d, baselinePopularity: d.baselinePopularity * 9 })) } }
     expect(proposal(changedDemand, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, 1).lines).toEqual(first.lines)
   })
 
@@ -181,4 +181,34 @@ describe('Bookstore Case Procurement V1', () => {
     expect(state.bookstoreCommerce.records[0].assortment.filter(id => id === 'bookstore-book-010')).toHaveLength(1)
     expect(findBookstoreStockQuantity(state.bookstoreOperations.records[0], 'bookstore-book-010')).toBe(12)
   })
+
+  it('captures exact unit costs and assigns delivery chronology independently of placement order', () => {
+    let state = fund(createInitialGameState())
+    expect(deriveBookstoreLastAcquisitionCost(state, BOOKSTORE_BRANCH_ID, 'bookstore-merch-006')).toBeUndefined()
+    const northlineProposal = proposal(state, BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID, 1, 'bookstore-merch-006')
+    const northline = placeBookstoreRestockOrder(state, BOOKSTORE_BRANCH_ID, { caseCount: 1, selectedMerchandiseId: 'bookstore-merch-006' }, northlineProposal)
+    if (northline.status !== 'ordered') throw new Error(northline.status)
+    state = northline.state
+    const atlasProposal = proposal(state, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, 1)
+    const atlas = placeBookstoreRestockOrder(state, BOOKSTORE_BRANCH_ID, { caseCount: 1 }, atlasProposal)
+    if (atlas.status !== 'ordered') throw new Error(atlas.status)
+    state = atlas.state
+    expect(state.bookstoreRestock.orders[0].lines[0].capturedUnitAcquisitionCostCents).toBe(1_050)
+    expect(state.bookstoreRestock.orders[1].lines.every(line => line.capturedUnitAcquisitionCostCents === 875)).toBe(true)
+    for (const order of state.bookstoreRestock.orders) {
+      const transaction = state.dollarFinance.transactions.records.find(record => record.id === order.dollarTransactionId)!
+      expect(order.lines.reduce((sum, line) => sum + line.quantity * line.capturedUnitAcquisitionCostCents, 0)).toBe(transaction.amountCents)
+      expect(order.deliveredSequence).toBeUndefined()
+    }
+    expect(deriveBookstoreIncomingStockForBook(state, BOOKSTORE_BRANCH_ID, 'bookstore-merch-006')).toBeGreaterThan(0)
+    const large = advanceBookstoreRestockDeliveries(state, 2_700_000)
+    const atlasOrder = large.bookstoreRestock.orders.find(order => order.offerId === BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)!
+    const northlineOrder = large.bookstoreRestock.orders.find(order => order.offerId === BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID)!
+    expect(atlasOrder.deliveredSequence).toBeLessThan(northlineOrder.deliveredSequence!)
+    expect(deriveBookstoreLastAcquisitionCost(large, BOOKSTORE_BRANCH_ID, 'bookstore-merch-006')).toBe(1_050)
+    const partitioned = advanceBookstoreRestockDeliveries(advanceBookstoreRestockDeliveries(state, 1_800_000), 900_000)
+    expect(partitioned).toEqual(large)
+    expect(advanceBookstoreRestockDeliveries(large, 1)).toEqual(large)
+  })
+
 })

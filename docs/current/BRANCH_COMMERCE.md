@@ -542,11 +542,11 @@ Northline permits exactly Northbound (`bookstore-merch-006`), A Map of Empty Roo
 
 The Bookstore-local proposal derives exact lines, total units, total price, delivery duration and capacity validity without mutation. VEYRA retains the exact reviewed proposal locally. Placement re-derives from current canonical truth and refuses atomically with `proposal_changed` when it differs. The caller supplies only acting context, Branch, legitimate Case-count/title decisions and reviewed-proposal proof; seller, Companies, Treasuries and amount are re-derived. Only after complete preflight does `settleValidatedCompanyPurchase` move the exact price from the buyer Company's current Treasury to the Offer seller Company's current Treasury.
 
-Successful settlement creates one `IN_TRANSIT` historical Order referencing the Provider-owned Transaction and capturing seller/Offer names, exact Book IDs/names/quantities, and duration. Current stock, Catalog names, or Offer terms cannot rewrite it. Incoming quantities are derived from captured in-transit lines and reserve shelf capacity. Canonical advancement applies only captured lines once on `IN_TRANSIT -> DELIVERED`; delivery never recomputes procurement composition.
+Successful settlement creates one `IN_TRANSIT` historical Order referencing the Provider-owned Transaction and capturing seller/Offer names, exact Book IDs/names/quantities, uniform per-unit acquisition cost, and duration. Offer validity requires `casePriceCents / caseSize` to be an exact positive safe-integer cent amount: Atlas captures 875 cents per unit and Northline captures 1,050. The sum of captured line quantity times captured unit cost exactly equals both the Order purchase and its Civic Dollar Transaction; Civic Dollar remains sole owner of money movement. Current stock, Catalog names, or later Offer terms cannot rewrite this history. Incoming quantities derive from captured in-transit lines and reserve shelf capacity. Canonical advancement applies only captured lines once on `IN_TRANSIT -> DELIVERED`; delivery never recomputes procurement composition. Restock owns a monotonic delivery-sequence allocator. Due Orders receive their immutable sequence by starting remaining-delivery time, then stable Order identity for ties, preserving causal ordering in large and partitioned advancements.
 
 Company Administration and RemoteSession boundaries remain unchanged in ownership: the operated Device must hold the Branch Company's administration relationship, and operating context grants no finance authority. VEYRA Business is only the projection/client. RACK-OS BUSINESS remains read-only.
 
-Offer rotation, Supplier inventory/reliability, quantity discounts, Trends/market intelligence and generic procurement frameworks remain unimplemented. Book Demand affects ordinary sale-basket composition only and has no direct Supplier effect.
+Offer rotation, Supplier inventory/reliability, quantity discounts, Trends/market intelligence and generic procurement frameworks remain unimplemented. Baseline Popularity affects ordinary sale-basket composition only and has no direct Supplier effect.
 
 ### Sale-opportunity cadence and Book Demand
 
@@ -684,48 +684,15 @@ This is a narrow concrete Bookstore record, not a generic Business
 scheduler, demand system, or universal recurrence framework — exactly like
 its three siblings above.
 
-### Current Book Demand
+### Current Baseline Popularity
 
-Book Demand is separate from sale-opportunity cadence. Cadence answers *when*
-another purchase opportunity occurs; current Book Demand answers only *which*
-already-sellable Book is relatively more likely to enter that opportunity's
-provisional basket. The cadence-owned `bookstoreDemandRandom` remains solely a
-scheduling source. Basket size and per-unit composition remain owned by the
-existing `bookstorePurchaseRandom`, with exactly one size draw plus one draw
-per selected unit.
+Each global Catalog Book owns its stable identity, title, Genre, retail price, and exactly one `baselinePopularity`. This replaces the former separate `BookstoreCommerceState.bookDemand` records rather than existing beside them. Baseline Popularity is the neutral global attractiveness used for current basket selection: `100` is neutral and values may exceed 100. It is a relative index, not a percentage, probability, or quality measure. Every authored value is the former weight multiplied by exactly 100, preserving all relative selection proportions.
 
-Every global Catalog Book carries exactly one authored broad Bookstore Genre:
-`SCIENCE_FICTION`, `THRILLER`, `MYSTERY`, or `LITERARY_FICTION`. Genre describes
-what the Book is; it is canonical World Truth, but is neither a Demand target
-nor a player-facing label in the current implementation. Alongside the Catalog,
-`BookstoreCommerceState.bookDemand` owns exactly one global current relative
-purchase weight per stable Book identity. A weight of `1.0` is neutral; weights
-must be finite and strictly positive and have no monetary or percentage meaning.
-Genre and Demand are not Branch-local truth.
+Catalog validity requires every Baseline Popularity to be a positive finite safe integer. Malformed truth fails closed before purchase composition commits consequences; no default is substituted and no value is inferred from Genre, price, stock, Supplier, sales, or position. For each provisional basket unit, the existing ordered positive-stock candidates are selected proportionally to Baseline Popularity. Basket size, sellable-stock eligibility, one composition draw per selected unit, settlement, provisional depletion, and CompletedSale semantics are unchanged. The cadence-owned `bookstoreDemandRandom` remains solely a scheduling source.
 
-Sale execution requires the global Catalog and Demand relationship to be
-structurally coherent by stable identity: every Catalog Book has exactly one
-positive finite Demand record, every Demand record names a Catalog Book, and no
-identity is missing, duplicated, or dangling. It then establishes the unchanged
-sellable intersection: valid global Catalog identity, present in the Branch
-assortment, and positive physical Branch stock. Only the weights for those
-candidates participate, and a non-positive or non-finite candidate-weight total
-fails closed before purchase randomness is consumed. For each provisional basket unit,
-the existing ordered positive-stock candidates are selected proportionally to
-their current weights and only provisional remaining stock is decremented. All
-neutral weights therefore preserve the former uniform selector's deterministic
-identity boundaries for the same candidate order and samples.
+Genre and Baseline Popularity are global Book truth, while stock and procurement history remain Branch truth. VEYRA may show Genre and the stable index as ordinary carried-product merchandising information. Supplier terms never alter Genre, price, or Popularity. Current Market Pressure, Trends, Effective Demand, popularity drift, market intelligence, and modifier systems remain unimplemented.
 
-Demand changes no eligibility, opportunity timing/count, basket-size mix, price,
-revenue, stock, assortment, Supplier Offer or delivery, Treasury balance, or
-conversion directly. Once a Book is selected, its current Catalog price flows
-through the ordinary exact Transaction, physical stock decrement, and immutable
-CompletedSale line. CompletedSale captures neither Genre nor Demand, so later
-changes cannot rewrite historical truth. Genre and current Demand remain hidden
-World Truth: no current Business, Inventory, Supplier, RACK-OS, Wallet, or other
-observation surface exposes them. Trends, Genre-targeted causes, modifier stacks,
-market research/Knowledge, Publisher, historical market analytics, and generic
-Demand frameworks remain unimplemented.
+Last Acquisition Cost is derived for one Branch and Book from the captured unit cost on the delivered Order line with the greatest delivery sequence. In-transit Orders do not affect it. Initial authored stock has no represented procurement history, so its cost is not recorded rather than inferred from a current Offer. It is neither Catalog truth nor stored inventory valuation.
 
 ### Retail Clearing
 

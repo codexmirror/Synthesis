@@ -3,11 +3,11 @@ import { useGameActions, useGameState } from '../../app/GameContext'
 import type { PlaceOperatedBookstoreRestockOrderResult } from '../../core/game/companyAdministration'
 import { proposeBookstoreRestockOrder, type BookstoreOrderDecisions, type BookstoreOrderProposal } from '../../core/game/bookstoreRestock'
 import { formatDollarCents } from '../dollarFormat'
-import { projectVeyraBusiness, type VeyraBusinessBranchView, type VeyraBusinessCompanyView, type VeyraBusinessOfferView } from './veyraBusiness'
+import { projectVeyraBusiness, type VeyraBusinessBranchView, type VeyraBusinessCompanyView, type VeyraBusinessOfferView, type VeyraBusinessProductView } from './veyraBusiness'
 import { VeyraIcon } from './VeyraIcon'
 
 /** Which Business surface is open. Presentation only; it never reaches `GameState`. */
-export type VeyraBusinessDetail = { readonly offerId: string } | { readonly inventory: true }
+export type VeyraBusinessDetail = { readonly offerId: string } | { readonly inventory: true } | { readonly productId: string }
 
 /**
  * Business: the phone's client for the Company this Device may actually
@@ -52,8 +52,12 @@ export function VeyraBusiness({ detail, onDetail }: {
   // is no longer represented simply has no review to show.
   const reviewed = detail && 'offerId' in detail && branch?.offers.find(({ id }) => id === detail.offerId)
 
+  if (detail && 'productId' in detail && branch) {
+    const product = branch.inventory.items.find(item => item.merchandiseId === detail.productId)
+    if (product) return <VeyraBusinessProductDetail branch={branch} product={product} onBack={() => onDetail({ inventory: true })} />
+  }
   if (detail && 'inventory' in detail && branch) {
-    return <VeyraBusinessInventory branch={branch} onBack={() => onDetail(undefined)} />
+    return <VeyraBusinessInventory branch={branch} onBack={() => onDetail(undefined)} onProduct={(productId) => onDetail({ productId })} />
   }
 
   if (detail && reviewed && branch) {
@@ -154,18 +158,41 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
   </section>
 }
 
-function VeyraBusinessInventory({ branch, onBack }: { branch: VeyraBusinessBranchView; onBack: () => void }) {
+function VeyraBusinessInventory({ branch, onBack, onProduct }: { branch: VeyraBusinessBranchView; onBack: () => void; onProduct: (id: string) => void }) {
   return <section className="veyra-screen" aria-label="Inventory">
     <button className="veyra-quiet" type="button" onClick={onBack}>Back</button>
     <p className="veyra-eyebrow">{branch.displayName}</p>
     <h1 className="veyra-title">Inventory</h1>
-    <dl className="veyra-card veyra-card--rows veyra-terms">
-      {branch.inventory.items.map((item) => <div className="veyra-row veyra-row--static" key={item.merchandiseId}>
-        <dt>{item.name}</dt><dd>{item.quantity > 0 ? item.quantity : 'Out of stock'}</dd>
-      </div>)}
-    </dl>
+    <div className="veyra-card veyra-card--rows">
+      {branch.inventory.items.map((item) => <button className="veyra-row" type="button" key={item.merchandiseId} onClick={() => onProduct(item.merchandiseId)}>
+        <span>{item.name}</span><span className="veyra-row__trail"><span>{item.quantity > 0 ? item.quantity : 'Out of stock'}</span><VeyraIcon name="chevron" /></span>
+      </button>)}
+    </div>
   </section>
 }
+
+function VeyraBusinessProductDetail({ branch, product, onBack }: { branch: VeyraBusinessBranchView; product: VeyraBusinessProductView; onBack: () => void }) {
+  return <section className="veyra-screen" aria-label="Product detail">
+    <button className="veyra-quiet" type="button" onClick={onBack}>Back</button>
+    <p className="veyra-eyebrow">{branch.displayName}</p>
+    <h1 className="veyra-title">{product.name}</h1>
+    <p className="veyra-figure-note">{formatGenre(product.genre)}</p>
+    <h2 className="veyra-section">Pricing</h2>
+    <dl className="veyra-card veyra-card--rows veyra-terms">
+      <div className="veyra-row veyra-row--static"><dt>Retail price</dt><dd>{formatDollarCents(product.retailPriceCents)}</dd></div>
+      <div className="veyra-row veyra-row--static"><dt>Last acquisition cost</dt><dd>{product.lastAcquisitionCostCents === undefined ? 'Not recorded' : formatDollarCents(product.lastAcquisitionCostCents)}</dd></div>
+    </dl>
+    <h2 className="veyra-section">Inventory</h2>
+    <dl className="veyra-card veyra-card--rows veyra-terms">
+      <div className="veyra-row veyra-row--static"><dt>In stock</dt><dd>{product.quantity}</dd></div>
+      <div className="veyra-row veyra-row--static"><dt>Incoming</dt><dd>{product.incomingQuantity}</dd></div>
+    </dl>
+    <h2 className="veyra-section">Market</h2>
+    <dl className="veyra-card veyra-card--rows veyra-terms"><div className="veyra-row veyra-row--static"><dt>Popularity</dt><dd>{product.baselinePopularity}</dd></div></dl>
+  </section>
+}
+
+function formatGenre(genre: string): string { return genre.toLowerCase().split('_').map(word => word[0].toUpperCase() + word.slice(1)).join(' ') }
 
 /**
  * The review before Company money moves: who is selling, what the bundle

@@ -1,7 +1,7 @@
 import { resolveCompanyTreasuryAccount } from '../../core/game/business'
 import { findBookstoreCommerceRecord, resolveBookstoreBookById } from '../../core/game/bookstoreCommerce'
 import { deriveBookstoreTotalStock, resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
-import { deriveBookstoreIncomingStock, deriveBookstoreMaxOrderableCases } from '../../core/game/bookstoreRestock'
+import { deriveBookstoreIncomingStock, deriveBookstoreIncomingStockForBook, deriveBookstoreLastAcquisitionCost, deriveBookstoreMaxOrderableCases } from '../../core/game/bookstoreRestock'
 import { resolveSoleCompanyAdministrationContextForOperatedRemoteDevice } from '../../core/game/companyAdministration'
 import type { BookstoreSupplyOffer, GameState } from '../../core/game/types'
 
@@ -49,7 +49,12 @@ export interface VeyraBusinessInventoryView {
   /** Units already paid for and still in transit; they reserve shelf capacity but cannot be sold. */
   readonly incomingStock: number
   readonly titleCount: number
-  readonly items: readonly { readonly merchandiseId: string; readonly name: string; readonly quantity: number }[]
+  readonly items: readonly VeyraBusinessProductView[]
+}
+export interface VeyraBusinessProductView {
+  readonly merchandiseId: string; readonly name: string; readonly genre: string
+  readonly retailPriceCents: number; readonly baselinePopularity: number
+  readonly quantity: number; readonly incomingQuantity: number; readonly lastAcquisitionCostCents?: number
 }
 
 export interface VeyraBusinessOfferView {
@@ -122,8 +127,8 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
       incomingStock: deriveBookstoreIncomingStock(state, branch.id),
       titleCount: commerce.assortment.filter((id, index) => commerce.assortment.indexOf(id) === index && Boolean(merchandiseName(id))).length,
       items: commerce.assortment.flatMap((merchandiseId) => {
-        const name = merchandiseName(merchandiseId)
-        return name && assortment.has(merchandiseId) ? [{ merchandiseId, name, quantity: operations.stock.find((entry) => entry.merchandiseId === merchandiseId)?.quantity ?? 0 }] : []
+        const book = resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, merchandiseId)
+        return book && assortment.has(merchandiseId) ? [{ merchandiseId, name: book.name, genre: book.genre, retailPriceCents: book.unitPriceCents, baselinePopularity: book.baselinePopularity, quantity: operations.stock.find((entry) => entry.merchandiseId === merchandiseId)?.quantity ?? 0, incomingQuantity: deriveBookstoreIncomingStockForBook(state, branch.id, merchandiseId), lastAcquisitionCostCents: deriveBookstoreLastAcquisitionCost(state, branch.id, merchandiseId) }] : []
       }),
     },
     // Every currently represented supply offer, in represented order. An offer
