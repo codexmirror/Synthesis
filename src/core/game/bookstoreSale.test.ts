@@ -53,6 +53,36 @@ function cyclicRandom(values: readonly number[]): () => number {
 const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.95])
 
 describe('executeBookstoreSale — success path', () => {
+  it('preserves baseline-only selection boundaries when every Genre pressure is neutral', () => {
+    const initial = createInitialGameState()
+    const neutral: GameState = { ...initial, bookstoreMarket: { genrePressures: initial.bookstoreMarket.genrePressures.map(record => ({ ...record, pressure: 100 })) } }
+    const samples = [0.1, 0.15]
+    const result = executeBookstoreSale(neutral, BOOKSTORE_BRANCH_ID, () => samples.shift()!)
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    // Baseline total is 820; 0.15 × 820 = 123, after Night Transit's 80 and inside Static Bloom's next 140.
+    expect(result.state.bookstoreCommerce.records[0].completedSales.at(-1)?.lines[0].merchandiseId).toBe('bookstore-merch-002')
+  })
+
+  it('changes only the weighted Book interval when one Genre pressure changes under the same purchase samples', () => {
+    const initial = createInitialGameState()
+    const pressured: GameState = {
+      ...initial,
+      bookstoreMarket: { genrePressures: initial.bookstoreMarket.genrePressures.map(record => record.genre === 'THRILLER' ? { ...record, pressure: 1_000 } : { ...record, pressure: 100 }) },
+    }
+    const execute = (state: GameState) => {
+      const samples = [0.1, 0.15]
+      let draws = 0
+      const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
+      expect(draws).toBe(2)
+      expect(result.status).toBe('sold')
+      if (result.status !== 'sold') throw new Error('expected sale')
+      return result.state.bookstoreCommerce.records[0].completedSales.at(-1)?.lines[0].merchandiseId
+    }
+    expect(execute({ ...initial, bookstoreMarket: { genrePressures: initial.bookstoreMarket.genrePressures.map(record => ({ ...record, pressure: 100 })) } })).toBe('bookstore-merch-002')
+    expect(execute(pressured)).toBe('bookstore-merch-001')
+  })
+
   it('changes only the selected Book through Baseline Popularity, then uses ordinary stock and exact-price settlement with the same two purchase draws', () => {
     const initial = createInitialGameState()
     const neutral: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(record => ({ ...record, baselinePopularity: 100 })) } }
@@ -176,6 +206,34 @@ describe('executeBookstoreSale — success path', () => {
 })
 
 describe('executeBookstoreSale — atomic failure paths', () => {
+  it.each([
+    ['missing', (state: GameState) => state.bookstoreMarket.genrePressures.slice(1)],
+    ['duplicate', (state: GameState) => [...state.bookstoreMarket.genrePressures.slice(0, -1), state.bookstoreMarket.genrePressures[0]]],
+    ['unsupported', (state: GameState) => [...state.bookstoreMarket.genrePressures.slice(0, -1), { genre: 'ROMANCE' as never, pressure: 100 }]],
+    ['zero', (state: GameState) => state.bookstoreMarket.genrePressures.map(record => record.genre === 'THRILLER' ? { ...record, pressure: 0 } : record)],
+    ['negative', (state: GameState) => state.bookstoreMarket.genrePressures.map(record => record.genre === 'THRILLER' ? { ...record, pressure: -1 } : record)],
+    ['fractional', (state: GameState) => state.bookstoreMarket.genrePressures.map(record => record.genre === 'THRILLER' ? { ...record, pressure: 1.5 } : record)],
+    ['non-finite', (state: GameState) => state.bookstoreMarket.genrePressures.map(record => record.genre === 'THRILLER' ? { ...record, pressure: NaN } : record)],
+    ['unsafe', (state: GameState) => state.bookstoreMarket.genrePressures.map(record => record.genre === 'THRILLER' ? { ...record, pressure: Number.MAX_SAFE_INTEGER + 1 } : record)],
+  ])('refuses %s Genre Market Pressure atomically before consuming purchase randomness', (_label, makeRecords) => {
+    const initial = createInitialGameState()
+    const state: GameState = { ...initial, bookstoreMarket: { genrePressures: makeRecords(initial) } }
+    const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })
+    expect(result).toEqual({ status: 'invalid_demand', state })
+    expect(result.state).toBe(state)
+  })
+
+  it('refuses an unsafe derived Effective Demand weight or candidate total before consuming purchase randomness', () => {
+    const initial = createInitialGameState()
+    const neutral = { genrePressures: initial.bookstoreMarket.genrePressures.map(record => ({ ...record, pressure: 100 })) }
+    const unsafeWeight: GameState = { ...initial, bookstoreMarket: neutral, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(book => book.id === 'bookstore-merch-001' ? { ...book, baselinePopularity: Math.floor(Number.MAX_SAFE_INTEGER / 100) + 1 } : book) } }
+    expect(executeBookstoreSale(unsafeWeight, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })).toEqual({ status: 'invalid_demand', state: unsafeWeight })
+
+    const large = Math.floor(Number.MAX_SAFE_INTEGER / 100 / 8) + 1
+    const unsafeTotal: GameState = { ...initial, bookstoreMarket: neutral, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(book => ({ ...book, baselinePopularity: large })) } }
+    expect(executeBookstoreSale(unsafeTotal, BOOKSTORE_BRANCH_ID, () => { throw new Error('must not sample') })).toEqual({ status: 'invalid_demand', state: unsafeTotal })
+  })
+
   it('refuses when the Business Branch itself does not exist, unchanged', () => {
     const state = createInitialGameState()
     const result = executeBookstoreSale(state, 'branch-does-not-exist')

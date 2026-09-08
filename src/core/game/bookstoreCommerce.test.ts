@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID, BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME } from './business'
 import { BOOKSTORE_BOOK_CATALOG, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID, BOOKSTORE_INITIAL_ASSORTMENT, BOOKSTORE_MERCHANDISE_CATALOG, BOOKSTORE_SALE_TRANSACTION_ID, isBookstoreMerchandiseCatalogSufficient, resolveBookstoreCommerceForBranch } from './bookstoreCommerce'
-import { BOOKSTORE_SALE_STATEMENT_PURPOSE, executeBookstoreSale , resolveValidBookstorePopularity } from './bookstoreSale'
+import { BOOKSTORE_SALE_STATEMENT_PURPOSE, deriveValidBookstoreEffectiveDemand, executeBookstoreSale } from './bookstoreSale'
+import { resolveValidBookstoreGenreMarketPressures } from './bookstoreMarket'
 import type { GameState } from './types'
 
 /**
@@ -80,10 +81,11 @@ describe('bookstore commerce initial truth', () => {
   })
 
   it('resolves the same Baseline Popularity by stable Book identity when Catalog order changes', () => {
-    const resolved = resolveValidBookstorePopularity([...BOOKSTORE_BOOK_CATALOG].reverse())
-    expect(resolved?.get('bookstore-merch-001')).toBe(80)
-    expect(resolved?.get('bookstore-book-010')).toBe(180)
-    expect(resolved?.get('bookstore-book-024')).toBe(110)
+    const pressures = resolveValidBookstoreGenreMarketPressures(createInitialGameState().bookstoreMarket.genrePressures)!
+    const resolved = deriveValidBookstoreEffectiveDemand([...BOOKSTORE_BOOK_CATALOG].reverse(), pressures)
+    expect(resolved?.get('bookstore-merch-001')).toBe(8_000)
+    expect(resolved?.get('bookstore-book-010')).toBe(21_600)
+    expect(resolved?.get('bookstore-book-024')).toBe(13_200)
   })
 
   it('gives every catalog entry a unique stable identity and a positive safe-integer price', () => {

@@ -824,6 +824,17 @@ export interface BookstoreBookRecord {
 
 export type BookstoreBookGenre = 'SCIENCE_FICTION' | 'THRILLER' | 'MYSTERY' | 'LITERARY_FICTION'
 
+/** One current positive relative market-pressure index for a represented Book Genre. 100 is neutral. */
+export interface BookstoreGenreMarketPressureRecord {
+  readonly genre: BookstoreBookGenre
+  readonly pressure: number
+}
+
+/** Global hidden Bookstore market World Truth; independent from Books, Branches, suppliers, and Player Information. */
+export interface BookstoreMarketState {
+  readonly genrePressures: readonly BookstoreGenreMarketPressureRecord[]
+}
+
 /**
  * Concrete branch-linked commerce truth for the one currently represented
  * bookstore mechanic: current settlement-destination configuration, the
@@ -1776,6 +1787,8 @@ export interface GameState {
   readonly business: BusinessState
   /** Concrete branch-linked bookstore commerce truth; not embedded in generic Business Branch identity. */
   readonly bookstoreCommerce: BookstoreCommerceState
+  /** Global hidden Bookstore Genre Market Pressure truth. Effective Demand is derived, never stored. */
+  readonly bookstoreMarket: BookstoreMarketState
   /** Concrete branch-linked bookstore operations truth (OPEN/CLOSED, inventory, shelf/checkout capacity); a separate optional join from `bookstoreCommerce`, not embedded in generic Business Branch identity. */
   readonly bookstoreOperations: BookstoreOperationsState
   /** Bookstore-specific current supply offers and captured restock delivery lifecycle. */

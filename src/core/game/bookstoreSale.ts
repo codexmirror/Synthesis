@@ -1,5 +1,6 @@
 import { appendCompletedBookstoreSale, findBookstoreCommerceRecord, isBookstoreMerchandiseCatalogSufficient } from './bookstoreCommerce'
 import { resolveBookstoreBackendForBranch } from './bookstoreBackend'
+import { resolveValidBookstoreGenreMarketPressures } from './bookstoreMarket'
 import { decrementBookstoreStock, resolveBookstoreOperationsForBranch } from './bookstoreOperations'
 import { executeCivicDollarMovement } from './dollarFinance'
 import type { BookstoreBookRecord, BusinessBranchSaleLine, GameState } from './types'
@@ -100,10 +101,21 @@ export function selectDemandWeightedBookstoreMerchandiseId(
   return availableIds[availableIds.length - 1]
 }
 
-/** Resolve validated Baseline Popularity directly from canonical Book truth. */
-export function resolveValidBookstorePopularity(catalog: readonly BookstoreBookRecord[]): ReadonlyMap<string, number> | undefined {
+/** Derive validated Effective Demand directly from current Book and hidden Genre Market Pressure truth. */
+export function deriveValidBookstoreEffectiveDemand(
+  catalog: readonly BookstoreBookRecord[],
+  genrePressures: ReadonlyMap<BookstoreBookRecord['genre'], number>,
+): ReadonlyMap<string, number> | undefined {
   if (!isBookstoreMerchandiseCatalogSufficient(catalog) || !catalog.every(book => Number.isSafeInteger(book.baselinePopularity) && book.baselinePopularity > 0)) return undefined
-  return new Map(catalog.map((book) => [book.id, book.baselinePopularity]))
+  const effectiveDemand = new Map<string, number>()
+  for (const book of catalog) {
+    const pressure = genrePressures.get(book.genre)
+    if (pressure === undefined) return undefined
+    const weight = book.baselinePopularity * pressure
+    if (!Number.isSafeInteger(weight) || weight <= 0) return undefined
+    effectiveDemand.set(book.id, weight)
+  }
+  return effectiveDemand
 }
 
 /**
@@ -269,7 +281,9 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
   if (assortment.size !== commerce.assortment.length) return { status: 'invalid_price', state }
   const merchandise = state.bookstoreCommerce.bookCatalog.filter((book) => assortment.has(book.id))
   if (merchandise.length !== assortment.size || !isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog)) return { status: 'invalid_price', state }
-  const demandByBookId = resolveValidBookstorePopularity(state.bookstoreCommerce.bookCatalog)
+  const genrePressures = resolveValidBookstoreGenreMarketPressures(state.bookstoreMarket.genrePressures)
+  if (!genrePressures) return { status: 'invalid_demand', state }
+  const demandByBookId = deriveValidBookstoreEffectiveDemand(state.bookstoreCommerce.bookCatalog, genrePressures)
   if (!demandByBookId) return { status: 'invalid_demand', state }
 
   // Sellable stock — the intersection of the current catalog and physical Operations stock — is what
@@ -281,7 +295,7 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
   if (sellableTotalStock <= 0) return { status: 'out_of_stock', state }
   const sellableBookIds = merchandise.filter((item) => operations.stock.some((entry) => entry.merchandiseId === item.id && entry.quantity > 0)).map((item) => item.id)
   const candidateDemandTotal = sellableBookIds.reduce((sum, bookId) => sum + demandByBookId.get(bookId)!, 0)
-  if (!Number.isFinite(candidateDemandTotal) || candidateDemandTotal <= 0) return { status: 'invalid_demand', state }
+  if (!Number.isSafeInteger(candidateDemandTotal) || candidateDemandTotal <= 0) return { status: 'invalid_demand', state }
   if (operations.checkoutCapacity <= 0) return { status: 'no_checkout_capacity', state }
 
   const settlementAccount = state.dollarFinance.accounts.find(({ id }) => id === commerce.settlementAccountId)
