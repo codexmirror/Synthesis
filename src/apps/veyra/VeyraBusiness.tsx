@@ -88,9 +88,9 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
   onInventory: () => void
 }) {
   const offerGroups = branch ? branch.offers.reduce<Array<[string, VeyraBusinessOfferView[]]>>((groups, offer) => {
-    const existing = groups.find(([sellerDisplayName]) => sellerDisplayName === offer.sellerDisplayName)
+    const existing = groups.find(([sellerCompanyId]) => sellerCompanyId === offer.sellerCompanyId)
     if (existing) existing[1].push(offer)
-    else groups.push([offer.sellerDisplayName, [offer]])
+    else groups.push([offer.sellerCompanyId, [offer]])
     return groups
   }, []) : []
   return <section className="veyra-screen" aria-label="Business">
@@ -125,8 +125,8 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
         {branch.offers.length === 0
           ? <p className="veyra-empty">No supply offers are available.</p>
           : <div className="veyra-supply-groups">
-            {offerGroups.map(([sellerDisplayName, offers]) => <section key={sellerDisplayName} aria-label={`${sellerDisplayName} offers`}>
-              <h3 className="veyra-supplier">{sellerDisplayName}</h3>
+            {offerGroups.map(([sellerCompanyId, offers]) => <section key={sellerCompanyId} aria-label={`${offers[0].sellerDisplayName} offers`}>
+              <h3 className="veyra-supplier">{offers[0].sellerDisplayName}</h3>
               <div className="veyra-card veyra-card--rows">
             {offers.map((offer) => <button className="veyra-row" type="button" key={offer.id} onClick={() => onOffer(offer.id)}>
               <span className="veyra-row__copy">

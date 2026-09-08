@@ -5,6 +5,7 @@ import {
   BOOKSTORE_BRANCH_ID,
   BOOKSTORE_COMPANY_ID,
   BOOKSTORE_TREASURY_ACCOUNT_ID,
+  NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
 } from '../../core/game/business'
 import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, BOOKSTORE_STANDARD_REFILL_OFFER_ID } from '../../core/game/bookstoreRestock'
 import { placeBookstoreRestockOrderFromOperatedRemoteDevice } from '../../core/game/companyAdministration'
@@ -136,6 +137,11 @@ describe('VEYRA Business projection', () => {
       'Atlas Distribution', 'Atlas Distribution',
       'Northline Book Supply', 'Northline Book Supply', 'Northline Book Supply',
       'Northline Book Supply', 'Northline Book Supply', 'Northline Book Supply',
+    ])
+    expect(branch.offers.map(({ sellerCompanyId }) => sellerCompanyId)).toEqual([
+      ATLAS_DISTRIBUTION_COMPANY_ID, ATLAS_DISTRIBUTION_COMPANY_ID,
+      NORTHLINE_BOOK_SUPPLY_COMPANY_ID, NORTHLINE_BOOK_SUPPLY_COMPANY_ID, NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
+      NORTHLINE_BOOK_SUPPLY_COMPANY_ID, NORTHLINE_BOOK_SUPPLY_COMPANY_ID, NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
     ])
     expect(branch.offers.map(({ averageUnitCostCents }) => averageUnitCostCents)).toEqual([875, 850, 1_000, 1_100, 1_050, 1_050, 1_100, 1_100])
     expect(branch.offers.map(({ displayName }) => displayName)).not.toContain('New Titles Pack')

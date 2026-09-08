@@ -193,6 +193,26 @@ describe('VEYRA Business surface', () => {
     expect(business.textContent).not.toContain(`$${(balance(undesignated, PHONE_ACCOUNT_ID) / 100).toFixed(2)}`)
   })
 
+  it('keeps seller groups separate by stable Company identity when display names collide', async () => {
+    const connected = phoneConnectedState(earnRestockPrice(createInitialGameState()))
+    const sameNames: GameState = {
+      ...connected,
+      business: {
+        ...connected.business,
+        companies: connected.business.companies.map((company) =>
+          company.id === ATLAS_DISTRIBUTION_COMPANY_ID ? { ...company, displayName: 'Northline Book Supply' } : company),
+      },
+    }
+    await openBusiness(sameNames)
+
+    const groups = screen.getAllByRole('region', { name: 'Northline Book Supply offers' })
+    expect(groups).toHaveLength(2)
+    expect(groups[0]).toHaveTextContent('Compact Shelf Refill')
+    expect(groups[0]).not.toHaveTextContent('Northbound Case')
+    expect(groups[1]).toHaveTextContent('Northbound Case')
+    expect(groups[1]).not.toHaveTextContent('Compact Shelf Refill')
+  })
+
   it('reviews an offer without mutating any canonical state', async () => {
     const user = await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
     const before = canonicalSettled()
