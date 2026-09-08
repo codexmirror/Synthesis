@@ -281,9 +281,10 @@ The root presents, entirely from represented truth:
   physical quantities; a carried zero-quantity Book remains visible as **Out of stock**.
   Catalog-only Books are not disclosed. Incoming units are paid for and in transit and are
   deliberately not part of current stock or assortment until canonical delivery.
-- **Supply** — every currently represented Bookstore supply offer, each stating
-  its own display name, seller Company display name, total units, exact price
-  and represented delivery duration. An offer whose seller Company does not
+- **Supply** — exactly two quiet procurement rows, `Mixed Shelf Refill` and
+  `Title Case`, without Supplier grouping headings or root unit economics.
+  Each states seller, fixed units per Case, starting Case price and represented
+  delivery duration. An offer whose seller Company does not
   resolve is not presented at all rather than presented anonymously.
 - **Restock orders** — this Branch's represented orders, each from its own
   captured facts: the captured offer and seller display names, the captured
@@ -297,25 +298,26 @@ event appears anywhere: the world represents none of them.
 
 ### Placing a restock order
 
-Selecting an offer opens a presentation-local review — the supplier, the
-bundle's own item lines, the exact total price, the delivery duration and the
-Company's current funds — with **Place order** and an ordinary Cancel. Opening
+Selecting an offer opens a presentation-local review — the Supplier, a direct
+numeric Case-count input, Northline's six-Book selector where applicable,
+exact proposal lines, total units, total price, duration and current Company
+funds — with **Place order** and Cancel. Opening
 or leaving the review changes no canonical state, and there is no cart,
 reservation, draft or pending order anywhere.
 
 **Place order** calls
 `placeBookstoreRestockOrderFromOperatedRemoteDevice`, the existing authorized
 operated-Device path, through the ordinary `GameActions` adapter in
-`src/app/businessOperations.ts`. React mutates nothing. The client names only
-the Branch and the offer:
+`src/app/businessOperations.ts`. React mutates nothing. The client supplies only the Branch, legitimate purchase
+decisions and exact reviewed-proposal proof:
 
 ```text
 VEYRA Business
 -> active RemoteSession identifies the operated Device
 -> Company Administration authorizes the Company
 -> Branch identifies the buyer Company
--> Offer identifies the seller and the commercial terms
--> Bookstore Restock validates capacity and terms
+-> Offer identifies the seller and fixed Case terms
+-> Bookstore Restock re-derives and validates the reviewed proposal and capacity
 -> Company-to-Company settlement resolves current Treasuries
 -> Civic Dollar moves the exact amount
 -> the represented Restock Order enters transit
@@ -328,7 +330,10 @@ rendered review can commit at most one canonical order. A refusal is restated
 in ordinary product wording that claims no more than the canonical result
 proves — the collapsed `payment_refused` in particular never asserts
 insufficient funds specifically — and leaves state exactly as it was: no
-Transaction, no order, no stock change, no balance change.
+Transaction, no order, no stock change, no balance change. If advancing stock or
+incoming truth changes Atlas composition while review is open,
+`proposal_changed` requires review again rather than silently buying a different
+composition.
 
 A successful placement is acknowledged locally, and the surface immediately
 shows what canonically changed: lower Company funds, higher incoming units and

@@ -532,85 +532,21 @@ sole definition of what one attempt means.
 
 ### Bookstore supply and restock
 
-`GameState.bookstoreRestock` is the narrow Bookstore-specific owner of current
-supply offers and placed restock orders, not a generic supplier, procurement,
-product, inventory, or order framework. A Company acts as a supplier because a
-current offer names it as seller; supplier inventory, production, warehouses,
-and logistics infrastructure are unrepresented. Atlas currently publishes
-exactly two mixed-title bulk offers: `Compact Shelf Refill` (two of each of the
-eight stable original Mercer identities, 16 units, 14,000 cents, 30 represented
-minutes) and `Standard Shelf Refill` (five each, 40 units, 34,000 cents, 60
-represented minutes). Northline currently publishes six static, title-specific
-six-unit Cases with 45 represented minute delivery: Northbound (6,000 cents),
-A Map of Empty Rooms (6,600 cents), Terminal Light (6,300 cents), Winter
-Circuit (6,300 cents), Signal House (6,600 cents), and East of the Grid (6,600
-cents). Northbound and A Map of Empty Rooms are in Mercer Street's initial
-assortment; the other four are global Catalog truth initially not carried there.
-These authored offer terms, not supplier role, specialization, rating, discount,
-or unit-price fields, make Atlas a bulk generalist and Northline a targeted
-supplier. Offer totals are exact authored commercial truth, never derived from
-retail prices; presentation may derive exact average purchase cost per unit by
-dividing an offer's total cents by the sum of its represented quantities.
+`GameState.bookstoreRestock` is the narrow Bookstore-specific owner of current supply offers and placed restock orders, not a generic procurement framework. A Company acts as a supplier because an Offer names it as seller; Supplier inventory, reliability, production and logistics are unrepresented.
 
-`placeBookstoreRestockOrder` owns offer and Branch validation, derives current
-stock plus all in-transit units for shelf-capacity admission, and captures the
-seller/offer/merchandise display meaning and quantities of the purchase. Only
-after complete preflight does it ask `settleValidatedCompanyPurchase` to
-resolve buyer and seller through their current Treasury designations and
-execute exactly one canonical Civic Dollar movement for the offer total. That
-narrow settlement boundary owns no product, offer, order, delivery, stock, or
-amount choice. Treasury designation itself grants no spending authority: the
-validated represented Bookstore action is the cause. Restock funding follows
-Company Treasury independently of Branch sale settlement, and the Company
-named by the selected offer receives the exact real payment in its ordinary
-Treasury Account.
+Exactly two current Offers exist. Atlas Distribution's `Mixed Shelf Refill` is a fixed 16-Book Case for 14,000 cents with 30 represented minutes per Order. Northline Book Supply's `Title Case` is a fixed six-copy Case for 6,300 cents with 45 represented minutes per Order. Case size and price are Offer truth; positive safe-integer Case count is the Player purchase decision; Branch free capacity constrains the maximum count. Larger capacity never changes either Case. Units and price scale linearly by Case count while delivery duration does not.
 
-`placeBookstoreRestockOrderForDevice` is the narrow authorized entry boundary:
-the caller supplies only acting Device, Branch, and offer identities. The
-Branch resolves its owning Company, that Device must resolve exactly one active
-Company Administration Session for the Company, and then the existing
-Bookstore operation runs unchanged. The caller cannot name either Company or
-Treasury Account, an arbitrary destination, or an amount. Consequently this
-authority permits this supported represented purchase but creates no general
-Treasury-transfer authority; Bookstore still owns all offer, capacity, order,
-delivery, and stock semantics, while Company-to-Company settlement still owns
-current Treasury resolution and exact Civic Dollar movement.
+Atlas derives exact proposal lines only from current carried assortment. For every carried stable Book ID, projected stock is physical stock plus all captured `IN_TRANSIT` quantities from any Supplier. Each new unit goes to the lowest provisional projected stock; ties and final line order use stable Book ID. This deterministic derivation reads no Book Demand and Atlas cannot expand assortment.
 
-`placeBookstoreRestockOrderFromOperatedRemoteDevice` adds only current player
-operating context: `resolveActiveRemoteTarget` resolves the target Device from
-the active RemoteSession, and that Device is passed to the Device-level entry
-boundary. RemoteSession answers which Device is operated, never which Company
-it may administer. Disconnecting therefore removes no Company Administration
-Session. Likewise, removing the phone's independent FinancialSession neither
-removes Company administration nor changes restock funding: the Bookstore
-Treasury still pays the selected offer's seller Company, while the phone
-Account remains uninvolved.
+Northline permits exactly Northbound (`bookstore-merch-006`), A Map of Empty Rooms (`bookstore-merch-007`), Terminal Light (`bookstore-book-010`), Winter Circuit (`bookstore-book-012`), Signal House (`bookstore-book-018`), and East of the Grid (`bookstore-book-024`). This explicit Offer-owned sourceable set may include carried and uncarried Catalog Books but discloses no others. One targeted path handles both. An uncarried Book remains unsellable until canonical delivery adds its assortment identity once.
 
-Successful settlement creates one in-transit historical order referencing the
-Provider-owned Transaction; the order does not duplicate its paid amount.
-Current offers or names cannot rewrite captured order lines. Incoming units
-are derived from in-transit orders, remain separate from current sellable
-Operations stock, and reserve shelf capacity. Canonical advancement counts
-each order down and applies its captured quantities to Operations exactly once
-on `IN_TRANSIT -> DELIVERED`. Sales cadence segments that same advancement
-chronologically, so only delivered ordinary stock can be sold.
+The Bookstore-local proposal derives exact lines, total units, total price, delivery duration and capacity validity without mutation. VEYRA retains the exact reviewed proposal locally. Placement re-derives from current canonical truth and refuses atomically with `proposal_changed` when it differs. The caller supplies only acting context, Branch, legitimate Case-count/title decisions and reviewed-proposal proof; seller, Companies, Treasuries and amount are re-derived. Only after complete preflight does `settleValidatedCompanyPurchase` move the exact price from the buyer Company's current Treasury to the Offer seller Company's current Treasury.
 
-RACK-OS BUSINESS remains read-only. It may show derived incoming-unit and
-in-transit-order counts, but exposes neither live Treasury balance nor
-restock/payment controls: Treasury account-reference observation grants no
-finance authority, and it holds no Company Administration Session of its own.
+Successful settlement creates one `IN_TRANSIT` historical Order referencing the Provider-owned Transaction and capturing seller/Offer names, exact Book IDs/names/quantities, and duration. Current stock, Catalog names, or Offer terms cannot rewrite it. Incoming quantities are derived from captured in-transit lines and reserve shelf capacity. Canonical advancement applies only captured lines once on `IN_TRANSIT -> DELIVERED`; delivery never recomputes procurement composition.
 
-The VEYRA Business client is now the first management client that consumes this
-Business-owned authority (`docs/current/VEYRA_OS.md`). It creates and owns none
-of it. It resolves at most one administered Company from the operated Device's
-own Company Administration Sessions, states zero and ambiguous authority
-honestly instead of choosing, observes the Company's current Treasury balance
-through `resolveCompanyTreasuryAccount` without creating any Financial Session,
-Credential or transfer capability, and submits exactly one supported action —
-`placeBookstoreRestockOrderFromOperatedRemoteDevice`, naming only Branch and
-offer. Presentation causes no delivery, stock or settlement consequence of its
-own. Company selection, Branch selection and every other Company management
-action remain unimplemented.
+Company Administration and RemoteSession boundaries remain unchanged in ownership: the operated Device must hold the Branch Company's administration relationship, and operating context grants no finance authority. VEYRA Business is only the projection/client. RACK-OS BUSINESS remains read-only.
+
+Offer rotation, Supplier inventory/reliability, quantity discounts, Trends/market intelligence and generic procurement frameworks remain unimplemented. Book Demand affects ordinary sale-basket composition only and has no direct Supplier effect.
 
 ### Sale-opportunity cadence and Book Demand
 
@@ -871,18 +807,4 @@ implemented.
 
 ## Supplier catalog resolution and assortment expansion
 
-Atlas's two live offers retain their original eight identities, quantities,
-prices, and delivery durations. Northline's six live title-specific Cases expose
-only their six named Catalog Books and represented terms; they do not disclose
-any other uncarried Catalog entry. The current portfolio is static authored
-World Truth: offer rotation, availability lifecycles, supplier stock, and market
-refresh are unimplemented. Book Demand neither changes nor controls offers,
-their availability, prices, or delivery. Offer lines validate against the global Book
-Catalog, not the buyer Branch assortment or existing stock rows; a dangling
-Book identity invalidates the offer. Placement captures current Book titles in
-the immutable RestockOrder but does not add assortment or sellable stock. On
-the exact-once `IN_TRANSIT -> DELIVERED` transition, delivery adds each missing
-assortment identity once and creates or increments its Operations stock row.
-Multiple deliveries therefore share one assortment relation while quantities
-accumulate; a targeted Case for an already-carried Book only increases its
-stock. Current catalog title changes never rewrite captured order names.
+The two live Offers and their assortment rules are owned by the Bookstore supply section above. Northline's represented sourceable set exposes only six Catalog identities. Atlas resolves only current carried identities. Placement adds neither stock nor assortment; exact-once delivery applies captured lines, adds each missing Northline assortment identity once, and never recomputes from current Offer truth. Historical orders remain self-contained if Offers or Catalog names later change.

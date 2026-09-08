@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import type { PlaceOperatedBookstoreRestockOrderResult } from '../../core/game/companyAdministration'
+import { proposeBookstoreRestockOrder, type BookstoreOrderDecisions, type BookstoreOrderProposal } from '../../core/game/bookstoreRestock'
 import { formatDollarCents } from '../dollarFormat'
 import { projectVeyraBusiness, type VeyraBusinessBranchView, type VeyraBusinessCompanyView, type VeyraBusinessOfferView } from './veyraBusiness'
 import { VeyraIcon } from './VeyraIcon'
@@ -59,7 +60,9 @@ export function VeyraBusiness({ detail, onDetail }: {
     return <VeyraBusinessReview
       company={company}
       offer={reviewed}
-      place={() => placeBookstoreRestockOrderFromOperatedRemoteDevice(branch.branchId, reviewed.id)}
+      state={state}
+      branchId={branch.branchId}
+      place={(decisions, proposal) => placeBookstoreRestockOrderFromOperatedRemoteDevice(branch.branchId, decisions, proposal)}
       onPlaced={() => { setNotice(`Order placed with ${reviewed.sellerDisplayName}.`); onDetail(undefined) }}
       onCancel={() => onDetail(undefined)}
     />
@@ -87,12 +90,6 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
   onOffer: (offerId: string) => void
   onInventory: () => void
 }) {
-  const offerGroups = branch ? branch.offers.reduce<Array<[string, VeyraBusinessOfferView[]]>>((groups, offer) => {
-    const existing = groups.find(([sellerCompanyId]) => sellerCompanyId === offer.sellerCompanyId)
-    if (existing) existing[1].push(offer)
-    else groups.push([offer.sellerCompanyId, [offer]])
-    return groups
-  }, []) : []
   return <section className="veyra-screen" aria-label="Business">
     <p className="veyra-eyebrow">Company</p>
     <h1 className="veyra-title">{company.displayName}</h1>
@@ -124,22 +121,18 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
         <h2 className="veyra-section">Supply</h2>
         {branch.offers.length === 0
           ? <p className="veyra-empty">No supply offers are available.</p>
-          : <div className="veyra-supply-groups">
-            {offerGroups.map(([sellerCompanyId, offers]) => <section key={sellerCompanyId} aria-label={`${offers[0].sellerDisplayName} offers`}>
-              <h3 className="veyra-supplier">{offers[0].sellerDisplayName}</h3>
-              <div className="veyra-card veyra-card--rows">
-            {offers.map((offer) => <button className="veyra-row" type="button" key={offer.id} onClick={() => onOffer(offer.id)}>
+          : <div className="veyra-card veyra-card--rows">
+            {branch.offers.map((offer) => <button className="veyra-row" type="button" key={offer.id} onClick={() => onOffer(offer.id)}>
               <span className="veyra-row__copy">
                 <strong>{offer.displayName}</strong>
-                <small>{offer.totalUnits} units · {formatDollarCents(offer.averageUnitCostCents)}/unit · {formatDeliveryDuration(offer.deliveryDurationMs)}</small>
+                <small>{offer.sellerDisplayName}</small>
+                <small>{offer.caseSize} units / case · {formatDeliveryDuration(offer.deliveryDurationMs)}</small>
               </span>
               <span className="veyra-row__trail">
-                <span className="veyra-amount">{formatDollarCents(offer.totalPriceCents)}</span>
+                <span className="veyra-amount">From {formatDollarCents(offer.casePriceCents)}</span>
                 <VeyraIcon name="chevron" />
               </span>
             </button>)}
-              </div>
-            </section>)}
           </div>}
 
         <h2 className="veyra-section">Restock orders</h2>
@@ -185,22 +178,38 @@ function VeyraBusinessInventory({ branch, onBack }: { branch: VeyraBusinessBranc
  * both Treasuries and the amount all stay where they are owned. One rendered
  * review can commit at most one canonical order.
  */
-function VeyraBusinessReview({ company, offer, place, onPlaced, onCancel }: {
+function VeyraBusinessReview({ company, offer, state, branchId, place, onPlaced, onCancel }: {
   company: VeyraBusinessCompanyView
   offer: VeyraBusinessOfferView
-  place: () => PlaceOperatedBookstoreRestockOrderResult
+  state: ReturnType<typeof useGameState>
+  branchId: string
+  place: (decisions: BookstoreOrderDecisions, proposal: BookstoreOrderProposal) => PlaceOperatedBookstoreRestockOrderResult
   onPlaced: () => void
   onCancel: () => void
 }) {
   const [refusal, setRefusal] = useState<string>()
   const committed = useRef(false)
+  const [selectedBookId, setSelectedBookId] = useState(offer.sourceableBooks[0]?.merchandiseId)
+  const [caseCount, setCaseCount] = useState(1)
+  const derive = (count: number, bookId = selectedBookId) => proposeBookstoreRestockOrder(state, branchId, offer.id, { caseCount: count, selectedMerchandiseId: bookId })
+  const [reviewedProposal, setReviewedProposal] = useState<BookstoreOrderProposal | undefined>(() => { const result = derive(1); return result.status === 'proposed' ? result.proposal : undefined })
+
+  function changeProposal(count: number, bookId = selectedBookId) {
+    setCaseCount(count); setSelectedBookId(bookId); setRefusal(undefined)
+    const result = derive(count, bookId); setReviewedProposal(result.status === 'proposed' ? result.proposal : undefined)
+  }
 
   function placeOrder() {
     if (committed.current) return
     committed.current = true
-    const result = place()
+    if (!reviewedProposal) { committed.current = false; return setRefusal('Choose an order that fits the available shelf space.') }
+    const result = place({ caseCount, selectedMerchandiseId: selectedBookId }, reviewedProposal)
     if (result.status === 'ordered') return onPlaced()
     committed.current = false
+    if (result.status === 'proposal_changed') {
+      const updated = derive(caseCount)
+      setReviewedProposal(updated.status === 'proposed' ? updated.proposal : undefined)
+    }
     setRefusal(orderRefusal(result.status))
   }
 
@@ -209,20 +218,24 @@ function VeyraBusinessReview({ company, offer, place, onPlaced, onCancel }: {
     <h1 className="veyra-title">{offer.displayName}</h1>
 
     <div className="veyra-card veyra-balance">
-      <p className="veyra-figure">{formatDollarCents(offer.totalPriceCents)}</p>
-      <p className="veyra-figure-note">{offer.totalUnits} units · {formatDeliveryDuration(offer.deliveryDurationMs)} to deliver</p>
+      <p className="veyra-figure">{reviewedProposal ? formatDollarCents(reviewedProposal.totalPriceCents) : 'Unavailable'}</p>
+      <p className="veyra-figure-note">{reviewedProposal?.totalUnits ?? 0} units · {formatDeliveryDuration(offer.deliveryDurationMs)} to deliver</p>
     </div>
 
     <dl className="veyra-card veyra-card--rows veyra-terms">
       <div className="veyra-row veyra-row--static"><dt>Supplier</dt><dd>{offer.sellerDisplayName}</dd></div>
+      <div className="veyra-row veyra-row--static"><dt>Case</dt><dd>{offer.caseSize} units · {formatDollarCents(offer.casePriceCents)}</dd></div>
       <div className="veyra-row veyra-row--static"><dt>Average cost</dt><dd>{formatDollarCents(offer.averageUnitCostCents)} / unit</dd></div>
       <div className="veyra-row veyra-row--static"><dt>Company funds</dt><dd>{company.fundsCents === undefined ? 'Unavailable' : formatDollarCents(company.fundsCents)}</dd></div>
     </dl>
 
-    <h2 className="veyra-section">Included</h2>
+    {offer.kind === 'TITLE_CASE' && <label className="veyra-field"><span>Book</span><select className="veyra-input" value={selectedBookId} onChange={(event) => changeProposal(caseCount, event.target.value)}>{offer.sourceableBooks.map(book => <option key={book.merchandiseId} value={book.merchandiseId}>{book.name}</option>)}</select></label>}
+    <label className="veyra-field"><span>Cases (maximum {offer.maxOrderableCases})</span><input className="veyra-input" aria-label="Cases" type="number" inputMode="numeric" min="1" max={offer.maxOrderableCases} value={caseCount} onChange={(event) => changeProposal(Number(event.target.value))} /></label>
+
+    <h2 className="veyra-section">Order contents</h2>
     <dl className="veyra-card veyra-card--rows veyra-terms">
-      {offer.lines.map((line) => <div className="veyra-row veyra-row--static" key={line.merchandiseId}>
-        <dt>{line.name}</dt><dd>{line.quantity}</dd>
+      {reviewedProposal?.lines.map((line) => <div className="veyra-row veyra-row--static" key={line.merchandiseId}>
+        <dt>{line.capturedMerchandiseDisplayName}</dt><dd>+{line.quantity}</dd>
       </div>)}
     </dl>
 
@@ -252,6 +265,8 @@ function formatDeliveryDuration(ms: number): string {
 function orderRefusal(status: Exclude<PlaceOperatedBookstoreRestockOrderResult['status'], 'ordered'>): string {
   switch (status) {
     case 'capacity_exceeded': return 'There is not enough shelf space for this order.'
+    case 'invalid_decisions': return 'Choose a valid number of cases and book.'
+    case 'proposal_changed': return 'Order details changed. Review the updated order and confirm again.'
     case 'payment_refused': return 'The payment for this order was refused.'
     case 'offer_unavailable':
     case 'invalid_offer':
