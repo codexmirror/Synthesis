@@ -281,6 +281,8 @@ backend.
   `src/core/game/bookstoreCommerce.ts` (the one concrete branch-linked
   bookstore-commerce record), `src/core/game/bookstoreOperations.ts` (the
   separate concrete branch-linked bookstore-operations record),
+  `src/core/game/bookstoreMarket.ts` (global hidden Bookstore Genre Market
+  Pressure and Effective Demand derivation inputs),
   `src/core/game/bookstoreRestock.ts` (Bookstore-specific offers, orders,
   capacity admission, and delivery consequence),
   `src/core/game/businessPurchaseSettlement.ts` (current Company Treasury

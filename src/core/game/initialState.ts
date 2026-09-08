@@ -13,6 +13,7 @@ import { BUSINESS_1_0_INSTALLATION } from './businessSoftware'
 import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_MODEL } from './deviceModelIdentity'
 import { BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME, createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
+import { createInitialBookstoreMarketState } from './bookstoreMarket'
 import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
 import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence'
@@ -20,7 +21,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 84
+export const GAME_STATE_VERSION = 85
 
 export function createInitialGameState(): GameState {
   return {
@@ -98,6 +99,7 @@ export function createInitialGameState(): GameState {
     },
     business: createInitialBusinessState(),
     bookstoreCommerce: createInitialBookstoreCommerceState(),
+    bookstoreMarket: createInitialBookstoreMarketState(),
     bookstoreOperations: createInitialBookstoreOperationsState(),
     bookstoreRestock: createInitialBookstoreRestockState(),
     bookstoreBackend: createInitialBookstoreBackendState(),
