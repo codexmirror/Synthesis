@@ -87,6 +87,12 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
   onOffer: (offerId: string) => void
   onInventory: () => void
 }) {
+  const offerGroups = branch ? branch.offers.reduce<Array<[string, VeyraBusinessOfferView[]]>>((groups, offer) => {
+    const existing = groups.find(([sellerCompanyId]) => sellerCompanyId === offer.sellerCompanyId)
+    if (existing) existing[1].push(offer)
+    else groups.push([offer.sellerCompanyId, [offer]])
+    return groups
+  }, []) : []
   return <section className="veyra-screen" aria-label="Business">
     <p className="veyra-eyebrow">Company</p>
     <h1 className="veyra-title">{company.displayName}</h1>
@@ -118,18 +124,22 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
         <h2 className="veyra-section">Supply</h2>
         {branch.offers.length === 0
           ? <p className="veyra-empty">No supply offers are available.</p>
-          : <div className="veyra-card veyra-card--rows">
-            {branch.offers.map((offer) => <button className="veyra-row" type="button" key={offer.id} onClick={() => onOffer(offer.id)}>
+          : <div className="veyra-supply-groups">
+            {offerGroups.map(([sellerCompanyId, offers]) => <section key={sellerCompanyId} aria-label={`${offers[0].sellerDisplayName} offers`}>
+              <h3 className="veyra-supplier">{offers[0].sellerDisplayName}</h3>
+              <div className="veyra-card veyra-card--rows">
+            {offers.map((offer) => <button className="veyra-row" type="button" key={offer.id} onClick={() => onOffer(offer.id)}>
               <span className="veyra-row__copy">
                 <strong>{offer.displayName}</strong>
-                <small>{offer.sellerDisplayName}</small>
-                <small>{offer.totalUnits} units · {formatDeliveryDuration(offer.deliveryDurationMs)}</small>
+                <small>{offer.totalUnits} units · {formatDollarCents(offer.averageUnitCostCents)}/unit · {formatDeliveryDuration(offer.deliveryDurationMs)}</small>
               </span>
               <span className="veyra-row__trail">
                 <span className="veyra-amount">{formatDollarCents(offer.totalPriceCents)}</span>
                 <VeyraIcon name="chevron" />
               </span>
             </button>)}
+              </div>
+            </section>)}
           </div>}
 
         <h2 className="veyra-section">Restock orders</h2>
@@ -205,6 +215,7 @@ function VeyraBusinessReview({ company, offer, place, onPlaced, onCancel }: {
 
     <dl className="veyra-card veyra-card--rows veyra-terms">
       <div className="veyra-row veyra-row--static"><dt>Supplier</dt><dd>{offer.sellerDisplayName}</dd></div>
+      <div className="veyra-row veyra-row--static"><dt>Average cost</dt><dd>{formatDollarCents(offer.averageUnitCostCents)} / unit</dd></div>
       <div className="veyra-row veyra-row--static"><dt>Company funds</dt><dd>{company.fundsCents === undefined ? 'Unavailable' : formatDollarCents(company.fundsCents)}</dd></div>
     </dl>
 

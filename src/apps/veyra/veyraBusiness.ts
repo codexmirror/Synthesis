@@ -55,8 +55,12 @@ export interface VeyraBusinessInventoryView {
 export interface VeyraBusinessOfferView {
   readonly id: string
   readonly displayName: string
+  /** Stable identity of the represented Company selling this offer. */
+  readonly sellerCompanyId: string
   readonly sellerDisplayName: string
   readonly totalUnits: number
+  /** Exact average, derived from represented offer price and quantity. */
+  readonly averageUnitCostCents: number
   readonly totalPriceCents: number
   readonly deliveryDurationMs: number
   /** The bundle's own lines, named from the global Bookstore Book Catalog. */
@@ -127,7 +131,7 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
     // than presented without whose offer it is.
     offers: state.bookstoreRestock.offers.flatMap((offer) => {
       const sellers = state.business.companies.filter(({ id }) => id === offer.sellerCompanyId)
-      return sellers.length === 1 ? [projectOffer(offer, sellers[0].displayName, merchandiseName)] : []
+      return sellers.length === 1 ? [projectOffer(offer, sellers[0].id, sellers[0].displayName, merchandiseName)] : []
     }),
     orders: state.bookstoreRestock.orders
       .filter((order) => order.buyerBranchId === branch.id)
@@ -142,14 +146,17 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
   }
 }
 
-function projectOffer(offer: BookstoreSupplyOffer, sellerDisplayName: string, merchandiseName: (merchandiseId: string) => string | undefined): VeyraBusinessOfferView {
+function projectOffer(offer: BookstoreSupplyOffer, sellerCompanyId: string, sellerDisplayName: string, merchandiseName: (merchandiseId: string) => string | undefined): VeyraBusinessOfferView {
+  const totalUnits = offer.lines.reduce((sum, line) => sum + line.quantity, 0)
   return {
     id: offer.id,
     displayName: offer.displayName,
+    sellerCompanyId,
     sellerDisplayName,
     // The bundle's real total, summed from its own lines whether or not this
     // Branch currently names every one of them.
-    totalUnits: offer.lines.reduce((sum, line) => sum + line.quantity, 0),
+    totalUnits,
+    averageUnitCostCents: offer.totalPriceCents / totalUnits,
     totalPriceCents: offer.totalPriceCents,
     deliveryDurationMs: offer.deliveryDurationMs,
     lines: offer.lines.flatMap((line) => {

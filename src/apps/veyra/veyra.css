@@ -519,6 +519,8 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
 .veyra-update-banner__action:focus-visible { outline: 2px solid var(--veyra-ink); outline-offset: 2px; }
 
 .veyra-row__trail { display: inline-flex; align-items: center; gap: 10px; }
+.veyra-supply-groups { display: grid; gap: 14px; }
+.veyra-supplier { margin: 0 0 6px; color: var(--veyra-ink-mute); font: 600 .78rem/1.2 var(--veyra-sans); letter-spacing: .08em; text-transform: uppercase; }
 .veyra-badge { width: 9px; height: 9px; border-radius: 999px; background: var(--veyra-accent); }
 
 .veyra-release { padding: 20px; display: grid; gap: 6px; }

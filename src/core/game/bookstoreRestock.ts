@@ -6,7 +6,12 @@ import type { BookstoreRestockOrder, BookstoreRestockState, BookstoreSupplyOffer
 
 export const BOOKSTORE_COMPACT_REFILL_OFFER_ID = 'bookstore-supply-offer-atlas-compact-v0'
 export const BOOKSTORE_STANDARD_REFILL_OFFER_ID = 'bookstore-supply-offer-atlas-standard-v0'
-export const BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID = 'bookstore-supply-offer-northline-new-titles-v0'
+export const BOOKSTORE_NORTHLINE_NORTHBOUND_CASE_OFFER_ID = 'bookstore-supply-offer-northline-northbound-case-v0'
+export const BOOKSTORE_NORTHLINE_MAP_EMPTY_ROOMS_CASE_OFFER_ID = 'bookstore-supply-offer-northline-map-empty-rooms-case-v0'
+export const BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID = 'bookstore-supply-offer-northline-terminal-light-case-v0'
+export const BOOKSTORE_NORTHLINE_WINTER_CIRCUIT_CASE_OFFER_ID = 'bookstore-supply-offer-northline-winter-circuit-case-v0'
+export const BOOKSTORE_NORTHLINE_SIGNAL_HOUSE_CASE_OFFER_ID = 'bookstore-supply-offer-northline-signal-house-case-v0'
+export const BOOKSTORE_NORTHLINE_EAST_GRID_CASE_OFFER_ID = 'bookstore-supply-offer-northline-east-grid-case-v0'
 
 /** Atlas's authored commercial relationship, independent from every Branch assortment. */
 const ATLAS_REFILL_BOOK_IDS: readonly string[] = [
@@ -24,25 +29,29 @@ function authoredAtlasRefillOffer(id: string, displayName: string, quantity: num
   return { id, displayName, sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID, lines: ATLAS_REFILL_BOOK_IDS.map((merchandiseId) => ({ merchandiseId, quantity })), totalPriceCents, deliveryDurationMs }
 }
 
+function authoredNorthlineCase(id: string, displayName: string, merchandiseId: string, totalPriceCents: number): BookstoreSupplyOffer {
+  return {
+    id,
+    displayName,
+    sellerCompanyId: NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
+    lines: [{ merchandiseId, quantity: 6 }],
+    totalPriceCents,
+    deliveryDurationMs: 2_700_000,
+  }
+}
+
 export function createInitialBookstoreRestockState(): BookstoreRestockState {
   return {
     nextOrderId: 1,
     offers: [
       authoredAtlasRefillOffer(BOOKSTORE_COMPACT_REFILL_OFFER_ID, 'Compact Shelf Refill', 2, 14_000, 1_800_000),
       authoredAtlasRefillOffer(BOOKSTORE_STANDARD_REFILL_OFFER_ID, 'Standard Shelf Refill', 5, 34_000, 3_600_000),
-      {
-        id: BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID,
-        displayName: 'New Titles Pack',
-        sellerCompanyId: NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
-        lines: [
-          { merchandiseId: 'bookstore-book-010', quantity: 3 },
-          { merchandiseId: 'bookstore-book-009', quantity: 3 },
-          { merchandiseId: 'bookstore-book-011', quantity: 3 },
-          { merchandiseId: 'bookstore-book-013', quantity: 3 },
-        ],
-        totalPriceCents: 12_000,
-        deliveryDurationMs: 2_700_000,
-      },
+      authoredNorthlineCase(BOOKSTORE_NORTHLINE_NORTHBOUND_CASE_OFFER_ID, 'Northbound Case', 'bookstore-merch-006', 6_000),
+      authoredNorthlineCase(BOOKSTORE_NORTHLINE_MAP_EMPTY_ROOMS_CASE_OFFER_ID, 'A Map of Empty Rooms Case', 'bookstore-merch-007', 6_600),
+      authoredNorthlineCase(BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID, 'Terminal Light Case', 'bookstore-book-010', 6_300),
+      authoredNorthlineCase(BOOKSTORE_NORTHLINE_WINTER_CIRCUIT_CASE_OFFER_ID, 'Winter Circuit Case', 'bookstore-book-012', 6_300),
+      authoredNorthlineCase(BOOKSTORE_NORTHLINE_SIGNAL_HOUSE_CASE_OFFER_ID, 'Signal House Case', 'bookstore-book-018', 6_600),
+      authoredNorthlineCase(BOOKSTORE_NORTHLINE_EAST_GRID_CASE_OFFER_ID, 'East of the Grid Case', 'bookstore-book-024', 6_600),
     ],
     orders: [],
   }

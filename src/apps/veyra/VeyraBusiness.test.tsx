@@ -169,6 +169,10 @@ describe('VEYRA Business surface', () => {
     expect(business).toHaveTextContent('30 minutes')
     expect(business).toHaveTextContent('Standard Shelf Refill')
     expect(business).toHaveTextContent('$340.00')
+    expect(within(business).getByRole('region', { name: 'Atlas Distribution offers' })).toHaveTextContent('$8.75/unit')
+    expect(within(business).getByRole('region', { name: 'Northline Book Supply offers' })).toHaveTextContent('Winter Circuit Case')
+    expect(within(business).getByRole('region', { name: 'Northline Book Supply offers' })).toHaveTextContent('$10.50/unit')
+    expect(business.textContent).not.toContain('New Titles Pack')
 
     // No invented metric of any kind.
     expect(business.textContent).not.toMatch(/health|efficiency|forecast|projected|profit|margin|rating|valuation|recommend/i)
@@ -189,6 +193,26 @@ describe('VEYRA Business surface', () => {
     expect(business.textContent).not.toContain(`$${(balance(undesignated, PHONE_ACCOUNT_ID) / 100).toFixed(2)}`)
   })
 
+  it('keeps seller groups separate by stable Company identity when display names collide', async () => {
+    const connected = phoneConnectedState(earnRestockPrice(createInitialGameState()))
+    const sameNames: GameState = {
+      ...connected,
+      business: {
+        ...connected.business,
+        companies: connected.business.companies.map((company) =>
+          company.id === ATLAS_DISTRIBUTION_COMPANY_ID ? { ...company, displayName: 'Northline Book Supply' } : company),
+      },
+    }
+    await openBusiness(sameNames)
+
+    const groups = screen.getAllByRole('region', { name: 'Northline Book Supply offers' })
+    expect(groups).toHaveLength(2)
+    expect(groups[0]).toHaveTextContent('Compact Shelf Refill')
+    expect(groups[0]).not.toHaveTextContent('Northbound Case')
+    expect(groups[1]).toHaveTextContent('Northbound Case')
+    expect(groups[1]).not.toHaveTextContent('Compact Shelf Refill')
+  })
+
   it('reviews an offer without mutating any canonical state', async () => {
     const user = await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
     const before = canonicalSettled()
@@ -199,6 +223,7 @@ describe('VEYRA Business surface', () => {
     expect(review).toHaveTextContent('$140.00')
     expect(review).toHaveTextContent('16 units')
     expect(review).toHaveTextContent('30 minutes')
+    expect(review).toHaveTextContent('$8.75 / unit')
     expect(review).toHaveTextContent('Night Transit')
     expect(canonicalSettled()).toEqual(before)
 
@@ -206,15 +231,14 @@ describe('VEYRA Business surface', () => {
     expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
     expect(canonicalSettled()).toEqual(before)
 
-    await user.click(screen.getByRole('button', { name: /New Titles Pack/ }))
+    await user.click(screen.getByRole('button', { name: /Terminal Light Case/ }))
     const northlineReview = screen.getByRole('region', { name: 'Review order' })
     expect(northlineReview).toHaveTextContent('Northline Book Supply')
-    expect(northlineReview).toHaveTextContent('$120.00')
-    expect(northlineReview).toHaveTextContent('12 units')
+    expect(northlineReview).toHaveTextContent('$63.00')
+    expect(northlineReview).toHaveTextContent('6 units')
     expect(northlineReview).toHaveTextContent('45 minutes')
-    for (const title of ['Terminal Light', 'Red Harbor', 'Field Notes', 'Borrowed Signal']) {
-      expect(northlineReview).toHaveTextContent(title)
-    }
+    expect(northlineReview).toHaveTextContent('$10.50 / unit')
+    expect(northlineReview).toHaveTextContent('Terminal Light')
     expect(northlineReview).not.toHaveTextContent('Winter Circuit')
     expect(canonicalSettled()).toEqual(before)
   })
@@ -253,23 +277,23 @@ describe('VEYRA Business surface', () => {
       const funded = earnRestockPrice(createInitialGameState())
       const user = await openBusiness(phoneConnectedState(funded), userEvent.setup({ advanceTimers: vi.advanceTimersByTime }))
       const before = canonical()
-      expect(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBeGreaterThanOrEqual(12_000)
+      expect(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBeGreaterThanOrEqual(6_300)
       const phoneBefore = balance(before, PHONE_ACCOUNT_ID)
       const stockBefore = totalStock(before)
 
-      await user.click(screen.getByRole('button', { name: /New Titles Pack/ }))
+      await user.click(screen.getByRole('button', { name: /Terminal Light Case/ }))
       await user.click(screen.getByRole('button', { name: 'Place order' }))
 
       // The order exists, the Bookstore Treasury paid Northline exactly, and the phone Account funded nothing.
       const placed = canonical()
       expect(placed.bookstoreRestock.orders).toHaveLength(1)
       expect(placed.bookstoreRestock.orders[0].status).toBe('IN_TRANSIT')
-      expect(balance(placed, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID) - 12_000)
-      expect(balance(placed, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID)).toBe(balance(before, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID) + 12_000)
+      expect(balance(placed, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID) - 6_300)
+      expect(balance(placed, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID)).toBe(balance(before, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID) + 6_300)
       expect(balance(placed, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(balance(before, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID))
       expect(balance(placed, PHONE_ACCOUNT_ID)).toBe(phoneBefore)
       expect(placed.dollarFinance.transactions.records.at(-1)).toMatchObject({
-        sourceAccountId: BOOKSTORE_TREASURY_ACCOUNT_ID, destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID, amountCents: 12_000,
+        sourceAccountId: BOOKSTORE_TREASURY_ACCOUNT_ID, destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID, amountCents: 6_300,
       })
       // Paid for is not yet sellable.
       expect(totalStock(placed)).toBe(stockBefore)
@@ -277,7 +301,7 @@ describe('VEYRA Business surface', () => {
       const ordered = screen.getByRole('region', { name: 'Business' })
       expect(ordered).toHaveTextContent('Order placed with Northline Book Supply.')
       expect(ordered).toHaveTextContent('In transit')
-      expect(ordered).toHaveTextContent('New Titles Pack')
+      expect(ordered).toHaveTextContent('Terminal Light Case')
 
       // Canonical advancement alone delivers it; the client causes nothing.
       await act(async () => { vi.advanceTimersByTime(2_700_000) })
@@ -285,8 +309,8 @@ describe('VEYRA Business surface', () => {
       expect(delivered.bookstoreRestock.orders[0].status).toBe('DELIVERED')
       expect(screen.getByRole('region', { name: 'Business' })).toHaveTextContent('Delivered')
       // Delivery landed in Bookstore Operations, which ordinary sales then keep consuming.
-      expect(delivered.bookstoreRestock.orders[0].lines.reduce((sum, line) => sum + line.quantity, 0)).toBe(12)
-      expect(delivered.bookstoreCommerce.records[0].assortment).toHaveLength(12)
+      expect(delivered.bookstoreRestock.orders[0].lines.reduce((sum, line) => sum + line.quantity, 0)).toBe(6)
+      expect(delivered.bookstoreCommerce.records[0].assortment).toHaveLength(9)
       expect(totalStock(delivered)).toBeGreaterThan(stockBefore - 12)
     } finally {
       vi.useRealTimers()

@@ -3,7 +3,7 @@ import { ATLAS_DISTRIBUTION_COMPANY_ID, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID, 
 import { executeBookstoreSale } from './bookstoreSale'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
-import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID, BOOKSTORE_STANDARD_REFILL_OFFER_ID, deriveBookstoreIncomingStock, placeBookstoreRestockOrder } from './bookstoreRestock'
+import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, BOOKSTORE_NORTHLINE_EAST_GRID_CASE_OFFER_ID, BOOKSTORE_NORTHLINE_MAP_EMPTY_ROOMS_CASE_OFFER_ID, BOOKSTORE_NORTHLINE_NORTHBOUND_CASE_OFFER_ID, BOOKSTORE_NORTHLINE_SIGNAL_HOUSE_CASE_OFFER_ID, BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID, BOOKSTORE_NORTHLINE_WINTER_CIRCUIT_CASE_OFFER_ID, BOOKSTORE_STANDARD_REFILL_OFFER_ID, deriveBookstoreIncomingStock, placeBookstoreRestockOrder } from './bookstoreRestock'
 import { deriveBookstoreTotalStock, findBookstoreStockQuantity } from './bookstoreOperations'
 import type { GameState } from './types'
 
@@ -27,26 +27,31 @@ function balance(state: GameState, id: string): number {
 }
 
 describe('Bookstore restock represented truth', () => {
-  it('seeds the unchanged Atlas offers and one ordinary Northline offer', () => {
+  it('seeds two unchanged Atlas bundles and exactly six title-specific Northline cases', () => {
     const state = createInitialGameState()
-    expect(state.bookstoreRestock.offers).toHaveLength(3)
-    expect(state.bookstoreRestock.offers.map((offer) => ({ id: offer.id, seller: offer.sellerCompanyId, units: offer.lines.reduce((sum, line) => sum + line.quantity, 0), price: offer.totalPriceCents, duration: offer.deliveryDurationMs }))).toEqual([
-      { id: BOOKSTORE_COMPACT_REFILL_OFFER_ID, seller: ATLAS_DISTRIBUTION_COMPANY_ID, units: 16, price: 14_000, duration: 1_800_000 },
-      { id: BOOKSTORE_STANDARD_REFILL_OFFER_ID, seller: ATLAS_DISTRIBUTION_COMPANY_ID, units: 40, price: 34_000, duration: 3_600_000 },
-      { id: BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID, seller: NORTHLINE_BOOK_SUPPLY_COMPANY_ID, units: 12, price: 12_000, duration: 2_700_000 },
-    ])
+    expect(state.bookstoreRestock.offers).toHaveLength(8)
     const intendedIds = [
       'bookstore-merch-001', 'bookstore-merch-002', 'bookstore-merch-003', 'bookstore-merch-004',
       'bookstore-merch-005', 'bookstore-merch-006', 'bookstore-merch-007', 'bookstore-merch-008',
     ]
-    expect(state.bookstoreRestock.offers[0].lines).toEqual(intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 2 })))
-    expect(state.bookstoreRestock.offers[1].lines).toEqual(intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 5 })))
-    expect(state.bookstoreRestock.offers[2].lines).toEqual([
-      { merchandiseId: 'bookstore-book-010', quantity: 3 },
-      { merchandiseId: 'bookstore-book-009', quantity: 3 },
-      { merchandiseId: 'bookstore-book-011', quantity: 3 },
-      { merchandiseId: 'bookstore-book-013', quantity: 3 },
+    expect(state.bookstoreRestock.offers.slice(0, 2)).toEqual([
+      { id: BOOKSTORE_COMPACT_REFILL_OFFER_ID, displayName: 'Compact Shelf Refill', sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID, lines: intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 2 })), totalPriceCents: 14_000, deliveryDurationMs: 1_800_000 },
+      { id: BOOKSTORE_STANDARD_REFILL_OFFER_ID, displayName: 'Standard Shelf Refill', sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID, lines: intendedIds.map((merchandiseId) => ({ merchandiseId, quantity: 5 })), totalPriceCents: 34_000, deliveryDurationMs: 3_600_000 },
     ])
+    const northlineTerms = [
+      [BOOKSTORE_NORTHLINE_NORTHBOUND_CASE_OFFER_ID, 'Northbound Case', 'bookstore-merch-006', 6_000],
+      [BOOKSTORE_NORTHLINE_MAP_EMPTY_ROOMS_CASE_OFFER_ID, 'A Map of Empty Rooms Case', 'bookstore-merch-007', 6_600],
+      [BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID, 'Terminal Light Case', 'bookstore-book-010', 6_300],
+      [BOOKSTORE_NORTHLINE_WINTER_CIRCUIT_CASE_OFFER_ID, 'Winter Circuit Case', 'bookstore-book-012', 6_300],
+      [BOOKSTORE_NORTHLINE_SIGNAL_HOUSE_CASE_OFFER_ID, 'Signal House Case', 'bookstore-book-018', 6_600],
+      [BOOKSTORE_NORTHLINE_EAST_GRID_CASE_OFFER_ID, 'East of the Grid Case', 'bookstore-book-024', 6_600],
+    ] as const
+    expect(state.bookstoreRestock.offers.slice(2)).toEqual(northlineTerms.map(([id, displayName, merchandiseId, totalPriceCents]) => ({
+      id, displayName, sellerCompanyId: NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
+      lines: [{ merchandiseId, quantity: 6 }], totalPriceCents, deliveryDurationMs: 2_700_000,
+    })))
+    expect(state.bookstoreRestock.offers.some(({ id, displayName }) => id === 'bookstore-supply-offer-northline-new-titles-v0' || displayName === 'New Titles Pack')).toBe(false)
+    expect(state.bookstoreRestock.offers.map((offer) => offer.totalPriceCents / offer.lines.reduce((sum, line) => sum + line.quantity, 0))).toEqual([875, 850, 1_000, 1_100, 1_050, 1_050, 1_100, 1_100])
   })
 
   it('fails closed atomically when global Book identity is ambiguous', () => {
@@ -92,17 +97,31 @@ describe('Bookstore restock represented truth', () => {
 
   it('accumulates repeated Northline purchases only in Northline Treasury', () => {
     const funded = earn(createInitialGameState(), 12)
-    const first = placeBookstoreRestockOrder(funded, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID)
+    const first = placeBookstoreRestockOrder(funded, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID)
     if (first.status !== 'ordered') throw new Error('expected first Northline order')
-    const second = placeBookstoreRestockOrder(first.state, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID)
+    const second = placeBookstoreRestockOrder(first.state, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID)
     expect(second.status).toBe('ordered')
     if (second.status !== 'ordered') throw new Error('expected second Northline order')
-    expect(balance(second.state, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID)).toBe(24_000)
+    expect(balance(second.state, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID)).toBe(12_600)
     expect(balance(second.state, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(0)
     expect(second.state.dollarFinance.transactions.records.slice(-2).map(({ destinationAccountId, amountCents }) => ({ destinationAccountId, amountCents }))).toEqual([
-      { destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID, amountCents: 12_000 },
-      { destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID, amountCents: 12_000 },
+      { destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID, amountCents: 6_300 },
+      { destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID, amountCents: 6_300 },
     ])
+  })
+
+  it('delivers a targeted carried-title case without changing assortment identity', () => {
+    const funded = earn(createInitialGameState(), 3)
+    const stockBefore = findBookstoreStockQuantity(funded.bookstoreOperations.records[0], 'bookstore-merch-006')
+    const placed = placeBookstoreRestockOrder(funded, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_NORTHBOUND_CASE_OFFER_ID)
+    if (placed.status !== 'ordered') throw new Error('expected Northbound case')
+    expect(findBookstoreStockQuantity(placed.state.bookstoreOperations.records[0], 'bookstore-merch-006')).toBe(stockBefore)
+    expect(placed.state.bookstoreCommerce.records[0].assortment).toHaveLength(8)
+    const quiet: GameState = { ...placed.state, bookstoreSalesCadence: { records: placed.state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
+    const delivered = advanceGameState(quiet, 2_700_000)
+    expect(findBookstoreStockQuantity(delivered.bookstoreOperations.records[0], 'bookstore-merch-006')).toBe(stockBefore + 6)
+    expect(delivered.bookstoreCommerce.records[0].assortment).toHaveLength(8)
+    expect(delivered.bookstoreCommerce.records[0].assortment.filter((id) => id === 'bookstore-merch-006')).toHaveLength(1)
   })
 
   it('resolves future purchase Accounts from Treasury designations, independently of Branch settlement', () => {
@@ -139,11 +158,11 @@ describe('Bookstore restock represented truth', () => {
     const funded = earn(createInitialGameState(), 24)
     const first = placeBookstoreRestockOrder(funded, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
     if (first.status !== 'ordered') throw new Error('expected first order')
-    const second = placeBookstoreRestockOrder(first.state, BOOKSTORE_BRANCH_ID, BOOKSTORE_STANDARD_REFILL_OFFER_ID)
+    const second = placeBookstoreRestockOrder(first.state, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_NORTHBOUND_CASE_OFFER_ID)
     expect(second.status).toBe('ordered')
     if (second.status !== 'ordered') throw new Error('expected second order')
     expect(second.state.bookstoreRestock.orders).toHaveLength(2)
-    expect(deriveBookstoreIncomingStock(second.state, BOOKSTORE_BRANCH_ID)).toBe(56)
+    expect(deriveBookstoreIncomingStock(second.state, BOOKSTORE_BRANCH_ID)).toBe(22)
     expect(second.state.bookstoreRestock).not.toHaveProperty('incomingStock')
   })
 
@@ -196,57 +215,62 @@ describe('Bookstore restock represented truth', () => {
 describe('Bookstore assortment expansion', () => {
   it('routes Northline orders through ordinary settlement, delivery, assortment, and sale paths', () => {
     const initial = createInitialGameState()
-    const funded = earn(initial, 6)
-    expect(balance(funded, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(12_000)
+    const funded = earn(initial, 7)
+    expect(balance(funded, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(14_000)
     expect(funded.bookstoreCommerce.records[0].assortment).toHaveLength(8)
 
     const transactionsBefore = funded.dollarFinance.transactions.records.length
-    const placed = placeBookstoreRestockOrder(funded, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID)
+    const placed = placeBookstoreRestockOrder(funded, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID)
     expect(placed.status).toBe('ordered')
     if (placed.status !== 'ordered') throw new Error('expected Northline order')
-    expect(balance(placed.state, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(0)
-    expect(balance(placed.state, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID)).toBe(12_000)
+    expect(balance(placed.state, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(7_700)
+    expect(balance(placed.state, NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID)).toBe(6_300)
     expect(balance(placed.state, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(0)
     expect(placed.state.dollarFinance.transactions.records).toHaveLength(transactionsBefore + 1)
     expect(placed.state.dollarFinance.transactions.records.at(-1)).toMatchObject({
       sourceAccountId: BOOKSTORE_TREASURY_ACCOUNT_ID,
       destinationAccountId: NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID,
-      amountCents: 12_000,
+      amountCents: 6_300,
     })
     expect(placed.state.bookstoreRestock.orders.at(-1)).toMatchObject({
       status: 'IN_TRANSIT', sellerCompanyId: NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
-      capturedSellerDisplayName: 'Northline Book Supply', capturedOfferDisplayName: 'New Titles Pack',
+      capturedSellerDisplayName: 'Northline Book Supply', capturedOfferDisplayName: 'Terminal Light Case',
       capturedDeliveryDurationMs: 2_700_000, remainingDeliveryMs: 2_700_000,
     })
-    expect(deriveBookstoreIncomingStock(placed.state, BOOKSTORE_BRANCH_ID)).toBe(12)
+    expect(deriveBookstoreIncomingStock(placed.state, BOOKSTORE_BRANCH_ID)).toBe(6)
     expect(placed.state.bookstoreCommerce.records[0].assortment).toHaveLength(8)
-    for (const id of ['bookstore-book-010', 'bookstore-book-009', 'bookstore-book-011', 'bookstore-book-013']) {
-      expect(findBookstoreStockQuantity(placed.state.bookstoreOperations.records[0], id)).toBe(0)
-    }
+    expect(findBookstoreStockQuantity(placed.state.bookstoreOperations.records[0], 'bookstore-book-010')).toBe(0)
 
     const historical = placed.state.bookstoreRestock.orders.at(-1)!
     const renamed: GameState = {
       ...placed.state,
       business: { ...placed.state.business, companies: placed.state.business.companies.map((company) => company.id === NORTHLINE_BOOK_SUPPLY_COMPANY_ID ? { ...company, displayName: 'Renamed Northline' } : company) },
       bookstoreCommerce: { ...placed.state.bookstoreCommerce, bookCatalog: placed.state.bookstoreCommerce.bookCatalog.map((book) => book.id === 'bookstore-book-010' ? { ...book, name: 'Renamed Terminal Light' } : book) },
-      bookstoreRestock: { ...placed.state.bookstoreRestock, offers: placed.state.bookstoreRestock.offers.map((offer) => offer.id === BOOKSTORE_NORTHLINE_NEW_TITLES_OFFER_ID ? { ...offer, displayName: 'Changed Pack' } : offer) },
+      bookstoreRestock: { ...placed.state.bookstoreRestock, offers: placed.state.bookstoreRestock.offers.filter((offer) => offer.id !== BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID) },
     }
     expect(renamed.bookstoreRestock.orders.at(-1)).toBe(historical)
     expect(historical.lines[0].capturedMerchandiseDisplayName).toBe('Terminal Light')
 
     const isolated: GameState = { ...placed.state, bookstoreSalesCadence: { records: placed.state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
     const delivered = advanceGameState(isolated, 2_700_000, () => 0.5, () => 0.5, () => 0.5)
-    expect(delivered.bookstoreCommerce.records[0].assortment).toHaveLength(12)
+    expect(delivered.bookstoreCommerce.records[0].assortment).toHaveLength(9)
     expect(deriveBookstoreIncomingStock(delivered, BOOKSTORE_BRANCH_ID)).toBe(0)
-    for (const id of ['bookstore-book-010', 'bookstore-book-009', 'bookstore-book-011', 'bookstore-book-013']) {
-      expect(findBookstoreStockQuantity(delivered.bookstoreOperations.records[0], id)).toBe(3)
-    }
+    expect(findBookstoreStockQuantity(delivered.bookstoreOperations.records[0], 'bookstore-book-010')).toBe(6)
 
-    const samples = [0, 0.76]
-    const sold = executeBookstoreSale(delivered, BOOKSTORE_BRANCH_ID, () => samples.shift() ?? 0)
+    const second = placeBookstoreRestockOrder(delivered, BOOKSTORE_BRANCH_ID, BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID)
+    if (second.status !== 'ordered') throw new Error('expected repeat Terminal Light case')
+    const deliveredAgain = advanceGameState({ ...second.state, bookstoreSalesCadence: isolated.bookstoreSalesCadence }, 2_700_000)
+    expect(deliveredAgain.bookstoreCommerce.records[0].assortment).toHaveLength(9)
+    expect(deliveredAgain.bookstoreCommerce.records[0].assortment.filter((id) => id === 'bookstore-book-010')).toHaveLength(1)
+    expect(findBookstoreStockQuantity(deliveredAgain.bookstoreOperations.records[0], 'bookstore-book-010')).toBe(12)
+
+    const terminalOnly: GameState = { ...deliveredAgain, bookstoreOperations: { records: deliveredAgain.bookstoreOperations.records.map((record) => ({
+      ...record, stock: record.stock.map((entry) => entry.merchandiseId === 'bookstore-book-010' ? entry : { ...entry, quantity: 0 }),
+    })) } }
+    const sold = executeBookstoreSale(terminalOnly, BOOKSTORE_BRANCH_ID, () => 0)
     expect(sold.status).toBe('sold')
     if (sold.status !== 'sold') throw new Error('expected sale of newly carried title')
-    expect(findBookstoreStockQuantity(sold.state.bookstoreOperations.records[0], 'bookstore-book-010')).toBe(2)
+    expect(findBookstoreStockQuantity(sold.state.bookstoreOperations.records[0], 'bookstore-book-010')).toBe(11)
     expect(sold.state.bookstoreCommerce.records[0].completedSales.at(-1)?.lines).toEqual([
       { merchandiseId: 'bookstore-book-010', capturedName: 'Terminal Light', quantity: 1, capturedUnitPriceCents: 1_649 },
     ])
