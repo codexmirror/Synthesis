@@ -14,7 +14,7 @@ import {
   BOOKSTORE_PHONE_ADMINISTRATION_SESSION_ID,
   BOOKSTORE_TREASURY_ACCOUNT_ID,
 } from './business'
-import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, proposeBookstoreRestockOrder } from './bookstoreRestock'
+import { BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, proposeBookstoreRestockOrder } from './bookstoreRestock'
 import { executeBookstoreSale } from './bookstoreSale'
 
 function reviewed(state: GameState, branchId: string, offerId: string) { const result = proposeBookstoreRestockOrder(state, branchId, offerId, { caseCount: 1 }); if (result.status !== 'proposed') throw new Error(result.status); return result.proposal }
@@ -185,7 +185,7 @@ describe('Company Administration Session', () => {
     const earned = earnRestockPrice(createInitialGameState())
     const signedOutPhone: GameState = { ...earned, dollarFinance: { ...earned.dollarFinance, sessions: { ...earned.dollarFinance.sessions, active: earned.dollarFinance.sessions.active.filter(({ clientDeviceId }) => clientDeviceId !== PHONE_ID) } } }
     const phoneBalance = signedOutPhone.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')!.balanceCents
-    const result = placeBookstoreRestockOrderForDevice(signedOutPhone, PHONE_ID, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    const result = placeBookstoreRestockOrderForDevice(signedOutPhone, PHONE_ID, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(result.status).toBe('ordered')
     if (result.status !== 'ordered') throw new Error('expected order')
     expect(result.state.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_TREASURY_ACCOUNT_ID)?.balanceCents).toBe(0)
@@ -198,7 +198,7 @@ describe('Company Administration Session', () => {
     const earned = earnRestockPrice(createInitialGameState())
     const phoneOperated = operating(withoutAdministration(earned), PHONE_ID, 'service-ssh-003', '198.51.100.61')
     const phoneSnapshot = structuredClone(phoneOperated)
-    const phoneResult = placeBookstoreRestockOrderFromOperatedRemoteDevice(phoneOperated, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    const phoneResult = placeBookstoreRestockOrderFromOperatedRemoteDevice(phoneOperated, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(phoneResult).toEqual({ status: 'administration_unavailable', state: phoneOperated })
     expect(phoneResult.state).toBe(phoneOperated)
     expect(phoneOperated).toEqual(phoneSnapshot)
@@ -207,7 +207,7 @@ describe('Company Administration Session', () => {
     const operated = operating(withoutAdministration(earned), OPS_ID, 'service-ssh-004', '203.0.113.43')
     const input: GameState = { ...operated, networkManagement: { ...operated.networkManagement, established: [...operated.networkManagement.established, { id: 'network-management-bookstore-fixture', deviceId: OPS_ID, networkId: 'network-foreign-001' }] } }
     const snapshot = structuredClone(input)
-    const result = placeBookstoreRestockOrderFromOperatedRemoteDevice(input, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    const result = placeBookstoreRestockOrderFromOperatedRemoteDevice(input, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(result).toEqual({ status: 'administration_unavailable', state: input })
     expect(result.state).toBe(input)
     expect(input).toEqual(snapshot)
@@ -216,11 +216,11 @@ describe('Company Administration Session', () => {
   it('uses RemoteSession only to resolve the acting Device and proves the living sales-to-order path', () => {
     const earned = earnRestockPrice(createInitialGameState())
     const transactionsBefore = earned.dollarFinance.transactions.records.length
-    const withoutRemote = placeBookstoreRestockOrderFromOperatedRemoteDevice(earned, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    const withoutRemote = placeBookstoreRestockOrderFromOperatedRemoteDevice(earned, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(withoutRemote).toEqual({ status: 'session_unavailable', state: earned })
 
     const operated = operating(earned, PHONE_ID, 'service-ssh-003', '198.51.100.61')
-    const result = placeBookstoreRestockOrderFromOperatedRemoteDevice(operated, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    const result = placeBookstoreRestockOrderFromOperatedRemoteDevice(operated, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(result.status).toBe('ordered')
     if (result.status !== 'ordered') throw new Error('expected order')
     expect(result.state.bookstoreRestock.orders).toHaveLength(1)
@@ -236,6 +236,6 @@ describe('Company Administration Session', () => {
     expect(alternate.deviceType).not.toBe('PHONE')
     expect(alternate.firmware?.name).not.toBe('VEYRA OS')
     const represented: GameState = { ...earned, business: { ...earned.business, administrationSessions: [{ id: 'company-administration-session-alternate-v0', clientDeviceId: alternateId, companyId: BOOKSTORE_COMPANY_ID }] } }
-    expect(placeBookstoreRestockOrderForDevice(represented, alternateId, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID).status).toBe('ordered')
+    expect(placeBookstoreRestockOrderForDevice(represented, alternateId, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID).status).toBe('ordered')
   })
 })

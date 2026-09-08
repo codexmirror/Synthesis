@@ -6,16 +6,6 @@ import type { BookstoreRestockOrder, BookstoreRestockState, BookstoreSupplyOffer
 
 export const BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID = 'bookstore-supply-offer-atlas-mixed-shelf-refill-v0'
 export const BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID = 'bookstore-supply-offer-northline-title-case-v0'
-/** @deprecated Compile-time migration aliases; both name the current durable Atlas offer. */
-export const BOOKSTORE_COMPACT_REFILL_OFFER_ID = BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID
-export const BOOKSTORE_STANDARD_REFILL_OFFER_ID = BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID
-/** @deprecated Compile-time migration aliases; title choice now belongs to the purchase decision. */
-export const BOOKSTORE_NORTHLINE_NORTHBOUND_CASE_OFFER_ID = BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID
-export const BOOKSTORE_NORTHLINE_MAP_EMPTY_ROOMS_CASE_OFFER_ID = BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID
-export const BOOKSTORE_NORTHLINE_TERMINAL_LIGHT_CASE_OFFER_ID = BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID
-export const BOOKSTORE_NORTHLINE_WINTER_CIRCUIT_CASE_OFFER_ID = BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID
-export const BOOKSTORE_NORTHLINE_SIGNAL_HOUSE_CASE_OFFER_ID = BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID
-export const BOOKSTORE_NORTHLINE_EAST_GRID_CASE_OFFER_ID = BOOKSTORE_NORTHLINE_TITLE_CASE_OFFER_ID
 export const NORTHLINE_SOURCEABLE_BOOK_IDS = ['bookstore-merch-006', 'bookstore-merch-007', 'bookstore-book-010', 'bookstore-book-012', 'bookstore-book-018', 'bookstore-book-024'] as const
 
 export function createInitialBookstoreRestockState(): BookstoreRestockState {
@@ -43,7 +33,9 @@ export function deriveBookstoreMaxOrderableCases(state: GameState, branchId: str
 
 function offerValid(state: GameState, offer: BookstoreSupplyOffer): boolean {
   if (!isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog) || !Number.isSafeInteger(offer.caseSize) || offer.caseSize <= 0 || !Number.isSafeInteger(offer.casePriceCents) || offer.casePriceCents <= 0 || !Number.isFinite(offer.deliveryDurationMs) || offer.deliveryDurationMs <= 0) return false
-  return offer.kind === 'MIXED_SHELF_REFILL' ? offer.sourceableMerchandiseIds.length === 0 : offer.sourceableMerchandiseIds.length > 0 && new Set(offer.sourceableMerchandiseIds).size === offer.sourceableMerchandiseIds.length && offer.sourceableMerchandiseIds.every(id => resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, id))
+  if (offer.kind === 'MIXED_SHELF_REFILL') return offer.sourceableMerchandiseIds.length === 0
+  if (offer.kind === 'TITLE_CASE') return offer.sourceableMerchandiseIds.length > 0 && new Set(offer.sourceableMerchandiseIds).size === offer.sourceableMerchandiseIds.length && offer.sourceableMerchandiseIds.every(id => resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, id))
+  return false
 }
 
 export function proposeBookstoreRestockOrder(state: GameState, branchId: string, offerId: string, decisions: BookstoreOrderDecisions): ProposeBookstoreOrderResult {

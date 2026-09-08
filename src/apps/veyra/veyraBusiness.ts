@@ -65,8 +65,6 @@ export interface VeyraBusinessOfferView {
   readonly averageUnitCostCents: number
   readonly deliveryDurationMs: number
   readonly sourceableBooks: readonly { readonly merchandiseId: string; readonly name: string }[]
-  /** @deprecated Presentational compatibility; current procurement composition is proposal-derived. */
-  readonly lines: readonly { readonly merchandiseId: string; readonly name: string; readonly quantity: number }[]
 }
 
 export interface VeyraBusinessOrderView {
@@ -161,6 +159,5 @@ function projectOffer(state: GameState, branchId: string, offer: BookstoreSupply
     averageUnitCostCents: offer.casePriceCents / offer.caseSize,
     deliveryDurationMs: offer.deliveryDurationMs,
     sourceableBooks: offer.sourceableMerchandiseIds.flatMap((merchandiseId) => { const name = merchandiseName(merchandiseId); return name ? [{ merchandiseId, name }] : [] }),
-    lines: offer.sourceableMerchandiseIds.flatMap((merchandiseId) => { const name = merchandiseName(merchandiseId); return name ? [{ merchandiseId, name, quantity: offer.caseSize }] : [] }),
   }
 }

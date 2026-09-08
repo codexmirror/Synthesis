@@ -18,7 +18,7 @@ import rackUpdateSource from './RackFirmwareUpdate.tsx?raw'
 import rackCss from './rackos.css?raw'
 import { executeBookstoreSale } from '../../core/game/bookstoreSale'
 import { BOOKSTORE_BRANCH_ID } from '../../core/game/business'
-import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, placeBookstoreRestockOrder, proposeBookstoreRestockOrder } from '../../core/game/bookstoreRestock'
+import { BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, placeBookstoreRestockOrder, proposeBookstoreRestockOrder } from '../../core/game/bookstoreRestock'
 
 function StateSnapshot() { return <output data-testid="game-state">{JSON.stringify(useGameState())}</output> }
 
@@ -1202,7 +1202,7 @@ function ops01WithIncomingRestock(): GameState {
     if (sale.status !== 'sold') throw new Error('expected fixture sale')
     state = sale.state
   }
-  const restockProposal = proposeBookstoreRestockOrder(state, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID, { caseCount: 1 })
+  const restockProposal = proposeBookstoreRestockOrder(state, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, { caseCount: 1 })
   if (restockProposal.status !== 'proposed') throw new Error('expected fixture proposal')
   const order = placeBookstoreRestockOrder(state, BOOKSTORE_BRANCH_ID, { caseCount: 1 }, restockProposal.proposal)
   if (order.status !== 'ordered') throw new Error('expected fixture restock order')

@@ -7,7 +7,7 @@ import {
   BOOKSTORE_TREASURY_ACCOUNT_ID,
   NORTHLINE_BOOK_SUPPLY_COMPANY_ID,
 } from '../../core/game/business'
-import { BOOKSTORE_COMPACT_REFILL_OFFER_ID, BOOKSTORE_STANDARD_REFILL_OFFER_ID, proposeBookstoreRestockOrder } from '../../core/game/bookstoreRestock'
+import { BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, proposeBookstoreRestockOrder } from '../../core/game/bookstoreRestock'
 import { placeBookstoreRestockOrderFromOperatedRemoteDevice as placeFromOperated } from '../../core/game/companyAdministration'
 import { advanceGameState } from '../../core/game/gameAdvancement'
 import { createInitialGameState } from '../../core/game/initialState'
@@ -148,7 +148,7 @@ describe('VEYRA Business projection', () => {
     const fundsBefore = company(operated).company.fundsCents!
     const stockBefore = company(operated).branch!.inventory.totalStock
 
-    const placed = placeBookstoreRestockOrderFromOperatedRemoteDevice(operated, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    const placed = placeBookstoreRestockOrderFromOperatedRemoteDevice(operated, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(placed.status).toBe('ordered')
 
     const ordered = company(placed.state)
@@ -167,7 +167,7 @@ describe('VEYRA Business projection', () => {
 
     // Captured order meaning, never re-resolved from current offers.
     const renamedOffer: GameState = { ...placed.state, bookstoreRestock: { ...placed.state.bookstoreRestock, offers: placed.state.bookstoreRestock.offers.map((offer) =>
-      offer.id === BOOKSTORE_COMPACT_REFILL_OFFER_ID ? { ...offer, displayName: 'Renamed Bundle' } : offer) } }
+      offer.id === BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID ? { ...offer, displayName: 'Renamed Bundle' } : offer) } }
     expect(company(renamedOffer).branch!.orders[0].offerDisplayName).toBe('Mixed Shelf Refill')
 
     // Canonical advancement alone moves the order and the stock. The Branch's
@@ -201,7 +201,7 @@ describe('VEYRA Business projection', () => {
     const projected = company(signedOut)
     expect(projected.company.displayName).toBe('Bookstore')
     expect(projected.company.fundsCents).toBe(earned.dollarFinance.accounts.find(({ id }) => id === BOOKSTORE_TREASURY_ACCOUNT_ID)!.balanceCents)
-    const placed = placeBookstoreRestockOrderFromOperatedRemoteDevice(signedOut, BOOKSTORE_BRANCH_ID, BOOKSTORE_COMPACT_REFILL_OFFER_ID)
+    const placed = placeBookstoreRestockOrderFromOperatedRemoteDevice(signedOut, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(placed.status).toBe('ordered')
     expect(placed.state.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')!.balanceCents)
       .toBe(earned.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-veyra-phone-v0')!.balanceCents)
@@ -235,15 +235,16 @@ describe('VEYRA Business catalog disclosure boundary', () => {
     const terminalLight = state.bookstoreCommerce.bookCatalog.find(({ name }) => name === 'Terminal Light')!
     const offer = {
       id: 'test-terminal-offer', displayName: 'Terminal Light Delivery', sellerCompanyId: ATLAS_DISTRIBUTION_COMPANY_ID,
-      lines: [{ merchandiseId: terminalLight.id, quantity: 3 }], totalPriceCents: 1_000, deliveryDurationMs: 60_000,
-      kind: 'TITLE_CASE' as const, caseSize: 3, casePriceCents: 1_000, sourceableMerchandiseIds: [terminalLight.id],
+      deliveryDurationMs: 60_000, kind: 'TITLE_CASE' as const, caseSize: 3,
+      casePriceCents: 1_000, sourceableMerchandiseIds: [terminalLight.id],
     }
     const projected = projectVeyraBusiness({ ...state, bookstoreRestock: { ...state.bookstoreRestock, offers: [offer] } })
     expect(projected.status).toBe('company')
     if (projected.status !== 'company' || !projected.branch) return
     expect(projected.branch.inventory.items.map(({ merchandiseId }) => merchandiseId)).not.toContain(terminalLight.id)
     expect(projected.branch.inventory.items).toHaveLength(8)
-    expect(projected.branch.offers[0].lines).toEqual([{ merchandiseId: terminalLight.id, name: 'Terminal Light', quantity: 3 }])
+    expect(projected.branch.offers[0].sourceableBooks).toEqual([{ merchandiseId: terminalLight.id, name: 'Terminal Light' }])
+    expect(projected.branch.offers[0]).not.toHaveProperty('lines')
   })
 
   it('keeps a carried zero-stock Book visible as distinct from a catalog-only Book', () => {
@@ -266,6 +267,6 @@ describe('VEYRA Business catalog disclosure boundary', () => {
     expect(projected.status).toBe('company')
     if (projected.status !== 'company' || !projected.branch) return
     expect(projected.branch.inventory.items.some(({ merchandiseId }) => merchandiseId === 'bookstore-merch-001')).toBe(false)
-    expect(projected.branch.offers[0].lines.some(({ merchandiseId }) => merchandiseId === 'bookstore-merch-001')).toBe(false)
+    expect(projected.branch.offers.every((offer) => !('lines' in offer))).toBe(true)
   })
 })
