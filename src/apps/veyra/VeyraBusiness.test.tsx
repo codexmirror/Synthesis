@@ -326,6 +326,55 @@ describe('VEYRA Business surface', () => {
     }
   })
 
+  it('re-resolves a carried Product Detail from no history through transit and delivery', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const funded = earnRestockPrice(createInitialGameState())
+      // Closing the Branch suppresses unrelated sale cadence while preserving
+      // the ordinary authorized procurement and canonical delivery paths.
+      const controlled: GameState = { ...funded, bookstoreOperations: { records: funded.bookstoreOperations.records.map(record => ({ ...record, open: false })) } }
+      const user = await openBusiness(phoneConnectedState(controlled), userEvent.setup({ advanceTimers: vi.advanceTimersByTime }))
+      const stock = (state: GameState) => state.bookstoreOperations.records[0].stock.find(line => line.merchandiseId === 'bookstore-merch-006')!.quantity
+      const stockBefore = stock(canonical())
+
+      await user.click(screen.getByRole('button', { name: /View inventory/i }))
+      await user.click(screen.getByRole('button', { name: /Northbound/ }))
+      let product = screen.getByRole('region', { name: 'Product detail' })
+      expect(product).toHaveTextContent('Literary Fiction')
+      expect(product).toHaveTextContent('Retail price$15.99')
+      expect(product).toHaveTextContent('Last acquisition costNot recorded')
+      expect(product).toHaveTextContent('Incoming0')
+      expect(product).toHaveTextContent('Popularity100')
+
+      await user.click(within(product).getByRole('button', { name: 'Back' }))
+      await user.click(within(screen.getByRole('region', { name: 'Inventory' })).getByRole('button', { name: 'Back' }))
+      await user.click(screen.getByRole('button', { name: /Title Case/ }))
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Book' }), 'bookstore-merch-006')
+      await user.click(screen.getByRole('button', { name: 'Place order' }))
+      await user.click(screen.getByRole('button', { name: /View inventory/i }))
+      await user.click(screen.getByRole('button', { name: /Northbound/ }))
+      product = screen.getByRole('region', { name: 'Product detail' })
+      expect(product).toHaveTextContent(`In stock${stockBefore}`)
+      expect(product).toHaveTextContent('Incoming6')
+      expect(product).toHaveTextContent('Last acquisition costNot recorded')
+
+      await act(async () => { vi.advanceTimersByTime(2_700_000) })
+      product = screen.getByRole('region', { name: 'Product detail' })
+      expect(product).toHaveTextContent(`In stock${stockBefore + 6}`)
+      expect(product).toHaveTextContent('Incoming0')
+      expect(product).toHaveTextContent('Last acquisition cost$10.50')
+      expect(product).toHaveTextContent('Literary Fiction')
+      expect(product).toHaveTextContent('Retail price$15.99')
+      expect(product).toHaveTextContent('Popularity100')
+      expect(product).not.toHaveTextContent(/margin|trend|effective demand/i)
+      expect(product).not.toHaveTextContent('Terminal Light')
+      await user.click(within(product).getByRole('button', { name: 'Back' }))
+      expect(screen.getByRole('region', { name: 'Inventory' })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('never gives the client a way to name money, an Account or a Company', async () => {
     await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
     const business = screen.getByRole('region', { name: 'Business' })

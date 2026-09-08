@@ -548,7 +548,7 @@ Company Administration and RemoteSession boundaries remain unchanged in ownershi
 
 Offer rotation, Supplier inventory/reliability, quantity discounts, Trends/market intelligence and generic procurement frameworks remain unimplemented. Baseline Popularity affects ordinary sale-basket composition only and has no direct Supplier effect.
 
-### Sale-opportunity cadence and Book Demand
+### Sale-opportunity cadence and Baseline Popularity
 
 A fourth, separate branch-linked record represents the currently implemented
 Bookstore *sales cadence* mechanic — when a sale opportunity for a Bookstore

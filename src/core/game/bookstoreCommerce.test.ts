@@ -11,7 +11,7 @@ import type { GameState } from './types'
  * basket-size mix, `[0.1, 0.95]` deterministically composes a single-item
  * basket of the catalog's last entry (`bookstore-merch-008`) — one
  * basket-size draw (0.1 < 0.70 selects size 1) plus one item-selection draw
- * (0.95 falls in the final Demand-weighted interval).
+ * (0.95 falls in the final Baseline-Popularity-weighted interval).
  */
 function fixedRandom(values: readonly number[]): () => number {
   let index = 0
@@ -58,7 +58,7 @@ describe('bookstore commerce initial truth', () => {
     ])
   })
 
-  it('authors exactly one broad Genre and one valid current Demand weight for all 24 Books', () => {
+  it('authors exactly one broad Genre and one valid Baseline Popularity for all 24 Books', () => {
     expect(BOOKSTORE_BOOK_CATALOG.map(({ name, genre }) => [name, genre])).toEqual([
       ['Night Transit', 'THRILLER'], ['Static Bloom', 'SCIENCE_FICTION'], ['Glass District', 'MYSTERY'], ['The Quiet Archive', 'MYSTERY'],
       ['After the Relay', 'LITERARY_FICTION'], ['Northbound', 'LITERARY_FICTION'], ['A Map of Empty Rooms', 'LITERARY_FICTION'], ['Systems of Dust', 'SCIENCE_FICTION'],

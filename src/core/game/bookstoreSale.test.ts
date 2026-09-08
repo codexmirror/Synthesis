@@ -53,7 +53,7 @@ function cyclicRandom(values: readonly number[]): () => number {
 const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.95])
 
 describe('executeBookstoreSale — success path', () => {
-  it('changes only the selected Book through Demand, then uses ordinary stock and exact-price settlement with the same two purchase draws', () => {
+  it('changes only the selected Book through Baseline Popularity, then uses ordinary stock and exact-price settlement with the same two purchase draws', () => {
     const initial = createInitialGameState()
     const neutral: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(record => ({ ...record, baselinePopularity: 100 })) } }
     const weighted: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, bookCatalog: initial.bookstoreCommerce.bookCatalog.map(record => ({ ...record, baselinePopularity: record.id === 'bookstore-merch-001' ? 1000 : 100 })) } }
@@ -549,7 +549,7 @@ describe('Bookstore purchase composition — merchandise selection', () => {
   })
 })
 
-describe('Bookstore Demand-weighted merchandise selection', () => {
+describe('Bookstore Baseline-Popularity-weighted merchandise selection', () => {
   it('preserves uniform selection boundaries exactly when every weight is neutral', () => {
     const ids = ['a', 'b', 'c', 'd']
     const neutral = new Map(ids.map((id) => [id, 1]))
