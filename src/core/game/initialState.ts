@@ -14,6 +14,7 @@ import { NODE_1_DEVICE_MODEL, RACK_CORE_120_DEVICE_MODEL, RACK_CORE_160_DEVICE_M
 import { BOOKSTORE_BRANCH_LOCATION, BOOKSTORE_BRANCH_NAME, createInitialBusinessState } from './business'
 import { createInitialBookstoreCommerceState } from './bookstoreCommerce'
 import { createInitialBookstoreMarketState } from './bookstoreMarket'
+import { createInitialBookstoreTrendState } from './bookstoreTrend'
 import { createInitialBookstoreOperationsState } from './bookstoreOperations'
 import { BOOKSTORE_BACKEND_IMPLEMENTATION, BOOKSTORE_BACKEND_SERVICE_ID, createInitialBookstoreBackendState } from './bookstoreBackend'
 import { createInitialBookstoreSalesCadenceState } from './bookstoreSalesCadence'
@@ -21,7 +22,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 85
+export const GAME_STATE_VERSION = 86
 
 export function createInitialGameState(): GameState {
   return {
@@ -100,6 +101,7 @@ export function createInitialGameState(): GameState {
     business: createInitialBusinessState(),
     bookstoreCommerce: createInitialBookstoreCommerceState(),
     bookstoreMarket: createInitialBookstoreMarketState(),
+    bookstoreTrend: createInitialBookstoreTrendState(),
     bookstoreOperations: createInitialBookstoreOperationsState(),
     bookstoreRestock: createInitialBookstoreRestockState(),
     bookstoreBackend: createInitialBookstoreBackendState(),
@@ -120,7 +122,7 @@ export function createInitialGameState(): GameState {
     // The represented broad/open software Market the local Device can reach. NODE-OS supplies only the client that presents it.
     market: createInitialMarketState(),
     process: { nextId: 1, processes: [] },
-    knowledge: { discoveredVulnerabilities: [], knownDevicePins: [] },
+    knowledge: { discoveredVulnerabilities: [], knownDevicePins: [], bookstoreMarket: { nextReportId: 1, reports: [] } },
     discovery: { networks: [], devices: [], networkDeviceRelations: [] },
     deviceAccess: { nextId: 1, established: [] },
     // The local Device's explicit legitimate management authority over home-net; not derived from its Network membership.

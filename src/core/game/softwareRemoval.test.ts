@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState as createSeededGameState } from './initialState'
 
@@ -191,9 +192,9 @@ describe('software removal completion: NodeScan', () => {
     // Idempotent: repeated resolution/advancement never restores twice or mutates further.
     const twice = resolveCompletedSoftwareRemovals(done)
     expect(twice).toBe(done)
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of removal completion; nothing else does.
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of removal completion; no other canonical fields do.
     const rerun = advanceGameState(done, 20_000)
-    expect({ ...rerun, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
+    expect(withoutBookstoreBackgroundTiming(rerun)).toEqual(withoutBookstoreBackgroundTiming(done))
   })
 
   it('removes future Inspect capability after restoration while a previously stored Enhanced Inspect Discovery snapshot remains untouched', () => {
@@ -354,9 +355,9 @@ describe('software removal completion idempotency', () => {
     const once = completeRemoval(removalStarted.state)
     const twice = resolveCompletedSoftwareRemovals(once)
     expect(twice).toBe(once)
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of removal completion; nothing else does.
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of removal completion; no other canonical fields do.
     const rerun = advanceGameState(once, 20_000)
-    expect({ ...rerun, bookstoreSalesCadence: once.bookstoreSalesCadence }).toEqual(once)
+    expect(withoutBookstoreBackgroundTiming(rerun)).toEqual(withoutBookstoreBackgroundTiming(once))
     expect(once.player.localDevice.filesystem.files.filter((file) => file.kind === 'executable')).toHaveLength(0)
   })
 })

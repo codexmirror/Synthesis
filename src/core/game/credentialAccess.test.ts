@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { rememberInspect, rememberScan } from './discovery'
 import { createInitialGameState as createSeededGameState } from './initialState'
 
@@ -70,9 +71,9 @@ describe('Initial credential access', () => {
     expect(done.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.result?.status).toBe(status)
     expect(done.deviceAccess.established).toHaveLength(status === 'access_established' ? 1 : 0)
     expect(done.world.network.hosts[0].authenticationHistory?.records.at(-1)?.result).toBe(evidence)
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of credential access outcome; nothing else does.
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of credential access outcome; no other canonical fields do.
     const rerolled = advanceGameState(done, 30_000, () => { throw Error('must not reroll') })
-    expect({ ...rerolled, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
+    expect(withoutBookstoreBackgroundTiming(rerolled)).toEqual(withoutBookstoreBackgroundTiming(done))
   })
 
   it('keeps KeyProbe probability bounded for unusually weak and strong compute', () => {
@@ -108,13 +109,13 @@ describe('Initial credential access', () => {
   it('forms only from remembered service, known weakness, and SELF-owned concrete tooling', () => {
     const state = prepared()
     expect(canFormCredentialAccessAttempt(state, observation)).toBe(true)
-    expect(canFormCredentialAccessAttempt({ ...state, knowledge: { discoveredVulnerabilities: [] } }, observation)).toBe(false)
-    expect(startCredentialAccessAttemptFromObservation({ ...state, knowledge: { discoveredVulnerabilities: [] } }, observation).status).toBe('not_available')
+    expect(canFormCredentialAccessAttempt({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation)).toBe(false)
+    expect(startCredentialAccessAttemptFromObservation({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation).status).toBe('not_available')
     const noTool = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [], filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
     expect(canFormCredentialAccessAttempt(noTool, observation)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation(noTool, observation).status).toBe('not_available')
     const unrelated = { ...observation, vulnerabilityId: 'UNRELATED-001' }
-    const unrelatedKnown = { ...state, knowledge: { discoveredVulnerabilities: [{ ...state.knowledge.discoveredVulnerabilities[0], vulnerabilityId: unrelated.vulnerabilityId }] } }
+    const unrelatedKnown = { ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ ...state.knowledge.discoveredVulnerabilities[0], vulnerabilityId: unrelated.vulnerabilityId }] } }
     expect(canFormCredentialAccessAttempt(unrelatedKnown, unrelated)).toBe(false)
 
     const standardOnly = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
@@ -208,8 +209,8 @@ describe('Initial credential access', () => {
 
     // Repeated advancement resolves the completed Process at most once and must never duplicate the history entry.
     const advancedAgain = advanceGameState(done, 30_000)
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of credential access outcome; nothing else does.
-    expect({ ...advancedAgain, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of credential access outcome; no other canonical fields do.
+    expect(withoutBookstoreBackgroundTiming(advancedAgain)).toEqual(withoutBookstoreBackgroundTiming(done))
     expect(advancedAgain.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory?.records).toHaveLength(1)
 
     expect(startCredentialAccessAttemptFromObservation(done, observation).status).toBe('access_established')

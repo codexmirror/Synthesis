@@ -31,7 +31,7 @@ function observed(): GameState {
 }
 
 function withUpd001Knowledge(state: GameState): GameState {
-  return { ...state, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] } }
+  return { ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] } }
 }
 
 function withLocalGateSsh132(state: GameState): GameState {
@@ -106,7 +106,7 @@ describe('RackUpdate ATTACK: finite exploit work granting only narrow submission
     const state = ready()
     expect(canFormRackUpdateExploitAttempt(state, UPD_001_OBSERVATION)).toBe(true)
     expect(canFormRackUpdateExploitAttempt(withoutTool(state), UPD_001_OBSERVATION)).toBe(false)
-    expect(canFormRackUpdateExploitAttempt({ ...state, knowledge: { discoveredVulnerabilities: [] } }, UPD_001_OBSERVATION)).toBe(false)
+    expect(canFormRackUpdateExploitAttempt({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, UPD_001_OBSERVATION)).toBe(false)
   })
 
   it('never starts without the represented tool, leaving Knowledge untouched', () => {

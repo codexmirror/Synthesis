@@ -233,6 +233,12 @@ button.veyra-frame__disconnect { color: #d4a099; }
 .veyra-figure-note { margin: 8px 0 0; color: var(--veyra-ink-mute); font-size: .88rem; }
 
 .veyra-card--rows { display: grid; }
+.veyra-analyst-exchange { display: grid; gap: 8px; }
+.veyra-analyst-message { padding: 16px; overflow-wrap: anywhere; }
+.veyra-analyst-message > strong { display: block; color: var(--veyra-ink-mute); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.veyra-analyst-message p { margin: 8px 0 0; line-height: 1.45; }
+.veyra-analyst-message--you { justify-self: end; max-width: 84%; text-align: right; }
+.veyra-analyst-signals { display: grid; gap: 10px; margin-top: 10px; }
 
 .veyra-row {
   width: 100%;

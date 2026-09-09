@@ -1,4 +1,4 @@
-import { placeBookstoreRestockOrderFromOperatedRemoteDevice, type PlaceOperatedBookstoreRestockOrderResult } from '../core/game/companyAdministration'
+import { placeBookstoreRestockOrderFromOperatedRemoteDevice, requestBookstoreMarketReportFromOperatedRemoteDevice, type PlaceOperatedBookstoreRestockOrderResult, type RequestOperatedBookstoreMarketReportResult } from '../core/game/companyAdministration'
 import type { BookstoreOrderDecisions, BookstoreOrderProposal } from '../core/game/bookstoreRestock'
 import { commitResult, type GameStateAccessor } from './gameStateAccess'
 
@@ -14,6 +14,9 @@ export function createBusinessActions(accessor: GameStateAccessor) {
      */
     placeBookstoreRestockOrderFromOperatedRemoteDevice(branchId: string, decisions: BookstoreOrderDecisions, reviewedProposal: BookstoreOrderProposal): PlaceOperatedBookstoreRestockOrderResult {
       return commitResult(accessor, placeBookstoreRestockOrderFromOperatedRemoteDevice(accessor.read(), branchId, decisions, reviewedProposal))
+    },
+    requestBookstoreMarketReportFromOperatedRemoteDevice(branchId: string): RequestOperatedBookstoreMarketReportResult {
+      return commitResult(accessor, requestBookstoreMarketReportFromOperatedRemoteDevice(accessor.read(), branchId))
     },
   }
 }

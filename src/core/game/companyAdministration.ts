@@ -1,6 +1,7 @@
 import { placeBookstoreRestockOrder, type BookstoreOrderDecisions, type BookstoreOrderProposal, type PlaceBookstoreRestockOrderResult } from './bookstoreRestock'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import type { CompanyAdministrationSession, CompanyState, GameState } from './types'
+import { generateBookstoreMarketReport } from './bookstoreMarketReport'
 
 /**
  * Resolve explicit Device-bound authority for one Company from represented
@@ -112,4 +113,20 @@ export function placeBookstoreRestockOrderFromOperatedRemoteDevice(
   const remote = resolveActiveRemoteTarget(state)
   if (!remote) return { status: 'session_unavailable', state }
   return placeBookstoreRestockOrderForDevice(state, remote.target.id, branchId, decisions, reviewedProposal)
+}
+
+export type RequestOperatedBookstoreMarketReportResult =
+  | { readonly status: 'generated'; readonly state: GameState; readonly reportId: string }
+  | { readonly status: 'session_unavailable' | 'branch_unavailable' | 'administration_unavailable' | 'market_unavailable'; readonly state: GameState }
+
+/** Explicit ANALYZE operation: Remote Session selects the Device; Company Administration authorizes its Branch. */
+export function requestBookstoreMarketReportFromOperatedRemoteDevice(state: GameState, branchId: string): RequestOperatedBookstoreMarketReportResult {
+  const remote = resolveActiveRemoteTarget(state)
+  if (!remote) return { status: 'session_unavailable', state }
+  const branches = state.business.branches.filter(branch => branch.id === branchId)
+  if (branches.length !== 1) return { status: 'branch_unavailable', state }
+  if (!resolveCompanyAdministrationSession(state, remote.target.id, branches[0].companyId)) return { status: 'administration_unavailable', state }
+  const next = generateBookstoreMarketReport(state, branchId)
+  if (!next) return { status: 'market_unavailable', state }
+  return { status: 'generated', state: next, reportId: next.knowledge.bookstoreMarket.reports.at(-1)!.id }
 }

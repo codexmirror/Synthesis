@@ -3,7 +3,7 @@ import { findBookstoreCommerceRecord, resolveBookstoreBookById } from '../../cor
 import { deriveBookstoreTotalStock, resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { deriveBookstoreIncomingStock, deriveBookstoreIncomingStockForBook, deriveBookstoreLastAcquisitionCost, deriveBookstoreMaxOrderableCases } from '../../core/game/bookstoreRestock'
 import { resolveSoleCompanyAdministrationContextForOperatedRemoteDevice } from '../../core/game/companyAdministration'
-import type { BookstoreSupplyOffer, GameState } from '../../core/game/types'
+import type { BookstoreMarketReport, BookstoreSupplyOffer, GameState } from '../../core/game/types'
 
 /**
  * What the Business client may currently state, projected from canonical
@@ -40,6 +40,8 @@ export interface VeyraBusinessBranchView {
   readonly inventory: VeyraBusinessInventoryView
   readonly offers: readonly VeyraBusinessOfferView[]
   readonly orders: readonly VeyraBusinessOrderView[]
+  /** Historical Player Knowledge only; never a live market projection. */
+  readonly marketReports: readonly BookstoreMarketReport[]
 }
 
 export interface VeyraBusinessInventoryView {
@@ -148,6 +150,7 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
         status: order.status,
         remainingDeliveryMs: order.status === 'IN_TRANSIT' ? order.remainingDeliveryMs : undefined,
       })),
+    marketReports: state.knowledge.bookstoreMarket.reports.filter(report => report.branchId === branch.id),
   }
 }
 

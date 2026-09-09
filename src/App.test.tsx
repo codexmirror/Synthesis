@@ -24,7 +24,7 @@ import { connectRemoteFromObservation } from './core/game/remoteSession'
 import { createInitialGameState } from './core/game/initialState'
 import { RACK_OS_FIRMWARE_ID } from './core/game/firmwareIdentity'
 import type { FileTransfer, GameState } from './core/game/types'
-import { withoutBookstoreCadenceTiming } from './test/canonicalSnapshot'
+import { withoutBookstoreBackgroundTiming } from './test/canonicalSnapshot'
 
 function withActiveTransfer(direction: 'download' | 'upload', base: GameState = createInitialGameState()): GameState {
   const localDeviceId = base.player.localDevice.id
@@ -265,11 +265,11 @@ function StateSnapshot() {
  * A "before vs. after" comparison meant to prove some unrelated interaction
  * touched no canonical state should not fail merely because Bookstore Sales
  * Cadence's own timing legitimately moved forward during the interaction, so
- * this reads the snapshot with `withoutBookstoreCadenceTiming` applied.
+ * this reads the snapshot with `withoutBookstoreBackgroundTiming` applied.
  */
 function stateSnapshotWithoutBookstoreCadenceTiming(): unknown {
   const state = JSON.parse(screen.getByTestId('state-snapshot').textContent ?? '{}') as GameState
-  return withoutBookstoreCadenceTiming(state)
+  return withoutBookstoreBackgroundTiming(state)
 }
 
 /** An entered-Session world: one accessed represented host, connected. */

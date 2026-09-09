@@ -9,7 +9,7 @@ describe('multi-Device stable identity regressions', () => {
     const state = createInitialGameState()
     const isolated: GameState = {
       ...state,
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] },
+      knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] },
       deviceAccess: { nextId: 2, established: [{ id: 'access-0001', sourceDeviceId: state.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] },
     }
     expect(isolated.knowledge.discoveredVulnerabilities.some(({ targetDeviceId }) => targetDeviceId === 'host-lan-002')).toBe(false)

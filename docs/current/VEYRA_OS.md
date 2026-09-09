@@ -241,6 +241,24 @@ phone owns (`docs/current/FILES_SOFTWARE.md`), presented by
 Dollar truth whatsoever, holds no timer, cache or copy of any of it, and reads
 every fact it states from canonical state on every render.
 
+The Business root also has one restrained **Market Analyst** route under
+Market. Opening it observes nothing and creates no Knowledge. Its only action
+is the explicit **Generate market report**, renamed **Refresh market report**
+once this Branch has history; both invoke the same application adapter and
+the domain's operated-Device / Company Administration authorization path.
+There is no text input, arbitrary send action, assistant state, typing delay,
+free-form question, LLM, or generic conversation model.
+
+The detail surface renders the Branch's canonical historical Market Reports
+as a compact request/response transcript. All Pressure and Trend sentences
+are deterministic transformations of captured qualitative conditions and
+captured phases, and any standout uses its captured Book name. Presentation
+never reads live hidden market truth to rewrite an old report, never refreshes
+on open/reopen/render/time advancement, and owns or mutates no Trend, Pressure,
+Effective Demand, assortment, stock, cadence, or money truth. Losing current
+Business authority preserves the existing unavailable Business behavior; Back
+returns to the Business root.
+
 Installation is not authority. Opening Business resolves what this Device may
 manage through `resolveSoleCompanyAdministrationContextForOperatedRemoteDevice`
 (`src/core/game/companyAdministration.ts`): the active Remote Session supplies

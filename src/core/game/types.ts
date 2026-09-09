@@ -835,6 +835,34 @@ export interface BookstoreMarketState {
   readonly genrePressures: readonly BookstoreGenreMarketPressureRecord[]
 }
 
+/** One concrete temporary cause of Bookstore market pressure. V1 represents at most one. */
+export interface ActiveBookstoreTrend {
+  readonly id: string
+  readonly genre: BookstoreBookGenre
+  readonly activePressure: number
+  readonly totalDurationMs: number
+  readonly remainingDurationMs: number
+}
+export interface BookstoreTrendState { readonly active: ActiveBookstoreTrend | null }
+export type BookstoreTrendPhase = 'EMERGING' | 'ESTABLISHED' | 'LATE'
+
+export type BookstoreMarketCondition = 'SOFT' | 'STABLE' | 'ELEVATED' | 'HIGH'
+export interface BookstoreMarketReportGenreObservation {
+  readonly genre: BookstoreBookGenre
+  readonly condition: BookstoreMarketCondition
+  readonly trend?: { readonly id: string; readonly phase: BookstoreTrendPhase }
+}
+export interface BookstoreMarketReport {
+  readonly id: string
+  readonly branchId: string
+  readonly genres: readonly BookstoreMarketReportGenreObservation[]
+  readonly standout?: { readonly merchandiseId: string; readonly capturedName: string }
+}
+export interface BookstoreMarketKnowledgeState {
+  readonly nextReportId: number
+  readonly reports: readonly BookstoreMarketReport[]
+}
+
 /**
  * Concrete branch-linked commerce truth for the one currently represented
  * bookstore mechanic: current settlement-destination configuration, the
@@ -1432,6 +1460,8 @@ export interface KnownDevicePin { readonly deviceId: string; readonly pin: strin
 export interface KnowledgeState {
   readonly discoveredVulnerabilities: readonly DiscoveredVulnerability[]
   readonly knownDevicePins?: readonly KnownDevicePin[]
+  /** Append-only qualitative Bookstore observations; never current World Truth. */
+  readonly bookstoreMarket: BookstoreMarketKnowledgeState
 }
 
 export interface DiscoveredNetworkSnapshot {
@@ -1789,6 +1819,8 @@ export interface GameState {
   readonly bookstoreCommerce: BookstoreCommerceState
   /** Global hidden Bookstore Genre Market Pressure truth. Effective Demand is derived, never stored. */
   readonly bookstoreMarket: BookstoreMarketState
+  /** Represented temporary cause of current Bookstore market pressure. */
+  readonly bookstoreTrend: BookstoreTrendState
   /** Concrete branch-linked bookstore operations truth (OPEN/CLOSED, inventory, shelf/checkout capacity); a separate optional join from `bookstoreCommerce`, not embedded in generic Business Branch identity. */
   readonly bookstoreOperations: BookstoreOperationsState
   /** Bookstore-specific current supply offers and captured restock delivery lifecycle. */

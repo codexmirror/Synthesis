@@ -12,7 +12,7 @@ import type { ExecutableFile, GameProcess, GameState, NetworkHost, NodeMinerProc
 import { rememberScan } from '../../core/game/discovery'
 import { scanNetworkTarget } from '../../core/game/scan'
 import { Terminal } from '../terminal/Terminal'
-import { withoutBookstoreCadenceTiming } from '../../test/canonicalSnapshot'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import rackSource from './RackOS.tsx?raw'
 import rackUpdateSource from './RackFirmwareUpdate.tsx?raw'
 import rackCss from './rackos.css?raw'
@@ -570,7 +570,7 @@ describe('RACK-OS remote software installation', () => {
     await user.click(screen.getByRole('button', { name: 'FILE packet-viewer-1.0.pkg' }))
   }
 
-  function snapshot(): GameState { return withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState) }
+  function snapshot(): GameState { return withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState) }
 
   it('presents the concrete package and its state on this Device, with local transfer kept secondary', async () => {
     const user = userEvent.setup()
@@ -862,7 +862,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     await user.click(screen.getByRole('button', { name: 'FILE node-miner' }))
   }
 
-  function snapshot(): GameState { return withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState) }
+  function snapshot(): GameState { return withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState) }
 
   it('admits the Miner onto the Device actually being operated, with the exact payout address entered', async () => {
     const user = userEvent.setup()
@@ -1252,7 +1252,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
     const initial = srv02WithInstaller(RACK_OS_1_1_BUSINESS_FIRMWARE_ID)
     render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
     await enterRemote(user)
-    const before = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
+    const before = withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
 
     await user.click(screen.getByRole('button', { name: /^BUSINESS/ }))
     const business = screen.getByRole('region', { name: 'Business' })
@@ -1302,7 +1302,7 @@ describe('RACK-OS 1.1 Business application shell', () => {
     await user.click(screen.getByRole('button', { name: /^TERMINAL/ }))
     await user.type(screen.getByLabelText('Remote command'), 'cat /srv/backup-manifest.txt{enter}')
     expect(screen.getByLabelText('RACK-OS remote operating environment')).toHaveTextContent('Backup manifest for srv-02.')
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? ''))).toEqual(before)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? ''))).toEqual(before)
   })
 
   it('observes incoming Bookstore stock read-only without exposing Treasury balance or purchase controls', async () => {
@@ -1544,7 +1544,7 @@ describe('RACK-OS firmware update from a target-owned installer artifact', () =>
     // Stage one: the artifact states what it is; its primary action only opens the utility.
     expect(screen.getByRole('heading', { name: 'RACK-OS 1.1 Business' })).toBeInTheDocument()
     expect(screen.getByText('FIRMWARE INSTALLER')).toBeInTheDocument()
-    const beforeLaunch = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
+    const beforeLaunch = withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
     await user.click(screen.getByRole('button', { name: 'OPEN INSTALLER' }))
 
     // Stage two: the utility states the Device, both releases, and the restart.
@@ -1556,11 +1556,11 @@ describe('RACK-OS firmware update from a target-owned installer artifact', () =>
     // No internal identity is exposed as product UI.
     expect(utility.textContent).not.toContain('firmware-rack-os')
     expect(utility.textContent).not.toContain('host-lan-002')
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? ''))).toEqual(beforeLaunch)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? ''))).toEqual(beforeLaunch)
 
     // CANCEL changes nothing either.
     await user.click(screen.getByRole('button', { name: 'CANCEL' }))
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? ''))).toEqual(beforeLaunch)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? ''))).toEqual(beforeLaunch)
     expect(screen.queryByRole('region', { name: 'Firmware update utility' })).toBeNull()
   })
 

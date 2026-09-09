@@ -10,14 +10,17 @@ import {
   NORTHLINE_BOOK_SUPPLY_TREASURY_ACCOUNT_ID,
 } from '../../core/game/business'
 import { executeBookstoreSale } from '../../core/game/bookstoreSale'
+import { advanceGameState } from '../../core/game/gameAdvancement'
+import { requestBookstoreMarketReportFromOperatedRemoteDevice } from '../../core/game/companyAdministration'
 import { BUSINESS_PRODUCT_ID } from '../../core/game/businessSoftware'
 import { createInitialGameState } from '../../core/game/initialState'
 import { connectRemoteFromObservation, resolveActiveRemoteTarget } from '../../core/game/remoteSession'
 import { Shell } from '../../shell/Shell'
 import { VeyraOS } from './VeyraOS'
+import { VeyraBusiness } from './VeyraBusiness'
 import type { GameState } from '../../core/game/types'
 import type { EditingViewportState } from '../../shell/useEditingViewport'
-import { withoutBookstoreCadenceTiming } from '../../test/canonicalSnapshot'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 
 let viewport: EditingViewportState
 const endEditing = vi.fn()
@@ -63,7 +66,7 @@ const canonical = (): GameState => JSON.parse(screen.getByTestId('state').textCo
  * comparisons: that field legitimately moves under GameProvider's own
  * advancement while a test runs.
  */
-const canonicalSettled = (): GameState => withoutBookstoreCadenceTiming(canonical())
+const canonicalSettled = (): GameState => withoutBookstoreBackgroundTiming(canonical())
 const balance = (state: GameState, accountId: string) => state.dollarFinance.accounts.find(({ id }) => id === accountId)!.balanceCents
 const totalStock = (state: GameState) => state.bookstoreOperations.records
   .find((record) => record.branchId === BOOKSTORE_BRANCH_ID)!.stock.reduce((sum, entry) => sum + entry.quantity, 0)
@@ -149,6 +152,55 @@ describe('VEYRA Business presence', () => {
 })
 
 describe('VEYRA Business surface', () => {
+  it('opens an explicit chat-like Market Analyst without observing until Generate is pressed', async () => {
+    const user = await openBusiness()
+    const business = screen.getByRole('region', { name: 'Business' })
+    await user.click(within(business).getByRole('button', { name: /Market Analyst/i }))
+    const analyst = screen.getByRole('region', { name: 'Market Analyst' })
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(0)
+    expect(within(analyst).queryByRole('textbox')).toBeNull()
+    expect(within(analyst).queryByRole('spinbutton')).toBeNull()
+    await user.click(within(analyst).getByRole('button', { name: 'Generate market report' }))
+    expect(analyst).toHaveTextContent('You')
+    expect(analyst).toHaveTextContent('Buy pressure is currently high in Science Fiction.')
+    expect(analyst).toHaveTextContent('This trend has only recently emerged.')
+    expect(analyst).toHaveTextContent('Static Bloom stands out among the books this branch carries.')
+    expect(analyst).not.toHaveTextContent(/Pressure 120|Demand 16800/)
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(1)
+    await user.click(within(analyst).getByRole('button', { name: 'Refresh market report' }))
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(2)
+    await user.click(within(analyst).getByRole('button', { name: 'Back' }))
+    expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
+  })
+
+  it('renders stale captured phase semantics until an explicit Refresh appends a new report', async () => {
+    const first = requestBookstoreMarketReportFromOperatedRemoteDevice(phoneConnectedState(), BOOKSTORE_BRANCH_ID)
+    if (first.status !== 'generated') throw new Error(first.status)
+    const reportA = first.state.knowledge.bookstoreMarket.reports[0]
+    const established = advanceGameState(first.state, 360_000, () => 0, () => 0.5, () => 0)
+    expect(established.bookstoreTrend.active?.remainingDurationMs).toBe(2_880_000)
+
+    const detail = { marketAnalyst: true } as const
+    const view = render(<GameProvider initialState={established}><VeyraBusiness detail={detail} onDetail={() => {}} /><State /></GameProvider>)
+    const analyst = screen.getByRole('region', { name: 'Market Analyst' })
+    expect(analyst).toHaveTextContent('This trend has only recently emerged.')
+    expect(analyst).not.toHaveTextContent('This trend has been active for a while.')
+    expect(canonical().knowledge.bookstoreMarket.reports).toEqual([reportA])
+
+    // Reopening is Browse, not Observe: live ESTABLISHED truth does not alter Report A.
+    view.unmount()
+    render(<GameProvider initialState={established}><VeyraBusiness detail={detail} onDetail={() => {}} /><State /></GameProvider>)
+    const reopened = screen.getByRole('region', { name: 'Market Analyst' })
+    expect(reopened).toHaveTextContent('This trend has only recently emerged.')
+    expect(canonical().knowledge.bookstoreMarket.reports).toEqual([reportA])
+
+    await userEvent.setup().click(within(reopened).getByRole('button', { name: 'Refresh market report' }))
+    expect(within(reopened).getAllByText('This trend has only recently emerged.')).toHaveLength(1)
+    expect(within(reopened).getAllByText('This trend has been active for a while.')).toHaveLength(1)
+    expect(canonical().knowledge.bookstoreMarket.reports[0]).toEqual(reportA)
+    expect(canonical().knowledge.bookstoreMarket.reports).toHaveLength(2)
+  })
+
   it('presents Company, Branch, funds, inventory, supply and orders from represented truth', async () => {
     const user = await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
     const business = screen.getByRole('region', { name: 'Business' })

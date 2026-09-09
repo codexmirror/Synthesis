@@ -362,7 +362,7 @@ describe('Activity Monitor: Recent Activity', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear recent activity' }))
     fireEvent.click(within(screen.getByRole('group', { name: 'Clear recent activity?' })).getByRole('button', { name: 'CLEAR' }))
     expect(screen.queryByText('WEAKNESS DETECTED')).not.toBeInTheDocument()
-    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017' }] } })
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017' }] } })
   })
 
   it('removes one ended activity through GameActions without changing gameplay truth or other work', () => {

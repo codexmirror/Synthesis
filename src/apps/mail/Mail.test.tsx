@@ -6,7 +6,7 @@ import { createInitialGameState } from '../../core/game/initialState'
 import { composeMail, deleteMailThreads, openMailThread, sendMailReply } from '../../core/game/mail'
 import { MYRA_FIRST_TARGET_ADDRESS, MYRA_FIRST_CONTACT_THREAD_ID } from '../../core/game/myraFirstContactCorrespondence'
 import type { GameState } from '../../core/game/types'
-import { withoutBookstoreCadenceTiming } from '../../test/canonicalSnapshot'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { Home } from '../../shell/Home'
 import { appEntries } from '../../shell/appRegistry'
 import { Mail } from './Mail'
@@ -24,7 +24,7 @@ function Capture() {
 }
 
 function captured(): GameState {
-  return withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState)
+  return withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState)
 }
 
 function renderMail(initialState?: GameState) {
