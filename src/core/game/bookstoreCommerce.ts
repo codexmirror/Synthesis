@@ -166,7 +166,7 @@ export function resolveBookstoreCommerceForBranch(state: GameState, branchId: st
     const gratuityTransaction = sale.gratuityTransactionId
       ? state.dollarFinance.transactions.records.find(({ id }) => id === sale.gratuityTransactionId)
       : undefined
-    if (!transaction || (sale.gratuityTransactionId && !gratuityTransaction)) return []
+    if (!transaction) return []
     return [{ id: sale.id, kind: sale.kind, transaction, ...(gratuityTransaction ? { gratuityTransaction } : {}), lines: sale.lines }]
   })
   const assortment = new Set(record.assortment)

@@ -455,12 +455,14 @@ describe('Bookstore Sales Cadence — large elapsed steps contain multiple chron
     const seed = createInitialGameState()
     const sequenceValues = [0.15, 0.55, 0.35, 0.75, 0.05]
     const purchaseSequenceValues = [0.1, 0.9, 0.75, 0.2, 0.4, 0.6, 0.3, 0.8, 0.05, 0.99]
+    const gratuitySequenceValues = [0.8, 0.1, 0.2, 0.9, 0.7, 0.85, 0.5]
 
-    const largeStep = advanceGameState(seed, 1_200_000, Math.random, fixedSequenceRandom(sequenceValues), fixedSequenceRandom(purchaseSequenceValues))
+    const largeStep = advanceGameState(seed, 1_200_000, Math.random, fixedSequenceRandom(sequenceValues), fixedSequenceRandom(purchaseSequenceValues), fixedSequenceRandom(gratuitySequenceValues))
 
     const sharedRandom = fixedSequenceRandom(sequenceValues)
     const sharedPurchaseRandom = fixedSequenceRandom(purchaseSequenceValues)
-    const partitioned = advanceGameState(advanceGameState(seed, 600_000, Math.random, sharedRandom, sharedPurchaseRandom), 600_000, Math.random, sharedRandom, sharedPurchaseRandom)
+    const sharedGratuityRandom = fixedSequenceRandom(gratuitySequenceValues)
+    const partitioned = advanceGameState(advanceGameState(seed, 600_000, Math.random, sharedRandom, sharedPurchaseRandom, sharedGratuityRandom), 600_000, Math.random, sharedRandom, sharedPurchaseRandom, sharedGratuityRandom)
 
     // Every canonical business/world consequence — sales, stock, finance, Backend, World —
     // is required to agree exactly between the two runs.
@@ -531,8 +533,8 @@ describe('Bookstore Sales Cadence — causal boundary: opportunities observe Bac
 
   it('one large step agrees with the equivalent chronological partition, under the same causal result', () => {
     const fixture = disruptedFixtureWithCompactCadence()
-    const largeStep = advanceGameState(fixture, FIRST_INTERVAL_MS + SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom)
-    const partitioned = advanceGameState(advanceGameState(fixture, FIRST_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom), SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom)
+    const largeStep = advanceGameState(fixture, FIRST_INTERVAL_MS + SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom, constantRandom(0.5))
+    const partitioned = advanceGameState(advanceGameState(fixture, FIRST_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom, constantRandom(0.5)), SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom, constantRandom(0.5))
     // See the analogous note above: every canonical consequence besides the countdown must agree
     // exactly, and the countdown itself must still agree within ordinary floating-point tolerance.
     expect(withoutBookstoreBackgroundTiming(largeStep)).toEqual(withoutBookstoreBackgroundTiming(partitioned))

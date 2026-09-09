@@ -173,6 +173,28 @@ describe('isBookstoreMerchandiseCatalogSufficient', () => {
 })
 
 describe('resolveBookstoreCommerceForBranch', () => {
+  it('keeps a valid merchandise sale when its optional gratuity Transaction reference is dangling', () => {
+    const initial = createInitialGameState()
+    const state: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map(record => ({ ...record, completedSales: record.completedSales.map(sale => ({ ...sale, gratuityTransactionId: 'missing-gratuity-transaction' })) })) } }
+    const commerce = resolveBookstoreCommerceForBranch(state, BOOKSTORE_BRANCH_ID)
+    expect(commerce?.sales).toHaveLength(1)
+    expect(commerce?.sales[0].transaction.id).toBe(BOOKSTORE_SALE_TRANSACTION_ID)
+    expect(commerce?.sales[0]).not.toHaveProperty('gratuityTransaction')
+    expect(state.bookstoreCommerce.records[0].completedSales[0].gratuityTransactionId).toBe('missing-gratuity-transaction')
+  })
+
+  it('projects a resolving optional gratuity Transaction while preserving missing merchandise-Transaction behavior', () => {
+    const sold = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID, fixedRandom([0.1, 0.95]), fixedRandom([0.75, 0]))
+    expect(sold.status).toBe('sold')
+    if (sold.status !== 'sold') return
+    const commerce = resolveBookstoreCommerceForBranch(sold.state, BOOKSTORE_BRANCH_ID)!
+    expect(commerce.sales.at(-1)?.gratuityTransaction?.id).toBe(sold.state.bookstoreCommerce.records[0].completedSales.at(-1)?.gratuityTransactionId)
+
+    const merchandiseId = sold.state.bookstoreCommerce.records[0].completedSales.at(-1)!.dollarTransactionId
+    const missingMerchandise: GameState = { ...sold.state, dollarFinance: { ...sold.state.dollarFinance, transactions: { ...sold.state.dollarFinance.transactions, records: sold.state.dollarFinance.transactions.records.filter(({ id }) => id !== merchandiseId) } } }
+    expect(resolveBookstoreCommerceForBranch(missingMerchandise, BOOKSTORE_BRANCH_ID)?.sales.some(({ id }) => id === sold.saleId)).toBe(false)
+  })
+
   it('resolves current merchandise catalog, settlement Account, and completed sale for the bookstore Branch', () => {
     const state = createInitialGameState()
     const commerce = resolveBookstoreCommerceForBranch(state, BOOKSTORE_BRANCH_ID)

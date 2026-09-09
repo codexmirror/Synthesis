@@ -275,7 +275,7 @@ export type ExecuteBookstoreSaleResult =
  * decides *when* a sale is attempted, and calling this twice is two
  * independent explicit attempts.
  */
-export function executeBookstoreSale(state: GameState, branchId: string, bookstorePurchaseRandom: () => number = Math.random, bookstoreGratuityRandom: () => number = bookstorePurchaseRandom): ExecuteBookstoreSaleResult {
+export function executeBookstoreSale(state: GameState, branchId: string, bookstorePurchaseRandom: () => number = Math.random, bookstoreGratuityRandom: () => number = Math.random): ExecuteBookstoreSaleResult {
   const branch = state.business.branches.find((candidate) => candidate.id === branchId)
   if (!branch) return { status: 'branch_not_found', state }
 

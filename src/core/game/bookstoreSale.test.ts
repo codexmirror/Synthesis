@@ -58,7 +58,11 @@ describe('executeBookstoreSale — success path', () => {
   it.each([[10, 200], [15, 300], [20, 400]] as const)('creates a separate %i%% personal gratuity Transaction linked from its causing sale', (percentage, expectedTip) => {
     const before = createInitialGameState()
     const tier = percentage === 10 ? 0 : percentage === 15 ? 0.4 : 0.8
-    const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), cyclicRandom([0.75, tier]))
+    let purchaseDraws = 0
+    let gratuityDraws = 0
+    const purchaseRandom = ONE_BOOK_SYSTEMS_OF_DUST_RANDOM()
+    const gratuityRandom = cyclicRandom([0.75, tier])
+    const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID, () => { purchaseDraws += 1; return purchaseRandom() }, () => { gratuityDraws += 1; return gratuityRandom() })
     expect(result.status).toBe('sold')
     if (result.status !== 'sold') return
     const sale = result.state.bookstoreCommerce.records[0].completedSales.at(-1)!
@@ -68,6 +72,8 @@ describe('executeBookstoreSale — success path', () => {
     expect(gratuity).toMatchObject({ sourceAccountId: RETAIL_CLEARING_ACCOUNT_ID, destinationAccountId: 'dollar-account-veyra-phone-v0', amountCents: expectedTip, statementContext: { description: BOOKSTORE_BRANCH_NAME, purpose: BOOKSTORE_GRATUITY_STATEMENT_PURPOSE, location: BOOKSTORE_BRANCH_LOCATION } })
     expect(balanceOf(result.state, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)).toBe(2_000)
     expect(balanceOf(result.state, 'dollar-account-veyra-phone-v0')).toBe(34_250 + expectedTip)
+    expect(purchaseDraws).toBe(2)
+    expect(gratuityDraws).toBe(2)
   })
 
   it('rounds fractional-cent gratuities deterministically to nearest cent with exact halves upward', () => {
@@ -78,10 +84,13 @@ describe('executeBookstoreSale — success path', () => {
 
   it('records a no-tip successful sale after exactly one gratuity draw', () => {
     let draws = 0
-    const result = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), () => { draws += 1; return 0.749999 })
+    let purchaseDraws = 0
+    const purchaseRandom = ONE_BOOK_SYSTEMS_OF_DUST_RANDOM()
+    const result = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID, () => { purchaseDraws += 1; return purchaseRandom() }, () => { draws += 1; return 0.749999 })
     expect(result.status).toBe('sold')
     if (result.status !== 'sold') return
     expect(draws).toBe(1)
+    expect(purchaseDraws).toBe(2)
     expect(result.state.bookstoreCommerce.records[0].completedSales.at(-1)).not.toHaveProperty('gratuityTransactionId')
     expect(result.state.dollarFinance.transactions.records).toHaveLength(2)
   })
@@ -129,7 +138,7 @@ describe('executeBookstoreSale — success path', () => {
       const samples = [0.1, 0.15]
       let draws = 0
       const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
-      expect(draws).toBe(3)
+      expect(draws).toBe(2)
       expect(result.status).toBe('sold')
       if (result.status !== 'sold') throw new Error('expected sale')
       return result.state.bookstoreCommerce.records[0].completedSales.at(-1)?.lines[0].merchandiseId
@@ -146,7 +155,7 @@ describe('executeBookstoreSale — success path', () => {
       const samples = [0.1, 0.2]
       let draws = 0
       const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
-      expect(draws).toBe(3)
+      expect(draws).toBe(2)
       expect(result.status).toBe('sold')
       if (result.status !== 'sold') throw new Error('expected represented sale')
       return result.state
@@ -261,6 +270,12 @@ describe('executeBookstoreSale — success path', () => {
 })
 
 describe('executeBookstoreSale — atomic failure paths', () => {
+  it('consumes neither purchase nor gratuity randomness for a refused sale', () => {
+    const initial = createInitialGameState()
+    const closed: GameState = { ...initial, bookstoreOperations: { records: initial.bookstoreOperations.records.map(record => ({ ...record, open: false })) } }
+    const forbidden = () => { throw new Error('refused sale must not sample') }
+    expect(executeBookstoreSale(closed, BOOKSTORE_BRANCH_ID, forbidden, forbidden)).toEqual({ status: 'closed', state: closed })
+  })
   it.each([
     ['missing', (state: GameState) => state.bookstoreMarket.genrePressures.slice(1)],
     ['duplicate', (state: GameState) => [...state.bookstoreMarket.genrePressures.slice(0, -1), state.bookstoreMarket.genrePressures[0]]],
