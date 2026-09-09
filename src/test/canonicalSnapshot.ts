@@ -18,12 +18,16 @@ import type { GameState } from '../core/game/types'
  * added, removed, or reconfigured a cadence record, rather than only
  * ignoring legitimate background timing.
  */
-export function withoutBookstoreCadenceTiming<T extends { readonly bookstoreSalesCadence?: GameState['bookstoreSalesCadence'] }>(state: T): T {
+export function withoutBookstoreCadenceTiming<T extends { readonly bookstoreSalesCadence?: GameState['bookstoreSalesCadence']; readonly bookstoreTrend?: GameState['bookstoreTrend'] }>(state: T): T {
   if (!state.bookstoreSalesCadence) return state
-  return {
+  const normalized = {
     ...state,
     bookstoreSalesCadence: {
       records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 0 })),
     },
   }
+  return normalized.bookstoreTrend?.active ? {
+    ...normalized,
+    bookstoreTrend: { active: { ...normalized.bookstoreTrend.active, remainingDurationMs: 0 } },
+  } : normalized
 }

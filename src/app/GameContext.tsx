@@ -39,7 +39,7 @@ import type { StartFlipperModuleIntegrationResult } from '../core/game/flipper'
 import type { PayoutNodeMinerResult, RetargetLocalNodeMinerPayoutResult, RetargetNodeMinerPayoutResult, StartNodeMinerResult, StartRemoteNodeMinerResult, StopNodeMinerResult, StopRemoteNodeMinerResult } from '../core/game/nodeMiner'
 import type { AuthenticateDollarAccountResult, AuthenticateWithSavedDollarSignInResult, LogoutDollarAccountResult, TransferDollarsResult, TransferRemoteDollarsResult } from '../core/game/dollarFinance'
 import type { ChangeWalletProtectionForOperatedRemoteDeviceResult, VerifyDevicePinForOperatedRemoteDeviceResult } from '../core/game/deviceSecurity'
-import type { PlaceOperatedBookstoreRestockOrderResult } from '../core/game/companyAdministration'
+import type { PlaceOperatedBookstoreRestockOrderResult, RequestOperatedBookstoreMarketReportResult } from '../core/game/companyAdministration'
 import type { StartVeyraFirmwareUpdateResult } from '../core/game/veyraFirmwareUpdate'
 import type { StartRackOsFirmwareUpdateResult } from '../core/game/rackOsFirmwareUpdate'
 import type { CreateRattlerPayloadResult, DeployRattlerResult } from '../core/game/rattler'
@@ -99,6 +99,7 @@ export interface GameActions {
   verifyDevicePinForOperatedRemoteDevice(pin: string): VerifyDevicePinForOperatedRemoteDeviceResult
   /** Submits the existing authorized Bookstore restock for the operated Device; Company authority and settlement stay inside the domain. */
   placeBookstoreRestockOrderFromOperatedRemoteDevice(branchId: string, decisions: import('../core/game/bookstoreRestock').BookstoreOrderDecisions, reviewedProposal: import('../core/game/bookstoreRestock').BookstoreOrderProposal): PlaceOperatedBookstoreRestockOrderResult
+  requestBookstoreMarketReportFromOperatedRemoteDevice(branchId: string): RequestOperatedBookstoreMarketReportResult
   createRattlerPayload(targetAddress: string): CreateRattlerPayloadResult
   deployRattler?(): DeployRattlerResult
   openMailThread(threadId: string): void

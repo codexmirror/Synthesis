@@ -11,6 +11,51 @@ that technically implements the Branch's backend, and the separate concrete
 bookstore-sales-cadence record that determines when a sale opportunity for
 the Branch becomes due.
 
+## Bookstore Trend lifecycle and market intelligence
+
+`GameState.bookstoreTrend` separately represents the one current cause of a
+temporary market consequence; `GameState.bookstoreMarket` remains the hidden
+current Genre Pressure state consumed by ordinary purchase composition, and
+Effective Demand remains derived as Book Baseline Popularity × current Genre
+Pressure. V1 seeds exactly one active Trend,
+`bookstore-trend-science-fiction-buy-pressure-v0`: Science Fiction Pressure
+120 for a total 3,600,000 represented milliseconds, with 3,240,000 remaining.
+The initial Pressure is constructed from the same authored active-effect
+constant. Canonical `advanceGameState` ages the Trend inside the existing
+sale-boundary segmentation; while active it leaves Pressure at 120, and its
+single completion consequence removes the active Trend and sets Science
+Fiction Pressure exactly to neutral 100. There is no decay, residual effect,
+overlap, stacking, successor, spawning, rotation, cooldown, or generic Trend
+engine.
+
+Trend phase is never stored. For a valid active Trend it is derived from its
+elapsed ratio: below 20% is `EMERGING`, exactly 20% through below 75% is
+`ESTABLISHED`, and exactly 75% through completion is `LATE`. Identity,
+positive safe-integer Pressure and total duration, positive finite remaining
+duration (canonical sale segmentation may divide a step fractionally), and remaining ≤ total are
+validated; malformed truth produces neither a phase nor an Analyst report.
+
+Bookstore Market Reports belong to `KnowledgeState.bookstoreMarket` as an
+append-only, monotonically identified historical Player-information record.
+Only an explicit authorized Generate/Refresh analysis request captures one;
+browsing, rendering, and elapsed advancement do not. Each report stores the
+analyzed Branch identity, one qualitative condition per represented Genre,
+the active Trend identity and derived phase only for its actual Genre, and an
+optional captured carried-Book identity/name. It stores no raw Pressure,
+Effective Demand, generated prose, timestamp, or wall-clock age. Consequently
+old reports remain stale and byte-for-byte semantic history as World Truth
+continues changing.
+
+The qualitative mapping is exact: below 100 `SOFT`, 100 `STABLE`, 101–119
+`ELEVATED`, and 120 or above `HIGH`. Mystery's authored 90 is therefore soft
+without an invented Trend. Standout analysis resolves only the managed
+Branch's carried assortment (stock may be zero), requires at least two valid
+Books and one unique highest Effective Demand, and captures the top Book only
+when integer cross-multiplication proves it at least 30% above second place.
+It never searches uncarried Catalog Books. Market analysis is a narrow
+Company-Administration-authorized observation and mutates only Knowledge; it
+is not a general chat, AI, or recommendation system.
+
 ## Generic Company / Branch / Network structural truth
 
 V1 represents three persistent Company World Entities: `Bookstore`, the

@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import type { PlaceOperatedBookstoreRestockOrderResult } from '../../core/game/companyAdministration'
+import type { BookstoreMarketCondition, BookstoreMarketReport, BookstoreTrendPhase } from '../../core/game/types'
 import { proposeBookstoreRestockOrder, type BookstoreOrderDecisions, type BookstoreOrderProposal } from '../../core/game/bookstoreRestock'
 import { formatDollarCents } from '../dollarFormat'
 import { projectVeyraBusiness, type VeyraBusinessBranchView, type VeyraBusinessCompanyView, type VeyraBusinessOfferView, type VeyraBusinessProductView } from './veyraBusiness'
 import { VeyraIcon } from './VeyraIcon'
 
 /** Which Business surface is open. Presentation only; it never reaches `GameState`. */
-export type VeyraBusinessDetail = { readonly offerId: string } | { readonly inventory: true } | { readonly productId: string }
+export type VeyraBusinessDetail = { readonly offerId: string } | { readonly inventory: true } | { readonly productId: string } | { readonly marketAnalyst: true }
 
 /**
  * Business: the phone's client for the Company this Device may actually
@@ -29,7 +30,7 @@ export function VeyraBusiness({ detail, onDetail }: {
   onDetail: (detail?: VeyraBusinessDetail) => void
 }) {
   const state = useGameState()
-  const { placeBookstoreRestockOrderFromOperatedRemoteDevice } = useGameActions()
+  const { placeBookstoreRestockOrderFromOperatedRemoteDevice, requestBookstoreMarketReportFromOperatedRemoteDevice } = useGameActions()
   const projection = projectVeyraBusiness(state)
   const [notice, setNotice] = useState<string>()
 
@@ -59,6 +60,9 @@ export function VeyraBusiness({ detail, onDetail }: {
   if (detail && 'inventory' in detail && branch) {
     return <VeyraBusinessInventory branch={branch} onBack={() => onDetail(undefined)} onProduct={(productId) => onDetail({ productId })} />
   }
+  if (detail && 'marketAnalyst' in detail && branch) {
+    return <VeyraMarketAnalyst branch={branch} request={() => requestBookstoreMarketReportFromOperatedRemoteDevice(branch.branchId)} onBack={() => onDetail(undefined)} />
+  }
 
   if (detail && reviewed && branch) {
     return <VeyraBusinessReview
@@ -78,6 +82,7 @@ export function VeyraBusiness({ detail, onDetail }: {
     notice={notice}
     onOffer={(offerId) => { setNotice(undefined); onDetail({ offerId }) }}
     onInventory={() => onDetail({ inventory: true })}
+    onMarketAnalyst={() => onDetail({ marketAnalyst: true })}
   />
 }
 
@@ -87,12 +92,13 @@ export function VeyraBusiness({ detail, onDetail }: {
  * be bought, and what has been ordered. Every value is represented truth; no
  * score, projection, forecast or other invented metric is derived from it.
  */
-function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
+function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory, onMarketAnalyst }: {
   company: VeyraBusinessCompanyView
   branch?: VeyraBusinessBranchView
   notice?: string
   onOffer: (offerId: string) => void
   onInventory: () => void
+  onMarketAnalyst: () => void
 }) {
   return <section className="veyra-screen" aria-label="Business">
     <p className="veyra-eyebrow">Company</p>
@@ -121,6 +127,14 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
           <div className="veyra-row veyra-row--static"><dt>Titles</dt><dd>{branch.inventory.titleCount}</dd></div>
           <button className="veyra-row" type="button" onClick={onInventory}><span>View inventory</span><VeyraIcon name="chevron" /></button>
         </dl>
+
+        <h2 className="veyra-section">Market</h2>
+        <div className="veyra-card veyra-card--rows">
+          <button className="veyra-row" type="button" onClick={onMarketAnalyst}>
+            <span className="veyra-row__copy"><strong>Market Analyst</strong><small>Market research and business intelligence</small></span>
+            <VeyraIcon name="chevron" />
+          </button>
+        </div>
 
         <h2 className="veyra-section">Supply</h2>
         {branch.offers.length === 0
@@ -156,6 +170,50 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory }: {
           </div>}
       </>}
   </section>
+}
+
+function VeyraMarketAnalyst({ branch, request, onBack }: {
+  branch: VeyraBusinessBranchView
+  request: () => { readonly status: string }
+  onBack: () => void
+}) {
+  const [refusal, setRefusal] = useState<string>()
+  const reports = branch.marketReports
+  const generate = () => {
+    const result = request()
+    setRefusal(result.status === 'generated' ? undefined : 'Market research is unavailable.')
+  }
+  return <section className="veyra-screen" aria-label="Market Analyst">
+    <button className="veyra-quiet" type="button" onClick={onBack}>Back</button>
+    <p className="veyra-eyebrow">VEYRA Analyst</p>
+    <h1 className="veyra-title">Market Analyst</h1>
+    <p className="veyra-figure-note">Market research and business intelligence.</p>
+    {reports.map((report, index) => <div className="veyra-analyst-exchange" key={report.id}>
+      <div className="veyra-analyst-message veyra-analyst-message--you"><strong>You</strong><p>{index === 0 ? 'Generate a market report' : 'Refresh market report'}</p></div>
+      <div className="veyra-card veyra-analyst-message"><strong>VEYRA Analyst</strong>{renderMarketReport(report)}</div>
+    </div>)}
+    {refusal && <p className="veyra-refusal" role="alert">{refusal}</p>}
+    <button className="veyra-submit" type="button" onClick={generate}>{reports.length ? 'Refresh market report' : 'Generate market report'}</button>
+  </section>
+}
+
+function renderMarketReport(report: BookstoreMarketReport) {
+  return <>
+    <div className="veyra-analyst-signals">{report.genres.map(observation => <div key={observation.genre}>
+      <p>{pressureLanguage(observation.condition, formatGenre(observation.genre))}</p>
+      {observation.trend && <p>{phaseLanguage(observation.trend.phase)}</p>}
+    </div>)}</div>
+    {report.standout && <p><strong>{report.standout.capturedName}</strong> stands out among the books this branch carries.</p>}
+  </>
+}
+
+function pressureLanguage(condition: BookstoreMarketCondition, genre: string): string {
+  return `Buy pressure is currently ${condition.toLowerCase()} in ${genre}.`
+}
+function phaseLanguage(phase: BookstoreTrendPhase): string {
+  if (phase === 'EMERGING') return 'This trend has only recently emerged.'
+  if (phase === 'ESTABLISHED') return 'This trend has been active for a while.'
+  return 'This trend appears to be in a late phase.'
 }
 
 function VeyraBusinessInventory({ branch, onBack, onProduct }: { branch: VeyraBusinessBranchView; onBack: () => void; onProduct: (id: string) => void }) {

@@ -67,7 +67,7 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
     const state = learned()
     expect(ownsKeyProbe(state)).toBe(true)
     // No fake or named Vulnerability is consulted to form this attempt: it forms identically with Knowledge erased.
-    const withoutKnowledge = { ...state, knowledge: { discoveredVulnerabilities: [] } }
+    const withoutKnowledge = { ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }
     expect(canFormCredentialAccessAttempt(withoutKnowledge, observation)).toBe(true)
     expect(startCredentialAccessAttemptFromObservation(withoutKnowledge, observation).status).toBe('started')
 

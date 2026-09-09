@@ -138,7 +138,7 @@ describe('GameProvider service-analysis actions', () => {
     const base = createInitialGameState()
     const completed = { kind: 'generic' as const, id: 'process-0012', label: 'Done', executorDeviceId: 'device-local-v0', status: 'completed' as const, workRequired: 1, workCompleted: 1, ramRequiredMiB: 10 }
     const running = { ...completed, id: 'process-0013', label: 'Running', status: 'running' as const, workCompleted: 0 }
-    const initial: GameState = { ...base, process: { nextId: 14, processes: [completed, running] }, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
+    const initial: GameState = { ...base, process: { nextId: 14, processes: [completed, running] }, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
     render(<GameProvider initialState={initial}><ClearHarness /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'clear' }))
     const state = JSON.parse(screen.getByRole('status').textContent ?? '') as GameState

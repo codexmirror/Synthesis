@@ -69,7 +69,7 @@ function scannedTarget(state: GameState = createInitialGameState()): GameState {
 function knownWeakness(state: GameState = scannedTarget()): GameState {
   return {
     ...state,
-    knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', observedLabel: 'Weak authentication configuration', targetDeviceId: SRV_01, serviceId: 'service-ssh-001' }] },
+    knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', observedLabel: 'Weak authentication configuration', targetDeviceId: SRV_01, serviceId: 'service-ssh-001' }] },
   }
 }
 
@@ -105,7 +105,7 @@ function actionStubs(): GameContext.GameActions {
     startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
     installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), composeMail: vi.fn(), deleteMailThreads: vi.fn(), clearRecentActivity: vi.fn(),
-    removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(), changeWalletProtectionForOperatedRemoteDevice: vi.fn(), startVeyraFirmwareUpdateForOperatedRemoteDevice: vi.fn(), startRackOsFirmwareUpdateForOperatedRemoteDevice: vi.fn(), verifyDevicePinForOperatedRemoteDevice: vi.fn(), placeBookstoreRestockOrderFromOperatedRemoteDevice: vi.fn(), createRattlerPayload: vi.fn(),
+    removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(), changeWalletProtectionForOperatedRemoteDevice: vi.fn(), startVeyraFirmwareUpdateForOperatedRemoteDevice: vi.fn(), startRackOsFirmwareUpdateForOperatedRemoteDevice: vi.fn(), verifyDevicePinForOperatedRemoteDevice: vi.fn(), placeBookstoreRestockOrderFromOperatedRemoteDevice: vi.fn(), requestBookstoreMarketReportFromOperatedRemoteDevice: vi.fn(), createRattlerPayload: vi.fn(),
   }
 }
 
@@ -401,7 +401,7 @@ describe('NodeScan information boundary', () => {
     const state = {
       ...observed,
       discovery,
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-031', observedLabel: 'Pre-authentication challenge state reuse', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002' }] },
+      knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-031', observedLabel: 'Pre-authentication challenge state reuse', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002' }] },
     }
     const remembered = discovery.devices.find(({ id }) => id === 'host-lan-002')!.inspect!.enhanced!.authGuard!
 
@@ -578,7 +578,7 @@ describe('Credential Access domain presentation', () => {
     if (inspect) discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, SRV_02_ADDRESS, 'enhanced'), base.player.localDevice.id)
     return {
       ...base, world: { network }, discovery,
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-031', observedLabel: 'Pre-authentication challenge state reuse', targetDeviceId: SRV_02, serviceId: 'service-ssh-002' }] },
+      knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-031', observedLabel: 'Pre-authentication challenge state reuse', targetDeviceId: SRV_02, serviceId: 'service-ssh-002' }] },
     }
   }
 
@@ -589,7 +589,7 @@ describe('Credential Access domain presentation', () => {
   it('forms KeyProbe from the legitimately known GateSSH 1.3.3 surface alone and estimates the canonical 30% chance at compute 100 with no known AuthGuard, without needing AUTH-031 Knowledge', () => {
     const state = knownAuth031({ inspect: true, authGuardInWorld: false })
     // No named Vulnerability is consulted to form this route: it forms identically with Knowledge erased.
-    const withoutKnowledge = { ...state, knowledge: { discoveredVulnerabilities: [] } }
+    const withoutKnowledge = { ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }
     const action = keyProbeAction(withoutWorldRead(withoutKnowledge), SRV_02)
     expect(action?.route).toMatchObject({ implementation: 'GateSSH 1.3.3', serviceImplementation: { releaseId: 'gate-ssh-1.3.3' } })
     expect(action?.route).not.toHaveProperty('vulnerabilityId')
@@ -1109,7 +1109,7 @@ describe('RackUpdate exploit and package submission', () => {
     return {
       ...observed,
       discovery,
-      knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] },
+      knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] },
       player: {
         ...observed.player,
         localDevice: {
@@ -1171,7 +1171,7 @@ describe('RackUpdate exploit and package submission', () => {
   })
 
   it('does not offer the avenue before UPD-001 is earned', async () => {
-    const unknown = { ...srv02(), knowledge: { discoveredVulnerabilities: [] } }
+    const unknown = { ...srv02(), knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }
     const user = userEvent.setup()
     render(<GameProvider initialState={unknown}><Network /></GameProvider>)
     await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))

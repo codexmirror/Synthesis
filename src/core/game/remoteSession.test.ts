@@ -28,12 +28,12 @@ describe('remote session lifecycle', () => {
 
   it('requires access even when knowledge and tools exist', () => {
     const state = createInitialGameState()
-    expect(connectRemoteFromObservation({ ...state, knowledge: { discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: observation.targetDeviceId, serviceId: 'service-ssh-001', observedLabel: 'known' }] } }, observation).status).toBe('access_required')
+    expect(connectRemoteFromObservation({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: observation.targetDeviceId, serviceId: 'service-ssh-001', observedLabel: 'known' }] } }, observation).status).toBe('access_required')
   })
 
   it('does not rerun the original exploit after access is established', () => {
     const state = accessed(); const host = state.world.network.hosts[0]
-    const withoutVulnerability = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [] } }, knowledge: { discoveredVulnerabilities: [] }, world: { network: { ...state.world.network, hosts: [{ ...host, services: host.services?.map((service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })) }, ...state.world.network.hosts.slice(1)] } } }
+    const withoutVulnerability = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [] } }, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] }, world: { network: { ...state.world.network, hosts: [{ ...host, services: host.services?.map((service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })) }, ...state.world.network.hosts.slice(1)] } } }
     expect(connectRemoteFromObservation(withoutVulnerability, observation).status).toBe('connected')
   })
 

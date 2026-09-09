@@ -17,6 +17,7 @@ import { advanceTechnicianReaction } from './technician'
 import { advanceDeviceFirmwareUpdatesWithRemainder } from './deviceFirmwareUpdate'
 import { advanceBookstoreSalesCadence } from './bookstoreSalesCadence'
 import { advanceBookstoreRestockDeliveries } from './bookstoreRestock'
+import { advanceBookstoreTrend } from './bookstoreTrend'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -74,7 +75,10 @@ export function advanceGameState(
  * mechanic existed.
  */
 function advanceGameStateCore(state: GameState, elapsedMs: number, credentialAccessRandom: () => number): GameState {
-  let nextState = advanceRattlerPinSearches(state, elapsedMs)
+  // Sales Cadence calls this for each chronological segment, so a sale at a
+  // boundary observes the Trend consequence true at that represented instant.
+  let nextState = advanceBookstoreTrend(state, elapsedMs)
+  nextState = advanceRattlerPinSearches(nextState, elapsedMs)
 
   const executors = [nextState.player.localDevice, ...nextState.world.network.hosts.filter((host) => host.hardware && host.runtime).map((host) => ({ id: host.id, hardware: host.hardware!, runtime: host.runtime! }))]
   const processState = advanceProcesses(nextState.process, executors, elapsedMs)

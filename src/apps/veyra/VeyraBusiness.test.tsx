@@ -149,6 +149,27 @@ describe('VEYRA Business presence', () => {
 })
 
 describe('VEYRA Business surface', () => {
+  it('opens an explicit chat-like Market Analyst without observing until Generate is pressed', async () => {
+    const user = await openBusiness()
+    const business = screen.getByRole('region', { name: 'Business' })
+    await user.click(within(business).getByRole('button', { name: /Market Analyst/i }))
+    const analyst = screen.getByRole('region', { name: 'Market Analyst' })
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(0)
+    expect(within(analyst).queryByRole('textbox')).toBeNull()
+    expect(within(analyst).queryByRole('spinbutton')).toBeNull()
+    await user.click(within(analyst).getByRole('button', { name: 'Generate market report' }))
+    expect(analyst).toHaveTextContent('You')
+    expect(analyst).toHaveTextContent('Buy pressure is currently high in Science Fiction.')
+    expect(analyst).toHaveTextContent('This trend has only recently emerged.')
+    expect(analyst).toHaveTextContent('Static Bloom stands out among the books this branch carries.')
+    expect(analyst).not.toHaveTextContent(/Pressure 120|Demand 16800/)
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(1)
+    await user.click(within(analyst).getByRole('button', { name: 'Refresh market report' }))
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(2)
+    await user.click(within(analyst).getByRole('button', { name: 'Back' }))
+    expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
+  })
+
   it('presents Company, Branch, funds, inventory, supply and orders from represented truth', async () => {
     const user = await openBusiness(phoneConnectedState(earnRestockPrice(createInitialGameState())))
     const business = screen.getByRole('region', { name: 'Business' })

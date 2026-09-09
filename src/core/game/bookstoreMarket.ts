@@ -1,4 +1,5 @@
 import type { BookstoreBookGenre, BookstoreGenreMarketPressureRecord, BookstoreMarketState } from './types'
+export const BOOKSTORE_SCIENCE_FICTION_ACTIVE_TREND_PRESSURE = 120
 
 /** The complete represented Bookstore Genre identity set. Genre identity itself keys market pressure. */
 export const BOOKSTORE_BOOK_GENRES: readonly BookstoreBookGenre[] = [
@@ -9,11 +10,14 @@ export const BOOKSTORE_BOOK_GENRES: readonly BookstoreBookGenre[] = [
 ]
 
 /** Authored, temporally inert V1 hidden market truth. 100 is a neutral relative index, not a percentage or cap. */
-export const BOOKSTORE_GENRE_MARKET_PRESSURES: readonly BookstoreGenreMarketPressureRecord[] = [
-  { genre: 'SCIENCE_FICTION', pressure: 120 },
+export const BOOKSTORE_NON_TREND_GENRE_MARKET_PRESSURES: readonly BookstoreGenreMarketPressureRecord[] = [
   { genre: 'THRILLER', pressure: 100 },
   { genre: 'MYSTERY', pressure: 90 },
   { genre: 'LITERARY_FICTION', pressure: 100 },
+]
+/** Complete authored initial consequence, retained as the public fixture used by focused tests. */
+export const BOOKSTORE_GENRE_MARKET_PRESSURES: readonly BookstoreGenreMarketPressureRecord[] = [
+  { genre: 'SCIENCE_FICTION', pressure: BOOKSTORE_SCIENCE_FICTION_ACTIVE_TREND_PRESSURE }, ...BOOKSTORE_NON_TREND_GENRE_MARKET_PRESSURES,
 ]
 
 export function createInitialBookstoreMarketState(): BookstoreMarketState {

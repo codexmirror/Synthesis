@@ -108,13 +108,13 @@ describe('Initial credential access', () => {
   it('forms only from remembered service, known weakness, and SELF-owned concrete tooling', () => {
     const state = prepared()
     expect(canFormCredentialAccessAttempt(state, observation)).toBe(true)
-    expect(canFormCredentialAccessAttempt({ ...state, knowledge: { discoveredVulnerabilities: [] } }, observation)).toBe(false)
-    expect(startCredentialAccessAttemptFromObservation({ ...state, knowledge: { discoveredVulnerabilities: [] } }, observation).status).toBe('not_available')
+    expect(canFormCredentialAccessAttempt({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation)).toBe(false)
+    expect(startCredentialAccessAttemptFromObservation({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation).status).toBe('not_available')
     const noTool = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [], filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
     expect(canFormCredentialAccessAttempt(noTool, observation)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation(noTool, observation).status).toBe('not_available')
     const unrelated = { ...observation, vulnerabilityId: 'UNRELATED-001' }
-    const unrelatedKnown = { ...state, knowledge: { discoveredVulnerabilities: [{ ...state.knowledge.discoveredVulnerabilities[0], vulnerabilityId: unrelated.vulnerabilityId }] } }
+    const unrelatedKnown = { ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ ...state.knowledge.discoveredVulnerabilities[0], vulnerabilityId: unrelated.vulnerabilityId }] } }
     expect(canFormCredentialAccessAttempt(unrelatedKnown, unrelated)).toBe(false)
 
     const standardOnly = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
