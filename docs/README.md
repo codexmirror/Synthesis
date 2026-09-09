@@ -405,6 +405,7 @@ VEYRA Device presentation direction.
   consumes and the adapter its one supported action goes through)
 - TESTS → `src/apps/veyra/Veyra.test.tsx`,
   `src/apps/veyra/VeyraBusiness.test.tsx`, `src/apps/veyra/veyraBusiness.test.ts`,
+  `src/apps/veyra/veyraNavigation.test.ts`, `src/apps/veyra/veyraMarketReport.test.ts`,
   `src/shell/remoteOperatingSurface.test.ts`,
   `src/core/game/veyraPhoneAccess.test.ts`,
   `src/core/game/veyraFirmwareUpdate.test.ts`,

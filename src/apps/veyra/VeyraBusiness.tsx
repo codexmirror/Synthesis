@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import type { PlaceOperatedBookstoreRestockOrderResult } from '../../core/game/companyAdministration'
-import type { BookstoreMarketCondition, BookstoreMarketReport, BookstoreTrendPhase } from '../../core/game/types'
+import { formatBookstoreGenre, presentVeyraMarketReports, type VeyraMarketConditionEntry } from './veyraMarketReport'
 import { proposeBookstoreRestockOrder, type BookstoreOrderDecisions, type BookstoreOrderProposal } from '../../core/game/bookstoreRestock'
 import { formatDollarCents } from '../dollarFormat'
 import { projectVeyraBusiness, type VeyraBusinessBranchView, type VeyraBusinessCompanyView, type VeyraBusinessOfferView, type VeyraBusinessProductView } from './veyraBusiness'
@@ -9,6 +9,20 @@ import { VeyraIcon } from './VeyraIcon'
 
 /** Which Business surface is open. Presentation only; it never reaches `GameState`. */
 export type VeyraBusinessDetail = { readonly offerId: string } | { readonly inventory: true } | { readonly productId: string } | { readonly marketAnalyst: true }
+
+/**
+ * The Business surface directly above this one, or `undefined` where the
+ * Business root is.
+ *
+ * Business details are not a flat set: a Product is something the player
+ * reached *through* Inventory, so Inventory is where leaving it goes — from
+ * this surface's own back control and from VEYRA's navigation band alike
+ * (`veyraNavigation.ts`). Supply review and the Analyst are reached from the
+ * root and return to it.
+ */
+export function parentVeyraBusinessDetail(detail: VeyraBusinessDetail): VeyraBusinessDetail | undefined {
+  return 'productId' in detail ? { inventory: true } : undefined
+}
 
 /**
  * Business: the phone's client for the Company this Device may actually
@@ -172,53 +186,146 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory, onMa
   </section>
 }
 
+/**
+ * The Market Analyst: the phone's one deliberate business-intelligence surface
+ * over this Branch's captured Market Reports.
+ *
+ * It is explicitly button-driven and nothing else. There is no text input, no
+ * free-form question, no assistant state, no typing delay, no LLM and no
+ * conversation model — the only Market observation is the one request control
+ * below, and opening, leaving, reopening or re-rendering this surface observes
+ * nothing at all.
+ *
+ * The reports it presents are Player Knowledge, immutable once taken. The
+ * latest reading is given the weight it deserves; every earlier one stays
+ * individually recoverable behind one disclosure, in its represented order,
+ * still saying exactly what it captured (`veyraMarketReport.ts`).
+ */
 function VeyraMarketAnalyst({ branch, request, onBack }: {
   branch: VeyraBusinessBranchView
   request: () => { readonly status: string }
   onBack: () => void
 }) {
   const [refusal, setRefusal] = useState<string>()
-  const reports = branch.marketReports
-  const generate = () => {
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [openedReportId, setOpenedReportId] = useState<string>()
+  // Newest first: the report the player most likely wants is the one they just
+  // asked for, and everything older is history rather than a feed.
+  const [latest, ...earlier] = presentVeyraMarketReports(branch.marketReports)
+
+  function requestReport() {
     const result = request()
     setRefusal(result.status === 'generated' ? undefined : 'Market research is unavailable.')
   }
+
   return <section className="veyra-screen" aria-label="Market Analyst">
-    <button className="veyra-quiet" type="button" onClick={onBack}>Back</button>
+    <VeyraBusinessBack parent="Business" onBack={onBack} />
     <p className="veyra-eyebrow">VEYRA Analyst</p>
     <h1 className="veyra-title">Market Analyst</h1>
-    <p className="veyra-figure-note">Market research and business intelligence.</p>
-    {reports.map((report, index) => <div className="veyra-analyst-exchange" key={report.id}>
-      <div className="veyra-analyst-message veyra-analyst-message--you"><strong>You</strong><p>{index === 0 ? 'Generate a market report' : 'Refresh market report'}</p></div>
-      <div className="veyra-card veyra-analyst-message"><strong>VEYRA Analyst</strong>{renderMarketReport(report)}</div>
-    </div>)}
+
+    {/*
+      * With nothing captured yet, the Analyst says what a report actually
+      * contains rather than presenting an empty form. Every clause below
+      * corresponds to something a captured report really carries: a
+      * qualitative buy-pressure reading per carried Genre, whether one of them
+      * carries a Trend, and a standout title among the Books this Branch
+      * stocks. It promises no cause, forecast, figure or recommendation.
+      */}
+    {!latest && <div className="veyra-card veyra-analyst-intro">
+      <p>Ask for a report and I will read how buy pressure sits across the genres this branch carries, whether one of them is running on a trend, and whether any title you stock stands out.</p>
+      <p className="veyra-analyst-intro__note">Each report is kept exactly as it was taken, so a later one never rewrites an earlier one.</p>
+    </div>}
+
+    {/*
+      * The one Market observation, presented as the Analyst's suggested next
+      * move rather than as a form's submit button: same explicitness, without
+      * the oversized primary block that made repeated readings feel like
+      * posting the same message again.
+      */}
+    <button className="veyra-analyst-request" type="button" onClick={requestReport}>
+      <span className="veyra-analyst-request__mark"><VeyraIcon name="analyst" /></span>
+      <span className="veyra-analyst-request__copy">
+        <strong>{latest ? 'Refresh market report' : 'Request market report'}</strong>
+        <small>{latest ? 'Take a new reading and keep this one' : 'Read the market as it stands now'}</small>
+      </span>
+    </button>
+
     {refusal && <p className="veyra-refusal" role="alert">{refusal}</p>}
-    <button className="veyra-submit" type="button" onClick={generate}>{reports.length ? 'Refresh market report' : 'Generate market report'}</button>
+
+    {latest && <article className="veyra-card veyra-report" aria-label={`Report ${latest.ordinal}`}>
+      <p className="veyra-report__label">Latest reading · Report {latest.ordinal}</p>
+      <p className="veyra-report__headline">{latest.headline}</p>
+      {latest.trend && <p className="veyra-report__trend">{latest.trend.sentence}</p>}
+      <VeyraMarketConditions entries={latest.conditions} />
+      {latest.standout && <p className="veyra-report__standout">{latest.standout}</p>}
+    </article>}
+
+    {earlier.length > 0 && <>
+      <h2 className="veyra-section">Earlier reports</h2>
+      <div className="veyra-card veyra-card--rows">
+        <button className="veyra-row" type="button" aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}>
+          <span className="veyra-row__copy">
+            <strong>{earlier.length === 1 ? '1 earlier report' : `${earlier.length} earlier reports`}</strong>
+            <small>{historyOpen ? 'Newest first' : 'Kept as they were taken'}</small>
+          </span>
+          <span className="veyra-row__trail" data-expanded={historyOpen || undefined}><VeyraIcon name="chevron" /></span>
+        </button>
+        {historyOpen && earlier.map((report) => <div className="veyra-history" key={report.id}>
+          <button
+            className="veyra-row"
+            type="button"
+            aria-expanded={openedReportId === report.id}
+            onClick={() => setOpenedReportId(openedReportId === report.id ? undefined : report.id)}
+          >
+            <span className="veyra-row__copy">
+              <strong>Report {report.ordinal}</strong>
+              <small>{report.headline}</small>
+            </span>
+            <span className="veyra-row__trail" data-expanded={openedReportId === report.id || undefined}><VeyraIcon name="chevron" /></span>
+          </button>
+          {openedReportId === report.id && <div className="veyra-history__report" aria-label={`Report ${report.ordinal}`}>
+            {report.trend && <p className="veyra-report__trend">{report.trend.sentence}</p>}
+            <VeyraMarketConditions entries={report.conditions} />
+            {report.standout && <p className="veyra-report__standout">{report.standout}</p>}
+          </div>}
+        </div>)}
+      </div>
+    </>}
   </section>
 }
 
-function renderMarketReport(report: BookstoreMarketReport) {
-  return <>
-    <div className="veyra-analyst-signals">{report.genres.map(observation => <div key={observation.genre}>
-      <p>{pressureLanguage(observation.condition, formatGenre(observation.genre))}</p>
-      {observation.trend && <p>{phaseLanguage(observation.trend.phase)}</p>}
-    </div>)}</div>
-    {report.standout && <p><strong>{report.standout.capturedName}</strong> stands out among the books this branch carries.</p>}
-  </>
+/**
+ * Every captured Genre observation of one report, each on its own line with
+ * its captured qualitative condition — the same facts the old surface wrote as
+ * one sentence per Genre, without the repetition. The trend marker restates
+ * only that this report captured a Trend on that Genre.
+ */
+function VeyraMarketConditions({ entries }: { entries: readonly VeyraMarketConditionEntry[] }) {
+  return <dl className="veyra-report__conditions">
+    {entries.map((entry) => <div className="veyra-report__condition" key={entry.genreLabel}>
+      <dt>{entry.genreLabel}{entry.carriesTrend && <span className="veyra-report__trend-mark">Trend</span>}</dt>
+      <dd data-condition={entry.condition}>{entry.conditionLabel}</dd>
+    </div>)}
+  </dl>
 }
 
-function pressureLanguage(condition: BookstoreMarketCondition, genre: string): string {
-  return `Buy pressure is currently ${condition.toLowerCase()} in ${genre}.`
-}
-function phaseLanguage(phase: BookstoreTrendPhase): string {
-  if (phase === 'EMERGING') return 'This trend has only recently emerged.'
-  if (phase === 'ESTABLISHED') return 'This trend has been active for a while.'
-  return 'This trend appears to be in a late phase.'
+/**
+ * A Business detail's own way back, naming the surface it returns to.
+ *
+ * Naming the parent is the point: the player can see that leaving a Product
+ * goes to Inventory rather than to the Business root, and VEYRA's navigation
+ * band resolves the same parent from the same hierarchy, so the two controls
+ * can never disagree.
+ */
+function VeyraBusinessBack({ parent, onBack }: { parent: string; onBack: () => void }) {
+  return <button className="veyra-back" type="button" onClick={onBack} aria-label={`Back to ${parent}`}>
+    <VeyraIcon name="back" /><span>{parent}</span>
+  </button>
 }
 
 function VeyraBusinessInventory({ branch, onBack, onProduct }: { branch: VeyraBusinessBranchView; onBack: () => void; onProduct: (id: string) => void }) {
   return <section className="veyra-screen" aria-label="Inventory">
-    <button className="veyra-quiet" type="button" onClick={onBack}>Back</button>
+    <VeyraBusinessBack parent="Business" onBack={onBack} />
     <p className="veyra-eyebrow">{branch.displayName}</p>
     <h1 className="veyra-title">Inventory</h1>
     <div className="veyra-card veyra-card--rows">
@@ -231,10 +338,10 @@ function VeyraBusinessInventory({ branch, onBack, onProduct }: { branch: VeyraBu
 
 function VeyraBusinessProductDetail({ branch, product, onBack }: { branch: VeyraBusinessBranchView; product: VeyraBusinessProductView; onBack: () => void }) {
   return <section className="veyra-screen" aria-label="Product detail">
-    <button className="veyra-quiet" type="button" onClick={onBack}>Back</button>
+    <VeyraBusinessBack parent="Inventory" onBack={onBack} />
     <p className="veyra-eyebrow">{branch.displayName}</p>
     <h1 className="veyra-title">{product.name}</h1>
-    <p className="veyra-figure-note">{formatGenre(product.genre)}</p>
+    <p className="veyra-figure-note">{formatBookstoreGenre(product.genre)}</p>
     <h2 className="veyra-section">Pricing</h2>
     <dl className="veyra-card veyra-card--rows veyra-terms">
       <div className="veyra-row veyra-row--static"><dt>Retail price</dt><dd>{formatDollarCents(product.retailPriceCents)}</dd></div>
@@ -249,8 +356,6 @@ function VeyraBusinessProductDetail({ branch, product, onBack }: { branch: Veyra
     <dl className="veyra-card veyra-card--rows veyra-terms"><div className="veyra-row veyra-row--static"><dt>Popularity</dt><dd>{product.baselinePopularity}</dd></div></dl>
   </section>
 }
-
-function formatGenre(genre: string): string { return genre.toLowerCase().split('_').map(word => word[0].toUpperCase() + word.slice(1)).join(' ') }
 
 /**
  * The review before Company money moves: who is selling, what the bundle

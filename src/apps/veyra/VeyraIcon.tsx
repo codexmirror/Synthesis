@@ -10,6 +10,7 @@ export type VeyraIconName =
   | 'copy'
   | 'copied'
   | 'chevron'
+  | 'analyst'
   | 'back'
   | 'home'
 
@@ -37,6 +38,7 @@ export function VeyraIcon({ name }: { name: VeyraIconName }) {
     copy: <><rect x="9" y="9" width="10.5" height="10.5" rx="2.4" /><path d="M15 6.2A2.2 2.2 0 0 0 12.8 4H6.7A2.7 2.7 0 0 0 4 6.7v6.1A2.2 2.2 0 0 0 6.2 15" /></>,
     copied: <path d="m5 12.6 4.4 4.4L19 7.4" />,
     chevron: <path d="m10 6 6 6-6 6" />,
+    analyst: <><path d="M4.6 4.8v14.6h14.8" /><path d="m7.8 15.6 3.5-4.1 2.9 2.4 4.4-5.3" /></>,
     back: <path d="m14 6-6 6 6 6" />,
     home: <><path d="M4.5 10.8 12 4.6l7.5 6.2" /><path d="M6.6 12.4V19h10.8v-6.6" /></>,
   } satisfies Record<VeyraIconName, ReactNode>

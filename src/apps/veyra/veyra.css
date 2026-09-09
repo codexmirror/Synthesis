@@ -233,12 +233,6 @@ button.veyra-frame__disconnect { color: #d4a099; }
 .veyra-figure-note { margin: 8px 0 0; color: var(--veyra-ink-mute); font-size: .88rem; }
 
 .veyra-card--rows { display: grid; }
-.veyra-analyst-exchange { display: grid; gap: 8px; }
-.veyra-analyst-message { padding: 16px; overflow-wrap: anywhere; }
-.veyra-analyst-message > strong { display: block; color: var(--veyra-ink-mute); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
-.veyra-analyst-message p { margin: 8px 0 0; line-height: 1.45; }
-.veyra-analyst-message--you { justify-self: end; max-width: 84%; text-align: right; }
-.veyra-analyst-signals { display: grid; gap: 10px; margin-top: 10px; }
 
 .veyra-row {
   width: 100%;
@@ -262,7 +256,25 @@ button.veyra-frame__disconnect { color: #d4a099; }
 .veyra-row__copy { min-width: 0; display: grid; gap: 3px; }
 .veyra-row__copy strong { font: 500 1rem/1.2 var(--veyra-sans); }
 .veyra-row__copy small { color: var(--veyra-ink-mute); font-size: .82rem; overflow-wrap: anywhere; }
-button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra-surface-sunk); outline: 0; }
+/*
+ * Press, hover and keyboard focus are three different things, and a phone
+ * operated through a touch screen must not inherit the desktop behaviour of
+ * the middle one. `:hover` is stated only where a hovering pointer actually
+ * exists: applied by a tap on iOS Safari it stays applied after the finger
+ * leaves, which is exactly what left tapped rows looking selected. Press
+ * feedback is `:active`, which arrives with the finger and releases with it —
+ * including a cancelled gesture — and keyboard focus keeps its own outline.
+ * None of this needs pointer-state JavaScript.
+ */
+@media (hover: hover) and (pointer: fine) {
+  button.veyra-row:hover { background: var(--veyra-surface-sunk); }
+}
+button.veyra-row:active { background: var(--veyra-surface-sunk); }
+button.veyra-row:focus-visible {
+  background: var(--veyra-surface-sunk);
+  outline: 2px solid var(--veyra-accent);
+  outline-offset: -2px;
+}
 
 .veyra-amount { font: 500 1rem/1.2 var(--veyra-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* An order's own status column: the same two-line row copy, read from the right. */
@@ -326,6 +338,142 @@ button.veyra-row:hover, button.veyra-row:focus-visible { background: var(--veyra
   cursor: pointer;
 }
 .veyra-quiet:focus-visible { outline: 2px solid var(--veyra-accent); outline-offset: 2px; }
+
+/* ---- press feedback, on every VEYRA control ---- */
+
+/*
+ * The platform's own tap highlight is kept and merely tinted to VEYRA's ink
+ * rather than turned off: it is drawn by the browser for the duration of the
+ * touch itself, so it cannot be left behind the way a hover state can, and on
+ * WebKit it is the one press affordance that does not depend on `:active`
+ * being delivered for touch at all. The `:active` rules below state the same
+ * press for pointer devices, and both release on their own.
+ */
+.veyra button { -webkit-tap-highlight-color: rgba(33, 31, 28, .09); }
+
+.veyra-submit:active, .veyra-action--primary:active, .veyra-update-banner__action:active { filter: brightness(.93); }
+.veyra-action:active { background: var(--veyra-surface-sunk); }
+.veyra-action--primary:active { background: var(--veyra-accent); }
+.veyra-quiet:active, .veyra-nav button:not(:disabled):active { background: var(--veyra-surface-sunk); border-radius: 12px; }
+.veyra-copy:active { background: var(--veyra-surface-sunk); }
+.veyra-toggle:active .veyra-toggle__knob { transform: scale(.94); }
+.veyra-toggle[data-state='on']:active .veyra-toggle__knob { transform: translateX(20px) scale(.94); }
+.veyra-frame button:active { color: #eef3f4; }
+.veyra-back:active { background: var(--veyra-surface-sunk); }
+.veyra-analyst-request:active { filter: brightness(.96); }
+
+/* ---- a detail's own way back, naming what it returns to ---- */
+
+.veyra-back {
+  justify-self: start;
+  min-height: 44px;
+  margin-left: -10px;
+  padding: 0 12px 0 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--veyra-ink-soft);
+  font: 400 .95rem var(--veyra-sans);
+  cursor: pointer;
+}
+.veyra-back .veyra-icon { width: 20px; height: 20px; }
+.veyra-back:focus-visible { outline: 2px solid var(--veyra-accent); outline-offset: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .veyra-back:hover, button.veyra-quiet:hover { background: var(--veyra-surface-sunk); border-radius: 12px; }
+}
+
+/* ---- Market Analyst ---- */
+
+.veyra-analyst-intro { padding: 18px 20px 20px; display: grid; gap: 10px; }
+.veyra-analyst-intro p { margin: 0; color: var(--veyra-ink-soft); font-size: .95rem; line-height: 1.55; }
+.veyra-analyst-intro__note { color: var(--veyra-ink-mute); font-size: .86rem; }
+
+/* The request: the Analyst's suggested next move, not a form's submit block. */
+.veyra-analyst-request {
+  width: 100%;
+  min-height: 62px;
+  padding: 11px 16px 11px 12px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid var(--veyra-line-strong);
+  border-radius: 16px;
+  background: var(--veyra-accent-sunk);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.veyra-analyst-request__mark {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--veyra-surface);
+  color: var(--veyra-accent);
+}
+.veyra-analyst-request__copy { min-width: 0; display: grid; gap: 2px; }
+.veyra-analyst-request__copy strong { color: #6d3f22; font: 500 1rem/1.25 var(--veyra-sans); }
+.veyra-analyst-request__copy small { color: var(--veyra-ink-mute); font-size: .82rem; line-height: 1.35; }
+.veyra-analyst-request:focus-visible { outline: 2px solid var(--veyra-accent); outline-offset: 2px; }
+
+.veyra-report { padding: 18px 20px 20px; display: grid; gap: 12px; }
+.veyra-report__label {
+  margin: 0;
+  color: var(--veyra-ink-mute);
+  font: 600 .7rem/1 var(--veyra-sans);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.veyra-report__headline { margin: 0; font: 500 1.12rem/1.4 var(--veyra-sans); letter-spacing: -.01em; }
+.veyra-report__trend {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--veyra-accent);
+  color: var(--veyra-ink-soft);
+  font-size: .92rem;
+  line-height: 1.5;
+}
+.veyra-report__standout { margin: 0; color: var(--veyra-ink-soft); font-size: .92rem; line-height: 1.5; }
+
+.veyra-report__conditions { margin: 0; display: grid; }
+.veyra-report__condition {
+  padding: 9px 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--veyra-line);
+}
+.veyra-report__condition dt { display: flex; align-items: center; gap: 8px; font-size: .95rem; }
+.veyra-report__condition dd { margin: 0; color: var(--veyra-ink-soft); font: 500 .92rem var(--veyra-sans); white-space: nowrap; }
+/*
+ * Weight follows the captured qualitative condition and nothing else: a
+ * stronger reading simply reads stronger. No number, index or scale is shown,
+ * because the report captures none.
+ */
+.veyra-report__condition dd[data-condition='HIGH'] { color: #8b4a20; font-weight: 600; }
+.veyra-report__condition dd[data-condition='ELEVATED'] { color: var(--veyra-accent); }
+.veyra-report__condition dd[data-condition='SOFT'] { color: var(--veyra-ink-mute); }
+.veyra-report__trend-mark {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--veyra-accent-sunk);
+  color: var(--veyra-accent);
+  font: 600 .62rem/1.6 var(--veyra-sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* Earlier readings: one disclosure, then one row per report, still individually openable. */
+.veyra-history { display: grid; border-top: 1px solid var(--veyra-line); }
+.veyra-history__report { padding: 0 20px 16px; display: grid; gap: 12px; }
+.veyra-row__trail[data-expanded] .veyra-icon { transform: rotate(90deg); }
 
 /* ---- toggle ---- */
 

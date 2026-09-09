@@ -72,6 +72,21 @@ function ruleBody(css: string, selector: string): string {
   return stripComments(css).match(new RegExp(`(?:^|[{}])\\s*${escaped}\\s*{([^}]*)}`))?.[1] ?? ''
 }
 
+/** The stylesheet with every at-rule block whose prelude matches `prelude` removed. */
+function withoutAtRuleBlocks(css: string, prelude: RegExp): string {
+  const spans = [...css.matchAll(prelude)].map((match) => {
+    const start = match.index!
+    let depth = 0
+    for (let index = css.indexOf('{', start); index < css.length; index += 1) {
+      if (css[index] === '{') depth += 1
+      if (css[index] === '}') depth -= 1
+      if (depth === 0) return [start, index + 1] as const
+    }
+    return [start, css.length] as const
+  })
+  return spans.reduceRight((remaining, [start, end]) => remaining.slice(0, start) + remaining.slice(end), css)
+}
+
 /** Bodies of every rule, nested or not, whose selector mentions `className`. */
 function rulesTouching(css: string, className: string): string[] {
   const pattern = new RegExp(`[^{}]*\\.${className}\\b[^{}]*{([^}]*)}`, 'g')
@@ -295,6 +310,36 @@ describe('NODE-OS presentation language', () => {
       .filter((size): size is number => size !== undefined)
     expect(sizes.length).toBeGreaterThan(0)
     expect(sizes.filter((size) => size < 16)).toEqual([])
+  })
+
+  it('keeps VEYRA hover, press and keyboard focus as three separate things a touch screen cannot confuse', () => {
+    /*
+     * A hover style applied by a tap on iOS Safari stays applied after the
+     * finger leaves, which left tapped VEYRA rows looking selected. So VEYRA
+     * states `:hover` only inside a hover-capable capability query, keeps the
+     * physical press affordance on `:active` — which releases with the finger,
+     * including a cancelled gesture — and keeps keyboard focus visible on its
+     * own `:focus-visible`. None of it is a pointer-state JavaScript system.
+     */
+    const css = stripComments(veyraCss)
+    const outsideCapabilityQuery = withoutAtRuleBlocks(css, /@media\s*\(hover:\s*hover\)[^{]*/g)
+    expect(outsideCapabilityQuery).not.toMatch(/:hover/)
+    expect(css).toMatch(/@media\s*\(hover:\s*hover\)\s*and\s*\(pointer:\s*fine\)/)
+
+    // Every VEYRA control the player taps reacts to the press itself.
+    for (const control of ['veyra-row', 'veyra-app', 'veyra-key', 'veyra-action', 'veyra-submit', 'veyra-quiet', 'veyra-copy', 'veyra-nav', 'veyra-back', 'veyra-analyst-request', 'veyra-toggle', 'veyra-frame']) {
+      expect(css, `${control} has no press feedback`).toMatch(new RegExp(`\\.${control}[^{},]*:active`))
+    }
+
+    // Keyboard focus survived the touch fix.
+    for (const control of ['veyra-row', 'veyra-app', 'veyra-key', 'veyra-action', 'veyra-submit', 'veyra-quiet', 'veyra-back', 'veyra-analyst-request']) {
+      expect(css, `${control} has no keyboard focus treatment`).toMatch(new RegExp(`\\.${control}[^{}]*:focus-visible`))
+    }
+
+    // The platform's own touch highlight is kept, tinted rather than disabled:
+    // it is drawn only while the touch lasts, so it cannot be left behind.
+    expect(css).toMatch(/-webkit-tap-highlight-color:\s*rgba\(/)
+    expect(css).not.toMatch(/-webkit-tap-highlight-color:\s*transparent/)
   })
 
   it('lets no application shrink an editable below the Shell mobile safety size', () => {

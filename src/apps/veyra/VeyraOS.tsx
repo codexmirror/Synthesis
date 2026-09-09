@@ -1,36 +1,19 @@
 import './veyra.css'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import type { ActiveRemoteTarget } from '../../core/game/remoteSession'
 import { deriveVeyraHomeEntries, type VeyraAppId, type VeyraHomeEntry } from './veyraHome'
 import { VeyraIcon } from './VeyraIcon'
 import { VeyraCommunication } from './VeyraCommunication'
 import { VeyraPinChallenge } from './VeyraPinChallenge'
-import { VeyraSettings, type VeyraSettingsDetail } from './VeyraSettings'
-import { VeyraWallet, type VeyraWalletDetail } from './VeyraWallet'
-import { VeyraBusiness, type VeyraBusinessDetail } from './VeyraBusiness'
+import { VeyraSettings } from './VeyraSettings'
+import { VeyraWallet } from './VeyraWallet'
+import { VeyraBusiness } from './VeyraBusiness'
+import { isVeyraParentOf, veyraLocationKey, veyraParentLocation, type VeyraLocation } from './veyraNavigation'
 import { VeyraFirmwareInstall, VeyraFirmwareWelcome } from './VeyraFirmwareInstall'
 import { deriveRattlerProcessForDevice } from '../../core/game/rattler'
 import { resolveInstallingVeyraFirmwareRelease, type VeyraFirmwareRelease } from '../../core/game/veyraFirmwareUpdate'
 import { selectVeyraReleasePresentation, type VeyraReleasePresentation } from './veyraRelease'
-
-/**
- * Where the player is inside the phone. The grammar is exactly two levels:
- *
- * ```text
- * HOME -> application / system-surface root -> optional detail
- * ```
- *
- * It is Presentation state held by this component and never reaches
- * `GameState`: a launcher position is not world truth.
- */
-type VeyraLocation =
-  | { readonly app: 'home' }
-  | { readonly app: 'communication' }
-  | { readonly app: 'wallet-locked' }
-  | { readonly app: 'wallet'; readonly detail?: VeyraWalletDetail }
-  | { readonly app: 'business'; readonly detail?: VeyraBusinessDetail }
-  | { readonly app: 'settings'; readonly detail?: VeyraSettingsDetail }
 
 /**
  * VEYRA OS: the ordinary consumer phone environment of a foreign Device the
@@ -117,18 +100,60 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
     setRequested(undefined)
   }, [requested, editingRecoveryReady])
 
+  /*
+   * Scrolling is VEYRA's own, and one region carries every surface, so where a
+   * surface starts is a product decision rather than a leftover.
+   *
+   * Opening a surface starts it at its own top: the alternative is what the
+   * phone did before, where a screen could open already scrolled past its own
+   * title. Going back up to the surface the player came from restores where
+   * they were in it, which is what makes opening several Books in succession
+   * feel like browsing one list.
+   *
+   * Both are keyed on `veyraLocationKey`, so this is navigation only: an
+   * advancing delivery, a completed sale, a firmware installation ticking on or
+   * an appended Market Report re-renders the same surface and never moves the
+   * player's position in it.
+   */
+  const viewport = useRef<HTMLElement>(null)
+  const remembered = useRef(new Map<string, number>())
+  const arrival = useRef(0)
+  const currentKey = veyraLocationKey(current)
+
+  useLayoutEffect(() => {
+    const region = viewport.current
+    const scrollTop = arrival.current
+    arrival.current = 0
+    if (region) region.scrollTop = scrollTop
+  }, [currentKey])
+
   function go(next: VeyraLocation) {
+    const from = current
+    const fromKey = veyraLocationKey(from)
+    if (isVeyraParentOf(next, from)) {
+      // Upward: resume where the player was in the surface they came from.
+      const nextKey = veyraLocationKey(next)
+      arrival.current = remembered.current.get(nextKey) ?? 0
+      remembered.current.delete(nextKey)
+      remembered.current.delete(fromKey)
+    } else if (isVeyraParentOf(from, next)) {
+      // Downward into this surface's own child: the child starts at its top,
+      // and where the player was here is worth coming back to.
+      arrival.current = 0
+      remembered.current.set(fromKey, viewport.current?.scrollTop ?? 0)
+    } else {
+      // Home, or any other jump: nothing is being browsed, so nothing is kept.
+      arrival.current = 0
+      remembered.current.clear()
+    }
     onEndEditing()
     setRequested(next)
   }
 
+  /** BACK is exactly one step up VEYRA's own hierarchy, wherever the player is. */
   function back() {
-    if (current.app === 'home') return
-    if (current.app === 'communication' || current.app === 'wallet-locked' || !current.detail) {
-      go({ app: 'home' })
-      return
-    }
-    go({ app: current.app })
+    const parent = veyraParentLocation(current)
+    if (parent) go(parent)
   }
 
   /**
@@ -167,7 +192,7 @@ export function VeyraOS({ context, hidden, onReturnLocal, editingRecoveryReady, 
       </div>
     </header>
 
-    <main className="veyra-viewport">
+    <main className="veyra-viewport" ref={viewport}>
       {installing && <VeyraFirmwareInstall progress={installing} release={installingRelease} />}
       {!installing && installed && <VeyraFirmwareWelcome release={installed} onContinue={() => { setInstalled(undefined); go({ app: 'home' }) }} />}
       {!systemBusy && current.app === 'home' && <VeyraHome entries={entries} onOpen={openHomeEntry} deviceName={target.displayName!} release={release} />}
