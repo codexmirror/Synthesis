@@ -265,8 +265,12 @@ Report wording is composed by `presentVeyraMarketReport`
 else: a headline naming the Genres that share that report's strongest captured
 condition, every captured Genre observation individually with its captured
 qualitative condition, the captured Trend phase where a Trend was captured, and
-any standout under its captured Book name. Where every carried Genre shares one
-condition it says so rather than presenting a leader. It states no cause,
+any standout under its captured Book name. The captured Genre-condition set
+covers every represented Genre market-wide, not only this Branch's carried
+assortment, and the wording says so — "across the market" where every reported
+Genre shares one condition, rather than presenting a leader or implying the
+condition set is Branch-scoped. Only the standout is scoped to the Books this
+Branch actually carries. It states no cause,
 forecast, duration, figure, Pressure, Effective Demand or recommendation,
 because the report captures none. Presentation never reads live hidden market
 truth to rewrite an old report, never refreshes on

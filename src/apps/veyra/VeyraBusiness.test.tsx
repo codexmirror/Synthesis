@@ -163,6 +163,12 @@ describe('VEYRA Business surface', () => {
     expect(within(analyst).queryByRole('textbox')).toBeNull()
     expect(within(analyst).queryByRole('spinbutton')).toBeNull()
     expect(analyst).toHaveTextContent('Ask for a report')
+    // The intro describes the global captured genre-condition set truthfully:
+    // it must not claim the reported genres are scoped to this branch, and
+    // must not imply a standout requires positive physical stock.
+    expect(analyst).not.toHaveTextContent(/genres this branch carries/)
+    expect(analyst).not.toHaveTextContent('you stock')
+    expect(analyst).toHaveTextContent('any title this branch carries')
 
     await user.click(within(analyst).getByRole('button', { name: /Request market report/ }))
     expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(1)

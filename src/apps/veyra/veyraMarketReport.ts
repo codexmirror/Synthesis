@@ -106,15 +106,20 @@ export function presentVeyraMarketReport(report: BookstoreMarketReport, ordinal:
  *
  * The sentence names only the Genres that actually share the strongest
  * captured condition, and states that condition and nothing else. Where every
- * carried Genre shares it, that is what it says — a market with no
+ * reported Genre shares it, that is what it says — a market with no
  * differentiated signal must not be presented as though one Genre led it.
+ *
+ * This is the global captured Genre-condition set, not the Branch's carried
+ * assortment: a Market Report captures one condition per every represented
+ * Genre, carried by this Branch or not. Only the standout below is scoped to
+ * carried Books, so the wording here must never say "this branch carries".
  */
 function composeHeadline(observations: readonly BookstoreMarketReportGenreObservation[]): string {
   if (observations.length === 0) return 'This report captured no genre observations.'
   const strongest = CONDITION_ORDER.find((condition) => observations.some((observation) => observation.condition === condition))!
   const named = observations.filter((observation) => observation.condition === strongest)
   const word = CONDITION_WORD[strongest]
-  if (named.length === observations.length) return `Buy pressure is ${word} across every genre this branch carries.`
+  if (named.length === observations.length) return `Buy pressure is ${word} across the market.`
   return `Buy pressure is ${word} in ${joinGenres(named.map(({ genre }) => formatBookstoreGenre(genre)))}.`
 }
 

@@ -227,12 +227,14 @@ function VeyraMarketAnalyst({ branch, request, onBack }: {
       * With nothing captured yet, the Analyst says what a report actually
       * contains rather than presenting an empty form. Every clause below
       * corresponds to something a captured report really carries: a
-      * qualitative buy-pressure reading per carried Genre, whether one of them
+      * qualitative buy-pressure reading per reported Genre across the whole
+      * market — not scoped to this Branch's assortment — whether one of them
       * carries a Trend, and a standout title among the Books this Branch
-      * stocks. It promises no cause, forecast, figure or recommendation.
+      * carries (carried, not necessarily in current physical stock). It
+      * promises no cause, forecast, figure or recommendation.
       */}
     {!latest && <div className="veyra-card veyra-analyst-intro">
-      <p>Ask for a report and I will read how buy pressure sits across the genres this branch carries, whether one of them is running on a trend, and whether any title you stock stands out.</p>
+      <p>Ask for a report and I will read how buy pressure sits across the market, whether one genre is running on a trend, and whether any title this branch carries stands out.</p>
       <p className="veyra-analyst-intro__note">Each report is kept exactly as it was taken, so a later one never rewrites an earlier one.</p>
     </div>}
 

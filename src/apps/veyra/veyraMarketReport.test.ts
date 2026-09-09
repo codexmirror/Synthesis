@@ -41,7 +41,25 @@ describe('VEYRA market report presentation', () => {
       { genre: 'MYSTERY', condition: 'STABLE' },
       { genre: 'LITERARY_FICTION', condition: 'STABLE' },
     ] })
-    expect(presentVeyraMarketReport(flat, 1).headline).toBe('Buy pressure is steady across every genre this branch carries.')
+    expect(presentVeyraMarketReport(flat, 1).headline).toBe('Buy pressure is steady across the market.')
+  })
+
+  it('never describes the captured genre-condition set as scoped to this branch, only the standout is', () => {
+    // A Market Report captures one condition for every represented Genre,
+    // independent of what this Branch happens to carry — only the standout
+    // conclusion is drawn from the Branch's own carried Books. The headline
+    // and per-genre wording must never claim otherwise.
+    const flat = report({ genres: [
+      { genre: 'SCIENCE_FICTION', condition: 'ELEVATED' },
+      { genre: 'THRILLER', condition: 'ELEVATED' },
+      { genre: 'MYSTERY', condition: 'ELEVATED' },
+      { genre: 'LITERARY_FICTION', condition: 'ELEVATED' },
+    ], standout: { merchandiseId: 'bookstore-merch-001', capturedName: 'Night Transit' } })
+    const presented = presentVeyraMarketReport(flat, 1)
+    expect(presented.headline).not.toMatch(/branch/i)
+    expect(presented.trend?.sentence ?? '').not.toMatch(/branch/i)
+    // The standout is the one place Branch-scoped wording belongs.
+    expect(presented.standout).toMatch(/this branch carries/)
   })
 
   it('keeps every captured observation individually visible, in its captured order', () => {
