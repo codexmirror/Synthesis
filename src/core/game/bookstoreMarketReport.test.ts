@@ -4,7 +4,7 @@ import { requestBookstoreMarketReportFromOperatedRemoteDevice } from './companyA
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation } from './remoteSession'
 import { advanceGameState } from './gameAdvancement'
-import { deriveBookstoreMarketCondition } from './bookstoreMarketReport'
+import { deriveBookstoreMarketCondition, isBookstoreDemandMateriallyHigher } from './bookstoreMarketReport'
 import type { GameState } from './types'
 
 function operated(state = createInitialGameState()): GameState {
@@ -17,6 +17,13 @@ function operated(state = createInitialGameState()): GameState {
 describe('Bookstore Market Analyst observation', () => {
   it('maps exact qualitative pressure boundaries', () => {
     expect([99, 100, 101, 119, 120].map(deriveBookstoreMarketCondition)).toEqual(['SOFT', 'STABLE', 'ELEVATED', 'ELEVATED', 'HIGH'])
+  })
+
+  it('compares the 30% standout boundary exactly near the safe-integer limit', () => {
+    const second = 6_900_000_000_000_000
+    expect(Number.isSafeInteger(second)).toBe(true)
+    expect(isBookstoreDemandMateriallyHigher(8_970_000_000_000_000, second)).toBe(true)
+    expect(isBookstoreDemandMateriallyHigher(8_969_999_999_999_999, second)).toBe(false)
   })
 
   it('appends immutable reports from current truth, including only a real active Trend and a thresholded carried standout', () => {

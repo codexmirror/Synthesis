@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { createInitialGameState as createSeededGameState } from './initialState'
 import { SERVICE_ANALYSIS_RAM_REQUIRED_MIB, startServiceAnalysis, startServiceAnalysisAtEndpoint, startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
@@ -91,9 +92,9 @@ describe('Service Analysis', () => {
     const done = advanceGameState(started(), 20_000); const process = done.process.processes[0]
     expect(process).toMatchObject({ status: 'completed', workCompleted: 1000, result: { status: 'weaknesses_detected' } })
     expect(done.knowledge.discoveredVulnerabilities).toEqual([{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }])
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of Service Analysis outcome; nothing else does.
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of Service Analysis outcome; no other canonical fields do.
     const rerun = advanceGameState(done, 20_000)
-    expect({ ...rerun, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
+    expect(withoutBookstoreBackgroundTiming(rerun)).toEqual(withoutBookstoreBackgroundTiming(done))
     const again = start(done); expect(again.status).toBe('started'); if (again.status !== 'started') return
     const twice = advanceGameState(again.state, 20_000); expect(twice.knowledge.discoveredVulnerabilities).toHaveLength(1)
     expect(analysis(twice.process.processes[0]).result).toBe(analysis(process).result)

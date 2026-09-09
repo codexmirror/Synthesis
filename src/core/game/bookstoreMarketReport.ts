@@ -16,6 +16,12 @@ function formatReportId(nextId: number): string {
   return `bookstore-market-report-${String(nextId).padStart(4, '0')}`
 }
 
+/** Exact 1.30 comparison for already-validated safe-integer demand weights. */
+export function isBookstoreDemandMateriallyHigher(topDemand: number, secondDemand: number): boolean {
+  if (!Number.isSafeInteger(topDemand) || !Number.isSafeInteger(secondDemand) || topDemand <= 0 || secondDemand <= 0) return false
+  return BigInt(topDemand) * 10n >= BigInt(secondDemand) * 13n
+}
+
 /** Capture only the qualitative market semantics and carried-Book conclusion learned now. */
 export function generateBookstoreMarketReport(state: GameState, branchId: string): GameState | undefined {
   const branches = state.business.branches.filter(branch => branch.id === branchId)
@@ -43,7 +49,7 @@ export function generateBookstoreMarketReport(state: GameState, branchId: string
   const ranked = carried.map(book => ({ book, demand: demand.get(book.id)! })).sort((a, b) => b.demand - a.demand)
   const standout = ranked.length >= 2
     && ranked[0].demand !== ranked[1].demand
-    && ranked[0].demand * 10 >= ranked[1].demand * 13
+    && isBookstoreDemandMateriallyHigher(ranked[0].demand, ranked[1].demand)
     ? { merchandiseId: ranked[0].book.id, capturedName: ranked[0].book.name }
     : undefined
   const knowledge = state.knowledge.bookstoreMarket

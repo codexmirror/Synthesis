@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { rememberInspect, rememberScan } from './discovery'
 import { createInitialGameState as createSeededGameState } from './initialState'
 
@@ -70,9 +71,9 @@ describe('Initial credential access', () => {
     expect(done.process.processes.find((process): process is CredentialAccessProcess => process.kind === 'credential_access')?.result?.status).toBe(status)
     expect(done.deviceAccess.established).toHaveLength(status === 'access_established' ? 1 : 0)
     expect(done.world.network.hosts[0].authenticationHistory?.records.at(-1)?.result).toBe(evidence)
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of credential access outcome; nothing else does.
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of credential access outcome; no other canonical fields do.
     const rerolled = advanceGameState(done, 30_000, () => { throw Error('must not reroll') })
-    expect({ ...rerolled, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
+    expect(withoutBookstoreBackgroundTiming(rerolled)).toEqual(withoutBookstoreBackgroundTiming(done))
   })
 
   it('keeps KeyProbe probability bounded for unusually weak and strong compute', () => {
@@ -208,8 +209,8 @@ describe('Initial credential access', () => {
 
     // Repeated advancement resolves the completed Process at most once and must never duplicate the history entry.
     const advancedAgain = advanceGameState(done, 30_000)
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of credential access outcome; nothing else does.
-    expect({ ...advancedAgain, bookstoreSalesCadence: done.bookstoreSalesCadence }).toEqual(done)
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of credential access outcome; no other canonical fields do.
+    expect(withoutBookstoreBackgroundTiming(advancedAgain)).toEqual(withoutBookstoreBackgroundTiming(done))
     expect(advancedAgain.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)?.authenticationHistory?.records).toHaveLength(1)
 
     expect(startCredentialAccessAttemptFromObservation(done, observation).status).toBe('access_established')

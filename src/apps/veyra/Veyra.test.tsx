@@ -14,7 +14,7 @@ import { Shell } from '../../shell/Shell'
 import { Wallet } from '../wallet/Wallet'
 import type { GameState } from '../../core/game/types'
 import type { EditingViewportState } from '../../shell/useEditingViewport'
-import { withoutBookstoreCadenceTiming } from '../../test/canonicalSnapshot'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 
 let viewport: EditingViewportState
 const endEditing = vi.fn()
@@ -48,12 +48,12 @@ function State() {
 /**
  * Every `canonical()` snapshot here is used to assert "nothing else changed"
  * across some interaction unrelated to Bookstore, so it applies
- * `withoutBookstoreCadenceTiming` rather than pinning every such assertion
+ * `withoutBookstoreBackgroundTiming` rather than pinning every such assertion
  * to Sales Cadence's own legitimately advancing background timing.
  */
 const canonical = (): GameState => {
   const state = JSON.parse(screen.getByTestId('state').textContent ?? '') as GameState
-  return withoutBookstoreCadenceTiming(state)
+  return withoutBookstoreBackgroundTiming(state)
 }
 const accountBalance = (state: GameState, accountId: string) => state.dollarFinance.accounts.find(({ id }) => id === accountId)!.balanceCents
 const phoneSurface = () => screen.getByLabelText('VEYRA OS personal device environment')

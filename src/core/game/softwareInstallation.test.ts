@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState as createSeededGameState } from './initialState'
 
@@ -337,9 +338,9 @@ describe('software installation completion idempotency', () => {
     const once = completeInstallation(started.state)
     const twice = resolveCompletedSoftwareInstallations(once)
     expect(twice).toBe(once)
-    // Bookstore Sales Cadence timing legitimately keeps advancing regardless of installation completion; nothing else does.
+    // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of installation completion; no other canonical fields do.
     const rerun = advanceGameState(once, 20_000)
-    expect({ ...rerun, bookstoreSalesCadence: once.bookstoreSalesCadence }).toEqual(once)
+    expect(withoutBookstoreBackgroundTiming(rerun)).toEqual(withoutBookstoreBackgroundTiming(once))
 
     const executables = once.player.localDevice.filesystem.files.filter((file) => file.kind === 'executable')
     expect(executables).toHaveLength(1)

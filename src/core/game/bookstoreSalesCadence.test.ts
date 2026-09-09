@@ -13,7 +13,7 @@ import {
 import { deriveBookstoreTotalStock } from './bookstoreOperations'
 import { advanceGameState } from './gameAdvancement'
 import { interruptLocalNetworkConnectivity } from './networkConnectivity'
-import { withoutBookstoreCadenceTiming } from '../../test/canonicalSnapshot'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import type { GameState } from './types'
 
 const REMOTE_SEGMENT = 'network-foreign-001'
@@ -97,7 +97,7 @@ function forbiddenRandom(): () => number {
  */
 const CADENCE_COUNTDOWN_FLOATING_POINT_TOLERANCE_MS = 1e-6
 
-/** Canonical countdown truth must still agree between an equivalent large-step and partitioned run — just not to the bit — so this is asserted on its own, separately from `withoutBookstoreCadenceTiming`'s exact comparison of everything else. */
+/** Canonical countdown truth must still agree between an equivalent large-step and partitioned run — just not to the bit — so this is asserted on its own, separately from `withoutBookstoreBackgroundTiming`'s exact comparison of everything else. */
 function expectCadenceCountdownsToAgree(a: GameState, b: GameState): void {
   expect(Math.abs(cadenceOf(a).remainingUntilOpportunityMs - cadenceOf(b).remainingUntilOpportunityMs)).toBeLessThan(CADENCE_COUNTDOWN_FLOATING_POINT_TOLERANCE_MS)
 }
@@ -463,7 +463,7 @@ describe('Bookstore Sales Cadence — large elapsed steps contain multiple chron
 
     // Every canonical business/world consequence — sales, stock, finance, Backend, World —
     // is required to agree exactly between the two runs.
-    expect(withoutBookstoreCadenceTiming(largeStep)).toEqual(withoutBookstoreCadenceTiming(partitioned))
+    expect(withoutBookstoreBackgroundTiming(largeStep)).toEqual(withoutBookstoreBackgroundTiming(partitioned))
     // The countdown itself is canonical runtime truth, not something to ignore: the two runs reach
     // the split point via different floating-point accumulation paths (one continuous 1,200,000 ms
     // run vs. two 600,000 ms runs), so it is asserted separately, within ordinary floating-point
@@ -534,7 +534,7 @@ describe('Bookstore Sales Cadence — causal boundary: opportunities observe Bac
     const partitioned = advanceGameState(advanceGameState(fixture, FIRST_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom), SECOND_INTERVAL_MS, Math.random, constantRandom(SECOND_SAMPLE_U), purchaseRandom)
     // See the analogous note above: every canonical consequence besides the countdown must agree
     // exactly, and the countdown itself must still agree within ordinary floating-point tolerance.
-    expect(withoutBookstoreCadenceTiming(largeStep)).toEqual(withoutBookstoreCadenceTiming(partitioned))
+    expect(withoutBookstoreBackgroundTiming(largeStep)).toEqual(withoutBookstoreBackgroundTiming(partitioned))
     expectCadenceCountdownsToAgree(largeStep, partitioned)
 
     // The single large step itself must show the same one-refusal-then-one-sale causal result,

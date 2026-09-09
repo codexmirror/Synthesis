@@ -11,7 +11,7 @@ import { rememberInspect, rememberPing, rememberScan } from '../../core/game/dis
 import { inspectKnownTarget } from '../../core/game/inspect'
 import { pingNetworkTarget } from '../../core/game/ping'
 import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
-import { withoutBookstoreCadenceTiming } from '../../test/canonicalSnapshot'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { Network } from './Network'
 import { selectKnownSpace, selectTarget, selectTargets } from './targetProjection'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION, ROLLBACK_MODULE_1_0 } from '../../core/game/flipper'
@@ -440,7 +440,7 @@ describe('NodeScan information boundary', () => {
 
   it('never observes or changes anything by opening technical details', async () => {
     const user = await openTarget(knownWeakness())
-    const before = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
+    const before = withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
     scanTargetSpy.mockClear()
 
     await openDetails(user)
@@ -450,19 +450,19 @@ describe('NodeScan information boundary', () => {
     const details = screen.getByText('SERVICES').closest('.ns-detail-panel') as HTMLElement
     expect(within(details).queryByText('AUTH-017')).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
   })
 
   it('never observes by browsing Known Space', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={scannedTarget()}><Network /><StateSnapshot /></GameProvider>)
-    const before = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
+    const before = withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
     scanTargetSpy.mockClear()
 
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
     await user.click(screen.getByRole('button', { name: '← Known Space' }))
     expect(scanTargetSpy).not.toHaveBeenCalled()
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
   })
 })
 
@@ -1464,14 +1464,14 @@ describe('Known Space topology', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
     const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
-    const before = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
+    const before = withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
 
     await user.type(input, '198.51.100.999')
     await user.click(within(input.closest('form')!).getByRole('button', { name: 'Ping target address' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('INVALID ADDRESS')
     expect(scanTargetSpy).not.toHaveBeenCalled()
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
   })
 
   it('reports no response without false Discovery and permits a legitimate SELF observation', async () => {
@@ -1563,11 +1563,11 @@ describe('Known Space topology', () => {
     const known = withAccess()
     scanTargetSpy.mockClear()
     render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
-    const before = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
+    const before = withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
 
     expect(screen.getByRole('region', { name: 'Network home-net' })).toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
   })
 
   it('states unobserved membership rather than reporting an empty Network', () => {
@@ -1657,13 +1657,13 @@ describe('Known Space hierarchy', () => {
     const known = scannedTarget()
     scanTargetSpy.mockClear()
     render(<GameProvider initialState={known}><Network /><StateSnapshot /></GameProvider>)
-    const before = withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
+    const before = withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)
 
     await user.click(screen.getByRole('button', { name: 'Collapse network home-net' }))
     await user.click(screen.getByRole('button', { name: 'Expand network home-net' }))
 
     expect(scanTargetSpy).not.toHaveBeenCalled()
-    expect(withoutBookstoreCadenceTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
+    expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
   })
 })
 
