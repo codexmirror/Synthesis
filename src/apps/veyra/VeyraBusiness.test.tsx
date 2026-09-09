@@ -152,28 +152,47 @@ describe('VEYRA Business presence', () => {
 })
 
 describe('VEYRA Business surface', () => {
-  it('opens an explicit chat-like Market Analyst without observing until Generate is pressed', async () => {
+  it('opens a button-driven Market Analyst that observes only on an explicit request', async () => {
     const user = await openBusiness()
     const business = screen.getByRole('region', { name: 'Business' })
     await user.click(within(business).getByRole('button', { name: /Market Analyst/i }))
     const analyst = screen.getByRole('region', { name: 'Market Analyst' })
+
+    // Opening states what a report contains and observes nothing at all.
     expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(0)
     expect(within(analyst).queryByRole('textbox')).toBeNull()
     expect(within(analyst).queryByRole('spinbutton')).toBeNull()
-    await user.click(within(analyst).getByRole('button', { name: 'Generate market report' }))
-    expect(analyst).toHaveTextContent('You')
-    expect(analyst).toHaveTextContent('Buy pressure is currently high in Science Fiction.')
-    expect(analyst).toHaveTextContent('This trend has only recently emerged.')
-    expect(analyst).toHaveTextContent('Static Bloom stands out among the books this branch carries.')
-    expect(analyst).not.toHaveTextContent(/Pressure 120|Demand 16800/)
+    expect(analyst).toHaveTextContent('Ask for a report')
+    // The intro describes the global captured genre-condition set truthfully:
+    // it must not claim the reported genres are scoped to this branch, and
+    // must not imply a standout requires positive physical stock.
+    expect(analyst).not.toHaveTextContent(/genres this branch carries/)
+    expect(analyst).not.toHaveTextContent('you stock')
+    expect(analyst).toHaveTextContent('any title this branch carries')
+
+    await user.click(within(analyst).getByRole('button', { name: /Request market report/ }))
     expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(1)
-    await user.click(within(analyst).getByRole('button', { name: 'Refresh market report' }))
+    expect(analyst).toHaveTextContent('Latest reading · Report 1')
+    expect(analyst).toHaveTextContent('Buy pressure is high in Science Fiction.')
+    expect(analyst).toHaveTextContent('A trend is running in Science Fiction, and it has only recently emerged.')
+    expect(analyst).toHaveTextContent('Static Bloom stands out among the books this branch carries.')
+
+    // The captured conditions stay individually visible without one sentence each.
+    for (const genre of ['Science Fiction', 'Thriller', 'Mystery', 'Literary Fiction']) {
+      expect(within(analyst).getByText(genre)).toBeInTheDocument()
+    }
+    expect(within(analyst).getAllByText(/Buy pressure is/)).toHaveLength(1)
+    expect(analyst).not.toHaveTextContent(/Pressure 120|Demand 16800/)
+
+    await user.click(within(analyst).getByRole('button', { name: /Refresh market report/ }))
     expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(2)
-    await user.click(within(analyst).getByRole('button', { name: 'Back' }))
+    expect(analyst).toHaveTextContent('Latest reading · Report 2')
+    await user.click(within(analyst).getByRole('button', { name: 'Back to Business' }))
+    expect(screen.queryByRole('region', { name: 'Market Analyst' })).toBeNull()
     expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
   })
 
-  it('renders stale captured phase semantics until an explicit Refresh appends a new report', async () => {
+  it('keeps every earlier report individually recoverable, in order, saying what it captured', async () => {
     const first = requestBookstoreMarketReportFromOperatedRemoteDevice(phoneConnectedState(), BOOKSTORE_BRANCH_ID)
     if (first.status !== 'generated') throw new Error(first.status)
     const reportA = first.state.knowledge.bookstoreMarket.reports[0]
@@ -183,22 +202,103 @@ describe('VEYRA Business surface', () => {
     const detail = { marketAnalyst: true } as const
     const view = render(<GameProvider initialState={established}><VeyraBusiness detail={detail} onDetail={() => {}} /><State /></GameProvider>)
     const analyst = screen.getByRole('region', { name: 'Market Analyst' })
-    expect(analyst).toHaveTextContent('This trend has only recently emerged.')
-    expect(analyst).not.toHaveTextContent('This trend has been active for a while.')
+    expect(analyst).toHaveTextContent('Latest reading · Report 1')
+    expect(analyst).toHaveTextContent('it has only recently emerged')
+    expect(analyst).not.toHaveTextContent('it has been active for a while')
     expect(canonical().knowledge.bookstoreMarket.reports).toEqual([reportA])
 
     // Reopening is Browse, not Observe: live ESTABLISHED truth does not alter Report A.
     view.unmount()
     render(<GameProvider initialState={established}><VeyraBusiness detail={detail} onDetail={() => {}} /><State /></GameProvider>)
     const reopened = screen.getByRole('region', { name: 'Market Analyst' })
-    expect(reopened).toHaveTextContent('This trend has only recently emerged.')
+    expect(reopened).toHaveTextContent('it has only recently emerged')
     expect(canonical().knowledge.bookstoreMarket.reports).toEqual([reportA])
 
-    await userEvent.setup().click(within(reopened).getByRole('button', { name: 'Refresh market report' }))
-    expect(within(reopened).getAllByText('This trend has only recently emerged.')).toHaveLength(1)
-    expect(within(reopened).getAllByText('This trend has been active for a while.')).toHaveLength(1)
-    expect(canonical().knowledge.bookstoreMarket.reports[0]).toEqual(reportA)
+    const user = userEvent.setup()
+    await user.click(within(reopened).getByRole('button', { name: /Refresh market report/ }))
     expect(canonical().knowledge.bookstoreMarket.reports).toHaveLength(2)
+    expect(canonical().knowledge.bookstoreMarket.reports[0]).toEqual(reportA)
+
+    // The new reading leads; the old one is history rather than a second wall of text.
+    expect(within(reopened).getByLabelText('Report 2')).toHaveTextContent('it has been active for a while')
+    expect(reopened).not.toHaveTextContent('it has only recently emerged')
+
+    // History is a disclosure over real reports, and opening it observes nothing.
+    await user.click(within(reopened).getByRole('button', { name: /1 earlier report/ }))
+    await user.click(within(reopened).getByRole('button', { name: /^Report 1/ }))
+    const recovered = within(reopened).getByLabelText('Report 1')
+    expect(recovered).toHaveTextContent('it has only recently emerged')
+    expect(recovered).not.toHaveTextContent('it has been active for a while')
+    expect(canonical().knowledge.bookstoreMarket.reports).toHaveLength(2)
+    expect(canonical().knowledge.bookstoreMarket.reports[0]).toEqual(reportA)
+  })
+
+  it('moves the VEYRA navigation band up the real Business hierarchy, not to the Business root', async () => {
+    const user = await openBusiness()
+    // The navigation band's own control; each surface's local one names its parent.
+    const navBack = () => screen.getByRole('button', { name: 'Back' })
+
+    await user.click(screen.getByRole('button', { name: /View inventory/i }))
+    await user.click(screen.getByRole('button', { name: /Northbound/ }))
+    expect(screen.getByRole('region', { name: 'Product detail' })).toBeInTheDocument()
+
+    // Product Detail is a child of Inventory, so this is where BACK belongs.
+    await user.click(navBack())
+    expect(screen.getByRole('region', { name: 'Inventory' })).toBeInTheDocument()
+    await user.click(navBack())
+    expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
+    await user.click(navBack())
+    expect(screen.getByRole('region', { name: 'Home' })).toBeInTheDocument()
+
+    // A detail reached from the root still returns to the root.
+    await user.click(screen.getByRole('button', { name: 'Business' }))
+    await user.click(screen.getByRole('button', { name: /Market Analyst/i }))
+    await user.click(navBack())
+    expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
+
+    // Navigation is presentation: none of it observed anything or moved money.
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(0)
+  })
+
+  it('opens each surface at its own top while keeping a browse position in Inventory', async () => {
+    const user = await openBusiness()
+    const region = document.querySelector('.veyra-viewport') as HTMLElement
+
+    // The player has scrolled the Business root, then opens Inventory.
+    region.scrollTop = 260
+    await user.click(screen.getByRole('button', { name: /View inventory/i }))
+    expect(screen.getByRole('region', { name: 'Inventory' })).toBeInTheDocument()
+    expect(region.scrollTop).toBe(0)
+
+    // Browsing several Books in succession keeps the list where it was.
+    region.scrollTop = 180
+    await user.click(screen.getByRole('button', { name: /Northbound/ }))
+    expect(region.scrollTop).toBe(0)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(region.scrollTop).toBe(180)
+    await user.click(screen.getByRole('button', { name: /Glass District/ }))
+    expect(region.scrollTop).toBe(0)
+    await user.click(within(screen.getByRole('region', { name: 'Product detail' })).getByRole('button', { name: 'Back to Inventory' }))
+    expect(region.scrollTop).toBe(180)
+
+    // The root resumes too, and a surface opened from it still starts at its top.
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
+    expect(region.scrollTop).toBe(260)
+    await user.click(screen.getByRole('button', { name: /Market Analyst/i }))
+    expect(region.scrollTop).toBe(0)
+
+    // Requesting a report is not navigation: the surface must not jump under the player.
+    region.scrollTop = 90
+    await user.click(screen.getByRole('button', { name: /Request market report/ }))
+    expect(canonical().knowledge.bookstoreMarket?.reports).toHaveLength(1)
+    expect(region.scrollTop).toBe(90)
+
+    // Leaving for Home keeps nothing: Business opens at its top again.
+    await user.click(screen.getByRole('button', { name: 'Home' }))
+    await user.click(screen.getByRole('button', { name: 'Business' }))
+    expect(screen.getByRole('region', { name: 'Business' })).toBeInTheDocument()
+    expect(region.scrollTop).toBe(0)
   })
 
   it('presents Company, Branch, funds, inventory, supply and orders from represented truth', async () => {
@@ -224,7 +324,7 @@ describe('VEYRA Business surface', () => {
     expect(product).toHaveTextContent('Incoming0')
     expect(product).toHaveTextContent('Popularity80')
     expect(product).not.toHaveTextContent(/margin|trend|effective demand/i)
-    await user.click(within(product).getByRole('button', { name: 'Back' }))
+    await user.click(within(product).getByRole('button', { name: 'Back to Inventory' }))
     expect(screen.getByRole('region', { name: 'Inventory' })).toBeInTheDocument()
     expect(business).toHaveTextContent('Mixed Shelf Refill')
     expect(business).toHaveTextContent('Atlas Distribution')
@@ -398,8 +498,8 @@ describe('VEYRA Business surface', () => {
       expect(product).toHaveTextContent('Incoming0')
       expect(product).toHaveTextContent('Popularity100')
 
-      await user.click(within(product).getByRole('button', { name: 'Back' }))
-      await user.click(within(screen.getByRole('region', { name: 'Inventory' })).getByRole('button', { name: 'Back' }))
+      await user.click(within(product).getByRole('button', { name: 'Back to Inventory' }))
+      await user.click(within(screen.getByRole('region', { name: 'Inventory' })).getByRole('button', { name: 'Back to Business' }))
       await user.click(screen.getByRole('button', { name: /Title Case/ }))
       await user.selectOptions(screen.getByRole('combobox', { name: 'Book' }), 'bookstore-merch-006')
       await user.click(screen.getByRole('button', { name: 'Place order' }))
@@ -420,7 +520,7 @@ describe('VEYRA Business surface', () => {
       expect(product).toHaveTextContent('Popularity100')
       expect(product).not.toHaveTextContent(/margin|trend|effective demand/i)
       expect(product).not.toHaveTextContent('Terminal Light')
-      await user.click(within(product).getByRole('button', { name: 'Back' }))
+      await user.click(within(product).getByRole('button', { name: 'Back to Inventory' }))
       expect(screen.getByRole('region', { name: 'Inventory' })).toBeInTheDocument()
     } finally {
       vi.useRealTimers()

@@ -243,18 +243,38 @@ every fact it states from canonical state on every render.
 
 The Business root also has one restrained **Market Analyst** route under
 Market. Opening it observes nothing and creates no Knowledge. Its only action
-is the explicit **Generate market report**, renamed **Refresh market report**
+is the explicit **Request market report**, renamed **Refresh market report**
 once this Branch has history; both invoke the same application adapter and
 the domain's operated-Device / Company Administration authorization path.
 There is no text input, arbitrary send action, assistant state, typing delay,
-free-form question, LLM, or generic conversation model.
+free-form question, LLM, or generic conversation model. The request is
+presented as the Analyst's own suggested next move rather than as a form's
+submit button, and with no report yet the surface states what a report contains
+instead of presenting an empty form.
 
-The detail surface renders the Branch's canonical historical Market Reports
-as a compact request/response transcript. All Pressure and Trend sentences
-are deterministic transformations of captured qualitative conditions and
-captured phases, and any standout uses its captured Book name. Presentation
-never reads live hidden market truth to rewrite an old report, never refreshes
-on open/reopen/render/time advancement, and owns or mutates no Trend, Pressure,
+The detail surface leads with the **latest reading**, labelled with that
+report's position in this Branch's represented order. Every earlier report stays
+individually recoverable behind one **Earlier reports** disclosure, newest
+first, each opening into exactly the semantics it captured. Opening the
+disclosure, opening a historical report, reopening the Analyst and re-rendering
+all observe nothing; only an explicit request appends the next report, and no
+report is ever replaced, merged, summarized away or rewritten.
+
+Report wording is composed by `presentVeyraMarketReport`
+(`src/apps/veyra/veyraMarketReport.ts`) from one captured report and nothing
+else: a headline naming the Genres that share that report's strongest captured
+condition, every captured Genre observation individually with its captured
+qualitative condition, the captured Trend phase where a Trend was captured, and
+any standout under its captured Book name. The captured Genre-condition set
+covers every represented Genre market-wide, not only this Branch's carried
+assortment, and the wording says so — "across the market" where every reported
+Genre shares one condition, rather than presenting a leader or implying the
+condition set is Branch-scoped. Only the standout is scoped to the Books this
+Branch actually carries. It states no cause,
+forecast, duration, figure, Pressure, Effective Demand or recommendation,
+because the report captures none. Presentation never reads live hidden market
+truth to rewrite an old report, never refreshes on
+open/reopen/render/time advancement, and owns or mutates no Trend, Pressure,
 Effective Demand, assortment, stock, cadence, or money truth. Losing current
 Business authority preserves the existing unavailable Business behavior; Back
 returns to the Business root.
@@ -300,7 +320,9 @@ The root presents, entirely from represented truth:
   Each carried row opens Product Detail by stable Book identity. It re-resolves title, human-readable
   Genre, retail price and Baseline Popularity from the Catalog, **In stock** from Operations,
   **Incoming** from in-transit Order lines, and **Last acquisition cost** from the latest delivered
-  captured line (or **Not recorded** where no represented delivery exists). Back returns to Inventory.
+  captured line (or **Not recorded** where no represented delivery exists). Both this surface's
+  own back control and the navigation band's Back return to Inventory, because Product Detail is a
+  child of Inventory rather than of the Business root.
   Catalog-only Books are not disclosed. Incoming units are paid for and in transit and are
   deliberately not part of current stock or assortment until canonical delivery.
 - **Supply** — exactly two quiet procurement rows, `Mixed Shelf Refill` and
@@ -502,16 +524,53 @@ attempt; see Wallet's own Wallet-open enforcement section above.
 
 ## Navigation, and the operating-context frame
 
-VEYRA's internal grammar is two levels:
+VEYRA's internal grammar is a hierarchy of surfaces:
 
 ```text
-HOME -> application / system-surface root -> optional detail
+HOME -> application / system-surface root -> detail -> a detail's own child detail
 ```
 
 A persistent VEYRA navigation band carries **Back**, which moves exactly one
 level upward, and **Home**, which returns to the launcher from any depth.
 Neither ever leaves the phone. Location is presentation state and never reaches
 `GameState`.
+
+What "one level upward" means is resolved in one place,
+`veyraParentLocation` (`src/apps/veyra/veyraNavigation.ts`): every surface
+names its own parent, and an application owns the shape of its own details —
+Business answers through `parentVeyraBusinessDetail`
+(`src/apps/veyra/VeyraBusiness.tsx`). A detail is therefore not automatically a
+child of its application root: **Product Detail is a child of Inventory**, so
+the navigation band's Back returns there rather than to the Business root.
+Business details reached from the root — Inventory, Market Analyst, an offer
+review — return to the root, and every application or system-surface root
+returns to Home.
+
+Each Business detail also carries its own back control naming the surface it
+returns to (`‹ Inventory`, `‹ Business`). The two controls read the same
+hierarchy, so they cannot disagree. This is concrete surface-to-parent
+resolution for this one phone, not a route table, history stack, path syntax or
+navigator abstraction, and nothing about it reaches `GameState`.
+
+### Where a surface starts scrolling
+
+One scrolling region carries every VEYRA surface, so where a newly opened
+surface starts is decided rather than inherited. `VeyraOS` sets that region's
+offset only when the surface actually changes, keyed on `veyraLocationKey`:
+
+```text
+opening any surface            -> that surface's own top
+going back up to the surface
+the player came from           -> where they were in it
+Home, or any other jump        -> the top, and nothing is remembered
+```
+
+Descending remembers the position of the surface being left, and coming back up
+restores and forgets it, which is what lets several Books be opened in
+succession without losing the Inventory list. Everything else is not
+navigation: an advancing delivery, a completed sale, an appended Market Report
+or a firmware installation ticking on re-renders the same surface and never
+moves the player's position in it.
 
 Leaving the foreign environment remains the Shell's, and stays visibly
 separate: a slim technical band above the phone carries the Session context and
@@ -531,6 +590,21 @@ language is a warm light ground, deep graphite ink, proportional system-safe
 typography, soft depth, controlled rounding, hairline structure and one
 restrained clay accent — no monospace as product typography, no neon, no
 hacker styling, no glassmorphism.
+
+### Hover, press and keyboard focus
+
+They are three different things, and a phone operated through a touch screen
+must not be given the desktop behaviour of the first. VEYRA states `:hover`
+only inside a `(hover: hover) and (pointer: fine)` capability query, because a
+hover style applied by a tap on iOS Safari stays applied after the finger
+leaves — which is what left tapped rows looking selected. Press feedback is
+`:active` for pointer devices, plus the platform's own tap highlight tinted to
+VEYRA's ink rather than switched off, which WebKit draws only for the duration
+of the touch and cannot leave behind. Keyboard focus keeps its own
+`:focus-visible` treatment throughout. All of it is CSS interaction
+capabilities; there is no pointer-state JavaScript, no press timer and no
+touch-tracking component anywhere in VEYRA. `src/styles/presentationLanguage.test.ts`
+holds that contract.
 
 Icons are local inline `currentColor` line art in
 `src/apps/veyra/VeyraIcon.tsx`, on one 24-unit grid with one stroke weight and
@@ -586,6 +660,13 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
 - Finishing an installation activates the release and begins a real Device
   reboot. Session loss follows from shared reachability, obsolete Access follows
   from the replaced credential surface, and VEYRA owns neither consequence.
+- Back is a hierarchy, not a rule of thumb. Leaving a detail does not mean
+  returning to its application root: Product Detail returns to Inventory
+  because that is its parent, and the navigation band and the surface's own
+  back control resolve that same parent from the same place.
+- A tap is not a hover. VEYRA states hover only where a hovering pointer
+  exists, so a touch device gets press feedback that releases rather than a
+  hover state that can stay behind.
 - A Home icon is not authority. Presence is derived from represented truth on
   every render; there is no stored launcher state to disagree with the world.
 - Client presence, represented data and emptiness are different. Communication
