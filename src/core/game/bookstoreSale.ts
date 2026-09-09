@@ -10,6 +10,14 @@ export const RETAIL_CLEARING_ACCOUNT_ID = 'dollar-account-retail-clearing-v0'
 
 /** The fixed, deterministic V1 statement-context purpose label for every canonical Bookstore sale. Never randomized or generated. */
 export const BOOKSTORE_SALE_STATEMENT_PURPOSE = 'Retail sale'
+export const BOOKSTORE_GRATUITY_STATEMENT_PURPOSE = 'Gratuity'
+export const BOOKSTORE_GRATUITY_PERCENTAGES = [10, 15, 20] as const
+
+/** Round a percentage of exact cents to nearest cent, with an exact half-cent rounded upward. */
+export function deriveBookstoreGratuityAmountCents(merchandiseAmountCents: number, percentage: typeof BOOKSTORE_GRATUITY_PERCENTAGES[number]): number {
+  if (!Number.isSafeInteger(merchandiseAmountCents) || merchandiseAmountCents <= 0 || !BOOKSTORE_GRATUITY_PERCENTAGES.includes(percentage)) return 0
+  return Number((BigInt(merchandiseAmountCents) * BigInt(percentage) + 50n) / 100n)
+}
 
 /**
  * V1's authored Bookstore-local basket-size mix: how many represented units a
@@ -267,7 +275,7 @@ export type ExecuteBookstoreSaleResult =
  * decides *when* a sale is attempted, and calling this twice is two
  * independent explicit attempts.
  */
-export function executeBookstoreSale(state: GameState, branchId: string, bookstorePurchaseRandom: () => number = Math.random): ExecuteBookstoreSaleResult {
+export function executeBookstoreSale(state: GameState, branchId: string, bookstorePurchaseRandom: () => number = Math.random, bookstoreGratuityRandom: () => number = bookstorePurchaseRandom): ExecuteBookstoreSaleResult {
   const branch = state.business.branches.find((candidate) => candidate.id === branchId)
   if (!branch) return { status: 'branch_not_found', state }
 
@@ -342,7 +350,27 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
     quantity: line.quantity,
     capturedUnitPriceCents: line.unitPriceCents,
   }))
-  const { state: finalState, saleId } = appendCompletedBookstoreSale(stockDecremented, branchId, movement.transaction.id, lines)
+  let postSaleState = stockDecremented
+  let gratuityTransactionId: string | undefined
+  // Gratuity is evaluated exactly once only after merchandise settlement succeeds. The first draw
+  // selects the 25% occurrence interval; a tier draw is consumed only for that outcome.
+  if (uniformSample(bookstoreGratuityRandom) >= 0.75) {
+    const tierIndex = Math.min(BOOKSTORE_GRATUITY_PERCENTAGES.length - 1, Math.floor(uniformSample(bookstoreGratuityRandom) * BOOKSTORE_GRATUITY_PERCENTAGES.length))
+    const gratuityAmountCents = deriveBookstoreGratuityAmountCents(basketTotalCents, BOOKSTORE_GRATUITY_PERCENTAGES[tierIndex])
+    const destinationAccountId = backend.gratuityDestinationAccountId
+    if (destinationAccountId && destinationAccountId !== retailClearingAccount.id && destinationAccountId !== settlementAccount.id) {
+      const gratuity = executeCivicDollarMovement(postSaleState, retailClearingAccount.id, destinationAccountId, gratuityAmountCents, {
+        description: branch.displayName,
+        purpose: BOOKSTORE_GRATUITY_STATEMENT_PURPOSE,
+        ...(branch.location ? { location: branch.location } : {}),
+      })
+      if (gratuity.status === 'moved') {
+        postSaleState = gratuity.state
+        gratuityTransactionId = gratuity.transaction.id
+      }
+    }
+  }
+  const { state: finalState, saleId } = appendCompletedBookstoreSale(postSaleState, branchId, movement.transaction.id, lines, gratuityTransactionId)
 
   return { status: 'sold', state: finalState, saleId, transactionId: movement.transaction.id }
 }

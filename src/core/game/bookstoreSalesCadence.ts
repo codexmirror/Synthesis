@@ -250,6 +250,7 @@ export function advanceBookstoreSalesCadence(
   advanceWorld: (state: GameState, elapsedMs: number) => GameState,
   bookstoreDemandRandom: () => number = Math.random,
   bookstorePurchaseRandom: () => number = Math.random,
+  bookstoreGratuityRandom: () => number = bookstorePurchaseRandom,
 ): GameState {
   if (elapsedMs <= 0 || state.bookstoreSalesCadence.records.length === 0) return advanceWorld(state, elapsedMs)
 
@@ -285,7 +286,7 @@ export function advanceBookstoreSalesCadence(
         continue
       }
       // Consumed whether this attempt sells or refuses — the next interval is freshly sampled either way.
-      const attempted = executeBookstoreSale(nextState, record.branchId, bookstorePurchaseRandom)
+      const attempted = executeBookstoreSale(nextState, record.branchId, bookstorePurchaseRandom, bookstoreGratuityRandom)
       nextState = replaceCadenceRecord(attempted.state, scheduleNextBookstoreOpportunity(attempted.state, record.branchId, record, bookstoreDemandRandom))
     }
 

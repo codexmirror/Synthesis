@@ -53,6 +53,7 @@ export function advanceGameState(
   credentialAccessRandom: () => number = Math.random,
   bookstoreDemandRandom: () => number = Math.random,
   bookstorePurchaseRandom: () => number = Math.random,
+  bookstoreGratuityRandom: () => number = bookstorePurchaseRandom,
 ): GameState {
   return advanceBookstoreSalesCadence(
     state,
@@ -60,6 +61,7 @@ export function advanceGameState(
     (segmentState, segmentElapsedMs) => advanceGameStateCore(segmentState, segmentElapsedMs, credentialAccessRandom),
     bookstoreDemandRandom,
     bookstorePurchaseRandom,
+    bookstoreGratuityRandom,
   )
 }
 

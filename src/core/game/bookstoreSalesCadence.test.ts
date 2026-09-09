@@ -430,6 +430,7 @@ describe('Bookstore Sales Cadence — purchase randomness is independent from de
       () => { throw new Error('must not touch credentialAccessRandom') },
       () => { demandDraws += 1; return 0.42 },
       () => { purchaseDraws += 1; return 0.1 },
+      () => 0.5,
     )
     expect(demandDraws).toBe(1)
     // One basket-size draw plus one item-selection draw for the deterministic single-item basket this composes.
@@ -555,7 +556,7 @@ describe('Bookstore Sales Cadence — stack-safe processing of many due opportun
     const seed = createInitialGameState()
 
     let result: GameState | undefined
-    expect(() => { result = advanceBookstoreSalesCadence(seed, elapsedMs, identityWorld, () => 0.5, ONE_BOOK_PURCHASE_RANDOM()) }).not.toThrow()
+    expect(() => { result = advanceBookstoreSalesCadence(seed, elapsedMs, identityWorld, () => 0.5, ONE_BOOK_PURCHASE_RANDOM(), () => 0.5) }).not.toThrow()
 
     // Every sampled subsequent interval used the same fixed random value, so a correct walk always
     // lands on a fresh, valid, positive countdown no larger than one full freshly sampled interval —

@@ -723,6 +723,8 @@ export interface BusinessBranchSale {
   readonly kind: 'book_sale'
   /** The Provider-owned money movement that settled this sale. */
   readonly dollarTransactionId: string
+  /** Optional Provider-owned personal gratuity movement caused by this sale. Its amount remains owned only by that Transaction. */
+  readonly gratuityTransactionId?: string
   readonly lines: readonly BusinessBranchSaleLine[]
 }
 
@@ -1018,6 +1020,8 @@ export interface BookstoreBranchBackendRecord {
   readonly deviceId: string
   /** Stable `NetworkService` identity on that Device implementing this backend; never a display name or port. */
   readonly serviceId: string
+  /** Stable Civic Dollar Account identity receiving this checkout's personal gratuities; never merchandise settlement authority. */
+  readonly gratuityDestinationAccountId?: string
 }
 
 export interface BookstoreBackendState {

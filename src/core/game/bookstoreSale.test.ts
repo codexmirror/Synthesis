@@ -7,9 +7,11 @@ import { deriveBookstoreTotalStock, findBookstoreStockQuantity } from './booksto
 import {
   BOOKSTORE_PURCHASE_BASKET_SIZE_WEIGHTS,
   BOOKSTORE_SALE_STATEMENT_PURPOSE,
+  BOOKSTORE_GRATUITY_STATEMENT_PURPOSE,
   RETAIL_CLEARING_ACCOUNT_ID,
   composeBookstorePurchase,
   deriveBookstoreBasketTotalCents,
+  deriveBookstoreGratuityAmountCents,
   deriveSellableBookstoreStockByMerchandise,
   deriveSellableBookstoreTotalStock,
   executeBookstoreSale,
@@ -53,6 +55,59 @@ function cyclicRandom(values: readonly number[]): () => number {
 const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.95])
 
 describe('executeBookstoreSale — success path', () => {
+  it.each([[10, 200], [15, 300], [20, 400]] as const)('creates a separate %i%% personal gratuity Transaction linked from its causing sale', (percentage, expectedTip) => {
+    const before = createInitialGameState()
+    const tier = percentage === 10 ? 0 : percentage === 15 ? 0.4 : 0.8
+    const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), cyclicRandom([0.75, tier]))
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    const sale = result.state.bookstoreCommerce.records[0].completedSales.at(-1)!
+    const merchandise = result.state.dollarFinance.transactions.records.find(({ id }) => id === sale.dollarTransactionId)!
+    const gratuity = result.state.dollarFinance.transactions.records.find(({ id }) => id === sale.gratuityTransactionId)!
+    expect(merchandise).toMatchObject({ amountCents: 2_000, destinationAccountId: BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID })
+    expect(gratuity).toMatchObject({ sourceAccountId: RETAIL_CLEARING_ACCOUNT_ID, destinationAccountId: 'dollar-account-veyra-phone-v0', amountCents: expectedTip, statementContext: { description: BOOKSTORE_BRANCH_NAME, purpose: BOOKSTORE_GRATUITY_STATEMENT_PURPOSE, location: BOOKSTORE_BRANCH_LOCATION } })
+    expect(balanceOf(result.state, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)).toBe(2_000)
+    expect(balanceOf(result.state, 'dollar-account-veyra-phone-v0')).toBe(34_250 + expectedTip)
+  })
+
+  it('rounds fractional-cent gratuities deterministically to nearest cent with exact halves upward', () => {
+    expect(deriveBookstoreGratuityAmountCents(1_249, 10)).toBe(125)
+    expect(deriveBookstoreGratuityAmountCents(899, 15)).toBe(135)
+    expect(deriveBookstoreGratuityAmountCents(1_645, 10)).toBe(165)
+  })
+
+  it('records a no-tip successful sale after exactly one gratuity draw', () => {
+    let draws = 0
+    const result = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), () => { draws += 1; return 0.749999 })
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    expect(draws).toBe(1)
+    expect(result.state.bookstoreCommerce.records[0].completedSales.at(-1)).not.toHaveProperty('gratuityTransactionId')
+    expect(result.state.dollarFinance.transactions.records).toHaveLength(2)
+  })
+
+  it('fails a missing gratuity route closed without undoing the completed merchandise sale', () => {
+    const before = createInitialGameState()
+    const invalid: GameState = { ...before, bookstoreBackend: { records: before.bookstoreBackend.records.map(record => ({ ...record, gratuityDestinationAccountId: 'missing-account' })) } }
+    const result = executeBookstoreSale(invalid, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), cyclicRandom([0.75, 0]))
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    expect(balanceOf(result.state, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)).toBe(2_000)
+    expect(result.state.dollarFinance.transactions.records).toHaveLength(2)
+    expect(result.state.bookstoreCommerce.records[0].completedSales.at(-1)).not.toHaveProperty('gratuityTransactionId')
+  })
+
+  it('does not roll back a sale when Retail Clearing cannot fund its downstream gratuity', () => {
+    const before = createInitialGameState()
+    const constrained: GameState = { ...before, dollarFinance: { ...before.dollarFinance, accounts: before.dollarFinance.accounts.map(account => account.id === RETAIL_CLEARING_ACCOUNT_ID ? { ...account, balanceCents: 2_000 } : account) } }
+    const result = executeBookstoreSale(constrained, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), cyclicRandom([0.75, 0]))
+    expect(result.status).toBe('sold')
+    if (result.status !== 'sold') return
+    expect(balanceOf(result.state, RETAIL_CLEARING_ACCOUNT_ID)).toBe(0)
+    expect(balanceOf(result.state, BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)).toBe(2_000)
+    expect(result.state.dollarFinance.transactions.records).toHaveLength(2)
+    expect(result.state.bookstoreCommerce.records[0].completedSales.at(-1)).not.toHaveProperty('gratuityTransactionId')
+  })
   it('preserves baseline-only selection boundaries when every Genre pressure is neutral', () => {
     const initial = createInitialGameState()
     const neutral: GameState = { ...initial, bookstoreMarket: { genrePressures: initial.bookstoreMarket.genrePressures.map(record => ({ ...record, pressure: 100 })) } }
@@ -74,7 +129,7 @@ describe('executeBookstoreSale — success path', () => {
       const samples = [0.1, 0.15]
       let draws = 0
       const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
-      expect(draws).toBe(2)
+      expect(draws).toBe(3)
       expect(result.status).toBe('sold')
       if (result.status !== 'sold') throw new Error('expected sale')
       return result.state.bookstoreCommerce.records[0].completedSales.at(-1)?.lines[0].merchandiseId
@@ -91,7 +146,7 @@ describe('executeBookstoreSale — success path', () => {
       const samples = [0.1, 0.2]
       let draws = 0
       const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
-      expect(draws).toBe(2)
+      expect(draws).toBe(3)
       expect(result.status).toBe('sold')
       if (result.status !== 'sold') throw new Error('expected represented sale')
       return result.state

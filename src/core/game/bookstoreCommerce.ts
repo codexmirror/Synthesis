@@ -122,10 +122,10 @@ export function resolveBookstoreBookById(catalog: readonly BookstoreBookRecord[]
  * randomness. The caller is responsible for having already established that
  * `branchId` names an existing commerce record — this assumes it.
  */
-export function appendCompletedBookstoreSale(state: GameState, branchId: string, dollarTransactionId: string, lines: readonly BusinessBranchSaleLine[]): { readonly state: GameState; readonly saleId: string } {
+export function appendCompletedBookstoreSale(state: GameState, branchId: string, dollarTransactionId: string, lines: readonly BusinessBranchSaleLine[], gratuityTransactionId?: string): { readonly state: GameState; readonly saleId: string } {
   const saleId = `bookstore-sale-${String(state.bookstoreCommerce.nextSaleId).padStart(4, '0')}`
   const records = state.bookstoreCommerce.records.map((record) => record.branchId === branchId
-    ? { ...record, completedSales: [...record.completedSales, { id: saleId, kind: 'book_sale' as const, dollarTransactionId, lines }] }
+    ? { ...record, completedSales: [...record.completedSales, { id: saleId, kind: 'book_sale' as const, dollarTransactionId, ...(gratuityTransactionId ? { gratuityTransactionId } : {}), lines }] }
     : record)
   return {
     saleId,
@@ -145,7 +145,7 @@ export function appendCompletedBookstoreSale(state: GameState, branchId: string,
 export interface ResolvedBookstoreCommerce {
   readonly merchandise: readonly BookstoreBookRecord[]
   readonly settlementAccount: DollarFinancialAccount
-  readonly sales: readonly { readonly id: string; readonly kind: 'book_sale'; readonly transaction: DollarTransaction; readonly lines: readonly BusinessBranchSaleLine[] }[]
+  readonly sales: readonly { readonly id: string; readonly kind: 'book_sale'; readonly transaction: DollarTransaction; readonly gratuityTransaction?: DollarTransaction; readonly lines: readonly BusinessBranchSaleLine[] }[]
 }
 
 /**
@@ -163,7 +163,11 @@ export function resolveBookstoreCommerceForBranch(state: GameState, branchId: st
   if (!settlementAccount) return undefined
   const sales = record.completedSales.flatMap((sale) => {
     const transaction = state.dollarFinance.transactions.records.find(({ id }) => id === sale.dollarTransactionId)
-    return transaction ? [{ id: sale.id, kind: sale.kind, transaction, lines: sale.lines }] : []
+    const gratuityTransaction = sale.gratuityTransactionId
+      ? state.dollarFinance.transactions.records.find(({ id }) => id === sale.gratuityTransactionId)
+      : undefined
+    if (!transaction || (sale.gratuityTransactionId && !gratuityTransaction)) return []
+    return [{ id: sale.id, kind: sale.kind, transaction, ...(gratuityTransaction ? { gratuityTransaction } : {}), lines: sale.lines }]
   })
   const assortment = new Set(record.assortment)
   return { merchandise: state.bookstoreCommerce.bookCatalog.filter((book) => assortment.has(book.id)), settlementAccount, sales }
