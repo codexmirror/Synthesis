@@ -11,6 +11,7 @@ export function classifyDeviceKind(deviceType: DeviceType | undefined): DeviceCl
   switch (deviceType) {
     case 'SERVER': return 'SERVER'
     case 'PHONE': return 'MOBILE DEVICE'
+    case 'ROUTER': return 'NETWORK DEVICE'
     case 'NODE': return 'WORKSTATION'
     default: return undefined
   }

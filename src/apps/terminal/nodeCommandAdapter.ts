@@ -1,5 +1,6 @@
 import type { GameActions } from '../../app/GameContext'
 import type { GameState } from '../../core/game/types'
+import { resolveNetworkGateway } from '../../core/game/networkTarget'
 import { dispatchCommand } from './registry'
 import { parseCommand } from './parser'
 import { resolveServiceEndpoint } from '../../core/game/serviceAnalysis'
@@ -12,7 +13,9 @@ type ResourceUsage = ReturnType<typeof deriveResourceUsage>
 
 export function localNetworkConfiguration(gameState: GameState): { network?: string; gateway?: string } {
   const networks = gameState.world.network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(gameState.player.localDevice.id))
-  return networks.length === 1 ? { network: networks[0].cidr, gateway: networks[0].gateway } : {}
+  if (networks.length !== 1) return {}
+  const gateway = resolveNetworkGateway({ localDevice: gameState.player.localDevice, network: gameState.world.network }, networks[0])
+  return { network: networks[0].cidr, gateway: gateway?.address }
 }
 
 export function dispatchNodeCommand(command: string, gameState: GameState, actions: GameActions, usage: ResourceUsage) {

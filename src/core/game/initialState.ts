@@ -22,7 +22,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 88
+export const GAME_STATE_VERSION = 89
 
 export function createInitialGameState(): GameState {
   return {
@@ -142,9 +142,9 @@ export function createInitialGameState(): GameState {
       network: {
         localNetworks: [
           // External connectivity capacity, deliberately well above every member Device's own endpoint capacity so it is never the bottleneck for the currently authored same-Network home-net route.
-          { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gateway: '198.51.100.1', memberDeviceIds: ['device-local-v0', 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
+          { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gatewayDeviceId: 'router-home-001', memberDeviceIds: ['device-local-v0', 'host-lan-001', 'router-home-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
           // srv-02's and the phone's shared external uplink/downlink; deliberately the cross-Network route node-01 actually exercises.
-          { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gateway: '203.0.113.1', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+          { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
         ],
         hosts: [
           {
@@ -243,6 +243,20 @@ export function createInitialGameState(): GameState {
             authenticationHistory: { nextId: 1, records: [] },
             // Petra's own secret Device PIN and Wallet-protection setting. The PIN is never Player Knowledge merely from DeviceAccess, a Remote Session, or opening Settings; Wallet protection starts OFF.
             security: { devicePin: '7042', walletProtectionEnabled: false },
+          },
+          {
+            id: 'router-home-001',
+            deviceType: 'ROUTER',
+            ip: '198.51.100.1',
+            operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
+            services: [],
+          },
+          {
+            id: 'router-foreign-001',
+            deviceType: 'ROUTER',
+            ip: '203.0.113.1',
+            operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
+            services: [{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', buildId: BASIC_HTTP_1_0_BUILD_ID, name: 'Basic HTTP', version: '1.0' } }],
           },
           // Deliberately shallow: operational truth is independent of hardware/runtime representation, so this unreachable training host needs no fabricated resource state to participate in it.
           { id: 'host-training-002', ip: '203.0.113.99', operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } },

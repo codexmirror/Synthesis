@@ -56,13 +56,12 @@ describe('Host Scan Network expansion (Regression #1)', () => {
     const discovery = rememberScan(createEmptyDiscovery(), scan1, state.player.localDevice.id)
 
     expect(discovery.networkDeviceRelations).toContainEqual({ networkId: 'network-foreign-001', deviceId: 'host-lan-002' })
-    // The two other represented Hosts on that Network arrive as shallow, unscanned peers.
+    // Only the represented Gateway clue arrives shallow; peers require Network Scan.
     const phone = discovery.devices.find(({ id }) => id === 'host-phone-001')
     const ops = discovery.devices.find(({ id }) => id === 'host-lan-003')
-    expect(phone).toMatchObject({ address: '198.51.100.61', servicesObserved: false, services: [] })
-    expect(ops).toMatchObject({ address: '203.0.113.43', servicesObserved: false, services: [] })
-    expect(discovery.networkDeviceRelations).toContainEqual({ networkId: 'network-foreign-001', deviceId: 'host-phone-001' })
-    expect(discovery.networkDeviceRelations).toContainEqual({ networkId: 'network-foreign-001', deviceId: 'host-lan-003' })
+    expect(phone).toBeUndefined()
+    expect(ops).toBeUndefined()
+    expect(discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({ address: '203.0.113.1', servicesObserved: false })
 
     // Only the Host actually scanned is deep: its own Service surface is remembered.
     expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.servicesObserved).toBe(true)
@@ -71,7 +70,7 @@ describe('Host Scan Network expansion (Regression #1)', () => {
     const scan2 = scanNetworkTarget(targetsOf(state), '198.51.100.61')
     const deeper = rememberScan(discovery, scan2, state.player.localDevice.id)
     expect(deeper.devices.find(({ id }) => id === 'host-phone-001')).toMatchObject({ servicesObserved: true })
-    expect(deeper.devices.find(({ id }) => id === 'host-lan-003')?.servicesObserved).toBe(false)
+    expect(deeper.devices.find(({ id }) => id === 'host-lan-003')).toBeUndefined()
   })
 
   it('never leaks the Network\'s own mutable display name from an incidental Host Scan relation', () => {
@@ -99,6 +98,14 @@ describe('Host Scan Network expansion (Regression #1)', () => {
 })
 
 describe('NodeScan 1.2 Device classification lifecycle', () => {
+  it('classifies an individually scanned Router as NETWORK DEVICE without revealing display identity', () => {
+    const state = withNodeScan12(createInitialGameState())
+    const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.1'), state.player.localDevice.id)
+    const router = discovery.devices.find(({ id }) => id === 'router-foreign-001')
+    expect(router).toMatchObject({ address: '203.0.113.1', classification: 'NETWORK DEVICE', servicesObserved: true })
+    expect(router?.services).toEqual([{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', endpoint: '203.0.113.1:80' }])
+    expect(router?.inspect).toBeUndefined()
+  })
   it('never remembers classification below NodeScan 1.2', () => {
     const state = createInitialGameState()
     const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.42'), state.player.localDevice.id)

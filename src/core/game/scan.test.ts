@@ -9,7 +9,7 @@ describe('scanNetworkTarget outward discovery', () => {
   it('discovers real network relationships with stable identity from canonical membership, never the Network\'s own mutable name', () => {
     expect(scanNetworkTarget(targets, '198.51.100.23')).toEqual({
       status: 'device', targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self',
-      networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24', peers: [{ targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' }] }],
+      networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24', gateway: { targetId: 'router-home-001', address: '198.51.100.1', scope: 'lan' } }],
       services: [],
     })
     // A Host Scan's own relation is keyed by stable identity and routing identity, never by the Network's mutable name.
@@ -29,11 +29,23 @@ describe('scanNetworkTarget outward discovery', () => {
     expect(scanNetworkTarget({ ...targets, network: ambiguous }, '198.51.100.23')).toMatchObject({ networks: [] })
   })
 
+  it('fails closed when the gateway relationship is missing, non-member, ambiguous, or points to a non-Router', () => {
+    const base = targets.network.localNetworks[0]
+    const scanWith = (network: typeof base, hosts = targets.network.hosts) => scanNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [network], hosts } }, '198.51.100.47')
+    for (const result of [
+      scanWith({ ...base, gatewayDeviceId: undefined }),
+      scanWith({ ...base, memberDeviceIds: base.memberDeviceIds.filter((id) => id !== base.gatewayDeviceId) }),
+      scanWith(base, [...targets.network.hosts, { ...targets.network.hosts.find(({ id }) => id === 'router-home-001')! }]),
+      scanWith({ ...base, gatewayDeviceId: 'host-lan-001' }),
+    ]) expect(result.status === 'device' ? result.networks[0] : {}).not.toHaveProperty('gateway')
+  })
+
   it('discovers only responding represented network members and retains network identity', () => {
     expect(scanNetworkTarget(targets, 'home-net')).toEqual({
       status: 'network', networkId: 'network-local-001', networkName: 'home-net', cidr: '198.51.100.0/24', devices: [
         { targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' },
         { targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' },
+        { targetId: 'router-home-001', address: '198.51.100.1', scope: 'lan' },
       ],
     })
     const offlineHosts = targets.network.hosts.map((host) => host.id === 'device-local-v0' ? host : { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } })
@@ -90,17 +102,13 @@ describe('scanNetworkTarget outward discovery', () => {
     }
   })
 
-  it('reveals only the owned Network relationship and shallow peers, never Service or implementation details, for a responding remote device', () => {
-    // host-lan-001 shares home-net with SELF, and home-net's only other member is SELF, so no peer is added.
+  it('reveals Network/Gateway context without peer enumeration or implementation details', () => {
     expect(scanNetworkTarget(targets, '198.51.100.47')).toMatchObject({
-      status: 'device', scope: 'lan', networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24', peers: [] }],
+      status: 'device', scope: 'lan', networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24', gateway: { targetId: 'router-home-001', address: '198.51.100.1', scope: 'lan' } }],
     })
     expect(scanNetworkTarget(targets, '203.0.113.42')).toEqual({
       status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote',
-      networks: [{ id: 'network-foreign-001', cidr: '203.0.113.0/24', peers: [
-        { targetId: 'host-lan-003', address: '203.0.113.43', scope: 'remote' },
-        { targetId: 'host-phone-001', address: '198.51.100.61', scope: 'remote' },
-      ] }],
+      networks: [{ id: 'network-foreign-001', cidr: '203.0.113.0/24', gateway: { targetId: 'router-foreign-001', address: '203.0.113.1', scope: 'remote' } }],
       services: [
         { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP' },
         { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP' },

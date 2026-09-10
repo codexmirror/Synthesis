@@ -10,7 +10,7 @@ export interface HardwareState {
 }
 
 /** The narrow physical categories represented by concrete Devices today. */
-export type DeviceType = 'NODE' | 'SERVER' | 'PHONE'
+export type DeviceType = 'NODE' | 'SERVER' | 'PHONE' | 'ROUTER'
 
 /**
  * NodeScan 1.2's own narrow Device-classification categories: what KIND of
@@ -18,7 +18,7 @@ export type DeviceType = 'NODE' | 'SERVER' | 'PHONE'
  * `DeviceType` taxonomy. Classification is never concrete Device identity
  * (e.g. a Device's own `displayName`) and never implementation evidence.
  */
-export type DeviceClassification = 'SERVER' | 'WORKSTATION' | 'MOBILE DEVICE'
+export type DeviceClassification = 'SERVER' | 'WORKSTATION' | 'MOBILE DEVICE' | 'NETWORK DEVICE'
 
 /**
  * Stable physical product identity and its descriptive V1 capability ceilings.
@@ -1487,6 +1487,8 @@ export interface DiscoveredNetworkSnapshot {
   readonly name?: string
   /** Player-facing routing identity, stable enough to present before a name is separately earned. */
   readonly cidr?: string
+  /** Remembered default-gateway relationship and address as observed, never resolved live while browsing. */
+  readonly gateway?: { readonly deviceId: string; readonly address: string }
   readonly membersObserved: boolean
   readonly inspect?: { readonly connected: boolean }
 }
@@ -1568,9 +1570,10 @@ export interface LocalNetwork {
   /** Stable entity identity, separate from the player-visible network name. */
   readonly id: string
   readonly name: string
-  /** Player-facing routing configuration owned by the Network, not inferred from member addresses. */
+  /** Player-facing routing identity owned by the Network. */
   readonly cidr?: string
-  readonly gateway?: string
+  /** Stable relationship to the member Device serving as this Network's default gateway. */
+  readonly gatewayDeviceId?: string
   /** Canonical membership relation for devices represented on this network. */
   readonly memberDeviceIds: readonly string[]
   /**

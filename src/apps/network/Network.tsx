@@ -180,17 +180,6 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     setClosedNetworkIds((closed) => closed.includes(networkId) ? closed.filter((id) => id !== networkId) : [...closed, networkId])
   }
 
-  async function findTargets() {
-    const generation = beginRequest('targets')
-    if (generation === null) return
-    try {
-      const result = await actions.findTargets()
-      if (!finishRequest('targets', generation)) return
-      if (result.status !== 'observed') setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED' : 'NO RESPONSE')
-      else if (result.targetsKnown === 0) setNotice('NOTHING FOUND')
-    } catch { finishRequest('targets', generation) }
-  }
-
   async function scanSelf() {
     const generation = beginRequest('self')
     if (generation === null) return
@@ -219,7 +208,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     } catch { finishRequest('direct-address', generation) }
   }
 
-  async function scan(target: Target) {
+  async function scan(target: Pick<Target, 'id' | 'address'>) {
     const generation = beginRequest(target.id)
     if (generation === null) return
     try {
@@ -381,14 +370,15 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     <KnownSpaceView
       space={selectKnownSpace(information, managedNetworks)}
       release={release}
-      pending={pending === 'targets'}
+      pending={pending !== null}
       directPending={pending === 'direct-address'}
       directAddress={directAddress}
       notice={notice}
       closedNetworkIds={closedNetworkIds}
       onToggleNetwork={toggleNetwork}
-      onFind={findTargets}
       onScanSelf={scanSelf}
+      onScanNetwork={refreshNetwork}
+      onScanGateway={(target) => void scan(target)}
       onDirectAddressChange={setDirectAddress}
       onDirectScan={pingDirectAddress}
       onOpen={(deviceId) => open({ kind: 'target', deviceId })}
@@ -398,7 +388,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
   </section>
 }
 
-function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, onToggleNetwork, onFind, onScanSelf, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork, onOpenArsenal }: {
+function KnownSpaceView({ space, release, pending, directPending, directAddress, notice, closedNetworkIds, onToggleNetwork, onScanSelf, onScanNetwork, onScanGateway, onDirectAddressChange, onDirectScan, onOpen, onOpenNetwork, onOpenArsenal }: {
   space: KnownSpace
   release: NodeScanRelease
   pending: boolean
@@ -407,8 +397,9 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
   notice: string | null
   closedNetworkIds: readonly string[]
   onToggleNetwork(networkId: string): void
-  onFind(): void
   onScanSelf(): void
+  onScanNetwork(networkId: string): void
+  onScanGateway(target: TargetSummary): void
   onDirectAddressChange(value: string): void
   onDirectScan(): void
   onOpen(deviceId: string): void
@@ -464,6 +455,8 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
         onToggle={() => onToggleNetwork(network.id)}
         onOpen={onOpen}
         onOpenNetwork={onOpenNetwork}
+        onScanNetwork={onScanNetwork}
+        onScanGateway={onScanGateway}
       />)}
 
       {space.elsewhere.length > 0 && <section className="ns-group" aria-label="Elsewhere">
@@ -478,10 +471,6 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
       </section>}
     </div>
 
-    {space.remembersNetwork && <div className="ns-primary-slot">
-      <button type="button" className="ns-primary" disabled={pending} onClick={onFind}>SCAN AGAIN</button>
-      <p className="ns-primary-note">Look for devices on known Networks.</p>
-    </div>}
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
   </div>
 }
@@ -494,7 +483,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
  * its administration; a Network merely observed carries no such control,
  * because observing a Network is not authority over it.
  */
-function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, onOpen, onOpenNetwork }: {
+function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, onOpen, onOpenNetwork, onScanNetwork, onScanGateway }: {
   network: KnownNetwork
   selfAddress: string
   arrivedIds: ReadonlySet<string>
@@ -502,6 +491,8 @@ function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, o
   onToggle(): void
   onOpen(deviceId: string): void
   onOpenNetwork(networkId: string): void
+  onScanNetwork(networkId: string): void
+  onScanGateway(target: TargetSummary): void
 }) {
   const populated = network.includesSelf || network.targets.length > 0
   return <section className={`ns-group${expanded ? ' is-expanded' : ''}${populated ? ' is-populated' : ''}`} aria-label={`Network ${network.name}`}>
@@ -522,6 +513,7 @@ function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, o
       {network.managed
         ? <button type="button" className="ns-node-route" aria-label={`Manage network ${network.name}`} onClick={() => onOpenNetwork(network.id)}>MANAGED<span aria-hidden="true">›</span></button>
         : <span className="ns-node-mark">OBSERVED</span>}
+      <button type="button" className="ns-node-route" aria-label={`Scan network ${network.name}`} onClick={() => onScanNetwork(network.id)}>SCAN NETWORK</button>
     </div>
 
     {expanded && <div className="ns-branch">
@@ -540,6 +532,11 @@ function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, o
       {!network.membersObserved
         ? <p className="ns-branch-note">Members not observed</p>
         : network.targets.length === 0 && <p className="ns-branch-note">{network.includesSelf ? 'No other devices responded' : 'No devices responded'}</p>}
+      {network.gateway && <div className="ns-limb ns-gateway">
+        <span className="ns-eyebrow">GATEWAY</span>
+        <button type="button" className="ns-node-main" aria-label={`Open target ${network.gateway.address}`} onClick={() => onOpen(network.gateway!.id)}>{network.gateway.address}</button>
+        <button type="button" className="node-action" aria-label={`Scan gateway ${network.gateway.address}`} onClick={() => onScanGateway(network.gateway!)}>SCAN</button>
+      </div>}
     </div>}
   </section>
 }

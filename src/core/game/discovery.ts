@@ -31,7 +31,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
    * it never downgrades or overwrites an already-earned name; once earned,
    * a name stays remembered even through later Host-Scan-only observations.
    */
-  const rememberNetwork = (id: string, cidr: string | undefined, membersObserved: boolean, name?: string) => {
+  const rememberNetwork = (id: string, cidr: string | undefined, membersObserved: boolean, name?: string, gateway?: { readonly deviceId: string; readonly address: string }) => {
     const index = networks.findIndex((item) => item.id === id)
     const previous = networks[index]
     const resolvedName = name ?? previous?.name
@@ -40,6 +40,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       id,
       ...(resolvedName ? { name: resolvedName } : {}),
       ...(resolvedCidr ? { cidr: resolvedCidr } : {}),
+      ...(gateway ? { gateway } : previous?.gateway ? { gateway: previous.gateway } : {}),
       membersObserved: membersObserved || previous?.membersObserved === true,
       ...(previous?.inspect ? { inspect: previous.inspect } : {}),
     }
@@ -77,15 +78,14 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       if (index < 0) devices.push(next); else devices[index] = next
     }
   } else {
-    // A Host Scan may expand represented Network topology while deep-scanning
-    // only the Host actually scanned: it remembers the relationship and the
-    // Network's other Hosts, but every peer stays a shallow observation.
+    // A Host Scan remembers only this Host's Network context and gateway clue.
+    const gateways: { networkId: string; targetId: string; address: string; scope: 'lan' | 'remote' }[] = []
     for (const network of result.networks) {
-      rememberNetwork(network.id, network.cidr, true)
+      rememberNetwork(network.id, network.cidr, false, undefined, network.gateway ? { deviceId: network.gateway.targetId, address: network.gateway.address } : undefined)
       rememberRelation(network.id, result.targetId)
-      for (const peer of network.peers) {
-        rememberRelation(network.id, peer.targetId)
-        rememberShallowPeer(peer)
+      if (network.gateway && network.gateway.targetId !== selfDeviceId) {
+        rememberRelation(network.id, network.gateway.targetId)
+        gateways.push({ networkId: network.id, ...network.gateway })
       }
     }
     if (result.targetId !== selfDeviceId) {
@@ -107,6 +107,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       }
       if (index < 0) devices.push(next); else devices[index] = next
     }
+    for (const gateway of gateways) rememberShallowPeer(gateway)
   }
   return { networks, devices, networkDeviceRelations: relations }
 }

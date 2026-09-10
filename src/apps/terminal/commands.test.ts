@@ -83,7 +83,7 @@ describe('command dispatcher', () => {
   })
   it('rejects retired inspect and dispatches truthful local network configuration', () => {
     expect(dispatch('inspect 198.51.100.47')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: inspect')] })
-    expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('ADDRESS   ', '198.51.100.23', 'local'), 'NETWORK   198.51.100.0/24', 'GATEWAY   198.51.100.1'] })
+    expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('ADDRESS   ', '198.51.100.23', 'local'), labeledTarget('NETWORK   ', '198.51.100.0/24', 'local'), labeledTarget('GATEWAY   ', '198.51.100.1', 'local')] })
   })
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
@@ -116,8 +116,8 @@ describe('command dispatcher', () => {
     expect(dispatchCommand(parseCommand('install /home/user/downloads/node-miner-1.0.pkd'), unrecognized)).toEqual({ type: 'output', lines: ['UNRECOGNIZED PACKAGE EXTENSION'] })
   })
   it('guides missing and extra scan arguments', () => {
-    expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
-    expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|network-name>'] })
+    expect(dispatch('scan')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|cidr|network-name>'] })
+    expect(dispatch('scan 203.0.113.42 extra')).toEqual({ type: 'output', lines: ['Usage: scan <ipv4|cidr|network-name>'] })
     expect(JSON.stringify(dispatch('scan 192.0.2.77:443'))).toContain('service endpoint')
   })
   it('validates analyze syntax and delegates through the narrow operation', () => {
@@ -157,14 +157,14 @@ describe('command dispatcher', () => {
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })
-    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'UNKNOWN NETWORK 203.0.113.0/24'), labeledTarget('  Member: ', '203.0.113.43'), labeledTarget('  Member: ', '198.51.100.61'), '', 'SERVICES FOUND: 3', '', 'SSH', labeledTarget('Endpoint: ', '203.0.113.42:22'), 'Protocol: TCP', '', 'RackUpdate', labeledTarget('Endpoint: ', '203.0.113.42:8443'), 'Protocol: TCP', '', 'Bookstore Backend', labeledTarget('Endpoint: ', '203.0.113.42:8090'), 'Protocol: TCP'] })
+    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', '203.0.113.0/24'), labeledTarget('Gateway: ', '203.0.113.1'), '', 'SERVICES FOUND: 3', '', 'SSH', labeledTarget('Endpoint: ', '203.0.113.42:22'), 'Protocol: TCP', '', 'RackUpdate', labeledTarget('Endpoint: ', '203.0.113.42:8443'), 'Protocol: TCP', '', 'Bookstore Backend', labeledTarget('Endpoint: ', '203.0.113.42:8090'), 'Protocol: TCP'] })
     expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
     expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
   })
   it('renders local scope when scanning the current device', () => {
     expect(dispatch('scan 198.51.100.23')).toEqual({
       type: 'output',
-      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'UNKNOWN NETWORK 198.51.100.0/24'), labeledTarget('  Member: ', '198.51.100.47', 'local'), '', 'SERVICES FOUND: 0'],
+      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', '198.51.100.0/24'), labeledTarget('Gateway: ', '198.51.100.1', 'local'), '', 'SERVICES FOUND: 0'],
     })
   })
 
@@ -188,19 +188,19 @@ describe('command dispatcher', () => {
   it('renders server services without exposing IDs or making service facts Target Tokens', () => {
     const output = dispatch('scan 198.51.100.47')
     expect(output).toEqual({ type: 'output', lines: [
-      'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'UNKNOWN NETWORK 198.51.100.0/24'),
+      'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', '198.51.100.0/24'), labeledTarget('Gateway: ', '198.51.100.1', 'local'),
       '', 'SERVICES FOUND: 2', '', 'SSH', labeledTarget('Endpoint: ', '198.51.100.47:22'), 'Protocol: TCP', '', 'HTTP', labeledTarget('Endpoint: ', '198.51.100.47:80'), 'Protocol: TCP',
     ] })
     expect(JSON.stringify(output)).not.toMatch(/service-ssh-001|host-lan-001/)
     if (output.type === 'output') {
       expect(output.lines.flatMap((line) => typeof line === 'string' ? [] : line).filter(({ type }) => type === 'target'))
-        .toEqual([target('UNKNOWN NETWORK 198.51.100.0/24'), target('198.51.100.47:22'), target('198.51.100.47:80')])
+        .toEqual([target('198.51.100.0/24'), target('198.51.100.1', 'local'), target('198.51.100.47:22'), target('198.51.100.47:80')])
     }
   })
 
   it('scans real network names without exposing stable IDs', () => {
     const output = dispatch('scan home-net')
-    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 2', '', [target('198.51.100.23', 'local')], [target('198.51.100.47')]] })
+    expect(output).toEqual({ type: 'output', lines: ['Scanning home-net...', '', 'DEVICES FOUND: 3', '', [target('198.51.100.23', 'local')], [target('198.51.100.47')], [target('198.51.100.1')]] })
     expect(JSON.stringify(output)).not.toMatch(/network-local-001|device-local-v0|host-lan-001|host-phone-001/)
   })
 

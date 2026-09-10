@@ -44,7 +44,7 @@ describe('local Scan application operation', () => {
 
     state = { ...state, world: { network: { ...state.world.network, localNetworks: [
       ...state.world.network.localNetworks,
-      { ...state.world.network.localNetworks[0], id: 'network-ambiguous', name: 'other-net', cidr: '198.51.100.0/24', gateway: '198.51.100.254' },
+      { ...state.world.network.localNetworks[0], id: 'network-ambiguous', name: 'other-net', cidr: '198.51.100.0/24' },
     ] } } }
     expect(await scanTarget('198.51.100.0/24')).toEqual({ status: 'unknown_target', input: '198.51.100.0/24' })
   })
@@ -67,8 +67,8 @@ describe('local Scan application operation', () => {
     expect(await scanTarget(host.ip)).toEqual({ status: 'no_response', address: host.ip })
     expect(await scanTarget('home-net')).toMatchObject({
       status: 'network',
-      // srv-01 is offline, so only SELF responds.
-      devices: [{ targetId: state.player.localDevice.id }],
+      // srv-01 is offline, so SELF and the Router respond.
+      devices: [{ targetId: state.player.localDevice.id }, { targetId: 'router-home-001' }],
     })
   })
 
@@ -90,7 +90,8 @@ it('merges back-to-back observations against the latest canonical Discovery', as
   expect(state.discovery.networks).toMatchObject([{ name: 'home-net', membersObserved: true }])
   expect(state.discovery.networkDeviceRelations).toEqual([
     { networkId: 'network-local-001', deviceId: state.player.localDevice.id },
+    { networkId: 'network-local-001', deviceId: 'router-home-001' },
     { networkId: 'network-local-001', deviceId: 'host-lan-001' },
   ])
-  expect(state.discovery.devices).toMatchObject([{ id: 'host-lan-001', servicesObserved: false }])
+  expect(state.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'host-lan-001', servicesObserved: false }), expect.objectContaining({ id: 'router-home-001', servicesObserved: false })]))
 })

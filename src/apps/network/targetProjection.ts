@@ -237,6 +237,8 @@ export interface KnownNetwork {
   /** Whether the player legitimately remembers SELF as a member of this Network. */
   readonly includesSelf: boolean
   readonly targets: readonly TargetSummary[]
+  /** Remembered default-gateway clue, resolving to the ordinary remembered Device target. */
+  readonly gateway?: TargetSummary
 }
 
 /**
@@ -517,9 +519,13 @@ export function selectKnownSpace(information: PlayerInformation, managed: readon
     managed: isManaged,
     includesSelf: membersOf(id).some(({ deviceId }) => deviceId === localDeviceId),
     targets: membersOf(id).flatMap(({ deviceId }) => {
+      if (deviceId === remembered.get(id)?.gateway?.deviceId) return []
       const target = deviceId === localDeviceId ? undefined : targets.get(deviceId)
       return target ? [target] : []
     }),
+    ...(remembered.get(id)?.gateway && targets.get(remembered.get(id)!.gateway!.deviceId)
+      ? { gateway: targets.get(remembered.get(id)!.gateway!.deviceId) }
+      : {}),
   })
   return {
     self: { address: information.player.localDevice.network.ip },

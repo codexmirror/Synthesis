@@ -66,3 +66,15 @@ export function resolveDeviceNetwork(targets: Readonly<NetworkTargets>, deviceId
   const matches = targets.network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(deviceId))
   return matches.length === 1 ? matches[0] : undefined
 }
+
+/** Resolve a Network's default gateway only from its explicit member-Device relationship. */
+export function resolveNetworkGateway(targets: Readonly<NetworkTargets>, network: Readonly<LocalNetwork>): { readonly deviceId: string; readonly address: string } | undefined {
+  if (!network.gatewayDeviceId || !network.memberDeviceIds.includes(network.gatewayDeviceId)) return undefined
+  const matches = [
+    ...(targets.localDevice.id === network.gatewayDeviceId ? [{ id: targets.localDevice.id, ip: targets.localDevice.network.ip, deviceType: targets.localDevice.deviceType }] : []),
+    ...targets.network.hosts.filter(({ id }) => id === network.gatewayDeviceId),
+  ]
+  return matches.length === 1 && matches[0].deviceType === 'ROUTER'
+    ? { deviceId: matches[0].id, address: matches[0].ip }
+    : undefined
+}
