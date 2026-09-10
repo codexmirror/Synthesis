@@ -4,7 +4,6 @@ import type { GameState } from '../core/game/types'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
 import { createLocalPingTarget, type PingTargetOperation } from './localPingOperation'
-import { createLocalInspectTarget, type InspectTargetOperation } from './localInspectOperation'
 import { createFindTargets, createRefreshNetwork, type FindTargetsOperation, type RefreshNetworkOperation } from './targetDiscoveryOperation'
 import type { GameStateAccessor } from './gameStateAccess'
 import { createServiceAnalysisActions, type NodeScanEndpointAnalysisResult, type NodeScanStartServiceAnalysisResult, type ObservedServiceAnalysisBatchResult } from './serviceAnalysisOperations'
@@ -51,7 +50,6 @@ const GameContext = createContext<GameState | null>(null)
 export interface GameActions {
   pingTarget: PingTargetOperation
   scanTarget: ScanTargetOperation
-  inspectTarget: InspectTargetOperation
   findTargets: FindTargetsOperation
   refreshNetwork: RefreshNetworkOperation
   startServiceAnalysis(targetDeviceId: string, serviceId: string): NodeScanStartServiceAnalysisResult
@@ -121,7 +119,6 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }))
   const [scanTarget] = useState(() => createLocalScanTarget(accessor.read, accessor.write))
   const [pingTarget] = useState(() => createLocalPingTarget(accessor.read, accessor.write))
-  const [inspectTarget] = useState(() => createLocalInspectTarget(accessor.read, accessor.write))
   const [findTargets] = useState(() => createFindTargets(accessor.read, accessor.write))
   const [refreshNetwork] = useState(() => createRefreshNetwork(accessor.read, accessor.write))
   useEffect(() => {
@@ -137,7 +134,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   }, [])
   // Explicit composition: each domain owns its own application adapter; GameProvider only wires them to the shared canonical-state accessor.
   const actions: GameActions = {
-    pingTarget, scanTarget, inspectTarget, findTargets, refreshNetwork,
+    pingTarget, scanTarget, findTargets, refreshNetwork,
     ...createServiceAnalysisActions(accessor),
     ...createCredentialAccessActions(accessor),
     ...createDeauthActions(accessor),

@@ -42,11 +42,11 @@ describe('createInitialGameState', () => {
 
   it('separates identities and seeds canonical local-device state in schema version 86', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(87)
+    expect(GAME_STATE_VERSION).toBe(88)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(87)
+    expect(state.version).toBe(88)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -115,8 +115,8 @@ describe('createInitialGameState', () => {
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([
-      { id: 'network-local-001', name: 'home-net', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
-      { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+      { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gateway: '198.51.100.1', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
+      { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gateway: '203.0.113.1', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
     ])
     for (const localNetwork of state.world.network.localNetworks) {
       expect(isValidNetworkTransferCapacity(localNetwork.transferCapacity)).toBe(true)

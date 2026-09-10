@@ -21,8 +21,7 @@ function createInitialGameState(): GameState {
   return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
 }
 import { scanNetworkTarget } from './scan'
-import { inspectKnownTarget } from './inspect'
-import { rememberInspect, rememberScan } from './discovery'
+import { rememberScan } from './discovery'
 
 // @ts-expect-error Service Analysis cannot omit its stable target identity or historical display target.
 const invalidAnalysisProcess: ServiceAnalysisProcess = { kind: 'service_analysis' }
@@ -40,9 +39,12 @@ function withRememberedSshImplementation(version: string) {
     : service)
   const state = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, services }, ...base.world.network.hosts.slice(1)] } } }
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
-  discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '198.51.100.47', 'enhanced'), state.player.localDevice.id)
-  return { ...state, discovery }
+  const scanned = { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id) }
+  const analyzed = startServiceAnalysis(scanned, 'host-lan-001', 'service-ssh-001')
+  if (analyzed.status !== 'started') throw new Error(analyzed.status)
+  const completed = advanceGameState(analyzed.state, 20_000)
+  // Setup work is a real canonical Process; clear it so callers see only the process they themselves start.
+  return { ...completed, process: clearCompletedProcesses(completed.process, completed.player.localDevice.id) }
 }
 
 describe('Service Analysis', () => {

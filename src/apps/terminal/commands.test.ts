@@ -7,7 +7,6 @@ import { ipCommand } from './commands/ip'
 import { statusCommand } from './commands/status'
 import { scanCommand } from './commands/scan'
 import { scanNetworkTarget } from '../../core/game/scan'
-import { inspectNetworkTarget } from '../../core/game/inspect'
 import { parseCommand } from './parser'
 import { commands, dispatchCommand } from './registry'
 import { listDirectory, readTextFile } from '../../core/game/filesystem'
@@ -27,7 +26,6 @@ const context: CommandContext = {
   nodeMiner: { available: false },
   operations: {
     scanTarget: (target) => scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
-    inspectTarget: (target) => inspectNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, target),
     analyzeEndpoint: () => ({ status: 'endpoint_not_found' }),
     knownWeaknesses: () => [],
     attackEndpoint: () => ({ status: 'not_available' }),
@@ -243,10 +241,6 @@ describe('individual commands', () => {
       type: 'output', lines: ['Scanning 203.0.113.42...', '', 'NO RESPONSE'],
     })
     expect(scanTarget).toHaveBeenCalledExactlyOnceWith('203.0.113.42')
-  })
-
-  it('keeps the retired inspect verb unavailable even when the operation dependency exists', () => {
-    expect(dispatch('inspect 198.51.100.47')).toMatchObject({ lines: [expect.stringContaining('Command not found')] })
   })
 
 })

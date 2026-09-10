@@ -265,14 +265,14 @@ describe('Activity detail navigation', () => {
 
 describe('Activity detail: finite operations', () => {
   it('renders every concrete completed Process result', () => {
-    const weakness = render(<GameProvider initialState={completedAnalysis()}><Processes /></GameProvider>)
-    expect(within(row('SERVICE ANALYSIS')).getByText('WEAKNESS DETECTED')).toBeInTheDocument()
-    openRow('SERVICE ANALYSIS')
-    expect(screen.getByText('Weak authentication configuration')).toBeInTheDocument()
-    weakness.unmount()
+    // Endpoint Analysis completes identically regardless of Service: it remembers implementation
+    // evidence only and never creates or reveals Vulnerability Knowledge.
+    const ssh = render(<GameProvider initialState={completedAnalysis()}><Processes /></GameProvider>)
+    expect(within(row('SERVICE ANALYSIS')).getByText('ENDPOINT ANALYZED')).toBeInTheDocument()
+    ssh.unmount()
 
     const none = render(<GameProvider initialState={completedAnalysis('service-http-001')}><Processes /></GameProvider>)
-    expect(screen.getByText('NO WEAKNESS DETECTED')).toBeInTheDocument()
+    expect(screen.getByText('ENDPOINT ANALYZED')).toBeInTheDocument()
     none.unmount()
 
     const running = runningAnalysis(); const host = running.world.network.hosts[0]
@@ -361,8 +361,8 @@ describe('Activity Monitor: Recent Activity', () => {
     render(<GameProvider initialState={initial}><Processes /><Snapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: 'Clear recent activity' }))
     fireEvent.click(within(screen.getByRole('group', { name: 'Clear recent activity?' })).getByRole('button', { name: 'CLEAR' }))
-    expect(screen.queryByText('WEAKNESS DETECTED')).not.toBeInTheDocument()
-    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017' }] } })
+    expect(screen.queryByText('ENDPOINT ANALYZED')).not.toBeInTheDocument()
+    expect(JSON.parse(screen.getByRole('status').textContent ?? '')).toMatchObject({ worldSame: true, knowledgeSame: true, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } })
   })
 
   it('removes one ended activity through GameActions without changing gameplay truth or other work', () => {

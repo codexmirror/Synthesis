@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { findInstalledNodeMiner, findInstalledNodeScan, nodeScanSupportsInspect, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from './software'
+import { findInstalledNodeMiner, findInstalledNodeScan, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from './software'
 import { findInstalledFlipper } from './flipper'
 
 describe('installed software', () => {
@@ -13,12 +13,6 @@ describe('installed software', () => {
   it('does not find NODE Miner installed on a fresh Device, since it starts only as a local package', () => {
     const device = createInitialGameState().player.localDevice
     expect(findInstalledNodeMiner(device)).toBeUndefined()
-  })
-
-  it('grants Inspect only to the nodescan-1.1-experimental release', () => {
-    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.0', channel: 'standard' })).toBe(false)
-    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' })).toBe(true)
-    expect(nodeScanSupportsInspect({ id: 'nodescan', releaseId: 'nodescan-1.2-standard', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.2', channel: 'standard' })).toBe(true)
   })
 
   it('grants live topology and integrated intelligence only by the authored NodeScan 1.2 release identity', () => {

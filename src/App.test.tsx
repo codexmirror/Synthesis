@@ -2071,7 +2071,7 @@ describe('Terminal', () => {
 
   it('runs ip', async () => {
     await command('ip')
-    expect(screen.getByText('Local address:')).toBeInTheDocument()
+    expect(screen.getByText('ADDRESS')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy target 198.51.100.23' })).toHaveTextContent('198.51.100.23')
   })
 
@@ -2088,9 +2088,9 @@ describe('Terminal', () => {
   it('clears terminal output', async () => {
     const { user, input } = await openTerminal()
     await user.type(input, 'ip{enter}')
-    expect(screen.getByText(/Local address:/)).toBeInTheDocument()
+    expect(screen.getByText('ADDRESS')).toBeInTheDocument()
     await user.type(input, 'clear{enter}')
-    expect(screen.queryByText(/Local address:/)).not.toBeInTheDocument()
+    expect(screen.queryByText('ADDRESS')).not.toBeInTheDocument()
   })
 
   it('keeps command focus, exposes the send hint, and navigates history', async () => {

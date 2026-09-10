@@ -69,13 +69,12 @@ export const NODESCAN_1_1_EXPERIMENTAL = {
   productId: 'nodescan', releaseId: NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID, buildId: NODESCAN_1_1_EXPERIMENTAL_BUILD_ID,
   name: 'NodeScan', version: '1.1', channel: 'experimental',
   documentation: {
-    about: 'Experimental NodeScan release with extended target inspection.',
+    about: 'Experimental NodeScan release.',
     capabilities: [
       { label: 'NETWORK SCAN', description: 'Discover represented networks, devices, relationships and exposed Services.' },
-      { label: 'TARGET INSPECT', description: 'Observe represented Device and already-known Service fingerprints.' },
-      { label: 'SERVICE ANALYSIS', description: 'Investigate known Service endpoints for represented weaknesses.' },
+      { label: 'SERVICE ANALYSIS', description: 'Investigate known Service endpoints for represented implementation evidence.' },
     ],
-    changes: ['Target Inspect', 'Firmware fingerprinting', 'Compute classification', 'Service implementation fingerprinting', 'Authentication observation'],
+    changes: ['Initial experimental release.'],
   },
 } as const satisfies SoftwareReleaseContent
 
@@ -86,13 +85,12 @@ export const NODESCAN_1_2_STANDARD = {
     about: 'Standard NODE-OS reconnaissance software with live topology monitoring and integrated technical intelligence.',
     capabilities: [
       { label: 'NETWORK SCAN', description: 'Discover represented networks, devices, relationships and exposed Services.' },
-      { label: 'TARGET INSPECT', description: 'Observe represented Device and already-known Service fingerprints.' },
-      { label: 'NETWORK REFRESH', description: 'Repeat Network Scan, then Inspect legitimately known member Devices without running Analyze.' },
-      { label: 'SERVICE ANALYSIS', description: 'Investigate known Service endpoints for represented weaknesses.' },
+      { label: 'NETWORK REFRESH', description: 'Repeat Network Scan for a legitimately known Network.' },
+      { label: 'SERVICE ANALYSIS', description: 'Investigate known Service endpoints for represented implementation evidence.' },
       { label: 'LIVE TOPOLOGY MONITORING', description: 'Project current Device and Service availability through represented monitoring authority.' },
       { label: 'INTEGRATED INTELLIGENCE', description: 'Open legitimately learned technical information from observed software entries.' },
     ],
-    changes: ['Target Inspect promoted from Experimental', 'Live topology monitoring', 'Integrated technical intelligence'],
+    changes: ['Live topology monitoring', 'Integrated technical intelligence'],
   },
 } as const satisfies SoftwareReleaseContent
 

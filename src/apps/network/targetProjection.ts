@@ -1,5 +1,5 @@
 import { formatByteProgress } from '../byteFormat'
-import { findInstalledNodeScan, nodeScanSupportsInspect, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from '../../core/game/software'
+import { findInstalledNodeScan, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from '../../core/game/software'
 import { isDeviceNetworkUsable } from '../../core/game/deviceOperationalState'
 import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
@@ -37,8 +37,9 @@ import type { DeauthProcess } from '../../core/game/types'
  * `LiveTopologyTruth` input admits only operational state and Service openness,
  * and only while NodeScan monitoring or usable exact-Service access supplies
  * current observation authority. A remembered
- * Device's display name is here only because a legitimate Inspect stored it
- * in Discovery, never because presentation resolved it.
+ * Device's display name would only ever come from Discovery, never from
+ * presentation resolving it; no current operation writes one, so it stays
+ * absent.
  *
  * The one thing NodeScan renders that is *not* derived from this slice is a
  * managed Network's own canonical facts, which come from the separate
@@ -59,7 +60,6 @@ export interface NodeScanRelease {
    * version-number comparison. It stays true while a removal Process is still
    * running, because the override release remains installed until completion.
    */
-  readonly canInspect: boolean
   readonly canMonitorLiveTopology: boolean
   readonly canIntegrateIntelligence: boolean
 }
@@ -71,7 +71,6 @@ export function resolveNodeScanRelease(device: LocalDeviceState): NodeScanReleas
     name: installation.name,
     version: installation.version,
     channel: installation.channel,
-    canInspect: nodeScanSupportsInspect(installation),
     canMonitorLiveTopology: nodeScanSupportsLiveTopology(installation),
     canIntegrateIntelligence: nodeScanSupportsIntegratedIntelligence(installation),
   }
@@ -120,7 +119,7 @@ export interface TargetRoute {
   readonly toolName: string
   /** The concrete integrated Flipper module that supports this technique, where one is represented. */
   readonly moduleName?: string
-  /** Remembered implementation fingerprint, where a legitimate Inspect stored one. */
+  /** Remembered implementation fingerprint, where a legitimate Endpoint Analysis stored one. */
   readonly implementation?: string
 }
 
@@ -134,7 +133,7 @@ export interface KeyProbeRoute {
   readonly serviceId: string
   readonly serviceName: string
   readonly endpoint: string
-  /** The concrete implementation identity a legitimate Inspect observed, matched against an authored KeyProbe profile. */
+  /** The concrete implementation identity a legitimate Endpoint Analysis observed, matched against an authored KeyProbe profile. */
   readonly serviceImplementation: ServiceImplementationIdentity
   /** Remembered display fingerprint, e.g. "GateSSH 1.3.3". */
   readonly implementation: string
@@ -260,9 +259,9 @@ export interface TargetSummary {
   readonly networkNames: readonly string[]
   readonly stage: TargetStage
   /**
-   * The Device's represented display identity, present only once a legitimate
-   * Inspect observed and remembered it. Until then a remote Device is an
-   * address, never its hidden canonical name.
+   * The Device's represented display identity. No current Recon V2 operation
+   * observes and remembers one, so a remote Device stays an address, never
+   * its hidden canonical name.
    */
   readonly displayName?: string
   readonly servicesObserved: boolean
@@ -430,9 +429,10 @@ function describeImplementation(observed?: { implementation: { name: string; ver
  * become the headline; the Activity Monitor remains its canonical home, and
  * per-Service investigation progress stays visible under technical depth.
  *
- * Inspect is deliberately not a stage. It is optional technical depth the
- * player chooses, not a step the ordinary SCAN → HACK → CONNECT line has to
- * pass through, so it never displaces the decision in front of them.
+ * Endpoint Analysis is deliberately not a stage. It is optional technical
+ * depth the player chooses, not a step the ordinary SCAN → HACK → CONNECT
+ * line has to pass through, so it never displaces the decision in front of
+ * them.
  *
  * Nothing here consults hidden World Truth, and `no_route` is a statement
  * about the player's own information, not about the target.
@@ -622,7 +622,7 @@ function knownSoftwareIntelligence(
         && process.toolId === 'keyprobe'
         && process.authGuardProtectionObserved)
       return [{ software: name, details: [
-        `Inspect observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`,
+        `Observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`,
         ...(protectedFailure ? ['Protects SSH authentication traffic against Credential Access attempts.'] : []),
       ] }]
     }
@@ -848,7 +848,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     scope: device.scope,
     networkNames: networkNamesOf(information, device.id),
     stage,
-    // Only an Inspect that actually observed it; never resolved from World Truth.
+    // Only a legitimate observation that actually recorded it; never resolved from World Truth.
     ...(device.inspect?.displayName ? { displayName: device.inspect.displayName } : {}),
     percent,
     ...(operation ? { operation } : {}),
@@ -917,7 +917,7 @@ function selectOperation(input: {
     ]
     // KeyProbe attacks a Service surface directly, never a named Vulnerability: its running fact states the
     // implementation this exact Process snapshotted when it started, never whatever the Service's remembered
-    // fingerprint currently reads — a later re-Inspect while KeyProbe is running must not retarget this label.
+    // fingerprint currently reads — a later re-Analysis while KeyProbe is running must not retarget this label.
     if (process.kind === 'credential_access' && process.toolId === 'keyprobe') {
       const attackedProfile = process.serviceImplementation ? keyProbeProfileForImplementation(process.serviceImplementation) : undefined
       const attackedImplementation = attackedProfile ? `${attackedProfile.observedImplementationName} ${attackedProfile.observedImplementationVersion}` : ''
@@ -977,7 +977,7 @@ function selectOperation(input: {
  * rollback avenue was: it is offered only where a remembered package-
  * submission interface and earned `UPD-001` Knowledge both exist. It reads no
  * hidden target World Truth: candidate packages are compared only against
- * what Enhanced Inspect actually remembered, ATTACK availability is derived
+ * what Endpoint Analysis actually remembered, ATTACK availability is derived
  * only from the player's own Knowledge and installed tool, and progress comes
  * only from the player's own Process and submission runtime. It is
  * participates in the target's primary decision without being mislabeled as

@@ -1,5 +1,4 @@
 import type { ScanResult } from './scan'
-import type { InspectResult } from './inspect'
 import type { PingResult } from './ping'
 import type { DiscoveryState } from './types'
 
@@ -62,44 +61,6 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
     }
   }
   return { networks, devices, networkDeviceRelations: relations }
-}
-
-/** Merge only a successful positive Inspect observation; failures never erase memory. */
-export function rememberInspect(discovery: DiscoveryState, result: InspectResult, _selfDeviceId: string): DiscoveryState {
-  if (result.status === 'no_response' || result.status === 'unknown_target' || (result.status === 'device' && result.scope === 'self')) return discovery
-  if (result.status === 'network') {
-    const index = discovery.networks.findIndex(({ id }) => id === result.networkId)
-    if (index < 0) return discovery
-    const networks = [...discovery.networks]
-    networks[index] = { ...networks[index], name: result.networkName, inspect: { connected: result.connected } }
-    return { ...discovery, networks }
-  }
-  const index = discovery.devices.findIndex(({ id }) => id === result.targetId)
-  if (index < 0) return discovery
-  const devices = [...discovery.devices]
-  const previousEnhanced = devices[index].inspect?.enhanced
-  const fingerprints = new Map(result.serviceFingerprints?.map(({ serviceId, inspect }) => [serviceId, inspect]))
-  const services = devices[index].services.map((service) => {
-    const inspect = fingerprints.get(service.id)
-    return inspect ? { ...service, inspect } : service
-  })
-  // Observed display identity is remembered exactly like the rest of the
-  // Inspect snapshot: a later observation may refresh it, and an observation
-  // that saw none never deletes what an earlier one legitimately observed.
-  const previousDisplayName = devices[index].inspect?.displayName
-  const displayName = result.displayName ?? previousDisplayName
-  devices[index] = { ...devices[index], address: result.address, scope: result.scope, services, inspect: { networkStatus: result.networkStatus, deviceKind: result.deviceKind, ...(displayName ? { displayName } : {}), ...(result.enhanced ? { enhanced: result.enhanced } : previousEnhanced ? { enhanced: previousEnhanced } : {}) } }
-  const networks = [...discovery.networks]
-  const relations = [...discovery.networkDeviceRelations]
-  for (const observed of result.networks ?? []) {
-    const networkIndex = networks.findIndex(({ id }) => id === observed.id)
-    if (networkIndex < 0) networks.push({ id: observed.id, name: observed.name, membersObserved: false })
-    else networks[networkIndex] = { ...networks[networkIndex], name: observed.name }
-    if (!relations.some(({ networkId, deviceId }) => networkId === observed.id && deviceId === result.targetId)) {
-      relations.push({ networkId: observed.id, deviceId: result.targetId })
-    }
-  }
-  return { ...discovery, networks, devices, networkDeviceRelations: relations }
 }
 
 /**

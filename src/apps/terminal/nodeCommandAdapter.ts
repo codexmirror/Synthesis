@@ -37,7 +37,6 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
     operations: {
       pingTarget: actions.pingTarget,
       scanTarget: actions.scanTarget,
-      inspectTarget: actions.inspectTarget,
       analyzeEndpoint: (endpoint) => {
         const observedDevice = gameState.discovery.devices.find(({ services }) => services.some((service) => service.endpoint === endpoint))
         const observedService = observedDevice?.services.find((service) => service.endpoint === endpoint)

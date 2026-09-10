@@ -17,13 +17,13 @@ function createInitialGameState(): GameState {
   const state = createSeededGameState()
   return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
 }
-import { inspectKnownTarget } from './inspect'
-import { rememberInspect, rememberScan } from './discovery'
+import { rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
+import { startServiceAnalysis } from './serviceAnalysis'
 import { NODE_MINER_INSTALLED_EXECUTABLE_PATH, findRunningLocalNodeMiner, payoutLocalNodeMiner, startNodeMiner, stopNodeMiner } from './nodeMiner'
 import { NODE_MINER_PAYOUT_LOG_PATH } from './nodeMinerPayoutLog'
 import { cancelLocalProcess, deriveResourceUsage } from './processes'
-import { findInstalledNodeScan, nodeScanSupportsInspect } from './software'
+import { findInstalledNodeScan } from './software'
 import { installLocalSoftwarePackage } from './softwareInstallation'
 import { removeInstalledSoftware, resolveCompletedSoftwareRemovals, SOFTWARE_REMOVAL_RAM_REQUIRED_MIB } from './softwareRemoval'
 import { NODE_MINER_1_0 } from './softwareReleaseContent'
@@ -165,7 +165,7 @@ describe('removeInstalledSoftware: admission', () => {
 })
 
 describe('software removal: NodeScan stays active while running', () => {
-  it('keeps the installed release and its Enhanced Inspect capability active while removal is running', () => {
+  it('keeps the installed release active while removal is running', () => {
     const state = withNodeScan11()
     const started = removeInstalledSoftware(state, 'nodescan')
     if (started.status !== 'started') throw new Error(started.status)
@@ -173,7 +173,6 @@ describe('software removal: NodeScan stays active while running', () => {
 
     const nodeScan = findInstalledNodeScan(stillRunning.player.localDevice)!
     expect(nodeScan.releaseId).toBe('nodescan-1.1-experimental')
-    expect(nodeScanSupportsInspect(nodeScan)).toBe(true)
     expect(removal(stillRunning.process.processes[0]).status).toBe('running')
   })
 })
@@ -197,33 +196,31 @@ describe('software removal completion: NodeScan', () => {
     expect(withoutBookstoreBackgroundTiming(rerun)).toEqual(withoutBookstoreBackgroundTiming(done))
   })
 
-  it('removes future Inspect capability after restoration while a previously stored Enhanced Inspect Discovery snapshot remains untouched', () => {
+  it('restores the baseline while a previously stored Endpoint Analysis Discovery snapshot remains untouched', () => {
     const state = withNodeScan11()
-    // Populate Discovery with a positive scan + Enhanced Inspect observation of host-lan-001 while NodeScan 1.1 is active.
+    // Populate Discovery with a positive Scan and Endpoint Analysis of host-lan-001's SSH service while NodeScan 1.1 is active.
     const scanResult = scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '198.51.100.47')
     const afterScan = { ...state, discovery: rememberScan(state.discovery, scanResult, state.player.localDevice.id) }
-    const enhancedInspect = inspectKnownTarget({ localDevice: afterScan.player.localDevice, network: afterScan.world.network }, afterScan.discovery, '198.51.100.47', 'enhanced')
-    expect(enhancedInspect.status).toBe('device')
-    const withDiscovery = { ...afterScan, discovery: rememberInspect(afterScan.discovery, enhancedInspect, afterScan.player.localDevice.id) }
+    const analysis = startServiceAnalysis(afterScan, 'host-lan-001', 'service-ssh-001')
+    if (analysis.status !== 'started') throw new Error(analysis.status)
+    const withDiscovery = advanceGameState(analysis.state, 20_000)
     const storedSnapshot = withDiscovery.discovery.devices.find((device) => device.address === '198.51.100.47')
-    expect(storedSnapshot?.inspect?.enhanced).toBeDefined()
+    expect(storedSnapshot?.services.find(({ id }) => id === 'service-ssh-001')?.inspect?.implementation).toBeDefined()
 
     const started = removeInstalledSoftware(withDiscovery, 'nodescan')
     if (started.status !== 'started') throw new Error(started.status)
     const done = completeRemoval(started.state)
     expect(findInstalledNodeScan(done.player.localDevice)?.releaseId).toBe('nodescan-1.0-standard')
 
-    // Removal never touches Discovery/Knowledge: the previously stored Enhanced Inspect snapshot survives byte-for-byte.
+    // Removal never touches Discovery/Knowledge: the previously stored Endpoint Analysis snapshot survives byte-for-byte.
     expect(done.discovery).toBe(started.state.discovery)
-    expect(done.discovery.devices.find((device) => device.address === '198.51.100.47')?.inspect?.enhanced).toEqual(storedSnapshot?.inspect?.enhanced)
+    expect(done.discovery.devices.find((device) => device.address === '198.51.100.47')?.services.find(({ id }) => id === 'service-ssh-001')?.inspect)
+      .toEqual(storedSnapshot?.services.find(({ id }) => id === 'service-ssh-001')?.inspect)
 
     const laterScan = scanNetworkTarget({ localDevice: done.player.localDevice, network: done.world.network }, '198.51.100.47')
     const afterLaterScan = rememberScan(done.discovery, laterScan, done.player.localDevice.id)
-    expect(afterLaterScan.devices.find((device) => device.address === '198.51.100.47')?.inspect).toEqual(storedSnapshot?.inspect)
-
-    // NodeScan 1.0 supplies no new player-facing Inspect capability.
-    const nodeScanAfter = findInstalledNodeScan(done.player.localDevice)!
-    expect(nodeScanSupportsInspect(nodeScanAfter)).toBe(false)
+    expect(afterLaterScan.devices.find((device) => device.address === '198.51.100.47')?.services.find(({ id }) => id === 'service-ssh-001')?.inspect)
+      .toEqual(storedSnapshot?.services.find(({ id }) => id === 'service-ssh-001')?.inspect)
   })
 
   it('cannot remove a same-release replacement build that admission did not snapshot', () => {

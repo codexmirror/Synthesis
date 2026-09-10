@@ -42,10 +42,10 @@ import {
  * - A target opens its card. Reconnaissance and connection state stay concise,
  *   while ACTIONS lets the player choose among concrete owned Techniques.
  *
- * INSPECT is not a stage in that line. It is optional depth under TECHNICAL
- * INTELLIGENCE, where it also pays off visibly: a target the player has only
- * Scanned is an UNKNOWN DEVICE at an address until a legitimate Inspect
- * observes and remembers the represented Device name.
+ * The retired generic Inspect operation is not a stage in that line, and has
+ * no ordinary Recon successor in this slice: a target the player has Scanned
+ * remains an UNKNOWN DEVICE at an address, and Endpoint Analysis under
+ * TECHNICAL INTELLIGENCE deepens observed Endpoints, not Device identity.
  *
  * Every reconnaissance fact comes from the view models in
  * `targetProjection.ts`, which read player information only; the managed
@@ -120,8 +120,9 @@ function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): stri
 
 /**
  * What the player may legitimately call this target. Its address is always
- * theirs; its kind and its represented display name are theirs only once a
- * legitimate Inspect observed them.
+ * theirs; `target.observed` (kind, display name) is populated only by the
+ * retired generic Inspect operation, which has no current writer, so it
+ * presently stays absent.
  */
 function kindOf(target: Target): string {
   return target.observed ? target.observed.deviceKind.toUpperCase() : 'UNKNOWN DEVICE'
@@ -237,16 +238,8 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
       if (result.status === 'software_unavailable') setNotice('NODESCAN NOT INSTALLED')
       else if (result.status === 'unknown_network') setNotice('NETWORK NOT KNOWN')
       else if (result.status === 'no_response') setNotice('NO RESPONSE')
-      else if ('unavailable' in result) setNotice(result.unavailable ? `REFRESHED · ${result.unavailable} DEVICE${result.unavailable === 1 ? '' : 'S'} UNAVAILABLE` : null)
+      else setNotice(null)
     } catch { finishRequest(subject, generation) }
-  }
-
-  function inspect(target: Target) {
-    const result = actions.inspectTarget(target.address)
-    setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
-      : result.status === 'capability_unavailable' ? 'INSPECT UNAVAILABLE'
-        : result.status === 'no_response' ? 'NO RESPONSE'
-          : result.status === 'unknown_target' ? 'UNKNOWN TARGET' : null)
   }
 
   function hack(route: TargetRoute | KeyProbeRoute, targetDeviceId: string, providerId: NonNullable<TargetOffensiveAction['providerId']>) {
@@ -255,7 +248,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
       providerId,
       // The specialized module forms from its own required Vulnerability. KeyProbe's attacked surface is never
       // supplied here: Credential Access derives it canonically from this exact Service's own remembered
-      // Inspect fingerprint, so presentation can never assert an implementation the player has not observed.
+      // Endpoint Analysis fingerprint, so presentation can never assert an implementation the player has not observed.
       ...(providerId !== 'keyprobe' ? { vulnerabilityId: (route as TargetRoute).vulnerabilityId } : {}),
     })
     if (result.status === 'started') setNotice(null)
@@ -368,7 +361,6 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
         onBack={() => open({ kind: 'targets' })}
         onScan={() => scan(target)}
         onRefreshNetwork={refreshNetwork}
-        onInspect={() => inspect(target)}
         onExecuteAction={(action) => action.technique === 'Credential Access'
           ? action.route && action.providerId && hack(action.route as TargetRoute | KeyProbeRoute, target.id, action.providerId)
           : action.technique === 'Rollback' ? action.route && attackPackageSubmission(target)
@@ -554,11 +546,11 @@ function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, o
 /**
  * One remembered Device: a leaf in the tree whose whole row is the route
  * straight into its existing target card. Its identity line is exactly what
- * the player has legitimately learned — an address until an Inspect observed
- * the represented name, and the name over the address afterwards. Service
- * identity, fingerprints, and every other technical fact live on that card
- * under TECHNICAL INTELLIGENCE; Known Space states only where a Device is and
- * what its current stage is.
+ * the player has legitimately learned — the address, since no current
+ * operation observes a represented display name. Service identity,
+ * fingerprints, and every other technical fact live on that card under
+ * TECHNICAL INTELLIGENCE; Known Space states only where a Device is and what
+ * its current stage is.
  */
 function DeviceRow({ target, showLocation, arrived, onOpen }: {
   target: TargetSummary
@@ -681,7 +673,7 @@ function ActivityRow({ record }: { record: ManagedNetworkActivityRecordView }) {
 }
 
 /** One target context, with status, player-chosen offensive ACTIONS, and depth. */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onRefreshNetwork, onInspect, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onRefreshNetwork, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -691,7 +683,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   onBack(): void
   onScan(): void
   onRefreshNetwork(networkId: string): void
-  onInspect(): void
   onExecuteAction(action: TargetOffensiveAction): void
   onConnect(): void
   onDisconnect(): void
@@ -822,8 +813,9 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <summary>
         <span>TECHNICAL INTELLIGENCE</span>
         {/*
-          * Inspect is optional depth, so its availability is announced where
-          * it lives rather than pushed into the target's line of action.
+          * Endpoint Analysis is optional depth, so its availability is
+          * announced where it lives rather than pushed into the target's
+          * line of action.
           */}
       </summary>
       <TechnicalDetails
@@ -834,7 +826,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         stageOwnsAnalysis={target.stage === 'analyzing'}
         copyState={copyState}
         selectedPackageId={selectedPackageId}
-        onInspect={onInspect}
         onAnalyze={onAnalyze}
         onCopy={onCopy}
         onSelectPackage={onSelectPackage}
@@ -925,11 +916,11 @@ function Operation({ target, status, progressLabel }: { target: Target; status: 
  * scope it actually changes.
  *
  * Every status mark this view draws is deliberately weak. `servicesObserved`
- * proves only that Scan or Inspect once found this Device and its Services —
+ * proves only that a Host Scan once found this Device and its Services —
  * a historical fact, not a live guarantee — so it produces `OBSERVED` in a
  * neutral tone, never a green `ONLINE` claim. `unreachable` is the one piece
  * of state this view adds on top of `Target`: whether the most recent
- * concrete Scan or Inspect issued against this exact target, this visit,
+ * concrete Scan issued against this exact target, this visit,
  * came back with no response. It is derived from the same real request
  * outcome the page's own notice line already states, never from a timer or
  * from hidden current connectivity truth, and it resets the moment the
@@ -1044,7 +1035,7 @@ function CopyReference({ value, copyState, onCopy }: { value: string; copyState:
  * information and their own represented resources; none of it is a new
  * observation, and none of it reads current target truth.
  */
-function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selectedPackageId, onInspect, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
+function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selectedPackageId, onAnalyze, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   /**
@@ -1057,7 +1048,6 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
   stageOwnsAnalysis: boolean
   copyState: CopyState
   selectedPackageId: string
-  onInspect(): void
   onAnalyze(service: TargetService): void
   onCopy(value: string): void
   onSelectPackage(fileId: string): void
@@ -1070,7 +1060,7 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
     <div className="node-section"><span>OBSERVED</span></div>
     {target.observed
       ? <dl className="node-facts">
-        {/* Present only where an Inspect actually observed the represented name. */}
+        {/* Populated only by the retired generic Inspect operation, which has no current writer; this remains a dormant slot for a later legitimate observation. */}
         {/* STATUS is compacted out of this list: the topology view above ACTIONS already states this target's runtime status once, and this dl does not repeat it. */}
         {target.displayName && <div><dt>NAME</dt><dd>{target.displayName}</dd></div>}
         <div><dt>TYPE</dt><dd>{target.observed.deviceKind.toUpperCase()}</dd></div>
@@ -1078,11 +1068,6 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
         {target.observed.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
-    {/*
-      * Inspect explains itself where it is offered: Scan found the attack
-      * surface, Inspect looks deeper at what the target actually is. Saying so
-      * beside the control is what makes it understandable on first use.
-      */}
 
     {(target.access || target.session) && <>
       <div className="node-section"><span>ACCESS</span></div>

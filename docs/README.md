@@ -106,15 +106,15 @@ below.
   composition precedent only; future direction, not implemented),
   [`design/SCAN_INFORMATION_ARCHITECTURE_V1.md`](design/SCAN_INFORMATION_ARCHITECTURE_V1.md),
   [`design/REMOTE_SERVER_OS_V1.md`](design/REMOTE_SERVER_OS_V1.md) (RACK-OS work only)
-- CODE → `src/core/game/scan.ts`, `src/core/game/inspect.ts`,
+- CODE → `src/core/game/scan.ts`,
   `src/core/game/discovery.ts`, `src/core/game/serviceAnalysis.ts`,
   `src/core/game/credentialAccess.ts`, `src/core/game/remoteSession.ts`,
   `src/core/game/authenticationHistory.ts`, `src/app/localScanOperation.ts`,
-  `src/app/localInspectOperation.ts`, `src/app/targetDiscoveryOperation.ts`,
+  `src/app/targetDiscoveryOperation.ts`,
   `src/apps/network/`, `src/apps/rackos/`,
   `src/core/game/rackOsFirmwareUpdate.ts` (the RACK-OS 1.1 Business release, its
   installer artifact, and the firmware update the RACK-OS surface admits)
-- TESTS → `src/core/game/scan.test.ts`, `src/core/game/inspect.test.ts`,
+- TESTS → `src/core/game/scan.test.ts`,
   `src/core/game/discovery.test.ts`, `src/core/game/credentialAccess.test.ts`,
   `src/core/game/remoteSession.test.ts`,
   `src/app/targetDiscoveryOperation.test.ts`, `src/apps/network/Network.test.tsx`,

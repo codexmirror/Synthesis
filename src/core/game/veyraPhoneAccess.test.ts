@@ -29,7 +29,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     expect(result.devices.map(({ targetId }) => targetId)).not.toContain(PHONE)
   })
 
-  it('yields a way in only after real Scan and Service Analysis, then establishes access and connects', () => {
+  it('yields a way in only after real Scan, Endpoint Analysis, and genuine Knowledge, then establishes access and connects', () => {
     const base = createInitialGameState()
     const targets = { localDevice: base.player.localDevice, network: base.world.network }
 
@@ -44,10 +44,16 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     const analysis = startServiceAnalysis(scanned, PHONE, observation.serviceId)
     expect(analysis.status).toBe('started'); if (analysis.status !== 'started') return
     const analyzed = advanceGameState(analysis.state, 20_000)
-    expect(analyzed.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ targetDeviceId: PHONE, serviceId: observation.serviceId, vulnerabilityId: 'AUTH-017' }))
-    expect(canFormCredentialAccessAttempt(analyzed, observation)).toBe(true)
+    // Endpoint Analysis remembers implementation evidence only; it never creates named Vulnerability Knowledge.
+    expect(analyzed.knowledge.discoveredVulnerabilities).toEqual([])
+    expect(canFormCredentialAccessAttempt(analyzed, observation)).toBe(false)
 
-    const attempt = startCredentialAccessAttemptFromObservation(analyzed, observation)
+    // Genuine exact AUTH-017 Knowledge, earned through the separately owned Knowledge mechanic, plus the
+    // analyzed endpoint evidence above, is what actually forms the specialized module's route.
+    const known: GameState = { ...analyzed, knowledge: { ...analyzed.knowledge, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: PHONE, serviceId: observation.serviceId, observedLabel: 'Weak authentication configuration' }] } }
+    expect(canFormCredentialAccessAttempt(known, observation)).toBe(true)
+
+    const attempt = startCredentialAccessAttemptFromObservation(known, observation)
     expect(attempt.status).toBe('started'); if (attempt.status !== 'started') return
     const attacked = advanceGameState(attempt.state, 40_000)
     const access = attacked.deviceAccess.established.find(({ targetDeviceId }) => targetDeviceId === PHONE)
@@ -69,10 +75,11 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     const analysis = startServiceAnalysis(scanned, PHONE, observation.serviceId)
     if (analysis.status !== 'started') throw new Error(analysis.status)
     const analyzed = advanceGameState(analysis.state, 20_000)
+    const known: GameState = { ...analyzed, knowledge: { ...analyzed.knowledge, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: PHONE, serviceId: observation.serviceId, observedLabel: 'Weak authentication configuration' }] } }
 
-    const withoutTool: GameState = { ...analyzed, player: { ...analyzed.player, localDevice: { ...analyzed.player.localDevice, installedSoftware: analyzed.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'), filesystem: { ...analyzed.player.localDevice.filesystem, files: analyzed.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module' || file.moduleId !== 'credential-access') } } } }
+    const withoutTool: GameState = { ...known, player: { ...known.player, localDevice: { ...known.player.localDevice, installedSoftware: known.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'), filesystem: { ...known.player.localDevice.filesystem, files: known.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module' || file.moduleId !== 'credential-access') } } } }
     expect(canFormCredentialAccessAttempt(withoutTool, observation)).toBe(false)
     // Removing the tool removes the offer without touching the Knowledge.
-    expect(withoutTool.knowledge).toEqual(analyzed.knowledge)
+    expect(withoutTool.knowledge).toEqual(known.knowledge)
   })
 })

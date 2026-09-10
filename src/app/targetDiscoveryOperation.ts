@@ -1,12 +1,12 @@
 import { createLocalScanTarget } from './localScanOperation'
-import { createLocalInspectTarget } from './localInspectOperation'
-import { findInstalledNodeScan, nodeScanSupportsNetworkRefresh } from '../core/game/software'
+import { findInstalledNodeScan } from '../core/game/software'
 import type { GameState } from '../core/game/types'
 
 /**
  * Known-Space refresh composes only Scan observations over SELF and Networks
- * the player already knows. Target Scan, Inspect, and Analyze remain distinct
- * player-facing operations.
+ * the player already knows. Target Scan and Endpoint Analysis remain distinct
+ * player-facing operations, and the retired generic Inspect operation is
+ * never composed here.
  */
 
 export type FindTargetsResult =
@@ -16,7 +16,7 @@ export type FindTargetsResult =
 export type FindTargetsOperation = () => Promise<FindTargetsResult>
 
 export type RefreshNetworkResult =
-  | { readonly status: 'refreshed'; readonly inspected: number; readonly unavailable: number }
+  | { readonly status: 'refreshed' }
   | { readonly status: 'no_response' | 'unknown_network' | 'software_unavailable' }
 
 export type RefreshNetworkOperation = (networkId: string) => Promise<RefreshNetworkResult>
@@ -43,39 +43,21 @@ export function createFindTargets(readState: () => GameState, writeState: (state
 }
 
 /**
- * Refresh one remembered Network through the existing operations. Every
- * release can repeat the Network Scan; only NodeScan 1.2's authored refresh
- * capability follows it with Inspect over the membership that Discovery
- * legitimately remembers after that Scan. Individual Inspect failures are
- * deliberately local to that Device.
+ * Refresh one remembered Network by repeating the canonical Network Scan
+ * against it. This only ever refreshes evidence Network Scan itself owns
+ * (which Hosts currently respond); it never deepens a remembered Host with
+ * implementation, Firmware, or other Endpoint Analysis-owned evidence.
  */
 export function createRefreshNetwork(readState: () => GameState, writeState: (state: GameState) => void): RefreshNetworkOperation {
   const scan = createLocalScanTarget(readState, writeState)
-  const inspect = createLocalInspectTarget(readState, writeState)
   return async (networkId) => {
     const before = readState()
-    const installation = findInstalledNodeScan(before.player.localDevice)
-    if (!installation) return { status: 'software_unavailable' }
+    if (!findInstalledNodeScan(before.player.localDevice)) return { status: 'software_unavailable' }
     const network = before.discovery.networks.find(({ id }) => id === networkId)
     if (!network) return { status: 'unknown_network' }
     const scanResult = await scan(network.name)
     if (scanResult.status === 'software_unavailable') return { status: 'software_unavailable' }
     if (scanResult.status !== 'network') return { status: 'no_response' }
-
-    if (!nodeScanSupportsNetworkRefresh(installation)) return { status: 'refreshed', inspected: 0, unavailable: 0 }
-
-    const latest = readState()
-    const memberIds = new Set(latest.discovery.networkDeviceRelations
-      .filter(({ networkId: rememberedNetworkId }) => rememberedNetworkId === networkId)
-      .map(({ deviceId }) => deviceId))
-    const members = latest.discovery.devices.filter(({ id }) => memberIds.has(id))
-    let inspected = 0
-    let unavailable = 0
-    for (const member of members) {
-      const result = inspect(member.address)
-      if (result.status === 'device') inspected++
-      else unavailable++
-    }
-    return { status: 'refreshed', inspected, unavailable }
+    return { status: 'refreshed' }
   }
 }
