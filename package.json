@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "vitest run",
+    "test": "node scripts/run-tests.mjs focused",
+    "test:ci": "node scripts/run-tests.mjs ci",
     "docs:check": "node scripts/docs-check.mjs"
   },
   "dependencies": {
