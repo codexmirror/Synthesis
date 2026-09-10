@@ -114,16 +114,17 @@ During implementation:
 3. fix failures with the smallest relevant test set; and
 4. broaden validation only when a concrete dependency surface justifies it.
 
-Pull-request CI owns repository-wide full-suite validation by default.
-
-Do not use `npm test` as an iterative debugging or routine local-validation
-command.
+`npm test -- <test-file> [more-test-files] [vitest-options]` is the normal
+focused local entry point and requires an explicit bounded selection.
+Pull-request CI owns repository-wide full-suite validation through
+`npm run test:ci` by default; that command is guarded against casual local use.
 
 A local full-suite run is exceptional. Run it only after focused and related
 validation is green and only when concrete repository-wide regression risk
 makes it materially useful. Do not repeatedly rerun the full suite after
-individual fixes; validate those fixes with the affected suites and let PR CI
-perform the final repository-wide run.
+individual fixes. Identify the failing files or causal cluster, patch it, and
+rerun only those failing or materially affected suites until green; let the
+next PR CI run perform repository-wide confirmation.
 
 Run:
 
