@@ -14,7 +14,10 @@ export function createLocalScanTarget(readState: () => GameState, writeState: (s
     const knownLocalNetwork = applicableNetworks.filter(({ name, cidr }) => name === input || cidr === input)
     const known = input === state.player.localDevice.network.ip
       || state.discovery.devices.some(({ address }) => address === input)
-      || state.discovery.networks.some(({ name }) => name === input)
+      // A Host Scan may remember a Network only by CIDR, never by name — that
+      // remembered CIDR must remain a legitimate Scan input (Refresh depends
+      // on it), exactly like an already-earned name.
+      || state.discovery.networks.some(({ name, cidr }) => name === input || cidr === input)
       || knownLocalNetwork.length === 1
     if (!known) return { status: 'unknown_target', input }
     const result = scanNetworkTarget({

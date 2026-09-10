@@ -36,7 +36,13 @@ export function createFindTargets(readState: () => GameState, writeState: (state
     const self = await scan(state.player.localDevice.network.ip)
     if (self.status === 'software_unavailable') return { status: 'software_unavailable' }
     if (self.status === 'no_response' || self.status === 'unknown_target') return { status: 'no_response' }
-    for (const network of readState().discovery.networks) await scan(network.name)
+    // Scan by whatever the player already legitimately identifies this Network with: its earned name where one
+    // is remembered, otherwise its CIDR — itself a genuine Network Scan input, and the exact route by which an
+    // only-incidentally-known Network earns its real name.
+    for (const network of readState().discovery.networks) {
+      const input = network.name ?? network.cidr
+      if (input) await scan(input)
+    }
     const latest = readState()
     return { status: 'observed', networksKnown: latest.discovery.networks.length, targetsKnown: latest.discovery.devices.length }
   }
@@ -55,7 +61,9 @@ export function createRefreshNetwork(readState: () => GameState, writeState: (st
     if (!findInstalledNodeScan(before.player.localDevice)) return { status: 'software_unavailable' }
     const network = before.discovery.networks.find(({ id }) => id === networkId)
     if (!network) return { status: 'unknown_network' }
-    const scanResult = await scan(network.name)
+    const input = network.name ?? network.cidr
+    if (!input) return { status: 'no_response' }
+    const scanResult = await scan(input)
     if (scanResult.status === 'software_unavailable') return { status: 'software_unavailable' }
     if (scanResult.status !== 'network') return { status: 'no_response' }
     return { status: 'refreshed' }

@@ -6,23 +6,32 @@ const state = createInitialGameState()
 const targets: ScanTargets = { localDevice: state.player.localDevice, network: state.world.network }
 
 describe('scanNetworkTarget outward discovery', () => {
-  it('discovers real network relationships with stable identity from canonical membership', () => {
+  it('discovers real network relationships with stable identity from canonical membership, never the Network\'s own mutable name', () => {
     expect(scanNetworkTarget(targets, '198.51.100.23')).toEqual({
       status: 'device', targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self',
-      networks: [{ id: 'network-local-001', name: 'home-net' }],
+      networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24', peers: [{ targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' }] }],
       services: [],
     })
+    // A Host Scan's own relation is keyed by stable identity and routing identity, never by the Network's mutable name.
     const renamed = { ...targets.network, localNetworks: [{ ...targets.network.localNetworks[0], name: 'my-lan' }] }
     expect(scanNetworkTarget({ ...targets, network: renamed }, '198.51.100.23')).toMatchObject({
-      networks: [{ id: 'network-local-001', name: 'my-lan' }],
+      networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24' }],
     })
     const removed = { ...targets.network, localNetworks: [{ ...targets.network.localNetworks[0], memberDeviceIds: ['host-lan-001'] }] }
     expect(scanNetworkTarget({ ...targets, network: removed }, '198.51.100.23')).toMatchObject({ networks: [] })
   })
 
+  it('fails closed when a scanned Host cannot be unambiguously placed on exactly one represented Network', () => {
+    const ambiguous = { ...targets.network, localNetworks: [
+      targets.network.localNetworks[0],
+      { ...targets.network.localNetworks[0], id: 'network-second', name: 'second-net', cidr: '192.0.2.0/24' },
+    ] }
+    expect(scanNetworkTarget({ ...targets, network: ambiguous }, '198.51.100.23')).toMatchObject({ networks: [] })
+  })
+
   it('discovers only responding represented network members and retains network identity', () => {
     expect(scanNetworkTarget(targets, 'home-net')).toEqual({
-      status: 'network', networkId: 'network-local-001', networkName: 'home-net', devices: [
+      status: 'network', networkId: 'network-local-001', networkName: 'home-net', cidr: '198.51.100.0/24', devices: [
         { targetId: 'device-local-v0', address: '198.51.100.23', scope: 'self' },
         { targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' },
       ],
@@ -81,12 +90,18 @@ describe('scanNetworkTarget outward discovery', () => {
     }
   })
 
-  it('returns no relationships without inventing details for a responding remote device', () => {
+  it('reveals only the owned Network relationship and shallow peers, never Service or implementation details, for a responding remote device', () => {
+    // host-lan-001 shares home-net with SELF, and home-net's only other member is SELF, so no peer is added.
     expect(scanNetworkTarget(targets, '198.51.100.47')).toMatchObject({
-      status: 'device', scope: 'lan', networks: [],
+      status: 'device', scope: 'lan', networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24', peers: [] }],
     })
     expect(scanNetworkTarget(targets, '203.0.113.42')).toEqual({
-      status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote', networks: [], services: [
+      status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote',
+      networks: [{ id: 'network-foreign-001', cidr: '203.0.113.0/24', peers: [
+        { targetId: 'host-lan-003', address: '203.0.113.43', scope: 'remote' },
+        { targetId: 'host-phone-001', address: '198.51.100.61', scope: 'remote' },
+      ] }],
+      services: [
         { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP' },
         { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP' },
         { id: 'service-bookstore-backend-002', name: 'Bookstore Backend', port: 8090, protocol: 'TCP' },

@@ -24,7 +24,12 @@ export const scanCommand: TerminalCommand = {
       return { type: 'output', lines: [...lines, 'NO RELATIONSHIPS OR SERVICES FOUND'] }
     }
     lines.push(`RELATIONSHIPS FOUND: ${result.networks.length}`)
-    if (result.networks.length > 0) lines.push('', ...result.networks.map(({ name }) => [text('Network: '), targetFragment(name)]))
+    // A Host Scan never earns the Network's own display name — only stable routing identity — so it presents a
+    // neutral form here, plus the other represented Hosts sharing it as shallow, unscanned peer observations.
+    if (result.networks.length > 0) lines.push('', ...result.networks.flatMap((network) => [
+      [text('Network: '), targetFragment(network.cidr ? `UNKNOWN NETWORK ${network.cidr}` : 'UNKNOWN NETWORK')],
+      ...network.peers.map((peer) => [text('  Member: '), targetFragment(peer.address, peer.scope === 'lan' ? 'local' : 'external')]),
+    ]))
     lines.push('', `SERVICES FOUND: ${result.services.length}`)
     for (const service of result.services) {
       lines.push('', service.name, [text('Endpoint: '), targetFragment(`${result.address}:${service.port}`, targetScope)], `Protocol: ${service.protocol}`)

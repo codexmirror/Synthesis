@@ -25,6 +25,17 @@ export function nodeScanSupportsIntegratedIntelligence(installation: NodeScanIns
   return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
 }
 
+/**
+ * NodeScan 1.2's own passive Device-classification capability: automatic
+ * classification attached to a legitimate Scan/Refresh observation. This is
+ * not the retired generic Inspect operation — it never observes concrete
+ * Device identity, Firmware, or compute evidence, only what kind of Device
+ * this is.
+ */
+export function nodeScanSupportsDeviceClassification(installation: NodeScanInstallation): boolean {
+  return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
+}
+
 export function findInstalledNodeMiner(device: { readonly installedSoftware?: readonly InstalledSoftware[] }): NodeMinerInstallation | undefined {
   return device.installedSoftware?.find((software): software is NodeMinerInstallation => software.id === 'node-miner')
 }

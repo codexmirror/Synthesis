@@ -25,26 +25,68 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
   const rememberRelation = (networkId: string, deviceId: string) => {
     if (!relations.some((item) => item.networkId === networkId && item.deviceId === deviceId)) relations.push({ networkId, deviceId })
   }
-  const rememberNetwork = (id: string, name: string, membersObserved: boolean) => {
+  /**
+   * `name` is supplied only by a genuine Network Scan (the 'network' status
+   * branch below). A Host Scan's incidental relation never supplies one, so
+   * it never downgrades or overwrites an already-earned name; once earned,
+   * a name stays remembered even through later Host-Scan-only observations.
+   */
+  const rememberNetwork = (id: string, cidr: string | undefined, membersObserved: boolean, name?: string) => {
     const index = networks.findIndex((item) => item.id === id)
     const previous = networks[index]
-    const next = { id, name, membersObserved: membersObserved || previous?.membersObserved === true, ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
+    const resolvedName = name ?? previous?.name
+    const resolvedCidr = cidr ?? previous?.cidr
+    const next = {
+      id,
+      ...(resolvedName ? { name: resolvedName } : {}),
+      ...(resolvedCidr ? { cidr: resolvedCidr } : {}),
+      membersObserved: membersObserved || previous?.membersObserved === true,
+      ...(previous?.inspect ? { inspect: previous.inspect } : {}),
+    }
     if (index < 0) networks.push(next); else networks[index] = next
   }
+  /** Merge one shallow peer sighting: refreshes address, preserves any deeper evidence already remembered. */
+  const rememberShallowPeer = (peer: { readonly targetId: string; readonly address: string; readonly scope: 'lan' | 'remote' }) => {
+    const index = devices.findIndex((item) => item.id === peer.targetId)
+    const previous = devices[index]
+    const next = {
+      id: peer.targetId,
+      address: peer.address,
+      scope: previous?.scope ?? peer.scope,
+      servicesObserved: previous?.servicesObserved ?? false,
+      services: previous?.services ?? [],
+      ...(previous?.classification ? { classification: previous.classification } : {}),
+      ...(previous?.inspect ? { inspect: previous.inspect } : {}),
+    }
+    if (index < 0) devices.push(next); else devices[index] = next
+  }
   if (result.status === 'network') {
-    rememberNetwork(result.networkId, result.networkName, true)
+    rememberNetwork(result.networkId, result.cidr, true, result.networkName)
     for (const observed of result.devices) {
       rememberRelation(result.networkId, observed.targetId)
       if (observed.targetId === selfDeviceId) continue
       const index = devices.findIndex((item) => item.id === observed.targetId)
       const previous = devices[index]
-      const next = { id: observed.targetId, address: observed.address, scope: observed.scope === 'self' ? 'lan' as const : observed.scope, servicesObserved: previous?.servicesObserved ?? false, services: previous?.services ?? [], ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
+      const next = {
+        id: observed.targetId, address: observed.address,
+        scope: observed.scope === 'self' ? 'lan' as const : observed.scope,
+        servicesObserved: previous?.servicesObserved ?? false, services: previous?.services ?? [],
+        ...(observed.classification ? { classification: observed.classification } : previous?.classification ? { classification: previous.classification } : {}),
+        ...(previous?.inspect ? { inspect: previous.inspect } : {}),
+      }
       if (index < 0) devices.push(next); else devices[index] = next
     }
   } else {
+    // A Host Scan may expand represented Network topology while deep-scanning
+    // only the Host actually scanned: it remembers the relationship and the
+    // Network's other Hosts, but every peer stays a shallow observation.
     for (const network of result.networks) {
-      rememberNetwork(network.id, network.name, false)
+      rememberNetwork(network.id, network.cidr, true)
       rememberRelation(network.id, result.targetId)
+      for (const peer of network.peers) {
+        rememberRelation(network.id, peer.targetId)
+        rememberShallowPeer(peer)
+      }
     }
     if (result.targetId !== selfDeviceId) {
       const index = devices.findIndex((item) => item.id === result.targetId)
@@ -56,7 +98,13 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
         const previousService = previous?.services.find((item) => item.id === service.id)
         return { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}) }
       })
-      const next = { id: result.targetId, address: result.address, scope: previous?.scope ?? (result.scope === 'self' ? 'lan' as const : 'remote' as const), servicesObserved: true, services, ...(previous?.inspect ? { inspect: previous.inspect } : {}) }
+      const next = {
+        id: result.targetId, address: result.address,
+        scope: previous?.scope ?? (result.scope === 'self' ? 'lan' as const : 'remote' as const),
+        servicesObserved: true, services,
+        ...(result.classification ? { classification: result.classification } : previous?.classification ? { classification: previous.classification } : {}),
+        ...(previous?.inspect ? { inspect: previous.inspect } : {}),
+      }
       if (index < 0) devices.push(next); else devices[index] = next
     }
   }

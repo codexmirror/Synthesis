@@ -54,3 +54,15 @@ export function resolveLocalNetwork(network: Readonly<NetworkState>, input: stri
   const matches = network.localNetworks.filter((candidate) => candidate.name === input || candidate.cidr === input)
   return matches.length === 1 ? matches[0] : undefined
 }
+
+/**
+ * Resolve the one represented Network a Device belongs to, so a Host Scan
+ * may legitimately reveal that context. FAIL_CLOSED: a Device with no
+ * represented membership yields nothing, and a Device the represented model
+ * cannot unambiguously place on exactly one Network yields nothing rather
+ * than arbitrarily picking one.
+ */
+export function resolveDeviceNetwork(targets: Readonly<NetworkTargets>, deviceId: string): Readonly<LocalNetwork> | undefined {
+  const matches = targets.network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(deviceId))
+  return matches.length === 1 ? matches[0] : undefined
+}

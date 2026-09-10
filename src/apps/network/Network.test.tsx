@@ -1493,10 +1493,10 @@ describe('Known Space topology', () => {
       .toEqual(['Collapse network home-net', 'Manage network home-net', `Open target ${SRV_01_ADDRESS}`])
   })
 
-  it('keeps a Device with no remembered Network relationship visibly separate', () => {
+  it('regroups a scanned remote Device out of Elsewhere into its owned Network, shown without a name it has not separately earned', () => {
     const observed = createInitialGameState()
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
-    // A directly scanned remote Device: remembered, but on no known Network.
+    // A directly scanned remote Device now legitimately reveals its own Network context.
     const discovery = rememberScan(foundTargets().discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
     render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
 
@@ -1504,8 +1504,28 @@ describe('Known Space topology', () => {
     expect(within(home).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toBeInTheDocument()
     expect(within(home).queryByRole('button', { name: 'Open target 203.0.113.42' })).not.toBeInTheDocument()
 
+    expect(screen.queryByRole('region', { name: 'Elsewhere' })).not.toBeInTheDocument()
+    const foreign = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 203.0.113.0/24' })
+    expect(within(foreign).getByRole('button', { name: 'Open target 203.0.113.42' })).toBeInTheDocument()
+    // Its peers are remembered too, shallowly, without ever deep-scanning them.
+    expect(within(foreign).getByRole('button', { name: 'Open target 203.0.113.43' })).toHaveTextContent('UNKNOWN DEVICE')
+    expect(within(foreign).getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toHaveTextContent('UNKNOWN DEVICE')
+  })
+
+  it('keeps a Device with genuinely no represented Network membership visibly separate', () => {
+    const base = createInitialGameState()
+    const unrelatedHost = { id: 'host-unrelated', ip: '192.0.2.77', operational: { lifecycle: 'RUNNING' as const, connectivity: 'CONNECTED' as const } }
+    const observed = { ...base, world: { network: { ...base.world.network, hosts: [...base.world.network.hosts, unrelatedHost] } } }
+    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    const discovery = rememberScan(foundTargets(observed).discovery, scanNetworkTarget(targets, '192.0.2.77'), observed.player.localDevice.id)
+    render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
+
+    const home = screen.getByRole('region', { name: 'Network home-net' })
+    expect(within(home).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toBeInTheDocument()
+    expect(within(home).queryByRole('button', { name: 'Open target 192.0.2.77' })).not.toBeInTheDocument()
+
     const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
-    expect(within(elsewhere).getByRole('button', { name: 'Open target 203.0.113.42' })).toBeInTheDocument()
+    expect(within(elsewhere).getByRole('button', { name: 'Open target 192.0.2.77' })).toBeInTheDocument()
     expect(elsewhere).toHaveTextContent('Remote')
   })
 
@@ -1530,20 +1550,22 @@ describe('Known Space topology', () => {
     expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
   })
 
-  it('states unobserved membership rather than reporting an empty Network', () => {
+  it('expands home-net from a SELF Scan, remembering its other member as a shallow peer rather than reporting an empty Network', () => {
     const observed = createInitialGameState()
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
-    // SELF scanned, home-net learned, its members never observed.
+    // SELF scanned: SELF's own Network relationship, and its one other member, are both legitimately revealed —
+    // using the same Host Scan semantics as any other Host, never a SELF-only Recon path.
     const discovery = rememberScan(observed.discovery, scanNetworkTarget(targets, observed.player.localDevice.network.ip), observed.player.localDevice.id)
     render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
 
     const network = screen.getByRole('region', { name: 'Network home-net' })
-    expect(network).toHaveTextContent('Members not observed')
+    expect(network).not.toHaveTextContent('Members not observed')
     expect(network).toHaveTextContent('SELF')
-    // Nothing is claimed about members: the branch offers its own controls and
-    // no target row at all.
+    // The peer is remembered shallowly — as an UNKNOWN DEVICE row the player must still individually Scan.
+    const peerRow = within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })
+    expect(peerRow).toHaveTextContent('UNKNOWN DEVICE')
     expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
-      .toEqual(['Collapse network home-net', 'Manage network home-net'])
+      .toEqual(['Collapse network home-net', 'Manage network home-net', `Open target ${SRV_01_ADDRESS}`])
   })
 
   it('derives each row from canonical state rather than a stored label', () => {

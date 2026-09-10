@@ -1,10 +1,12 @@
 import { formatByteProgress } from '../byteFormat'
-import { findInstalledNodeScan, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from '../../core/game/software'
+import { findInstalledNodeScan, nodeScanSupportsDeviceClassification, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from '../../core/game/software'
 import { isDeviceNetworkUsable } from '../../core/game/deviceOperationalState'
 import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
   CredentialAccessFailureReason,
   CredentialAccessProcess,
+  DeviceClassification,
+  DiscoveredNetworkSnapshot,
   GameState,
   GameProcess,
   LocalDeviceState,
@@ -62,6 +64,8 @@ export interface NodeScanRelease {
    */
   readonly canMonitorLiveTopology: boolean
   readonly canIntegrateIntelligence: boolean
+  /** Whether this release automatically classifies Devices it Scans or Refreshes (never Device identity). */
+  readonly canClassifyDevices: boolean
 }
 
 export function resolveNodeScanRelease(device: LocalDeviceState): NodeScanRelease | undefined {
@@ -73,7 +77,13 @@ export function resolveNodeScanRelease(device: LocalDeviceState): NodeScanReleas
     channel: installation.channel,
     canMonitorLiveTopology: nodeScanSupportsLiveTopology(installation),
     canIntegrateIntelligence: nodeScanSupportsIntegratedIntelligence(installation),
+    canClassifyDevices: nodeScanSupportsDeviceClassification(installation),
   }
+}
+
+/** A Network's presentable identity: its earned display name, or a neutral form over its routing identity. */
+function networkDisplayName(network: Pick<DiscoveredNetworkSnapshot, 'name' | 'cidr'>): string {
+  return network.name ?? (network.cidr ? `UNKNOWN NETWORK ${network.cidr}` : 'UNKNOWN NETWORK')
 }
 
 export interface KnownWeakness {
@@ -264,6 +274,8 @@ export interface TargetSummary {
    * its hidden canonical name.
    */
   readonly displayName?: string
+  /** NodeScan 1.2's own remembered classification — never Device identity, and absent until a legitimate 1.2 observation wrote it. */
+  readonly classification?: DeviceClassification
   readonly servicesObserved: boolean
 }
 
@@ -412,7 +424,7 @@ function knowledgeFor(information: PlayerInformation, targetDeviceId: string, se
 function networkNamesOf(information: PlayerInformation, deviceId: string): readonly string[] {
   return information.discovery.networkDeviceRelations
     .filter((relation) => relation.deviceId === deviceId)
-    .flatMap((relation) => information.discovery.networks.filter((network) => network.id === relation.networkId).map(({ name }) => name))
+    .flatMap((relation) => information.discovery.networks.filter((network) => network.id === relation.networkId).map(networkDisplayName))
 }
 
 function describeImplementation(observed?: { implementation: { name: string; version: string }; authentication?: string; interface?: string }) {
@@ -515,7 +527,7 @@ export function selectKnownSpace(information: PlayerInformation, managed: readon
       // A managed Network's name is supplied by the authority that administers
       // it, which is why it can be stated before reconnaissance remembers it.
       ...managed.map(({ id, name }) => root(id, name, true)),
-      ...discovery.networks.filter(({ id }) => !managedIds.has(id)).map(({ id, name }) => root(id, name, false)),
+      ...discovery.networks.filter(({ id }) => !managedIds.has(id)).map((network) => root(network.id, networkDisplayName(network), false)),
     ],
     elsewhere: [...targets.values()].filter(({ id }) => !related.has(id)),
     remembersNetwork: discovery.networks.length > 0,
@@ -674,7 +686,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
           ...(liveHost ? { liveStatus: deviceLiveStatus(liveHost.operational) } : {}),
         }
       })
-      return [{ id: network.id, name: network.name, members: [...selfMember, ...foreignMembers] }]
+      return [{ id: network.id, name: networkDisplayName(network), members: [...selfMember, ...foreignMembers] }]
     })
 
   const routes: TargetRoute[] = []
@@ -809,7 +821,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, running: Boolean(packageSubmission?.attacking), ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
     ...(findCompatibleDeauthExtension(information.player.localDevice) ? information.discovery.networkDeviceRelations
       .filter(({ deviceId }) => deviceId === device.id)
-      .flatMap(({ networkId }) => information.discovery.networks.filter(({ id }) => id === networkId).map((network) => ({ technique: 'DEAUTH' as const, provider: DEAUTH_EXTENSION.name, route: { networkId: network.id, networkName: network.name, contextDeviceId: device.id }, running: deauth.some((process) => process.status === 'running' && process.targetNetworkId === network.id) }))) : []),
+      .flatMap(({ networkId }) => information.discovery.networks.filter(({ id }) => id === networkId).map((network) => ({ technique: 'DEAUTH' as const, provider: DEAUTH_EXTENSION.name, route: { networkId: network.id, networkName: networkDisplayName(network), contextDeviceId: device.id }, running: deauth.some((process) => process.status === 'running' && process.targetNetworkId === network.id) }))) : []),
   ]
   const stage = stageOf({
     connected: Boolean(activeAccess && information.remoteSession.active),
@@ -850,6 +862,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     stage,
     // Only a legitimate observation that actually recorded it; never resolved from World Truth.
     ...(device.inspect?.displayName ? { displayName: device.inspect.displayName } : {}),
+    // NodeScan 1.2's own remembered classification — never Device identity, and never derived live.
+    ...(device.classification ? { classification: device.classification } : {}),
     percent,
     ...(operation ? { operation } : {}),
     routes,

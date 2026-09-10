@@ -120,12 +120,13 @@ function locationOf(target: Pick<TargetSummary, 'networkNames' | 'scope'>): stri
 
 /**
  * What the player may legitimately call this target. Its address is always
- * theirs; `target.observed` (kind, display name) is populated only by the
- * retired generic Inspect operation, which has no current writer, so it
- * presently stays absent.
+ * theirs; `target.classification` is NodeScan 1.2's own remembered Device
+ * classification (never identity). `target.observed` (kind, display name) is
+ * populated only by the retired generic Inspect operation, which has no
+ * current writer, so it presently stays absent.
  */
 function kindOf(target: Target): string {
-  return target.observed ? target.observed.deviceKind.toUpperCase() : 'UNKNOWN DEVICE'
+  return target.classification ?? (target.observed ? target.observed.deviceKind.toUpperCase() : 'UNKNOWN DEVICE')
 }
 
 export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') => void }) {
@@ -564,7 +565,7 @@ function DeviceRow({ target, showLocation, arrived, onOpen }: {
     <span className="ns-glyph" aria-hidden="true" />
     <span className="ns-target-copy">
       <strong>{target.displayName ?? target.address}</strong>
-      {!target.displayName && <span className="ns-target-note">UNKNOWN DEVICE</span>}
+      {!target.displayName && <span className="ns-target-note">{target.classification ?? 'UNKNOWN DEVICE'}</span>}
       {note && <span className="ns-target-note">{note}</span>}
     </span>
     <span className={`ns-target-mark ns-target-mark--${target.stage}`}>
@@ -1058,14 +1059,17 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
     <CopyReference value={target.address} copyState={copyState} onCopy={onCopy} />
 
     <div className="node-section"><span>OBSERVED</span></div>
-    {target.observed
+    {(target.classification || target.observed)
       ? <dl className="node-facts">
-        {/* Populated only by the retired generic Inspect operation, which has no current writer; this remains a dormant slot for a later legitimate observation. */}
+        {/* `observed` (firmware, compute class) is populated only by the retired generic Inspect operation, which has no current writer; this remains a dormant slot for a later legitimate observation. */}
         {/* STATUS is compacted out of this list: the topology view above ACTIONS already states this target's runtime status once, and this dl does not repeat it. */}
         {target.displayName && <div><dt>NAME</dt><dd>{target.displayName}</dd></div>}
-        <div><dt>TYPE</dt><dd>{target.observed.deviceKind.toUpperCase()}</dd></div>
-        {target.observed.firmware && <div><dt>FIRMWARE</dt><dd>{target.observed.firmware}</dd></div>}
-        {target.observed.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
+        {/* TYPE states NodeScan 1.2's own remembered classification where one exists — never Device identity, and never derived live. */}
+        {target.classification
+          ? <div><dt>TYPE</dt><dd>{target.classification}</dd></div>
+          : target.observed && <div><dt>TYPE</dt><dd>{target.observed.deviceKind.toUpperCase()}</dd></div>}
+        {target.observed?.firmware && <div><dt>FIRMWARE</dt><dd>{target.observed.firmware}</dd></div>}
+        {target.observed?.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
 

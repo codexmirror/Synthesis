@@ -30,8 +30,13 @@ ip
 `ip` reads SELF's own represented network configuration; it is not a remote
 observation. `ping <ipv4>` is optional reachability evidence and is never a
 prerequisite for Scan or Analysis. Network Scan (`scan <network>`) discovers
-Hosts on a Network; Host Scan (`scan <ipv4>`) discovers one Host's open
-endpoints; Endpoint (Service) Analysis (`analyze <ipv4:port>`) deepens one
+Hosts on a Network; Host Scan (`scan <ipv4>`) discovers one Host's own open
+endpoints and, regardless of whether the Host is SELF, LAN, or remote, the
+Host's own owned represented Network relationship, plus the Network's other
+represented Hosts as shallow, unscanned peer observations (identity, address,
+and Network relationship only — never their own Services, implementation
+evidence, or classification; the player must Scan a peer individually to
+deepen it); Endpoint (Service) Analysis (`analyze <ipv4:port>`) deepens one
 observed Endpoint into remembered implementation/interface evidence. Knowledge
 obtained through one path does not imply every target must be processed
 through the same sequence.
@@ -155,10 +160,13 @@ only once reconnaissance actually remembers a Network: a managed root is
 authority, not memory.
 
 A target's identity on the card and in the tree is exactly what the player has
-legitimately learned. A remembered Device is presented as an UNKNOWN DEVICE at
-its observed address; no current Recon V2 operation observes a represented
-display name, so a remote Device stays an address. Scan and PING never observe
-a name, and no presentation code resolves one from World Truth.
+legitimately learned. A remembered Device is presented at its observed
+address, labeled UNKNOWN DEVICE unless NodeScan 1.2's own remembered
+classification (SERVER / WORKSTATION / MOBILE DEVICE — see "Generic Inspect
+(retired)" above) applies instead; no current Recon V2 operation observes a
+represented display name, so a remote Device stays an address regardless of
+classification. Scan and PING never observe a name, and no presentation code
+resolves one from World Truth.
 
 The target card retains concise reconnaissance, running-work, established
 Access, package-submission and connection states, but no longer converts known
@@ -502,28 +510,47 @@ SCAN known Network / CIDR
 → observe currently responding represented member Devices (Network Scan)
 
 SCAN known Device
-→ observe currently open represented Services (Host Scan)
+→ observe currently open represented Services (Host Scan); also observe the
+  Host's own owned represented Network relationship (stable identity and
+  routing identity, never the Network's own mutable display name) and the
+  Network's other represented Hosts as shallow peers
 
 SCAN SELF
-→ Host Scan follows the same rule; may also observe SELF's represented
-  Network relationship
+→ Host Scan follows exactly the same rule as any other Host — no SELF-only
+  Recon path
 
 ANALYZE known Endpoint
 → canonical elapsed Endpoint (Service) Analysis Process; remembers
   implementation/interface evidence, never Vulnerability Knowledge
 ```
 
-A foreign Device Scan does not reveal Network membership. Every installed
-NodeScan release — 1.0 Standard, 1.1 Experimental, and 1.2 Standard
-(`nodescan-1.2-standard`, canonical build `build-nodescan-1.2-standard-v0`) —
-supplies the same core `ip`, PING, Network Scan, Host Scan, and Endpoint
-Analysis operations; no release restores the retired generic Inspect path.
-NodeScan 1.2 Standard additionally supplies Network Refresh, Live Topology
-Monitoring and Integrated Intelligence. Network Refresh repeats the canonical
-Network Scan for one remembered Network; it composes no further observation of
-its own — in particular it never Analyzes or deepens remembered member
-Devices — so a Network Refresh only ever refreshes evidence Network Scan
-itself owns. All release behavior is selected through concrete release
+A Host Scan never deep-scans a peer it incidentally reveals: the peer is
+remembered only as a shallow UNKNOWN DEVICE observation (identity, address,
+and Network relationship), and the player must Scan it individually to learn
+its own Endpoint surface. A Host Scan's Network relation is resolved from
+represented membership alone (`resolveDeviceNetwork`,
+`src/core/game/networkTarget.ts`) and fails closed — revealing no relation at
+all — where represented membership cannot be resolved to exactly one Network,
+rather than arbitrarily selecting one. Where only a Host-Scan-owned relation
+is remembered, Known Space and the target card present the Network under a
+neutral `UNKNOWN NETWORK <cidr>` identity (or bare `UNKNOWN NETWORK` where no
+CIDR is represented either); only a separate, genuine Network Scan — by name
+or by CIDR — earns the Network's own mutable display name, and once earned it
+is never overwritten or erased by a later Host-Scan-only observation of that
+same Network.
+
+Every installed NodeScan release — 1.0 Standard, 1.1 Experimental, and 1.2
+Standard (`nodescan-1.2-standard`, canonical build
+`build-nodescan-1.2-standard-v0`) — supplies the same core `ip`, PING, Network
+Scan, Host Scan, and Endpoint Analysis operations; no release restores the
+retired generic Inspect path. NodeScan 1.2 Standard additionally supplies
+Network Refresh, Live Topology Monitoring, Integrated Intelligence, and Device
+classification (see "Generic Inspect (retired)" below). Network Refresh
+repeats the canonical Network Scan for one remembered Network; it composes no
+further observation of its own — in particular it never Analyzes or deepens
+remembered member Devices — so a Network Refresh only ever refreshes evidence
+Network Scan itself owns, classification included where 1.2 is installed at
+refresh time. All release behavior is selected through concrete release
 identity capability logic, never presentation version parsing.
 
 The opening Scan sequence is therefore:
@@ -596,18 +623,42 @@ check anywhere in the current implementation. `src/core/game/inspect.ts` and
 
 Device-level evidence that operation used to remember — a represented Device
 display name, `deviceKind`, Firmware fingerprint, and derived `computeClass`
-— has no current successor operation. The `DiscoveredDeviceSnapshot.inspect`
-shape (`displayName`, `deviceKind`, `networkStatus`, `enhanced.firmware`,
+— has no current successor operation, with one narrow exception: NodeScan 1.2
+Standard's own passive Device **classification** capability
+(`nodeScanSupportsDeviceClassification`, `src/core/game/software.ts`), which
+is not a restoration of Inspect. It is attached to an ordinary legitimate
+Scan or Refresh observation rather than a separate operation, button, or
+Terminal command, and it observes strictly less than Inspect did: only which
+of the smallest currently represented `DeviceType` categories
+(`src/core/game/deviceClassification.ts`) a Host maps to — `SERVER`,
+`WORKSTATION` (World Truth `NODE`), or `MOBILE DEVICE` (World Truth
+`PHONE`) — never a display name, Firmware, compute class, or AuthGuard
+evidence. Classification is a distinct information class from identity: it
+states what *kind* of Device this is, never its concrete name (a
+classification of `SERVER` never implies, and is never accompanied by, a
+concrete identity like `srv-02`). A Host a Scan or Refresh only shallowly
+touches — a Host-Scan-revealed peer, or a Device with no represented
+`DeviceType` mapping — earns no classification and presents as `UNKNOWN
+DEVICE`, the fallback below NodeScan 1.2 and wherever evidence does not
+support one. Classification is ordinary Discovery evidence, not a live
+projection: only a Scan or Refresh actually performed while NodeScan 1.2 is
+installed writes or refreshes it; installing 1.2 alone never retroactively
+classifies an already-remembered Device; downgrading or removing 1.2 never
+erases an already-remembered classification; and a hidden World Truth change
+never silently refreshes it — only another legitimate 1.2 observation may.
+
+Beyond classification, the `DiscoveredDeviceSnapshot.inspect` shape
+(`displayName`, `deviceKind`, `networkStatus`, `enhanced.firmware`,
 `enhanced.computeClass`, `enhanced.authGuard`) remains part of the Discovery
 data model, since Credential Access's AuthGuard-aware estimate math still
 reads `enhanced.authGuard` when present, but nothing currently writes it: a
-remembered Device is presented as an UNKNOWN DEVICE at its address, current
-game content earns no Firmware/compute evidence, and AuthGuard is never
-currently presented as remembered intelligence even though its protection
-still genuinely applies at Credential Access resolution (`docs/current/NETWORK_ACCESS.md`
-Credential Access section). This is an accepted, current gap in this slice's
-information depth — not a defect to be worked around by inventing a new
-observation route for it.
+remembered Device's display name, Firmware, compute class, and AuthGuard
+protection remain unobserved, and AuthGuard is never currently presented as
+remembered intelligence even though its protection still genuinely applies at
+Credential Access resolution (`docs/current/NETWORK_ACCESS.md` Credential
+Access section). This is an accepted, current gap in this slice's information
+depth — not a defect to be worked around by inventing a new observation route
+for it, and not one classification is intended to close.
 
 The replacement for what generic Inspect did at the *Endpoint* level —
 implementation name/version, and narrow authentication/package-submission
@@ -621,13 +672,21 @@ Analysis observations.
 
 Current Discovery includes remembered:
 
-- networks
-- Devices
+- networks — stable identity always; `cidr` and/or `name` once legitimately
+  earned (a Host Scan's incidental relation earns only `cidr`; only a genuine
+  Network Scan, by name or CIDR, earns `name`); `membersObserved`
+- Devices — including shallow peer observations a Host Scan's Network
+  expansion remembers (identity, address, and Network relationship only,
+  `servicesObserved: false`) until the player Scans that peer individually
 - network-to-Device relationships
 - service observations
 - per-Service Endpoint Analysis evidence (`DiscoveredServiceSnapshot.inspect`:
   implementation name/version, and narrow `authentication` /
   `interface` evidence) for known Devices, keyed by stable Service identity
+- NodeScan 1.2's own remembered Device classification
+  (`DiscoveredDeviceSnapshot.classification`), where a legitimate Scan or
+  Refresh performed while 1.2 was installed supplied one (see "Generic
+  Inspect (retired)" above)
 
 SELF is intrinsic player context and is not duplicated as a remembered
 Discovery Device entry.
@@ -782,9 +841,12 @@ Only when the upload actually completes does a valid represented GateSSH package
 
 The represented VEYRA phone (`docs/current/DEVICE_SYSTEM.md`) is reached through
 exactly the ordinary access loop above and nothing else. It is not a member of
-SELF's temporary `home-net`, so Network Scan does not reveal it. Directly
-scanning its communicated address discovers it as a remote Device and observes
-its one open SSH Service; Service
+SELF's temporary `home-net`, so a Network Scan of `home-net` does not reveal
+it. Directly scanning its communicated address discovers it as a remote
+Device and observes its one open SSH Service — and, like any Host Scan,
+incidentally reveals its own represented foreign Network relationship and
+that Network's other represented Hosts as shallow peers, never their Services
+or identity; Service
 Analysis of that Service records the same `AUTH-017` Knowledge, because its
 implementation is the same represented GateSSH 1.3.2 release; the same standalone or Flipper-integrated
 Credential Access Module forms the same way in; the attempt creates the same
@@ -1113,8 +1175,9 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   two projections stay separately owned.
 - A Device display name would be remembered Player Information, never a value
   presentation may resolve from World Truth. No current operation observes
-  one, so every target is currently presented as an UNKNOWN DEVICE at its
-  observed address.
+  one, so every target's identity stays its observed address regardless of
+  classification. Absent a legitimate NodeScan 1.2 classification observation,
+  a target is presented as an UNKNOWN DEVICE.
 - Known Space expansion is presentation state. Only the Network level
   expands; a Device is a leaf that opens its target card directly rather than
   a further expansion of the tree. Expanding a Network, or opening the

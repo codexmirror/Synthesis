@@ -157,14 +157,14 @@ describe('command dispatcher', () => {
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })
-    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'RELATIONSHIPS FOUND: 0', '', 'SERVICES FOUND: 3', '', 'SSH', labeledTarget('Endpoint: ', '203.0.113.42:22'), 'Protocol: TCP', '', 'RackUpdate', labeledTarget('Endpoint: ', '203.0.113.42:8443'), 'Protocol: TCP', '', 'Bookstore Backend', labeledTarget('Endpoint: ', '203.0.113.42:8090'), 'Protocol: TCP'] })
+    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'UNKNOWN NETWORK 203.0.113.0/24'), labeledTarget('  Member: ', '203.0.113.43'), labeledTarget('  Member: ', '198.51.100.61'), '', 'SERVICES FOUND: 3', '', 'SSH', labeledTarget('Endpoint: ', '203.0.113.42:22'), 'Protocol: TCP', '', 'RackUpdate', labeledTarget('Endpoint: ', '203.0.113.42:8443'), 'Protocol: TCP', '', 'Bookstore Backend', labeledTarget('Endpoint: ', '203.0.113.42:8090'), 'Protocol: TCP'] })
     expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
     expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
   })
   it('renders local scope when scanning the current device', () => {
     expect(dispatch('scan 198.51.100.23')).toEqual({
       type: 'output',
-      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'home-net'), '', 'SERVICES FOUND: 0'],
+      lines: ['Scanning 198.51.100.23...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'UNKNOWN NETWORK 198.51.100.0/24'), labeledTarget('  Member: ', '198.51.100.47', 'local'), '', 'SERVICES FOUND: 0'],
     })
   })
 
@@ -188,13 +188,13 @@ describe('command dispatcher', () => {
   it('renders server services without exposing IDs or making service facts Target Tokens', () => {
     const output = dispatch('scan 198.51.100.47')
     expect(output).toEqual({ type: 'output', lines: [
-      'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 0',
+      'Scanning 198.51.100.47...', '', 'RELATIONSHIPS FOUND: 1', '', labeledTarget('Network: ', 'UNKNOWN NETWORK 198.51.100.0/24'),
       '', 'SERVICES FOUND: 2', '', 'SSH', labeledTarget('Endpoint: ', '198.51.100.47:22'), 'Protocol: TCP', '', 'HTTP', labeledTarget('Endpoint: ', '198.51.100.47:80'), 'Protocol: TCP',
     ] })
     expect(JSON.stringify(output)).not.toMatch(/service-ssh-001|host-lan-001/)
     if (output.type === 'output') {
       expect(output.lines.flatMap((line) => typeof line === 'string' ? [] : line).filter(({ type }) => type === 'target'))
-        .toEqual([target('198.51.100.47:22'), target('198.51.100.47:80')])
+        .toEqual([target('UNKNOWN NETWORK 198.51.100.0/24'), target('198.51.100.47:22'), target('198.51.100.47:80')])
     }
   })
 

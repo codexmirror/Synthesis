@@ -12,11 +12,12 @@ describe('Discovery memory', () => {
     expect(state.discovery).toEqual(createEmptyDiscovery())
     expect(state.discovery.devices).toHaveLength(0)
   })
-  it('remembers a SELF relationship without claiming members were observed', () => {
+  it('remembers a SELF relationship using the same Host Scan semantics as any other Host, without a name it has not separately earned', () => {
     const discovery = rememberScan(state.discovery, observe('198.51.100.23'), state.player.localDevice.id)
-    expect(discovery.networks).toEqual([{ id: 'network-local-001', name: 'home-net', membersObserved: false }])
-    expect(discovery.devices).toHaveLength(0)
+    expect(discovery.networks).toEqual([{ id: 'network-local-001', cidr: '198.51.100.0/24', membersObserved: true }])
     expect(discovery.networkDeviceRelations).toContainEqual({ networkId: 'network-local-001', deviceId: state.player.localDevice.id })
+    // SELF's own Network expansion also remembers its peer, home-net's other member, as a shallow observation.
+    expect(discovery.devices).toEqual([{ id: 'host-lan-001', address: '198.51.100.47', scope: 'lan', servicesObserved: false, services: [] }])
   })
   it('distinguishes successful empty depth observations from never observed', () => {
     const network = rememberScan(createEmptyDiscovery(), { status: 'network', networkId: 'empty', networkName: 'empty-net', devices: [] }, state.player.localDevice.id)
