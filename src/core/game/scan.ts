@@ -57,9 +57,7 @@ export function scanNetworkTarget(targets: Readonly<ScanTargets>, input: string)
   const networks = resolved.scope === 'self' ? targets.network.localNetworks
     .filter(({ memberDeviceIds }) => memberDeviceIds.includes(resolved.entity.id))
     .map(({ id, name }) => ({ id, name })) : []
-  const services = resolved.scope === 'self'
-    ? []
-    : (resolved.entity.services ?? [])
+  const services = ('services' in resolved.entity ? resolved.entity.services ?? [] : [])
       .filter(({ open }) => open)
       .map(({ id, name, port, protocol }) => ({ id, name, port, protocol }))
   return { status: 'device', targetId: resolved.entity.id, address: input, scope: resolved.scope, networks, services }

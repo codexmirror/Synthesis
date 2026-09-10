@@ -72,21 +72,32 @@ export function startServiceAnalysisFromObservation(state: GameState, observed: 
 
 /**
  * Owned by Service Analysis: resolves every completed, unresolved Service
- * Analysis Process against current world truth exactly once, merging any
- * newly observed vulnerabilities into canonical Knowledge with the same
- * dedup rule a single resolution already applies. The canonical advancement
- * boundary calls this rather than aggregating discoveries itself.
+ * Analysis Process against current world truth exactly once. Recon analysis
+ * remembers endpoint evidence in Discovery; it never manufactures
+ * Vulnerability Knowledge.
  */
 export function resolveCompletedServiceAnalyses(state: GameState): GameState {
-  let discoveries = state.knowledge.discoveredVulnerabilities
   let changed = false
+  let discovery = state.discovery
   const processes = state.process.processes.map((process) => {
     if (process.kind !== 'service_analysis' || process.status !== 'completed' || process.result) return process
     changed = true
     const resolved = resolveCompletedServiceAnalysis(state, process)
-    for (const discovery of resolved.discoveries) {
-      if (!discoveries.some((known) => known.vulnerabilityId === discovery.vulnerabilityId && known.targetDeviceId === discovery.targetDeviceId && known.serviceId === discovery.serviceId)) {
-        discoveries = [...discoveries, discovery]
+    if (resolved.process.analyzedImplementation) {
+      const deviceIndex = discovery.devices.findIndex(({ id }) => id === process.targetDeviceId)
+      const device = discovery.devices[deviceIndex]
+      const serviceIndex = device?.services.findIndex(({ id }) => id === process.serviceId) ?? -1
+      if (device && serviceIndex >= 0) {
+        const current = currentService(state, process.targetDeviceId, process.serviceId).service
+        const services = [...device.services]
+        services[serviceIndex] = { ...services[serviceIndex], inspect: {
+          implementation: resolved.process.analyzedImplementation,
+          ...(current?.credentialAccess ? { authentication: 'Credential' as const } : {}),
+          ...(current?.implementation.productId === 'rack-update' && current.implementation.releaseId === 'rack-update-1.0' ? { interface: 'Package submission' as const } : {}),
+        } }
+        const devices = [...discovery.devices]
+        devices[deviceIndex] = { ...device, services }
+        discovery = { ...discovery, devices }
       }
     }
     return resolved.process
@@ -95,7 +106,7 @@ export function resolveCompletedServiceAnalyses(state: GameState): GameState {
   return {
     ...state,
     process: { ...state.process, processes },
-    knowledge: discoveries === state.knowledge.discoveredVulnerabilities ? state.knowledge : { ...state.knowledge, discoveredVulnerabilities: discoveries },
+    discovery,
   }
 }
 
@@ -103,18 +114,12 @@ export function resolveCompletedServiceAnalyses(state: GameState): GameState {
 export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
   if (!current.usable || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
-  const rememberedImplementation = state.discovery.devices.find(({ id }) => id === process.targetDeviceId)
-    ?.services.find(({ id }) => id === process.serviceId)?.inspect?.implementation
-  const analyzedImplementation = rememberedImplementation
-    && rememberedImplementation.name === current.service.implementation.name
-    && rememberedImplementation.version === current.service.implementation.version
-    ? rememberedImplementation
-    : undefined
+  const analyzedImplementation = { name: current.service.implementation.name, version: current.service.implementation.version }
   const vulnerabilities = vulnerabilitiesForService(current.service)
   if (!vulnerabilities.length) return { process: { ...process, ...(analyzedImplementation ? { analyzedImplementation } : {}), result: { status: 'no_weakness_detected' } }, discoveries: [] }
   const found = vulnerabilities.map(({ id, label }) => ({ vulnerabilityId: id, observedLabel: label }))
   return {
     process: { ...process, ...(analyzedImplementation ? { analyzedImplementation } : {}), result: { status: 'weaknesses_detected', vulnerabilities: found } },
-    discoveries: found.map(({ vulnerabilityId, observedLabel }) => ({ vulnerabilityId, observedLabel, targetDeviceId: process.targetDeviceId, serviceId: process.serviceId })),
+    discoveries: [],
   }
 }

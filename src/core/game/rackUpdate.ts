@@ -48,7 +48,8 @@ function hasSubmissionAccess(state: Pick<GameState, 'player' | 'rackUpdate'>, ta
 export function canFormRackUpdateExploitAttempt(state: Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'rackUpdate'>, observed: RackUpdateExploitObservation): boolean {
   const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
-  const known = state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
+  const implementation = service?.inspect?.implementation
+  const known = observed.vulnerabilityId === 'UPD-001' && implementation?.name === 'RackUpdate' && implementation.version === '1.0'
   const tool = findLocalTechniqueTool(state.player.localDevice, observed.vulnerabilityId)
   return Boolean(service && known && tool && !hasSubmissionAccess(state, observed.targetDeviceId, observed.serviceId))
 }

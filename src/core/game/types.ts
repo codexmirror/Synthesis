@@ -1541,6 +1541,9 @@ export interface LocalNetwork {
   /** Stable entity identity, separate from the player-visible network name. */
   readonly id: string
   readonly name: string
+  /** Player-facing routing configuration owned by the Network, not inferred from member addresses. */
+  readonly cidr?: string
+  readonly gateway?: string
   /** Canonical membership relation for devices represented on this network. */
   readonly memberDeviceIds: readonly string[]
   /**

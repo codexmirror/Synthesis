@@ -825,7 +825,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
           * Inspect is optional depth, so its availability is announced where
           * it lives rather than pushed into the target's line of action.
           */}
-        {release.canInspect && !target.observed && <span className="ns-details-hint">INSPECT AVAILABLE</span>}
       </summary>
       <TechnicalDetails
         target={target}
@@ -1079,18 +1078,11 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
         {target.observed.computeClass && <div><dt>COMPUTE</dt><dd>{target.observed.computeClass}</dd></div>}
       </dl>
       : <div className="node-empty"><strong>NOT OBSERVED</strong><span>No properties of this target have been observed.</span></div>}
-    {target.observed && !release.canInspect && <p className="node-note">Remembered from an earlier observation. The installed NodeScan release does not supply Inspect.</p>}
     {/*
       * Inspect explains itself where it is offered: Scan found the attack
       * surface, Inspect looks deeper at what the target actually is. Saying so
       * beside the control is what makes it understandable on first use.
       */}
-    {release.canInspect && <div className="ns-inspect">
-      <p className="ns-quiet-note">{target.observed
-        ? 'Inspect again to refresh this target’s identity and service fingerprints.'
-        : 'Inspect looks deeper than Scan: it resolves this target’s device identity, firmware and service fingerprints.'}</p>
-      <button type="button" className="node-action" onClick={onInspect}>INSPECT</button>
-    </div>}
 
     {(target.access || target.session) && <>
       <div className="node-section"><span>ACCESS</span></div>

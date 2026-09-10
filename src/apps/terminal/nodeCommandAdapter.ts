@@ -14,7 +14,14 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
   const parsedCommand = parseCommand(command)
 
   const dispatched = dispatchCommand(parsedCommand, {
-    localDevice: { ip: gameState.player.localDevice.network.ip, installedSoftware: gameState.player.localDevice.installedSoftware },
+    localDevice: {
+      ip: gameState.player.localDevice.network.ip,
+      ...gameState.world.network.localNetworks
+        .filter(({ memberDeviceIds }) => memberDeviceIds.includes(gameState.player.localDevice.id))
+        .slice(0, 1)
+        .reduce((configuration, network) => ({ ...configuration, network: network.cidr, gateway: network.gateway }), {}),
+      installedSoftware: gameState.player.localDevice.installedSoftware,
+    },
     filesystem: {
       list: (path) => listDirectory(gameState.player.localDevice.filesystem, path),
       readText: (path) => readTextFile(gameState.player.localDevice.filesystem, path),
@@ -30,15 +37,13 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
       scanTarget: actions.scanTarget,
       inspectTarget: actions.inspectTarget,
       analyzeEndpoint: (endpoint) => {
-        const resolved = resolveServiceEndpoint(gameState, endpoint)
-        if (resolved === 'invalid') return { status: 'invalid_endpoint' }
-        if (!resolved) return { status: 'endpoint_not_found' }
-
-        const { state: _state, ...result } =
-          actions.startServiceAnalysis(
-            resolved.targetDeviceId,
-            resolved.serviceId,
-          )
+        const observedDevice = gameState.discovery.devices.find(({ services }) => services.some((service) => service.endpoint === endpoint))
+        const observedService = observedDevice?.services.find((service) => service.endpoint === endpoint)
+        if (!observedDevice || !observedService) {
+          const syntax = resolveServiceEndpoint(gameState, endpoint)
+          return { status: syntax === 'invalid' ? 'invalid_endpoint' : 'endpoint_not_found' }
+        }
+        const { state: _state, ...result } = actions.startServiceAnalysisFromObservation({ endpoint, targetDeviceId: observedDevice.id, serviceId: observedService.id })
 
         return result
       },
@@ -59,13 +64,11 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
         const service = device?.services.find(
           (candidate) => candidate.endpoint === endpoint,
         )
-        const known =
-          device && service
-            ? gameState.knowledge.discoveredVulnerabilities.find(
-                (candidate) =>
-                  candidate.targetDeviceId === device.id &&
-                  candidate.serviceId === service.id,
-              )
+        const implementation = service?.inspect?.implementation
+        const known = implementation?.name === 'GateSSH' && implementation.version === '1.3.2'
+          ? { vulnerabilityId: 'AUTH-017' }
+          : implementation?.name === 'RackUpdate' && implementation.version === '1.0'
+            ? { vulnerabilityId: 'UPD-001' }
             : undefined
 
         if (!device || !service || !known) {

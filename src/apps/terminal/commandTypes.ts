@@ -20,6 +20,8 @@ export type TerminalAnalyzeResult =
 export interface CommandContext {
   readonly localDevice: {
     readonly ip: string
+    readonly network?: string
+    readonly gateway?: string
     readonly installedSoftware: readonly InstalledSoftware[]
   }
   readonly runtime: { readonly cpuLoad: number; readonly ramUsage: number; readonly networkStatus: 'ONLINE' | 'OFFLINE' }

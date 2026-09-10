@@ -13,6 +13,7 @@ export function createLocalScanTarget(readState: () => GameState, writeState: (s
     const known = input === state.player.localDevice.network.ip
       || state.discovery.devices.some(({ address }) => address === input)
       || state.discovery.networks.some(({ name }) => name === input)
+      || state.world.network.localNetworks.some(({ name, memberDeviceIds }) => name === input && memberDeviceIds.includes(state.player.localDevice.id))
     if (!known) return { status: 'unknown_target', input }
     const result = scanNetworkTarget({
       localDevice: state.player.localDevice,

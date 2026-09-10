@@ -405,9 +405,12 @@ function accessFor(information: PlayerInformation, targetDeviceId: string) {
 }
 
 function knowledgeFor(information: PlayerInformation, targetDeviceId: string, serviceId: string): readonly KnownWeakness[] {
-  return information.knowledge.discoveredVulnerabilities
-    .filter((item) => item.targetDeviceId === targetDeviceId && item.serviceId === serviceId)
-    .map((item) => ({ id: item.vulnerabilityId, label: item.observedLabel }))
+  const implementation = information.discovery.devices.find(({ id }) => id === targetDeviceId)
+    ?.services.find(({ id }) => id === serviceId)?.inspect?.implementation
+  if (implementation?.name === 'GateSSH' && implementation.version === '1.3.2') return [{ id: 'AUTH-017', label: 'Credential Access' }]
+  if (implementation?.name === 'GateSSH' && implementation.version === '1.3.3') return [{ id: 'AUTH-031', label: 'Credential Access' }]
+  if (implementation?.name === 'RackUpdate' && implementation.version === '1.0') return [{ id: 'UPD-001', label: 'Rollback' }]
+  return []
 }
 
 function networkNamesOf(information: PlayerInformation, deviceId: string): readonly string[] {

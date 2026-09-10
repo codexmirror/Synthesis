@@ -31,8 +31,8 @@ Normative owner of current implemented behavior: `docs/current/NETWORK_ACCESS.md
    - known child Services
    - the actions that continue this target's line of action
 
-5. Service information — identity, observed facts, Service-specific findings,
-   Service-specific actions, and the provenance of DeviceAccess a Service
+5. Endpoint information — identity, observed facts, endpoint-specific findings,
+   endpoint-specific actions, and the provenance of DeviceAccess a Service
    created — belongs to its target's presentation. It does not require a page
    of its own, and after the interaction reset it does not have one: it is
    progressive depth under the target.
