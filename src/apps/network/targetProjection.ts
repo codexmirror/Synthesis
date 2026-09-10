@@ -140,7 +140,7 @@ export interface KeyProbeRoute {
   readonly implementation: string
 }
 
-export type AnalysisOutcome = 'weaknesses_detected' | 'no_weakness_detected' | 'service_unavailable'
+export type AnalysisOutcome = 'analysis_complete' | 'service_unavailable'
 
 export interface TargetService {
   readonly id: string
@@ -405,12 +405,9 @@ function accessFor(information: PlayerInformation, targetDeviceId: string) {
 }
 
 function knowledgeFor(information: PlayerInformation, targetDeviceId: string, serviceId: string): readonly KnownWeakness[] {
-  const implementation = information.discovery.devices.find(({ id }) => id === targetDeviceId)
-    ?.services.find(({ id }) => id === serviceId)?.inspect?.implementation
-  if (implementation?.name === 'GateSSH' && implementation.version === '1.3.2') return [{ id: 'AUTH-017', label: 'Credential Access' }]
-  if (implementation?.name === 'GateSSH' && implementation.version === '1.3.3') return [{ id: 'AUTH-031', label: 'Credential Access' }]
-  if (implementation?.name === 'RackUpdate' && implementation.version === '1.0') return [{ id: 'UPD-001', label: 'Rollback' }]
-  return []
+  return information.knowledge.discoveredVulnerabilities
+    .filter((item) => item.targetDeviceId === targetDeviceId && item.serviceId === serviceId)
+    .map((item) => ({ id: item.vulnerabilityId, label: item.observedLabel }))
 }
 
 function networkNamesOf(information: PlayerInformation, deviceId: string): readonly string[] {
@@ -592,15 +589,11 @@ function credentialAccessProviderName(process: CredentialAccessProcess): string 
  */
 function knownSoftwareIntelligence(
   software: readonly string[],
-  analyses: readonly ServiceAnalysisProcess[],
+  _analyses: readonly ServiceAnalysisProcess[],
   attempts: readonly CredentialAccessProcess[],
   authGuard: import('../../core/game/types').EnhancedInspectEvidence['authGuard'],
+  weaknesses: readonly KnownWeakness[],
 ): readonly SoftwareIntelligence[] {
-  const learnedFor = (implementation: string, vulnerabilityId: string) => analyses.some((process) =>
-    process.status === 'completed'
-    && process.result?.status === 'weaknesses_detected'
-    && `${process.analyzedImplementation?.name} ${process.analyzedImplementation?.version}` === implementation
-    && process.result.vulnerabilities.some(({ vulnerabilityId: id }) => id === vulnerabilityId))
   const successfulModuleAttempts = (vulnerabilityId: string) => attempts.filter((process) =>
     process.status === 'completed'
     && process.vulnerabilityId === vulnerabilityId
@@ -613,16 +606,11 @@ function knownSoftwareIntelligence(
   })
 
   return software.flatMap((name) => {
-    if (name === 'GateSSH 1.3.2' && learnedFor(name, 'AUTH-017')) return [{ software: name, details: [
-      'AUTH-017 is a known pre-authentication Credential Access weakness.',
+    if (name.startsWith('GateSSH ')) {
+      const details = [
+      ...weaknesses.map(({ id, label }) => `${id} · ${label}`),
       ...successfulModuleAttempts('AUTH-017').map((process) => `${credentialAccessProviderName(process)} successfully exploited AUTH-017.`),
       ...(successfulKeyProbeAttempt(name) ? ['KeyProbe successfully accessed this authentication surface.'] : []),
-    ] }]
-    if (name === 'GateSSH 1.3.3') {
-      const details = [
-        ...(learnedFor('GateSSH 1.3.2', 'AUTH-017') ? ['This release patched the previously known AUTH-017 weakness from GateSSH 1.3.2.'] : []),
-        ...(learnedFor(name, 'AUTH-031') ? ['Analysis identified AUTH-031, a separate pre-authentication Credential Access weakness.'] : []),
-        ...(successfulKeyProbeAttempt(name) ? ['KeyProbe successfully accessed this authentication surface.'] : []),
       ]
       return details.length ? [{ software: name, details }] : []
     }
@@ -703,7 +691,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     const serviceAnalyses = analyses.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
     const serviceAttempts = attempts.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
     const intelligence = nodeScan && nodeScanSupportsIntegratedIntelligence(nodeScan)
-      ? knownSoftwareIntelligence(software, serviceAnalyses, serviceAttempts, observedAuthGuard)
+      ? knownSoftwareIntelligence(software, serviceAnalyses, serviceAttempts, observedAuthGuard, weaknesses)
       : []
     const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
     const running = analysis.find(({ status }) => status === 'running')
@@ -757,7 +745,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       software,
       ...(observed ? { observed } : {}),
       weaknesses,
-      analysisRequired: weaknesses.length === 0 && outcome !== 'no_weakness_detected' && outcome !== 'weaknesses_detected',
+      analysisRequired: !observed && outcome !== 'analysis_complete',
       ...(running ? { analysisPercent: percentOf(running) } : {}),
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),

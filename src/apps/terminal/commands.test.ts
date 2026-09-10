@@ -6,7 +6,6 @@ import { createHelpCommand } from './commands/help'
 import { ipCommand } from './commands/ip'
 import { statusCommand } from './commands/status'
 import { scanCommand } from './commands/scan'
-import { inspectCommand } from './commands/inspect'
 import { scanNetworkTarget } from '../../core/game/scan'
 import { inspectNetworkTarget } from '../../core/game/inspect'
 import { parseCommand } from './parser'
@@ -19,7 +18,7 @@ const state = createInitialGameState()
 const invalidContext: CommandContext = { localDevice: { ip: '198.51.100.23', installedSoftware: [] }, runtime: { cpuLoad: 0, ramUsage: 0, networkStatus: 'ONLINE' }, operations: {} }
 void invalidContext
 const context: CommandContext = {
-  localDevice: { ip: state.player.localDevice.network.ip, installedSoftware: state.player.localDevice.installedSoftware },
+  localDevice: { ip: state.player.localDevice.network.ip, network: '198.51.100.0/24', gateway: '198.51.100.1', installedSoftware: state.player.localDevice.installedSoftware },
   runtime: { cpuLoad: 18, ramUsage: 23, networkStatus: deriveNetworkStatusLabel(state.player.localDevice.operational) },
   filesystem: {
     list: (path) => listDirectory(state.player.localDevice.filesystem, path),
@@ -43,9 +42,9 @@ const labeledTarget = (label: string, value: string, scope: 'local' | 'external'
 
 describe('command dispatcher', () => {
   it('registers every current public command exactly once', () => {
-    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'ping', 'scan', 'inspect', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect', 'node-miner'])
+    expect(Object.keys(commands)).toEqual(['help', 'clear', 'ip', 'status', 'ping', 'scan', 'analyze', 'attack', 'ls', 'cat', 'install', 'connect', 'disconnect', 'node-miner'])
     expect(Object.keys(commands).filter((name) => name === 'scan')).toHaveLength(1)
-    expect(new Set(Object.values(commands)).size).toBe(15)
+    expect(new Set(Object.values(commands)).size).toBe(14)
   })
 
   it('groups current commands by their concrete provider', () => {
@@ -54,7 +53,7 @@ describe('command dispatcher', () => {
     if (result.type === 'output') {
       expect(result.lines).toEqual([
         'AVAILABLE COMMANDS', '', 'NODE-OS', '',
-        'help — List available commands', 'clear — Clear terminal output', 'ip — Show local address',
+        'help — List available commands', 'clear — Clear terminal output', 'ip — Show local network configuration',
         'status — Show system status', 'ls — List a local absolute directory path',
         'cat — Read a local text file by absolute path',
         'install — <local-absolute-file-path>  Install a local software package',
@@ -71,7 +70,7 @@ describe('command dispatcher', () => {
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).toContain('CREDENTIAL ACCESS MODULE')
     expect(JSON.stringify(dispatchCommand(parseCommand('help'), nodeScanOnly))).not.toContain('inspect —')
     const experimental = { ...context, localDevice: { ...context.localDevice, installedSoftware: [{ id: 'nodescan' as const, releaseId: 'nodescan-1.1-experimental', buildId: 'build-fixture-v0', name: 'NodeScan', version: '1.1', channel: 'experimental' }] } }
-    expect(JSON.stringify(dispatchCommand(parseCommand('help'), experimental))).toContain('inspect —')
+    expect(JSON.stringify(dispatchCommand(parseCommand('help'), experimental))).not.toContain('inspect —')
     const builtInsOnly = { ...context, localDevice: { ...context.localDevice, installedSoftware: [] } }
     const help = JSON.stringify(dispatchCommand(parseCommand('help'), builtInsOnly))
     expect(help).not.toContain('NODESCAN')
@@ -84,10 +83,10 @@ describe('command dispatcher', () => {
     expect(commands.connect.description).toBe('<ipv4>  Open a remote session using established access')
     expect(commands.disconnect.description).toBe('Close the active remote session')
   })
-  it('dispatches inspect as a direct player verb', () => {
-    expect(dispatch('inspect 198.51.100.47')).toMatchObject({ type: 'output', lines: ['SERVER', 'Name:    srv-01', expect.any(Array), 'Scope:   LAN', 'Status:  ONLINE'] })
+  it('rejects retired inspect and dispatches truthful local network configuration', () => {
+    expect(dispatch('inspect 198.51.100.47')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: inspect')] })
+    expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('ADDRESS   ', '198.51.100.23', 'local'), 'NETWORK   198.51.100.0/24', 'GATEWAY   198.51.100.1'] })
   })
-  it('dispatches ip with the player-visible address marked as a local target', () => expect(dispatch('ip')).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '198.51.100.23', 'local')] }))
   it('dispatches status with the narrowed context', () => expect(dispatch('status')).toEqual({ type: 'output', lines: ['CPU: 18%', 'RAM: 23%', 'Network: ONLINE'] }))
   it('reports unknown commands', () => expect(dispatch('probe target')).toMatchObject({ type: 'output', lines: [expect.stringContaining('Command not found: probe')] }))
   it('preserves empty command dispatch behavior', () => expect(dispatch('')).toEqual({ type: 'output', lines: [] }))
@@ -224,7 +223,7 @@ describe('individual commands', () => {
 
   it('reads the player address for ip output', () => {
     const narrowContext = { ...context, localDevice: { ip: '203.0.113.7', installedSoftware: context.localDevice.installedSoftware } }
-    expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: [labeledTarget('Local address: ', '203.0.113.7', 'local')] })
+    expect(ipCommand.run(narrowContext, [])).toEqual({ type: 'output', lines: [labeledTarget('ADDRESS   ', '203.0.113.7', 'local'), 'NETWORK   UNAVAILABLE', 'GATEWAY   UNAVAILABLE'] })
   })
 
   it('reads runtime utilization for status output', () => {
@@ -246,35 +245,10 @@ describe('individual commands', () => {
     expect(scanTarget).toHaveBeenCalledExactlyOnceWith('203.0.113.42')
   })
 
-  it('delegates inspect rules through only the narrow operation dependency', () => {
-    const inspectTarget = vi.fn(() => ({
-      status: 'device' as const, targetId: 'changed-device', address: '192.0.2.44', scope: 'self' as const, networkStatus: 'ONLINE' as const,
-      hardware: { cpu: 'Changed CPU', ram: '12 GB' },
-    }))
-    expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['192.0.2.44'])).toEqual({
-      type: 'output',
-      lines: ['DEVICE', labeledTarget('Address: ', '192.0.2.44', 'local'), 'Scope:   SELF', 'Status:  ONLINE', 'CPU:     Changed CPU', 'RAM:     12 GB'],
-    })
-    expect(inspectTarget).toHaveBeenCalledExactlyOnceWith('192.0.2.44')
+  it('keeps the retired inspect verb unavailable even when the operation dependency exists', () => {
+    expect(dispatch('inspect 198.51.100.47')).toMatchObject({ lines: [expect.stringContaining('Command not found')] })
   })
 
-  it('presents NodeScan 1.1 Experimental enhanced evidence through the same inspect command', () => {
-    const inspectTarget = vi.fn(() => ({
-      status: 'device' as const, targetId: 'host-lan-001', address: '198.51.100.47', scope: 'lan' as const, networkStatus: 'ONLINE' as const,
-      deviceKind: 'server' as const, enhanced: { firmware: { name: 'RACK-OS', version: '1.0' }, computeClass: 'HIGH' as const },
-    }))
-    expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['198.51.100.47'])).toEqual({
-      type: 'output',
-      lines: ['SERVER', labeledTarget('Address: ', '198.51.100.47'), 'Scope:   LAN', 'Status:  ONLINE', 'Firmware: RACK-OS 1.0', 'Compute:  HIGH'],
-    })
-  })
-
-  it('reports the shared capability failure compactly for NodeScan 1.0 Standard', () => {
-    const inspectTarget = vi.fn(() => ({ status: 'capability_unavailable' as const }))
-    expect(inspectCommand.run({ ...context, operations: { ...context.operations, inspectTarget } }, ['198.51.100.47'])).toEqual({
-      type: 'output', lines: ['INSPECT UNAVAILABLE', '', 'Installed NodeScan does not support Inspect.'],
-    })
-  })
 })
 
 describe('node-miner command', () => {

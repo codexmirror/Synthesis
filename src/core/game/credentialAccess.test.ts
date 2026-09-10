@@ -36,7 +36,7 @@ const keyProbeObservation = {
   providerId: 'keyprobe',
 } as const
 
-/** Scanned, Enhanced-Inspected (so KeyProbe's own remembered GateSSH 1.3.2 surface is legitimately known), and Analyzed. */
+/** Scanned/analyzed endpoint evidence plus genuine pre-existing AUTH-017 Knowledge. */
 function prepared(): GameState {
   let state = createInitialGameState()
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
@@ -44,7 +44,11 @@ function prepared(): GameState {
   discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '198.51.100.47', 'enhanced'), state.player.localDevice.id)
   const analysis = startServiceAnalysis({ ...state, discovery }, observation.targetDeviceId, observation.serviceId)
   if (analysis.status !== 'started') throw Error(analysis.status)
-  return advanceGameState(analysis.state, 20_000)
+  const analyzed = advanceGameState(analysis.state, 20_000)
+  return { ...analyzed, knowledge: { ...analyzed.knowledge, discoveredVulnerabilities: [{
+    vulnerabilityId: 'AUTH-017', targetDeviceId: observation.targetDeviceId,
+    serviceId: observation.serviceId, observedLabel: 'Weak authentication configuration',
+  }] } }
 }
 
 function start(state = prepared()) {

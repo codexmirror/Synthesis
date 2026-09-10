@@ -1,7 +1,6 @@
 import { startProcess } from './processes'
 import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
-import { vulnerabilitiesForService } from './serviceImplementations'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 
 export const SERVICE_ANALYSIS_WORK_REQUIRED = 1000
@@ -111,15 +110,9 @@ export function resolveCompletedServiceAnalyses(state: GameState): GameState {
 }
 
 /** Owned by Service Analysis: resolves finished work against current world truth exactly once. */
-export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess; discoveries: GameState['knowledge']['discoveredVulnerabilities'] } {
+export function resolveCompletedServiceAnalysis(state: GameState, process: ServiceAnalysisProcess): { process: ServiceAnalysisProcess } {
   const current = currentService(state, process.targetDeviceId, process.serviceId)
-  if (!current.usable || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } }, discoveries: [] }
+  if (!current.usable || !current.service?.open) return { process: { ...process, result: { status: 'service_unavailable' } } }
   const analyzedImplementation = { name: current.service.implementation.name, version: current.service.implementation.version }
-  const vulnerabilities = vulnerabilitiesForService(current.service)
-  if (!vulnerabilities.length) return { process: { ...process, ...(analyzedImplementation ? { analyzedImplementation } : {}), result: { status: 'no_weakness_detected' } }, discoveries: [] }
-  const found = vulnerabilities.map(({ id, label }) => ({ vulnerabilityId: id, observedLabel: label }))
-  return {
-    process: { ...process, ...(analyzedImplementation ? { analyzedImplementation } : {}), result: { status: 'weaknesses_detected', vulnerabilities: found } },
-    discoveries: [],
-  }
+  return { process: { ...process, analyzedImplementation, result: { status: 'analysis_complete' } } }
 }

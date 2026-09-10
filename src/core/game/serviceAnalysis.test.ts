@@ -88,15 +88,15 @@ describe('Service Analysis', () => {
     const constrained = { ...createInitialGameState(), player: { ...createInitialGameState().player, localDevice: { ...createInitialGameState().player.localDevice, hardware: { ...createInitialGameState().player.localDevice.hardware, ram: { ...createInitialGameState().player.localDevice.hardware.ram, capacityMiB: 990 } } } } }
     expect(startServiceAnalysis(constrained, 'host-lan-001', 'service-ssh-001')).toMatchObject({ status: 'insufficient_memory' })
   })
-  it('resolves exactly once, adds positive knowledge once, and allows re-analysis', () => {
+  it('resolves exactly once, remembers endpoint evidence without creating Knowledge, and allows re-analysis', () => {
     const done = advanceGameState(started(), 20_000); const process = done.process.processes[0]
-    expect(process).toMatchObject({ status: 'completed', workCompleted: 1000, result: { status: 'weaknesses_detected' } })
-    expect(done.knowledge.discoveredVulnerabilities).toEqual([{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }])
+    expect(process).toMatchObject({ status: 'completed', workCompleted: 1000, result: { status: 'analysis_complete' }, analyzedImplementation: { name: 'GateSSH', version: '1.3.2' } })
+    expect(done.knowledge.discoveredVulnerabilities).toEqual([])
     // Bookstore Sales Cadence and active Trend timing legitimately keep advancing regardless of Service Analysis outcome; no other canonical fields do.
     const rerun = advanceGameState(done, 20_000)
     expect(withoutBookstoreBackgroundTiming(rerun)).toEqual(withoutBookstoreBackgroundTiming(done))
     const again = start(done); expect(again.status).toBe('started'); if (again.status !== 'started') return
-    const twice = advanceGameState(again.state, 20_000); expect(twice.knowledge.discoveredVulnerabilities).toHaveLength(1)
+    const twice = advanceGameState(again.state, 20_000); expect(twice.knowledge.discoveredVulnerabilities).toHaveLength(0)
     expect(analysis(twice.process.processes[0]).result).toBe(analysis(process).result)
   })
   it('allows re-analysis after history is cleared while retained knowledge does not bypass the running duplicate guard', () => {
@@ -109,14 +109,14 @@ describe('Service Analysis', () => {
     expect(again.processId).toBe('process-0002')
     expect(start(again.state).status).toBe('already_running')
   })
-  it('reads current vulnerability truth only at completion and retains historical knowledge', () => {
+  it('reads current endpoint implementation at completion without interpreting vulnerabilities', () => {
     const running = started(); const host = running.world.network.hosts[0]; const service = host.services![0]
     const changed = { ...running, world: { network: { ...running.world.network, hosts: [{ ...host, services: [{ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } }, ...host.services!.slice(1)] }, ...running.world.network.hosts.slice(1)] } } }
-    const done = advanceGameState(changed, 20_000); expect(analysis(done.process.processes[0]).result).toEqual({ status: 'no_weakness_detected' }); expect(done.knowledge.discoveredVulnerabilities).toEqual([])
+    const done = advanceGameState(changed, 20_000); expect(analysis(done.process.processes[0]).result).toEqual({ status: 'analysis_complete' }); expect(done.knowledge.discoveredVulnerabilities).toEqual([])
     const discovered = advanceGameState(started(), 20_000)
     const removed = { ...discovered, world: changed.world }; expect(removed.knowledge).toEqual(discovered.knowledge)
   })
-  it('associates results at completion only when remembered evidence matches the implementation actually resolved', () => {
+  it('observes the current implementation at completion without producing named weakness results', () => {
     const observed133 = withRememberedSshImplementation('1.3.3')
     const admitted = start(observed133)
     expect(admitted.status).toBe('started'); if (admitted.status !== 'started') return
@@ -129,9 +129,9 @@ describe('Service Analysis', () => {
     const changedWhileRunning = { ...admitted.state, world: { network: { ...admitted.state.world.network, hosts: [{ ...host, services }, ...admitted.state.world.network.hosts.slice(1)] } } }
     const completed = advanceGameState(changedWhileRunning, 20_000)
 
-    expect(analysis(completed.process.processes[0])).toMatchObject({ result: { status: 'weaknesses_detected' } })
-    expect(analysis(completed.process.processes[0]).analyzedImplementation).toBeUndefined()
-    expect(completed.knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-017' }))
+    expect(analysis(completed.process.processes[0])).toMatchObject({ result: { status: 'analysis_complete' } })
+    expect(analysis(completed.process.processes[0]).analyzedImplementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
+    expect(completed.knowledge.discoveredVulnerabilities).toEqual([])
 
     const fresh132 = withRememberedSshImplementation('1.3.2')
     const freshStarted = start(fresh132); expect(freshStarted.status).toBe('started'); if (freshStarted.status !== 'started') return
@@ -143,10 +143,10 @@ describe('Service Analysis', () => {
     const closed = { ...running, world: { network: { ...running.world.network, hosts: [{ ...host, services: [{ ...service, open: false }, ...host.services!.slice(1)] }, ...running.world.network.hosts.slice(1)] } } }
     expect(analysis(advanceGameState(closed, 20_000).process.processes[0]).result).toEqual({ status: 'service_unavailable' })
     const moved = { ...running, world: { network: { ...running.world.network, hosts: [{ ...host, services: [{ ...service, port: 2222 }, ...host.services!.slice(1)] }, ...running.world.network.hosts.slice(1)] } } }
-    expect(advanceGameState(moved, 20_000).process.processes[0]).toMatchObject({ serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:22', result: { status: 'weaknesses_detected' } })
+    expect(advanceGameState(moved, 20_000).process.processes[0]).toMatchObject({ serviceId: 'service-ssh-001', startedEndpoint: '198.51.100.47:22', result: { status: 'analysis_complete' } })
     expect(scanNetworkTarget({ localDevice: moved.player.localDevice, network: moved.world.network }, '198.51.100.47')).toMatchObject({ services: expect.arrayContaining([expect.objectContaining({ id: 'service-ssh-001', port: 2222 })]) })
   })
-  it('HTTP detects zero weaknesses without negative knowledge', () => {
-    const done = advanceGameState(started('service-http-001'), 20_000); expect(analysis(done.process.processes[0]).result).toEqual({ status: 'no_weakness_detected' }); expect(done.knowledge.discoveredVulnerabilities).toEqual([])
+  it('HTTP analysis completes without positive or negative vulnerability knowledge', () => {
+    const done = advanceGameState(started('service-http-001'), 20_000); expect(analysis(done.process.processes[0]).result).toEqual({ status: 'analysis_complete' }); expect(done.knowledge.discoveredVulnerabilities).toEqual([])
   })
 })

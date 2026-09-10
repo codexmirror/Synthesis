@@ -77,8 +77,7 @@ export interface Vulnerability {
 }
 
 export type ServiceAnalysisResult =
-  | { readonly status: 'weaknesses_detected'; readonly vulnerabilities: readonly { readonly vulnerabilityId: string; readonly observedLabel: string }[] }
-  | { readonly status: 'no_weakness_detected' }
+  | { readonly status: 'analysis_complete' }
   | { readonly status: 'service_unavailable' }
 
 /**

@@ -134,8 +134,8 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
     // attacked surface is always the one this exact Service's own remembered Inspect fingerprint names.
     return Boolean(ownsKeyProbe(state) && keyProbeProfileForRememberedService(state, observed))
   }
-  const implementation = service.inspect?.implementation
-  const known = observed.vulnerabilityId === 'AUTH-017' && implementation?.name === 'GateSSH' && implementation.version === '1.3.2'
+  const known = observed.vulnerabilityId !== undefined && state.knowledge.discoveredVulnerabilities.some((item) =>
+    item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
   const tool = observed.vulnerabilityId !== undefined && ownedCredentialAccessModuleProviders(state, observed.vulnerabilityId).some(({ id }) => id === requestedProvider)
   return Boolean(known && tool)
 }

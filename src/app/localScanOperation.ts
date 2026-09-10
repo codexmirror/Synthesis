@@ -10,10 +10,12 @@ export function createLocalScanTarget(readState: () => GameState, writeState: (s
   return async (input) => {
     const state = readState()
     if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable' }
+    const applicableNetworks = state.world.network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(state.player.localDevice.id))
+    const knownLocalNetwork = applicableNetworks.filter(({ name, cidr }) => name === input || cidr === input)
     const known = input === state.player.localDevice.network.ip
       || state.discovery.devices.some(({ address }) => address === input)
       || state.discovery.networks.some(({ name }) => name === input)
-      || state.world.network.localNetworks.some(({ name, memberDeviceIds }) => name === input && memberDeviceIds.includes(state.player.localDevice.id))
+      || knownLocalNetwork.length === 1
     if (!known) return { status: 'unknown_target', input }
     const result = scanNetworkTarget({
       localDevice: state.player.localDevice,

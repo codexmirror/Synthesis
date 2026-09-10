@@ -4,6 +4,7 @@ import { scanNetworkTarget } from './scan'
 import { rememberScan } from './discovery'
 import { advanceGameState } from './gameAdvancement'
 import { startServiceAnalysisFromObservation } from './serviceAnalysis'
+import { localNetworkConfiguration } from '../../apps/terminal/nodeCommandAdapter'
 
 const targets = (state: ReturnType<typeof createInitialGameState>) => ({ localDevice: state.player.localDevice, network: state.world.network })
 
@@ -34,5 +35,14 @@ describe('Recon V2 canonical operations', () => {
     const state = createInitialGameState()
     const result = scanNetworkTarget(targets(state), state.player.localDevice.network.ip)
     expect(result).toMatchObject({ status: 'device', scope: 'self', services: [] })
+  })
+
+  it('fails closed when SELF has more than one applicable routing configuration', () => {
+    const state = createInitialGameState()
+    const ambiguous = { ...state, world: { network: { ...state.world.network, localNetworks: [
+      ...state.world.network.localNetworks,
+      { ...state.world.network.localNetworks[0], id: 'network-second', name: 'second-net', cidr: '192.0.2.0/24', gateway: '192.0.2.1' },
+    ] } } }
+    expect(localNetworkConfiguration(ambiguous)).toEqual({})
   })
 })

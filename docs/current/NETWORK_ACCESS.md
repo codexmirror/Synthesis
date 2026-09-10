@@ -42,7 +42,8 @@ The initial local configuration is `198.51.100.23` on
 
 ## Scan and remembered Discovery
 
-Network Scan accepts a known represented Network name and observes its currently
+Network Scan accepts a known represented Network name or the unambiguous CIDR
+of a Network containing SELF and observes its currently
 reachable member Devices. Host Scan accepts SELF or a remembered Device address
 and observes that Device's currently open endpoints. An endpoint observation is
 the compressed Service name, port, protocol, stable Service identity, stable

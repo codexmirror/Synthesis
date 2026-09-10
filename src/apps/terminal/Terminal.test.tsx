@@ -100,7 +100,7 @@ describe('Terminal interaction controller', () => {
     const input = renderTerminal(vi.fn())
     const user = userEvent.setup()
     await user.type(input, 'ip{enter}clear{enter}')
-    expect(screen.queryByText('Local address:')).not.toBeInTheDocument()
+    expect(screen.queryByText('ADDRESS')).not.toBeInTheDocument()
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('clear')
     await user.keyboard('{ArrowUp}')
@@ -231,7 +231,7 @@ describe('Terminal asynchronous Scan submission', () => {
 
     await user.clear(input)
     await user.type(input, 'ip{enter}')
-    await waitFor(() => expect(screen.getByText('Local address:')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('ADDRESS')).toBeInTheDocument())
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('ip')
     await user.keyboard('{ArrowUp}')
@@ -356,7 +356,7 @@ describe('Terminal local installation', () => {
     await user.type(input, 'help{enter}')
     expect(screen.getByText('NODESCAN 1.1 EXPERIMENTAL')).toBeInTheDocument()
     expect(screen.getByText('install — <local-absolute-file-path> Install a local software package')).toBeInTheDocument()
-    expect(screen.getByText(/inspect —/i)).toBeInTheDocument()
+    expect(screen.queryByText(/inspect —/i)).not.toBeInTheDocument()
     await user.type(input, `install ${packageFile.path}{enter}`)
     expect(screen.getByText('ALREADY INSTALLED')).toBeInTheDocument()
     const installed = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).player.localDevice.installedSoftware
@@ -501,17 +501,16 @@ describe('Terminal live Process projection', () => {
     input.blur()
     await act(async () => { vi.advanceTimersByTime(20_000) })
     const completed = screen.getByRole('region', { name: 'SERVICE ANALYSIS completed' })
-    expect(completed).toHaveTextContent('WEAKNESS DETECTED')
-    expect(completed).toHaveTextContent('Weak authentication configuration')
-    expect(completed).toHaveTextContent('Known interaction')
+    expect(completed).toHaveTextContent('ENDPOINT ANALYZED')
+    expect(completed).not.toHaveTextContent('AUTH-017')
     expect(input).not.toHaveFocus()
     expect(document.querySelectorAll('.terminal-entry')).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: 'Clear process history' }))
-    expect(screen.getByRole('region', { name: 'SERVICE ANALYSIS completed' })).toHaveTextContent('Weak authentication configuration')
+    expect(screen.getByRole('region', { name: 'SERVICE ANALYSIS completed' })).toHaveTextContent('ENDPOINT ANALYZED')
     const afterCleanup = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
     expect(afterCleanup.process.processes).toEqual([])
-    expect(afterCleanup.knowledge.discoveredVulnerabilities).toHaveLength(1)
+    expect(afterCleanup.knowledge.discoveredVulnerabilities).toHaveLength(0)
 
     await user.type(input, 'clear{enter}')
     expect(screen.queryByRole('region', { name: 'SERVICE ANALYSIS completed' })).not.toBeInTheDocument()

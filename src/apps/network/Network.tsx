@@ -1115,7 +1115,7 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
             * ANALYZE is about to do.
             */}
           {service.weaknesses.length > 0 && <p className="ns-quiet-note">Analysis found relevant information.</p>}
-          {service.analysisPercent === undefined && service.analysisOutcome === 'no_weakness_detected' && <p className="ns-quiet-note">Last analysis found no weakness.</p>}
+          {service.analysisPercent === undefined && service.analysisOutcome === 'analysis_complete' && <p className="ns-quiet-note">Endpoint analysis complete.</p>}
           {service.analysisPercent === undefined && service.analysisOutcome === 'service_unavailable' && <p className="ns-quiet-note">Last analysis did not complete against the service.</p>}
           {service.accessPrivilege && <p className="ns-quiet-note">{service.accessPrivilege} access was established through this service.</p>}
           {service.analysisPercent === undefined

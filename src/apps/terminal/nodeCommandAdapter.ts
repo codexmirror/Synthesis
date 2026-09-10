@@ -10,16 +10,18 @@ import type { deriveResourceUsage } from '../../core/game/processes'
 
 type ResourceUsage = ReturnType<typeof deriveResourceUsage>
 
+export function localNetworkConfiguration(gameState: GameState): { network?: string; gateway?: string } {
+  const networks = gameState.world.network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(gameState.player.localDevice.id))
+  return networks.length === 1 ? { network: networks[0].cidr, gateway: networks[0].gateway } : {}
+}
+
 export function dispatchNodeCommand(command: string, gameState: GameState, actions: GameActions, usage: ResourceUsage) {
   const parsedCommand = parseCommand(command)
 
   const dispatched = dispatchCommand(parsedCommand, {
     localDevice: {
       ip: gameState.player.localDevice.network.ip,
-      ...gameState.world.network.localNetworks
-        .filter(({ memberDeviceIds }) => memberDeviceIds.includes(gameState.player.localDevice.id))
-        .slice(0, 1)
-        .reduce((configuration, network) => ({ ...configuration, network: network.cidr, gateway: network.gateway }), {}),
+      ...localNetworkConfiguration(gameState),
       installedSoftware: gameState.player.localDevice.installedSoftware,
     },
     filesystem: {
@@ -64,12 +66,8 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
         const service = device?.services.find(
           (candidate) => candidate.endpoint === endpoint,
         )
-        const implementation = service?.inspect?.implementation
-        const known = implementation?.name === 'GateSSH' && implementation.version === '1.3.2'
-          ? { vulnerabilityId: 'AUTH-017' }
-          : implementation?.name === 'RackUpdate' && implementation.version === '1.0'
-            ? { vulnerabilityId: 'UPD-001' }
-            : undefined
+        const known = device && service ? gameState.knowledge.discoveredVulnerabilities.find((candidate) =>
+          candidate.targetDeviceId === device.id && candidate.serviceId === service.id) : undefined
 
         if (!device || !service || !known) {
           return { status: 'not_available' }

@@ -49,7 +49,8 @@ export function resolveNetworkTarget(targets: Readonly<NetworkTargets>, address:
   return { scope: classifyHostScope(targets, host.id), entity: host }
 }
 
-/** Resolve only the currently supported player-visible local-network name target. */
-export function resolveLocalNetwork(network: Readonly<NetworkState>, name: string): Readonly<LocalNetwork> | undefined {
-  return network.localNetworks.find((candidate) => candidate.name === name)
+/** Resolve a player-visible Network attribute only when it identifies exactly one represented Network. */
+export function resolveLocalNetwork(network: Readonly<NetworkState>, input: string): Readonly<LocalNetwork> | undefined {
+  const matches = network.localNetworks.filter((candidate) => candidate.name === input || candidate.cidr === input)
+  return matches.length === 1 ? matches[0] : undefined
 }

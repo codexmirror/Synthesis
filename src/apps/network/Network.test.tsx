@@ -82,7 +82,7 @@ function completedGateSshAnalysis(version: '1.3.2' | '1.3.3', vulnerabilityId: '
     ...analysisProcess(`analysis-${vulnerabilityId}`, 'service-ssh-001', 1000),
     status: 'completed',
     analyzedImplementation: { name: 'GateSSH', version },
-    result: { status: 'weaknesses_detected', vulnerabilities: [{ vulnerabilityId, observedLabel: vulnerabilityId === 'AUTH-017' ? 'Weak authentication configuration' : 'Pre-authentication challenge state reuse' }] },
+    result: { status: 'analysis_complete' },
   }
 }
 
@@ -136,6 +136,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 describe('NodeScan first hack', () => {
   it('walks explicit SCAN and ANALYZE before choosing Credential Access and CONNECT', async () => {
     vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
     render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
 
     // SELF is intrinsic; Scan SELF reveals its represented Network relationship.
@@ -160,7 +161,7 @@ describe('NodeScan first hack', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
     expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with KeyProbe' }))
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ATTEMPT IN PROGRESS')
     expect(screen.getByRole('group', { name: 'Attempt progress' })).toBeInTheDocument()
 
@@ -211,7 +212,7 @@ describe('NodeScan first hack', () => {
     expect(within(status).queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
 
     await openDetails(user)
-    await user.click(screen.getByRole('button', { name: 'INSPECT' }))
+    expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
     expect(currentState().deviceAccess).toEqual(accessUnder10.deviceAccess)
     expect(screen.getByLabelText('Target status')).toHaveTextContent('ACCESS GRANTED')
 
@@ -280,7 +281,7 @@ describe('NodeScan information boundary', () => {
     const completed = ['service-ssh-001', 'service-http-001'].map((serviceId, index) => ({
       ...analysisProcess(`process-000${index + 1}`, serviceId, 1000),
       status: 'completed' as const,
-      result: { status: 'no_weakness_detected' as const },
+      result: { status: 'analysis_complete' as const },
     }))
     const target = selectTarget(withProcesses(scannedTarget(), completed), SRV_01)!
     expect(target.stage).toBe('no_route')
@@ -292,17 +293,17 @@ describe('NodeScan information boundary', () => {
     const oldNegative = {
       ...analysisProcess('process-old', ssh.id, 1000), status: 'completed' as const,
       analyzedImplementation: { name: 'GateSSH', version: '1.3.3' },
-      result: { status: 'no_weakness_detected' as const },
+      result: { status: 'analysis_complete' as const },
     }
     const stale = withProcesses(observed, [oldNegative])
     expect(ssh.inspect?.implementation.version).toBe('1.3.2')
-    expect(selectTarget(stale, SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: true })
+    expect(selectTarget(stale, SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: false })
 
     const noAssociation = { ...oldNegative, analyzedImplementation: undefined }
-    expect(selectTarget(withProcesses(observed, [noAssociation]), SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: true })
+    expect(selectTarget(withProcesses(observed, [noAssociation]), SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: false })
 
     const fresh = { ...oldNegative, id: 'process-new', analyzedImplementation: ssh.inspect!.implementation }
-    expect(selectTarget(withProcesses(observed, [oldNegative, fresh]), SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: false, analysisOutcome: 'no_weakness_detected' })
+    expect(selectTarget(withProcesses(observed, [oldNegative, fresh]), SRV_01)?.services.find(({ id }) => id === ssh.id)).toMatchObject({ analysisRequired: false, analysisOutcome: 'analysis_complete' })
   })
 
   it('keeps a learned route as the primary decision while offering Inspect only as technical depth', async () => {
@@ -320,7 +321,7 @@ describe('NodeScan information boundary', () => {
     expect(within(status).queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
 
     await openDetails(user)
-    await user.click(screen.getByRole('button', { name: 'INSPECT' }))
+    expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
     expect(selectTarget(currentState(), SRV_01)?.stage).toBe('route')
     expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
   })
@@ -328,7 +329,7 @@ describe('NodeScan information boundary', () => {
   it('treats service-unavailable analysis as inconclusive and offers a canonical retry', async () => {
     const outcomes = [
       { ...analysisProcess('process-0001', 'service-ssh-001', 1000), status: 'completed' as const, result: { status: 'service_unavailable' as const } },
-      { ...analysisProcess('process-0002', 'service-http-001', 1000), status: 'completed' as const, result: { status: 'no_weakness_detected' as const } },
+      { ...analysisProcess('process-0002', 'service-http-001', 1000), status: 'completed' as const, result: { status: 'analysis_complete' as const } },
     ]
     const inconclusive = withProcesses(scannedTarget(), outcomes)
     expect(selectTarget(inconclusive, SRV_01)?.stage).toBe('analysis_ready')
@@ -720,21 +721,14 @@ describe('NodeScan technical details', () => {
     expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
     expect(currentState().process.processes).toEqual([])
     await openDetails(user)
-    expect(screen.getAllByRole('button', { name: 'INSPECT' })).not.toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
   })
 
-  it('stores deeper evidence only after explicit Inspect under 1.1', async () => {
+  it('offers endpoint Analysis rather than the retired generic Inspect depth', async () => {
     const user = await openTarget(scannedTarget(withNodeScan11(createInitialGameState())))
-    // The fixture's scan is intentionally surface-only for this assertion.
-    const before = currentState()
-    const withoutInspect = { ...before, discovery: { ...before.discovery, devices: before.discovery.devices.map((device) => ({ ...device, inspect: undefined, services: device.services.map((service) => ({ ...service, inspect: undefined })) })) } }
-    cleanup()
-    const explicit = await openTarget(withoutInspect)
-    await openDetails(explicit)
-    await explicit.click(screen.getAllByRole('button', { name: 'INSPECT' })[0])
-    const observed = currentState().discovery.devices.find(({ id }) => id === SRV_01)
-    expect(observed?.inspect?.enhanced?.firmware).toEqual({ name: 'RACK-OS', version: '1.0' })
-    expect(observed?.services.find(({ id }) => id === 'service-ssh-001')?.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
+    await openDetails(user)
+    expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Analyze SSH' })).toBeInTheDocument()
   })
 
   it('keeps technical intelligence separate from the action provenance', async () => {
@@ -769,7 +763,7 @@ describe('NodeScan technical details', () => {
      */
     const analysed = withProcesses(knownWeakness(), [{
       ...analysisProcess('process-0001', 'service-http-001', 1000),
-      status: 'completed', result: { status: 'no_weakness_detected' },
+      status: 'completed', result: { status: 'analysis_complete' },
     }])
     const user = await openTarget(analysed)
     await openDetails(user)
@@ -779,7 +773,7 @@ describe('NodeScan technical details', () => {
       statement.compareDocumentPosition(within(article).getByRole('button', { name: /^Analyze / })) & Node.DOCUMENT_POSITION_FOLLOWING
 
     const http = serviceOf('HTTP')
-    expect(precedesItsAction(http, within(http).getByText('Last analysis found no weakness.'))).toBeTruthy()
+    expect(precedesItsAction(http, within(http).getByText('Endpoint analysis complete.'))).toBeTruthy()
 
     // The same ordering a Service with learned relevant information already had.
     const ssh = serviceOf('SSH')
@@ -792,7 +786,7 @@ describe('NodeScan technical details', () => {
     await openDetails(user)
 
     expect(screen.getByText('RACK-OS 1.0')).toBeInTheDocument()
-    expect(screen.getByText(/does not supply Inspect/)).toBeInTheDocument()
+    expect(screen.queryByText(/Inspect/)).not.toBeInTheDocument()
   })
 
   it('states unobserved depth explicitly rather than as an observed empty result', async () => {
@@ -900,7 +894,7 @@ describe('NodeScan target topology', () => {
     await user.click(screen.getByText('GateSSH 1.3.2', { selector: 'summary span' }))
     expect(screen.queryByText(/^KNOWN INFO$/)).not.toBeInTheDocument()
     expect(screen.getByText('KNOWN INFORMATION')).toBeInTheDocument()
-    expect(screen.getByText(/AUTH-017 is a known pre-authentication Credential Access weakness/)).toBeInTheDocument()
+    expect(screen.getByText(/AUTH-017 · Weak authentication configuration/)).toBeInTheDocument()
     expect(screen.queryByText(/AUTH-031/)).not.toBeInTheDocument()
     expect(currentState()).toEqual(before)
   })
@@ -913,19 +907,19 @@ describe('NodeScan target topology', () => {
     ])
     expect(selectTarget(learned132, SRV_01)?.services[0].intelligence).toEqual([expect.objectContaining({
       software: 'GateSSH 1.3.2',
-      details: expect.arrayContaining(['AUTH-017 is a known pre-authentication Credential Access weakness.', 'Credential Access Module successfully exploited AUTH-017.']),
+      details: expect.arrayContaining(['AUTH-017 · Weak authentication configuration', 'Credential Access Module successfully exploited AUTH-017.']),
     })])
 
     const device = learned132.discovery.devices.find(({ id }) => id === SRV_01)!
     const discovery = { ...learned132.discovery, devices: learned132.discovery.devices.map((candidate) => candidate.id !== SRV_01 ? candidate : { ...device, services: device.services.map((service) => service.id !== 'service-ssh-001' ? service : { ...service, inspect: { ...service.inspect!, implementation: { ...service.inspect!.implementation!, version: '1.3.3' } } }) }) }
     const observed133 = { ...learned132, discovery }
     const history = selectTarget(observed133, SRV_01)!.services[0].intelligence[0]
-    expect(history.details).toContain('This release patched the previously known AUTH-017 weakness from GateSSH 1.3.2.')
+    expect(history.details).toContain('AUTH-017 · Weak authentication configuration')
     expect(history.details).not.toContain(expect.stringMatching(/successfully exploited/))
     expect(history.details).not.toContain(expect.stringMatching(/AUTH-031/))
 
-    const learned133 = withProcesses(observed133, [...observed133.process.processes, completedGateSshAnalysis('1.3.3', 'AUTH-031')])
-    expect(selectTarget(learned133, SRV_01)!.services[0].intelligence[0].details).toContain('Analysis identified AUTH-031, a separate pre-authentication Credential Access weakness.')
+    const analyzed133 = withProcesses(observed133, [...observed133.process.processes, completedGateSshAnalysis('1.3.3', 'AUTH-031')])
+    expect(selectTarget(analyzed133, SRV_01)!.services[0].intelligence[0].details).not.toContain(expect.stringMatching(/AUTH-031/))
   })
 
   it('draws no provider conclusion from a failed Credential Access attempt', () => {
@@ -933,7 +927,7 @@ describe('NodeScan target topology', () => {
       completedGateSshAnalysis('1.3.2', 'AUTH-017'),
       { ...credentialProcess(1200), status: 'completed', toolId: 'keyprobe', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } },
     ])
-    expect(selectTarget(state, SRV_01)!.services[0].intelligence[0].details).toEqual(['AUTH-017 is a known pre-authentication Credential Access weakness.'])
+    expect(selectTarget(state, SRV_01)!.services[0].intelligence[0].details).toEqual(['AUTH-017 · Weak authentication configuration'])
   })
 
   it('keeps represented AuthGuard protection intelligence on AuthGuard alone', () => {
@@ -1597,7 +1591,7 @@ describe('Known Space topology', () => {
     render(<GameProvider initialState={withProcesses(scannedTarget(), [analysisProcess('process-0001', 'service-ssh-001', 0)])}><Network /><StateSnapshot /></GameProvider>)
     await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
 
-    expect(currentState().knowledge.discoveredVulnerabilities).toEqual([expect.objectContaining({ vulnerabilityId: 'AUTH-017', targetDeviceId: SRV_01 })])
+    expect(currentState().knowledge.discoveredVulnerabilities).toEqual([])
     expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toHaveTextContent('ACTIONS AVAILABLE')
   })
 })
@@ -1751,37 +1745,8 @@ describe('observed Device display identity', () => {
     expect(JSON.stringify(selectKnownSpace(scanned))).not.toContain('srv-01')
   })
 
-  it('remembers and then presents the represented display name after a successful Inspect', async () => {
-    const user = await openTarget(withNodeScan11(scannedTarget()))
-    await openDetails(user)
-    await user.click(screen.getByRole('button', { name: 'INSPECT' }))
-
-    expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect?.displayName).toBe('srv-01')
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('srv-01')
-    expect(screen.getByText('NAME').parentElement).toHaveTextContent('srv-01')
-    // The address it was reached at stays stated beside the observed name.
-    expect(document.querySelector('.ns-subject-note')).toHaveTextContent(`${SRV_01_ADDRESS} · home-net`)
-
-    await user.click(screen.getByRole('button', { name: '← Known Space' }))
-    const network = screen.getByRole('region', { name: 'Network home-net' })
-    expect(within(network).getByText('srv-01')).toBeInTheDocument()
-    expect(within(network).queryByText('UNKNOWN DEVICE')).not.toBeInTheDocument()
-  })
-
-  it('keeps manual Inspect in technical depth, announced there, only where the installed release supplies it', async () => {
-    const under10 = await openTarget(scannedTarget())
-    expect(screen.getByLabelText('Target status')).not.toHaveTextContent('INSPECT')
-    expect(screen.queryByText('INSPECT AVAILABLE')).not.toBeInTheDocument()
-    await openDetails(under10)
+  it('does not expose the retired generic Inspect affordance under any NodeScan release', async () => {
+    await openTarget(withNodeScan11(scannedTarget()))
     expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
-
-    cleanup()
-    const under11 = await openTarget(withNodeScan11(scannedTarget()))
-    expect(screen.getByLabelText('Target status')).not.toHaveTextContent('INSPECT')
-    expect(screen.getByText('INSPECT AVAILABLE')).toBeInTheDocument()
-    await openDetails(under11)
-    expect(screen.getByRole('button', { name: 'INSPECT' })).toBeInTheDocument()
-    // The affordance explains itself where it is offered, without a tutorial.
-    expect(screen.getByText(/Inspect looks deeper than Scan/)).toBeInTheDocument()
-  })
-})
+    expect(screen.queryByText('INSPECT AVAILABLE')).not.toBeInTheDocument()
+  })})
