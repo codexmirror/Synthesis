@@ -22,7 +22,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 87
+export const GAME_STATE_VERSION = 88
 
 export function createInitialGameState(): GameState {
   return {
@@ -142,9 +142,9 @@ export function createInitialGameState(): GameState {
       network: {
         localNetworks: [
           // External connectivity capacity, deliberately well above every member Device's own endpoint capacity so it is never the bottleneck for the currently authored same-Network home-net route.
-          { id: 'network-local-001', name: 'home-net', memberDeviceIds: ['device-local-v0', 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
+          { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gateway: '198.51.100.1', memberDeviceIds: ['device-local-v0', 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
           // srv-02's and the phone's shared external uplink/downlink; deliberately the cross-Network route node-01 actually exercises.
-          { id: 'network-foreign-001', name: 'remote-segment-01', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+          { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gateway: '203.0.113.1', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
         ],
         hosts: [
           {

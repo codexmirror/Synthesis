@@ -1,6 +1,10 @@
 import { target, text, type TerminalCommand } from '../commandTypes'
 
 export const ipCommand: TerminalCommand = {
-  description: 'Show local address',
-  run: ({ localDevice }) => ({ type: 'output', lines: [[text('Local address: '), target(localDevice.ip, 'local')]] }),
+  description: 'Show local network configuration',
+  run: ({ localDevice }) => ({ type: 'output', lines: [
+    [text('ADDRESS   '), target(localDevice.ip, 'local')],
+    `NETWORK   ${localDevice.network ?? 'UNAVAILABLE'}`,
+    `GATEWAY   ${localDevice.gateway ?? 'UNAVAILABLE'}`,
+  ] }),
 }

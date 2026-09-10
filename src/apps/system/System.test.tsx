@@ -198,7 +198,7 @@ describe('System', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     expect(screen.queryByRole('button', { name: 'RESTORE 1.0 STANDARD' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^NodeScan 1\./ }))
-    expect(screen.getByText('TARGET INSPECT')).toBeInTheDocument()
+    expect(screen.queryByText('TARGET INSPECT')).not.toBeInTheDocument()
     expect(value('ACTIVE')).toBe('1.1 · EXPERIMENTAL')
     expect(value('BASELINE')).toBe('1.0 STANDARD')
 

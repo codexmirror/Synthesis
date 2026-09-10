@@ -7,7 +7,8 @@ describe('software release information', () => {
     const standard = getSoftwareReleaseInformation('nodescan-1.0-standard')!
     expect(standard.capabilities.map(({ label }) => label)).toEqual(['NETWORK SCAN', 'SERVICE ANALYSIS'])
     expect(JSON.stringify(standard)).not.toMatch(/inspect/i)
-    expect(getSoftwareReleaseInformation('nodescan-1.1-experimental')?.changes).toContain('Firmware fingerprinting')
+    expect(getSoftwareReleaseInformation('nodescan-1.1-experimental')?.changes).toContain('Initial experimental release.')
+    expect(JSON.stringify(getSoftwareReleaseInformation('nodescan-1.1-experimental'))).not.toMatch(/inspect/i)
     // Flipper's documentation describes the product, not the concrete build's module state:
     // which techniques it can execute is canonical installed-build truth, never release copy.
     const flipper = getSoftwareReleaseInformation('flipper-1.0')!

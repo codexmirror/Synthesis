@@ -13,9 +13,7 @@ import { catCommand } from './commands/cat'
 import { connectCommand } from './commands/connect'
 import { disconnectCommand } from './commands/disconnect'
 import { installCommand } from './commands/install'
-import { inspectCommand } from './commands/inspect'
 import { nodeMinerCommand } from './commands/nodeMiner'
-import { nodeScanSupportsInspect } from '../../core/game/software'
 import { findInstalledFlipper } from '../../core/game/flipper'
 import type { NodeScanInstallation } from '../../core/game/types'
 
@@ -30,7 +28,7 @@ export const commands: Record<string, TerminalCommand> = {
     const nodeMinerSoftware = localDevice.installedSoftware.find(({ id }) => id === 'node-miner')
     return [
       { heading: 'NODE-OS', commands: commandEntries(['help', 'clear', 'ip', 'status', 'ls', 'cat', 'install', 'connect', 'disconnect']) },
-      ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version}${nodeScan.channel ? ` ${nodeScan.channel.toUpperCase()}` : ''}`, commands: commandEntries(nodeScanSupportsInspect(nodeScan) ? ['ping', 'scan', 'inspect', 'analyze'] : ['ping', 'scan', 'analyze']) }] : []),
+      ...(nodeScan?.id === 'nodescan' ? [{ heading: `${nodeScan.name.toUpperCase()} ${nodeScan.version}${nodeScan.channel ? ` ${nodeScan.channel.toUpperCase()}` : ''}`, commands: commandEntries(['ping', 'scan', 'analyze']) }] : []),
       // One offensive product now supplies `attack`. Which techniques it can
       // actually execute is the installed build's integrated module state,
       // resolved by the canonical operation rather than by this listing.
@@ -43,7 +41,6 @@ export const commands: Record<string, TerminalCommand> = {
   status: statusCommand,
   ping: pingCommand,
   scan: scanCommand,
-  inspect: inspectCommand,
   analyze: analyzeCommand,
   attack: attackCommand,
   ls: lsCommand,

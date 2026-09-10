@@ -13,6 +13,14 @@ export interface HardwareState {
 export type DeviceType = 'NODE' | 'SERVER' | 'PHONE'
 
 /**
+ * NodeScan 1.2's own narrow Device-classification categories: what KIND of
+ * Device this is, mapped directly from the smallest currently represented
+ * `DeviceType` taxonomy. Classification is never concrete Device identity
+ * (e.g. a Device's own `displayName`) and never implementation evidence.
+ */
+export type DeviceClassification = 'SERVER' | 'WORKSTATION' | 'MOBILE DEVICE'
+
+/**
  * Stable physical product identity and its descriptive V1 capability ceilings.
  * These limits do not replace a Device's installed Hardware or current network
  * transfer capacity, and no current runtime behavior consumes them.
@@ -77,8 +85,7 @@ export interface Vulnerability {
 }
 
 export type ServiceAnalysisResult =
-  | { readonly status: 'weaknesses_detected'; readonly vulnerabilities: readonly { readonly vulnerabilityId: string; readonly observedLabel: string }[] }
-  | { readonly status: 'no_weakness_detected' }
+  | { readonly status: 'analysis_complete' }
   | { readonly status: 'service_unavailable' }
 
 /**
@@ -1470,7 +1477,16 @@ export interface KnowledgeState {
 
 export interface DiscoveredNetworkSnapshot {
   readonly id: string
-  readonly name: string
+  /**
+   * The Network's own display name, remembered only once a genuine Network
+   * Scan (by name or CIDR) actually observed it. A Host Scan that merely
+   * reveals this Network as a scanned Host's context never supplies one:
+   * presentation falls back to `cidr` instead of ever reading World Truth's
+   * mutable name directly.
+   */
+  readonly name?: string
+  /** Player-facing routing identity, stable enough to present before a name is separately earned. */
+  readonly cidr?: string
   readonly membersObserved: boolean
   readonly inspect?: { readonly connected: boolean }
 }
@@ -1522,6 +1538,17 @@ export interface DiscoveredDeviceSnapshot {
   readonly servicesObserved: boolean
   readonly services: readonly DiscoveredServiceSnapshot[]
   /**
+   * NodeScan 1.2's own remembered Device classification (`SERVER`,
+   * `WORKSTATION`, `MOBILE DEVICE`) — never concrete Device identity, and
+   * never derived live: only a Scan or Refresh actually performed while
+   * NodeScan 1.2 was installed writes or refreshes this, exactly like any
+   * other Discovery evidence. Absent for a shallow peer discovered only
+   * through another Host's Network expansion; absent entirely until a
+   * legitimate 1.2 observation happens; never erased by later downgrading
+   * NodeScan or by a hidden World Truth change.
+   */
+  readonly classification?: DeviceClassification
+  /**
    * Remembered Inspect evidence. `displayName` is the represented Device
    * display identity as legitimately *observed* by an Inspect that reached
    * it — never World Truth read directly by presentation, and absent until
@@ -1541,6 +1568,9 @@ export interface LocalNetwork {
   /** Stable entity identity, separate from the player-visible network name. */
   readonly id: string
   readonly name: string
+  /** Player-facing routing configuration owned by the Network, not inferred from member addresses. */
+  readonly cidr?: string
+  readonly gateway?: string
   /** Canonical membership relation for devices represented on this network. */
   readonly memberDeviceIds: readonly string[]
   /**

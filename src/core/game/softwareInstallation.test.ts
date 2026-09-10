@@ -24,7 +24,7 @@ import { advanceFileTransfer, startRemoteFileDownload } from './fileTransfer'
 import { connectRemoteFromObservation, disconnectRemoteSession } from './remoteSession'
 import { clearRecentActivity } from './recentActivity'
 import { FLIPPER_1_0, NODESCAN_1_0_STANDARD, NODESCAN_1_2_STANDARD, NODE_MINER_1_0 } from './softwareReleaseContent'
-import { findInstalledNodeScan, nodeScanSupportsInspect, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from './software'
+import { findInstalledNodeScan, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from './software'
 import type { ExecutableFile, GameState, NetworkHost, SoftwareInstallationProcess, SoftwarePackageFile } from './types'
 
 const path = '/home/user/downloads/nodescan-build.pkg'
@@ -200,7 +200,6 @@ describe('software installation completion: NodeScan', () => {
     const installed = completeInstallation(started.state)
     const nodeScan12 = findInstalledNodeScan(installed.player.localDevice)!
     expect(nodeScan12).toEqual(expect.objectContaining({ releaseId: NODESCAN_1_2_STANDARD.releaseId, buildId: NODESCAN_1_2_STANDARD.buildId, version: '1.2', channel: 'standard' }))
-    expect(nodeScanSupportsInspect(nodeScan12)).toBe(true)
     expect(nodeScanSupportsLiveTopology(nodeScan12)).toBe(true)
     expect(nodeScanSupportsIntegratedIntelligence(nodeScan12)).toBe(true)
 
@@ -210,7 +209,6 @@ describe('software installation completion: NodeScan', () => {
     if (replacement.status !== 'started') throw new Error(replacement.status)
     const downgraded = completeInstallation(replacement.state)
     const baseline = findInstalledNodeScan(downgraded.player.localDevice)!
-    expect(nodeScanSupportsInspect(baseline)).toBe(false)
     expect(nodeScanSupportsLiveTopology(baseline)).toBe(false)
     expect(nodeScanSupportsIntegratedIntelligence(baseline)).toBe(false)
   })

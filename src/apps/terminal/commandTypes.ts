@@ -1,6 +1,5 @@
 import type { ScanResult } from '../../core/game/scan'
 import type { PingResult } from '../../core/game/ping'
-import type { InspectResult } from '../../core/game/inspect'
 import type { StartCredentialAccessResult } from '../../core/game/credentialAccess'
 import type { StartRackUpdateExploitResult } from '../../core/game/rackUpdate'
 import type { ListDirectoryResult, ReadTextFileResult } from '../../core/game/filesystem'
@@ -20,6 +19,8 @@ export type TerminalAnalyzeResult =
 export interface CommandContext {
   readonly localDevice: {
     readonly ip: string
+    readonly network?: string
+    readonly gateway?: string
     readonly installedSoftware: readonly InstalledSoftware[]
   }
   readonly runtime: { readonly cpuLoad: number; readonly ramUsage: number; readonly networkStatus: 'ONLINE' | 'OFFLINE' }
@@ -34,7 +35,6 @@ export interface CommandContext {
   readonly operations: {
     readonly pingTarget?: (target: string) => PingResult | { status: 'software_unavailable' }
     readonly scanTarget: (target: string) => ScanResult | { status: 'software_unavailable' } | Promise<ScanResult | { status: 'software_unavailable' }>
-    readonly inspectTarget: (target: string) => InspectResult | { status: 'software_unavailable' } | { status: 'capability_unavailable' }
     readonly analyzeEndpoint: (endpoint: string) => TerminalAnalyzeResult
     readonly knownWeaknesses: (targetDeviceId: string, serviceId: string) => readonly string[]
     readonly attackEndpoint: (endpoint: string) => TerminalAttackResult

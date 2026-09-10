@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { createEmptyDiscovery, rememberInspect, rememberScan } from './discovery'
-import { inspectKnownTarget } from './inspect'
+import { createEmptyDiscovery, rememberScan } from './discovery'
 import { scanNetworkTarget, type ScanResult } from './scan'
 
 const state = createInitialGameState()
@@ -13,11 +12,12 @@ describe('Discovery memory', () => {
     expect(state.discovery).toEqual(createEmptyDiscovery())
     expect(state.discovery.devices).toHaveLength(0)
   })
-  it('remembers a SELF relationship without claiming members were observed', () => {
+  it('remembers a SELF relationship using the same Host Scan semantics as any other Host, without a name it has not separately earned', () => {
     const discovery = rememberScan(state.discovery, observe('198.51.100.23'), state.player.localDevice.id)
-    expect(discovery.networks).toEqual([{ id: 'network-local-001', name: 'home-net', membersObserved: false }])
-    expect(discovery.devices).toHaveLength(0)
+    expect(discovery.networks).toEqual([{ id: 'network-local-001', cidr: '198.51.100.0/24', membersObserved: true }])
     expect(discovery.networkDeviceRelations).toContainEqual({ networkId: 'network-local-001', deviceId: state.player.localDevice.id })
+    // SELF's own Network expansion also remembers its peer, home-net's other member, as a shallow observation.
+    expect(discovery.devices).toEqual([{ id: 'host-lan-001', address: '198.51.100.47', scope: 'lan', servicesObserved: false, services: [] }])
   })
   it('distinguishes successful empty depth observations from never observed', () => {
     const network = rememberScan(createEmptyDiscovery(), { status: 'network', networkId: 'empty', networkName: 'empty-net', devices: [] }, state.player.localDevice.id)
@@ -57,40 +57,14 @@ describe('Discovery memory', () => {
 describe('remembered Device display identity', () => {
   const selfId = state.player.localDevice.id
   const scanned = () => rememberScan(state.discovery, observe('198.51.100.47'), selfId)
-  const inspected = (discovery = scanned()) =>
-    rememberInspect(discovery, inspectKnownTarget(targets, discovery, '198.51.100.47', 'enhanced'), selfId)
 
+  // The retired generic Inspect operation used to be the only route to a
+  // remembered Device display name. Recon V2 retires it without a
+  // replacement observation for that evidence in this slice: a Scan never
+  // records one, and no current operation does either.
   it('records no display name from a Scan, however much World Truth owns one', () => {
     expect(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.displayName).toBe('srv-01')
     expect(scanned().devices[0].inspect).toBeUndefined()
     expect(JSON.stringify(scanned())).not.toContain('srv-01')
-  })
-
-  it('records the represented display name once a legitimate Inspect observed it', () => {
-    expect(inspected().devices[0].inspect).toMatchObject({ deviceKind: 'server', displayName: 'srv-01' })
-  })
-
-  it('refreshes a remembered display name only through another legitimate observation', () => {
-    const renamed = { ...targets, network: { ...targets.network, hosts: targets.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, displayName: 'srv-01-b' } : host) } }
-    const remembered = inspected()
-    // The rename alone changes nothing the player already remembers.
-    expect(remembered.devices[0].inspect?.displayName).toBe('srv-01')
-    const reobserved = rememberInspect(remembered, inspectKnownTarget(renamed, remembered, '198.51.100.47', 'enhanced'), selfId)
-    expect(reobserved.devices[0].inspect?.displayName).toBe('srv-01-b')
-  })
-
-  it('keeps a remembered display name when a later observation finds none', () => {
-    const unnamed = { ...targets, network: { ...targets.network, hosts: targets.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, displayName: undefined } : host) } }
-    const remembered = inspected()
-    const reobserved = rememberInspect(remembered, inspectKnownTarget(unnamed, remembered, '198.51.100.47', 'enhanced'), selfId)
-    expect(reobserved.devices[0].inspect?.displayName).toBe('srv-01')
-  })
-
-  it('never invents a display name for a Device that has none', () => {
-    const unnamed = { ...targets, network: { ...targets.network, hosts: targets.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, displayName: undefined } : host) } }
-    const discovery = rememberScan(state.discovery, scanNetworkTarget(unnamed, '198.51.100.47'), selfId)
-    const remembered = rememberInspect(discovery, inspectKnownTarget(unnamed, discovery, '198.51.100.47', 'enhanced'), selfId)
-    expect(remembered.devices[0].inspect).toMatchObject({ deviceKind: 'server' })
-    expect(remembered.devices[0].inspect?.displayName).toBeUndefined()
   })
 })

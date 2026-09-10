@@ -1,9 +1,9 @@
 # Network, Reconnaissance, and Access — current truth
 
 Status: Accepted
-Scope: Scan, the NodeScan application, Inspect, Discovery, Service Analysis,
-Knowledge, Credential Access, DeviceAccess, Remote Session / RACK-OS, and
-Authentication History, as currently implemented on `main`.
+Scope: `ip`, Scan, the NodeScan application, Discovery, Endpoint (Service)
+Analysis, Knowledge, Credential Access, DeviceAccess, Remote Session / RACK-OS,
+and Authentication History, as currently implemented on `main`.
 
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
@@ -12,12 +12,77 @@ document wins. Durable rules behind this behavior belong to
 `docs/architecture/DEVICES_AND_ACCESS.md`.
 
 
+## Reconnaissance model (Recon V2)
+
+Reconnaissance is a compressed, real-network-causal, evidence-driven
+progression rather than a stored mandatory stage machine:
+
+```text
+ip
+→ scan network
+→ choose host
+→ scan host
+→ choose endpoint
+→ analyze endpoint
+→ available technique / attempt
+```
+
+`ip` reads SELF's own represented network configuration; it is not a remote
+observation. `ping <ipv4>` is optional reachability evidence and is never a
+prerequisite for Scan or Analysis. Network Scan (`scan <network>`) discovers
+Hosts on a Network; Host Scan (`scan <ipv4>`) discovers one Host's own open
+endpoints and, regardless of whether the Host is SELF, LAN, or remote, the
+Host's own owned represented Network relationship, plus the Network's other
+represented Hosts as shallow, unscanned peer observations (identity, address,
+and Network relationship only — never their own Services, implementation
+evidence, or classification; the player must Scan a peer individually to
+deepen it); Endpoint (Service) Analysis (`analyze <ipv4:port>`) deepens one
+observed Endpoint into remembered implementation/interface evidence. Knowledge
+obtained through one path does not imply every target must be processed
+through the same sequence.
+
+The former generic Recon `INSPECT` operation is retired. There is no ordinary
+ongoing Recon path from Scan into ordinary generic Device identity, Firmware,
+compute class, or into an implementation/version-derived named Vulnerability;
+none of that is bundled into any current operation, and none of it is
+represented by this slice. Endpoint Analysis is the one operation that deepens
+an observed Endpoint, and it produces implementation/interface evidence only —
+never a named Vulnerability. A remembered implementation fingerprint is
+Discovery evidence, never automatically Knowledge.
+
+
+## `ip` and local network configuration
+
+`ip` reads current SELF `LocalNetwork` and Device World Truth directly and
+presents `ADDRESS`, `NETWORK` (CIDR) and `GATEWAY`; it creates no Discovery or
+Knowledge and requires no prior Ping or Scan. The local Device owns its
+address; a represented `LocalNetwork` owns its own `cidr` and `gateway`
+fields — the gateway address never implies a synthetic gateway Device. Where
+SELF's applicable local Network configuration cannot be resolved to exactly
+one represented Network, `ip` and CIDR-target resolution fail closed
+(`UNAVAILABLE` / target not accepted) rather than arbitrarily selecting one by
+ordering or a mutable display name.
+
+The initial local configuration is address `198.51.100.23` on Network
+`198.51.100.0/24`, gateway `198.51.100.1`.
+
+The freshly represented local CIDR (`198.51.100.0/24`) is accepted directly as
+a Network Scan target, resolved to the same stable `home-net` Network identity
+and the same canonical Network Scan operation that a Network name reaches —
+never a second scan path. `resolveLocalNetwork` (`src/core/game/networkTarget.ts`)
+resolves a player-visible Network name or CIDR only when it identifies exactly
+one represented Network; an ambiguous match fails closed rather than
+selecting arbitrarily, and CIDR resolution never leaks an unrelated hidden
+Network.
+
+
 ## NodeScan and Scan
 
 The graphical reconnaissance application is presented as NodeScan, first-party
-reconnaissance software shipped with NODE-OS. Its current direct Terminal commands are `ping <ipv4>`, `scan
-<ipv4|network-name>`, `inspect <ipv4|network-name>`, and `analyze
-<ipv4:port>`; no product namespace is required.
+reconnaissance software shipped with NODE-OS. Its current direct Terminal
+commands are `ip`, `ping <ipv4>`, `scan <ipv4|network-name|cidr>`, and
+`analyze <ipv4:port>`; no product namespace is required. The generic `inspect`
+verb is retired and is no longer a recognized command in either interface.
 
 NodeScan is the single player-facing home for network space. There is no
 separate Network application: the Networks the local Device legitimately
@@ -44,10 +109,10 @@ Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, p
 NodeScan is presented as KNOWN SPACE plus two routes off it. KNOWN SPACE
 presents the shape of the player's network space; a target card owns selected
 Target context; a managed Network's administration detail is the other route.
-SCAN observes Services, ANALYZE may start independent analyses for the
+SCAN observes Services, ANALYZE may start independent Endpoint Analyses for the
 observed Services, the target's ACTIONS surface executes concrete owned
-Techniques, and CONNECT operates established Access. Manual INSPECT is
-deliberately not one of those stages; it is optional depth (see below). Known
+Techniques, and CONNECT operates established Access. Endpoint Analysis is
+deliberately not a mandatory stage; it is optional depth (see below). Known
 Space and the target card are built from a view model derived from remembered
 Discovery, Knowledge, the player's own Processes, the player's own installed
 software, DeviceAccess and RemoteSession. World truth is deliberately outside
@@ -95,11 +160,13 @@ only once reconnaissance actually remembers a Network: a managed root is
 authority, not memory.
 
 A target's identity on the card and in the tree is exactly what the player has
-legitimately learned. A remembered Device is presented as an UNKNOWN DEVICE at
-its observed address until an Inspect actually observed the represented display
-name; from then on the remembered name leads and the address supports it.
-Scan and PING never observe a name, and no presentation code resolves one from
-World Truth.
+legitimately learned. A remembered Device is presented at its observed
+address, labeled UNKNOWN DEVICE unless NodeScan 1.2's own remembered
+classification (SERVER / WORKSTATION / MOBILE DEVICE — see "Generic Inspect
+(retired)" above) applies instead; no current Recon V2 operation observes a
+represented display name, so a remote Device stays an address regardless of
+classification. Scan and PING never observe a name, and no presentation code
+resolves one from World Truth.
 
 The target card retains concise reconnaissance, running-work, established
 Access, package-submission and connection states, but no longer converts known
@@ -123,7 +190,7 @@ Credential Access Module, by contrast, is a Vulnerability-specific technique
 scoped to exactly `AUTH-017`; its route still names that Vulnerability.
 
 A KeyProbe entry with a currently formed route states the known `TARGET`
-implementation Inspect legitimately remembers (e.g. `GateSSH 1.3.3`) and an
+implementation Endpoint Analysis legitimately remembers (e.g. `GateSSH 1.3.3`) and an
 `EST. SUCCESS` percentage: the player's own best estimate, reusing the exact
 canonical `keyProbeSuccessChance` profile/chance calculation from Credential
 Access — looked up by that same Service implementation identity — over only
@@ -133,7 +200,7 @@ that same remembered implementation, that protection — never Device Model
 ceiling compute, never a hidden AuthGuard installation the player has not
 observed, and never a silently refreshed hidden Service implementation. The
 specialized module entry instead states the known `SURFACE` (`AUTH-017`) and,
-where Inspect legitimately remembers one, the same `TARGET` implementation
+where Endpoint Analysis legitimately remembers one, the same `TARGET` implementation
 field; being deterministic rather than probabilistic, it never earns a
 percentage of its own. It states `COMPATIBILITY` as `MATCHED` (the currently
 remembered implementation still names the module's one authored surface,
@@ -150,7 +217,7 @@ Because KeyProbe's route needs only a legitimately remembered Service
 implementation, it forms and estimates independently of whether the player
 has ever earned Vulnerability Knowledge on that Service at all: a target
 whose only Player Information is a remembered GateSSH fingerprint (from
-Enhanced Inspect) still offers a real KeyProbe attempt with a real estimate,
+Endpoint Analysis) still offers a real KeyProbe attempt with a real estimate,
 with no `discoveredVulnerabilities` entry required or consulted.
 
 Credential Access's own most recent completed attempt against a route is
@@ -214,10 +281,10 @@ transition, and a Device newly observed in Known Space may likewise arrive
 rather than simply appear; neither creates canonical state, and both respect
 reduced motion.
 
-Manual Inspect is deliberately absent from that progression: it is optional
+Endpoint Analysis is deliberately absent from that progression: it is optional
 depth under TECHNICAL INTELLIGENCE, not a step the ordinary SCAN → HACK →
-CONNECT line passes through, so installing NodeScan 1.1 Experimental never
-displaces a route the player has learned or a relationship they already hold.
+CONNECT line passes through, so it never displaces a route the player has
+learned or a relationship they already hold.
 `service_unavailable` analysis remains inconclusive and retryable. An absence
 of Knowledge immediately after Scan is not a negative conclusion. A live
 Remote Session remains the highest-priority truth, and represented running work
@@ -236,7 +303,7 @@ is formed, the Knowledge that produced it is untouched, and the started
 module attempt still carries its `toolId`, `moduleId` and `vulnerabilityId`.
 
 KeyProbe instead forms from the player's own legitimately remembered Service
-implementation identity alone — Discovery's Enhanced Inspect fingerprint,
+implementation identity alone — Discovery's Endpoint Analysis fingerprint,
 never Knowledge, never a named Vulnerability, and never current target truth.
 KeyProbe 1.0's authored attack profiles are keyed by that same concrete
 GateSSH implementation identity. A started KeyProbe attempt carries its
@@ -275,12 +342,23 @@ with no update-specific rule (owned by `docs/current/DEVICE_SYSTEM.md` and
 `docs/current/VEYRA_OS.md`). Resolution validates the current causal surface —
 KeyProbe's remembered implementation identity against the Service's current
 one, or the module's required Vulnerability against `vulnerabilitiesForService`
-— before KeyProbe consumes exactly one random decision. AuthGuard does not
-remove `AUTH-031`; Service Analysis still discovers it. Enhanced Inspect may
-remember AuthGuard, the protected GateSSH release, and supported or
-unsupported compatibility. NodeScan presents the product as AuthGuard from
-only that historical Discovery, which a later release change does not
-silently refresh.
+— before KeyProbe consumes exactly one random decision. `AUTH-031` remains a
+release-owned fact `vulnerabilitiesForService` derives from GateSSH 1.3.3, but
+under Recon V2 no ordinary Recon operation writes it into
+`knowledge.discoveredVulnerabilities`: Endpoint Analysis remembers
+implementation/interface evidence only, never a named Vulnerability. It is
+acceptable, and not a gap to route around, that the fresh current game has no
+ordinary Recon path that currently earns `AUTH-031` (or `AUTH-017` /
+`UPD-001`) Knowledge; a future represented artifact-interpretation mechanic is
+the accepted, not-yet-implemented, future owner of that gap (`docs/FUTURE.md`).
+AuthGuard's own protection mitigation at Credential Access resolution is real
+current World Truth, read directly and independently of Discovery — a hidden
+or unobserved AuthGuard installation still blunts a reached KeyProbe attempt.
+Presenting that protection back to the player as remembered AuthGuard
+intelligence (the `EST. SUCCESS` mitigation, the AuthGuard software-list
+entry) additionally requires a legitimate Discovery observation of it; no
+current operation produces that observation, so AuthGuard is never currently
+presented, even though its protection still applies at resolution.
 
 The canonical resolver selects the actual local source —
 preferring an integrated Flipper build when it supports the technique and
@@ -297,23 +375,22 @@ Known Space's own tree (the same technique that tree already uses for
 Network → Device, generalized one level deeper) rather than another stack of
 cards. The Network row states the remembered Network name (or that
 membership was not observed, exactly as Known Space's own `ELSEWHERE`
-grouping states it); the Device row states the target's identity exactly as
-the rest of the card does — its observed display name where Inspect
-legitimately remembered one, its address otherwise; each remembered Service
-row states its name, port and protocol, with a further row for its
-remembered software identity only where Scan or Inspect actually observed
-one. An unscanned target states that Services were not observed rather than
-presenting an empty result, and this view fabricates no Service or software
-identity beyond what TECHNICAL INTELLIGENCE already carries: every fact it
-draws is the same `Target` projection, read a second time for compact
-legibility.
+grouping states it); the Device row states the target's identity — currently
+always the address, since no current operation observes a represented display
+name; each remembered Service row states its name, port and protocol, with a
+further row for its remembered software identity only where Endpoint Analysis
+actually observed one. An unscanned target states that Services were not
+observed rather than presenting an empty result, and this view fabricates no
+Service or software identity beyond what TECHNICAL INTELLIGENCE already
+carries: every fact it draws is the same `Target` projection, read a second
+time for compact legibility.
 
 Every status mark this view draws is deliberately weak, because
-`servicesObserved` proves only that a past Scan or Inspect found the Device
+`servicesObserved` proves only that a past Host Scan found the Device
 and its Services — a historical fact, never a live guarantee. The Device row
 therefore states `OBSERVED` in a neutral tone once Services have ever been
 legitimately observed, `NO RESPONSE` where the current visit's own most
-recent Scan or Inspect against this exact target failed to reach it, and no
+recent Scan against this exact target failed to reach it, and no
 mark at all where neither applies; that mark is derived from the concrete
 request's own outcome, never from hidden current connectivity truth, and it
 is not remembered — leaving and reopening the target starts the read over.
@@ -330,18 +407,16 @@ the shared animated live indicator, because it is the one mark here that
 describes a genuinely running canonical Process; every other mark is a
 static fact. The former separate STATUS field under TECHNICAL
 INTELLIGENCE's OBSERVED facts is retired as redundant with the Device row's
-own mark; NAME, TYPE, FIRMWARE and COMPUTE remain there unchanged.
+own mark. The type/NAME/FIRMWARE/COMPUTE `observed` slot the Device row and
+TECHNICAL INTELLIGENCE both still carry in their data model is populated only
+by the retired generic Inspect operation, which has no current writer, so it
+currently stays absent for every target.
 
 TECHNICAL INTELLIGENCE is one disclosure on the target card carrying the
-copyable address, remembered Inspect evidence (including the observed display
-NAME where one was observed) and its capability note, the manual INSPECT
-action, the provenance of established Access, and the remembered Services with
-their endpoints, relevant observed software and per-Service Analyze action,
-and RackUpdate's package-submission lifecycle. A Service's SOFTWARE list leads
-with its remembered implementation fingerprint and may include remembered
-software materially affecting that exact implementation: enhanced Inspect's
-historical AuthGuard evidence therefore appears with the GateSSH Service it
-names, rather than in a Device-level security-software category. The ordinary
+copyable address, the provenance of established Access, and the remembered
+Services with their endpoints, remembered software and per-Service Analyze
+action, and RackUpdate's package-submission lifecycle. A Service's SOFTWARE
+list leads with its remembered implementation fingerprint. The ordinary
 Service card does not repeat the generic credential-access condition or expose
 canonical vulnerability IDs and weakness labels; where analysis has produced
 Knowledge, it gives only a restrained acknowledgement while ACTIONS continues
@@ -350,15 +425,14 @@ browses remembered information: it performs no observation and starts no
 gameplay. Unobserved depth is stated explicitly there and never rendered as an
 observed empty result.
 
-Manual INSPECT is offered inside that disclosure wherever the installed
-NodeScan release supplies Inspect, with concise contextual copy stating what
-Inspect adds over Scan rather than a tutorial. Its availability is announced on
-the collapsed disclosure itself (INSPECT AVAILABLE) while the target has no
-remembered Inspect evidence, so optional depth stays discoverable without
-occupying the target's primary decision.
+The generic Inspect action this disclosure previously offered is retired.
+There is no `INSPECT` button in NodeScan, no `inspect` Terminal command, and
+no `GameActions.inspectTarget` application operation, under any installed
+NodeScan release. Endpoint Analysis (ANALYZE, per Service) is the only
+ordinary Recon operation that deepens an observed Endpoint.
 
 RackUpdate's package-submission lifecycle is projected when remembered
-Enhanced Inspect evidence includes its package-submission interface and earned
+Endpoint Analysis evidence includes its package-submission interface and earned
 `UPD-001` Knowledge explains it. Its technical facts remain in TECHNICAL
 INTELLIGENCE, while Rollback is a separately named ACTION when its exact
 standalone provider is owned or the current installed Flipper build integrates
@@ -390,7 +464,7 @@ progress, and the narrow submission capability are all derived from the
 player's own Knowledge, installed software, Process, and `RackUpdateSubmissionAccess`
 state alone.
 
-At completion, Service Analysis Process history associates the result with a
+At completion, Endpoint Analysis Process history associates the result with a
 remembered implementation fingerprint only when that evidence matches the
 current Service implementation the Process actually resolves. Where a current
 remembered fingerprint exists, a completed result is current only when its
@@ -404,45 +478,80 @@ already owns result resolution, never by NodeScan. Completed analyses without
 an implementation association remain supported for the NodeScan 1.0 flow but
 do not suppress fresh analysis once a concrete fingerprint is remembered.
 
-Because there is no canonical "analyzed" state, a Service that has not
-produced Knowledge claims no analysis state at all. A completed no-weakness or
-service-unavailable analysis result is stated beside its repeatable Analyze
-action as disposable Process history and is never promoted into permanent
-memory.
+Endpoint Analysis never produces `discoveredVulnerabilities` Knowledge, so a
+Service's completed analysis state is entirely decoupled from Knowledge: a
+Service can be legitimately analyzed (`analysisOutcome: 'analysis_complete'`)
+with zero Knowledge to show for it, exactly like one whose analysis reported
+`service_unavailable`. Both outcomes are stated beside the Service's
+repeatable Analyze action as disposable Process history and are never
+promoted into permanent memory; a Service the player has not analyzed at all
+states no analysis outcome.
 
 Known Space's Network and Device expansion is progressive disclosure over
 remembered relationships, not a navigation hierarchy: there is still no Device
 page and no Service page, and a Service row on the tree carries no action of
 its own. The one openable Network route is a managed Network's own
 administration detail, which is management authority rather than
-reconnaissance. Network Inspect remains available through Terminal
-`inspect <network-name>`, and remembered Network Inspect evidence is
-unaffected.
+reconnaissance. The retired generic Inspect operation is gone from every
+interface: there is no `inspect <network-name>` (or any other) Terminal
+command.
 
 
-The four reconnaissance roles are distinct observations, not mandatory progression stages or stored flags:
+The canonical reconnaissance operations are distinct observations, not mandatory progression stages or stored flags:
 
 ```text
+ip
+→ read current SELF address, Network CIDR, and gateway; no observation
+
 PING address
 → observe response; retain only identity and address
 
+SCAN known Network / CIDR
+→ observe currently responding represented member Devices (Network Scan)
+
 SCAN known Device
-→ observe currently open represented Services
+→ observe currently open represented Services (Host Scan); also observe the
+  Host's own owned represented Network relationship (stable identity and
+  routing identity, never the Network's own mutable display name) and the
+  Network's other represented Hosts as shallow peers
 
 SCAN SELF
-→ may also observe SELF's represented Network relationship
+→ Host Scan follows exactly the same rule as any other Host — no SELF-only
+  Recon path
 
-SCAN known Network
-→ observe currently responding represented member Devices
-
-INSPECT known target
-→ observe deeper represented target evidence within release capability
-
-ANALYZE known Service
-→ canonical elapsed Service Analysis Process; may earn weakness Knowledge
+ANALYZE known Endpoint
+→ canonical elapsed Endpoint (Service) Analysis Process; remembers
+  implementation/interface evidence, never Vulnerability Knowledge
 ```
 
-A foreign Device Scan does not reveal Network membership. NodeScan 1.0 Standard supplies PING, SCAN, and Service Analysis but no target Inspect. NodeScan 1.1 Experimental remains represented and supplies the same roles plus Enhanced Inspect. NodeScan 1.2 Standard (`nodescan-1.2-standard`, canonical build `build-nodescan-1.2-standard-v0`) preserves those capabilities and adds Network Refresh, Live Topology Monitoring and Integrated Intelligence. Network Refresh invokes the canonical Scan for one remembered Network and, after that observation settles, invokes canonical Inspect independently for each Device Player Information then associates with that Network. It never runs Analyze or starts Service Analysis work. NodeScan 1.0 and 1.1 may repeat the Network Scan through the same interaction, but do not receive the 1.2-authored automatic Inspect composition. All release behavior is selected through concrete release identity capability logic, never presentation version parsing.
+A Host Scan never deep-scans a peer it incidentally reveals: the peer is
+remembered only as a shallow UNKNOWN DEVICE observation (identity, address,
+and Network relationship), and the player must Scan it individually to learn
+its own Endpoint surface. A Host Scan's Network relation is resolved from
+represented membership alone (`resolveDeviceNetwork`,
+`src/core/game/networkTarget.ts`) and fails closed — revealing no relation at
+all — where represented membership cannot be resolved to exactly one Network,
+rather than arbitrarily selecting one. Where only a Host-Scan-owned relation
+is remembered, Known Space and the target card present the Network under a
+neutral `UNKNOWN NETWORK <cidr>` identity (or bare `UNKNOWN NETWORK` where no
+CIDR is represented either); only a separate, genuine Network Scan — by name
+or by CIDR — earns the Network's own mutable display name, and once earned it
+is never overwritten or erased by a later Host-Scan-only observation of that
+same Network.
+
+Every installed NodeScan release — 1.0 Standard, 1.1 Experimental, and 1.2
+Standard (`nodescan-1.2-standard`, canonical build
+`build-nodescan-1.2-standard-v0`) — supplies the same core `ip`, PING, Network
+Scan, Host Scan, and Endpoint Analysis operations; no release restores the
+retired generic Inspect path. NodeScan 1.2 Standard additionally supplies
+Network Refresh, Live Topology Monitoring, Integrated Intelligence, and Device
+classification (see "Generic Inspect (retired)" below). Network Refresh
+repeats the canonical Network Scan for one remembered Network; it composes no
+further observation of its own — in particular it never Analyzes or deepens
+remembered member Devices — so a Network Refresh only ever refreshes evidence
+Network Scan itself owns, classification included where 1.2 is installed at
+refresh time. All release behavior is selected through concrete release
+identity capability logic, never presentation version parsing.
 
 The opening Scan sequence is therefore:
 
@@ -478,7 +587,7 @@ does not itself perform a new observation.
 
 ## Target discovery and explicit target actions
 
-NodeScan keeps target SCAN, explicit INSPECT, and per-Service ANALYZE as separate player decisions over the same canonical operations exposed by Terminal. Known-Space SCAN AGAIN composes only Scan observations. A target Network REFRESH likewise introduces no canonical state of its own; NodeScan 1.2 uniquely follows its canonical Network Scan with canonical Inspect of legitimately remembered members.
+NodeScan keeps target SCAN and per-Service ANALYZE (Endpoint Analysis) as separate player decisions over the same canonical operations exposed by Terminal. Known-Space SCAN AGAIN composes only Scan observations. A target Network REFRESH likewise introduces no canonical state of its own and repeats only the canonical Network Scan; it never composes a further observation such as Endpoint Analysis of legitimately remembered members.
 
 `findTargets` (SCAN AGAIN on Known Space) is offered only after at least one
 Network is remembered. It refreshes SELF's Network relationships, then observes
@@ -489,107 +598,95 @@ player must first Scan intrinsic SELF to remember its Network relationship. With
 `software_unavailable`; where SELF is offline it reports `no_response` and
 remembers nothing.
 
-Target SCAN invokes only the canonical Device Scan and refreshes the currently exposed Service snapshot. It never invokes Inspect or starts Service Analysis. NodeScan 1.1 Experimental and 1.2 Standard present INSPECT as an explicit target action; NodeScan 1.0 Standard does not. Each Service retains its own explicit ANALYZE action. The guided ANALYZE action may also start one independent canonical Service Analysis Process for each observed Service still requiring investigation; normal per-Process RAM admission applies and partial admission is reported.
+Target SCAN invokes only the canonical Device (Host) Scan and refreshes the currently exposed Service snapshot. It never invokes Endpoint Analysis. Every installed NodeScan release presents the same target SCAN; the retired generic Inspect target action is present under no release. Each Service retains its own explicit ANALYZE action. The guided ANALYZE action may also start one independent canonical Endpoint Analysis Process for each observed Service still requiring investigation; normal per-Process RAM admission applies and partial admission is reported.
 
 ## Live topology monitoring and integrated intelligence
 
-The target Network row includes a compact contextual member summary derived exclusively from remembered `networkDeviceRelations`. It excludes the selected target, which is represented once in the detailed topology below. A remembered relationship for the local Device appears as the player-relative identity `SELF`, without requiring Inspect or exposing its canonical display name; other remembered Device display names appear only after legitimate Inspect observation. It does not enumerate current World membership. Releases without legitimate live authority leave member status unstated.
+The target Network row includes a compact contextual member summary derived exclusively from remembered `networkDeviceRelations`. It excludes the selected target, which is represented once in the detailed topology below. A remembered relationship for the local Device appears as the player-relative identity `SELF`, without exposing its canonical display name; other remembered Devices appear by address, since no current operation observes a display name. It does not enumerate current World membership. Releases without legitimate live authority leave member status unstated.
 
 NodeScan 1.2's topology status is an ephemeral projection, never Discovery or Knowledge. Its represented monitoring capability may read only the current target Device operational state and the current open state of that Device's already-observed Services. Device status maps canonical `RUNNING` + `CONNECTED` to `ONLINE`, `SHUTTING_DOWN` to `SHUTTING DOWN`, `BOOTING` to `BOOTING`, `RECONNECTING` to `RECONNECTING`, and other unavailable combinations to `OFFLINE`. Service V1 status is only `ONLINE`, `OFFLINE`, or `CLOSED`, derived from Device usability and the Service's represented `open` field; there is no independent Service lifecycle, recovery phase, or timer.
 
 A currently usable `DeviceAccess` is a separate, narrower live-observation cause. It authorizes Device status and only the exact `viaServiceId` status while SELF and the target are network-usable and that Service remains open. The historical relationship remains when those conditions disappear, but its telemetry authority disappears immediately and presentation falls back to neutral `OBSERVED` unless NodeScan 1.2 independently monitors the target. Access through SSH never exposes an unrelated Service. DEAUTH still authors only Network connectivity interruption; Device-owned lifecycle changes are what the live projection subsequently reports.
 
-Integrated Intelligence makes a remembered software row interactive only when NodeScan 1.2 is installed and existing evidence supplies details. GateSSH weakness explanations are release-aware: they come only from target- and Service-scoped completed analysis evidence associated with the legitimately observed implementation. Historical AUTH-017 analysis of GateSSH 1.3.2 therefore does not become a current vulnerability when the same Service is later observed as GateSSH 1.3.3; the concrete authored 1.3.3 relationship may instead identify AUTH-017 as patched history, while AUTH-031 remains independently analysis-gated. A completed successful Credential Access Process may enrich only its exact Service, weakness, release evidence and concrete provider; a probabilistic failure proves neither incompatibility nor ineffectiveness. AuthGuard compatibility and its supported SSH protection role remain AuthGuard-owned intelligence, gated by remembered Enhanced Inspect evidence and a relevant represented interaction, and are never folded into GateSSH. There is no separate `KNOWN INFO` affordance: the concrete software row toggles the detail when information exists, while a row without details does not signal interactivity. Known Information remains a read-only projection of legitimate Player Knowledge and represented historical evidence: opening the local disclosure performs no observation, starts no Analyze, and mutates no state. Internal weakness IDs are not its player-facing title. SCAN / INSPECT still establish observations and ANALYZE remains the action that earns weakness Knowledge.
+Integrated Intelligence makes a remembered software row interactive only when NodeScan 1.2 is installed and existing evidence supplies details. GateSSH weakness explanations are release-aware and are sourced entirely from existing `knowledge.discoveredVulnerabilities` for that exact Service, scoped to the legitimately observed implementation the row names — never from Endpoint Analysis itself, which creates no Knowledge. Historical `AUTH-017` Knowledge scoped to GateSSH 1.3.2 therefore does not read as a current vulnerability when the same Service is later observed as GateSSH 1.3.3, and `AUTH-031` remains an entirely independent Knowledge entry. A completed successful Credential Access Process may enrich only its exact Service, weakness, release evidence and concrete provider; a probabilistic failure proves neither incompatibility nor ineffectiveness. AuthGuard compatibility and its supported SSH protection role are AuthGuard-owned intelligence, gated by a remembered Discovery observation of it; no current operation produces that observation, so this row is never currently populated even though AuthGuard's own protection still applies at Credential Access resolution (see the Credential Access section above). There is no separate `KNOWN INFO` affordance: the concrete software row toggles the detail when information exists, while a row without details does not signal interactivity. Known Information remains a read-only projection of legitimate Player Knowledge and represented historical evidence: opening the local disclosure performs no observation, starts no Analyze, and mutates no state. Internal weakness IDs are not its player-facing title. SCAN establishes observations; ANALYZE remains the action that deepens an Endpoint, but genuine weakness Knowledge is earned only by the separately owned Knowledge mechanic, never by Analyze itself.
 
-## Inspect
+## Generic Inspect (retired)
 
-Inspect currently observes one selected target's own represented properties.
+The former generic Recon `INSPECT` operation — a single observation that could
+report Device identity, Firmware, compute class, LocalNetwork relationships,
+and Service implementation/interface fingerprints all at once, gated by
+installed NodeScan release tier — is retired. There is no `inspect` Terminal
+command, no NodeScan INSPECT action or button, no `GameActions.inspectTarget`
+application operation, and no `nodeScanSupportsInspect` release-capability
+check anywhere in the current implementation. `src/core/game/inspect.ts` and
+`src/app/localInspectOperation.ts` no longer exist.
 
-Current Device Inspect may report:
+Device-level evidence that operation used to remember — a represented Device
+display name, `deviceKind`, Firmware fingerprint, and derived `computeClass`
+— has no current successor operation, with one narrow exception: NodeScan 1.2
+Standard's own passive Device **classification** capability
+(`nodeScanSupportsDeviceClassification`, `src/core/game/software.ts`), which
+is not a restoration of Inspect. It is attached to an ordinary legitimate
+Scan or Refresh observation rather than a separate operation, button, or
+Terminal command, and it observes strictly less than Inspect did: only which
+of the smallest currently represented `DeviceType` categories
+(`src/core/game/deviceClassification.ts`) a Host maps to — `SERVER`,
+`WORKSTATION` (World Truth `NODE`), or `MOBILE DEVICE` (World Truth
+`PHONE`) — never a display name, Firmware, compute class, or AuthGuard
+evidence. Classification is a distinct information class from identity: it
+states what *kind* of Device this is, never its concrete name (a
+classification of `SERVER` never implies, and is never accompanied by, a
+concrete identity like `srv-02`). A Host a Scan or Refresh only shallowly
+touches — a Host-Scan-revealed peer, or a Device with no represented
+`DeviceType` mapping — earns no classification and presents as `UNKNOWN
+DEVICE`, the fallback below NodeScan 1.2 and wherever evidence does not
+support one. Classification is ordinary Discovery evidence, not a live
+projection: only a Scan or Refresh actually performed while NodeScan 1.2 is
+installed writes or refreshes it; installing 1.2 alone never retroactively
+classifies an already-remembered Device; downgrading or removing 1.2 never
+erases an already-remembered classification; and a hidden World Truth change
+never silently refreshes it — only another legitimate 1.2 observation may.
 
-- address
-- scope
-- online state
-- SELF hardware where owned by the local Device
-- represented server identity where present
-- the target's represented Device display name, where the Device has one
+Beyond classification, the `DiscoveredDeviceSnapshot.inspect` shape
+(`displayName`, `deviceKind`, `networkStatus`, `enhanced.firmware`,
+`enhanced.computeClass`, `enhanced.authGuard`) remains part of the Discovery
+data model, since Credential Access's AuthGuard-aware estimate math still
+reads `enhanced.authGuard` when present, but nothing currently writes it: a
+remembered Device's display name, Firmware, compute class, and AuthGuard
+protection remain unobserved, and AuthGuard is never currently presented as
+remembered intelligence even though its protection still genuinely applies at
+Credential Access resolution (`docs/current/NETWORK_ACCESS.md` Credential
+Access section). This is an accepted, current gap in this slice's information
+depth — not a defect to be worked around by inventing a new observation route
+for it, and not one classification is intended to close.
 
-Current Device Inspect does not enumerate services. Enhanced Device Inspect also observes the target Device’s represented LocalNetwork relationships, remembering only the inspected Device relationship and not enumerating other members.
-
-Current LocalNetwork Inspect reports the represented network's own information,
-including whether canonical membership connects SELF, without enumerating
-members.
-
-Inspect is exposed directly as `inspect <ipv4|network-name>` and as an explicit
-action under TECHNICAL INTELLIGENCE on remembered Device targets in NodeScan.
-Both interfaces use the same synchronous application operation.
-
-Device display identity is observation, not automatic World Truth exposure.
-World Truth owns `NetworkHost.displayName`; a non-SELF Inspect that actually
-reached the target observes it and merges it into that Device's remembered
-Discovery `inspect` snapshot (`DiscoveredDeviceSnapshot.inspect.displayName`),
-alongside `networkStatus` and `deviceKind`, under the same re-observation and
-stale-selector rules. It follows the ordinary Discovery boundary: a later
-legitimate Inspect refreshes it, an Inspect that observed no name never deletes
-one already remembered, no name is invented for a Device that has none, and a
-rename in World Truth the player never observed changes nothing. Scan and PING
-observe no name at all, which is why a Scanned-but-uninspected target is
-presented as an UNKNOWN DEVICE at its address. This is a
-capability of Inspect itself rather than of Enhanced depth, though only a
-release that supplies Inspect can reach it at all.
-
-Inspect and Scan are separate architectural/domain operations. Player-facing
-Inspect is limited to SELF and targets justified by intrinsic or remembered
-Discovery information, so an arbitrary hidden address cannot be used as an
-existence oracle. Successful positive non-SELF evidence is merged into Discovery
-by stable entity ID. Re-inspection refreshes shallow evidence only when the
-remembered selector still resolves to that same stable identity; stale addresses
-and names do not retarget to hidden current World Truth. No-response and failure
-preserve earlier positive memory and do not create Knowledge. Opening an already
-remembered result in NodeScan performs no observation.
-
-The installed NodeScan release determines whether player-facing Inspect is
-available. NodeScan 1.0 Standard does not supply Inspect. NodeScan 1.1
-Experimental (`nodescan-1.1-experimental`) supplies Inspect with enhanced
-evidence for a represented non-SELF Device
-whose Firmware and hardware are concretely represented: a Firmware fingerprint
-(name and version) and a derived `computeClass` (`LOW` / `STANDARD` / `HIGH`)
-classifying the Device's represented CPU compute capacity. `computeClass` is a
-derived reconnaissance/observation classification stored as positive player
-information in Discovery. It is not raw World Truth, a universal hardware-tier
-entity, or merely ephemeral presentation state; raw compute capacity is never
-exposed to the player. Enhanced
-evidence is merged into the same remembered Discovery `inspect` snapshot as the
-shallow fields and follows the same re-observation and stale-selector rules;
-downgrading to NodeScan 1.0 — by removing the installed NodeScan 1.1
-Experimental override (see `docs/current/FILES_SOFTWARE.md`) — prevents later
-Inspect without erasing previously remembered enhanced evidence. A
-later legitimate enhanced Inspect may refresh that enhanced snapshot. Terminal
-and the graphical NodeScan application present this evidence through the same
-underlying `inspectTarget` application operation.
-
-Enhanced Inspect also fingerprints only the Services already present in that
-Device's Discovery snapshot. Each corresponding discovered Service stores a
-historical implementation name/version observation; SSH additionally stores
-the observed authentication configuration as `Credential`. These Service snapshots are separate from Device
-Firmware/compute evidence, survive failed Inspect attempts and loss of the
-current Inspect capability, and refresh only on another successful Enhanced
-Inspect. They do not discover Services or reveal weaknesses, exploit
-applicability, tools, or attack outcomes.
+The replacement for what generic Inspect did at the *Endpoint* level —
+implementation name/version, and narrow authentication/package-submission
+interface evidence — is Endpoint (Service) Analysis; see below.
 
 
 ## Discovery
 
-Discovery is canonical player memory of positive Scan and Inspect observations.
+Discovery is canonical player memory of positive Scan, PING, and Endpoint
+Analysis observations.
 
 Current Discovery includes remembered:
 
-- networks
-- Devices
+- networks — stable identity always; `cidr` and/or `name` once legitimately
+  earned (a Host Scan's incidental relation earns only `cidr`; only a genuine
+  Network Scan, by name or CIDR, earns `name`); `membersObserved`
+- Devices — including shallow peer observations a Host Scan's Network
+  expansion remembers (identity, address, and Network relationship only,
+  `servicesObserved: false`) until the player Scans that peer individually
 - network-to-Device relationships
 - service observations
-- shallow Inspect evidence for known Devices and LocalNetworks, including an
-  observed Device display name where Inspect observed one
+- per-Service Endpoint Analysis evidence (`DiscoveredServiceSnapshot.inspect`:
+  implementation name/version, and narrow `authentication` /
+  `interface` evidence) for known Devices, keyed by stable Service identity
+- NodeScan 1.2's own remembered Device classification
+  (`DiscoveredDeviceSnapshot.classification`), where a legitimate Scan or
+  Refresh performed while 1.2 was installed supplied one (see "Generic
+  Inspect (retired)" above)
 
 SELF is intrinsic player context and is not duplicated as a remembered
 Discovery Device entry.
@@ -607,12 +704,15 @@ Remembered service observations retain the endpoint actually observed rather
 than rebuilding it from a later Device address.
 
 
-## Service Analysis
+## Endpoint (Service) Analysis
 
-`analyze <ipv4:port>` and the corresponding graphical action invoke the same
-Service Analysis gameplay operation.
+`analyze <ipv4:port>` and the corresponding graphical ANALYZE action invoke
+the same canonical Endpoint Analysis gameplay operation. It is the one
+ordinary Recon operation that deepens an observed Endpoint past Network/Host
+Scan's surface facts, and it begins only from an Endpoint the player has
+legitimately remembered through prior Scan.
 
-Service Analysis creates a real Process rather than resolving immediately.
+Endpoint Analysis creates a real Process rather than resolving immediately.
 
 The Process:
 
@@ -622,13 +722,28 @@ The Process:
 - retains stable target Device and service identity
 - retains the originally selected endpoint for historical presentation
 
-Completion resolves exactly once against current World Truth.
+Completion resolves exactly once against current World Truth, validating the
+current canonical Device and Service. A successful completion (`status:
+'analysis_complete'`) remembers the endpoint's represented implementation
+name/version in Discovery, plus narrow `authentication` evidence (`Credential`,
+where the current Service carries a credential-access condition) and narrow
+`interface` evidence (`Package submission`, where the current Service is
+RackUpdate 1.0). An unavailable or stale endpoint produces only the Process's
+`service_unavailable` result.
 
-Successful analysis of the represented SSH weakness records positive
-vulnerability Knowledge.
-
-HTTP analysis currently records no negative Knowledge entry when no weakness is
-detected.
+Endpoint Analysis never creates, updates, or reads
+`knowledge.discoveredVulnerabilities`. It is not a vulnerability scanner: it
+remembers implementation/interface evidence only, and never a named
+Vulnerability, an attack-eligibility flag, or any other derived weakness
+conclusion. This holds regardless of which Service or implementation is
+analyzed — there is no case in current code where analyzing GateSSH 1.3.2,
+GateSSH 1.3.3, or RackUpdate 1.0 alone creates `AUTH-017`, `AUTH-031`, or
+`UPD-001` Knowledge. It is acceptable, and intentional, that the fresh current
+game therefore has no ordinary Recon path that earns any of that Knowledge; a
+future represented artifact-interpretation mechanic is the accepted, not-yet-
+implemented, future owner of that gap (see `docs/FUTURE.md`) and must not be
+approximated by inferring Knowledge from a fingerprint anywhere in Recon,
+route formation, or presentation.
 
 The Process runtime itself is owned by `docs/current/PROCESSES_ACTIVITY.md`.
 
@@ -658,7 +773,7 @@ The specialized Credential Access Module forms once the player has remembered:
 KeyProbe instead forms once the player has remembered:
 
 - the represented SSH service
-- its concrete implementation identity, from a legitimate Enhanced Inspect
+- its concrete implementation identity, from a legitimate Endpoint Analysis
   fingerprint — no Vulnerability Knowledge required or consulted
 
 and in either case SELF owns the concrete provider in question. The initial
@@ -677,7 +792,7 @@ uses the concrete context derived from the player's own legitimate information
 (Knowledge for the module, remembered implementation identity for KeyProbe)
 and selected owned provider. KeyProbe's attacked implementation identity is
 never accepted as caller-supplied data: Credential Access derives it itself,
-canonically, from this exact Service's own remembered Enhanced Inspect
+canonically, from this exact Service's own remembered Endpoint Analysis
 fingerprint in Discovery, so presentation can request KeyProbe against a
 Service but can never assert which implementation it attacks.
 
@@ -712,7 +827,7 @@ and Service availability are distinct; a running, connected Device does not
 make every Service open, and one unavailable Service does not make its Device
 offline. A Service is not automatically vulnerable or an offensive target.
 
-RackUpdate 1.0 is a distinct public interaction, observed by Enhanced Inspect as `INTERFACE: Package submission`. Analysis derives `UPD-001` ("Rollback protection not enforced") from RackUpdate's current release. Knowledge alone is informative rather than submission authority: exploiting it requires the exact standalone Rollback Module or a Flipper build integrating that module. Credential Access follows the same rule for its own module and `AUTH-017`; each module's role stays equally narrow. The distributable canonical Flipper build integrates no modules, so a fresh Device supports no `UPD-001` until the Rollback Module is acquired, but integrating it into Flipper is optional. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and Flipper integration is finite represented work owned by `docs/current/FILES_SOFTWARE.md`.
+RackUpdate 1.0 is a distinct public interaction, observed by Endpoint Analysis as `INTERFACE: Package submission`. `UPD-001` ("Rollback protection not enforced") is a release-owned fact `vulnerabilitiesForService` derives from RackUpdate's current release; Endpoint Analysis itself never creates or reads that Knowledge, so earning it currently requires the separately owned Knowledge mechanic, not Analysis. Knowledge alone is informative rather than submission authority: exploiting it requires the exact standalone Rollback Module or a Flipper build integrating that module. Credential Access follows the same rule for its own module and `AUTH-017`; each module's role stays equally narrow. The distributable canonical Flipper build integrates no modules, so a fresh Device supports no `UPD-001` until the Rollback Module is acquired, but integrating it into Flipper is optional. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and Flipper integration is finite represented work owned by `docs/current/FILES_SOFTWARE.md`.
 
 `AUTH-017` and `UPD-001` remain weakness identifiers owned by this document and by the service systems. The current artifacts are concrete providers of Credential Access and Rollback respectively, and compatible integration lets Flipper expose those same Techniques; the artifacts are not themselves weaknesses, Knowledge, or a universal category for Techniques. Possessing or integrating one discovers nothing, changes no remembered evidence, and creates no `discoveredVulnerabilities` entry. Reconnaissance stays entirely with NodeScan.
 
@@ -720,15 +835,18 @@ ATTACK against RackUpdate starts a real finite `rack_update_exploit` Process (se
 
 Only a Device holding that narrow capability may submit a compatible local GateSSH package. Submission is represented finite upload work (`GameState.rackUpdate.submission`), a distinct network runtime from `GameProcess` and from `FileTransfer` — it is not a filesystem Upload and requires neither `RemoteSession` nor `DeviceAccess`. It resolves the observed stable Device and Service identities and endpoint plus a stable local file ID, admits one active submission at a time, and its effective byte rate is derived through the same Device/LocalNetwork transfer-capacity model `docs/current/DEVICE_SYSTEM.md` and `docs/current/FILES_SOFTWARE.md` describe for `FileTransfer`. Admission requires both the target's managed GateSSH Service and its represented InstalledSoftware inventory; losing either while the submission runs interrupts it. Cancelling or losing the route (an offline endpoint, a changed RackUpdate Service, missing required GateSSH state, ambiguous or invalid transfer capacity) ends the submission with no part of the package applied; a terminal outcome (COMPLETED, CANCELLED, or INTERRUPTED) appends its own Network-owned `NetworkPackageSubmissionRecord` (`kind: 'package_submission'`, never `'file_transfer'`, since a RackUpdate submission is not a FileTransfer), reusing the same membership-resolution model and the exact record shape and terminal-result semantics `FileTransfer` evidence uses rather than a parallel model, and never once per advancement tick.
 
-Only when the upload actually completes does a valid represented GateSSH package become the target Device's one exact pending GateSSH activation, preserving product, release, build, and ordinary release metadata. Active GateSSH InstalledSoftware and the managed SSH Service remain unchanged and coherent; for `srv-02`, both therefore remain 1.3.3 and `AUTH-017` is not yet current World Truth. Completion clears the active upload and retains a separate player-interaction outcome so NodeScan can state `PACKAGE ACCEPTED` / `REBOOT REQUIRED` without reading hidden pending software. It does not refresh remembered Inspect evidence to the pending release. A target with pending GateSSH rejects another submission rather than replacing it. Cancellation, interruption, or failure creates no pending activation. The implemented real boot boundary consumes pending GateSSH coherently; for 1.3.2, `AUTH-017` then derives naturally from the changed Service World Truth while Discovery, Inspect evidence, and Knowledge remain untouched, and the now-stale `REBOOT REQUIRED` interaction outcome clears. The neutral connectivity interruption, Device recovery behavior, and `srv-02` reboot-on-disconnect cause that crosses that boundary are implemented and owned by `docs/current/DEVICE_SYSTEM.md`; DEAUTH, including its concrete provider and UI wiring, remains unimplemented.
+Only when the upload actually completes does a valid represented GateSSH package become the target Device's one exact pending GateSSH activation, preserving product, release, build, and ordinary release metadata. Active GateSSH InstalledSoftware and the managed SSH Service remain unchanged and coherent; for `srv-02`, both therefore remain 1.3.3 and `AUTH-017` is not yet current World Truth. Completion clears the active upload and retains a separate player-interaction outcome so NodeScan can state `PACKAGE ACCEPTED` / `REBOOT REQUIRED` without reading hidden pending software. It does not refresh remembered Endpoint Analysis evidence to the pending release. A target with pending GateSSH rejects another submission rather than replacing it. Cancellation, interruption, or failure creates no pending activation. The implemented real boot boundary consumes pending GateSSH coherently; for 1.3.2, `AUTH-017` then derives naturally from the changed Service World Truth while Discovery, remembered Endpoint Analysis evidence, and Knowledge remain untouched, and the now-stale `REBOOT REQUIRED` interaction outcome clears. The neutral connectivity interruption, Device recovery behavior, and `srv-02` reboot-on-disconnect cause that crosses that boundary are implemented and owned by `docs/current/DEVICE_SYSTEM.md`; DEAUTH, including its concrete provider and UI wiring, remains unimplemented.
 
 ## Reaching the represented personal phone
 
 The represented VEYRA phone (`docs/current/DEVICE_SYSTEM.md`) is reached through
 exactly the ordinary access loop above and nothing else. It is not a member of
-SELF's temporary `home-net`, so Network Scan does not reveal it. Directly
-scanning its communicated address discovers it as a remote Device and observes
-its one open SSH Service; Service
+SELF's temporary `home-net`, so a Network Scan of `home-net` does not reveal
+it. Directly scanning its communicated address discovers it as a remote
+Device and observes its one open SSH Service — and, like any Host Scan,
+incidentally reveals its own represented foreign Network relationship and
+that Network's other represented Hosts as shallow peers, never their Services
+or identity; Service
 Analysis of that Service records the same `AUTH-017` Knowledge, because its
 implementation is the same represented GateSSH 1.3.2 release; the same standalone or Flipper-integrated
 Credential Access Module forms the same way in; the attempt creates the same
@@ -1028,8 +1146,8 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   the brief settle transition on completion and a Device's arrival in Known
   Space are presentation over already-produced canonical state. None of them
   delays, gates, or is a precondition for the canonical operation it presents;
-  Scan, Ping, Inspect and Known-Space sweep remain issued immediately, with no
-  presentation timer in front of them.
+  Scan, Ping, Endpoint Analysis and Known-Space sweep remain issued
+  immediately, with no presentation timer in front of them.
 - A way in is a statement about the player's own legitimate information and
   installed software, never a prediction: Knowledge for the specialized
   module, a remembered implementation identity for KeyProbe. Removing the
@@ -1041,8 +1159,9 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   implementation; forming or estimating a KeyProbe attempt never reads
   `discoveredVulnerabilities`, and a future GateSSH release needs no invented
   Vulnerability to become a valid KeyProbe target.
-- NodeScan target Scan, Inspect, and Analyze remain separate explicit operations.
-  None relaxes the admission or information boundary of another.
+- NodeScan target Scan and Analyze (Endpoint Analysis) remain separate explicit
+  operations. Neither relaxes the admission or information boundary of the
+  other, and there is no generic Inspect operation between them.
 - `RackUpdateSubmissionAccess` is not `DeviceAccess`. It is a narrower grant
   scoped to exactly one RackUpdate Service's own package-submission interface,
   never a privilege, filesystem, credential, or session authority.
@@ -1054,17 +1173,22 @@ owned by `docs/current/DEVICE_SYSTEM.md`.
   detail. Do not conflate the two or derive Network management authority from
   NodeScan Discovery. NodeScan presenting both is a product composition; the
   two projections stay separately owned.
-- A Device display name is remembered Player Information observed by Inspect,
-  never a value presentation may resolve from World Truth. A target with no
-  such evidence is an UNKNOWN DEVICE at its observed address.
+- A Device display name would be remembered Player Information, never a value
+  presentation may resolve from World Truth. No current operation observes
+  one, so every target's identity stays its observed address regardless of
+  classification. Absent a legitimate NodeScan 1.2 classification observation,
+  a target is presented as an UNKNOWN DEVICE.
 - Known Space expansion is presentation state. Only the Network level
   expands; a Device is a leaf that opens its target card directly rather than
   a further expansion of the tree. Expanding a Network, or opening the
   managed-Network administration route, observes nothing and writes nothing
   to Discovery.
-- Manual Inspect is optional technical depth, not a target stage. A NodeScan
-  release that supplies Inspect must never insert a step into the target's
-  primary decision.
+- Endpoint Analysis is optional technical depth, not a target stage; it must
+  never insert a step into the target's primary decision. The generic Recon
+  `INSPECT` operation is retired: it must never be reintroduced as a Terminal
+  command, a NodeScan action, or a `GameActions` operation, and it must never
+  reappear as a hidden composition inside Network Refresh or any other
+  operation.
 - The target's high-level status area is reserved for truth that genuinely
   describes the whole target (a live stage such as ANALYZING, ATTACKING, or a
   granted Access relationship). A Service- or submission-specific outcome —

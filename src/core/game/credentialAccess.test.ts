@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
-import { rememberInspect, rememberScan } from './discovery'
+import { rememberScan } from './discovery'
 import { createInitialGameState as createSeededGameState } from './initialState'
 
 /**
@@ -18,7 +18,6 @@ function createInitialGameState(): GameState {
   const state = createSeededGameState()
   return { ...state, bookstoreSalesCadence: { records: state.bookstoreSalesCadence.records.map((record) => ({ ...record, remainingUntilOpportunityMs: 10_000_000 })) } }
 }
-import { inspectKnownTarget } from './inspect'
 import { cancelLocalProcess, clearCompletedProcesses, deriveResourceUsage, removeCompletedProcess } from './processes'
 import { scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
@@ -30,21 +29,24 @@ import type { CredentialAccessProcess, GameState } from './types'
 
 const observation = { endpoint: '198.51.100.47:22', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017' } as const
 // KeyProbe's own attacked authentication surface is never supplied by the caller: Credential Access derives
-// it canonically from this exact Service's own remembered Enhanced Inspect fingerprint (see `prepared()`).
+// it canonically from this exact Service's own remembered Endpoint Analysis fingerprint (see `prepared()`).
 const keyProbeObservation = {
   endpoint: observation.endpoint, targetDeviceId: observation.targetDeviceId, serviceId: observation.serviceId,
   providerId: 'keyprobe',
 } as const
 
-/** Scanned, Enhanced-Inspected (so KeyProbe's own remembered GateSSH 1.3.2 surface is legitimately known), and Analyzed. */
+/** Scanned/analyzed endpoint evidence plus genuine pre-existing AUTH-017 Knowledge. */
 function prepared(): GameState {
   let state = createInitialGameState()
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
-  discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '198.51.100.47', 'enhanced'), state.player.localDevice.id)
+  const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
   const analysis = startServiceAnalysis({ ...state, discovery }, observation.targetDeviceId, observation.serviceId)
   if (analysis.status !== 'started') throw Error(analysis.status)
-  return advanceGameState(analysis.state, 20_000)
+  const analyzed = advanceGameState(analysis.state, 20_000)
+  return { ...analyzed, knowledge: { ...analyzed.knowledge, discoveredVulnerabilities: [{
+    vulnerabilityId: 'AUTH-017', targetDeviceId: observation.targetDeviceId,
+    serviceId: observation.serviceId, observedLabel: 'Weak authentication configuration',
+  }] } }
 }
 
 function start(state = prepared()) {
@@ -123,10 +125,10 @@ describe('Initial credential access', () => {
     expect(canFormCredentialAccessAttempt(standardOnly, observation)).toBe(false)
   })
 
-  it('never trusts a caller-supplied KeyProbe implementation identity: only this exact Service\'s own remembered Inspect fingerprint may form or start the attempt', () => {
+  it('never trusts a caller-supplied KeyProbe implementation identity: only this exact Service\'s own remembered Endpoint Analysis fingerprint may form or start the attempt', () => {
     const state = createInitialGameState()
     const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    // Scanned, but never Enhanced-Inspected: no implementation is legitimately remembered for this Service yet.
+    // Scanned, but never Analyzed: no implementation is legitimately remembered for this Service yet.
     const scannedOnly = { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id) }
     expect(canFormCredentialAccessAttempt(scannedOnly, keyProbeObservation)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation(scannedOnly, keyProbeObservation).status).toBe('not_available')
@@ -138,12 +140,14 @@ describe('Initial credential access', () => {
     expect(canFormCredentialAccessAttempt(scannedOnly, spoofed)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation(scannedOnly, spoofed).status).toBe('not_available')
 
-    // Once the same Service is legitimately Enhanced-Inspected, KeyProbe forms from that remembered evidence
+    // Once the same Service is legitimately Analyzed, KeyProbe forms from that remembered evidence
     // alone — no Vulnerability Knowledge required — and the started Process snapshots exactly that identity.
-    const inspected = { ...scannedOnly, discovery: rememberInspect(scannedOnly.discovery, inspectKnownTarget(targets, scannedOnly.discovery, '198.51.100.47', 'enhanced'), state.player.localDevice.id) }
-    expect(inspected.knowledge.discoveredVulnerabilities).toEqual([])
-    expect(canFormCredentialAccessAttempt(inspected, keyProbeObservation)).toBe(true)
-    const started = startCredentialAccessAttemptFromObservation(inspected, keyProbeObservation)
+    const analysisStart = startServiceAnalysis(scannedOnly, observation.targetDeviceId, observation.serviceId)
+    if (analysisStart.status !== 'started') throw Error(analysisStart.status)
+    const analyzed = advanceGameState(analysisStart.state, 20_000)
+    expect(analyzed.knowledge.discoveredVulnerabilities).toEqual([])
+    expect(canFormCredentialAccessAttempt(analyzed, keyProbeObservation)).toBe(true)
+    const started = startCredentialAccessAttemptFromObservation(analyzed, keyProbeObservation)
     if (started.status !== 'started') throw Error(started.status)
     const process = started.state.process.processes.at(-1) as CredentialAccessProcess
     expect(process.serviceImplementation).toEqual({ productId: 'gate-ssh', releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: 'build-gate-ssh-1.3.2-v0' })

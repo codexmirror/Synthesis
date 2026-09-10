@@ -2071,7 +2071,7 @@ describe('Terminal', () => {
 
   it('runs ip', async () => {
     await command('ip')
-    expect(screen.getByText('Local address:')).toBeInTheDocument()
+    expect(screen.getByText('ADDRESS')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy target 198.51.100.23' })).toHaveTextContent('198.51.100.23')
   })
 
@@ -2088,9 +2088,9 @@ describe('Terminal', () => {
   it('clears terminal output', async () => {
     const { user, input } = await openTerminal()
     await user.type(input, 'ip{enter}')
-    expect(screen.getByText(/Local address:/)).toBeInTheDocument()
+    expect(screen.getByText('ADDRESS')).toBeInTheDocument()
     await user.type(input, 'clear{enter}')
-    expect(screen.queryByText(/Local address:/)).not.toBeInTheDocument()
+    expect(screen.queryByText('ADDRESS')).not.toBeInTheDocument()
   })
 
   it('keeps command focus, exposes the send hint, and navigates history', async () => {
@@ -2138,9 +2138,10 @@ describe('Terminal', () => {
     await user.type(input, 'scan 198.51.100.23{enter}')
     await user.type(input, 'scan home-net{enter}')
     input.blur()
-    const token = await screen.findByRole('button', {
-  name: 'Copy target 198.51.100.47',
-})
+    // SELF's own Scan output above already names this same address as home-net's other Member; the token under
+    // test here is the one `scan home-net` itself just printed.
+    const tokens = await screen.findAllByRole('button', { name: 'Copy target 198.51.100.47' })
+    const token = tokens[tokens.length - 1]
 
     expect(screen.getByText('Scanning home-net...')).not.toHaveAttribute('role', 'button')
     await user.click(token)

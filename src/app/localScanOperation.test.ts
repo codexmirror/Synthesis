@@ -35,6 +35,20 @@ describe('local Scan application operation', () => {
     }, '198.51.100.47'))
   })
 
+  it('accepts the fresh local CIDR and fails closed when that CIDR is ambiguous', async () => {
+    let state = createInitialGameState()
+    const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
+    const byCidr = await scanTarget('198.51.100.0/24')
+    expect(byCidr).toMatchObject({ status: 'network', networkId: 'network-local-001', networkName: 'home-net' })
+    expect(state.discovery.networks).toContainEqual(expect.objectContaining({ id: 'network-local-001', membersObserved: true }))
+
+    state = { ...state, world: { network: { ...state.world.network, localNetworks: [
+      ...state.world.network.localNetworks,
+      { ...state.world.network.localNetworks[0], id: 'network-ambiguous', name: 'other-net', cidr: '198.51.100.0/24', gateway: '198.51.100.254' },
+    ] } } }
+    expect(await scanTarget('198.51.100.0/24')).toEqual({ status: 'unknown_target', input: '198.51.100.0/24' })
+  })
+
   it('reads current canonical state for every request instead of capturing initial World', async () => {
     let state: GameState = createInitialGameState()
     state = { ...state, discovery: { networks: [{ id: 'network-local-001', name: 'home-net', membersObserved: false }], devices: [{ id: 'host-lan-001', address: '198.51.100.47', scope: 'lan', servicesObserved: false, services: [] }], networkDeviceRelations: [] } }

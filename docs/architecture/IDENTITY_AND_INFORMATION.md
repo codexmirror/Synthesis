@@ -111,20 +111,24 @@ Opening or navigating remembered data is not itself a new observation.
 The durable conceptual roles are:
 
 ```text
-SCAN
-explore outward / discover adjacent objects or relationships
+SCAN NETWORK
+discover Devices related to a represented Network
 
-INSPECT
-observe the current intrinsic state of a specific known object
+SCAN HOST
+observe the exposed endpoints of one Device
 
-ANALYZE
-perform deeper, potentially resource-consuming investigation
+ANALYZE ENDPOINT
+perform deeper, potentially resource-consuming investigation of one endpoint
 ```
 
 Exact observation depth belongs to the currently implemented mechanic and is
 documented in `docs/V0.md`.
 
-These verbs must not become a mandatory universal pipeline.
+PING is an optional reachability observation, not a prerequisite. The former
+generic Recon INSPECT role is retired; host identity, Firmware, compute and
+network-policy fingerprinting are not implicitly bundled into reconnaissance.
+
+These operations must not become a stored mandatory stage machine.
 
 Knowledge obtained through one path does not imply that every target must be
 processed through the same sequence.

@@ -10,11 +10,20 @@ import type { deriveResourceUsage } from '../../core/game/processes'
 
 type ResourceUsage = ReturnType<typeof deriveResourceUsage>
 
+export function localNetworkConfiguration(gameState: GameState): { network?: string; gateway?: string } {
+  const networks = gameState.world.network.localNetworks.filter(({ memberDeviceIds }) => memberDeviceIds.includes(gameState.player.localDevice.id))
+  return networks.length === 1 ? { network: networks[0].cidr, gateway: networks[0].gateway } : {}
+}
+
 export function dispatchNodeCommand(command: string, gameState: GameState, actions: GameActions, usage: ResourceUsage) {
   const parsedCommand = parseCommand(command)
 
   const dispatched = dispatchCommand(parsedCommand, {
-    localDevice: { ip: gameState.player.localDevice.network.ip, installedSoftware: gameState.player.localDevice.installedSoftware },
+    localDevice: {
+      ip: gameState.player.localDevice.network.ip,
+      ...localNetworkConfiguration(gameState),
+      installedSoftware: gameState.player.localDevice.installedSoftware,
+    },
     filesystem: {
       list: (path) => listDirectory(gameState.player.localDevice.filesystem, path),
       readText: (path) => readTextFile(gameState.player.localDevice.filesystem, path),
@@ -28,17 +37,14 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
     operations: {
       pingTarget: actions.pingTarget,
       scanTarget: actions.scanTarget,
-      inspectTarget: actions.inspectTarget,
       analyzeEndpoint: (endpoint) => {
-        const resolved = resolveServiceEndpoint(gameState, endpoint)
-        if (resolved === 'invalid') return { status: 'invalid_endpoint' }
-        if (!resolved) return { status: 'endpoint_not_found' }
-
-        const { state: _state, ...result } =
-          actions.startServiceAnalysis(
-            resolved.targetDeviceId,
-            resolved.serviceId,
-          )
+        const observedDevice = gameState.discovery.devices.find(({ services }) => services.some((service) => service.endpoint === endpoint))
+        const observedService = observedDevice?.services.find((service) => service.endpoint === endpoint)
+        if (!observedDevice || !observedService) {
+          const syntax = resolveServiceEndpoint(gameState, endpoint)
+          return { status: syntax === 'invalid' ? 'invalid_endpoint' : 'endpoint_not_found' }
+        }
+        const { state: _state, ...result } = actions.startServiceAnalysisFromObservation({ endpoint, targetDeviceId: observedDevice.id, serviceId: observedService.id })
 
         return result
       },
@@ -59,14 +65,8 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
         const service = device?.services.find(
           (candidate) => candidate.endpoint === endpoint,
         )
-        const known =
-          device && service
-            ? gameState.knowledge.discoveredVulnerabilities.find(
-                (candidate) =>
-                  candidate.targetDeviceId === device.id &&
-                  candidate.serviceId === service.id,
-              )
-            : undefined
+        const known = device && service ? gameState.knowledge.discoveredVulnerabilities.find((candidate) =>
+          candidate.targetDeviceId === device.id && candidate.serviceId === service.id) : undefined
 
         if (!device || !service || !known) {
           return { status: 'not_available' }

@@ -1,10 +1,12 @@
 import { formatByteProgress } from '../byteFormat'
-import { findInstalledNodeScan, nodeScanSupportsInspect, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from '../../core/game/software'
+import { findInstalledNodeScan, nodeScanSupportsDeviceClassification, nodeScanSupportsIntegratedIntelligence, nodeScanSupportsLiveTopology } from '../../core/game/software'
 import { isDeviceNetworkUsable } from '../../core/game/deviceOperationalState'
 import { FLIPPER_MODULE_NAME, FLIPPER_MODULE_TECHNIQUE, ROLLBACK_MODULE_1_0, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from '../../core/game/flipper'
 import type {
   CredentialAccessFailureReason,
   CredentialAccessProcess,
+  DeviceClassification,
+  DiscoveredNetworkSnapshot,
   GameState,
   GameProcess,
   LocalDeviceState,
@@ -37,8 +39,9 @@ import type { DeauthProcess } from '../../core/game/types'
  * `LiveTopologyTruth` input admits only operational state and Service openness,
  * and only while NodeScan monitoring or usable exact-Service access supplies
  * current observation authority. A remembered
- * Device's display name is here only because a legitimate Inspect stored it
- * in Discovery, never because presentation resolved it.
+ * Device's display name would only ever come from Discovery, never from
+ * presentation resolving it; no current operation writes one, so it stays
+ * absent.
  *
  * The one thing NodeScan renders that is *not* derived from this slice is a
  * managed Network's own canonical facts, which come from the separate
@@ -59,9 +62,10 @@ export interface NodeScanRelease {
    * version-number comparison. It stays true while a removal Process is still
    * running, because the override release remains installed until completion.
    */
-  readonly canInspect: boolean
   readonly canMonitorLiveTopology: boolean
   readonly canIntegrateIntelligence: boolean
+  /** Whether this release automatically classifies Devices it Scans or Refreshes (never Device identity). */
+  readonly canClassifyDevices: boolean
 }
 
 export function resolveNodeScanRelease(device: LocalDeviceState): NodeScanRelease | undefined {
@@ -71,10 +75,15 @@ export function resolveNodeScanRelease(device: LocalDeviceState): NodeScanReleas
     name: installation.name,
     version: installation.version,
     channel: installation.channel,
-    canInspect: nodeScanSupportsInspect(installation),
     canMonitorLiveTopology: nodeScanSupportsLiveTopology(installation),
     canIntegrateIntelligence: nodeScanSupportsIntegratedIntelligence(installation),
+    canClassifyDevices: nodeScanSupportsDeviceClassification(installation),
   }
+}
+
+/** A Network's presentable identity: its earned display name, or a neutral form over its routing identity. */
+function networkDisplayName(network: Pick<DiscoveredNetworkSnapshot, 'name' | 'cidr'>): string {
+  return network.name ?? (network.cidr ? `UNKNOWN NETWORK ${network.cidr}` : 'UNKNOWN NETWORK')
 }
 
 export interface KnownWeakness {
@@ -120,7 +129,7 @@ export interface TargetRoute {
   readonly toolName: string
   /** The concrete integrated Flipper module that supports this technique, where one is represented. */
   readonly moduleName?: string
-  /** Remembered implementation fingerprint, where a legitimate Inspect stored one. */
+  /** Remembered implementation fingerprint, where a legitimate Endpoint Analysis stored one. */
   readonly implementation?: string
 }
 
@@ -134,13 +143,13 @@ export interface KeyProbeRoute {
   readonly serviceId: string
   readonly serviceName: string
   readonly endpoint: string
-  /** The concrete implementation identity a legitimate Inspect observed, matched against an authored KeyProbe profile. */
+  /** The concrete implementation identity a legitimate Endpoint Analysis observed, matched against an authored KeyProbe profile. */
   readonly serviceImplementation: ServiceImplementationIdentity
   /** Remembered display fingerprint, e.g. "GateSSH 1.3.3". */
   readonly implementation: string
 }
 
-export type AnalysisOutcome = 'weaknesses_detected' | 'no_weakness_detected' | 'service_unavailable'
+export type AnalysisOutcome = 'analysis_complete' | 'service_unavailable'
 
 export interface TargetService {
   readonly id: string
@@ -260,11 +269,13 @@ export interface TargetSummary {
   readonly networkNames: readonly string[]
   readonly stage: TargetStage
   /**
-   * The Device's represented display identity, present only once a legitimate
-   * Inspect observed and remembered it. Until then a remote Device is an
-   * address, never its hidden canonical name.
+   * The Device's represented display identity. No current Recon V2 operation
+   * observes and remembers one, so a remote Device stays an address, never
+   * its hidden canonical name.
    */
   readonly displayName?: string
+  /** NodeScan 1.2's own remembered classification — never Device identity, and absent until a legitimate 1.2 observation wrote it. */
+  readonly classification?: DeviceClassification
   readonly servicesObserved: boolean
 }
 
@@ -413,7 +424,7 @@ function knowledgeFor(information: PlayerInformation, targetDeviceId: string, se
 function networkNamesOf(information: PlayerInformation, deviceId: string): readonly string[] {
   return information.discovery.networkDeviceRelations
     .filter((relation) => relation.deviceId === deviceId)
-    .flatMap((relation) => information.discovery.networks.filter((network) => network.id === relation.networkId).map(({ name }) => name))
+    .flatMap((relation) => information.discovery.networks.filter((network) => network.id === relation.networkId).map(networkDisplayName))
 }
 
 function describeImplementation(observed?: { implementation: { name: string; version: string }; authentication?: string; interface?: string }) {
@@ -430,9 +441,10 @@ function describeImplementation(observed?: { implementation: { name: string; ver
  * become the headline; the Activity Monitor remains its canonical home, and
  * per-Service investigation progress stays visible under technical depth.
  *
- * Inspect is deliberately not a stage. It is optional technical depth the
- * player chooses, not a step the ordinary SCAN → HACK → CONNECT line has to
- * pass through, so it never displaces the decision in front of them.
+ * Endpoint Analysis is deliberately not a stage. It is optional technical
+ * depth the player chooses, not a step the ordinary SCAN → HACK → CONNECT
+ * line has to pass through, so it never displaces the decision in front of
+ * them.
  *
  * Nothing here consults hidden World Truth, and `no_route` is a statement
  * about the player's own information, not about the target.
@@ -515,7 +527,7 @@ export function selectKnownSpace(information: PlayerInformation, managed: readon
       // A managed Network's name is supplied by the authority that administers
       // it, which is why it can be stated before reconnaissance remembers it.
       ...managed.map(({ id, name }) => root(id, name, true)),
-      ...discovery.networks.filter(({ id }) => !managedIds.has(id)).map(({ id, name }) => root(id, name, false)),
+      ...discovery.networks.filter(({ id }) => !managedIds.has(id)).map((network) => root(network.id, networkDisplayName(network), false)),
     ],
     elsewhere: [...targets.values()].filter(({ id }) => !related.has(id)),
     remembersNetwork: discovery.networks.length > 0,
@@ -589,15 +601,11 @@ function credentialAccessProviderName(process: CredentialAccessProcess): string 
  */
 function knownSoftwareIntelligence(
   software: readonly string[],
-  analyses: readonly ServiceAnalysisProcess[],
+  _analyses: readonly ServiceAnalysisProcess[],
   attempts: readonly CredentialAccessProcess[],
   authGuard: import('../../core/game/types').EnhancedInspectEvidence['authGuard'],
+  weaknesses: readonly KnownWeakness[],
 ): readonly SoftwareIntelligence[] {
-  const learnedFor = (implementation: string, vulnerabilityId: string) => analyses.some((process) =>
-    process.status === 'completed'
-    && process.result?.status === 'weaknesses_detected'
-    && `${process.analyzedImplementation?.name} ${process.analyzedImplementation?.version}` === implementation
-    && process.result.vulnerabilities.some(({ vulnerabilityId: id }) => id === vulnerabilityId))
   const successfulModuleAttempts = (vulnerabilityId: string) => attempts.filter((process) =>
     process.status === 'completed'
     && process.vulnerabilityId === vulnerabilityId
@@ -610,16 +618,11 @@ function knownSoftwareIntelligence(
   })
 
   return software.flatMap((name) => {
-    if (name === 'GateSSH 1.3.2' && learnedFor(name, 'AUTH-017')) return [{ software: name, details: [
-      'AUTH-017 is a known pre-authentication Credential Access weakness.',
+    if (name.startsWith('GateSSH ')) {
+      const details = [
+      ...weaknesses.map(({ id, label }) => `${id} · ${label}`),
       ...successfulModuleAttempts('AUTH-017').map((process) => `${credentialAccessProviderName(process)} successfully exploited AUTH-017.`),
       ...(successfulKeyProbeAttempt(name) ? ['KeyProbe successfully accessed this authentication surface.'] : []),
-    ] }]
-    if (name === 'GateSSH 1.3.3') {
-      const details = [
-        ...(learnedFor('GateSSH 1.3.2', 'AUTH-017') ? ['This release patched the previously known AUTH-017 weakness from GateSSH 1.3.2.'] : []),
-        ...(learnedFor(name, 'AUTH-031') ? ['Analysis identified AUTH-031, a separate pre-authentication Credential Access weakness.'] : []),
-        ...(successfulKeyProbeAttempt(name) ? ['KeyProbe successfully accessed this authentication surface.'] : []),
       ]
       return details.length ? [{ software: name, details }] : []
     }
@@ -631,7 +634,7 @@ function knownSoftwareIntelligence(
         && process.toolId === 'keyprobe'
         && process.authGuardProtectionObserved)
       return [{ software: name, details: [
-        `Inspect observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`,
+        `Observed ${authGuard.compatibility.toLowerCase()} compatibility with ${authGuard.protectedImplementation}.`,
         ...(protectedFailure ? ['Protects SSH authentication traffic against Credential Access attempts.'] : []),
       ] }]
     }
@@ -683,7 +686,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
           ...(liveHost ? { liveStatus: deviceLiveStatus(liveHost.operational) } : {}),
         }
       })
-      return [{ id: network.id, name: network.name, members: [...selfMember, ...foreignMembers] }]
+      return [{ id: network.id, name: networkDisplayName(network), members: [...selfMember, ...foreignMembers] }]
     })
 
   const routes: TargetRoute[] = []
@@ -700,7 +703,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     const serviceAnalyses = analyses.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
     const serviceAttempts = attempts.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
     const intelligence = nodeScan && nodeScanSupportsIntegratedIntelligence(nodeScan)
-      ? knownSoftwareIntelligence(software, serviceAnalyses, serviceAttempts, observedAuthGuard)
+      ? knownSoftwareIntelligence(software, serviceAnalyses, serviceAttempts, observedAuthGuard, weaknesses)
       : []
     const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
     const running = analysis.find(({ status }) => status === 'running')
@@ -754,7 +757,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       software,
       ...(observed ? { observed } : {}),
       weaknesses,
-      analysisRequired: weaknesses.length === 0 && outcome !== 'no_weakness_detected' && outcome !== 'weaknesses_detected',
+      analysisRequired: !observed && outcome !== 'analysis_complete',
       ...(running ? { analysisPercent: percentOf(running) } : {}),
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),
@@ -818,7 +821,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     ...(rollbackProvider ? [{ technique: 'Rollback' as const, provider: rollbackProvider, running: Boolean(packageSubmission?.attacking), ...(packageSubmission?.route ? { route: packageSubmission.route } : {}) }] : []),
     ...(findCompatibleDeauthExtension(information.player.localDevice) ? information.discovery.networkDeviceRelations
       .filter(({ deviceId }) => deviceId === device.id)
-      .flatMap(({ networkId }) => information.discovery.networks.filter(({ id }) => id === networkId).map((network) => ({ technique: 'DEAUTH' as const, provider: DEAUTH_EXTENSION.name, route: { networkId: network.id, networkName: network.name, contextDeviceId: device.id }, running: deauth.some((process) => process.status === 'running' && process.targetNetworkId === network.id) }))) : []),
+      .flatMap(({ networkId }) => information.discovery.networks.filter(({ id }) => id === networkId).map((network) => ({ technique: 'DEAUTH' as const, provider: DEAUTH_EXTENSION.name, route: { networkId: network.id, networkName: networkDisplayName(network), contextDeviceId: device.id }, running: deauth.some((process) => process.status === 'running' && process.targetNetworkId === network.id) }))) : []),
   ]
   const stage = stageOf({
     connected: Boolean(activeAccess && information.remoteSession.active),
@@ -857,8 +860,10 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     scope: device.scope,
     networkNames: networkNamesOf(information, device.id),
     stage,
-    // Only an Inspect that actually observed it; never resolved from World Truth.
+    // Only a legitimate observation that actually recorded it; never resolved from World Truth.
     ...(device.inspect?.displayName ? { displayName: device.inspect.displayName } : {}),
+    // NodeScan 1.2's own remembered classification — never Device identity, and never derived live.
+    ...(device.classification ? { classification: device.classification } : {}),
     percent,
     ...(operation ? { operation } : {}),
     routes,
@@ -926,7 +931,7 @@ function selectOperation(input: {
     ]
     // KeyProbe attacks a Service surface directly, never a named Vulnerability: its running fact states the
     // implementation this exact Process snapshotted when it started, never whatever the Service's remembered
-    // fingerprint currently reads — a later re-Inspect while KeyProbe is running must not retarget this label.
+    // fingerprint currently reads — a later re-Analysis while KeyProbe is running must not retarget this label.
     if (process.kind === 'credential_access' && process.toolId === 'keyprobe') {
       const attackedProfile = process.serviceImplementation ? keyProbeProfileForImplementation(process.serviceImplementation) : undefined
       const attackedImplementation = attackedProfile ? `${attackedProfile.observedImplementationName} ${attackedProfile.observedImplementationVersion}` : ''
@@ -986,7 +991,7 @@ function selectOperation(input: {
  * rollback avenue was: it is offered only where a remembered package-
  * submission interface and earned `UPD-001` Knowledge both exist. It reads no
  * hidden target World Truth: candidate packages are compared only against
- * what Enhanced Inspect actually remembered, ATTACK availability is derived
+ * what Endpoint Analysis actually remembered, ATTACK availability is derived
  * only from the player's own Knowledge and installed tool, and progress comes
  * only from the player's own Process and submission runtime. It is
  * participates in the target's primary decision without being mislabeled as

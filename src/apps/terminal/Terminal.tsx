@@ -10,8 +10,7 @@ import { TargetToken } from './TargetToken'
 import { deriveResourceUsage } from '../../core/game/processes'
 
 type CompletedProjection =
-  | { kind: 'service_analysis'; label: string; endpoint: string; result: 'weaknesses_detected'; vulnerabilityLabels: readonly string[] }
-  | { kind: 'service_analysis'; label: string; endpoint: string; result: 'no_weakness_detected' | 'service_unavailable' }
+  | { kind: 'service_analysis'; label: string; endpoint: string; result: 'analysis_complete' | 'service_unavailable' }
   | { kind: 'credential_access'; label: string; endpoint: string; result: 'access_established'; privilege?: 'USER' }
   | { kind: 'credential_access' | 'rack_update_exploit'; label: string; endpoint: string; result: 'attempt_failed'; message: string }
   | { kind: 'rack_update_exploit'; label: string; endpoint: string; result: 'submission_enabled' }
@@ -50,8 +49,7 @@ function CompletedProcessProjection({ completed }: { completed: CompletedProject
     <div><TargetToken value={completed.endpoint} scope="external" /></div>
     <div className="process-state">COMPLETED</div>
     {completed.kind === 'service_analysis' ? <>
-      {completed.result === 'weaknesses_detected' && <><strong>WEAKNESS DETECTED</strong>{completed.vulnerabilityLabels.map((label, index) => <div key={index}>{label}</div>)}<div className="known-interaction">Known interaction<br />attack <TargetToken value={completed.endpoint} scope="external" /></div></>}
-      {completed.result === 'no_weakness_detected' && <strong>NO WEAKNESS DETECTED</strong>}
+      {completed.result === 'analysis_complete' && <strong>ENDPOINT ANALYZED</strong>}
       {completed.result === 'service_unavailable' && <strong>SERVICE UNAVAILABLE</strong>}
     </> : completed.kind === 'rack_update_exploit' ? <>
       {completed.result === 'submission_enabled' && <strong>SUBMISSION ENABLED</strong>}
@@ -82,8 +80,7 @@ function ProcessProjection({ process, gameState, cpu }: { process?: GameProcess;
       <div aria-label={`${progress}% complete`}><span aria-hidden="true">{'█'.repeat(filled)}{'░'.repeat(10 - filled)}</span> {progress}%</div>
       <div className="process-resources">CPU {Math.round(cpu)}% <span>RAM {process.ramRequiredMiB} MiB</span></div>
     </> : process.kind === 'service_analysis' ? <>
-      {process.result?.status === 'weaknesses_detected' && <><strong>WEAKNESS DETECTED</strong>{process.result.vulnerabilities.map((item) => <div key={item.vulnerabilityId}>{item.observedLabel}</div>)}<div className="known-interaction">Known interaction<br />attack <TargetToken value={process.startedEndpoint} scope="external" /></div></>}
-      {process.result?.status === 'no_weakness_detected' && <strong>NO WEAKNESS DETECTED</strong>}
+      {process.result?.status === 'analysis_complete' && <strong>ENDPOINT ANALYZED</strong>}
       {process.result?.status === 'service_unavailable' && <strong>SERVICE UNAVAILABLE</strong>}
     </> : process.kind === 'rack_update_exploit' ? <>
       {process.result?.status === 'submission_enabled' && <strong>SUBMISSION ENABLED</strong>}
@@ -110,9 +107,7 @@ export function Terminal() {
         if (!process || process.kind === 'generic' || process.kind === 'software_installation' || process.kind === 'software_removal' || process.kind === 'flipper_module_integration' || process.kind === 'rattler_pin_search' || process.kind === 'deauth' || process.status !== 'completed' || !process.result) return entry
         let completed: CompletedProjection
         if (process.kind === 'service_analysis') {
-          completed = process.result.status === 'weaknesses_detected'
-            ? { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status, vulnerabilityLabels: process.result.vulnerabilities.map(({ observedLabel }) => observedLabel) }
-            : { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status }
+          completed = { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status }
         } else if (process.kind === 'rack_update_exploit') {
           completed = process.result.status === 'submission_enabled'
             ? { kind: process.kind, label: process.label, endpoint: process.startedEndpoint, result: process.result.status }

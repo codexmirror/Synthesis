@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_1_4_0_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
-import { rememberInspect, rememberScan } from './discovery'
+import { rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
-import { inspectKnownTarget } from './inspect'
 import { advanceGameState } from './gameAdvancement'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { KEYPROBE_ATTACK_PROFILES, canFormCredentialAccessAttempt, keyProbeSuccessChance, ownsKeyProbe, startCredentialAccessAttemptFromObservation } from './credentialAccess'
@@ -12,18 +11,17 @@ import { AUTH_GUARD_1_0_BUILD_ID, AUTH_GUARD_1_0_RELEASE_ID, AUTH_GUARD_PRODUCT_
 import { deriveSoftwarePackageEligibility } from './softwareInstallation'
 
 // KeyProbe's own attacked authentication surface is never supplied by the caller: Credential Access derives it
-// canonically from this exact Service's own remembered Enhanced Inspect fingerprint (see `learned()`).
+// canonically from this exact Service's own remembered Endpoint Analysis fingerprint (see `learned()`).
 const observation = {
   endpoint: '203.0.113.42:22', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002',
   providerId: 'keyprobe',
 } as const
 
-/** Scanned, Enhanced-Inspected (so KeyProbe's own remembered GateSSH 1.3.3 surface is legitimately known), and Analyzed. */
+/** Scanned and Analyzed (so KeyProbe's own remembered GateSSH 1.3.3 surface is legitimately known). */
 function learned(): GameState {
   let state = createInitialGameState()
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
-  discovery = rememberInspect(discovery, inspectKnownTarget(targets, discovery, '203.0.113.42', 'enhanced'), state.player.localDevice.id)
+  const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
   const analysis = startServiceAnalysis({ ...state, discovery }, observation.targetDeviceId, observation.serviceId)
   if (analysis.status !== 'started') throw Error(analysis.status)
   return advanceGameState(analysis.state, 20_000)
@@ -48,7 +46,8 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
     expect(state.world.network.hosts[1].installedSoftware?.some(({ id }) => id === AUTH_GUARD_PRODUCT_ID)).toBe(true)
     expect(state.world.network.hosts[1].installedSoftware).toContainEqual(expect.objectContaining({ id: AUTH_GUARD_PRODUCT_ID, releaseId: AUTH_GUARD_1_0_RELEASE_ID, buildId: AUTH_GUARD_1_0_BUILD_ID, version: '1.0' }))
     expect(state.world.network.hosts[1].filesystem?.files).toContainEqual(expect.objectContaining({ kind: 'software_package', productId: AUTH_GUARD_PRODUCT_ID }))
-    expect(learned().knowledge.discoveredVulnerabilities).toContainEqual(expect.objectContaining({ vulnerabilityId: 'AUTH-031' }))
+    // Endpoint Analysis remembers implementation evidence only; it never creates named Vulnerability Knowledge.
+    expect(learned().knowledge.discoveredVulnerabilities).toEqual([])
   })
 
   it('explicitly supports GateSSH 1.3.3 and 1.4.0 authentication pipelines, but not 1.3.2', () => {
@@ -116,22 +115,6 @@ describe('AuthGuard 1.0 concrete credential composition', () => {
     expect(keyProbeSuccessChance(KEYPROBE_ATTACK_PROFILES[GATE_SSH_1_3_3_RELEASE_ID], 160)).toBeCloseTo(0.45)
     expect(resolve(stronger, 0.449999)).toMatchObject({ result: 'access_established' })
     expect(resolve(stronger, 0.45)).toMatchObject({ result: 'attempt_failed' })
-  })
-
-  it('stores Inspect evidence as a stale snapshot and refreshes compatibility', () => {
-    const state = learned(); const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    const observed = rememberInspect(state.discovery, inspectKnownTarget(targets, state.discovery, '203.0.113.42', 'enhanced'), state.player.localDevice.id)
-    expect(observed.devices.find(({ id }) => id === observation.targetDeviceId)?.inspect?.enhanced?.authGuard?.compatibility).toBe('SUPPORTED')
-    const gateSsh140Hosts = state.world.network.hosts.map((host) => host.id !== observation.targetDeviceId ? host : { ...host, services: host.services!.map((service) => service.id !== observation.serviceId ? service : { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.4.0', buildId: GATE_SSH_1_4_0_BUILD_ID, version: '1.4.0' } }) })
-    expect(observed.devices.find(({ id }) => id === observation.targetDeviceId)?.inspect?.enhanced?.authGuard?.compatibility).toBe('SUPPORTED')
-    const gateSsh140Targets = { ...targets, network: { ...targets.network, hosts: gateSsh140Hosts } }
-    const supported = rememberInspect(observed, inspectKnownTarget(gateSsh140Targets, observed, '203.0.113.42', 'enhanced'), state.player.localDevice.id)
-    expect(supported.devices.find(({ id }) => id === observation.targetDeviceId)?.inspect?.enhanced?.authGuard).toMatchObject({ name: 'AuthGuard', version: '1.0', protectedImplementation: 'GateSSH 1.4.0', compatibility: 'SUPPORTED' })
-
-    const gateSsh132Hosts = state.world.network.hosts.map((host) => host.id !== observation.targetDeviceId ? host : { ...host, services: host.services!.map((service) => service.id !== observation.serviceId ? service : { ...service, implementation: { ...service.implementation, releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, version: '1.3.2' } }) })
-    const changedTargets = { ...targets, network: { ...targets.network, hosts: gateSsh132Hosts } }
-    const refreshed = rememberInspect(supported, inspectKnownTarget(changedTargets, supported, '203.0.113.42', 'enhanced'), state.player.localDevice.id)
-    expect(refreshed.devices.find(({ id }) => id === observation.targetDeviceId)?.inspect?.enhanced?.authGuard).toMatchObject({ protectedImplementation: 'GateSSH 1.3.2', compatibility: 'UNSUPPORTED' })
   })
 
   it('admits the package only for RACK-OS', () => {

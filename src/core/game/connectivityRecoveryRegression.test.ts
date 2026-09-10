@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { inspectKnownTarget } from './inspect'
-import { rememberInspect, rememberScan } from './discovery'
+import { rememberScan } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission } from './rackUpdate'
+import { startServiceAnalysisFromObservation } from './serviceAnalysis'
 import { advanceGameState } from './gameAdvancement'
 import { interruptLocalNetworkConnectivity } from './networkConnectivity'
 import { GATE_SSH_1_3_2_BUILD_ID, vulnerabilitiesForService } from './serviceImplementations'
@@ -36,7 +36,9 @@ function readyToSubmit(): GameState {
   let state = createInitialGameState()
   const targets = () => ({ localDevice: state.player.localDevice, network: state.world.network })
   state = { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets(), '203.0.113.42'), state.player.localDevice.id) }
-  state = { ...state, discovery: rememberInspect(state.discovery, inspectKnownTarget(targets(), state.discovery, '203.0.113.42', 'enhanced'), state.player.localDevice.id) }
+  const analysis = startServiceAnalysisFromObservation(state, RACK_UPDATE_ENDPOINT)
+  if (analysis.status !== 'started') throw new Error(analysis.status)
+  state = advanceGameState(analysis.state, 20_000)
   state = { ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: SRV_02, serviceId: 'service-rack-update-002' }] } }
   const remotePackage = state.world.network.hosts.find(({ id }) => id === 'host-lan-001')!.filesystem!.files.find(({ id }) => id === 'file-0003')!
   state = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: [...state.player.localDevice.filesystem.files, { ...remotePackage, id: 'file-local-gatessh', path: '/home/user/downloads/gatessh-1.3.2.pkg' }] } } } }

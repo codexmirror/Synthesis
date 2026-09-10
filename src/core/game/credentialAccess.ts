@@ -134,7 +134,8 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
     // attacked surface is always the one this exact Service's own remembered Inspect fingerprint names.
     return Boolean(ownsKeyProbe(state) && keyProbeProfileForRememberedService(state, observed))
   }
-  const known = observed.vulnerabilityId !== undefined && state.knowledge.discoveredVulnerabilities.some((item) => item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
+  const known = observed.vulnerabilityId !== undefined && state.knowledge.discoveredVulnerabilities.some((item) =>
+    item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
   const tool = observed.vulnerabilityId !== undefined && ownedCredentialAccessModuleProviders(state, observed.vulnerabilityId).some(({ id }) => id === requestedProvider)
   return Boolean(known && tool)
 }

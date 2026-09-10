@@ -337,10 +337,7 @@ function toNodeMinerActivity(process: NodeMinerProcess, usage: ResourceUsage, ex
 
 function toOperationOutcome(process: GameProcess, access: readonly DeviceAccess[]): ActivityOutcome | undefined {
   if (process.kind === 'service_analysis') {
-    if (process.result?.status === 'weaknesses_detected') {
-      return { tone: 'positive', headline: 'WEAKNESS DETECTED', details: process.result.vulnerabilities.map(({ observedLabel }) => observedLabel) }
-    }
-    if (process.result?.status === 'no_weakness_detected') return { tone: 'neutral', headline: 'NO WEAKNESS DETECTED', details: [] }
+    if (process.result?.status === 'analysis_complete') return { tone: 'positive', headline: 'ENDPOINT ANALYZED', details: [] }
     if (process.result?.status === 'service_unavailable') return { tone: 'negative', headline: 'SERVICE UNAVAILABLE', details: [] }
     return undefined
   }

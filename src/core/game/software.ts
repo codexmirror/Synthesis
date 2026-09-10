@@ -1,5 +1,5 @@
 import type { InstalledSoftware, LocalDeviceState, NodeMinerInstallation, NodeScanInstallation } from './types'
-import { NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID, NODESCAN_1_2_STANDARD_RELEASE_ID } from './softwareReleaseContent'
+import { NODESCAN_1_0_STANDARD, NODESCAN_1_0_STANDARD_RELEASE_ID, NODESCAN_1_2_STANDARD_RELEASE_ID } from './softwareReleaseContent'
 
 export { NODESCAN_1_0_STANDARD_RELEASE_ID } from './softwareReleaseContent'
 
@@ -17,11 +17,6 @@ export function findInstalledNodeScan(device: LocalDeviceState): NodeScanInstall
   return device.installedSoftware.find((software): software is NodeScanInstallation => software.id === 'nodescan')
 }
 
-/** Whether the installed NodeScan release supplies the player-facing Inspect capability. */
-export function nodeScanSupportsInspect(installation: NodeScanInstallation): boolean {
-  return installation.releaseId === NODESCAN_1_1_EXPERIMENTAL_RELEASE_ID || installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
-}
-
 export function nodeScanSupportsLiveTopology(installation: NodeScanInstallation): boolean {
   return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
 }
@@ -30,8 +25,14 @@ export function nodeScanSupportsIntegratedIntelligence(installation: NodeScanIns
   return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
 }
 
-/** Whether this concrete release composes Network Scan with follow-up Inspect. */
-export function nodeScanSupportsNetworkRefresh(installation: NodeScanInstallation): boolean {
+/**
+ * NodeScan 1.2's own passive Device-classification capability: automatic
+ * classification attached to a legitimate Scan/Refresh observation. This is
+ * not the retired generic Inspect operation — it never observes concrete
+ * Device identity, Firmware, or compute evidence, only what kind of Device
+ * this is.
+ */
+export function nodeScanSupportsDeviceClassification(installation: NodeScanInstallation): boolean {
   return installation.releaseId === NODESCAN_1_2_STANDARD_RELEASE_ID
 }
 

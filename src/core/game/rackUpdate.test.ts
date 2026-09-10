@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { inspectKnownTarget } from './inspect'
-import { rememberInspect } from './discovery'
 import { scanNetworkTarget } from './scan'
 import { rememberScan } from './discovery'
 import {
@@ -22,11 +20,19 @@ import type { GameState, NetworkHost, NetworkService } from './types'
 const RACK_UPDATE_ENDPOINT = { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443' }
 const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001' } as const
 
+/** Scanned, then Analyzed at both the GateSSH and RackUpdate Endpoints — the only current route to their remembered implementation/interface evidence. */
 function observed(): GameState {
   let state = createInitialGameState()
   const targets = () => ({ localDevice: state.player.localDevice, network: state.world.network })
   state = { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets(), '203.0.113.42'), state.player.localDevice.id) }
-  state = { ...state, discovery: rememberInspect(state.discovery, inspectKnownTarget(targets(), state.discovery, '203.0.113.42', 'enhanced'), state.player.localDevice.id) }
+  for (const endpointTarget of [
+    { endpoint: '203.0.113.42:22', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002' },
+    RACK_UPDATE_ENDPOINT,
+  ]) {
+    const started = startServiceAnalysisFromObservation(state, endpointTarget)
+    if (started.status !== 'started') throw new Error(started.status)
+    state = advanceGameState(started.state, 20_000)
+  }
   return state
 }
 
