@@ -88,12 +88,14 @@ output can be affected.
 
 Run `npm run docs:check` when documentation changes.
 
-Do not require `npm test` as routine agent-local validation. Repository-wide
-full-suite validation is owned by PR CI by default.
+Use `npm test -- <test-file> [more-test-files] [vitest-options]` for agent-local
+validation. Repository-wide `npm run test:ci` validation is owned by PR CI by
+default and is guarded against casual local use.
 
 If a local full-suite run is exceptionally justified, perform it only after
-focused validation is green and do not turn failures into repeated full-suite
-reruns.
+focused validation is green. If it exposes failures, patch the concrete causal
+cluster and rerun only failing or materially affected suites; do not use
+repeated full-suite runs as the repair loop.
 
 Do not duplicate `tsc -b` when `npm run build` already supplies the required
 TypeScript validation.

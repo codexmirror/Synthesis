@@ -422,6 +422,10 @@ During implementation, use focused validation as the primary feedback loop:
 3. targeted correction of any failures; and
 4. build or documentation validation when applicable.
 
+The normal local test command requires one or more explicit test selectors:
+
+npm test -- src/path/example.test.ts [more.test.ts] [vitest options]
+
 Do not use the complete repository test suite as an iterative debugging tool.
 
 When a validation run fails, correct the defect and rerun the failing or
@@ -455,18 +459,21 @@ requirement. It may be useful after focused validation is green when a change ha
 unusually broad repository-wide risk, but it should not become an iterative
 fix-and-rerun loop.
 
-If a local full-suite run exposes failures:
+If an exceptionally authorized local full-suite run exposes failures:
 
-1. identify the affected dependency;
-2. fix it;
-3. validate the affected focused/regression suites; and
-4. rely on PR CI for the final repository-wide confirmation unless subsequent
-   changes create a specific reason for another broad local run.
+1. identify the concrete failing files or causal cluster;
+2. patch that cluster;
+3. rerun only the failing or materially affected suites until green; and
+4. rely on the next PR CI run for repository-wide confirmation.
+
+Do not use repeated local full-suite runs as the repair loop. The guarded
+`npm run test:ci` command documents the deliberate local override when one is
+exceptionally justified.
 
 A pull request targeting `main` independently runs:
 
 npm run docs:check
-npm test
+npm run test:ci
 npm run build
 
 through GitHub Actions before human merge.

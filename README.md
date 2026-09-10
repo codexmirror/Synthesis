@@ -44,8 +44,10 @@ npm run build
 ## Tests
 
 ```bash
-npm test
+npm test -- src/path/example.test.ts
 ```
+
+The complete suite is run by pull-request CI through `npm run test:ci`.
 
 
 ## Documentation checks
