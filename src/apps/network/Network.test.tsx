@@ -164,7 +164,7 @@ describe('NodeScan first hack', () => {
     const directAddress = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
     fireEvent.click(screen.getByRole('button', { name: 'SCAN SELF' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    fireEvent.click(screen.getByRole('button', { name: 'SCAN AGAIN' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Scan network home-net' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
     fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
@@ -284,7 +284,7 @@ describe('NodeScan information boundary', () => {
     const known = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
     const information = Object.defineProperty({ ...known }, 'world', { get: () => { throw new Error('hidden World read') } }) as GameState
 
-    expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([[SRV_01_ADDRESS, 'route']])
+    expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([['198.51.100.1', 'unscanned'], [SRV_01_ADDRESS, 'route']])
     const target = selectTarget(information, SRV_01)!
     expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Standalone Module', moduleName: 'Credential Access Module' })])
   })
@@ -940,7 +940,7 @@ describe('NodeScan target topology', () => {
       address: home.player.localDevice.network.ip,
       isSelf: true,
       liveStatus: { label: 'ONLINE', tone: 'available' },
-    })])
+    }), expect.objectContaining({ id: 'router-home-001', address: '198.51.100.1' })])
     expect(homeTarget.networks[0].members.some(({ id }) => id === SRV_01)).toBe(false)
 
     const withoutRememberedSelf = {
@@ -950,7 +950,7 @@ describe('NodeScan target topology', () => {
         networkDeviceRelations: home.discovery.networkDeviceRelations.filter(({ deviceId }) => deviceId !== home.player.localDevice.id),
       },
     }
-    expect(selectTarget(withoutRememberedSelf, SRV_01, withoutRememberedSelf)?.networks[0].members).toEqual([])
+    expect(selectTarget(withoutRememberedSelf, SRV_01, withoutRememberedSelf)?.networks[0].members).toEqual([expect.objectContaining({ id: 'router-home-001' })])
   })
 
   it('summarizes other remembered foreign members by address, since no operation observes a display name, without leaking the selected or hidden Devices', async () => {
@@ -959,6 +959,7 @@ describe('NodeScan target topology', () => {
     expect(members).toEqual([
       expect.objectContaining({ id: 'host-lan-003', address: '203.0.113.43', liveStatus: { label: 'ONLINE', tone: 'available' } }),
       expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, liveStatus: { label: 'ONLINE', tone: 'available' } }),
+      expect.objectContaining({ id: 'router-foreign-001', address: '203.0.113.1', liveStatus: { label: 'ONLINE', tone: 'available' } }),
     ])
     expect(members[0].displayName).toBeUndefined()
     expect(members[1].displayName).toBeUndefined()
@@ -971,7 +972,7 @@ describe('NodeScan target topology', () => {
     expect(rendered).toHaveTextContent(PHONE_ADDRESS)
     expect(rendered).toHaveTextContent('203.0.113.43')
     expect(rendered).not.toHaveTextContent(SRV_02_ADDRESS)
-    expect(within(rendered).getAllByText('ONLINE')).toHaveLength(2)
+    expect(within(rendered).getAllByText('ONLINE')).toHaveLength(3)
   })
 
   it('renders the physical home-net case as contextual SELF plus one detailed srv-01 row', async () => {
@@ -1462,6 +1463,7 @@ describe('Known Space topology', () => {
     expect(space.self.address).toBe('198.51.100.23')
     expect(space.networks.map(({ name, includesSelf, membersObserved }) => [name, includesSelf, membersObserved])).toEqual([['home-net', true, true]])
     expect(space.networks[0].targets.map(({ address }) => address)).toEqual([SRV_01_ADDRESS])
+    expect(space.networks[0].gateway?.address).toBe('198.51.100.1')
     expect(space.elsewhere).toEqual([])
     // srv-02 exists in the world and has never been observed, so it is nowhere.
     expect(space.networks[0].targets.some(({ id }) => id === 'host-lan-002')).toBe(false)
@@ -1490,7 +1492,7 @@ describe('Known Space topology', () => {
     // its remembered targets — each a single leaf button, not an expandable
     // level of its own.
     expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
-      .toEqual(['Collapse network home-net', 'Manage network home-net', `Open target ${SRV_01_ADDRESS}`])
+      .toEqual(['Collapse network home-net', 'Manage network home-net', 'Scan network home-net', `Open target ${SRV_01_ADDRESS}`, 'Open target 198.51.100.1', 'Scan gateway 198.51.100.1'])
   })
 
   it('regroups a scanned remote Device out of Elsewhere into its owned Network, shown without a name it has not separately earned', () => {
@@ -1507,9 +1509,27 @@ describe('Known Space topology', () => {
     expect(screen.queryByRole('region', { name: 'Elsewhere' })).not.toBeInTheDocument()
     const foreign = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 203.0.113.0/24' })
     expect(within(foreign).getByRole('button', { name: 'Open target 203.0.113.42' })).toBeInTheDocument()
-    // Its peers are remembered too, shallowly, without ever deep-scanning them.
-    expect(within(foreign).getByRole('button', { name: 'Open target 203.0.113.43' })).toHaveTextContent('UNKNOWN DEVICE')
-    expect(within(foreign).getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toHaveTextContent('UNKNOWN DEVICE')
+    // Host Scan does not enumerate peers; it exposes only the Gateway clue.
+    expect(within(foreign).queryByRole('button', { name: 'Open target 203.0.113.43' })).not.toBeInTheDocument()
+    expect(within(foreign).queryByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).not.toBeInTheDocument()
+    expect(within(foreign).getByRole('button', { name: 'Scan gateway 203.0.113.1' })).toBeInTheDocument()
+  })
+
+  it('scans a remembered Gateway directly with one Host Scan and does not enumerate peers', async () => {
+    const base = createInitialGameState()
+    const targets = { localDevice: base.player.localDevice, network: base.world.network }
+    const discovery = rememberScan(base.discovery, scanNetworkTarget(targets, '203.0.113.42'), base.player.localDevice.id)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
+
+    await user.click(screen.getByRole('button', { name: 'Scan gateway 203.0.113.1' }))
+
+    expect(currentState().discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({
+      address: '203.0.113.1', servicesObserved: true,
+      services: [expect.objectContaining({ endpoint: '203.0.113.1:80', name: 'HTTP' })],
+    })
+    expect(currentState().discovery.networks.find(({ id }) => id === 'network-foreign-001')?.membersObserved).toBe(false)
+    expect(currentState().discovery.devices.some(({ id }) => id === 'host-lan-003')).toBe(false)
   })
 
   it('keeps a Device with genuinely no represented Network membership visibly separate', () => {
@@ -1550,7 +1570,7 @@ describe('Known Space topology', () => {
     expect(withoutBookstoreBackgroundTiming(JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState)).toEqual(before)
   })
 
-  it('expands home-net from a SELF Scan, remembering its other member as a shallow peer rather than reporting an empty Network', () => {
+  it('expands home-net from a SELF Scan with a Gateway clue but no peer enumeration', () => {
     const observed = createInitialGameState()
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
     // SELF scanned: SELF's own Network relationship, and its one other member, are both legitimately revealed —
@@ -1559,13 +1579,11 @@ describe('Known Space topology', () => {
     render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
 
     const network = screen.getByRole('region', { name: 'Network home-net' })
-    expect(network).not.toHaveTextContent('Members not observed')
+    expect(network).toHaveTextContent('Members not observed')
     expect(network).toHaveTextContent('SELF')
-    // The peer is remembered shallowly — as an UNKNOWN DEVICE row the player must still individually Scan.
-    const peerRow = within(network).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })
-    expect(peerRow).toHaveTextContent('UNKNOWN DEVICE')
+    expect(within(network).queryByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).not.toBeInTheDocument()
     expect(within(network).getAllByRole('button').map((control) => control.getAttribute('aria-label')))
-      .toEqual(['Collapse network home-net', 'Manage network home-net', `Open target ${SRV_01_ADDRESS}`])
+      .toEqual(['Collapse network home-net', 'Manage network home-net', 'Scan network home-net', 'Open target 198.51.100.1', 'Scan gateway 198.51.100.1'])
   })
 
   it('derives each row from canonical state rather than a stored label', () => {
@@ -1666,7 +1684,7 @@ describe('Network administration inside NodeScan', () => {
 
     await user.click(within(network).getByRole('button', { name: 'Manage network home-net' }))
     expect(screen.getByText('MANAGED NETWORK')).toBeInTheDocument()
-    expect(screen.getByText('MEMBERS').parentElement).toHaveTextContent('2')
+    expect(screen.getByText('MEMBERS').parentElement).toHaveTextContent('3')
     expect(screen.getAllByText('16 MiB/s')).toHaveLength(2)
     expect(screen.getByText('NO ACTIVITY')).toBeInTheDocument()
     // Opening administration is not observation.

@@ -42,11 +42,11 @@ describe('createInitialGameState', () => {
 
   it('separates identities and seeds canonical local-device state in schema version 86', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(88)
+    expect(GAME_STATE_VERSION).toBe(89)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(88)
+    expect(state.version).toBe(89)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -112,11 +112,13 @@ describe('createInitialGameState', () => {
       { id: 'host-lan-002', ip: '203.0.113.42' },
       { id: 'host-lan-003', ip: '203.0.113.43' },
       { id: 'host-phone-001', ip: '198.51.100.61' },
+      { id: 'router-home-001', ip: '198.51.100.1' },
+      { id: 'router-foreign-001', ip: '203.0.113.1' },
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([
-      { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gateway: '198.51.100.1', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
-      { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gateway: '203.0.113.1', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+      { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gatewayDeviceId: 'router-home-001', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001', 'router-home-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
+      { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
     ])
     for (const localNetwork of state.world.network.localNetworks) {
       expect(isValidNetworkTransferCapacity(localNetwork.transferCapacity)).toBe(true)
@@ -157,7 +159,7 @@ describe('createInitialGameState', () => {
     // The operable server owns coherent installed truth for its managed GateSSH release.
     expect(server?.installedSoftware).toEqual([{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0', name: 'GateSSH', version: '1.3.2', channel: 'stable', publisher: 'rack-systems' }])
     expect(server?.installedSoftware).not.toBe(state.player.localDevice.installedSoftware)
-    const concreteHostIds = ['host-lan-001', 'host-lan-002', 'host-lan-003', 'host-phone-001']
+    const concreteHostIds = ['host-lan-001', 'host-lan-002', 'host-lan-003', 'host-phone-001', 'router-home-001', 'router-foreign-001']
     const shallowTrainingHosts = state.world.network.hosts.filter(({ id }) => !concreteHostIds.includes(id))
     expect(shallowTrainingHosts.length).toBeGreaterThan(0)
     expect(shallowTrainingHosts.every((host) => !host.displayName && !host.firmware && !host.filesystem && !host.hardware && !host.runtime)).toBe(true)

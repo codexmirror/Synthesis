@@ -4,7 +4,7 @@ import { isIpv4EndpointSyntax } from '../../../core/game/networkTarget'
 export const scanCommand: TerminalCommand = {
   description: 'Discover devices, relationships, and exposed services',
   run: ({ operations, localDevice }, args) => {
-    if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4|network-name>'] }
+    if (args.length !== 1) return { type: 'output', lines: ['Usage: scan <ipv4|cidr|network-name>'] }
 
     const [target] = args
     if (isIpv4EndpointSyntax(target)) return { type: 'output', lines: ['INVALID TARGET TYPE', '', `${target} is a service endpoint.`, '', 'scan accepts IPv4 devices and network names.', 'Service endpoints can be investigated with analyze.'] }
@@ -25,10 +25,10 @@ export const scanCommand: TerminalCommand = {
     }
     lines.push(`RELATIONSHIPS FOUND: ${result.networks.length}`)
     // A Host Scan never earns the Network's own display name — only stable routing identity — so it presents a
-    // neutral form here, plus the other represented Hosts sharing it as shallow, unscanned peer observations.
+    // neutral form here, with its actionable routing and default-gateway values.
     if (result.networks.length > 0) lines.push('', ...result.networks.flatMap((network) => [
-      [text('Network: '), targetFragment(network.cidr ? `UNKNOWN NETWORK ${network.cidr}` : 'UNKNOWN NETWORK')],
-      ...network.peers.map((peer) => [text('  Member: '), targetFragment(peer.address, peer.scope === 'lan' ? 'local' : 'external')]),
+      network.cidr ? [text('Network: '), targetFragment(network.cidr)] : [text('Network: UNKNOWN NETWORK')],
+      ...(network.gateway ? [[text('Gateway: '), targetFragment(network.gateway.address, network.gateway.scope === 'lan' ? 'local' : 'external')] as TerminalLine] : []),
     ]))
     lines.push('', `SERVICES FOUND: ${result.services.length}`)
     for (const service of result.services) {

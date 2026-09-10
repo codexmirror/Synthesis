@@ -14,10 +14,9 @@ describe('Discovery memory', () => {
   })
   it('remembers a SELF relationship using the same Host Scan semantics as any other Host, without a name it has not separately earned', () => {
     const discovery = rememberScan(state.discovery, observe('198.51.100.23'), state.player.localDevice.id)
-    expect(discovery.networks).toEqual([{ id: 'network-local-001', cidr: '198.51.100.0/24', membersObserved: true }])
+    expect(discovery.networks).toEqual([{ id: 'network-local-001', cidr: '198.51.100.0/24', gateway: { deviceId: 'router-home-001', address: '198.51.100.1' }, membersObserved: false }])
     expect(discovery.networkDeviceRelations).toContainEqual({ networkId: 'network-local-001', deviceId: state.player.localDevice.id })
-    // SELF's own Network expansion also remembers its peer, home-net's other member, as a shallow observation.
-    expect(discovery.devices).toEqual([{ id: 'host-lan-001', address: '198.51.100.47', scope: 'lan', servicesObserved: false, services: [] }])
+    expect(discovery.devices).toEqual([{ id: 'router-home-001', address: '198.51.100.1', scope: 'lan', servicesObserved: false, services: [] }])
   })
   it('distinguishes successful empty depth observations from never observed', () => {
     const network = rememberScan(createEmptyDiscovery(), { status: 'network', networkId: 'empty', networkName: 'empty-net', devices: [] }, state.player.localDevice.id)
@@ -31,19 +30,19 @@ describe('Discovery memory', () => {
   })
   it('adds network devices shallowly, then services at device depth', () => {
     let discovery = rememberScan(createEmptyDiscovery(), observe('home-net'), state.player.localDevice.id)
-    expect(discovery.devices[0]).toMatchObject({ id: 'host-lan-001', servicesObserved: false, services: [] })
+    expect(discovery.devices.find(({ id }) => id === 'host-lan-001')).toMatchObject({ servicesObserved: false, services: [] })
     discovery = rememberScan(discovery, observe('198.51.100.47'), state.player.localDevice.id)
-    expect(discovery.devices[0].services.map((service) => service.name)).toEqual(['SSH', 'HTTP'])
+    expect(discovery.devices.find(({ id }) => id === 'host-lan-001')?.services.map((service) => service.name)).toEqual(['SSH', 'HTTP'])
   })
   it('refreshes the exposed-Service snapshot while preserving stale memory until rescan', () => {
     let discovery = rememberScan(createEmptyDiscovery(), observe('198.51.100.47'), state.player.localDevice.id)
     const update: ScanResult = { status: 'device', targetId: 'host-lan-001', address: '198.51.100.83', scope: 'lan', networks: [], services: [{ id: 'service-http-001', name: 'WEB', port: 8080, protocol: 'TCP' }] }
     discovery = rememberScan(discovery, update, state.player.localDevice.id)
-    expect(discovery.devices).toHaveLength(1)
-    expect(discovery.devices[0].address).toBe('198.51.100.83')
-    expect(discovery.devices[0].services).toHaveLength(1)
-    expect(discovery.devices[0].services.find((service) => service.id === 'service-ssh-001')).toBeUndefined()
-    expect(discovery.devices[0].services.find((service) => service.id === 'service-http-001')?.endpoint).toBe('198.51.100.83:8080')
+    const host = discovery.devices.find(({ id }) => id === 'host-lan-001')!
+    expect(host.address).toBe('198.51.100.83')
+    expect(host.services).toHaveLength(1)
+    expect(host.services.find((service) => service.id === 'service-ssh-001')).toBeUndefined()
+    expect(host.services.find((service) => service.id === 'service-http-001')?.endpoint).toBe('198.51.100.83:8080')
   })
   it('keeps deeper and unrelated memory during shallow observations', () => {
     let discovery = rememberScan(createEmptyDiscovery(), observe('198.51.100.47'), state.player.localDevice.id)

@@ -126,10 +126,11 @@ that represents none simply has none. Its semantics belong to
 ### Physical Device identity and model ceilings
 
 `DeviceType` is the narrow physical classification represented today: `NODE`,
-`SERVER`, or `PHONE`. It is authored on concrete Devices and is never derived
+`SERVER`, `PHONE`, or `ROUTER`. It is authored on concrete Devices and is never derived
 from an instance/display name, server role, Firmware, or Hardware. The local
 `device-local-v0` is `NODE`; srv-01, srv-02 and ops-01 are `SERVER`; Petra's
-Phone is `PHONE`. Shallow training hosts remain shallow and receive no
+Phone is `PHONE`; the two authored default gateways are `ROUTER` Devices.
+Shallow training hosts remain shallow and receive no
 fabricated type.
 
 `DeviceModel` is a reusable physical product identity, distinct from the Device

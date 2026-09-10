@@ -32,11 +32,10 @@ observation. `ping <ipv4>` is optional reachability evidence and is never a
 prerequisite for Scan or Analysis. Network Scan (`scan <network>`) discovers
 Hosts on a Network; Host Scan (`scan <ipv4>`) discovers one Host's own open
 endpoints and, regardless of whether the Host is SELF, LAN, or remote, the
-Host's own owned represented Network relationship, plus the Network's other
-represented Hosts as shallow, unscanned peer observations (identity, address,
-and Network relationship only — never their own Services, implementation
-evidence, or classification; the player must Scan a peer individually to
-deepen it); Endpoint (Service) Analysis (`analyze <ipv4:port>`) deepens one
+Host's own represented Network relationship, its routing identity, and its
+represented default-Gateway clue. It does not enumerate peer Hosts; a separate
+Network Scan owns membership observation. Endpoint (Service) Analysis
+(`analyze <ipv4:port>`) deepens one
 observed Endpoint into remembered implementation/interface evidence. Knowledge
 obtained through one path does not imply every target must be processed
 through the same sequence.
@@ -56,15 +55,21 @@ Discovery evidence, never automatically Knowledge.
 `ip` reads current SELF `LocalNetwork` and Device World Truth directly and
 presents `ADDRESS`, `NETWORK` (CIDR) and `GATEWAY`; it creates no Discovery or
 Knowledge and requires no prior Ping or Scan. The local Device owns its
-address; a represented `LocalNetwork` owns its own `cidr` and `gateway`
-fields — the gateway address never implies a synthetic gateway Device. Where
+address; a represented `LocalNetwork` owns its `cidr` and a stable
+`gatewayDeviceId` relationship to one member Router Device. The visible gateway
+address resolves from that Device relationship rather than duplicated Network
+address state. Missing, non-member, or ambiguous gateway truth fails closed.
+Where
 SELF's applicable local Network configuration cannot be resolved to exactly
 one represented Network, `ip` and CIDR-target resolution fail closed
 (`UNAVAILABLE` / target not accepted) rather than arbitrarily selecting one by
 ordering or a mutable display name.
 
 The initial local configuration is address `198.51.100.23` on Network
-`198.51.100.0/24`, gateway `198.51.100.1`.
+`198.51.100.0/24`, gateway `198.51.100.1`. Both authored Networks have concrete
+Router Devices at their gateway addresses. The foreign Router owns an ordinary
+HTTP Service backed by Basic HTTP 1.0, so Host Scan and Endpoint Analysis apply
+to it exactly as to any other Device. Router state never belongs to the Network.
 
 The freshly represented local CIDR (`198.51.100.0/24`) is accepted directly as
 a Network Scan target, resolved to the same stable `home-net` Network identity
@@ -155,14 +160,15 @@ the local Device actually holds `NetworkManagementAuthority` over it
 OBSERVED and offers none, because observing a Network is not authority over
 it. That administration detail states the Network's represented name,
 connectivity, coarse member count and its own Network Activity, and never
-member Device identity, address, Firmware or Services. `SCAN AGAIN` is offered
-only once reconnaissance actually remembers a Network: a managed root is
-authority, not memory.
+member Device identity, address, Firmware or Services. Every Network root has
+an explicit `SCAN NETWORK` control invoking exactly one canonical Network Scan.
+A remembered Gateway clue links to its ordinary target card and explicit Host
+Scan; neither action chains a peer Scan or Endpoint Analysis.
 
 A target's identity on the card and in the tree is exactly what the player has
 legitimately learned. A remembered Device is presented at its observed
 address, labeled UNKNOWN DEVICE unless NodeScan 1.2's own remembered
-classification (SERVER / WORKSTATION / MOBILE DEVICE — see "Generic Inspect
+classification (SERVER / WORKSTATION / MOBILE DEVICE / NETWORK DEVICE — see "Generic Inspect
 (retired)" above) applies instead; no current Recon V2 operation observes a
 represented display name, so a remote Device stays an address regardless of
 classification. Scan and PING never observe a name, and no presentation code
@@ -587,16 +593,12 @@ does not itself perform a new observation.
 
 ## Target discovery and explicit target actions
 
-NodeScan keeps target SCAN and per-Service ANALYZE (Endpoint Analysis) as separate player decisions over the same canonical operations exposed by Terminal. Known-Space SCAN AGAIN composes only Scan observations. A target Network REFRESH likewise introduces no canonical state of its own and repeats only the canonical Network Scan; it never composes a further observation such as Endpoint Analysis of legitimately remembered members.
-
-`findTargets` (SCAN AGAIN on Known Space) is offered only after at least one
-Network is remembered. It refreshes SELF's Network relationships, then observes
-the responding members of every Network the player legitimately remembers.
-Nothing outside remembered Discovery is
-scanned, and zero-knowledge Known Space does not expose this shortcut: the
-player must first Scan intrinsic SELF to remember its Network relationship. Without an installed NodeScan release it reports
-`software_unavailable`; where SELF is offline it reports `no_response` and
-remembers nothing.
+NodeScan keeps PING, target SCAN, Network SCAN NETWORK, and per-Service ANALYZE
+as separate player decisions over the same canonical operations exposed by
+Terminal. No player-facing control scans SELF and several Networks in a batch.
+The legacy `findTargets` adapter is narrowed to one SELF Host Scan and is not
+exposed by NodeScan. A target Network refresh introduces no canonical state of
+its own and repeats only that one Network Scan.
 
 Target SCAN invokes only the canonical Device (Host) Scan and refreshes the currently exposed Service snapshot. It never invokes Endpoint Analysis. Every installed NodeScan release presents the same target SCAN; the retired generic Inspect target action is present under no release. Each Service retains its own explicit ANALYZE action. The guided ANALYZE action may also start one independent canonical Endpoint Analysis Process for each observed Service still requiring investigation; normal per-Process RAM admission applies and partial admission is reported.
 
@@ -631,13 +633,14 @@ Scan or Refresh observation rather than a separate operation, button, or
 Terminal command, and it observes strictly less than Inspect did: only which
 of the smallest currently represented `DeviceType` categories
 (`src/core/game/deviceClassification.ts`) a Host maps to — `SERVER`,
-`WORKSTATION` (World Truth `NODE`), or `MOBILE DEVICE` (World Truth
-`PHONE`) — never a display name, Firmware, compute class, or AuthGuard
+`WORKSTATION` (World Truth `NODE`), `MOBILE DEVICE` (World Truth
+`PHONE`), or `NETWORK DEVICE` (World Truth `ROUTER`) — never a display name,
+Firmware, compute class, or AuthGuard
 evidence. Classification is a distinct information class from identity: it
 states what *kind* of Device this is, never its concrete name (a
 classification of `SERVER` never implies, and is never accompanied by, a
 concrete identity like `srv-02`). A Host a Scan or Refresh only shallowly
-touches — a Host-Scan-revealed peer, or a Device with no represented
+touches — a Network-Scan-revealed member, or a Device with no represented
 `DeviceType` mapping — earns no classification and presents as `UNKNOWN
 DEVICE`, the fallback below NodeScan 1.2 and wherever evidence does not
 support one. Classification is ordinary Discovery evidence, not a live

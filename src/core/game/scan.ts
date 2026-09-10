@@ -1,4 +1,4 @@
-import { classifyHostScope, isValidIpv4, resolveDeviceNetwork, resolveLocalNetwork, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
+import { classifyHostScope, isValidIpv4, resolveDeviceNetwork, resolveLocalNetwork, resolveNetworkGateway, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import { classifyDeviceKind } from './deviceClassification'
 import { findInstalledNodeScan, nodeScanSupportsDeviceClassification } from './software'
@@ -6,23 +6,14 @@ import type { DeviceClassification } from './types'
 
 export type ScanTargets = NetworkTargets
 
-/** Another represented Host sharing a scanned Host's Network, revealed only as a shallow, unscanned observation. */
-export interface DiscoveredPeer {
-  readonly targetId: string
-  readonly address: string
-  readonly scope: 'lan' | 'remote'
-}
-
 /**
  * The Network context a Host Scan may legitimately reveal: stable identity
- * and routing identity (never the Network's own mutable display name — that
- * is earned only by a genuine Network Scan), plus the other represented
- * Hosts sharing it as shallow peers. A Host Scan never deep-scans a peer.
+ * and routing/default-gateway identity. It never enumerates member Devices.
  */
 export interface DiscoveredNetworkRelation {
   readonly id: string
   readonly cidr?: string
-  readonly peers: readonly DiscoveredPeer[]
+  readonly gateway?: { readonly targetId: string; readonly address: string; readonly scope: 'lan' | 'remote' }
 }
 
 export interface DiscoveredService {
@@ -78,16 +69,14 @@ export function scanNetworkTarget(targets: Readonly<ScanTargets>, input: string)
   if (!resolved) return { status: 'no_response', address: input }
   if (!isDeviceNetworkUsable(resolved.entity.operational)) return { status: 'no_response', address: input }
 
-  // A Host Scan reveals only the Network relationship it legitimately owns: stable identity and routing
-  // identity, plus the other Hosts sharing it as shallow peers — never the Network's own display name, and
-  // never a deep observation of any peer. FAIL_CLOSED when membership cannot be resolved to exactly one Network.
+  // A Host Scan reveals stable Network/routing identity and a resolvable default-Gateway clue,
+  // never peer membership or the Network's display name. Ambiguous membership FAILS_CLOSED.
   const hostNetwork = resolveDeviceNetwork(targets, resolved.entity.id)
+  const gateway = hostNetwork ? resolveNetworkGateway(targets, hostNetwork) : undefined
   const networks: DiscoveredNetworkRelation[] = hostNetwork ? [{
     id: hostNetwork.id,
     ...(hostNetwork.cidr ? { cidr: hostNetwork.cidr } : {}),
-    peers: targets.network.hosts
-      .filter((host) => hostNetwork.memberDeviceIds.includes(host.id) && host.id !== resolved.entity.id && isDeviceNetworkUsable(host.operational))
-      .map((host) => ({ targetId: host.id, address: host.ip, scope: classifyHostScope(targets, host.id) })),
+    ...(gateway ? { gateway: { targetId: gateway.deviceId, address: gateway.address, scope: classifyHostScope(targets, gateway.deviceId) } } : {}),
   }] : []
   const classification = classifying ? classifyDeviceKind(resolved.entity.deviceType) : undefined
   const services = ('services' in resolved.entity ? resolved.entity.services ?? [] : [])

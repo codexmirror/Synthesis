@@ -9,11 +9,11 @@ import { localNetworkConfiguration } from '../../apps/terminal/nodeCommandAdapte
 const targets = (state: ReturnType<typeof createInitialGameState>) => ({ localDevice: state.player.localDevice, network: state.world.network })
 
 describe('Recon V2 canonical operations', () => {
-  it('represents truthful local CIDR and gateway without a gateway Device', () => {
+  it('represents the default gateway as a real Router Device relationship', () => {
     const state = createInitialGameState()
     const network = state.world.network.localNetworks.find(({ memberDeviceIds }) => memberDeviceIds.includes(state.player.localDevice.id))!
-    expect(network).toMatchObject({ cidr: '198.51.100.0/24', gateway: '198.51.100.1' })
-    expect(state.world.network.hosts.some(({ ip }) => ip === network.gateway)).toBe(false)
+    expect(network).toMatchObject({ cidr: '198.51.100.0/24', gatewayDeviceId: 'router-home-001' })
+    expect(state.world.network.hosts.find(({ id }) => id === network.gatewayDeviceId)).toMatchObject({ ip: '198.51.100.1', deviceType: 'ROUTER' })
   })
 
   it('discovers a network, scans a chosen host, then analyzes only remembered endpoint evidence without creating vulnerability Knowledge', () => {
@@ -37,11 +37,24 @@ describe('Recon V2 canonical operations', () => {
     expect(result).toMatchObject({ status: 'device', scope: 'self', services: [] })
   })
 
+  it('scans and analyzes the foreign Router through the ordinary Host/Endpoint operations', () => {
+    let state = createInitialGameState()
+    const scanned = scanNetworkTarget(targets(state), '203.0.113.1')
+    state = { ...state, discovery: rememberScan(state.discovery, scanned, state.player.localDevice.id) }
+    const router = state.discovery.devices.find(({ id }) => id === 'router-foreign-001')!
+    const service = router.services[0]
+    const started = startServiceAnalysisFromObservation(state, { endpoint: service.endpoint, targetDeviceId: router.id, serviceId: service.id })
+    expect(started.status).toBe('started')
+    if (started.status !== 'started') return
+    state = advanceGameState(started.state, 20_000)
+    expect(state.discovery.devices.find(({ id }) => id === router.id)?.services[0].inspect?.implementation).toEqual({ name: 'Basic HTTP', version: '1.0' })
+  })
+
   it('fails closed when SELF has more than one applicable routing configuration', () => {
     const state = createInitialGameState()
     const ambiguous = { ...state, world: { network: { ...state.world.network, localNetworks: [
       ...state.world.network.localNetworks,
-      { ...state.world.network.localNetworks[0], id: 'network-second', name: 'second-net', cidr: '192.0.2.0/24', gateway: '192.0.2.1' },
+      { ...state.world.network.localNetworks[0], id: 'network-second', name: 'second-net', cidr: '192.0.2.0/24' },
     ] } } }
     expect(localNetworkConfiguration(ambiguous)).toEqual({})
   })
