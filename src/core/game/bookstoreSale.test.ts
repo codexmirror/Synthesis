@@ -53,6 +53,7 @@ function cyclicRandom(values: readonly number[]): () => number {
  * mechanics (not composition itself) use this to stay deterministic.
  */
 const ONE_BOOK_SYSTEMS_OF_DUST_RANDOM = (): (() => number) => cyclicRandom([0.1, 0.95])
+const NO_TIP_RANDOM = () => 0.5
 
 describe('executeBookstoreSale — success path', () => {
   it.each([[10, 200], [15, 300], [20, 400]] as const)('creates a separate %i%% personal gratuity Transaction linked from its causing sale', (percentage, expectedTip) => {
@@ -121,7 +122,7 @@ describe('executeBookstoreSale — success path', () => {
     const initial = createInitialGameState()
     const neutral: GameState = { ...initial, bookstoreMarket: { genrePressures: initial.bookstoreMarket.genrePressures.map(record => ({ ...record, pressure: 100 })) } }
     const samples = [0.1, 0.15]
-    const result = executeBookstoreSale(neutral, BOOKSTORE_BRANCH_ID, () => samples.shift()!)
+    const result = executeBookstoreSale(neutral, BOOKSTORE_BRANCH_ID, () => samples.shift()!, NO_TIP_RANDOM)
     expect(result.status).toBe('sold')
     if (result.status !== 'sold') return
     // Baseline total is 820; 0.15 × 820 = 123, after Night Transit's 80 and inside Static Bloom's next 140.
@@ -137,7 +138,7 @@ describe('executeBookstoreSale — success path', () => {
     const execute = (state: GameState) => {
       const samples = [0.1, 0.15]
       let draws = 0
-      const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
+      const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! }, NO_TIP_RANDOM)
       expect(draws).toBe(2)
       expect(result.status).toBe('sold')
       if (result.status !== 'sold') throw new Error('expected sale')
@@ -154,7 +155,7 @@ describe('executeBookstoreSale — success path', () => {
     const execute = (state: GameState) => {
       const samples = [0.1, 0.2]
       let draws = 0
-      const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! })
+      const result = executeBookstoreSale(state, BOOKSTORE_BRANCH_ID, () => { draws += 1; return samples.shift()! }, NO_TIP_RANDOM)
       expect(draws).toBe(2)
       expect(result.status).toBe('sold')
       if (result.status !== 'sold') throw new Error('expected represented sale')
@@ -174,7 +175,7 @@ describe('executeBookstoreSale — success path', () => {
 
   it('consumes one stock unit, moves exactly its deterministic basket total, and appends exactly one Transaction and one CompletedSale', () => {
     const before = createInitialGameState()
-    const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
+    const result = executeBookstoreSale(before, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), NO_TIP_RANDOM)
     expect(result.status).toBe('sold')
     if (result.status !== 'sold') return
 
@@ -222,7 +223,7 @@ describe('executeBookstoreSale — success path', () => {
         bookCatalog: initial.bookstoreCommerce.bookCatalog.map((item) => item.id === 'bookstore-merch-008' ? { ...item, unitPriceCents: 3_500 } : item),
       },
     }
-    const result = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
+    const result = executeBookstoreSale(repriced, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), NO_TIP_RANDOM)
     expect(result.status).toBe('sold')
     if (result.status !== 'sold') return
     expect(result.state.dollarFinance.transactions.records[1].amountCents).toBe(3_500)
@@ -257,10 +258,10 @@ describe('executeBookstoreSale — success path', () => {
   })
 
   it('is one explicit domain transition: calling it twice performs two independent sales, never a cadence', () => {
-    const first = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
+    const first = executeBookstoreSale(createInitialGameState(), BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), NO_TIP_RANDOM)
     expect(first.status).toBe('sold')
     if (first.status !== 'sold') return
-    const second = executeBookstoreSale(first.state, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
+    const second = executeBookstoreSale(first.state, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), NO_TIP_RANDOM)
     expect(second.status).toBe('sold')
     if (second.status !== 'sold') return
     expect(second.saleId).not.toBe(first.saleId)
@@ -503,7 +504,7 @@ describe('executeBookstoreSale — historical statement-context snapshot truth',
   it('snapshots the current Branch displayName/location into the created Transaction, and a later Branch rename/relocation never rewrites it', () => {
     const initial = createInitialGameState()
 
-    const first = executeBookstoreSale(initial, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
+    const first = executeBookstoreSale(initial, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), NO_TIP_RANDOM)
     expect(first.status).toBe('sold')
     if (first.status !== 'sold') return
     const firstTransaction = first.state.dollarFinance.transactions.records.find(({ id }) => id === first.transactionId)!
@@ -518,7 +519,7 @@ describe('executeBookstoreSale — historical statement-context snapshot truth',
       business: { ...first.state.business, branches: first.state.business.branches.map((branch) => branch.id === BOOKSTORE_BRANCH_ID ? { ...branch, displayName: 'Downtown Books', location: '900 Founders Way' } : branch) },
     }
 
-    const second = executeBookstoreSale(renamed, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM())
+    const second = executeBookstoreSale(renamed, BOOKSTORE_BRANCH_ID, ONE_BOOK_SYSTEMS_OF_DUST_RANDOM(), NO_TIP_RANDOM)
     expect(second.status).toBe('sold')
     if (second.status !== 'sold') return
     const secondTransaction = second.state.dollarFinance.transactions.records.find(({ id }) => id === second.transactionId)!

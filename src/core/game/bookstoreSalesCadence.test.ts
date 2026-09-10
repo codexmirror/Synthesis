@@ -79,6 +79,7 @@ function cyclicPurchaseRandom(values: readonly number[]): () => number {
 }
 
 const ONE_BOOK_PURCHASE_RANDOM = (): (() => number) => cyclicPurchaseRandom([0.1, 0.95])
+const NO_TIP_RANDOM = () => 0.5
 
 /** A random source that fails the test immediately if ever called — proves a given advancement consumes no purchase randomness at all. */
 function forbiddenRandom(): () => number {
@@ -188,7 +189,7 @@ describe('Bookstore Sales Cadence — boundary advancement', () => {
 describe('Bookstore Sales Cadence — one due opportunity is exactly one canonical sale attempt', () => {
   it('a successful opportunity produces exactly the existing executeBookstoreSale consequences', () => {
     const before = createInitialGameState()
-    const after = advanceGameState(before, 360_000, Math.random, () => 0.3, ONE_BOOK_PURCHASE_RANDOM())
+    const after = advanceGameState(before, 360_000, Math.random, () => 0.3, ONE_BOOK_PURCHASE_RANDOM(), NO_TIP_RANDOM)
 
     expect(inventoryOf(after)).toBe(inventoryOf(before) - 1)
     const retailClearingBefore = before.dollarFinance.accounts.find(({ id }) => id === 'dollar-account-retail-clearing-v0')!.balanceCents
@@ -362,8 +363,8 @@ describe('Bookstore Sales Cadence — demand inputs affect only opportunity timi
     expect(deriveEffectiveBookstoreOpportunityRatePerHour(cadenceOf(moreAttractive))).toBe(20)
 
     const u = 0.4
-    const baselineAfter = advanceGameState(baseline, cadenceOf(baseline).remainingUntilOpportunityMs, Math.random, () => u, ONE_BOOK_PURCHASE_RANDOM())
-    const moreAttractiveAfter = advanceGameState(moreAttractive, cadenceOf(moreAttractive).remainingUntilOpportunityMs, Math.random, () => u, ONE_BOOK_PURCHASE_RANDOM())
+    const baselineAfter = advanceGameState(baseline, cadenceOf(baseline).remainingUntilOpportunityMs, Math.random, () => u, ONE_BOOK_PURCHASE_RANDOM(), NO_TIP_RANDOM)
+    const moreAttractiveAfter = advanceGameState(moreAttractive, cadenceOf(moreAttractive).remainingUntilOpportunityMs, Math.random, () => u, ONE_BOOK_PURCHASE_RANDOM(), NO_TIP_RANDOM)
 
     const baselineMeanMs = HOUR_MS / 10
     const moreAttractiveMeanMs = HOUR_MS / 20
@@ -373,8 +374,10 @@ describe('Bookstore Sales Cadence — demand inputs affect only opportunity timi
 
     // Sale composition, inventory consequence, and fulfillment rules are entirely unaffected by demand configuration:
     // identical purchase randomness produces an identical basket and settlement amount either way.
-    const baselineNewTransaction = baselineAfter.dollarFinance.transactions.records[baselineAfter.dollarFinance.transactions.records.length - 1]
-    const moreAttractiveNewTransaction = moreAttractiveAfter.dollarFinance.transactions.records[moreAttractiveAfter.dollarFinance.transactions.records.length - 1]
+    const baselineSale = baselineAfter.bookstoreCommerce.records[0].completedSales.at(-1)!
+    const moreAttractiveSale = moreAttractiveAfter.bookstoreCommerce.records[0].completedSales.at(-1)!
+    const baselineNewTransaction = baselineAfter.dollarFinance.transactions.records.find(({ id }) => id === baselineSale.dollarTransactionId)!
+    const moreAttractiveNewTransaction = moreAttractiveAfter.dollarFinance.transactions.records.find(({ id }) => id === moreAttractiveSale.dollarTransactionId)!
     expect(baselineNewTransaction.amountCents).toBe(moreAttractiveNewTransaction.amountCents)
     expect(inventoryOf(baselineAfter)).toBe(inventoryOf(moreAttractiveAfter))
     expect(salesCountOf(baselineAfter)).toBe(salesCountOf(moreAttractiveAfter))

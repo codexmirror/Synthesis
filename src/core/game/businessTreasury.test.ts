@@ -69,17 +69,19 @@ describe('Company Treasury designation', () => {
     expect(initial.business.treasuryDesignations[0].accountId).toBe(BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)
 
     const changedTreasury: GameState = { ...initial, business: { ...initial.business, treasuryDesignations: [{ companyId: BOOKSTORE_COMPANY_ID, accountId: 'dollar-account-local-v0' }] } }
-    const treasurySale = executeBookstoreSale(changedTreasury, BOOKSTORE_BRANCH_ID, oneBook())
+    const treasurySale = executeBookstoreSale(changedTreasury, BOOKSTORE_BRANCH_ID, oneBook(), () => 0.5)
     expect(treasurySale.status).toBe('sold')
     if (treasurySale.status !== 'sold') throw new Error('expected completed sale')
-    expect(treasurySale.state.dollarFinance.transactions.records.at(-1)?.destinationAccountId).toBe(BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)
+    const treasuryCompletedSale = treasurySale.state.bookstoreCommerce.records[0].completedSales.at(-1)!
+    expect(treasurySale.state.dollarFinance.transactions.records.find(({ id }) => id === treasuryCompletedSale.dollarTransactionId)?.destinationAccountId).toBe(BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID)
 
     const changedSettlement: GameState = { ...initial, bookstoreCommerce: { ...initial.bookstoreCommerce, records: initial.bookstoreCommerce.records.map((record) => ({ ...record, settlementAccountId: 'dollar-account-local-v0' })) } }
     expect(resolveCompanyTreasuryAccount(changedSettlement, BOOKSTORE_COMPANY_ID)?.id).toBe(BOOKSTORE_TREASURY_ACCOUNT_ID)
-    const settlementSale = executeBookstoreSale(changedSettlement, BOOKSTORE_BRANCH_ID, oneBook())
+    const settlementSale = executeBookstoreSale(changedSettlement, BOOKSTORE_BRANCH_ID, oneBook(), () => 0.5)
     expect(settlementSale.status).toBe('sold')
     if (settlementSale.status !== 'sold') throw new Error('expected completed sale')
-    expect(settlementSale.state.dollarFinance.transactions.records.at(-1)?.destinationAccountId).toBe('dollar-account-local-v0')
+    const settlementCompletedSale = settlementSale.state.bookstoreCommerce.records[0].completedSales.at(-1)!
+    expect(settlementSale.state.dollarFinance.transactions.records.find(({ id }) => id === settlementCompletedSale.dollarTransactionId)?.destinationAccountId).toBe('dollar-account-local-v0')
     expect(settlementSale.state.business.treasuryDesignations).toEqual(initial.business.treasuryDesignations)
   })
 })
