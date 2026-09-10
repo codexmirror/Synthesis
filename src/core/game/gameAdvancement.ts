@@ -35,14 +35,16 @@ import { advanceBookstoreTrend } from './bookstoreTrend'
  * `nextState.process.processes` is equivalent to resolving them positionally
  * in one pass, and is exactly what happens here.
  *
- * `credentialAccessRandom`, `bookstoreDemandRandom`, and
- * `bookstorePurchaseRandom` are three semantically independent random
+ * `credentialAccessRandom`, `bookstoreDemandRandom`,
+ * `bookstorePurchaseRandom`, and `bookstoreGratuityRandom` are four
+ * semantically independent random
  * sources for unrelated mechanics that may all be consumed during the same
  * call: Credential Access probability, Bookstore demand sampling, and
  * Bookstore purchase composition never share or advance each other's
  * sequence merely because more than one happens to occur within one
  * `advanceGameState` call. Each defaults independently to `Math.random` in
- * production. `bookstorePurchaseRandom` never selects an amount in cents or
+ * production. Gratuity sampling therefore never advances purchase composition's
+ * source. `bookstorePurchaseRandom` never selects an amount in cents or
  * any other monetary outcome directly — only which currently available
  * represented merchandise, and how many units, a due opportunity's
  * provisional purchase composes.
@@ -53,6 +55,7 @@ export function advanceGameState(
   credentialAccessRandom: () => number = Math.random,
   bookstoreDemandRandom: () => number = Math.random,
   bookstorePurchaseRandom: () => number = Math.random,
+  bookstoreGratuityRandom: () => number = Math.random,
 ): GameState {
   return advanceBookstoreSalesCadence(
     state,
@@ -60,6 +63,7 @@ export function advanceGameState(
     (segmentState, segmentElapsedMs) => advanceGameStateCore(segmentState, segmentElapsedMs, credentialAccessRandom),
     bookstoreDemandRandom,
     bookstorePurchaseRandom,
+    bookstoreGratuityRandom,
   )
 }
 

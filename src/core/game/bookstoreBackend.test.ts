@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { BOOKSTORE_BRANCH_ID } from './business'
-import { BOOKSTORE_BACKEND_DEVICE_ID, BOOKSTORE_BACKEND_SERVICE_ID, resolveBookstoreBackendForBranch } from './bookstoreBackend'
+import { BOOKSTORE_BACKEND_DEVICE_ID, BOOKSTORE_BACKEND_SERVICE_ID, BOOKSTORE_GRATUITY_DESTINATION_ACCOUNT_ID, resolveBookstoreBackendForBranch } from './bookstoreBackend'
 
 describe('bookstore backend initial truth', () => {
   it('seeds one concrete branch-linked backend record referencing the generic Branch and the real srv-02 Device/Service by stable ID', () => {
@@ -10,6 +10,7 @@ describe('bookstore backend initial truth', () => {
       branchId: BOOKSTORE_BRANCH_ID,
       deviceId: BOOKSTORE_BACKEND_DEVICE_ID,
       serviceId: BOOKSTORE_BACKEND_SERVICE_ID,
+      gratuityDestinationAccountId: BOOKSTORE_GRATUITY_DESTINATION_ACCOUNT_ID,
     }])
     expect(BOOKSTORE_BACKEND_DEVICE_ID).toBe('host-lan-002')
   })
@@ -38,6 +39,7 @@ describe('resolveBookstoreBackendForBranch', () => {
       name: 'Bookstore Backend',
       version: '1.0',
       available: true,
+      gratuityDestinationAccountId: BOOKSTORE_GRATUITY_DESTINATION_ACCOUNT_ID,
     })
   })
 
@@ -73,7 +75,7 @@ describe('resolveBookstoreBackendForBranch', () => {
     })
     // The originally seeded Branch backend is unaffected by the alternate fixture.
     expect(resolveBookstoreBackendForBranch(state, BOOKSTORE_BRANCH_ID)).toEqual({
-      deviceId: BOOKSTORE_BACKEND_DEVICE_ID, serviceId: BOOKSTORE_BACKEND_SERVICE_ID, name: 'Bookstore Backend', version: '1.0', available: true,
+      deviceId: BOOKSTORE_BACKEND_DEVICE_ID, serviceId: BOOKSTORE_BACKEND_SERVICE_ID, name: 'Bookstore Backend', version: '1.0', available: true, gratuityDestinationAccountId: BOOKSTORE_GRATUITY_DESTINATION_ACCOUNT_ID,
     })
   })
 

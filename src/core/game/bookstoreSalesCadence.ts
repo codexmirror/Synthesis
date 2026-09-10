@@ -243,6 +243,9 @@ function scheduleNextBookstoreOpportunity(state: GameState, branchId: string, st
  * `bookstoreDemandRandom` and `credentialAccessRandom`, and is consumed only
  * by that one attempt's own purchase-composition step — never here, and
  * never on an ordinary tick that leaves no opportunity due.
+ * `bookstoreGratuityRandom` is a fourth independent channel, defaulted
+ * separately to `Math.random`; it is passed only to the successful-sale
+ * boundary and never consumes purchase-composition samples.
  */
 export function advanceBookstoreSalesCadence(
   state: GameState,
@@ -250,6 +253,7 @@ export function advanceBookstoreSalesCadence(
   advanceWorld: (state: GameState, elapsedMs: number) => GameState,
   bookstoreDemandRandom: () => number = Math.random,
   bookstorePurchaseRandom: () => number = Math.random,
+  bookstoreGratuityRandom: () => number = Math.random,
 ): GameState {
   if (elapsedMs <= 0 || state.bookstoreSalesCadence.records.length === 0) return advanceWorld(state, elapsedMs)
 
@@ -285,7 +289,7 @@ export function advanceBookstoreSalesCadence(
         continue
       }
       // Consumed whether this attempt sells or refuses — the next interval is freshly sampled either way.
-      const attempted = executeBookstoreSale(nextState, record.branchId, bookstorePurchaseRandom)
+      const attempted = executeBookstoreSale(nextState, record.branchId, bookstorePurchaseRandom, bookstoreGratuityRandom)
       nextState = replaceCadenceRecord(attempted.state, scheduleNextBookstoreOpportunity(attempted.state, record.branchId, record, bookstoreDemandRandom))
     }
 

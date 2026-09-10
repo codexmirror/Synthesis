@@ -6,6 +6,7 @@ import type { BookstoreBackendState, GameState } from './types'
 /** The seeded technical backend's real represented location: the concrete srv-02 Device and its own concrete Service. */
 export const BOOKSTORE_BACKEND_DEVICE_ID = 'host-lan-002'
 export const BOOKSTORE_BACKEND_SERVICE_ID = 'service-bookstore-backend-002'
+export const BOOKSTORE_GRATUITY_DESTINATION_ACCOUNT_ID = 'dollar-account-veyra-phone-v0'
 
 export function createInitialBookstoreBackendState(): BookstoreBackendState {
   return {
@@ -13,6 +14,7 @@ export function createInitialBookstoreBackendState(): BookstoreBackendState {
       branchId: BOOKSTORE_BRANCH_ID,
       deviceId: BOOKSTORE_BACKEND_DEVICE_ID,
       serviceId: BOOKSTORE_BACKEND_SERVICE_ID,
+      gratuityDestinationAccountId: BOOKSTORE_GRATUITY_DESTINATION_ACCOUNT_ID,
     }],
   }
 }
@@ -29,6 +31,8 @@ export interface ResolvedBookstoreBackend {
   readonly name: string
   readonly version: string
   readonly available: boolean
+  /** The uniquely resolved Provider-owned Account configured for gratuities, or undefined when routing truth fails closed. */
+  readonly gratuityDestinationAccountId?: string
 }
 
 /**
@@ -58,12 +62,14 @@ export function resolveBookstoreBackendForBranch(state: GameState, branchId: str
   if (!device) return undefined
   const service = device.services?.find(({ id }) => id === record.serviceId)
   if (!service) return undefined
+  const gratuityDestinations = state.dollarFinance.accounts.filter(({ id }) => id === record.gratuityDestinationAccountId)
   return {
     deviceId: device.id,
     serviceId: service.id,
     name: service.implementation.name,
     version: service.implementation.version,
     available: isDeviceNetworkUsable(device.operational) && service.open,
+    ...(gratuityDestinations.length === 1 ? { gratuityDestinationAccountId: gratuityDestinations[0].id } : {}),
   }
 }
 

@@ -6,6 +6,8 @@ import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { BOOKSTORE_BRANCH_ID } from './business'
 import type { GameState } from './types'
 
+const NO_TIP_RANDOM = () => 0.5
+
 function boundaryState(): GameState {
   const state = createInitialGameState()
   return {
@@ -22,7 +24,7 @@ function advanceAcrossBoundary(state: GameState, partitions: readonly number[]) 
   const purchaseSamples = [0, 0.28]
   const demandRandom = () => { demandDraws += 1; return nextIntervalAt100Ms }
   const purchaseRandom = () => { purchaseDraws += 1; return purchaseSamples[(purchaseDraws - 1) % purchaseSamples.length] }
-  const result = partitions.reduce<GameState>((current, elapsed) => advanceGameState(current, elapsed, () => 0, demandRandom, purchaseRandom), state)
+  const result = partitions.reduce<GameState>((current, elapsed) => advanceGameState(current, elapsed, () => 0, demandRandom, purchaseRandom, NO_TIP_RANDOM), state)
   return { result, demandDraws, purchaseDraws }
 }
 
@@ -42,18 +44,18 @@ describe('Bookstore Trend lifecycle', () => {
 
   it('completes once to neutral pressure and never creates a successor', () => {
     const initial = createInitialGameState()
-    const complete = advanceGameState(initial, 3_240_000, () => 0, () => 0.5, () => 0)
+    const complete = advanceGameState(initial, 3_240_000, () => 0, () => 0.5, () => 0, NO_TIP_RANDOM)
     expect(complete.bookstoreTrend.active).toBeNull()
     expect(complete.bookstoreMarket.genrePressures.find(x => x.genre === 'SCIENCE_FICTION')?.pressure).toBe(100)
-    const again = advanceGameState(complete, 60_000, () => 0, () => 0.5, () => 0)
+    const again = advanceGameState(complete, 60_000, () => 0, () => 0.5, () => 0, NO_TIP_RANDOM)
     expect(again.bookstoreTrend.active).toBeNull()
     expect(again.bookstoreMarket.genrePressures.find(x => x.genre === 'SCIENCE_FICTION')?.pressure).toBe(100)
   })
 
   it('is equivalent across a completion between sale opportunities', () => {
     const start = createInitialGameState()
-    const large = advanceGameState(start, 3_500_000, () => 0, () => 0.5, () => 0.2)
-    const partitioned = advanceGameState(advanceGameState(start, 3_200_000, () => 0, () => 0.5, () => 0.2), 300_000, () => 0, () => 0.5, () => 0.2)
+    const large = advanceGameState(start, 3_500_000, () => 0, () => 0.5, () => 0.2, NO_TIP_RANDOM)
+    const partitioned = advanceGameState(advanceGameState(start, 3_200_000, () => 0, () => 0.5, () => 0.2, NO_TIP_RANDOM), 300_000, () => 0, () => 0.5, () => 0.2, NO_TIP_RANDOM)
     expect(withoutBookstoreBackgroundTiming(partitioned)).toEqual(withoutBookstoreBackgroundTiming(large))
     expect(partitioned.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs)
       .toBeCloseTo(large.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs, 8)

@@ -305,10 +305,16 @@ Business, and hacking consequences can legitimately depend on — owned by
 BookstoreBranchBackendRecord
 ├── branchId    — the Business Branch this record belongs to, by stable ID
 ├── deviceId    — the real represented NetworkHost hosting the backend, by stable ID
-└── serviceId   — the real represented NetworkService on that Device implementing the backend, by stable ID
+├── serviceId   — the real represented NetworkService on that Device implementing the backend, by stable ID
+└── gratuityDestinationAccountId — the personal Civic Dollar Account receiving checkout gratuities, by stable ID
 ```
 
-This record carries no settlement, sale, OPEN/CLOSED, inventory, or shadow
+The seeded gratuity route resolves to Petra's existing phone-accessible personal
+Account, `dollar-account-veyra-phone-v0`. Resolution requires exactly one matching
+Civic Dollar Account; missing, dangling, or ambiguous Account identity fails closed
+without a fallback. This route is only gratuity configuration: Bookstore Commerce
+continues to own `settlementAccountId`, and the Backend cannot choose or redirect
+merchandise settlement. This record carries no settlement, sale, OPEN/CLOSED, inventory, or shadow
 `online` status of its own. It is exactly a stable reference into existing
 Device/Service World Truth, following the same "real technical ownership,
 never a parallel model" precedent the rest of this repository's Device/
@@ -516,7 +522,7 @@ purchase.
 
 ### Sale execution
 
-`executeBookstoreSale(state, branchId, bookstorePurchaseRandom?)`
+`executeBookstoreSale(state, branchId, bookstorePurchaseRandom?, bookstoreGratuityRandom?)`
 (`src/core/game/bookstoreSale.ts`) is the one canonical explicit state
 transition that turns current Business Branch, Bookstore Operations,
 Bookstore Commerce, Bookstore Backend and Civic Dollar truth into one
@@ -528,6 +534,23 @@ line, exactly one Civic Dollar Transaction moving exactly the composed
 basket's deterministic total from Retail Clearing to the current settlement
 Account, and exactly one appended CompletedSale (carrying its own captured
 purchase lines) referencing that Transaction by stable ID.
+
+After that merchandise sale succeeds, the operation evaluates gratuity exactly
+once at the same causal boundary using its separate gratuity-random channel. A
+sample in the upper 25% produces a tip; only then a second sample selects 10%,
+15%, or 20% with equal probability. The amount is derived from that sale's actual
+settled basket total and rounded deterministically to nearest integer cent, with
+an exact half-cent rounded upward. No failed opportunity consumes gratuity
+randomness, and history is never scanned later.
+
+A tip attempts a second real Civic Dollar movement directly from Retail Clearing
+to the Backend record's uniquely resolved personal destination. It never passes
+through the Company settlement Account. Success stores only the gratuity
+Transaction's stable ID on the causing CompletedSale; Civic Dollar remains the
+only owner of its amount and balances. Missing/invalid routing or a refused
+gratuity movement creates no tip reference and never rolls back the already
+completed merchandise sale. Existing CompletedSales, including the seeded sale,
+remain valid without that optional reference.
 
 Every prerequisite that makes a sale impossible independently of what gets
 purchased is preflighted, and conclusively refusing on any of them consumes
@@ -568,6 +591,9 @@ Branch's `location` is optional, so a Branch with none simply omits
 `location` from the snapshot rather than inventing one. A refused sale
 creates no Transaction and therefore no statement context, exactly like
 every other atomic failure path above.
+The separate gratuity Transaction captures the same Branch description/location
+with fixed purpose `Gratuity`, allowing Petra's existing Wallet activity projection
+to distinguish it without a new dashboard.
 
 This is one explicit domain transition, not a cadence: nothing here decides
 *when* a sale is attempted, there is no timer, countdown, or autonomous
