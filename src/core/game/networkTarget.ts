@@ -71,8 +71,10 @@ export function resolveDeviceNetwork(targets: Readonly<NetworkTargets>, deviceId
 export function resolveNetworkGateway(targets: Readonly<NetworkTargets>, network: Readonly<LocalNetwork>): { readonly deviceId: string; readonly address: string } | undefined {
   if (!network.gatewayDeviceId || !network.memberDeviceIds.includes(network.gatewayDeviceId)) return undefined
   const matches = [
-    ...(targets.localDevice.id === network.gatewayDeviceId ? [{ id: targets.localDevice.id, ip: targets.localDevice.network.ip }] : []),
+    ...(targets.localDevice.id === network.gatewayDeviceId ? [{ id: targets.localDevice.id, ip: targets.localDevice.network.ip, deviceType: targets.localDevice.deviceType }] : []),
     ...targets.network.hosts.filter(({ id }) => id === network.gatewayDeviceId),
   ]
-  return matches.length === 1 ? { deviceId: matches[0].id, address: matches[0].ip } : undefined
+  return matches.length === 1 && matches[0].deviceType === 'ROUTER'
+    ? { deviceId: matches[0].id, address: matches[0].ip }
+    : undefined
 }

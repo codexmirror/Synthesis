@@ -639,11 +639,12 @@ Firmware, compute class, or AuthGuard
 evidence. Classification is a distinct information class from identity: it
 states what *kind* of Device this is, never its concrete name (a
 classification of `SERVER` never implies, and is never accompanied by, a
-concrete identity like `srv-02`). A Host a Scan or Refresh only shallowly
-touches — a Network-Scan-revealed member, or a Device with no represented
-`DeviceType` mapping — earns no classification and presents as `UNKNOWN
-DEVICE`, the fallback below NodeScan 1.2 and wherever evidence does not
-support one. Classification is ordinary Discovery evidence, not a live
+concrete identity like `srv-02`). Under NodeScan 1.2, Host Scan classifies the
+Host it directly observes, while Network Scan/Refresh may classify each member
+Device it genuinely observes without Host Scanning it or learning its Services
+or endpoint implementations. A Device with no represented `DeviceType` mapping
+earns no classification and presents as `UNKNOWN DEVICE`; below NodeScan 1.2,
+neither observation fabricates new classification. Classification is ordinary Discovery evidence, not a live
 projection: only a Scan or Refresh actually performed while NodeScan 1.2 is
 installed writes or refreshes it; installing 1.2 alone never retroactively
 classifies an already-remembered Device; downgrading or removing 1.2 never

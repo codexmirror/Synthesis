@@ -44,8 +44,8 @@ describe('managed Network projection', () => {
       name: 'home-net',
       // Symmetric represented maximum capability, not current throughput.
       connectivity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 },
-      // home-net has exactly two members: the local Device and host-lan-001 (srv-01).
-      memberCount: 2,
+      // home-net has the local Device, host-lan-001, and its represented Router.
+      memberCount: 3,
       activity: [],
     }])
   })
@@ -53,8 +53,8 @@ describe('managed Network projection', () => {
   it('states a coarse member count without enumerating member identity', () => {
     const [network] = selectManagedNetworks(createInitialGameState())
     const projected = JSON.stringify(network)
-    expect(network.memberCount).toBe(2)
-    for (const hidden of ['srv-01', '198.51.100.47', 'host-lan-001', 'service-ssh-001', 'RACK-OS']) {
+    expect(network.memberCount).toBe(3)
+    for (const hidden of ['srv-01', '198.51.100.47', 'host-lan-001', 'router-home-001', '198.51.100.1', 'ROUTER', 'service-ssh-001', 'RACK-OS']) {
       expect(projected, `${hidden} must not reach a managed-Network projection`).not.toContain(hidden)
     }
   })

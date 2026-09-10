@@ -29,13 +29,14 @@ describe('scanNetworkTarget outward discovery', () => {
     expect(scanNetworkTarget({ ...targets, network: ambiguous }, '198.51.100.23')).toMatchObject({ networks: [] })
   })
 
-  it('fails closed when the gateway relationship is missing, non-member, or resolves ambiguously', () => {
+  it('fails closed when the gateway relationship is missing, non-member, ambiguous, or points to a non-Router', () => {
     const base = targets.network.localNetworks[0]
     const scanWith = (network: typeof base, hosts = targets.network.hosts) => scanNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [network], hosts } }, '198.51.100.47')
     for (const result of [
       scanWith({ ...base, gatewayDeviceId: undefined }),
       scanWith({ ...base, memberDeviceIds: base.memberDeviceIds.filter((id) => id !== base.gatewayDeviceId) }),
       scanWith(base, [...targets.network.hosts, { ...targets.network.hosts.find(({ id }) => id === 'router-home-001')! }]),
+      scanWith({ ...base, gatewayDeviceId: 'host-lan-001' }),
     ]) expect(result.status === 'device' ? result.networks[0] : {}).not.toHaveProperty('gateway')
   })
 
