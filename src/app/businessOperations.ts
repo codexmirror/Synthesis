@@ -1,9 +1,12 @@
-import { placeBookstoreRestockOrderFromOperatedRemoteDevice, requestBookstoreMarketReportFromOperatedRemoteDevice, type PlaceOperatedBookstoreRestockOrderResult, type RequestOperatedBookstoreMarketReportResult } from '../core/game/companyAdministration'
+import { purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice, placeBookstoreRestockOrderFromOperatedRemoteDevice, requestBookstoreMarketReportFromOperatedRemoteDevice, type PlaceOperatedBookstoreRestockOrderResult, type RequestOperatedBookstoreMarketReportResult } from '../core/game/companyAdministration'
 import type { BookstoreOrderDecisions, BookstoreOrderProposal } from '../core/game/bookstoreRestock'
 import { commitResult, type GameStateAccessor } from './gameStateAccess'
 
 export function createBusinessActions(accessor: GameStateAccessor) {
   return {
+    purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice(branchId: string) {
+      return commitResult(accessor, purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice(accessor.read(), branchId))
+    },
     /**
      * Deliberately only Branch and offer identity: the acting Device comes from
      * the active Remote Session inside the domain operation, the Branch names

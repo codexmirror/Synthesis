@@ -727,7 +727,7 @@ export interface BusinessBranchSaleLine {
  */
 export interface BusinessBranchSale {
   readonly id: string
-  readonly kind: 'book_sale'
+  readonly kind: 'book_sale' | 'book_and_coffee_sale' | 'coffee_sale'
   /** The Provider-owned money movement that settled this sale. */
   readonly dollarTransactionId: string
   /** Optional Provider-owned personal gratuity movement caused by this sale. Its amount remains owned only by that Transaction. */
@@ -897,7 +897,15 @@ export interface BookstoreBranchCommerceRecord {
   readonly completedSales: readonly BusinessBranchSale[]
 }
 
+/** One concrete Coffee offering; deliberately not a Book or a generic product. */
+export interface BookstoreCoffeeOffering {
+  readonly id: string
+  readonly name: string
+  readonly unitPriceCents: number
+}
+
 export interface BookstoreCommerceState {
+  readonly coffeeOffering: BookstoreCoffeeOffering
   /** Canonical current Bookstore World Truth, independent from every Branch. */
   readonly bookCatalog: readonly BookstoreBookRecord[]
   /** Monotonic allocator for runtime `BusinessBranchSale` identity, following the existing Transaction/Session allocation pattern. Never derived from array length, time, or randomness. */
@@ -942,6 +950,8 @@ export interface BookstoreMerchandiseStockRecord {
  */
 export interface BookstoreBranchOperationsRecord {
   readonly branchId: string
+  /** Physical setup. Absence means no Coffee service; payment history is a Civic Dollar reference only. */
+  readonly coffeeMachine?: { readonly id: string; readonly purchaseTransactionId: string }
   /** Configuration-like: maximum sellable inventory (summed across all merchandise) this Branch can shelve. */
   readonly shelfCapacity: number
   /** Configuration-like: represented physical checkout positions. Not a throughput, demand, or timing figure. */

@@ -2,6 +2,7 @@ import { appendCompletedBookstoreSale, findBookstoreCommerceRecord, isBookstoreM
 import { resolveBookstoreBackendForBranch } from './bookstoreBackend'
 import { resolveValidBookstoreGenreMarketPressures } from './bookstoreMarket'
 import { decrementBookstoreStock, resolveBookstoreOperationsForBranch } from './bookstoreOperations'
+import { BOOKSTORE_HOUSE_COFFEE_ID, deriveBookstoreSaleKind, selectBookstoreCoffeePurchaseMode } from './bookstoreCoffee'
 import { executeCivicDollarMovement } from './dollarFinance'
 import type { BookstoreBookRecord, BusinessBranchSaleLine, GameState } from './types'
 
@@ -237,26 +238,17 @@ export type ExecuteBookstoreSaleResult =
  * none of it is a parameter, so no caller can choose a price, a basket, an
  * Account, or a backend.
  *
- * Every prerequisite that makes a sale impossible independently of what gets
- * purchased is preflighted first, so that a conclusively refused attempt
- * never consumes `bookstorePurchaseRandom` at all: Branch existence,
- * Operations existence/OPEN, a structurally sufficient current merchandise
- * catalog (Commerce), at least one currently *sellable* unit of stock — the
- * intersection of that catalog and physical Operations stock
- * (`deriveSellableBookstoreTotalStock`), never raw physical stock alone, so
- * stock orphaned by a since-removed catalog entry can neither inflate
- * feasibility nor be selected — checkout capacity, settlement structure,
- * Backend availability, and Retail Clearing existence/distinctness. Only
- * once every one of those resolves does this compose exactly one
- * provisional purchase (`composeBookstorePurchase`) — the one point
- * purchase randomness is consumed. That basket's deterministic total
- * (`deriveBookstoreBasketTotalCents`) is then the *only* further reason a
- * sale might still refuse (insufficient funds or unrepresentable balances);
- * such a refusal never re-rolls a cheaper or different basket; the originally
- * composed basket is simply not committed.
+ * Without a machine, Book-only admission and composition remain unchanged and
+ * Coffee randomness is never consumed. With a machine, one dedicated Coffee
+ * sample chooses Books only / Books + Coffee / Coffee only before Book-specific
+ * fulfillment checks. An unfulfillable intention is lost, never rerolled.
+ * Coffee-only bypasses Book catalog, demand, stock and composition randomness;
+ * mixed baskets use canonical Book composition plus one current Coffee line.
+ * Every mode still requires OPEN, checkout capacity, an available real Backend,
+ * settlement and Retail Clearing. No provisional purchase mutates state.
  *
- * A successful sale is one atomic represented purchase: exact stock
- * decrements for every purchased merchandise line, exactly one Civic Dollar
+ * A successful sale is one atomic represented purchase: exact Book stock
+ * decrements for purchased Book lines, exactly one Civic Dollar
  * Transaction moving exactly the basket's deterministic total from Retail
  * Clearing to the current settlement Account, and exactly one appended
  * CompletedSale — carrying its own immutable captured purchase lines —
@@ -275,7 +267,7 @@ export type ExecuteBookstoreSaleResult =
  * decides *when* a sale is attempted, and calling this twice is two
  * independent explicit attempts.
  */
-export function executeBookstoreSale(state: GameState, branchId: string, bookstorePurchaseRandom: () => number = Math.random, bookstoreGratuityRandom: () => number = Math.random): ExecuteBookstoreSaleResult {
+export function executeBookstoreSale(state: GameState, branchId: string, bookstorePurchaseRandom: () => number = Math.random, bookstoreGratuityRandom: () => number = Math.random, bookstoreCoffeeRandom: () => number = Math.random): ExecuteBookstoreSaleResult {
   const branch = state.business.branches.find((candidate) => candidate.id === branchId)
   if (!branch) return { status: 'branch_not_found', state }
 
@@ -285,25 +277,34 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
 
   const commerce = findBookstoreCommerceRecord(state, branchId)
   if (!commerce) return { status: 'commerce_not_found', state }
-  const assortment = new Set(commerce.assortment)
-  if (assortment.size !== commerce.assortment.length) return { status: 'invalid_price', state }
-  const merchandise = state.bookstoreCommerce.bookCatalog.filter((book) => assortment.has(book.id))
-  if (merchandise.length !== assortment.size || !isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog)) return { status: 'invalid_price', state }
-  const genrePressures = resolveValidBookstoreGenreMarketPressures(state.bookstoreMarket.genrePressures)
-  if (!genrePressures) return { status: 'invalid_demand', state }
-  const demandByBookId = deriveValidBookstoreEffectiveDemand(state.bookstoreCommerce.bookCatalog, genrePressures)
-  if (!demandByBookId) return { status: 'invalid_demand', state }
+  const mode = operations.coffeeMachine ? selectBookstoreCoffeePurchaseMode(bookstoreCoffeeRandom) : 'books_only'
+  const coffee = state.bookstoreCommerce.coffeeOffering
+  if (mode !== 'books_only' && (coffee.id !== BOOKSTORE_HOUSE_COFFEE_ID || !coffee.name.trim() || !Number.isSafeInteger(coffee.unitPriceCents) || coffee.unitPriceCents <= 0)) return { status: 'invalid_price', state }
+  let merchandise: readonly BookstoreBookRecord[] = []
+  let demandByBookId: ReadonlyMap<string, number> = new Map()
+  // Coffee-only intentions require neither a Book catalog, Book demand nor Book stock.
+  if (mode !== 'coffee_only') {
+    const assortment = new Set(commerce.assortment)
+    if (assortment.size !== commerce.assortment.length) return { status: 'invalid_price', state }
+    merchandise = state.bookstoreCommerce.bookCatalog.filter((book) => assortment.has(book.id))
+    if (merchandise.length !== assortment.size || !isBookstoreMerchandiseCatalogSufficient(state.bookstoreCommerce.bookCatalog)) return { status: 'invalid_price', state }
+    const genrePressures = resolveValidBookstoreGenreMarketPressures(state.bookstoreMarket.genrePressures)
+    if (!genrePressures) return { status: 'invalid_demand', state }
+    const effectiveDemand = deriveValidBookstoreEffectiveDemand(state.bookstoreCommerce.bookCatalog, genrePressures)
+    if (!effectiveDemand) return { status: 'invalid_demand', state }
+    demandByBookId = effectiveDemand
 
-  // Sellable stock — the intersection of the current catalog and physical Operations stock — is what
-  // purchase feasibility must be measured against, never physical stock alone: stock for a merchandise
-  // identity the current catalog no longer lists ("orphan" stock) must never inflate feasibility or be
-  // reachable by composition. `deriveBookstoreTotalStock(operations)` remains the separate physical total
-  // used for shelf-capacity accounting and RACK-OS's STOCK presentation; it is deliberately not read here.
-  const sellableTotalStock = deriveSellableBookstoreTotalStock(merchandise, operations.stock)
-  if (sellableTotalStock <= 0) return { status: 'out_of_stock', state }
-  const sellableBookIds = merchandise.filter((item) => operations.stock.some((entry) => entry.merchandiseId === item.id && entry.quantity > 0)).map((item) => item.id)
-  const candidateDemandTotal = sellableBookIds.reduce((sum, bookId) => sum + demandByBookId.get(bookId)!, 0)
-  if (!Number.isSafeInteger(candidateDemandTotal) || candidateDemandTotal <= 0) return { status: 'invalid_demand', state }
+    // Sellable stock — the intersection of the current catalog and physical Operations stock — is what
+    // purchase feasibility must be measured against, never physical stock alone: stock for a merchandise
+    // identity the current catalog no longer lists ("orphan" stock) must never inflate feasibility or be
+    // reachable by composition. `deriveBookstoreTotalStock(operations)` remains the separate physical total
+    // used for shelf-capacity accounting and RACK-OS's STOCK presentation; it is deliberately not read here.
+    const sellableTotalStock = deriveSellableBookstoreTotalStock(merchandise, operations.stock)
+    if (sellableTotalStock <= 0) return { status: 'out_of_stock', state }
+    const sellableBookIds = merchandise.filter((item) => operations.stock.some((entry) => entry.merchandiseId === item.id && entry.quantity > 0)).map((item) => item.id)
+    const candidateDemandTotal = sellableBookIds.reduce((sum, bookId) => sum + demandByBookId.get(bookId)!, 0)
+    if (!Number.isSafeInteger(candidateDemandTotal) || candidateDemandTotal <= 0) return { status: 'invalid_demand', state }
+  }
   if (operations.checkoutCapacity <= 0) return { status: 'no_checkout_capacity', state }
 
   const settlementAccount = state.dollarFinance.accounts.find(({ id }) => id === commerce.settlementAccountId)
@@ -319,7 +320,8 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
 
   // Every prerequisite independent of what gets purchased has now resolved. This is the one
   // point that consumes bookstorePurchaseRandom — a conclusive refusal above never reaches it.
-  const basket = composeBookstorePurchase(merchandise, operations.stock, demandByBookId, bookstorePurchaseRandom)
+  const books = mode === 'coffee_only' ? [] : composeBookstorePurchase(merchandise, operations.stock, demandByBookId, bookstorePurchaseRandom)
+  const basket = mode === 'books_only' ? books : [...books, { merchandiseId: coffee.id, name: coffee.name, unitPriceCents: coffee.unitPriceCents, quantity: 1 }]
   const basketTotalCents = deriveBookstoreBasketTotalCents(basket)
   if (!Number.isSafeInteger(basketTotalCents) || basketTotalCents <= 0) return { status: 'invalid_price', state }
 
@@ -343,7 +345,7 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
     return { status: 'insufficient_funds', state }
   }
 
-  const stockDecremented = decrementBookstoreStock(movement.state, branchId, basket)
+  const stockDecremented = books.length ? decrementBookstoreStock(movement.state, branchId, books) : movement.state
   const lines: readonly BusinessBranchSaleLine[] = basket.map((line) => ({
     merchandiseId: line.merchandiseId,
     capturedName: line.name,
@@ -353,8 +355,10 @@ export function executeBookstoreSale(state: GameState, branchId: string, booksto
   let postSaleState = stockDecremented
   let gratuityTransactionId: string | undefined
   // Gratuity is evaluated exactly once only after merchandise settlement succeeds. The first draw
-  // selects the 25% occurrence interval; a tier draw is consumed only for that outcome.
-  if (uniformSample(bookstoreGratuityRandom) >= 0.75) {
+  // selects occurrence from actual captured composition; only a tip consumes a tier draw.
+  const saleKind = deriveBookstoreSaleKind(lines)
+  const occurrenceThreshold = saleKind === 'book_sale' ? 0.75 : saleKind === 'book_and_coffee_sale' ? 0.5 : 0.65
+  if (uniformSample(bookstoreGratuityRandom) >= occurrenceThreshold) {
     const tierIndex = Math.min(BOOKSTORE_GRATUITY_PERCENTAGES.length - 1, Math.floor(uniformSample(bookstoreGratuityRandom) * BOOKSTORE_GRATUITY_PERCENTAGES.length))
     const gratuityAmountCents = deriveBookstoreGratuityAmountCents(basketTotalCents, BOOKSTORE_GRATUITY_PERCENTAGES[tierIndex])
     const destinationAccountId = backend.gratuityDestinationAccountId

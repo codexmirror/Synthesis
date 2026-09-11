@@ -1,5 +1,6 @@
+import { BOOKSTORE_HOUSE_COFFEE, BOOKSTORE_HOUSE_COFFEE_ID, deriveBookstoreSaleKind } from './bookstoreCoffee'
 import { BOOKSTORE_BRANCH_ID } from './business'
-import type { BookstoreBranchCommerceRecord, BookstoreBookRecord, BookstoreCommerceState, BusinessBranchSaleLine, DollarFinancialAccount, DollarTransaction, GameState } from './types'
+import type { BookstoreBranchCommerceRecord, BookstoreBookRecord, BookstoreCommerceState, BusinessBranchSale, BusinessBranchSaleLine, DollarFinancialAccount, DollarTransaction, GameState } from './types'
 
 export const BOOKSTORE_BRANCH_SETTLEMENT_ACCOUNT_ID = 'dollar-account-bookstore-treasury-v0'
 export const BOOKSTORE_SALE_ID = 'bookstore-sale-0001'
@@ -71,6 +72,7 @@ const BOOKSTORE_SALE_0001_LINES: readonly BusinessBranchSaleLine[] = [
 export function createInitialBookstoreCommerceState(): BookstoreCommerceState {
   return {
     bookCatalog: BOOKSTORE_BOOK_CATALOG,
+    coffeeOffering: { ...BOOKSTORE_HOUSE_COFFEE },
     nextSaleId: 2,
     records: [{
       branchId: BOOKSTORE_BRANCH_ID,
@@ -100,7 +102,7 @@ export function findBookstoreCommerceRecord(state: GameState, branchId: string):
  * reads `BookstoreBranchOperationsRecord` stock.
  */
 export function isBookstoreMerchandiseCatalogSufficient(merchandise: readonly BookstoreBookRecord[]): boolean {
-  if (merchandise.length === 0) return false
+  if (merchandise.length === 0 || merchandise.some(item => item.id === BOOKSTORE_HOUSE_COFFEE_ID)) return false
   if (!merchandise.every((item) => Number.isSafeInteger(item.unitPriceCents) && item.unitPriceCents > 0)) return false
   return new Set(merchandise.map((item) => item.id)).size === merchandise.length
 }
@@ -112,7 +114,7 @@ export function resolveBookstoreBookById(catalog: readonly BookstoreBookRecord[]
 }
 
 /**
- * Append exactly one new `book_sale` CompletedSale to one Branch's commerce
+ * Append exactly one new composition-derived CompletedSale to one Branch's commerce
  * record, referencing the given Provider-owned Transaction by stable ID
  * only — never duplicating its amount or any other money truth — together
  * with the immutable captured purchase-line truth that explains it. Allocates
@@ -125,7 +127,7 @@ export function resolveBookstoreBookById(catalog: readonly BookstoreBookRecord[]
 export function appendCompletedBookstoreSale(state: GameState, branchId: string, dollarTransactionId: string, lines: readonly BusinessBranchSaleLine[], gratuityTransactionId?: string): { readonly state: GameState; readonly saleId: string } {
   const saleId = `bookstore-sale-${String(state.bookstoreCommerce.nextSaleId).padStart(4, '0')}`
   const records = state.bookstoreCommerce.records.map((record) => record.branchId === branchId
-    ? { ...record, completedSales: [...record.completedSales, { id: saleId, kind: 'book_sale' as const, dollarTransactionId, ...(gratuityTransactionId ? { gratuityTransactionId } : {}), lines }] }
+    ? { ...record, completedSales: [...record.completedSales, { id: saleId, kind: deriveBookstoreSaleKind(lines), dollarTransactionId, ...(gratuityTransactionId ? { gratuityTransactionId } : {}), lines }] }
     : record)
   return {
     saleId,
@@ -145,7 +147,7 @@ export function appendCompletedBookstoreSale(state: GameState, branchId: string,
 export interface ResolvedBookstoreCommerce {
   readonly merchandise: readonly BookstoreBookRecord[]
   readonly settlementAccount: DollarFinancialAccount
-  readonly sales: readonly { readonly id: string; readonly kind: 'book_sale'; readonly transaction: DollarTransaction; readonly gratuityTransaction?: DollarTransaction; readonly lines: readonly BusinessBranchSaleLine[] }[]
+  readonly sales: readonly { readonly id: string; readonly kind: BusinessBranchSale['kind']; readonly transaction: DollarTransaction; readonly gratuityTransaction?: DollarTransaction; readonly lines: readonly BusinessBranchSaleLine[] }[]
 }
 
 /**

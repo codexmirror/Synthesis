@@ -36,7 +36,7 @@ import { advanceBookstoreTrend } from './bookstoreTrend'
  * in one pass, and is exactly what happens here.
  *
  * `credentialAccessRandom`, `bookstoreDemandRandom`,
- * `bookstorePurchaseRandom`, and `bookstoreGratuityRandom` are four
+ * `bookstorePurchaseRandom`, `bookstoreGratuityRandom`, and `bookstoreCoffeeRandom` are five
  * semantically independent random
  * sources for unrelated mechanics that may all be consumed during the same
  * call: Credential Access probability, Bookstore demand sampling, and
@@ -47,7 +47,8 @@ import { advanceBookstoreTrend } from './bookstoreTrend'
  * source. `bookstorePurchaseRandom` never selects an amount in cents or
  * any other monetary outcome directly — only which currently available
  * represented merchandise, and how many units, a due opportunity's
- * provisional purchase composes.
+ * provisional purchase composes. Coffee mode uses only its dedicated source,
+ * only for a due attempt at a Branch with an installed Coffee Machine.
  */
 export function advanceGameState(
   state: GameState,
@@ -56,6 +57,7 @@ export function advanceGameState(
   bookstoreDemandRandom: () => number = Math.random,
   bookstorePurchaseRandom: () => number = Math.random,
   bookstoreGratuityRandom: () => number = Math.random,
+  bookstoreCoffeeRandom: () => number = Math.random,
 ): GameState {
   return advanceBookstoreSalesCadence(
     state,
@@ -64,6 +66,7 @@ export function advanceGameState(
     bookstoreDemandRandom,
     bookstorePurchaseRandom,
     bookstoreGratuityRandom,
+    bookstoreCoffeeRandom,
   )
 }
 
