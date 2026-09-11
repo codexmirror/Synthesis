@@ -199,7 +199,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     const generation = beginRequest('direct-address')
     if (generation === null) return
     try {
-      const result = actions.pingTarget(address)
+      const result = await actions.pingTarget(address)
       if (!finishRequest('direct-address', generation)) return
       setNotice(result.status === 'software_unavailable' ? 'NODESCAN NOT INSTALLED'
         : result.status === 'no_response' ? 'NO RESPONSE'

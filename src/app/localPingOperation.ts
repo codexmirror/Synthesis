@@ -3,7 +3,8 @@ import { rememberPing } from '../core/game/discovery'
 import { findInstalledNodeScan } from '../core/game/software'
 import type { GameState } from '../core/game/types'
 
-export type PingTargetOperation = (input: string) => PingResult | { status: 'software_unavailable' }
+export type PingTargetResult = PingResult | { status: 'software_unavailable' }
+export type PingTargetOperation = (input: string) => PingTargetResult | Promise<PingTargetResult>
 
 /** Shared immediate PING adapter used by NodeScan and Terminal. */
 export function createLocalPingTarget(readState: () => GameState, writeState: (state: GameState) => void): PingTargetOperation {

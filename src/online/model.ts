@@ -1,32 +1,30 @@
-import type { GameState } from '../core/game/types'
+import type { DollarCredential, DollarFinancialAccount, DollarFinancialSession, GameState, LocalDeviceState, MailState, MarketPurchaseState } from '../core/game/types'
 
-export const ONLINE_PERSISTENCE_VERSION = 1
+export const ONLINE_PERSISTENCE_VERSION = 2
 
-export interface AccountRecord {
-  readonly id: string
-  readonly normalizedName: string
-  readonly passwordHash: string
-  readonly playerId: string
+export interface AccountRecord { readonly id: string; readonly normalizedName: string; readonly passwordHash: string; readonly playerId: string }
+export interface AuthenticationSessionRecord { readonly id: string; readonly accountId: string; readonly tokenHash: string; readonly createdAt: string }
+
+/** Shared owners are stored once, never copied into Player records. */
+export interface SharedOnlineState {
+  readonly state: GameState
+  /** Canonical Player-owned Devices. `player.localDevice` is composed from here. */
+  readonly playerDevices: readonly LocalDeviceState[]
 }
 
-export interface AuthenticationSessionRecord {
-  readonly id: string
-  readonly accountId: string
-  readonly tokenHash: string
-  readonly createdAt: string
-}
-
-/** State whose meaning belongs to one Player, not to the shared authored world. */
 export type PlayerPrivateState = Pick<GameState,
-  'player' | 'nodeWallet' | 'market' | 'knowledge' | 'discovery' |
-  'deviceAccess' | 'networkManagement' | 'remoteSession' | 'fileTransfer' |
-  'rackUpdate' | 'mail' | 'process' | 'recentActivity'> & {
-    /** V0 keeps the starter Civic identity and session private as one slice. */
-    readonly dollarFinance: GameState['dollarFinance']
+  'nodeWallet' | 'knowledge' | 'discovery' | 'deviceAccess' | 'networkManagement' |
+  'remoteSession' | 'fileTransfer' | 'rackUpdate' | 'mail' | 'process' | 'recentActivity'> & {
+    readonly marketPurchases: MarketPurchaseState
+    readonly dollarAccount: DollarFinancialAccount
+    readonly dollarCredential: DollarCredential
+    readonly dollarSessions: { readonly nextId: number; readonly active: readonly DollarFinancialSession[] }
   }
 
 export interface PlayerRecord {
   readonly id: string
+  readonly ownedDeviceIds: readonly string[]
+  readonly primaryDeviceId: string
   readonly homeNetworkId: string
   readonly gatewayDeviceId: string
   readonly starterServerDeviceId: string
@@ -36,15 +34,12 @@ export interface PlayerRecord {
 export interface OnlineWorldDocument {
   readonly persistenceVersion: typeof ONLINE_PERSISTENCE_VERSION
   readonly nextHomeSubnet: number
-  readonly sharedState: GameState
+  readonly shared: SharedOnlineState
   readonly accounts: readonly AccountRecord[]
   readonly sessions: readonly AuthenticationSessionRecord[]
   readonly players: readonly PlayerRecord[]
 }
 
-export interface AuthenticatedSnapshot {
-  readonly playerId: string
-  readonly state: GameState
-  readonly homeNetworkId: string
-  readonly gatewayDeviceId: string
-}
+export interface AuthenticatedSnapshot { readonly playerId: string; readonly state: GameState; readonly homeNetworkId: string; readonly gatewayDeviceId: string }
+
+export type OnlineObservationResponse<TResult = unknown> = { readonly result: TResult; readonly snapshot: AuthenticatedSnapshot }

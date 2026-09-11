@@ -19,12 +19,18 @@ export class JsonWorldPersistence {
       const initial = createInitialGameState()
       const home = initial.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
       const personalIds = new Set(home?.memberDeviceIds ?? [])
+      const personalAccountId = 'dollar-account-local-v0'
       const document: OnlineWorldDocument = {
         persistenceVersion: ONLINE_PERSISTENCE_VERSION, nextHomeSubnet: 1,
-        sharedState: { ...initial, world: { network: {
+        shared: { playerDevices: [], state: { ...initial, market: { ...initial.market, purchases: { nextId: 1, entitlements: [] } }, dollarFinance: {
+          ...initial.dollarFinance,
+          accounts: initial.dollarFinance.accounts.filter(({ id }) => id !== personalAccountId),
+          credentials: [],
+          sessions: { nextId: 1, active: initial.dollarFinance.sessions.active.filter(({ accountId }) => accountId !== personalAccountId) },
+        }, world: { network: {
           localNetworks: initial.world.network.localNetworks.filter(({ id }) => id !== 'network-local-001'),
           hosts: initial.world.network.hosts.filter(({ id }) => !personalIds.has(id)),
-        } } },
+        } } } },
         accounts: [], sessions: [], players: [],
       }
       await this.save(document)

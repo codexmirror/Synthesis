@@ -33,7 +33,7 @@ export interface CommandContext {
     readonly available: boolean
   }
   readonly operations: {
-    readonly pingTarget?: (target: string) => PingResult | { status: 'software_unavailable' }
+    readonly pingTarget?: (target: string) => PingResult | { status: 'software_unavailable' } | Promise<PingResult | { status: 'software_unavailable' }>
     readonly scanTarget: (target: string) => ScanResult | { status: 'software_unavailable' } | Promise<ScanResult | { status: 'software_unavailable' }>
     readonly analyzeEndpoint: (endpoint: string) => TerminalAnalyzeResult
     readonly knownWeaknesses: (targetDeviceId: string, serviceId: string) => readonly string[]

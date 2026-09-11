@@ -1,10 +1,10 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { advanceGameState } from '../core/game/gameAdvancement'
+import { advanceGameState, advancePlayerOwnedGameState } from '../core/game/gameAdvancement'
 import { findInstalledNodeScan } from '../core/game/software'
 import { pingNetworkTarget } from '../core/game/ping'
 import { scanNetworkTarget } from '../core/game/scan'
 import { rememberPing, rememberScan } from '../core/game/discovery'
-import { bootstrapPlayer, composePlayerSnapshot } from './bootstrap'
+import { bootstrapPlayer, composePlayerSnapshot, resolveCanonicalPrimaryDevice } from './bootstrap'
 import type { AuthenticatedSnapshot, OnlineWorldDocument, PlayerPrivateState } from './model'
 import { hashPassword, normalizeAccountName, validateAuthenticationInput, verifyPassword } from './password'
 import { JsonWorldPersistence } from './persistence'
@@ -37,10 +37,10 @@ export class OnlineWorldStore {
       let account = existing
       let created = false
       if (!account) {
-        const bootstrapped = bootstrapPlayer(this.document.sharedState, this.document.nextHomeSubnet)
+        const bootstrapped = bootstrapPlayer(this.document.shared, this.document.nextHomeSubnet)
         account = { id: randomUUID(), normalizedName, passwordHash: hashPassword(password), playerId: bootstrapped.player.id }
         this.document = { ...this.document, nextHomeSubnet: this.document.nextHomeSubnet + 1,
-          sharedState: bootstrapped.sharedState, accounts: [...this.document.accounts, account], players: [...this.document.players, bootstrapped.player] }
+          shared: bootstrapped.shared, accounts: [...this.document.accounts, account], players: [...this.document.players, bootstrapped.player] }
         created = true
       }
       const token = randomBytes(32).toString('base64url')
@@ -61,9 +61,8 @@ export class OnlineWorldStore {
     const account = this.document.accounts.find(({ id }) => id === accountId)
     const player = account && this.document.players.find(({ id }) => id === account.playerId)
     if (!player) throw new Error('Authenticated Player truth is invalid.')
-    const primary = player.privateState.player
-    if (new Set(primary.ownedDeviceIds).size !== primary.ownedDeviceIds.length || !primary.ownedDeviceIds.includes(primary.primaryDeviceId) || primary.localDevice.id !== primary.primaryDeviceId) throw new Error('Authenticated Primary Device truth is invalid.')
-    return { playerId: player.id, state: composePlayerSnapshot(this.document.sharedState, player), homeNetworkId: player.homeNetworkId, gatewayDeviceId: player.gatewayDeviceId }
+    resolveCanonicalPrimaryDevice(this.document.shared, player)
+    return { playerId: player.id, state: composePlayerSnapshot(this.document.shared, player), homeNetworkId: player.homeNetworkId, gatewayDeviceId: player.gatewayDeviceId }
   }
 
   restore(token: string): AuthenticatedSnapshot | null {
@@ -77,7 +76,7 @@ export class OnlineWorldStore {
     return this.run(async () => {
       const account = this.accountForToken(token); if (!account) throw new Error('Authentication required.')
       const index = this.document.players.findIndex(({ id }) => id === account.playerId); if (index < 0) throw new Error('Player not found.')
-      const player = this.document.players[index]; const state = composePlayerSnapshot(this.document.sharedState, player)
+      const player = this.document.players[index]; const state = composePlayerSnapshot(this.document.shared, player)
       if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable' }
       const result = kind === 'ping'
         ? pingNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, input)
@@ -88,14 +87,24 @@ export class OnlineWorldStore {
         const players = [...this.document.players]; players[index] = { ...player, privateState }; this.document = { ...this.document, players }
         await this.persistence.save(this.document)
       }
-      return result
+      return { result, snapshot: this.snapshotForAccount(account.id) }
     })
   }
 
   startAdvancement(intervalMs = 250): void {
     if (this.timer) return
     this.lastTick = performance.now()
-    this.timer = setInterval(() => { void this.run(async () => { const now = performance.now(); const elapsed = now - this.lastTick; this.lastTick = now; const next = advanceGameState(this.document.sharedState, elapsed); if (next !== this.document.sharedState) { this.document = { ...this.document, sharedState: next }; await this.persistence.save(this.document) } }) }, intervalMs)
+    this.timer = setInterval(() => { void this.advanceOnce() }, intervalMs)
   }
+  async advanceOnce(elapsedOverride?: number): Promise<void> { await this.run(async () => {
+    const now = performance.now(); const elapsed = elapsedOverride ?? now - this.lastTick; this.lastTick = now
+    let shared = { ...this.document.shared, state: advanceGameState(this.document.shared.state, elapsed) }
+    const players = this.document.players.map((player) => {
+      const current = composePlayerSnapshot(shared, player); const next = advancePlayerOwnedGameState(current, elapsed)
+      shared = { ...shared, playerDevices: shared.playerDevices.map((device) => device.id === player.primaryDeviceId ? next.player.localDevice : device) }
+      return { ...player, privateState: { ...player.privateState, nodeWallet: next.nodeWallet, marketPurchases: next.market.purchases, knowledge: next.knowledge, discovery: next.discovery, deviceAccess: next.deviceAccess, networkManagement: next.networkManagement, remoteSession: next.remoteSession, fileTransfer: next.fileTransfer, rackUpdate: next.rackUpdate, mail: next.mail, process: next.process, recentActivity: next.recentActivity, dollarAccount: next.dollarFinance.accounts.find(({ id }) => id === player.privateState.dollarAccount.id) ?? player.privateState.dollarAccount, dollarCredential: next.dollarFinance.credentials.find(({ id }) => id === player.privateState.dollarCredential.id) ?? player.privateState.dollarCredential, dollarSessions: next.dollarFinance.sessions } }
+    })
+    this.document = { ...this.document, shared, players }; await this.persistence.save(this.document)
+  }) }
   async stopAdvancement(): Promise<void> { if (this.timer) clearInterval(this.timer); this.timer = undefined; await this.transaction }
 }

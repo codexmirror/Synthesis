@@ -32,8 +32,21 @@ describe('OnlineWorldStore', () => {
     expect(bob.snapshot.homeNetworkId).not.toBe(alice.snapshot.homeNetworkId)
     expect(bob.snapshot.state.player.localDevice.network.ip).not.toBe(alice.snapshot.state.player.localDevice.network.ip)
     expect(bob.snapshot.state.business.companies[0].id).toBe(alice.snapshot.state.business.companies[0].id)
+    const persisted = store.inspectForTests()
+    expect(persisted.shared.playerDevices.map(({ id }) => id)).toEqual(expect.arrayContaining([alice.snapshot.state.player.primaryDeviceId, bob.snapshot.state.player.primaryDeviceId]))
+    expect(persisted.players.every((player) => !('market' in player.privateState) && !('dollarFinance' in player.privateState))).toBe(true)
+    expect(alice.snapshot.state.market.operator).toEqual(bob.snapshot.state.market.operator)
+    expect(alice.snapshot.state.market.offers).toEqual(bob.snapshot.state.market.offers)
+    expect(alice.snapshot.state.dollarFinance.provider).toEqual(bob.snapshot.state.dollarFinance.provider)
+    expect(persisted.shared.state.dollarFinance.accounts.some(({ id }) => id === 'dollar-account-bookstore-treasury-v0')).toBe(true)
+    expect(alice.snapshot.state.dollarFinance.accounts.at(-1)?.id).not.toBe(bob.snapshot.state.dollarFinance.accounts.at(-1)?.id)
+    expect(alice.snapshot.state.mail.account.id).not.toBe(bob.snapshot.state.mail.account.id)
+    const aliceHome = alice.snapshot.state.world.network.localNetworks.find(({ id }) => id === alice.snapshot.homeNetworkId)!
+    expect(aliceHome.memberDeviceIds).toContain(alice.snapshot.state.player.primaryDeviceId)
+    const bobPing = await store.observe(alice.token, 'ping', bob.snapshot.state.player.localDevice.network.ip) as { result: { status: string; targetId?: string } }
+    expect(bobPing.result).toMatchObject({ status: 'device', targetId: bob.snapshot.state.player.primaryDeviceId })
     await store.observe(alice.token, 'ping', '203.0.113.42')
-    expect(store.restore(alice.token)?.state.discovery.devices).toHaveLength(1)
+    expect(store.restore(alice.token)?.state.discovery.devices).toHaveLength(2)
     expect(store.restore(bob.token)?.state.discovery.devices).toHaveLength(0)
     expect(store.restore(bob.token)?.state.mail).not.toBe(store.restore(alice.token)?.state.mail)
     expect(store.restore(bob.token)?.state.nodeWallet.id).not.toBe(store.restore(alice.token)?.state.nodeWallet.id)
@@ -56,7 +69,22 @@ describe('OnlineWorldStore', () => {
 
   it('owns one advancement timer regardless of connected sessions', async () => {
     const { store } = await fixture(); await store.enter('alice', 'correct-horse-1'); await store.enter('bob', 'correct-horse-2')
+    const before = store.inspectForTests().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs
+    await store.advanceOnce(1_000)
+    const after = store.inspectForTests().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs
+    expect(before - after).toBe(1_000)
     store.startAdvancement(10); store.startAdvancement(10); await new Promise((resolve) => setTimeout(resolve, 35)); await store.stopAdvancement()
     expect(store.inspectForTests().accounts).toHaveLength(2)
+  })
+
+  it('advances a real Player-owned Process under the server clock', async () => {
+    const { store, path } = await fixture(); const alice = await store.enter('alice', 'correct-horse-1')
+    const document = store.inspectForTests(); const player = document.players[0]
+    const process = { id: 'process-0001', kind: 'generic' as const, label: 'Server-owned work', executorDeviceId: player.primaryDeviceId, ramRequiredMiB: 1, status: 'running' as const, workRequired: 1_000, workCompleted: 0 }
+    await writeFile(path, JSON.stringify({ ...document, players: [{ ...player, privateState: { ...player.privateState, process: { nextId: 2, processes: [process] } } }] }))
+    const restarted = await new OnlineWorldStore(new JsonWorldPersistence(path)).open(); await restarted.advanceOnce(1_000)
+    const advanced = restarted.restore(alice.token)?.state.process.processes[0]
+    expect(advanced?.kind).toBe('generic'); if (advanced?.kind !== 'generic') throw new Error('Expected generic Process')
+    expect(advanced.workCompleted).toBeGreaterThan(0)
   })
 })
