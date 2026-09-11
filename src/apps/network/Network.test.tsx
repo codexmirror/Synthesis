@@ -968,34 +968,38 @@ describe('NodeScan target topology', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={scanned}><Network /></GameProvider>)
     await user.click(screen.getByRole('button', { name: `Open target ${SRV_02_ADDRESS}` }))
-    const rendered = screen.getByLabelText('Known members of remote-segment-01')
-    expect(rendered).toHaveTextContent(PHONE_ADDRESS)
-    expect(rendered).toHaveTextContent('203.0.113.43')
-    expect(rendered).not.toHaveTextContent(SRV_02_ADDRESS)
-    expect(within(rendered).getAllByText('ONLINE')).toHaveLength(3)
+    const rendered = screen.getByRole('region', { name: 'Target topology' })
+    expect(rendered).toHaveTextContent('remote-segment-01')
+    expect(rendered).not.toHaveTextContent(PHONE_ADDRESS)
+    expect(rendered).not.toHaveTextContent('203.0.113.43')
+    expect(rendered).not.toHaveTextContent('203.0.113.1')
+    expect(rendered).toHaveTextContent(SRV_02_ADDRESS)
+
   })
 
-  it('renders the physical home-net case as contextual SELF plus one detailed srv-01 row', async () => {
+  it('renders only the selected home Device and compact Network affiliation', async () => {
     const scanned = withNodeScan12(scannedTarget())
     await openTarget(scanned)
 
     const topology = screen.getByRole('region', { name: 'Target topology' })
-    const members = within(topology).getByLabelText('Known members of home-net')
-    expect(members).toHaveTextContent('SELF')
-    expect(members).not.toHaveTextContent(SRV_01_ADDRESS)
+    expect(within(topology).queryByLabelText('Known members of home-net')).not.toBeInTheDocument()
+    expect(topology).toHaveTextContent('home-net')
+    expect(topology).not.toHaveTextContent('SELF')
+    expect(topology).not.toHaveTextContent('198.51.100.1')
     expect(within(topology).getAllByText(SRV_01_ADDRESS)).toHaveLength(1)
   })
 
-  it('renders the physical remote case as contextual srv-02 plus one detailed phone row', async () => {
+  it('renders only the selected phone and compact Network affiliation', async () => {
     const scanned = knownRemote(withNodeScan12(createInitialGameState()))
     const user = userEvent.setup()
     render(<GameProvider initialState={scanned}><Network /></GameProvider>)
     await user.click(screen.getByRole('button', { name: `Open target ${PHONE_ADDRESS}` }))
 
     const topology = screen.getByRole('region', { name: 'Target topology' })
-    const members = within(topology).getByLabelText('Known members of remote-segment-01')
-    expect(members).toHaveTextContent(SRV_02_ADDRESS)
-    expect(members).not.toHaveTextContent(PHONE_ADDRESS)
+    expect(within(topology).queryByLabelText('Known members of remote-segment-01')).not.toBeInTheDocument()
+    expect(topology).toHaveTextContent('remote-segment-01')
+    expect(topology).not.toHaveTextContent(SRV_02_ADDRESS)
+    expect(topology).not.toHaveTextContent('203.0.113.1')
     expect(within(topology).getAllByText(PHONE_ADDRESS)).toHaveLength(1)
   })
 
@@ -1515,6 +1519,28 @@ describe('Known Space topology', () => {
     expect(within(foreign).getByRole('button', { name: 'Scan gateway 203.0.113.1' })).toBeInTheDocument()
   })
 
+  it('keeps Gateway in the same sibling branch and browsing cannot earn a Network name', async () => {
+    const base = createInitialGameState()
+    const discovery = rememberScan(base.discovery, scanNetworkTarget({ localDevice: base.player.localDevice, network: base.world.network }, PHONE_ADDRESS), base.player.localDevice.id)
+    const user = userEvent.setup()
+    render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
+    const root = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 203.0.113.0/24' })
+    const host = within(root).getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })
+    const gateway = within(root).getByRole('button', { name: 'Open target 203.0.113.1' })
+    expect(gateway.closest('.ns-limb')?.parentElement).toBe(host.closest('.ns-limb')?.parentElement)
+    expect(gateway).toHaveTextContent('UNKNOWN DEVICE')
+    expect(gateway).toHaveTextContent('GATEWAY')
+    expect(gateway).not.toHaveTextContent('NETWORK DEVICE')
+    const before = currentState().discovery
+    await user.click(within(root).getByRole('button', { name: 'Browse network UNKNOWN NETWORK 203.0.113.0/24' }))
+    await user.click(within(root).getByRole('button', { name: 'Browse network UNKNOWN NETWORK 203.0.113.0/24' }))
+    expect(currentState().discovery).toEqual(before)
+    expect(root).not.toHaveTextContent('remote-segment-01')
+    await user.click(within(root).getByRole('button', { name: 'Scan network UNKNOWN NETWORK 203.0.113.0/24' }))
+    expect(screen.getByRole('region', { name: 'Network remote-segment-01' })).toBe(root)
+    expect(root).toHaveTextContent('203.0.113.0/24')
+  })
+
   it('scans a remembered Gateway directly with one Host Scan and does not enumerate peers', async () => {
     const base = createInitialGameState()
     const targets = { localDevice: base.player.localDevice, network: base.world.network }
@@ -1710,7 +1736,7 @@ describe('Network administration inside NodeScan', () => {
     render(<GameProvider initialState={{ ...base, discovery }}><Network /></GameProvider>)
 
     const foreign = screen.getByRole('region', { name: 'Network remote-segment-01' })
-    expect(foreign).toHaveTextContent('OBSERVED')
+    expect(within(foreign).getByRole('button', { name: 'Browse network remote-segment-01' })).toHaveAttribute('aria-expanded', 'true')
     expect(within(foreign).queryByRole('button', { name: 'Manage network remote-segment-01' })).not.toBeInTheDocument()
     // The one Network the local Device actually administers still has its route.
     expect(screen.getByRole('button', { name: 'Manage network home-net' })).toBeInTheDocument()
@@ -1725,7 +1751,7 @@ describe('Network administration inside NodeScan', () => {
     // it; neither is authority over it.
     expect(network).toHaveTextContent('home-net')
     expect(within(network).queryByRole('button', { name: 'Manage network home-net' })).not.toBeInTheDocument()
-    expect(network).toHaveTextContent('OBSERVED')
+    expect(within(network).getByRole('button', { name: 'Browse network home-net' })).toHaveAttribute('aria-expanded', 'true')
   })
 })
 

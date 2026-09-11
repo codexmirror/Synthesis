@@ -42,6 +42,7 @@ describe('managed Network projection', () => {
     expect(selectManagedNetworks(createInitialGameState())).toEqual([{
       id: 'network-local-001',
       name: 'home-net',
+      cidr: '198.51.100.0/24',
       // Symmetric represented maximum capability, not current throughput.
       connectivity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 },
       // home-net has the local Device, host-lan-001, and its represented Router.

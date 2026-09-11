@@ -30,7 +30,7 @@ import {
  * carried by indentation, type weight and thin connectors rather than nested
  * cards. Only the Network level expands: a Device is a leaf whose whole row
  * is the route into its existing target card, where Service identity and
- * every other technical fact already live under TECHNICAL INTELLIGENCE.
+ * deeper endpoint facts live under TECHNICAL INTELLIGENCE.
  * Expanding a Network is presentation state only: browsing the tree never
  * observes anything.
  *
@@ -330,7 +330,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
 
   if (focus.kind === 'network') {
     const network = managedNetworks.find(({ id }) => id === focus.networkId)
-    if (network) return <section className="app-content scan-app" aria-label="NodeScan">
+    if (network) return <section key={`network:${network.id}`} className="app-content scan-app" aria-label="NodeScan">
       <ManagedNetworkDetail network={network} onBack={() => open({ kind: 'targets' })} />
     </section>
   }
@@ -340,7 +340,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     // selector's narrow live-observation projection. That selector admits it
     // through NodeScan monitoring or a currently usable Service access path.
     const target = selectTarget(information, focus.deviceId, gameState)
-    if (target) return <section className="app-content scan-app" aria-label="NodeScan">
+    if (target) return <section key={`device:${target.id}`} className="app-content scan-app" aria-label="NodeScan">
       <TargetCard
         target={target}
         release={release}
@@ -350,7 +350,6 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
         selectedPackageId={selectedPackageId}
         onBack={() => open({ kind: 'targets' })}
         onScan={() => scan(target)}
-        onRefreshNetwork={refreshNetwork}
         onExecuteAction={(action) => action.technique === 'Credential Access'
           ? action.route && action.providerId && hack(action.route as TargetRoute | KeyProbeRoute, target.id, action.providerId)
           : action.technique === 'Rollback' ? action.route && attackPackageSubmission(target)
@@ -366,7 +365,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     </section>
   }
 
-  return <section className="app-content scan-app" aria-label="NodeScan">
+  return <section key="known-space" className="app-content scan-app" aria-label="NodeScan">
     <KnownSpaceView
       space={selectKnownSpace(information, managedNetworks)}
       release={release}
@@ -439,7 +438,7 @@ function KnownSpaceView({ space, release, pending, directPending, directAddress,
     <div className="ns-space">
       {!selfPlaced && <section className="ns-group" aria-label="Self">
         <button type="button" className="ns-node ns-node--self ns-self-scan" aria-label="SCAN SELF" onClick={onScanSelf} disabled={pending}>
-          <span className="ns-glyph ns-glyph--self" aria-hidden="true" />
+          <DeviceIcon self />
           <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{space.self.address}</span></span>
           <span className="ns-target-mark">NOT SCANNED</span>
           <span className="ns-self-action">SCAN</span>
@@ -494,51 +493,60 @@ function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, o
   onScanNetwork(networkId: string): void
   onScanGateway(target: TargetSummary): void
 }) {
-  const populated = network.includesSelf || network.targets.length > 0
+  const populated = network.includesSelf || network.targets.length > 0 || Boolean(network.gateway)
+  const rootName = network.cidr && network.name === `UNKNOWN NETWORK ${network.cidr}` ? 'UNKNOWN NETWORK' : network.name
   return <section className={`ns-group${expanded ? ' is-expanded' : ''}${populated ? ' is-populated' : ''}`} aria-label={`Network ${network.name}`}>
     <div className="ns-node ns-node--network">
-      <button
-        type="button"
-        className="ns-node-main"
-        aria-expanded={expanded}
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} network ${network.name}`}
-        onClick={onToggle}
-      >
+      <button type="button" className="ns-network-toggle" aria-expanded={expanded}
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} network ${network.name}`} onClick={onToggle}>
         <span className="ns-twist" aria-hidden="true">▸</span>
+      </button>
+      <button type="button" className="ns-node-main"
+        aria-label={network.managed ? `Manage network ${network.name}` : `Browse network ${network.name}`}
+        onClick={network.managed ? () => onOpenNetwork(network.id) : onToggle}
+        aria-expanded={network.managed ? undefined : expanded}>
         <span className="ns-target-copy">
-          <span className="ns-eyebrow">NETWORK</span>
-          <strong>{network.name}</strong>
+          <span className="ns-eyebrow">NETWORK{network.managed && <span className="ns-authority"> · MANAGED</span>}</span>
+          <strong>{rootName}{network.managed && <span className="ns-root-arrow" aria-hidden="true"> ›</span>}</strong>
+          {network.cidr && <span className="ns-target-note ns-address">{network.cidr}</span>}
         </span>
       </button>
-      {network.managed
-        ? <button type="button" className="ns-node-route" aria-label={`Manage network ${network.name}`} onClick={() => onOpenNetwork(network.id)}>MANAGED<span aria-hidden="true">›</span></button>
-        : <span className="ns-node-mark">OBSERVED</span>}
       <button type="button" className="ns-node-route" aria-label={`Scan network ${network.name}`} onClick={() => onScanNetwork(network.id)}>SCAN NETWORK</button>
     </div>
-
     {expanded && <div className="ns-branch">
       {populated && <div className="ns-limbs">
-        {/* SELF is the player's own position in the topology, never a target. */}
         {network.includesSelf && <div className="ns-limb">
           <div className="ns-node ns-node--self ns-node--static">
-            <span className="ns-glyph ns-glyph--self" aria-hidden="true" />
+            <DeviceIcon self />
             <span className="ns-target-copy"><strong>SELF</strong><span className="ns-target-note">{selfAddress}</span></span>
           </div>
         </div>}
         {network.targets.map((target) => <div className="ns-limb" key={target.id}>
           <DeviceRow target={target} arrived={arrivedIds.has(target.id)} onOpen={onOpen} />
         </div>)}
+        {network.gateway && <div className="ns-limb" key={network.gateway.id}>
+          <div className="ns-gateway-row">
+            <DeviceRow target={network.gateway} gateway arrived={arrivedIds.has(network.gateway.id)} onOpen={onOpen} />
+            <button type="button" className="ns-node-route" aria-label={`Scan gateway ${network.gateway.address}`} onClick={() => onScanGateway(network.gateway!)}>SCAN</button>
+          </div>
+        </div>}
       </div>}
       {!network.membersObserved
         ? <p className="ns-branch-note">Members not observed</p>
-        : network.targets.length === 0 && <p className="ns-branch-note">{network.includesSelf ? 'No other devices responded' : 'No devices responded'}</p>}
-      {network.gateway && <div className="ns-limb ns-gateway">
-        <span className="ns-eyebrow">GATEWAY</span>
-        <button type="button" className="ns-node-main" aria-label={`Open target ${network.gateway.address}`} onClick={() => onOpen(network.gateway!.id)}>{network.gateway.address}</button>
-        <button type="button" className="node-action" aria-label={`Scan gateway ${network.gateway.address}`} onClick={() => onScanGateway(network.gateway!)}>SCAN</button>
-      </div>}
+        : network.targets.length === 0 && !network.gateway && <p className="ns-branch-note">{network.includesSelf ? 'No other devices responded' : 'No devices responded'}</p>}
     </div>}
   </section>
+}
+
+/** Icons consume only remembered classification. A Gateway cue is a relationship, never a Device type. */
+function DeviceIcon({ classification, self = false }: { classification?: TargetSummary['classification']; self?: boolean }) {
+  const shape = self || classification === 'WORKSTATION'
+    ? <><rect x="2" y="3" width="12" height="8" rx="1" /><path d="M5 14h6M8 11v3" /></>
+    : classification === 'SERVER' ? <><rect x="3" y="1" width="10" height="14" rx="1" /><path d="M3 6h10M3 10h10M5 3.5h1M5 8h1M5 12h1" /></>
+      : classification === 'MOBILE DEVICE' ? <><rect x="4" y="1" width="8" height="14" rx="1.5" /><path d="M7 12h2" /></>
+        : classification === 'NETWORK DEVICE' ? <><rect x="1" y="6" width="14" height="7" rx="1" /><path d="M4 6V2M12 6V2M4 10h1M7 10h1M10 10h2" /></>
+          : <><rect x="3" y="3" width="10" height="10" rx="2" /><path d="M6 7h4M6 10h2" /></>
+  return <svg className={`ns-device-icon${self ? ' ns-device-icon--self' : ''}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">{shape}</svg>
 }
 
 /**
@@ -550,19 +558,20 @@ function NetworkBranch({ network, selfAddress, arrivedIds, expanded, onToggle, o
  * TECHNICAL INTELLIGENCE; Known Space states only where a Device is and what
  * its current stage is.
  */
-function DeviceRow({ target, showLocation, arrived, onOpen }: {
+function DeviceRow({ target, showLocation, gateway, arrived, onOpen }: {
   target: TargetSummary
   showLocation?: boolean
+  gateway?: boolean
   /** This Device newly appeared in Known Space while the player was looking at it. */
   arrived: boolean
   onOpen(deviceId: string): void
 }) {
   const note = [target.displayName ? target.address : undefined, showLocation ? locationOf(target) : undefined].filter(Boolean).join(' · ')
   return <button type="button" className={`ns-node ns-node--device${arrived ? ' ns-node--arrived' : ''}`} aria-label={`Open target ${target.address}`} onClick={() => onOpen(target.id)}>
-    <span className="ns-glyph" aria-hidden="true" />
+    <DeviceIcon classification={target.classification} />
     <span className="ns-target-copy">
       <strong>{target.displayName ?? target.address}</strong>
-      {!target.displayName && <span className="ns-target-note">{target.classification ?? 'UNKNOWN DEVICE'}</span>}
+      {!target.displayName && <span className="ns-target-note">{target.classification ?? 'UNKNOWN DEVICE'}{gateway && <span className="ns-gateway-cue"> · GATEWAY</span>}</span>}
       {note && <span className="ns-target-note">{note}</span>}
     </span>
     <span className={`ns-target-mark ns-target-mark--${target.stage}`}>
@@ -671,7 +680,7 @@ function ActivityRow({ record }: { record: ManagedNetworkActivityRecordView }) {
 }
 
 /** One target context, with status, player-chosen offensive ACTIONS, and depth. */
-function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onRefreshNetwork, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
+function TargetCard({ target, release, pending, notice, copyState, selectedPackageId, onBack, onScan, onExecuteAction, onConnect, onDisconnect, onAnalyze, onAnalyzeAll, onCopy, onSelectPackage, onSubmitPackage }: {
   target: Target
   release: NodeScanRelease
   pending: boolean
@@ -680,7 +689,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   selectedPackageId: string
   onBack(): void
   onScan(): void
-  onRefreshNetwork(networkId: string): void
   onExecuteAction(action: TargetOffensiveAction): void
   onConnect(): void
   onDisconnect(): void
@@ -697,24 +705,19 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       <strong>{target.address}</strong>
     </nav>
 
-    <header className="ns-subject">
-      <span className="ns-eyebrow">{kindOf(target)}</span>
-      <h2>{target.displayName ?? target.address}</h2>
-      <p className="ns-subject-note">{[target.displayName ? target.address : undefined, locationOf(target)].filter(Boolean).join(' · ')}</p>
-    </header>
+    <TargetTopology target={target} unreachable={notice === 'NO RESPONSE'} pending={pending} onScan={onScan} />
 
     <StageSection target={target}>
       {target.stage === 'unscanned' && <>
         <strong className="ns-stage-headline">NOT SCANNED</strong>
-        <span className="ns-stage-note">Nothing is known about this target yet.</span>
-        <Primary label="SCAN" disabled={pending} onClick={onScan} />
+        <span className="ns-stage-note">Scan this Device to observe its Services.</span>
       </>}
 
       {target.stage === 'analysis_ready' && <>
         <strong className="ns-stage-headline">SERVICES FOUND</strong>
         {/* What the Scan just observed, stated where the next decision is made. */}
         <span className="ns-stage-observed">{target.services.map(({ name }) => name).join(' · ')}</span>
-        <span className="ns-stage-note">The observed attack surface is ready to investigate.</span>
+        <span className="ns-stage-note">Endpoint Analysis deepens observed Services.</span>
         <Primary label="ANALYZE" onClick={onAnalyzeAll} />
       </>}
 
@@ -723,7 +726,6 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
       {target.stage === 'no_route' && <>
         <strong className="ns-stage-headline">OBSERVATION COMPLETE</strong>
         <span className="ns-stage-note">Review technical intelligence or attempt an available Technique.</span>
-        <Primary label="SCAN AGAIN" disabled={pending} onClick={onScan} />
       </>}
 
       {target.stage === 'route' && <>
@@ -762,8 +764,29 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
     </StageSection>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
-    <TargetTopology target={target} unreachable={notice === 'NO RESPONSE'} pending={pending} onRefreshNetwork={onRefreshNetwork} />
-
+    <details className="ns-details">
+      <summary>
+        <span>TECHNICAL INTELLIGENCE</span>
+        {/*
+          * Endpoint Analysis is optional depth, so its availability is
+          * announced where it lives rather than pushed into the target's
+          * line of action.
+          */}
+      </summary>
+      <TechnicalDetails
+        target={target}
+        release={release}
+        // The execution surface above already draws this target's one shared
+        // analysis progress rail; a Service never repeats it while that is true.
+        stageOwnsAnalysis={target.stage === 'analyzing'}
+        copyState={copyState}
+        selectedPackageId={selectedPackageId}
+        onAnalyze={onAnalyze}
+        onCopy={onCopy}
+        onSelectPackage={onSelectPackage}
+        onSubmitPackage={onSubmitPackage}
+      />
+    </details>
     <section className="ns-actions" aria-labelledby="nodescan-actions-heading">
       <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
       {target.offensiveActions.length === 0
@@ -806,43 +829,10 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
               : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} with ${action.provider} unavailable`}>UNAVAILABLE</span>}
         </article>)}</div>}
     </section>
-
-    <details className="ns-details">
-      <summary>
-        <span>TECHNICAL INTELLIGENCE</span>
-        {/*
-          * Endpoint Analysis is optional depth, so its availability is
-          * announced where it lives rather than pushed into the target's
-          * line of action.
-          */}
-      </summary>
-      <TechnicalDetails
-        target={target}
-        release={release}
-        // The execution surface above already draws this target's one shared
-        // analysis progress rail; a Service never repeats it while that is true.
-        stageOwnsAnalysis={target.stage === 'analyzing'}
-        copyState={copyState}
-        selectedPackageId={selectedPackageId}
-        onAnalyze={onAnalyze}
-        onCopy={onCopy}
-        onSelectPackage={onSelectPackage}
-        onSubmitPackage={onSubmitPackage}
-      />
-    </details>
   </div>
 }
 
-/**
- * The target's status block. Its height barely moves between states, so
- * ACTIONS and TECHNICAL INTELLIGENCE below it stay where the player left them
- * while an operation starts, runs and resolves. `data-resolved` marks the
- * short moment a running stage just settled into a different one — completion
- * is the moment the loop is played for, so it gets a brief arrival rather than
- * an abrupt redraw; `data-running` gives the whole block a quiet accent while
- * work is in flight. Both are derived from `target.stage` alone: no canonical
- * state is created for either.
- */
+/** Compact state and running-work feedback; actions remain explicit canonical operations. */
 function StageSection({ target, children }: { target: Target; children: ReactNode }) {
   const resolved = useStageResolution(target)
   return <section className="ns-stage" aria-label="Target status" data-running={isRunning(target.stage) || undefined} data-resolved={resolved || undefined}>
@@ -930,7 +920,7 @@ function Operation({ target, status, progressLabel }: { target: Target; status: 
  * around it. Only DISRUPTING, a genuinely running canonical Process, uses the
  * animated live dot; every other mark is a static fact, not an ongoing one.
  */
-function TargetTopology({ target, unreachable, pending, onRefreshNetwork }: { target: Target; unreachable: boolean; pending: boolean; onRefreshNetwork(networkId: string): void }) {
+function TargetTopology({ target, unreachable, pending, onScan }: { target: Target; unreachable: boolean; pending: boolean; onScan(): void }) {
   const networkLabel = locationOf(target)
   const deviceLabel = target.displayName ?? target.address
   const deviceStatus = target.liveStatus ? { mark: target.liveStatus.label, tone: target.liveStatus.tone }
@@ -940,68 +930,59 @@ function TargetTopology({ target, unreachable, pending, onRefreshNetwork }: { ta
   const disrupting = target.stage === 'disrupting'
   const hasServiceRows = target.servicesObserved && target.services.length > 0
 
-  const network = target.networks?.[0]
   return <section className="ns-topo" aria-label="Target topology">
     <div className="ns-topo-row ns-topo-row--network">
       <span className="ns-topo-eyebrow">NETWORK</span>
       <span className="ns-topo-text">{networkLabel}</span>
       {disrupting && <span className="ns-topo-status ns-topo-status--live"><i className="ns-live-dot" aria-hidden="true" />DISRUPTING</span>}
-      {network && <button type="button" className="ns-topo-refresh" disabled={pending} onClick={() => onRefreshNetwork(network.id)}>REFRESH</button>}
     </div>
 
-    {network && <div className="ns-network-members" aria-label={`Known members of ${network.name}`}>
-      {network.members.map((member) => <div className="ns-network-member" key={member.id}>
-        <span>{member.isSelf ? 'SELF' : member.displayName ?? member.address}</span>
-        {member.liveStatus && <span className={`ns-topo-status ns-topo-status--${member.liveStatus.tone}`}>{member.liveStatus.label}</span>}
-      </div>)}
-    </div>}
+    <div className="ns-device-tree">
+      <header className="ns-topo-row ns-topo-row--device ns-topo-row--branched ns-device-root">
+        <DeviceIcon classification={target.classification} />
+        <div className="ns-device-identity"><span className="ns-eyebrow">{kindOf(target)}</span><h2>{deviceLabel}</h2></div>
+        <div className="ns-device-state">
+          {deviceStatus && <span className={`ns-topo-status ns-topo-status--${deviceStatus.tone}`}>{deviceStatus.mark}</span>}
+          <button type="button" className="ns-node-route" disabled={pending} onClick={onScan}>SCAN</button>
+        </div>
+      </header>
 
-    <div className="ns-topo-branch">
-      <div className="ns-topo-limbs">
-        <div className="ns-topo-limb">
-          <div className="ns-topo-row ns-topo-row--device ns-topo-row--branched">
-            <span className="ns-topo-text ns-topo-text--strong">{deviceLabel}</span>
-            {deviceStatus && <span className={`ns-topo-status ns-topo-status--${deviceStatus.tone}`}>{deviceStatus.mark}</span>}
-          </div>
+      <div className="ns-topo-branch">
+        <div className="ns-topo-limbs">
+          {!hasServiceRows && <div className="ns-topo-limb">
+            <div className="ns-topo-row ns-topo-row--note">
+              <span className="ns-topo-text ns-topo-text--muted">{target.servicesObserved ? 'No open services observed' : 'Services not observed'}</span>
+            </div>
+          </div>}
 
-          <div className="ns-topo-branch">
-            <div className="ns-topo-limbs">
-              {!hasServiceRows && <div className="ns-topo-limb">
-                <div className="ns-topo-row ns-topo-row--note">
-                  <span className="ns-topo-text ns-topo-text--muted">{target.servicesObserved ? 'No open services observed' : 'Services not observed'}</span>
+          {hasServiceRows && target.services.map((service) => {
+            const hasSoftware = service.software.length > 0
+            return <div className="ns-topo-limb" key={service.id}>
+              <div className={`ns-topo-row ns-topo-row--service${hasSoftware ? ' ns-topo-row--branched' : ''}`}>
+                <span className="ns-topo-text">{service.name} · {service.port}/{service.protocol}</span>
+                <span className={`ns-topo-status ns-topo-status--${service.liveStatus?.tone ?? 'neutral'}`}>{service.liveStatus?.label ?? 'OBSERVED'}</span>
+              </div>
+              {hasSoftware && <div className="ns-topo-branch">
+                <div className="ns-topo-limbs">
+                  <div className="ns-topo-limb">
+                    <div className="ns-topo-row ns-topo-row--software">
+                      {service.intelligence.length === 0
+                        ? <span className="ns-topo-text ns-topo-text--muted">{service.software.join(' · ')}</span>
+                        : service.software.map((software) => {
+                        const intelligence = service.intelligence.find((entry) => entry.software === software)
+                        return intelligence
+                          ? <details className="ns-topo-intelligence" key={software}>
+                            <summary aria-label={`Toggle known information for ${software}`}><span className="ns-topo-text">{software}</span></summary>
+                            <div className="ns-topo-intelligence-detail"><strong>{software}</strong><span>KNOWN INFORMATION</span><ul>{intelligence.details.map((detail) => <li key={detail}>{detail}</li>)}</ul></div>
+                          </details>
+                          : <span className="ns-topo-text ns-topo-text--muted" key={software}>{software}</span>
+                        })}
+                    </div>
+                  </div>
                 </div>
               </div>}
-
-              {hasServiceRows && target.services.map((service) => {
-                const hasSoftware = service.software.length > 0
-                return <div className="ns-topo-limb" key={service.id}>
-                  <div className={`ns-topo-row ns-topo-row--service${hasSoftware ? ' ns-topo-row--branched' : ''}`}>
-                    <span className="ns-topo-text">{service.name} · {service.port}/{service.protocol}</span>
-                    <span className={`ns-topo-status ns-topo-status--${service.liveStatus?.tone ?? 'neutral'}`}>{service.liveStatus?.label ?? 'OBSERVED'}</span>
-                  </div>
-                  {hasSoftware && <div className="ns-topo-branch">
-                    <div className="ns-topo-limbs">
-                      <div className="ns-topo-limb">
-                        <div className="ns-topo-row ns-topo-row--software">
-                          {service.intelligence.length === 0
-                            ? <span className="ns-topo-text ns-topo-text--muted">{service.software.join(' · ')}</span>
-                            : service.software.map((software) => {
-                            const intelligence = service.intelligence.find((entry) => entry.software === software)
-                            return intelligence
-                              ? <details className="ns-topo-intelligence" key={software}>
-                                <summary aria-label={`Toggle known information for ${software}`}><span className="ns-topo-text">{software}</span></summary>
-                                <div className="ns-topo-intelligence-detail"><strong>{software}</strong><span>KNOWN INFORMATION</span><ul>{intelligence.details.map((detail) => <li key={detail}>{detail}</li>)}</ul></div>
-                              </details>
-                              : <span className="ns-topo-text ns-topo-text--muted" key={software}>{software}</span>
-                            })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>}
-                </div>
-              })}
             </div>
-          </div>
+          })}
         </div>
       </div>
     </div>

@@ -244,8 +244,8 @@
  * level also fixes its own row height, so every elbow meets its node on the
  * same line at that level.
  */
-.ns-node--network .ns-node-main { min-height: 54px; }
-.ns-node--network .ns-target-copy > strong { color: var(--text-strong); font-size: .96rem; letter-spacing: .01em; }
+.ns-node--network .ns-node-main { min-height: 76px; }
+.ns-node--network .ns-target-copy > strong { color: var(--text-strong); font-size: .9rem; letter-spacing: .01em; }
 .ns-node--network .ns-eyebrow { color: var(--accent-mark); }
 
 /*
@@ -290,7 +290,7 @@
 .ns-self-scan:focus-visible { outline: 1px solid var(--line-accent); outline-offset: -2px; }
 
 .ns-target-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
-.ns-target-copy > strong { color: var(--text-strong); font: 600 .86rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.ns-target-copy > strong { color: var(--text-strong); font: 500 .82rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
 .ns-target-note { color: var(--text-quiet); font-size: .6rem; line-height: 1.4; overflow-wrap: anywhere; }
 
 /*
@@ -349,7 +349,7 @@
  * node's marker column. That indentation is what makes ownership visible
  * without drawing a container around it.
  */
-.ns-branch { margin: 0 0 4px; padding-left: 7px; }
+.ns-branch { margin: 0 0 4px; padding-left: 21px; }
 .ns-limbs { display: block; }
 
 .ns-limb { --indent: 20px; position: relative; padding-left: var(--indent); }
@@ -368,7 +368,7 @@
   position: absolute;
   top: 50%;
   bottom: 0;
-  left: 7px;
+  left: 21px;
   border-left: var(--rail);
 }
 
@@ -409,13 +409,14 @@
  */
 .ns-stage {
   position: relative;
-  min-height: 150px;
-  padding: 22px 18px;
+  min-height: 94px;
+  padding: 14px 0;
   display: grid;
   align-content: center;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-raised);
-  text-align: center;
+  border: 0;
+  border-top: 1px solid var(--line-quiet);
+  background: transparent;
+  text-align: left;
 }
 
 .ns-stage[data-running] { border-color: var(--line-accent); }
@@ -436,12 +437,12 @@
   animation: ns-resolve 900ms ease-out both;
 }
 
-.ns-stage-body { display: grid; justify-items: center; gap: 10px; animation: ns-stage-in 180ms ease-out both; }
+.ns-stage-body { display: grid; justify-items: start; gap: 8px; animation: ns-stage-in 180ms ease-out both; }
 
 .ns-stage-headline {
   color: var(--text-strong);
-  font-size: .96rem;
-  font-weight: 600;
+  font-size: .7rem;
+  font-weight: 500;
   letter-spacing: .1em;
 }
 
@@ -533,7 +534,7 @@
 @keyframes ns-caret-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 
 /*
- * Target topology: a compact Network → Device → Service technical hierarchy,
+ * Target topology: compact Network affiliation and a Device → Service hierarchy,
  * read as a deeper continuation of Known Space's own restrained tree — the
  * same rail-and-elbow technique Known Space uses for Network → Device
  * (`.ns-branch` / `.ns-limbs` / `.ns-limb` below), generalized one level
@@ -543,7 +544,7 @@
  * itself, so nesting a branch inside a limb inside a branch just works: no
  * coordinates are measured, and the visual line is the union of consecutive
  * siblings' own rails meeting with no gap between them. A row that genuinely
- * owns a branch below it (Network → Device always; a Service only where it
+ * owns a branch below it (Device → Service; a Service only where it
  * has a remembered software line) continues that same rail down into its own
  * children via `.ns-topo-row--branched`; a leaf row draws none of its own.
  */
@@ -560,24 +561,6 @@
 .ns-topo-text--strong { color: var(--text-strong); font-weight: 600; }
 .ns-topo-text--muted { color: var(--text-quiet); }
 
-.ns-topo-refresh {
-  flex: none;
-  margin-left: auto;
-  min-height: 36px;
-  padding: 0 8px;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  font-size: .55rem;
-  letter-spacing: .12em;
-  cursor: pointer;
-}
-.ns-topo-refresh:disabled { color: var(--text-muted); cursor: default; }
-.ns-network-members { margin: 1px 0 5px; padding-left: var(--topo-indent); display: grid; }
-.ns-network-member { min-width: 0; min-height: 25px; display: flex; align-items: center; gap: 8px; color: var(--text-quiet); font: .61rem ui-monospace, SFMono-Regular, Menlo, monospace; }
-.ns-network-member > :first-child { min-width: 0; overflow-wrap: anywhere; }
-.ns-network-member .ns-topo-status { margin-left: auto; }
-
 /* The trunk: a row that owns a branch below it continues its own rail down
  * into that branch's first limb, so the line reads unbroken from the row to
  * its last child. A leaf row (a Service with no remembered software, the
@@ -585,7 +568,6 @@
 .ns-topo-row--network,
 .ns-topo-row--branched { position: relative; }
 
-.ns-topo-row--network::after,
 .ns-topo-row--branched::after {
   content: "";
   position: absolute;
@@ -633,23 +615,21 @@
 .ns-topo-intelligence-detail ul { margin: 0; padding-left: 16px; color: var(--text-secondary); font-size: .62rem; line-height: 1.55; }
 .ns-topo-intelligence-detail li + li { margin-top: 3px; }
 
-@media (max-width: 420px) {
-  .ns-topo-status { margin-left: 22px; }
-}
 
-/* The primary action. One per screen, always touch-sized and full width. */
+/* The contextual operation remains touch-sized without becoming a large panel. */
 .ns-primary {
-  min-height: 52px;
+  min-height: 44px;
   margin-top: 4px;
   padding: 0 20px;
-  width: 100%;
-  max-width: 320px;
+  width: auto;
+  min-width: 108px;
+  max-width: 100%;
   border: 1px solid var(--line-accent);
   background: var(--surface-hover);
   color: var(--accent-strong);
-  font-size: .78rem;
-  font-weight: 600;
-  letter-spacing: .18em;
+  font-size: .65rem;
+  font-weight: 500;
+  letter-spacing: .12em;
   cursor: pointer;
 }
 
@@ -757,3 +737,45 @@
 
   .ns-twist { transition: none; }
 }
+
+/* Root identity, disclosure, and observation each have one clear role. */
+.ns-network-toggle { position: relative; z-index: 1; flex: 0 0 44px; min-height: 44px; padding: 0; display: flex; align-items: center; border: 0; background: transparent; cursor: pointer; }
+.ns-network-toggle .ns-twist { width: 44px; }
+.ns-network-toggle[aria-expanded="true"] .ns-twist { transform: rotate(90deg); }
+.ns-network-toggle:focus-visible { outline: 1px solid var(--line-accent); }
+.ns-node--network::after { pointer-events: none; }
+.ns-authority { color: var(--text-muted); font-size: .48rem; letter-spacing: .08em; }
+.ns-root-arrow { color: var(--accent-mark); font-weight: 400; }
+.ns-address { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ns-node-route { min-width: 44px; font-weight: 500; font-size: .56rem; letter-spacing: .08em; }
+.ns-device-icon { flex: 0 0 16px; width: 16px; height: 16px; color: var(--text-muted); }
+.ns-device-icon--self { color: var(--accent-mark); }
+.ns-node--device, .ns-node--static { min-height: 56px; padding: 10px 0; }
+.ns-space { --elbow: 28px; }
+.ns-gateway-row { display: flex; align-items: center; }
+.ns-gateway-row .ns-node--device { flex: 1; }
+.ns-gateway-row .ns-target-mark { display: none; }
+.ns-gateway-cue { color: var(--accent-mark); font-size: .53rem; }
+.ns-target-mark { max-width: 86px; font-size: .5rem; line-height: 1.5; letter-spacing: .07em; }
+.ns-branch-note { margin: 8px 0 8px 20px; font-size: .6rem; }
+.ns-subject { position: relative; padding-right: 60px; margin-bottom: 10px; }
+.ns-subject h2 { font-weight: 500; font-size: 1.05rem; }
+.ns-topo { margin: 8px 0 20px; }
+.ns-topo-row--network { padding-bottom: 12px; gap: 5px 10px; }
+.ns-topo-row--network .ns-topo-text { color: var(--text-quiet); font-size: .61rem; }
+.ns-device-tree { margin-top: 4px; }
+.ns-topo-row--device { min-height: 34px; }
+.ns-topo-text--strong { font-weight: 500; }
+.ns-topo-status { font-size: .48rem; letter-spacing: .08em; }
+.ns-action-copy strong { font-weight: 500; font-size: .66rem; letter-spacing: .06em; }
+.ns-action .node-chip--quiet { border: 0; padding-left: 0; }
+.ns-service { border: 0; border-left: 1px solid var(--line-strong); background: transparent; }
+.ns-details { margin-top: 16px; }
+
+.ns-device-root { min-height: 68px; flex-wrap: nowrap; align-items: center; gap: 10px; padding: 8px 0 16px; }
+.ns-device-root::after { left: 7px; top: calc(50% + 6px); }
+.ns-device-identity { min-width: 0; flex: 1; display: grid; gap: 5px; }
+.ns-device-identity h2 { margin: 0; color: var(--text-strong); font: 500 1.05rem Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.ns-device-state { display: grid; justify-items: end; gap: 3px; }
+.ns-device-state .ns-node-route { min-height: 44px; padding: 0 4px 0 10px; }
+.ns-device-tree > .ns-topo-branch { margin-left: 7px; }
