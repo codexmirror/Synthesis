@@ -14,7 +14,7 @@ describe('Flipper arsenal projection', () => {
   it('derives ACCESS → CREDENTIAL ACCESS from exact represented providers', () => {
     expect(deriveFlipperArsenal(withFlipper().player.localDevice)).toEqual([{
       area: 'ACCESS', family: 'CREDENTIAL ACCESS', providers: [
-        { id: 'credential-access-module', name: 'Credential Access Module', version: '1.0', form: 'SOFTWARE MODULE', integration: 'AVAILABLE TO INTEGRATE' },
+        { id: 'credential-access-module', name: 'GhostKey', version: '1.0', form: 'SOFTWARE MODULE', integration: 'AVAILABLE TO INTEGRATE' },
         { id: 'keyprobe', name: 'KeyProbe', version: '1.0', form: 'INSTALLED SOFTWARE', integration: 'COMPATIBLE' },
       ],
     }, { area: 'NETWORK', family: 'DEAUTH', providers: [{ id: 'deauth-extension', name: 'deauth.ext', version: '1.0', form: 'FLIPPER EXTENSION', integration: 'AVAILABLE' }] }])

@@ -31,7 +31,7 @@ export const FLIPPER_MODULE_TECHNIQUE: Readonly<Record<FlipperModuleId, string>>
 }
 
 export const FLIPPER_MODULE_NAME: Readonly<Record<FlipperModuleId, string>> = {
-  'credential-access': 'Credential Access Module',
+  'credential-access': 'GhostKey',
   rollback: 'Rollback Module',
 }
 

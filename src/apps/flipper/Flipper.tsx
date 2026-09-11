@@ -120,7 +120,7 @@ function Modules({ rows, integrating, integrate }: {
                 <small>INTEGRATING · {percent}%</small>
                 <progress className="node-progress" max={100} value={percent} aria-label={`Integrating ${row.name}, ${percent}% complete`} />
               </>
-            : <small>{row.technique}{row.status === 'available' && row.artifact ? ` · ${row.artifact.path} · ${formatBytes(row.artifact.sizeBytes)}` : ''}</small>}
+            : <small>{row.moduleId === 'credential-access' ? 'CREDENTIAL ACCESS' : row.technique}{row.status === 'available' && row.artifact ? ` · ${row.artifact.path} · ${formatBytes(row.artifact.sizeBytes)}` : ''}</small>}
         </span>
         {row.status === 'integrated'
           ? <span className="node-chip">INTEGRATED</span>

@@ -71,9 +71,9 @@ describe('Files', () => {
   })
 
   it.each([
-    ['Credential Access Module', 'AUTH-017', CREDENTIAL_ACCESS_MODULE_1_0],
+    ['GhostKey', 'Credential Access', CREDENTIAL_ACCESS_MODULE_1_0],
     ['Rollback Module', 'UPD-001', ROLLBACK_MODULE_1_0],
-  ])('presents %s as standalone-usable while keeping optional host integration separate', async (name, technique, module) => {
+  ])('presents %s as standalone-usable while keeping optional host integration separate', async (name, capability, module) => {
     const base = createInitialGameState()
     const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice,
       installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'),
@@ -87,7 +87,7 @@ describe('Files', () => {
     expect(screen.getByRole('heading', { name })).toBeInTheDocument()
     expect(screen.queryByText('STATUS')).not.toBeInTheDocument()
     expect(screen.getByText('INTEGRATION').parentElement).toHaveTextContent('HOST NOT INSTALLED')
-    expect(screen.getByText(new RegExp(`Supplies ${technique} standalone`))).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`Supplies ${capability} standalone`))).toBeInTheDocument()
     expect(screen.getByText(/Flipper is an optional integration host/)).toBeInTheDocument()
 
     // Deeper technical facts stay behind MODULE INFORMATION rather than dominating the primary surface.
@@ -95,6 +95,27 @@ describe('Files', () => {
     await user.click(screen.getByRole('button', { name: /MODULE INFORMATION/ }))
     expect(screen.getByText('STANDALONE USE').parentElement).toHaveTextContent('AVAILABLE')
     expect(screen.getByText('OPTIONAL HOST').parentElement).toHaveTextContent('flipper')
+    expect(screen.getByText('TECHNIQUE').parentElement).toHaveTextContent(capability)
+  })
+
+  it('names a fresh GhostKey artifact GhostKey, states Credential Access, and never reveals AUTH-017 merely by opening or possessing it', async () => {
+    const base = createInitialGameState()
+    const state: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice,
+      installedSoftware: base.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'),
+      filesystem: { nextFileId: 2, files: [{ kind: 'software_module', id: 'file-module', path: '/home/user/modules/offensive.mod', ...CREDENTIAL_ACCESS_MODULE_1_0 }] },
+    } } }
+    render(<GameProvider initialState={state}><Files /></GameProvider>)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /modules.*DIRECTORY/ }))
+    await user.click(screen.getByRole('button', { name: /offensive\.mod.*SOFTWARE MODULE/ }))
+
+    expect(screen.getByRole('heading', { name: 'GhostKey' })).toBeInTheDocument()
+    expect(screen.getByText(/Supplies Credential Access standalone/)).toBeInTheDocument()
+    expect(screen.queryByText(/AUTH-017/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /MODULE INFORMATION/ }))
+    expect(screen.getByText('TECHNIQUE').parentElement).toHaveTextContent('Credential Access')
+    expect(screen.queryByText(/AUTH-017/)).not.toBeInTheDocument()
   })
 
   it('marks every entry that opens a further surface, not only directories', async () => {

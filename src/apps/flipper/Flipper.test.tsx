@@ -57,7 +57,7 @@ describe('Flipper application', () => {
     const arsenal = screen.getByRole('region', { name: 'Offensive arsenal' })
     expect(arsenal).toHaveTextContent('ACCESS')
     expect(arsenal).toHaveTextContent('CREDENTIAL ACCESS')
-    expect(arsenal).toHaveTextContent('Credential Access Module 1.0')
+    expect(arsenal).toHaveTextContent('GhostKey 1.0')
     expect(arsenal).toHaveTextContent('KeyProbe 1.0')
     expect(arsenal).toHaveTextContent('NETWORK')
     expect(arsenal).toHaveTextContent('DEAUTH')
@@ -67,12 +67,12 @@ describe('Flipper application', () => {
 
   it('shows only Credential Access as INTEGRATED and discloses no other module or the authored catalog size', () => {
     render(<GameProvider initialState={withInstalledHost()}><Flipper /></GameProvider>)
-    const modules = screen.getAllByText(/Module$/).map((strong) => strong.closest('.node-row') as HTMLElement)
-    expect(modules).toHaveLength(1)
-    expect(within(modules[0]).getByText('INTEGRATED')).toBeInTheDocument()
-    expect(within(modules[0]).getByText('AUTH-017')).toBeInTheDocument()
+    const module = screen.getAllByText('GhostKey').find((strong) => strong.closest('.node-row'))!.closest('.node-row') as HTMLElement
+    expect(within(module).getByText('INTEGRATED')).toBeInTheDocument()
+    expect(within(module).getByText('CREDENTIAL ACCESS')).toBeInTheDocument()
+    expect(within(module).queryByText('AUTH-017')).not.toBeInTheDocument()
     // An already-integrated row describes the integrated capability itself, not its surviving source artifact's path/size.
-    expect(within(modules[0]).queryByText(/credential-access-1\.0\.mod/)).not.toBeInTheDocument()
+    expect(within(module).queryByText(/ghostkey-1\.0\.mod/)).not.toBeInTheDocument()
     expect(screen.queryByText('Rollback Module')).not.toBeInTheDocument()
     expect(screen.queryByText('UPD-001')).not.toBeInTheDocument()
     expect(screen.queryByText(/\/\s*2/)).not.toBeInTheDocument()
@@ -90,7 +90,7 @@ describe('Flipper application', () => {
     const rollback = screen.getByText('Rollback Module').closest('.node-row') as HTMLElement
     expect(within(rollback).getByText('INTEGRATED')).toBeInTheDocument()
     // Credential Access is no longer integrated on this build, but its seeded artifact is still possessed, so it stays a valid candidate rather than disappearing.
-    const credential = screen.getByText('Credential Access Module').closest('.node-row') as HTMLElement
+    const credential = screen.getByText('GhostKey').closest('.node-row') as HTMLElement
     expect(within(credential).getByRole('button', { name: 'INTEGRATE' })).toBeInTheDocument()
   })
 
@@ -112,7 +112,7 @@ describe('Flipper application', () => {
     render(<GameProvider initialState={noArtifacts}><Flipper /></GameProvider>)
     expect(screen.getByText('NO MODULES')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'INTEGRATE' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Credential Access Module')).not.toBeInTheDocument()
+    expect(screen.queryByText('GhostKey')).not.toBeInTheDocument()
     expect(screen.queryByText('Rollback Module')).not.toBeInTheDocument()
   })
 

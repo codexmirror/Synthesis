@@ -16,6 +16,7 @@ import type {
 } from '../../core/game/types'
 import {
   STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID,
+  ghostKeySurfaceForObservedImplementation,
   keyProbeProfileForImplementation,
   keyProbeProfileForObservedImplementation,
   keyProbeSuccessChance,
@@ -342,7 +343,7 @@ export interface TargetNetwork {
  */
 export type CredentialAccessAssessment =
   | { readonly kind: 'estimate'; readonly percent: number }
-  | { readonly kind: 'compatibility'; readonly status: 'EXPECTED' | 'MATCHED' | 'UNCONFIRMED' }
+  | { readonly kind: 'compatibility'; readonly status: 'MATCHED' | 'STALE' }
 
 export interface TargetOffensiveAction {
   readonly technique: 'Credential Access' | 'Rollback' | 'DEAUTH'
@@ -362,6 +363,8 @@ export interface TargetOffensiveAction {
    * hidden World Truth.
    */
   readonly lastFailureReason?: CredentialAccessFailureReason | 'unspecified'
+  /** Exact stale Service whose canonical Endpoint Analysis must be run before retry. */
+  readonly reanalysisServiceId?: string
 }
 
 /** One canonical or already-remembered fact the running operation itself supplies. */
@@ -576,18 +579,15 @@ function keyProbeEstimate(serviceImplementation: ServiceImplementationIdentity, 
 }
 
 /**
- * The specialized Credential Access Module targets exactly one authored
- * surface (`AUTH-017` / GateSSH 1.3.2) and is deterministic there, so it
+ * GhostKey targets exactly one authored
+ * GateSSH 1.3.2 surface and is deterministic there, so it
  * never earns a probability of its own. This states only what the player's
  * own currently remembered implementation evidence supports, never a
- * prediction: `MATCHED` when it still names that exact surface, `UNCONFIRMED`
- * when a later legitimate observation named a different one instead — which
- * a stale route may still justify attempting — and `EXPECTED` when nothing
- * observed contradicts the module's ordinary target.
+ * prediction: `MATCHED` when it names that exact fresh surface and `STALE`
+ * only after a reached attempt has canonically contradicted the evidence.
  */
-function moduleCompatibility(targetImplementation: string | undefined): CredentialAccessAssessment {
-  if (targetImplementation === undefined) return { kind: 'compatibility', status: 'EXPECTED' }
-  return { kind: 'compatibility', status: targetImplementation === 'GateSSH 1.3.2' ? 'MATCHED' : 'UNCONFIRMED' }
+function moduleCompatibility(stale: boolean): CredentialAccessAssessment {
+  return { kind: 'compatibility', status: stale ? 'STALE' : 'MATCHED' }
 }
 
 function deviceLiveStatus(operational: import('../../core/game/types').DeviceOperationalState): TopologyStatus {
@@ -599,8 +599,8 @@ function deviceLiveStatus(operational: import('../../core/game/types').DeviceOpe
 
 function credentialAccessProviderName(process: CredentialAccessProcess): string {
   if (process.toolId === 'keyprobe') return 'KeyProbe'
-  if (process.toolId === 'flipper') return 'Flipper · Credential Access Module'
-  return 'Credential Access Module'
+  if (process.toolId === 'flipper') return 'GhostKey · via Flipper'
+  return 'GhostKey'
 }
 
 /**
@@ -701,6 +701,16 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   const routes: TargetRoute[] = []
   /** KeyProbe's own formed route, entirely independent of the Vulnerability-based `routes` above. At most one is ever formed in V1. */
   let keyProbeRoute: KeyProbeRoute | undefined
+  let ghostKeyRoute: KeyProbeRoute | undefined
+  /**
+   * The exact stale Service whose historical remembered fingerprint was this
+   * one provider's own supported surface — never a Device-wide flag. A
+   * Service going stale under a different provider's surface (or under
+   * neither) must never suppress this provider's own separately formed fresh
+   * route on another Service.
+   */
+  let keyProbeStaleServiceId: string | undefined
+  let ghostKeyStaleServiceId: string | undefined
   const services = device.services.map((service): TargetService => {
     const observed = describeImplementation(service.inspect)
     const observedAuthGuard = device.inspect?.enhanced?.authGuard
@@ -728,34 +738,38 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    // KeyProbe forms from the player's own legitimately observed authentication surface alone — no
-    // Vulnerability Knowledge required, and never derived from hidden current World Truth.
     if (!viaAccess && service.inspect?.implementation) {
-      const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)
-      if (profile) {
-        keyProbeRoute = {
-          serviceId: service.id,
-          serviceName: service.name,
-          endpoint: service.endpoint,
-          serviceImplementation: { productId: profile.serviceProductId, releaseId: profile.serviceReleaseId, buildId: profile.serviceBuildId },
-          implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+      if (service.implementationAnalysisStale) {
+        // The historical remembered fingerprint (preserved for exactly this
+        // contradicted Service) decides which provider's own reanalysis hint
+        // this stale evidence belongs to — never a different Service's, and
+        // never a provider whose surface it never actually was.
+        if (keyProbeProfileForObservedImplementation(service.inspect.implementation)) keyProbeStaleServiceId = service.id
+        if (ghostKeySurfaceForObservedImplementation(service.inspect.implementation)) ghostKeyStaleServiceId = service.id
+      } else {
+        // KeyProbe forms from the player's own legitimately observed authentication surface alone — no
+        // Vulnerability Knowledge required, and never derived from hidden current World Truth.
+        const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)
+        if (profile) {
+          keyProbeRoute = {
+            serviceId: service.id,
+            serviceName: service.name,
+            endpoint: service.endpoint,
+            serviceImplementation: { productId: profile.serviceProductId, releaseId: profile.serviceReleaseId, buildId: profile.serviceBuildId },
+            implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+          }
+        }
+        // GhostKey forms from its own single authored GateSSH 1.3.2 surface, resolved by GhostKey's own
+        // semantic owner — never re-derived from KeyProbe's own profile table.
+        const ghostKeySurface = ghostKeySurfaceForObservedImplementation(service.inspect.implementation)
+        if (ghostKeySurface) {
+          ghostKeyRoute = {
+            serviceId: service.id, serviceName: service.name, endpoint: service.endpoint,
+            serviceImplementation: ghostKeySurface,
+            implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+          }
         }
       }
-    }
-    const supported = weaknesses.find(({ id }) => ownedCredentialAccessModuleProviders(information, id).length > 0)
-    const supportedProviders = supported ? ownedCredentialAccessModuleProviders(information, supported.id) : []
-    const techniqueTool = supported ? findLocalTechniqueTool(information.player.localDevice, supported.id) : undefined
-    if (supported && supportedProviders.length > 0 && !viaAccess) {
-      routes.push({
-        serviceId: service.id,
-        serviceName: service.name,
-        endpoint: service.endpoint,
-        vulnerabilityId: supported.id,
-        vulnerabilityLabel: supported.label,
-        toolName: techniqueTool?.toolName ?? supportedProviders[0].name,
-        ...(techniqueTool && moduleNameFor(supported.id) ? { moduleName: moduleNameFor(supported.id)! } : {}),
-        ...(observed ? { implementation: observed.implementation } : {}),
-      })
     }
     return {
       id: service.id,
@@ -766,7 +780,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       software,
       ...(observed ? { observed } : {}),
       weaknesses,
-      analysisRequired: !observed && outcome !== 'analysis_complete',
+      analysisRequired: Boolean(service.implementationAnalysisStale) || (!observed && outcome !== 'analysis_complete'),
       ...(running ? { analysisPercent: percentOf(running) } : {}),
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),
@@ -780,9 +794,17 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   const analyzing = analyses.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const hacking = attempts.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const passive = established[0]
-  /** The outcome Credential Access itself recorded for this provider's own most recent completed attempt here, while Process history still remembers it. */
-  const lastCredentialFailure = (providerId: CredentialAccessProviderId): CredentialAccessFailureReason | 'unspecified' | undefined => {
-    const last = [...attempts].reverse().find((process) => process.targetDeviceId === device.id && process.toolId === providerId && process.status === 'completed' && process.result)?.result
+  /**
+   * The outcome Credential Access itself recorded for this provider's own
+   * most recent completed attempt against this exact Service, while Process
+   * history still remembers it. Scoped by `serviceId` as well as provider so
+   * a failure against one Service can never bleed onto this action's
+   * presentation once it points at (or offers reanalysis for) a different,
+   * unrelated Service.
+   */
+  const lastCredentialFailure = (providerId: CredentialAccessProviderId, serviceId: string | undefined): CredentialAccessFailureReason | 'unspecified' | undefined => {
+    if (!serviceId) return undefined
+    const last = [...attempts].reverse().find((process) => process.targetDeviceId === device.id && process.toolId === providerId && process.serviceId === serviceId && process.status === 'completed' && process.result)?.result
     return last?.status === 'attempt_failed' ? (last.reason ?? 'unspecified') : undefined
   }
   const packageSubmission = selectPackageSubmission(information, device.id, exploits, services)?.packageSubmission
@@ -793,9 +815,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     return artifact?.path
   }
   const rollbackProvider = providerFor('rollback', ROLLBACK_MODULE_1_0.name)
-  // The specialized module's route names exactly one Vulnerability (AUTH-017); at most one is ever formed.
-  const moduleRoute = routes[0] as TargetRoute | undefined
-  const moduleProviders = ownedCredentialAccessModuleProviders(information, moduleRoute?.vulnerabilityId ?? 'AUTH-017')
+  // GhostKey has one authored GateSSH 1.3.2 route; at most one is formed in the current target projection.
+  const moduleProviders = ownedCredentialAccessModuleProviders(information)
   const deviceAuthGuard = device.inspect?.enhanced?.authGuard
   // Only a legitimately observed AuthGuard match may affect the player's own estimate; a hidden or
   // unobserved installation, or one that names a different remembered implementation, never does. AuthGuard's
@@ -805,22 +826,29 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     && deviceAuthGuard.protectedImplementation === keyProbeRoute.implementation)
   const localComputeCapacity = information.player.localDevice.hardware.cpu.computeCapacity
   const keyProbeOwned = ownsKeyProbe(information)
+  // A fresh route already formed for this provider always wins: unrelated stale evidence on a different
+  // Service must never displace it, so the reanalysis hint is only ever offered in its absence.
+  const keyProbeReanalysisServiceId = keyProbeRoute ? undefined : keyProbeStaleServiceId
+  const keyProbeFailureServiceId = keyProbeRoute?.serviceId ?? keyProbeReanalysisServiceId
   const keyProbeAction: TargetOffensiveAction | undefined = keyProbeOwned ? {
     technique: 'Credential Access' as const,
     provider: 'KeyProbe',
     providerId: STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID,
     running: hacking.length > 0,
     ...(keyProbeRoute ? { route: keyProbeRoute, assessment: keyProbeEstimate(keyProbeRoute.serviceImplementation, localComputeCapacity, legitimatelyObservedAuthGuardMatch) } : {}),
-    ...(lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) ? { lastFailureReason: lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) } : {}),
+    ...(keyProbeReanalysisServiceId ? { reanalysisServiceId: keyProbeReanalysisServiceId } : {}),
+    ...(lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, keyProbeFailureServiceId) ? { lastFailureReason: lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, keyProbeFailureServiceId) } : {}),
   } : undefined
+  const ghostKeyReanalysisServiceId = ghostKeyRoute ? undefined : ghostKeyStaleServiceId
+  const ghostKeyFailureServiceId = ghostKeyRoute?.serviceId ?? ghostKeyReanalysisServiceId
   const moduleAction = (provider: { readonly id: CredentialAccessProviderId; readonly name: string }): TargetOffensiveAction => {
-    const lastFailureReason = lastCredentialFailure(provider.id)
+    const lastFailureReason = lastCredentialFailure(provider.id, ghostKeyFailureServiceId)
     return {
       technique: 'Credential Access' as const,
       provider: provider.name,
       providerId: provider.id,
       running: hacking.length > 0,
-      ...(moduleRoute ? { route: moduleRoute, assessment: moduleCompatibility(moduleRoute.implementation) } : {}),
+      ...(ghostKeyRoute ? { route: ghostKeyRoute, assessment: moduleCompatibility(false) } : ghostKeyReanalysisServiceId ? { assessment: moduleCompatibility(true), reanalysisServiceId: ghostKeyReanalysisServiceId } : {}),
       ...(lastFailureReason ? { lastFailureReason } : {}),
     }
   }
@@ -838,7 +866,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     hacking: hacking.length > 0,
     disrupting: deauth.some((process) => process.status === 'running' && process.contextDeviceId === device.id),
     analyzing: analyzing.length > 0,
-    routes: routes.length + (keyProbeRoute ? 1 : 0),
+    routes: routes.length + (keyProbeRoute || ghostKeyRoute ? 1 : 0),
     servicesObserved: device.servicesObserved,
     services,
     packageSubmission,

@@ -472,9 +472,13 @@ function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; 
   const host = installedSoftware.find((software): software is FlipperInstallation => software.id === file.hostProductId)
   const integrated = host?.integratedModules.includes(file.moduleId)
   const technique = FLIPPER_MODULE_TECHNIQUE[file.moduleId]
+  // Tool possession is never Vulnerability Knowledge: GhostKey's own player-facing capability wording is its
+  // technique name, "Credential Access", never the named AUTH-017 Vulnerability it happens to attack. Rollback
+  // has no such distinction to preserve — UPD-001 is legitimately named World Truth/Knowledge elsewhere.
+  const capability = file.moduleId === 'credential-access' ? 'Credential Access' : technique
   return <section className="file-kind-details">
     <div className="node-section"><span>INTEGRATION</span><span>{!host ? 'HOST NOT INSTALLED' : integrated ? 'INTEGRATED' : 'NOT INTEGRATED'}</span></div>
-    <p className="node-note">Supplies {technique} standalone. {integrated
+    <p className="node-note">Supplies {capability} standalone. {integrated
       ? 'It is also integrated into the installed Flipper build; the artifact remains an ordinary file.'
       : 'Flipper is an optional integration host, and integration is performed from that application.'}</p>
     <FileInformation file={file} />
@@ -482,7 +486,7 @@ function ModuleDetails({ file, installedSoftware }: { file: SoftwareModuleFile; 
       <dl className="node-facts">
         <div><dt>STANDALONE USE</dt><dd>AVAILABLE</dd></div>
         <div><dt>OPTIONAL HOST</dt><dd>{host ? `${host.name} ${host.version}` : file.hostProductId}</dd></div>
-        <div><dt>TECHNIQUE</dt><dd>{technique}</dd></div>
+        <div><dt>TECHNIQUE</dt><dd>{capability}</dd></div>
         <div><dt>RELEASE</dt><dd>{file.releaseId}</dd></div>
         <div><dt>BUILD</dt><dd>{file.buildId}</dd></div>
       </dl>

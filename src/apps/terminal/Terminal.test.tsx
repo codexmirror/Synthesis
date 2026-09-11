@@ -14,6 +14,7 @@ import { useGameActions } from '../../app/GameContext'
 import { deriveResourceUsage } from '../../core/game/processes'
 import { installLocalSoftwarePackage } from '../../core/game/softwareInstallation'
 import { advanceGameState } from '../../core/game/gameAdvancement'
+import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
 import { Processes } from '../processes/Processes'
 
 /** Terminal's own surface. Scoped queries keep an assertion about Terminal
@@ -238,10 +239,20 @@ describe('Terminal asynchronous Scan submission', () => {
   })
 })
 
+/**
+ * A legitimately Scanned and Endpoint-Analyzed GateSSH 1.3.2 Service, with
+ * zero named Vulnerability Knowledge: GhostKey's own canonical surface,
+ * exactly the evidence it forms from. The analysis Process itself is reset
+ * afterward so fixtures built on this state keep asserting their own
+ * well-known Process identity/progression.
+ */
 function knownCredentialState(): GameState {
   const state = createInitialGameState()
-  const discovery = rememberScan(state.discovery, scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '198.51.100.47'), state.player.localDevice.id)
-  return { ...state, discovery, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: 'host-lan-001', serviceId: 'service-ssh-001', observedLabel: 'Weak authentication configuration' }] } }
+  const scanned = rememberScan(state.discovery, scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '198.51.100.47'), state.player.localDevice.id)
+  const analysis = startServiceAnalysis({ ...state, discovery: scanned }, 'host-lan-001', 'service-ssh-001')
+  if (analysis.status !== 'started') throw new Error(analysis.status)
+  const analyzed = advanceGameState(analysis.state, 20_000)
+  return { ...analyzed, process: { nextId: 1, processes: [] }, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }
 }
 
 function StateControls() {
@@ -290,21 +301,25 @@ describe('Terminal credential access', () => {
     expect(startCredentialAccessAttemptFromObservation).not.toHaveBeenCalled()
   })
 
-  it('starts from stale Knowledge and later fails against patched current World truth', async () => {
+  it('starts GhostKey from a legitimate GateSSH 1.3.2 analysis with zero named Vulnerability Knowledge, then fails against changed World Truth with surface_mismatch', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    const known = knownCredentialState(); const host = known.world.network.hosts[0]
+    const known = knownCredentialState()
+    expect(known.knowledge.discoveredVulnerabilities).toEqual([])
+    const host = known.world.network.hosts[0]
+    // World Truth changes after the remembered analysis; the already-formed attempt still reaches
+    // completion against this changed surface rather than being blocked from ever starting.
     const patched = { ...known, world: { network: { ...known.world.network, hosts: [{ ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } } : service) }, ...known.world.network.hosts.slice(1)] } } }
     function Snapshot() { return <output data-testid="attack-state">{JSON.stringify(useGameState())}</output> }
     render(<GameProvider initialState={patched}><Terminal /><Snapshot /></GameProvider>)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
     expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS running' })).toBeInTheDocument()
-    expect(screen.getByText('Credential Access Module')).toBeInTheDocument()
+    expect(screen.getByText('GhostKey')).toBeInTheDocument()
     await act(async () => { vi.advanceTimersByTime(20_000) })
     expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS completed' })).toHaveTextContent('ATTEMPT FAILED')
     expect(screen.getByText('Authentication attempt failed.')).toBeInTheDocument()
     const state = JSON.parse(screen.getByTestId('attack-state').textContent ?? '') as GameState
-    expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'completed', result: { status: 'attempt_failed', message: 'Authentication attempt failed.' } })
+    expect(state.process.processes.at(-1)).toMatchObject({ kind: 'credential_access', status: 'completed', result: { status: 'attempt_failed', message: 'Authentication attempt failed.', reason: 'surface_mismatch' } })
     expect(state.deviceAccess.established).toEqual([])
     expect(state.knowledge).toEqual(patched.knowledge)
   })

@@ -109,7 +109,7 @@ const POSITIVE_RESULT = new Set<ManagedNetworkActivityRecordView['result']>(['SU
  * reached at all) states only that the attempt failed.
  */
 const CREDENTIAL_FAILURE_DETAIL: Partial<Record<NonNullable<TargetOffensiveAction['lastFailureReason']>, string>> = {
-  surface_mismatch: 'Surface mismatch detected · previous route may be outdated',
+  surface_mismatch: 'Your information may be outdated. Analyze this service again.',
   authentication_rejected: 'Authentication attempt rejected',
   protection_observed: 'Protection response detected',
 }
@@ -793,8 +793,8 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
         : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={`${action.technique}:${action.provider}`}>
           <div className="ns-action-copy">
-            <strong>{action.technique.toUpperCase()}</strong>
-            <span>{action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}{action.provider}</span>
+            <strong>{action.technique === 'Credential Access' ? action.provider.split(' ·')[0].replace(/ 1\.0$/, '').toUpperCase() : action.technique.toUpperCase()}</strong>
+            <span>{action.technique === 'Credential Access' ? `Credential Access${action.provider.includes('via Flipper') ? ' · via Flipper' : ''}` : `${action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}${action.provider}`}</span>
             {action.technique === 'Credential Access' && action.route && action.providerId === 'keyprobe' && (() => {
               // KeyProbe attacks a Service surface directly: it states the known TARGET implementation and its
               // own estimate, never a SURFACE/Vulnerability line — it has none.
@@ -805,13 +805,13 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
               </dl>
             })()}
             {action.technique === 'Credential Access' && action.route && action.providerId !== 'keyprobe' && (() => {
-              const route = action.route as TargetRoute
+              const route = action.route as KeyProbeRoute
               return <dl className="ns-op-facts ns-action-facts">
-                <div><dt>SURFACE</dt><dd>{route.vulnerabilityId}</dd></div>
-                {route.implementation && <div><dt>TARGET</dt><dd>{route.implementation}</dd></div>}
-                {action.assessment?.kind === 'compatibility' && <div><dt>COMPATIBILITY</dt><dd>{action.assessment.status}</dd></div>}
+                <div><dt>TARGET</dt><dd>{route.implementation}</dd></div>
+                {action.assessment?.kind === 'compatibility' && <div><dt>COMPATIBILITY</dt><dd className="ns-assessment-matched">{action.assessment.status}</dd></div>}
               </dl>
             })()}
+            {action.technique === 'Credential Access' && !action.route && action.assessment?.kind === 'compatibility' && <dl className="ns-op-facts ns-action-facts"><div><dt>COMPATIBILITY</dt><dd>{action.assessment.status}</dd></div></dl>}
             {action.technique === 'Credential Access' && !action.running && action.lastFailureReason && <p className="ns-quiet-note ns-action-note" role="status">
               <strong>ATTEMPT FAILED</strong>
               {CREDENTIAL_FAILURE_DETAIL[action.lastFailureReason] && <span>{CREDENTIAL_FAILURE_DETAIL[action.lastFailureReason]}</span>}
@@ -824,6 +824,8 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
             */}
           {action.running
             ? <span className="node-chip node-chip--running" aria-label={`${action.technique} with ${action.provider} running`}><i className="ns-live-dot" aria-hidden="true" />RUNNING</span>
+            : action.reanalysisServiceId
+              ? <button type="button" className="node-action" onClick={() => { const service = target.services.find(({ id }) => id === action.reanalysisServiceId); if (service) onAnalyze(service) }}>ANALYZE AGAIN</button>
             : action.route
               ? <button type="button" className="node-action" aria-label={action.technique === 'Credential Access' ? `Execute ${action.technique} with ${action.provider}` : `Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>{action.technique === 'Credential Access' ? 'START ATTEMPT' : 'EXECUTE'}</button>
               : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} with ${action.provider} unavailable`}>UNAVAILABLE</span>}

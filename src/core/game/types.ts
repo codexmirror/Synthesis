@@ -153,9 +153,11 @@ export interface CredentialAccessProcess extends ProcessBase {
    */
   readonly vulnerabilityId?: string
   /**
-   * KeyProbe's own attacked authentication surface — a concrete GateSSH
-   * implementation identity, snapshotted when the attempt started. Present
-   * only when `toolId === 'keyprobe'`; absent for the specialized module.
+   * The exact Service implementation identity this attempt actually
+   * attacked, snapshotted when the attempt started — KeyProbe's own attacked
+   * GateSSH authentication surface, or GhostKey's own attacked GateSSH 1.3.2
+   * surface. Present for every Credential Access attempt, never only for
+   * `toolId === 'keyprobe'`.
    */
   readonly serviceImplementation?: { readonly productId: string; readonly releaseId: string; readonly buildId: string }
   /** Resolution evidence that the attempted GateSSH release had supported AuthGuard 1.0 protection. */
@@ -1512,6 +1514,8 @@ export interface DiscoveredServiceSnapshot {
   readonly endpoint: string
   /** Historical Service facts observed by Enhanced Inspect, never live World Truth. */
   readonly inspect?: ServiceInspectSnapshot
+  /** A reached implementation-dependent attempt contradicted the last analysis without revealing the replacement. */
+  readonly implementationAnalysisStale?: true
 }
 
 /** Small, concrete Enhanced Inspect snapshot for one already-discovered Service. */

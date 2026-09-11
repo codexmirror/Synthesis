@@ -22,7 +22,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 90
+export const GAME_STATE_VERSION = 91
 
 export function createInitialGameState(): GameState {
   return {
@@ -40,7 +40,7 @@ export function createInitialGameState(): GameState {
           files: [
             { kind: 'text', id: 'file-0001', path: '/home/user/welcome.txt', content: 'Welcome to your local filesystem.' },
             { kind: 'software_package', id: 'file-0002', path: '/home/user/downloads/node-miner-1.0.pkg', releaseId: NODE_MINER_1_0.releaseId, buildId: NODE_MINER_1_0.buildId, productId: NODE_MINER_1_0.productId, name: NODE_MINER_1_0.name, version: NODE_MINER_1_0.version, channel: NODE_MINER_1_0.channel, publisher: NODE_MINER_1_0.publisher, sizeBytes: 3_400_000 },
-            { kind: 'software_module', id: 'file-0003', path: '/home/user/downloads/credential-access-1.0.mod', ...CREDENTIAL_ACCESS_MODULE_1_0 },
+            { kind: 'software_module', id: 'file-0003', path: '/home/user/downloads/ghostkey-1.0.mod', ...CREDENTIAL_ACCESS_MODULE_1_0 },
             { kind: 'deauth_extension', id: 'file-0004', path: '/home/user/downloads/deauth.ext', ...DEAUTH_EXTENSION },
             { kind: 'software_package', id: 'file-0005', path: '/home/user/downloads/nodescan-1.2.pkg', releaseId: NODESCAN_1_2_STANDARD.releaseId, buildId: NODESCAN_1_2_STANDARD.buildId, productId: NODESCAN_1_2_STANDARD.productId, name: NODESCAN_1_2_STANDARD.name, version: NODESCAN_1_2_STANDARD.version, channel: NODESCAN_1_2_STANDARD.channel, sizeBytes: 19_200_000 },
           ],
@@ -58,7 +58,7 @@ export function createInitialGameState(): GameState {
         installedSoftware: [
           { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel },
           { id: 'keyprobe', releaseId: 'keyprobe-1.0', buildId: 'build-keyprobe-1.0-v0', name: 'KeyProbe', version: '1.0', publisher: 'Neutral Systems' },
-          // Flipper is acquired later. The initial standalone Credential Access Module in Files supplies the first AUTH-017 opportunity directly.
+          // Flipper is acquired later. The initial standalone GhostKey artifact already supplies its exact GateSSH 1.3.2 capability.
         ],
         // The Device's own saved copy of the player's Dollar sign-in. It begins with the same literal values as the Provider Credential and is separate state that can go stale independently of it.
         savedDollarSignIn: { id: 'device-saved-dollar-sign-in-v0', accountId: 'dollar-account-local-v0', loginIdentifier: 'local.civic', password: 'violet-orbit-7' },
