@@ -29,7 +29,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     expect(result.devices.map(({ targetId }) => targetId)).not.toContain(PHONE)
   })
 
-  it('yields a way in only after real Scan, Endpoint Analysis, and genuine Knowledge, then establishes access and connects', () => {
+  it('yields a way in only after real Scan and Endpoint Analysis of the exact GateSSH 1.3.2 surface, with zero named Vulnerability Knowledge, then establishes access and connects', () => {
     const base = createInitialGameState()
     const targets = { localDevice: base.player.localDevice, network: base.world.network }
 
@@ -38,7 +38,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
 
     const scanned: GameState = { ...base, discovery: rememberScan(base.discovery, scanNetworkTarget(targets, PHONE_ADDRESS), base.player.localDevice.id) }
     expect(scanned.discovery.devices).toContainEqual(expect.objectContaining({ id: PHONE, address: PHONE_ADDRESS, scope: 'remote' }))
-    // A remembered Service is not a weakness.
+    // A remembered Service alone, with no Endpoint Analysis yet, is not a formed route.
     expect(canFormCredentialAccessAttempt(scanned, observation)).toBe(false)
 
     const analysis = startServiceAnalysis(scanned, PHONE, observation.serviceId)
@@ -46,16 +46,16 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     const analyzed = advanceGameState(analysis.state, 20_000)
     // Endpoint Analysis remembers implementation evidence only; it never creates named Vulnerability Knowledge.
     expect(analyzed.knowledge.discoveredVulnerabilities).toEqual([])
-    expect(canFormCredentialAccessAttempt(analyzed, observation)).toBe(false)
 
-    // Genuine exact AUTH-017 Knowledge, earned through the separately owned Knowledge mechanic, plus the
-    // analyzed endpoint evidence above, is what actually forms the specialized module's route.
-    const known: GameState = { ...analyzed, knowledge: { ...analyzed.knowledge, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: PHONE, serviceId: observation.serviceId, observedLabel: 'Weak authentication configuration' }] } }
-    expect(canFormCredentialAccessAttempt(known, observation)).toBe(true)
+    // GhostKey forms directly from the legitimately remembered GateSSH 1.3.2 fingerprint and the owned
+    // GhostKey artifact/capability alone: zero named Vulnerability Knowledge is required.
+    expect(canFormCredentialAccessAttempt(analyzed, observation)).toBe(true)
 
-    const attempt = startCredentialAccessAttemptFromObservation(known, observation)
+    const attempt = startCredentialAccessAttemptFromObservation(analyzed, observation)
     expect(attempt.status).toBe('started'); if (attempt.status !== 'started') return
+    // Deterministic while the surface remains valid: the specialized module never rolls a chance.
     const attacked = advanceGameState(attempt.state, 40_000)
+    expect(attacked.knowledge.discoveredVulnerabilities).toEqual([])
     const access = attacked.deviceAccess.established.find(({ targetDeviceId }) => targetDeviceId === PHONE)
     expect(access).toMatchObject({ sourceDeviceId: base.player.localDevice.id, viaServiceId: observation.serviceId, privilege: 'USER' })
 
@@ -75,11 +75,11 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     const analysis = startServiceAnalysis(scanned, PHONE, observation.serviceId)
     if (analysis.status !== 'started') throw new Error(analysis.status)
     const analyzed = advanceGameState(analysis.state, 20_000)
-    const known: GameState = { ...analyzed, knowledge: { ...analyzed.knowledge, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', targetDeviceId: PHONE, serviceId: observation.serviceId, observedLabel: 'Weak authentication configuration' }] } }
 
-    const withoutTool: GameState = { ...known, player: { ...known.player, localDevice: { ...known.player.localDevice, installedSoftware: known.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'), filesystem: { ...known.player.localDevice.filesystem, files: known.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module' || file.moduleId !== 'credential-access') } } } }
+    const withoutTool: GameState = { ...analyzed, player: { ...analyzed.player, localDevice: { ...analyzed.player.localDevice, installedSoftware: analyzed.player.localDevice.installedSoftware.filter(({ id }) => id !== 'flipper'), filesystem: { ...analyzed.player.localDevice.filesystem, files: analyzed.player.localDevice.filesystem.files.filter((file) => file.kind !== 'software_module' || file.moduleId !== 'credential-access') } } } }
     expect(canFormCredentialAccessAttempt(withoutTool, observation)).toBe(false)
-    // Removing the tool removes the offer without touching the Knowledge.
-    expect(withoutTool.knowledge).toEqual(known.knowledge)
+    // Removing the tool removes the offer without touching Discovery or Knowledge.
+    expect(withoutTool.knowledge).toEqual(analyzed.knowledge)
+    expect(withoutTool.discovery).toEqual(analyzed.discovery)
   })
 })

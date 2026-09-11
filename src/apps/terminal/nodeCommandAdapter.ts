@@ -68,32 +68,40 @@ export function dispatchNodeCommand(command: string, gameState: GameState, actio
         const service = device?.services.find(
           (candidate) => candidate.endpoint === endpoint,
         )
-        const known = device && service ? gameState.knowledge.discoveredVulnerabilities.find((candidate) =>
-          candidate.targetDeviceId === device.id && candidate.serviceId === service.id) : undefined
-
-        if (!device || !service || !known) {
+        if (!device || !service) {
           return { status: 'not_available' }
         }
 
-        // ATTACK dispatches to whichever technique the player's own observed
-        // Knowledge actually names, never guessing from the endpoint alone.
-        if (known.vulnerabilityId === 'UPD-001') {
+        // RackUpdate's own package-submission interface remains genuinely
+        // Knowledge-gated: only actually earned, named UPD-001 Knowledge on
+        // this exact Device+Service routes ATTACK to the RackUpdate exploit.
+        const upd001 = gameState.knowledge.discoveredVulnerabilities.find((candidate) =>
+          candidate.targetDeviceId === device.id && candidate.serviceId === service.id && candidate.vulnerabilityId === 'UPD-001')
+        if (upd001) {
           const { state: _state, ...result } =
             actions.startRackUpdateExploitAttemptFromObservation({
               endpoint,
               targetDeviceId: device.id,
               serviceId: service.id,
-              vulnerabilityId: known.vulnerabilityId,
+              vulnerabilityId: upd001.vulnerabilityId,
             })
           return result
         }
 
+        // Otherwise ATTACK asks the canonical Credential Access owner to
+        // form/start GhostKey from the player's own legitimately remembered
+        // Device + Service alone: AUTH-017 is the specialized module's own
+        // domain-owned technique identity, never a Knowledge lookup, so no
+        // named Vulnerability Knowledge is required here. The canonical
+        // resolver alone decides admission from the exact remembered
+        // GateSSH 1.3.2 surface, never a hidden current World Truth read in
+        // this adapter.
         const { state: _state, ...result } =
           actions.startCredentialAccessAttemptFromObservation({
             endpoint,
             targetDeviceId: device.id,
             serviceId: service.id,
-            vulnerabilityId: known.vulnerabilityId,
+            vulnerabilityId: 'AUTH-017',
             providerId: 'credential-access-module',
           })
 

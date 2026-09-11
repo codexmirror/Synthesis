@@ -701,6 +701,38 @@ describe('Credential Access domain presentation', () => {
     expect(action.reanalysisServiceId).toBe('service-ssh-001')
     expect(action.lastFailureReason).toBe('surface_mismatch')
   })
+
+  it('scopes stale reanalysis to its own exact Service, so unrelated stale evidence on one Service cannot replace a fresh route/action formed on another', () => {
+    const before = knownWeakness()
+    const staleServiceId = 'service-ssh-001'
+    // A second, unrelated Service on the same Device: a freshly analyzed KeyProbe-supported GateSSH 1.3.3
+    // surface, entirely independent of the stale GhostKey surface on service-ssh-001.
+    const freshKeyProbeService = { id: 'service-ssh-alt', name: 'SSH-ALT', port: 2222, protocol: 'TCP' as const, endpoint: `${SRV_01_ADDRESS}:2222`, inspect: { implementation: { name: 'GateSSH', version: '1.3.3' } } }
+    const discovery = {
+      ...before.discovery,
+      devices: before.discovery.devices.map((device) => device.id === SRV_01
+        ? { ...device, services: [
+            ...device.services.map((candidate) => candidate.id === staleServiceId ? { ...candidate, implementationAnalysisStale: true as const } : candidate),
+            freshKeyProbeService,
+          ] }
+        : device),
+    }
+    const staleFailure = { ...credentialProcess(1200), toolId: 'credential-access-module' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'surface_mismatch' as const } }
+    const target = selectTarget(withProcesses({ ...before, discovery }, [staleFailure]), SRV_01)!
+
+    // KeyProbe's own fresh route on the unrelated Service is untouched: no reanalysis hint and no bled-over failure.
+    const keyProbe = target.offensiveActions.find((action) => action.providerId === 'keyprobe')!
+    expect(keyProbe.route).toMatchObject({ serviceId: 'service-ssh-alt', implementation: 'GateSSH 1.3.3' })
+    expect(keyProbe.reanalysisServiceId).toBeUndefined()
+    expect(keyProbe.lastFailureReason).toBeUndefined()
+
+    // GhostKey's own action still correctly points reanalysis at the exact Service whose analysis it was.
+    const ghostKey = target.offensiveActions.find((action) => action.providerId === 'credential-access-module')!
+    expect(ghostKey.route).toBeUndefined()
+    expect(ghostKey.assessment).toEqual({ kind: 'compatibility', status: 'STALE' })
+    expect(ghostKey.reanalysisServiceId).toBe(staleServiceId)
+    expect(ghostKey.lastFailureReason).toBe('surface_mismatch')
+  })
 })
 
 /* ------------------------------------------------------- technical depth */

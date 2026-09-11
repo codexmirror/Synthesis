@@ -16,6 +16,7 @@ import type {
 } from '../../core/game/types'
 import {
   STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID,
+  ghostKeySurfaceForObservedImplementation,
   keyProbeProfileForImplementation,
   keyProbeProfileForObservedImplementation,
   keyProbeSuccessChance,
@@ -701,7 +702,15 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   /** KeyProbe's own formed route, entirely independent of the Vulnerability-based `routes` above. At most one is ever formed in V1. */
   let keyProbeRoute: KeyProbeRoute | undefined
   let ghostKeyRoute: KeyProbeRoute | undefined
-  let staleCredentialServiceId: string | undefined
+  /**
+   * The exact stale Service whose historical remembered fingerprint was this
+   * one provider's own supported surface — never a Device-wide flag. A
+   * Service going stale under a different provider's surface (or under
+   * neither) must never suppress this provider's own separately formed fresh
+   * route on another Service.
+   */
+  let keyProbeStaleServiceId: string | undefined
+  let ghostKeyStaleServiceId: string | undefined
   const services = device.services.map((service): TargetService => {
     const observed = describeImplementation(service.inspect)
     const observedAuthGuard = device.inspect?.enhanced?.authGuard
@@ -729,27 +738,37 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       ))
     })?.result?.status
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    // KeyProbe forms from the player's own legitimately observed authentication surface alone — no
-    // Vulnerability Knowledge required, and never derived from hidden current World Truth.
-    if (!viaAccess && service.inspect?.implementation && !service.implementationAnalysisStale) {
-      const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)
-      if (profile) {
-        keyProbeRoute = {
-          serviceId: service.id,
-          serviceName: service.name,
-          endpoint: service.endpoint,
-          serviceImplementation: { productId: profile.serviceProductId, releaseId: profile.serviceReleaseId, buildId: profile.serviceBuildId },
-          implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+    if (!viaAccess && service.inspect?.implementation) {
+      if (service.implementationAnalysisStale) {
+        // The historical remembered fingerprint (preserved for exactly this
+        // contradicted Service) decides which provider's own reanalysis hint
+        // this stale evidence belongs to — never a different Service's, and
+        // never a provider whose surface it never actually was.
+        if (keyProbeProfileForObservedImplementation(service.inspect.implementation)) keyProbeStaleServiceId = service.id
+        if (ghostKeySurfaceForObservedImplementation(service.inspect.implementation)) ghostKeyStaleServiceId = service.id
+      } else {
+        // KeyProbe forms from the player's own legitimately observed authentication surface alone — no
+        // Vulnerability Knowledge required, and never derived from hidden current World Truth.
+        const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)
+        if (profile) {
+          keyProbeRoute = {
+            serviceId: service.id,
+            serviceName: service.name,
+            endpoint: service.endpoint,
+            serviceImplementation: { productId: profile.serviceProductId, releaseId: profile.serviceReleaseId, buildId: profile.serviceBuildId },
+            implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+          }
         }
-      }
-    }
-    if (!viaAccess && service.implementationAnalysisStale) staleCredentialServiceId = service.id
-    if (!viaAccess && !service.implementationAnalysisStale && service.inspect?.implementation.name === 'GateSSH' && service.inspect.implementation.version === '1.3.2') {
-      const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)!
-      ghostKeyRoute = {
-        serviceId: service.id, serviceName: service.name, endpoint: service.endpoint,
-        serviceImplementation: { productId: profile.serviceProductId, releaseId: profile.serviceReleaseId, buildId: profile.serviceBuildId },
-        implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+        // GhostKey forms from its own single authored GateSSH 1.3.2 surface, resolved by GhostKey's own
+        // semantic owner — never re-derived from KeyProbe's own profile table.
+        const ghostKeySurface = ghostKeySurfaceForObservedImplementation(service.inspect.implementation)
+        if (ghostKeySurface) {
+          ghostKeyRoute = {
+            serviceId: service.id, serviceName: service.name, endpoint: service.endpoint,
+            serviceImplementation: ghostKeySurface,
+            implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+          }
+        }
       }
     }
     return {
@@ -775,9 +794,17 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   const analyzing = analyses.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const hacking = attempts.filter((process) => process.targetDeviceId === device.id && process.status === 'running')
   const passive = established[0]
-  /** The outcome Credential Access itself recorded for this provider's own most recent completed attempt here, while Process history still remembers it. */
-  const lastCredentialFailure = (providerId: CredentialAccessProviderId): CredentialAccessFailureReason | 'unspecified' | undefined => {
-    const last = [...attempts].reverse().find((process) => process.targetDeviceId === device.id && process.toolId === providerId && process.status === 'completed' && process.result)?.result
+  /**
+   * The outcome Credential Access itself recorded for this provider's own
+   * most recent completed attempt against this exact Service, while Process
+   * history still remembers it. Scoped by `serviceId` as well as provider so
+   * a failure against one Service can never bleed onto this action's
+   * presentation once it points at (or offers reanalysis for) a different,
+   * unrelated Service.
+   */
+  const lastCredentialFailure = (providerId: CredentialAccessProviderId, serviceId: string | undefined): CredentialAccessFailureReason | 'unspecified' | undefined => {
+    if (!serviceId) return undefined
+    const last = [...attempts].reverse().find((process) => process.targetDeviceId === device.id && process.toolId === providerId && process.serviceId === serviceId && process.status === 'completed' && process.result)?.result
     return last?.status === 'attempt_failed' ? (last.reason ?? 'unspecified') : undefined
   }
   const packageSubmission = selectPackageSubmission(information, device.id, exploits, services)?.packageSubmission
@@ -799,23 +826,29 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     && deviceAuthGuard.protectedImplementation === keyProbeRoute.implementation)
   const localComputeCapacity = information.player.localDevice.hardware.cpu.computeCapacity
   const keyProbeOwned = ownsKeyProbe(information)
+  // A fresh route already formed for this provider always wins: unrelated stale evidence on a different
+  // Service must never displace it, so the reanalysis hint is only ever offered in its absence.
+  const keyProbeReanalysisServiceId = keyProbeRoute ? undefined : keyProbeStaleServiceId
+  const keyProbeFailureServiceId = keyProbeRoute?.serviceId ?? keyProbeReanalysisServiceId
   const keyProbeAction: TargetOffensiveAction | undefined = keyProbeOwned ? {
     technique: 'Credential Access' as const,
     provider: 'KeyProbe',
     providerId: STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID,
     running: hacking.length > 0,
     ...(keyProbeRoute ? { route: keyProbeRoute, assessment: keyProbeEstimate(keyProbeRoute.serviceImplementation, localComputeCapacity, legitimatelyObservedAuthGuardMatch) } : {}),
-    ...(staleCredentialServiceId ? { reanalysisServiceId: staleCredentialServiceId } : {}),
-    ...(lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) ? { lastFailureReason: lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) } : {}),
+    ...(keyProbeReanalysisServiceId ? { reanalysisServiceId: keyProbeReanalysisServiceId } : {}),
+    ...(lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, keyProbeFailureServiceId) ? { lastFailureReason: lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID, keyProbeFailureServiceId) } : {}),
   } : undefined
+  const ghostKeyReanalysisServiceId = ghostKeyRoute ? undefined : ghostKeyStaleServiceId
+  const ghostKeyFailureServiceId = ghostKeyRoute?.serviceId ?? ghostKeyReanalysisServiceId
   const moduleAction = (provider: { readonly id: CredentialAccessProviderId; readonly name: string }): TargetOffensiveAction => {
-    const lastFailureReason = lastCredentialFailure(provider.id)
+    const lastFailureReason = lastCredentialFailure(provider.id, ghostKeyFailureServiceId)
     return {
       technique: 'Credential Access' as const,
       provider: provider.name,
       providerId: provider.id,
       running: hacking.length > 0,
-      ...(ghostKeyRoute ? { route: ghostKeyRoute, assessment: moduleCompatibility(false) } : staleCredentialServiceId ? { assessment: moduleCompatibility(true), reanalysisServiceId: staleCredentialServiceId } : {}),
+      ...(ghostKeyRoute ? { route: ghostKeyRoute, assessment: moduleCompatibility(false) } : ghostKeyReanalysisServiceId ? { assessment: moduleCompatibility(true), reanalysisServiceId: ghostKeyReanalysisServiceId } : {}),
       ...(lastFailureReason ? { lastFailureReason } : {}),
     }
   }

@@ -108,6 +108,40 @@ function keyProbeProfileForRememberedService(state: Pick<GameState, 'discovery'>
   return service?.inspect?.implementation ? keyProbeProfileForObservedImplementation(service.inspect.implementation) : undefined
 }
 
+/**
+ * GhostKey's own single authored compatibility relationship — GhostKey 1.0
+ * targets exactly the GateSSH 1.3.2 surface. This is GhostKey's own
+ * semantic owner of that fact: it never borrows KeyProbe's own profile
+ * table, even though KeyProbe happens to also support the same release.
+ */
+export const GHOSTKEY_COMPATIBLE_SURFACE: ServiceImplementationIdentity = {
+  productId: GATE_SSH_PRODUCT_ID, releaseId: GATE_SSH_1_3_2_RELEASE_ID, buildId: GATE_SSH_1_3_2_BUILD_ID,
+}
+const GHOSTKEY_COMPATIBLE_OBSERVED_NAME = 'GateSSH'
+const GHOSTKEY_COMPATIBLE_OBSERVED_VERSION = '1.3.2'
+
+/**
+ * GhostKey's own formation-side lookup: the one legitimate Player-Information
+ * route recognizing its single authored GateSSH 1.3.2 surface from a
+ * legitimate Inspect observation — never a stable World Truth ID, and never
+ * derived from KeyProbe's own profile table.
+ */
+export function ghostKeySurfaceForObservedImplementation(observed: { readonly name: string; readonly version: string }): ServiceImplementationIdentity | undefined {
+  return observed.name === GHOSTKEY_COMPATIBLE_OBSERVED_NAME && observed.version === GHOSTKEY_COMPATIBLE_OBSERVED_VERSION ? GHOSTKEY_COMPATIBLE_SURFACE : undefined
+}
+
+/**
+ * The one legitimate route into GhostKey's own surface for a concrete
+ * `CredentialAccessObservation`: derived here, canonically, from the exact
+ * Service's own remembered Endpoint Analysis fingerprint in Discovery —
+ * never accepted as caller-supplied data.
+ */
+function ghostKeySurfaceForRememberedService(state: Pick<GameState, 'discovery'>, observed: Pick<CredentialAccessObservation, 'targetDeviceId' | 'serviceId' | 'endpoint'>): ServiceImplementationIdentity | undefined {
+  const device = state.discovery.devices.find(({ id }) => id === observed.targetDeviceId)
+  const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
+  return service?.inspect?.implementation ? ghostKeySurfaceForObservedImplementation(service.inspect.implementation) : undefined
+}
+
 /** Whether SELF owns the standalone KeyProbe 1.0 installation. Vulnerability-agnostic by design: KeyProbe's own concrete profile governs which authentication surfaces are attackable, never a named weakness. */
 export function ownsKeyProbe(state: Pick<GameState, 'player'>): boolean {
   return state.player.localDevice.installedSoftware.some(({ id, releaseId, buildId }) => id === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID && releaseId === 'keyprobe-1.0' && buildId === 'build-keyprobe-1.0-v0')
@@ -136,8 +170,7 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
     // attacked surface is always the one this exact Service's own remembered Inspect fingerprint names.
     return Boolean(ownsKeyProbe(state) && keyProbeProfileForRememberedService(state, observed))
   }
-  const profile = service.inspect?.implementation && keyProbeProfileForObservedImplementation(service.inspect.implementation)
-  const ghostKeySurface = profile?.serviceReleaseId === GATE_SSH_1_3_2_RELEASE_ID && profile.serviceBuildId === GATE_SSH_1_3_2_BUILD_ID
+  const ghostKeySurface = service.inspect?.implementation && ghostKeySurfaceForObservedImplementation(service.inspect.implementation)
   return Boolean(ghostKeySurface && ownedCredentialAccessModuleProviders(state).some(({ id }) => id === requestedProvider))
 }
 
@@ -163,14 +196,19 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && flipperSupportsTechnique(installedHost, 'AUTH-017'))) return { status: 'not_available', state }
   const isKeyProbe = executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
   // Re-derived here rather than trusted from `observed`: `canFormCredentialAccessAttempt` already proved this
-  // exact Service's own remembered Inspect fingerprint names a supported profile, so the Process snapshots
-  // that same canonically remembered identity, never whatever the caller happened to assert.
-  const attackProfile = keyProbeProfileForRememberedService(state, observed)
+  // exact Service's own remembered Inspect fingerprint names a supported surface, so the Process snapshots
+  // that same canonically remembered identity, never whatever the caller happened to assert. Each provider
+  // resolves its own surface from its own semantic owner: KeyProbe's profile table for KeyProbe, GhostKey's
+  // own single authored GateSSH 1.3.2 relationship for GhostKey.
+  const attackProfile = isKeyProbe ? keyProbeProfileForRememberedService(state, observed) : undefined
+  const attackedSurface: ServiceImplementationIdentity = isKeyProbe
+    ? { productId: attackProfile!.serviceProductId, releaseId: attackProfile!.serviceReleaseId, buildId: attackProfile!.serviceBuildId }
+    : ghostKeySurfaceForRememberedService(state, observed)!
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
     workRequired: isKeyProbe ? attackProfile!.workRequired : CREDENTIAL_ACCESS_WORK_REQUIRED,
     startedEndpoint: observed.endpoint, toolId: executionToolId,
-    serviceImplementation: { productId: attackProfile!.serviceProductId, releaseId: attackProfile!.serviceReleaseId, buildId: attackProfile!.serviceBuildId },
+    serviceImplementation: attackedSurface,
     ...(!isKeyProbe ? { vulnerabilityId: 'AUTH-017', moduleId: CREDENTIAL_ACCESS_MODULE_ID } : {}),
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
@@ -234,10 +272,12 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
     && service.implementation.productId === process.serviceImplementation.productId
     && service.implementation.releaseId === process.serviceImplementation.releaseId
     && service.implementation.buildId === process.serviceImplementation.buildId)
+  // GhostKey's own single authored surface, the same one formation and the Process snapshot resolve from —
+  // never re-derived from KeyProbe's own profile table.
   const validGhostKeySurface = Boolean(process.serviceImplementation
-    && service.implementation.productId === GATE_SSH_PRODUCT_ID
-    && service.implementation.releaseId === GATE_SSH_1_3_2_RELEASE_ID
-    && service.implementation.buildId === GATE_SSH_1_3_2_BUILD_ID
+    && service.implementation.productId === GHOSTKEY_COMPATIBLE_SURFACE.productId
+    && service.implementation.releaseId === GHOSTKEY_COMPATIBLE_SURFACE.releaseId
+    && service.implementation.buildId === GHOSTKEY_COMPATIBLE_SURFACE.buildId
     && service.implementation.productId === process.serviceImplementation.productId
     && service.implementation.releaseId === process.serviceImplementation.releaseId
     && service.implementation.buildId === process.serviceImplementation.buildId)
