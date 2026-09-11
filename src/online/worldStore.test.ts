@@ -34,6 +34,18 @@ describe('OnlineWorldStore', () => {
     expect(bob.snapshot.state.player.localDevice.network.ip).not.toBe(alice.snapshot.state.player.localDevice.network.ip)
     expect(bob.snapshot.state.business.companies[0].id).toBe(alice.snapshot.state.business.companies[0].id)
     const persisted = store.inspectForTests()
+    const currentAlice = store.restore(alice.token)!
+    const currentBob = store.restore(bob.token)!
+    const alicePayload = JSON.stringify(currentAlice)
+    const bobPayload = JSON.stringify(currentBob)
+    const aliceHomeTruth = persisted.shared.state.world.network.localNetworks.find(({ id }) => id === alice.snapshot.homeNetworkId)!
+    const bobHomeTruth = persisted.shared.state.world.network.localNetworks.find(({ id }) => id === bob.snapshot.homeNetworkId)!
+    const bobDeviceTruth = persisted.shared.playerDevices.find(({ id }) => id === bob.snapshot.state.player.primaryDeviceId)!
+    const aliceDeviceTruth = persisted.shared.playerDevices.find(({ id }) => id === alice.snapshot.state.player.primaryDeviceId)!
+    const bobRecord = persisted.players.find(({ id }) => id === bob.snapshot.playerId)!
+    const aliceRecord = persisted.players.find(({ id }) => id === alice.snapshot.playerId)!
+    for (const hidden of [bobRecord.primaryDeviceId, bobDeviceTruth.network.ip, bobRecord.homeNetworkId, bobHomeTruth.cidr!, bobRecord.gatewayDeviceId, bobRecord.starterServerDeviceId, bobDeviceTruth.savedDollarSignIn!.id, bobDeviceTruth.savedDollarSignIn!.password]) expect(alicePayload).not.toContain(hidden)
+    for (const hidden of [aliceRecord.primaryDeviceId, aliceDeviceTruth.network.ip, aliceRecord.homeNetworkId, aliceHomeTruth.cidr!, aliceRecord.gatewayDeviceId, aliceRecord.starterServerDeviceId, aliceDeviceTruth.savedDollarSignIn!.id, aliceDeviceTruth.savedDollarSignIn!.password]) expect(bobPayload).not.toContain(hidden)
     expect(persisted.shared.playerDevices.map(({ id }) => id)).toEqual(expect.arrayContaining([alice.snapshot.state.player.primaryDeviceId, bob.snapshot.state.player.primaryDeviceId]))
     expect(persisted.players.every((player) => !('market' in player.privateState) && !('dollarFinance' in player.privateState))).toBe(true)
     expect(alice.snapshot.state.market.operator).toEqual(bob.snapshot.state.market.operator)
@@ -50,10 +62,16 @@ describe('OnlineWorldStore', () => {
     expect(alice.snapshot.state.mail.account.id).not.toBe(bob.snapshot.state.mail.account.id)
     const aliceHome = alice.snapshot.state.world.network.localNetworks.find(({ id }) => id === alice.snapshot.homeNetworkId)!
     expect(aliceHome.memberDeviceIds).toContain(alice.snapshot.state.player.primaryDeviceId)
-    const bobPing = await store.observe(alice.token, 'ping', bob.snapshot.state.player.localDevice.network.ip) as { result: { status: string; targetId?: string } }
+    const bobPing = await store.observe(alice.token, 'ping', bobDeviceTruth.network.ip) as { result: { status: string; targetId?: string }; snapshot: typeof alice.snapshot }
     expect(bobPing.result).toMatchObject({ status: 'device', targetId: bob.snapshot.state.player.primaryDeviceId })
+    expect(bobPing.snapshot.state.discovery.devices).toContainEqual(expect.objectContaining({ id: bobRecord.primaryDeviceId, address: bobDeviceTruth.network.ip }))
+    expect(bobPing.snapshot.state.world.network.hosts.some(({ id }) => id === bobRecord.primaryDeviceId)).toBe(false)
+    expect(JSON.stringify(bobPing.snapshot.state.player.localDevice)).not.toContain(bobDeviceTruth.savedDollarSignIn!.password)
+    const bobScan = await store.observe(alice.token, 'scan', bobDeviceTruth.network.ip) as { result: { status: string; targetId?: string }; snapshot: typeof alice.snapshot }
+    expect(bobScan.result).toMatchObject({ status: 'device', targetId: bobRecord.primaryDeviceId })
+    expect(bobScan.snapshot.state.world.network.localNetworks.some(({ id }) => id === bobRecord.homeNetworkId)).toBe(false)
     await store.observe(alice.token, 'ping', '203.0.113.42')
-    expect(store.restore(alice.token)?.state.discovery.devices).toHaveLength(2)
+    expect(store.restore(alice.token)?.state.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: bobRecord.primaryDeviceId }), expect.objectContaining({ id: 'host-lan-002' })]))
     expect(store.restore(bob.token)?.state.discovery.devices).toHaveLength(0)
     expect(store.restore(bob.token)?.state.mail).not.toBe(store.restore(alice.token)?.state.mail)
     expect(store.restore(bob.token)?.state.nodeWallet.id).not.toBe(store.restore(alice.token)?.state.nodeWallet.id)
@@ -65,6 +83,16 @@ describe('OnlineWorldStore', () => {
     expect(restarted.restore(alice.token)?.state.discovery.devices[0].id).toBe('host-lan-002')
     expect(restarted.restore(alice.token)?.state.player.primaryDeviceId).toBe(alice.snapshot.state.player.primaryDeviceId)
     await restarted.logout(alice.token); expect(restarted.restore(alice.token)).toBeNull()
+  })
+
+  it('returns the authoritative response contract when NodeScan is unavailable', async () => {
+    const { store, path } = await fixture(); const alice = await store.enter('alice', 'correct-horse-1')
+    const document = store.inspectForTests()
+    await writeFile(path, JSON.stringify({ ...document, shared: { ...document.shared, playerDevices: document.shared.playerDevices.map((device) => device.id === alice.snapshot.state.player.primaryDeviceId ? { ...device, installedSoftware: [] } : device) } }))
+    const restarted = await new OnlineWorldStore(new JsonWorldPersistence(path)).open()
+    const response = await restarted.observe(alice.token, 'ping', '203.0.113.42') as { result: { status: string }; snapshot?: typeof alice.snapshot }
+    expect(response.result).toEqual({ status: 'software_unavailable' })
+    expect(response.snapshot?.playerId).toBe(alice.snapshot.playerId)
   })
 
   it('fails closed for corrupt or incompatible persistence', async () => {

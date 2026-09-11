@@ -4,7 +4,7 @@ import { findInstalledNodeScan } from '../core/game/software'
 import { pingNetworkTarget } from '../core/game/ping'
 import { scanNetworkTarget } from '../core/game/scan'
 import { rememberPing, rememberScan } from '../core/game/discovery'
-import { bootstrapPlayer, composePlayerSnapshot, resolveCanonicalPrimaryDevice } from './bootstrap'
+import { bootstrapPlayer, composeCanonicalOperationState, projectAuthenticatedPlayerState, resolveCanonicalPrimaryDevice } from './bootstrap'
 import type { AuthenticatedSnapshot, OnlineWorldDocument, PlayerPrivateState } from './model'
 import { hashPassword, normalizeAccountName, validateAuthenticationInput, verifyPassword } from './password'
 import { JsonWorldPersistence } from './persistence'
@@ -62,7 +62,7 @@ export class OnlineWorldStore {
     const player = account && this.document.players.find(({ id }) => id === account.playerId)
     if (!player) throw new Error('Authenticated Player truth is invalid.')
     resolveCanonicalPrimaryDevice(this.document.shared, player)
-    return { playerId: player.id, state: composePlayerSnapshot(this.document.shared, player), homeNetworkId: player.homeNetworkId, gatewayDeviceId: player.gatewayDeviceId }
+    return { playerId: player.id, state: projectAuthenticatedPlayerState(this.document.shared, player, this.document.players), homeNetworkId: player.homeNetworkId, gatewayDeviceId: player.gatewayDeviceId }
   }
 
   restore(token: string): AuthenticatedSnapshot | null {
@@ -76,8 +76,8 @@ export class OnlineWorldStore {
     return this.run(async () => {
       const account = this.accountForToken(token); if (!account) throw new Error('Authentication required.')
       const index = this.document.players.findIndex(({ id }) => id === account.playerId); if (index < 0) throw new Error('Player not found.')
-      const player = this.document.players[index]; const state = composePlayerSnapshot(this.document.shared, player)
-      if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable' }
+      const player = this.document.players[index]; const state = composeCanonicalOperationState(this.document.shared, player)
+      if (!findInstalledNodeScan(state.player.localDevice)) return { result: { status: 'software_unavailable' }, snapshot: this.snapshotForAccount(account.id) }
       const result = kind === 'ping'
         ? pingNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, input)
         : scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, input)

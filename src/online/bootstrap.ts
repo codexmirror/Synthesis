@@ -3,7 +3,7 @@ import { createInitialGameState } from '../core/game/initialState'
 import type { GameState, LocalDeviceState, NetworkHost } from '../core/game/types'
 import type { PlayerPrivateState, PlayerRecord, SharedOnlineState } from './model'
 
-const PERSONAL_IDS = ['player-local-v0', 'device-local-v0', 'network-local-001', 'router-home-001', 'host-lan-001', 'dollar-account-local-v0', 'dollar-credential-local-v0', 'dollar-session-0001', 'device-saved-dollar-sign-in-v0', 'wallet-node-local-v0', 'node-wallet-addr-0001', 'mail-account-player-v0', 'user@node.mail'] as const
+const PERSONAL_IDS = ['player-local-v0', 'device-local-v0', 'network-local-001', 'router-home-001', 'host-lan-001', 'dollar-account-local-v0', 'dollar-credential-local-v0', 'dollar-session-0001', 'device-saved-dollar-sign-in-v0', 'wallet-node-local-v0', 'node-wallet-addr-0001', 'mail-account-player-v0', 'user@node.mail', 'local.civic', 'violet-orbit-7'] as const
 function replaceExact(value: unknown, replacements: ReadonlyMap<string, string>): unknown { if (typeof value === 'string') return replacements.get(value) ?? value; if (Array.isArray(value)) return value.map((entry) => replaceExact(entry, replacements)); if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, replaceExact(entry, replacements)])); return value }
 
 export function asNetworkHost(device: LocalDeviceState): NetworkHost { return { ...device, ip: device.network.ip, transferCapacity: device.network.transferCapacity } }
@@ -29,7 +29,8 @@ export function resolveCanonicalPrimaryDevice(shared: SharedOnlineState, player:
   return matches[0]
 }
 
-export function composePlayerSnapshot(shared: SharedOnlineState, player: PlayerRecord): GameState {
+/** Trusted server-only state containing every canonical Device and generated topology. */
+export function composeCanonicalOperationState(shared: SharedOnlineState, player: PlayerRecord): GameState {
   const localDevice = resolveCanonicalPrimaryDevice(shared, player)
   const personalHosts = shared.playerDevices.filter(({ id }) => id !== localDevice.id).map(asNetworkHost)
   const base = shared.state; const personal = player.privateState
@@ -40,4 +41,16 @@ export function composePlayerSnapshot(shared: SharedOnlineState, player: PlayerR
     || new Set(activeSessions.map(({ clientDeviceId }) => clientDeviceId)).size !== activeSessions.length
     || activeSessions.some(({ accountId }) => accounts.filter(({ id }) => id === accountId).length !== 1)) throw new Error('Civic Dollar Account or Session truth is ambiguous.')
   return { ...base, player: { id: player.id, ownedDeviceIds: player.ownedDeviceIds, primaryDeviceId: player.primaryDeviceId, localDevice }, world: { network: { ...base.world.network, hosts: [...base.world.network.hosts, ...personalHosts] } }, market: { ...base.market, purchases: personal.marketPurchases }, dollarFinance: { ...base.dollarFinance, accounts, credentials: [personal.dollarCredential], sessions: { nextId: Math.max(base.dollarFinance.sessions.nextId, personal.dollarSessions.nextId), active: activeSessions } }, nodeWallet: personal.nodeWallet, knowledge: personal.knowledge, discovery: personal.discovery, deviceAccess: personal.deviceAccess, networkManagement: personal.networkManagement, remoteSession: personal.remoteSession, fileTransfer: personal.fileTransfer, rackUpdate: personal.rackUpdate, mail: personal.mail, process: personal.process, recentActivity: personal.recentActivity }
+}
+
+/** Client compatibility projection: authored World plus only this Player's generated topology. */
+export function projectAuthenticatedPlayerState(shared: SharedOnlineState, player: PlayerRecord, players: readonly PlayerRecord[]): GameState {
+  const operationState = composeCanonicalOperationState(shared, player)
+  const otherPlayers = players.filter(({ id }) => id !== player.id)
+  const excludedNetworkIds = new Set(otherPlayers.map(({ homeNetworkId }) => homeNetworkId))
+  const excludedHostIds = new Set(otherPlayers.flatMap(({ gatewayDeviceId, starterServerDeviceId, primaryDeviceId }) => [gatewayDeviceId, starterServerDeviceId, primaryDeviceId]))
+  return { ...operationState, world: { network: {
+    localNetworks: operationState.world.network.localNetworks.filter(({ id }) => !excludedNetworkIds.has(id)),
+    hosts: operationState.world.network.hosts.filter(({ id }) => !excludedHostIds.has(id)),
+  } } }
 }
