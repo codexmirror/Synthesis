@@ -135,12 +135,3 @@ function advanceGameStateCore(state: GameState, elapsedMs: number, credentialAcc
   nextState = advanceTechnicianReaction(nextState, elapsedMs)
   return advanceBookstoreRestockDeliveries(nextState, elapsedMs)
 }
-
-/**
- * Advances Player/Device-owned runtime without advancing Bookstore cadence.
- * The online orchestrator uses this once per Player after advancing shared
- * World cadence exactly once. Domain completion remains owned by this module.
- */
-export function advancePlayerOwnedGameState(state: GameState, elapsedMs: number, credentialAccessRandom: () => number = Math.random): GameState {
-  return advanceGameStateCore(state, elapsedMs, credentialAccessRandom)
-}

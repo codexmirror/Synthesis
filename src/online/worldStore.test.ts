@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { JsonWorldPersistence } from './persistence'
 import { OnlineWorldStore } from './worldStore'
+import { resolveDollarAccountForDevice } from '../core/game/dollarFinance'
 
 const directories: string[] = []
 async function fixture() { const directory = await mkdtemp(join(tmpdir(), 'synthesis-online-')); directories.push(directory); const path = join(directory, 'world.json'); return { path, store: await new OnlineWorldStore(new JsonWorldPersistence(path)).open() } }
@@ -40,6 +41,12 @@ describe('OnlineWorldStore', () => {
     expect(alice.snapshot.state.dollarFinance.provider).toEqual(bob.snapshot.state.dollarFinance.provider)
     expect(persisted.shared.state.dollarFinance.accounts.some(({ id }) => id === 'dollar-account-bookstore-treasury-v0')).toBe(true)
     expect(alice.snapshot.state.dollarFinance.accounts.at(-1)?.id).not.toBe(bob.snapshot.state.dollarFinance.accounts.at(-1)?.id)
+    expect(resolveDollarAccountForDevice(alice.snapshot.state, 'host-phone-001')?.id).toBe('dollar-account-veyra-phone-v0')
+    expect(resolveDollarAccountForDevice(bob.snapshot.state, 'host-phone-001')?.id).toBe('dollar-account-veyra-phone-v0')
+    expect(alice.snapshot.state.dollarFinance.sessions.active).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'dollar-session-0002', clientDeviceId: 'host-phone-001' }), expect.objectContaining({ clientDeviceId: alice.snapshot.state.player.primaryDeviceId })]))
+    expect(alice.snapshot.state.dollarFinance.sessions.active).not.toEqual(expect.arrayContaining([expect.objectContaining({ clientDeviceId: bob.snapshot.state.player.primaryDeviceId })]))
+    expect(bob.snapshot.state.dollarFinance.sessions.active).not.toEqual(expect.arrayContaining([expect.objectContaining({ clientDeviceId: alice.snapshot.state.player.primaryDeviceId })]))
+    expect(persisted.shared.state.dollarFinance.sessions.active).toEqual([expect.objectContaining({ id: 'dollar-session-0002', clientDeviceId: 'host-phone-001' })])
     expect(alice.snapshot.state.mail.account.id).not.toBe(bob.snapshot.state.mail.account.id)
     const aliceHome = alice.snapshot.state.world.network.localNetworks.find(({ id }) => id === alice.snapshot.homeNetworkId)!
     expect(aliceHome.memberDeviceIds).toContain(alice.snapshot.state.player.primaryDeviceId)
@@ -77,14 +84,4 @@ describe('OnlineWorldStore', () => {
     expect(store.inspectForTests().accounts).toHaveLength(2)
   })
 
-  it('advances a real Player-owned Process under the server clock', async () => {
-    const { store, path } = await fixture(); const alice = await store.enter('alice', 'correct-horse-1')
-    const document = store.inspectForTests(); const player = document.players[0]
-    const process = { id: 'process-0001', kind: 'generic' as const, label: 'Server-owned work', executorDeviceId: player.primaryDeviceId, ramRequiredMiB: 1, status: 'running' as const, workRequired: 1_000, workCompleted: 0 }
-    await writeFile(path, JSON.stringify({ ...document, players: [{ ...player, privateState: { ...player.privateState, process: { nextId: 2, processes: [process] } } }] }))
-    const restarted = await new OnlineWorldStore(new JsonWorldPersistence(path)).open(); await restarted.advanceOnce(1_000)
-    const advanced = restarted.restore(alice.token)?.state.process.processes[0]
-    expect(advanced?.kind).toBe('generic'); if (advanced?.kind !== 'generic') throw new Error('Expected generic Process')
-    expect(advanced.workCompleted).toBeGreaterThan(0)
-  })
 })

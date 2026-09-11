@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { advanceGameState, advancePlayerOwnedGameState } from '../core/game/gameAdvancement'
+import { advanceGameState } from '../core/game/gameAdvancement'
 import { findInstalledNodeScan } from '../core/game/software'
 import { pingNetworkTarget } from '../core/game/ping'
 import { scanNetworkTarget } from '../core/game/scan'
@@ -98,13 +98,8 @@ export class OnlineWorldStore {
   }
   async advanceOnce(elapsedOverride?: number): Promise<void> { await this.run(async () => {
     const now = performance.now(); const elapsed = elapsedOverride ?? now - this.lastTick; this.lastTick = now
-    let shared = { ...this.document.shared, state: advanceGameState(this.document.shared.state, elapsed) }
-    const players = this.document.players.map((player) => {
-      const current = composePlayerSnapshot(shared, player); const next = advancePlayerOwnedGameState(current, elapsed)
-      shared = { ...shared, playerDevices: shared.playerDevices.map((device) => device.id === player.primaryDeviceId ? next.player.localDevice : device) }
-      return { ...player, privateState: { ...player.privateState, nodeWallet: next.nodeWallet, marketPurchases: next.market.purchases, knowledge: next.knowledge, discovery: next.discovery, deviceAccess: next.deviceAccess, networkManagement: next.networkManagement, remoteSession: next.remoteSession, fileTransfer: next.fileTransfer, rackUpdate: next.rackUpdate, mail: next.mail, process: next.process, recentActivity: next.recentActivity, dollarAccount: next.dollarFinance.accounts.find(({ id }) => id === player.privateState.dollarAccount.id) ?? player.privateState.dollarAccount, dollarCredential: next.dollarFinance.credentials.find(({ id }) => id === player.privateState.dollarCredential.id) ?? player.privateState.dollarCredential, dollarSessions: next.dollarFinance.sessions } }
-    })
-    this.document = { ...this.document, shared, players }; await this.persistence.save(this.document)
+    const shared = { ...this.document.shared, state: advanceGameState(this.document.shared.state, elapsed) }
+    this.document = { ...this.document, shared }; await this.persistence.save(this.document)
   }) }
   async stopAdvancement(): Promise<void> { if (this.timer) clearInterval(this.timer); this.timer = undefined; await this.transaction }
 }
