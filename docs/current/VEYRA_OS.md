@@ -325,6 +325,17 @@ The root presents, entirely from represented truth:
   child of Inventory rather than of the Business root.
   Catalog-only Books are not disclosed. Incoming units are paid for and in transit and are
   deliberately not part of current stock or assortment until canonical delivery.
+- **Coffee Machine** — one concrete physical setup card, presenting the
+  represented Atlas seller, $250.00 purchase price and that it enables Coffee
+  service at this Branch. **Buy and install Coffee Machine** invokes the
+  canonical authorized `purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice`
+  through `GameActions`; it supplies only Branch identity. The domain resolves
+  authority, Companies, current Treasuries and exact payment. A refusal creates
+  no installation and is stated honestly. Success derives **Installed** and
+  **Coffee service available at this branch**, showing the current House Coffee
+  name and $3.50 price from the distinct Commerce offering. The purchase control
+  disappears because Operations now represents the machine. Opening or rendering
+  creates nothing; no upgrade store, forecast or tip projection is introduced.
 - **Supply** — exactly two quiet procurement rows, `Mixed Shelf Refill` and
   `Title Case`, without Supplier grouping headings or root unit economics.
   Each states seller, fixed units per Case, starting Case price and represented
@@ -680,7 +691,7 @@ Shell-owned end-editing intent and is replaced only after recovery is ready.
   firmware update installs no software.
 - Observing Company Funds is not operating an Account. Business reads the
   Company's current Treasury balance and offers nothing that moves money except
-  the one validated Bookstore restock; no Financial Session, Credential or saved
+  validated Bookstore restock and Coffee Machine purchases; no Financial Session, Credential or saved
   sign-in for a Treasury exists, and the phone's own Wallet Account never funds
   a Company purchase.
 - A Remote Session is operating context, not financial authority. It decides

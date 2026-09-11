@@ -1,4 +1,6 @@
-import { BOOKSTORE_BRANCH_ID } from './business'
+import { ATLAS_DISTRIBUTION_COMPANY_ID, BOOKSTORE_BRANCH_ID } from './business'
+import { BOOKSTORE_COFFEE_MACHINE_PRICE_CENTS } from './bookstoreCoffee'
+import { settleValidatedCompanyPurchase } from './businessPurchaseSettlement'
 import { BOOKSTORE_INITIAL_ASSORTMENT } from './bookstoreCommerce'
 import type { BookstoreBranchOperationsRecord, BookstoreMerchandiseStockRecord, BookstoreOperationsState, GameState } from './types'
 
@@ -150,6 +152,41 @@ export function incrementBookstoreStock(state: GameState, branchId: string, line
           ...lines.filter((line) => !record.stock.some((entry) => entry.merchandiseId === line.merchandiseId)).map((line) => ({ merchandiseId: line.merchandiseId, quantity: line.quantity })),
         ] }
         : record),
+    },
+  }
+}
+
+export type PurchaseBookstoreCoffeeMachineResult =
+  | { readonly status: 'installed'; readonly state: GameState; readonly transactionId: string }
+  | { readonly status: 'branch_unavailable' | 'operations_unavailable' | 'commerce_unavailable' | 'seller_unavailable' | 'already_installed' | 'buyer_treasury_unavailable' | 'seller_treasury_unavailable' | 'payment_refused'; readonly state: GameState }
+
+/** Internal Operations transition, called only after Company Administration admission. */
+export function purchaseBookstoreCoffeeMachine(state: GameState, branchId: string): PurchaseBookstoreCoffeeMachineResult {
+  const branches = state.business.branches.filter(branch => branch.id === branchId)
+  if (branches.length !== 1 || state.business.companies.filter(company => company.id === branches[0].companyId).length !== 1) return { status: 'branch_unavailable', state }
+  const branch = branches[0]
+  const operations = state.bookstoreOperations.records.filter(record => record.branchId === branchId)
+  if (operations.length !== 1) return { status: 'operations_unavailable', state }
+  if (state.bookstoreCommerce.records.filter(record => record.branchId === branchId).length !== 1) return { status: 'commerce_unavailable', state }
+  if (operations[0].coffeeMachine) return { status: 'already_installed', state }
+  const sellers = state.business.companies.filter(company => company.id === ATLAS_DISTRIBUTION_COMPANY_ID)
+  if (sellers.length !== 1 || branch.companyId === sellers[0].id) return { status: 'seller_unavailable', state }
+  const payment = settleValidatedCompanyPurchase(state, branch.companyId, sellers[0].id, BOOKSTORE_COFFEE_MACHINE_PRICE_CENTS, {
+    description: sellers[0].displayName,
+    purpose: 'Coffee Machine',
+    ...(branch.location ? { location: branch.location } : {}),
+  })
+  if (payment.status !== 'settled') return payment
+  return {
+    status: 'installed',
+    transactionId: payment.transactionId,
+    state: {
+      ...payment.state,
+      bookstoreOperations: {
+        records: payment.state.bookstoreOperations.records.map(record => record.branchId === branchId
+          ? { ...record, coffeeMachine: { id: `bookstore-coffee-machine-${branchId}`, purchaseTransactionId: payment.transactionId } }
+          : record),
+      },
     },
   }
 }

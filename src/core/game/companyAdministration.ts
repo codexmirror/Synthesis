@@ -1,6 +1,7 @@
 import { placeBookstoreRestockOrder, type BookstoreOrderDecisions, type BookstoreOrderProposal, type PlaceBookstoreRestockOrderResult } from './bookstoreRestock'
 import { resolveActiveRemoteTarget } from './remoteSession'
 import type { CompanyAdministrationSession, CompanyState, GameState } from './types'
+import { purchaseBookstoreCoffeeMachine, type PurchaseBookstoreCoffeeMachineResult } from './bookstoreOperations'
 import { generateBookstoreMarketReport } from './bookstoreMarketReport'
 
 /**
@@ -129,4 +130,21 @@ export function requestBookstoreMarketReportFromOperatedRemoteDevice(state: Game
   const next = generateBookstoreMarketReport(state, branchId)
   if (!next) return { status: 'market_unavailable', state }
   return { status: 'generated', state: next, reportId: next.knowledge.bookstoreMarket.reports.at(-1)!.id }
+}
+
+export type PurchaseAuthorizedBookstoreCoffeeMachineResult = PurchaseBookstoreCoffeeMachineResult
+  | { readonly status: 'administration_unavailable' | 'session_unavailable'; readonly state: GameState }
+
+/** Administration authorizes management, never arbitrary Account access. */
+export function purchaseBookstoreCoffeeMachineForDevice(state: GameState, actingDeviceId: string, branchId: string): PurchaseAuthorizedBookstoreCoffeeMachineResult {
+  const branches = state.business.branches.filter(branch => branch.id === branchId)
+  if (branches.length !== 1) return { status: 'branch_unavailable', state }
+  if (!resolveCompanyAdministrationSession(state, actingDeviceId, branches[0].companyId)) return { status: 'administration_unavailable', state }
+  return purchaseBookstoreCoffeeMachine(state, branchId)
+}
+
+export function purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice(state: GameState, branchId: string): PurchaseAuthorizedBookstoreCoffeeMachineResult {
+  const remote = resolveActiveRemoteTarget(state)
+  if (!remote) return { status: 'session_unavailable', state }
+  return purchaseBookstoreCoffeeMachineForDevice(state, remote.target.id, branchId)
 }

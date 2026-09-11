@@ -1,4 +1,5 @@
-import { resolveCompanyTreasuryAccount } from '../../core/game/business'
+import { BOOKSTORE_COFFEE_MACHINE_PRICE_CENTS } from '../../core/game/bookstoreCoffee'
+import { ATLAS_DISTRIBUTION_COMPANY_ID, resolveCompanyTreasuryAccount } from '../../core/game/business'
 import { findBookstoreCommerceRecord, resolveBookstoreBookById } from '../../core/game/bookstoreCommerce'
 import { deriveBookstoreTotalStock, resolveBookstoreOperationsForBranch } from '../../core/game/bookstoreOperations'
 import { deriveBookstoreIncomingStock, deriveBookstoreIncomingStockForBook, deriveBookstoreLastAcquisitionCost, deriveBookstoreMaxOrderableCases } from '../../core/game/bookstoreRestock'
@@ -37,6 +38,13 @@ export interface VeyraBusinessBranchView {
   readonly branchId: string
   readonly displayName: string
   readonly location?: string
+  readonly coffeeMachine: {
+    readonly installed: boolean
+    readonly sellerDisplayName?: string
+    readonly priceCents: number
+    readonly coffeeName: string
+    readonly coffeePriceCents: number
+  }
   readonly inventory: VeyraBusinessInventoryView
   readonly offers: readonly VeyraBusinessOfferView[]
   readonly orders: readonly VeyraBusinessOrderView[]
@@ -118,11 +126,19 @@ function resolveSupportedBookstoreBranch(state: GameState, companyId: string): V
 
   const merchandiseName = (merchandiseId: string) => resolveBookstoreBookById(state.bookstoreCommerce.bookCatalog, merchandiseId)?.name
   const assortment = new Set(commerce.assortment)
+  const coffeeSellers = state.business.companies.filter(company => company.id === ATLAS_DISTRIBUTION_COMPANY_ID)
 
   return {
     branchId: branch.id,
     displayName: branch.displayName,
     location: branch.location,
+    coffeeMachine: {
+      installed: Boolean(operations.coffeeMachine),
+      sellerDisplayName: coffeeSellers.length === 1 ? coffeeSellers[0].displayName : undefined,
+      priceCents: BOOKSTORE_COFFEE_MACHINE_PRICE_CENTS,
+      coffeeName: state.bookstoreCommerce.coffeeOffering.name,
+      coffeePriceCents: state.bookstoreCommerce.coffeeOffering.unitPriceCents,
+    },
     inventory: {
       totalStock: deriveBookstoreTotalStock(operations),
       shelfCapacity: operations.shelfCapacity,

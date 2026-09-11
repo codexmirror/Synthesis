@@ -189,11 +189,11 @@ randomly banded monetary outcome. The full causal chain a successful sale
 must always be explainable by is:
 
 ```text
-represented merchandise + represented stock
-  -> provisional purchase composition (randomness chooses this)
+represented Books + Book stock / available Coffee service
+  -> provisional purchase composition (independent mode and Book randomness)
   -> deterministic basket total (Σ quantity × current unitPriceCents)
   -> real Civic Dollar Transaction for exactly that total
-  -> exact per-merchandise stock decrement
+  -> exact per-Book stock decrement
   -> immutable CompletedSale explanation
 ```
 
@@ -244,14 +244,15 @@ BookstoreBranchOperationsRecord
 ├── shelfCapacity      — configuration-like: maximum sellable inventory this Branch can shelve
 ├── checkoutCapacity   — configuration-like: represented physical checkout positions
 ├── open               — mutable runtime: OPEN or CLOSED
-└── stock              — mutable runtime: current per-merchandise stock quantities
+├── stock              — mutable runtime: current per-Book stock quantities
+└── coffeeMachine      — optional persistent physical installation with its payment reference
 
 BookstoreMerchandiseStockRecord
 ├── merchandiseId — the represented merchandise this quantity is for, by stable ID
 └── quantity      — current non-negative integer stock quantity
 ```
 
-`shelfCapacity` and `checkoutCapacity` are configuration-like — how this
+`shelfCapacity`, `checkoutCapacity` and Coffee Machine installation are configuration-like — how this
 Branch is set up — while `open` and `stock` are mutable runtime truth; the
 shape keeps the two distinguishable rather than blending them.
 `checkoutCapacity` represents only a count of physical/operational checkout
@@ -287,11 +288,87 @@ independent join from `resolveBookstoreCommerceForBranch`: a Branch may have
 operations without commerce, commerce without operations, both, or neither,
 and none of those combinations is invalid.
 
-This slice implements no Economic Tier, valuation, Bookstore staffing,
-Bookstore security generation, advertising effects, upgrades, ownership,
-demand, or autonomous/scheduled sales. It does not touch the existing Petra
+Operations implements no Economic Tier, valuation, Bookstore staffing,
+Bookstore security generation, advertising effects, generic upgrades or
+ownership. Demand and scheduled sales remain separately owned by cadence. It does not touch the existing Petra
 Technician incident-response mechanic, which remains separately implemented
 current truth (`docs/current/NETWORK_ACCESS.md`).
+
+## Coffee Machine V1
+
+The first concrete management equipment purchase is one Coffee Machine per
+Bookstore Branch. Operations owns optional `coffeeMachine: { id,
+purchaseTransactionId }`: physical setup, persistently installed after payment,
+with stable Branch-derived machine identity and a reference to the causing
+Civic Dollar Transaction. Initial Operations has no machine. There is no
+stored Coffee-availability flag, equipment collection, upgrade level or modifier.
+
+`purchaseBookstoreCoffeeMachineForDevice` admits only the Branch Company's
+valid CompanyAdministrationSession. The operated-remote wrapper resolves the
+acting Device from RemoteSession and supplies no additional authority. The
+Operations transition validates unique Branch, Company, Operations, Commerce
+and Atlas identities, and refuses an existing machine. The one authored price
+is 25,000 cents ($250.00), sold by Atlas Distribution. It calls
+`settleValidatedCompanyPurchase`, resolving the buyer Company's and Atlas's
+current Treasury designations before canonical Civic Dollar movement. The
+client cannot supply Accounts, Companies, seller or amount. Administration is
+management authority only, never Account ownership or a Financial Session.
+
+Payment and installation are one immediate coherent transition. Missing or
+ambiguous truth, unavailable Treasuries, insufficient funds, an unrepresentable
+movement or duplicate purchase returns the original state with no payment or
+installation. Success captures the Transaction reference, never another balance
+or total. It creates no sale, gratuity, revenue, stock or demand change.
+
+Commerce separately represents `coffeeOffering`, one concrete House Coffee
+(`bookstore-house-coffee-01`) at 350 cents ($3.50). It is not in `bookCatalog`,
+Branch Book assortment or Book stock. Availability derives only from the
+Branch's installed machine; no ingredients or drink inventory are represented.
+The offering owns its current name and price; sale lines capture those at
+checkout so later edits cannot change history. Coffee pricing management is
+not exposed in V1. Schema version 90 introduces this offering, optional machine
+installation and the extended concrete sale kinds.
+
+With no machine, every successful sale retains Book-only behavior and consumes
+no Coffee RNG. With a machine, one attempt after OPEN/Commerce admission draws
+exactly one `bookstoreCoffeeRandom`: `[0, 0.6)` Books only, `[0.6, 0.9)` Books plus
+one Coffee, `[0.9, 1)` Coffee only. This narrow customer-intention approximation
+is not a represented Customer or preference system. Book-dependent modes
+retain the canonical 70/25/5 basket-size and demand-weighted Book selections.
+Mixed mode appends one Coffee. Coffee-only bypasses Book stock, Catalog, demand
+and Book purchase RNG. An unfulfillable intention is lost, never rerolled into
+another mode. All modes still require OPEN, checkout capacity, real Backend
+availability, valid settlement and sufficient Retail Clearing funds.
+
+The complete captured basket settles through ordinary merchandise checkout.
+Actual lines determine `book_sale`, `book_and_coffee_sale` or `coffee_sale`;
+`book_sale` and the seeded historical sale retain their original meaning.
+Only Book lines decrement physical Book stock. Every merchandise Transaction
+is exactly the sum of all captured lines, including Coffee. No purchase means
+no Coffee revenue; installing the machine alone changes no sale rate or money.
+
+Actual completed composition also determines gratuity occurrence: Books only
+25%, Books plus Coffee 50%, Coffee only 35%. The upper occurrence intervals are
+`[0.75, 1)`, `[0.5, 1)` and `[0.65, 1)` respectively. Only after successful
+merchandise settlement does gratuity RNG select occurrence and, on a tip, the
+equal 10/15/20% tier against the full settled basket. Merchandise remains
+Retail Clearing -> Branch settlement; gratuity remains a separate Retail
+Clearing -> Backend-configured personal Account Transaction. The machine
+never stores or directly supplies a tip probability.
+
+`bookstoreCoffeeRandom` is appended to sale/cadence/advancement signatures as
+one independent semantic injection channel. No machine and ordinary ticks
+without due opportunities consume none of it. Demand, Book composition,
+Coffee behavior, gratuity and Credential Access retain separate channels;
+production defaults each to `Math.random`, matching existing conventions.
+Controlled sequences preserve complete large-step/partitioned state and draw
+order through the existing chronological opportunity segmentation.
+
+Deferred: consumables, drink variants/sizes, maintenance/breakdown, delivery
+or installation timers, multiple machines, pricing controls, employees and
+service quality, Customer entities, tip analytics, generic equipment or upgrade
+systems, Backend routing hacks, Company acquisition/ownership, and Retail
+Clearing replenishment.
 
 ## The current concrete bookstore-backend record
 
@@ -363,7 +440,7 @@ not implemented now and is not implied by this pattern repeating.
 
 ## Sale and finance ownership
 
-The completed sale owns the business meaning "book sale" — including the
+The completed sale owns its concrete Book-only, Book-and-Coffee or Coffee-only meaning — including the
 immutable historical purchase-line truth that explains it — while Civic
 Dollar exclusively owns the corresponding cents movement. Neither the Branch
 nor its commerce record keeps a balance or shadow ledger; the record's
@@ -522,22 +599,23 @@ purchase.
 
 ### Sale execution
 
-`executeBookstoreSale(state, branchId, bookstorePurchaseRandom?, bookstoreGratuityRandom?)`
+`executeBookstoreSale(state, branchId, bookstorePurchaseRandom?, bookstoreGratuityRandom?, bookstoreCoffeeRandom?)`
 (`src/core/game/bookstoreSale.ts`) is the one canonical explicit state
 transition that turns current Business Branch, Bookstore Operations,
 Bookstore Commerce, Bookstore Backend and Civic Dollar truth into one
 completed sale. It accepts only the Branch's stable ID and the optional
-purchase-random channel — never a price, a basket, an Account, a Device, a
+semantic random channels — never a price, a basket, an Account, a Device, a
 Service, or a capacity — and resolves every other fact fresh from canonical
-state. One sale means exact stock decrements for every purchased merchandise
-line, exactly one Civic Dollar Transaction moving exactly the composed
+state. One sale means exact stock decrements for purchased Book
+lines, exactly one Civic Dollar Transaction moving exactly the composed
 basket's deterministic total from Retail Clearing to the current settlement
 Account, and exactly one appended CompletedSale (carrying its own captured
 purchase lines) referencing that Transaction by stable ID.
 
 After that merchandise sale succeeds, the operation evaluates gratuity exactly
 once at the same causal boundary using its separate gratuity-random channel. A
-sample in the upper 25% produces a tip; only then a second sample selects 10%,
+sample in the upper 25% for Books only, 50% for Books plus Coffee, or 35% for
+Coffee only produces a tip; only then a second sample selects 10%,
 15%, or 20% with equal probability. The amount is derived from that sale's actual
 settled basket total and rounded deterministically to nearest integer cent, with
 an exact half-cent rounded upward. No failed opportunity consumes gratuity
@@ -552,9 +630,8 @@ gratuity movement creates no tip reference and never rolls back the already
 completed merchandise sale. Existing CompletedSales, including the seeded sale,
 remain valid without that optional reference.
 
-Every prerequisite that makes a sale impossible independently of what gets
-purchased is preflighted, and conclusively refusing on any of them consumes
-no `bookstorePurchaseRandom` at all: the Branch exists in canonical Business
+Book-dependent modes preserve the following preflight before consuming any
+`bookstorePurchaseRandom` (Coffee-only bypasses the Book-specific checks): the Branch exists in canonical Business
 state; Bookstore Operations exists for it and is `open`; Bookstore Commerce
 exists for it with a unique explicit assortment whose identities all resolve
 through the structurally sufficient global Book Catalog (every Book has a
@@ -660,9 +737,9 @@ visit, queue, foot-traffic record, popularity, or reputation system, and nothing
 here reads Business money, organization quality, or fulfillment state —
 those remain owned by Bookstore Operations/Backend/Commerce and Civic Dollar,
 exactly as before. The accepted future causal chain from money to demand runs
-through a represented Upgrade changing these inputs or Store capability,
-never a direct "balance -> more customers" shortcut; Upgrades are accepted
-future direction and are not implemented in this slice.
+through represented setup changing capability, never a direct "balance ->
+more customers" shortcut. The Coffee Machine now enables actual Coffee service
+without changing either demand input; demand-changing upgrades remain deferred.
 
 V1 seeds exactly one such record for `bookstore-branch-01`:
 `locationOpportunityRatePerHour = 10` and `attractivenessMultiplier = 1.0` —
@@ -724,7 +801,7 @@ chronologically partitions the given `elapsedMs` at each Branch's own
 opportunity boundary: it advances the remainder of canonical state
 (`advanceGameStateCore`, the same composition `advanceGameState` used before
 this mechanic existed) up to exactly the next due instant, calls the existing
-canonical `executeBookstoreSale(state, branchId, bookstorePurchaseRandom)`
+canonical `executeBookstoreSale` with its independent Book, gratuity and Coffee sources
 exactly once for that Branch — which itself draws from `bookstorePurchaseRandom`
 only if it reaches provisional purchase composition (above) — draws exactly
 one `bookstoreDemandRandom` sample to schedule the next interval from the

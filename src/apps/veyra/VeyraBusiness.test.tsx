@@ -472,7 +472,10 @@ describe('VEYRA Business surface', () => {
       // Delivery landed in Bookstore Operations, which ordinary sales then keep consuming.
       expect(delivered.bookstoreRestock.orders[0].lines.reduce((sum, line) => sum + line.quantity, 0)).toBe(6)
       expect(delivered.bookstoreCommerce.records[0].assortment).toHaveLength(9)
-      expect(totalStock(delivered)).toBeGreaterThan(stockBefore - 12)
+      const purchasedUnits = delivered.bookstoreCommerce.records[0].completedSales
+        .slice(before.bookstoreCommerce.records[0].completedSales.length)
+        .reduce((sum, sale) => sum + sale.lines.reduce((units, line) => units + line.quantity, 0), 0)
+      expect(totalStock(delivered)).toBe(stockBefore + 6 - purchasedUnits)
     } finally {
       vi.useRealTimers()
     }
@@ -540,5 +543,39 @@ describe('VEYRA Business surface', () => {
     expect(canonical().dollarFinance.sessions.active.map(({ clientDeviceId }) => clientDeviceId)).toEqual(['device-local-v0', PHONE_DEVICE_ID])
     expect(canonical().dollarFinance.sessions.active.every(({ accountId }) => accountId !== BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(true)
     expect(BUSINESS_PRODUCT_ID).toBe('business')
+  })
+})
+
+
+describe('VEYRA Coffee Machine management', () => {
+  it('shows seller, exact price and capability, then installs through the authorized operation', async () => {
+    const before = earnRestockPrice(phoneConnectedState(), 13)
+    const user = await openBusiness(before)
+    const coffee = screen.getByRole('region', { name: 'Coffee Machine' })
+    expect(coffee).toHaveTextContent('Atlas Distribution')
+    expect(coffee).toHaveTextContent('$250.00')
+    expect(coffee).toHaveTextContent('Enables Coffee service at this branch')
+    expect(coffee).toHaveTextContent('House Coffee · $3.50')
+    expect(canonical().bookstoreOperations.records[0].coffeeMachine).toBeUndefined()
+    await user.click(within(coffee).getByRole('button', { name: /Buy and install Coffee Machine/ }))
+    expect(coffee).toHaveTextContent('Installed')
+    expect(coffee).toHaveTextContent('Coffee service available at this branch')
+    expect(within(coffee).queryByRole('button')).toBeNull()
+    const after = canonical()
+    expect(balance(after, BOOKSTORE_TREASURY_ACCOUNT_ID)).toBe(balance(before, BOOKSTORE_TREASURY_ACCOUNT_ID) - 25000)
+    expect(balance(after, ATLAS_DISTRIBUTION_TREASURY_ACCOUNT_ID)).toBe(25000)
+    expect(after.bookstoreOperations.records[0].coffeeMachine?.purchaseTransactionId).toBe(after.dollarFinance.transactions.records.at(-1)?.id)
+    expect(after.bookstoreCommerce).toEqual(before.bookstoreCommerce)
+    expect(balance(after, PHONE_ACCOUNT_ID)).toBe(balance(before, PHONE_ACCOUNT_ID))
+  })
+
+  it('reports refused payment without showing installed service or changing canonical state', async () => {
+    const state = phoneConnectedState()
+    const user = await openBusiness(state)
+    const before = canonicalSettled()
+    await user.click(screen.getByRole('button', { name: /Buy and install Coffee Machine/ }))
+    expect(within(screen.getByRole('region', { name: 'Business' })).getByRole('status')).toHaveTextContent('payment for the Coffee Machine was refused')
+    expect(canonicalSettled()).toEqual(before)
+    expect(screen.getByRole('region', { name: 'Coffee Machine' })).not.toHaveTextContent('Coffee service available')
   })
 })

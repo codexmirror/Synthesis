@@ -97,6 +97,7 @@ export interface GameActions {
   verifyDevicePinForOperatedRemoteDevice(pin: string): VerifyDevicePinForOperatedRemoteDeviceResult
   /** Submits the existing authorized Bookstore restock for the operated Device; Company authority and settlement stay inside the domain. */
   placeBookstoreRestockOrderFromOperatedRemoteDevice(branchId: string, decisions: import('../core/game/bookstoreRestock').BookstoreOrderDecisions, reviewedProposal: import('../core/game/bookstoreRestock').BookstoreOrderProposal): PlaceOperatedBookstoreRestockOrderResult
+  purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice(branchId: string): import('../core/game/companyAdministration').PurchaseAuthorizedBookstoreCoffeeMachineResult
   requestBookstoreMarketReportFromOperatedRemoteDevice(branchId: string): RequestOperatedBookstoreMarketReportResult
   createRattlerPayload(targetAddress: string): CreateRattlerPayloadResult
   deployRattler?(): DeployRattlerResult

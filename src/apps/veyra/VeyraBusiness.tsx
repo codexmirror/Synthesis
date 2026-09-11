@@ -44,7 +44,7 @@ export function VeyraBusiness({ detail, onDetail }: {
   onDetail: (detail?: VeyraBusinessDetail) => void
 }) {
   const state = useGameState()
-  const { placeBookstoreRestockOrderFromOperatedRemoteDevice, requestBookstoreMarketReportFromOperatedRemoteDevice } = useGameActions()
+  const { purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice, placeBookstoreRestockOrderFromOperatedRemoteDevice, requestBookstoreMarketReportFromOperatedRemoteDevice } = useGameActions()
   const projection = projectVeyraBusiness(state)
   const [notice, setNotice] = useState<string>()
 
@@ -94,6 +94,15 @@ export function VeyraBusiness({ detail, onDetail }: {
     company={company}
     branch={branch}
     notice={notice}
+    onCoffeePurchase={() => {
+      if (!branch) return
+      const result = purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice(branch.branchId)
+      setNotice(result.status === 'installed' ? 'Coffee Machine installed.'
+        : result.status === 'already_installed' ? 'The Coffee Machine is already installed.'
+        : result.status === 'payment_refused' ? 'The payment for the Coffee Machine was refused.'
+        : result.status === 'administration_unavailable' || result.status === 'session_unavailable' ? 'This phone can no longer manage this company.'
+        : 'The Coffee Machine purchase is currently unavailable.')
+    }}
     onOffer={(offerId) => { setNotice(undefined); onDetail({ offerId }) }}
     onInventory={() => onDetail({ inventory: true })}
     onMarketAnalyst={() => onDetail({ marketAnalyst: true })}
@@ -106,13 +115,14 @@ export function VeyraBusiness({ detail, onDetail }: {
  * be bought, and what has been ordered. Every value is represented truth; no
  * score, projection, forecast or other invented metric is derived from it.
  */
-function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory, onMarketAnalyst }: {
+function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory, onMarketAnalyst, onCoffeePurchase }: {
   company: VeyraBusinessCompanyView
   branch?: VeyraBusinessBranchView
   notice?: string
   onOffer: (offerId: string) => void
   onInventory: () => void
   onMarketAnalyst: () => void
+  onCoffeePurchase: () => void
 }) {
   return <section className="veyra-screen" aria-label="Business">
     <p className="veyra-eyebrow">Company</p>
@@ -141,6 +151,18 @@ function VeyraBusinessRoot({ company, branch, notice, onOffer, onInventory, onMa
           <div className="veyra-row veyra-row--static"><dt>Titles</dt><dd>{branch.inventory.titleCount}</dd></div>
           <button className="veyra-row" type="button" onClick={onInventory}><span>View inventory</span><VeyraIcon name="chevron" /></button>
         </dl>
+
+        <section aria-label="Coffee Machine">
+          <h2 className="veyra-section">Coffee Machine</h2>
+          <div className="veyra-card veyra-card--rows">
+            {branch.coffeeMachine.installed
+              ? <div className="veyra-row veyra-row--static"><span className="veyra-row__copy"><strong>Installed</strong><small>Coffee service available at this branch</small><small>{branch.coffeeMachine.coffeeName} · {formatDollarCents(branch.coffeeMachine.coffeePriceCents)}</small></span></div>
+              : <>
+                <div className="veyra-row veyra-row--static"><span className="veyra-row__copy"><strong>{branch.coffeeMachine.sellerDisplayName ?? 'Supplier unavailable'}</strong><small>Enables Coffee service at this branch</small><small>{branch.coffeeMachine.coffeeName} · {formatDollarCents(branch.coffeeMachine.coffeePriceCents)}</small></span></div>
+                <button className="veyra-row" type="button" disabled={!branch.coffeeMachine.sellerDisplayName} onClick={onCoffeePurchase}><span>Buy and install Coffee Machine</span><span className="veyra-amount">{formatDollarCents(branch.coffeeMachine.priceCents)}</span></button>
+              </>}
+          </div>
+        </section>
 
         <h2 className="veyra-section">Market</h2>
         <div className="veyra-card veyra-card--rows">
