@@ -33,8 +33,8 @@ Devices, so cross-Device references require both Device ID and file ID. The
 local Device's initial contents consist of the text file
 `/home/user/welcome.txt`, the NODE Miner 1.0 package, the local test-world
 NodeScan 1.2 Standard package at `/home/user/downloads/nodescan-1.2.pkg`, the standalone
-Credential Access Module artifact and `deauth.ext` artifact at
-`/home/user/downloads/credential-access-1.0.mod` and
+GhostKey artifact and `deauth.ext` artifact at
+`/home/user/downloads/ghostkey-1.0.mod` and
 `/home/user/downloads/deauth.ext`. Loose acquired artifacts use the Downloads
 area; installed launchable applications use product-owned directories beneath
 `/home/user/apps`, with application-generated artifacts nested beneath their
@@ -769,15 +769,15 @@ Device-owned PIN, not another RATTLER surface.
 ## Flipper acquisition and module integration
 
 A fresh game has no installed Flipper. It instead starts with one concrete
-Credential Access Module 1.0 `software_module` artifact at
-`/home/user/downloads/credential-access-1.0.mod`; that standalone artifact directly supplies the existing
-`AUTH-017` technique. Module possession is filesystem truth, not
+GhostKey 1.0 `software_module` artifact at
+`/home/user/downloads/ghostkey-1.0.mod`; that standalone artifact directly supplies
+GhostKey's authored GateSSH 1.3.2 Credential Access capability. Module possession is filesystem truth, not
 InstalledSoftware, and does not depend on Flipper.
 
 The authored local Device also starts with KeyProbe 1.0 as ordinary installed
 software. KeyProbe is a second concrete provider of the same Credential Access
 Technique, not a Flipper module and not an ownership flag. Its provider identity
-is retained by the Credential Access Process; its narrow AUTH-017 behavior is
+is retained by the Credential Access Process; its authored GateSSH profiles are
 owned by `docs/current/NETWORK_ACCESS.md`.
 
 The current code and state schema name both represented artifacts
@@ -866,7 +866,7 @@ Flipper now also presents an **ARSENAL** collection above its existing module
 workflow. NodeScan links to that surface when Flipper is installed, while
 target execution remains exclusively contextual under NodeScan ACTIONS. The
 first implemented hierarchy is `ACCESS → CREDENTIAL ACCESS`: it shows the
-exact supported Credential Access Module 1.0 when its artifact is locally
+exact supported GhostKey 1.0 when its artifact is locally
 possessed or its module is integrated, and the exact installed KeyProbe 1.0
 release/build as a second compatible provider. KeyProbe remains ordinary
 InstalledSoftware and the module remains a standalone filesystem provider;

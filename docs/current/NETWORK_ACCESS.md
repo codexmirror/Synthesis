@@ -193,66 +193,42 @@ recommendation between providers, or hidden target-truth filtering. If
 neither provider is owned, ACTIONS states that no offensive Techniques are
 available.
 
-Credential Access forms two structurally distinct kinds of route, and ACTIONS
-presents each in its own vocabulary rather than forcing one shape onto both.
-KeyProbe is a broad, noisy tool that attacks a supported GateSSH
-authentication surface directly: its route and its authored attack profile
-are both keyed by the concrete Service implementation identity alone, never
-by a named Vulnerability, so a future GateSSH release needs no invented
-Vulnerability merely to become a valid KeyProbe target. The specialized
-Credential Access Module, by contrast, is a Vulnerability-specific technique
-scoped to exactly `AUTH-017`; its route still names that Vulnerability.
+Credential Access presents two concrete tools, with the tool name primary and
+`Credential Access` as secondary technique context. KeyProbe 1.0 is the broad
+GateSSH provider: a fresh remembered Endpoint Analysis fingerprint selects one
+of its authored profiles and supplies its compute-dependent probabilistic
+`EST. SUCCESS`. GhostKey 1.0 is the specialized provider for exactly the
+GateSSH 1.3.2 authentication surface: a fresh remembered GateSSH 1.3.2
+fingerprint shows `TARGET · GateSSH 1.3.2` and green `COMPATIBILITY · MATCHED`.
+GhostKey has no percentage because it resolves deterministically when that
+exact surface is still current. Neither tool is ranked or selected
+implicitly.
 
-A KeyProbe entry with a currently formed route states the known `TARGET`
-implementation Endpoint Analysis legitimately remembers (e.g. `GateSSH 1.3.3`) and an
-`EST. SUCCESS` percentage: the player's own best estimate, reusing the exact
-canonical `keyProbeSuccessChance` profile/chance calculation from Credential
-Access — looked up by that same Service implementation identity — over only
-the local Device's current executor CPU compute and, where the exact
-compatible AuthGuard release has itself been legitimately observed protecting
-that same remembered implementation, that protection — never Device Model
-ceiling compute, never a hidden AuthGuard installation the player has not
-observed, and never a silently refreshed hidden Service implementation. The
-specialized module entry instead states the known `SURFACE` (`AUTH-017`) and,
-where Endpoint Analysis legitimately remembers one, the same `TARGET` implementation
-field; being deterministic rather than probabilistic, it never earns a
-percentage of its own. It states `COMPATIBILITY` as `MATCHED` (the currently
-remembered implementation still names the module's one authored surface,
-GateSSH 1.3.2), `UNCONFIRMED` (a later legitimate observation named a
-different one instead, which a still-justified stale route may still be
-attempted against), or `EXPECTED` (its ordinary default, where nothing
-observed contradicts it either way). Neither read is an inter-provider
-ranking or recommendation, which the previous paragraph still rules out.
-START ATTEMPT begins the same canonical Credential Access operation EXECUTE
-always has; the wording is specific to this Technique and RackUpdate and
-DEAUTH keep their own EXECUTE control and language unchanged.
+Both routes form from the exact Service's legitimate Discovery evidence and
+owned concrete provider, not hidden World Truth. GhostKey does not consult or
+require `knowledge.discoveredVulnerabilities`; its GateSSH 1.3.2 compatibility
+is authored by the tool. Endpoint Analysis therefore continues to create zero
+named Vulnerability Knowledge, and possession, compatibility, execution, or
+Flipper integration never reveals the `AUTH-017` name. A Host Scan or an
+unanalyzed Service cannot form either implementation-dependent route.
 
-Because KeyProbe's route needs only a legitimately remembered Service
-implementation, it forms and estimates independently of whether the player
-has ever earned Vulnerability Knowledge on that Service at all: a target
-whose only Player Information is a remembered GateSSH fingerprint (from
-Endpoint Analysis) still offers a real KeyProbe attempt with a real estimate,
-with no `discoveredVulnerabilities` entry required or consulted.
+A reached attempt whose current implementation differs from the concrete
+surface captured at admission resolves with canonical `surface_mismatch`
+evidence and marks that exact Device + Service's remembered implementation
+analysis stale. Discovery preserves the old fingerprint as historical Player
+Information but no longer treats it as current: KeyProbe suppresses the old
+percentage, GhostKey suppresses green `MATCHED`, both routes become
+non-executable, and NodeScan says the information may be outdated and offers
+`ANALYZE AGAIN` through the ordinary Service Analysis operation. Clearing
+completed Process history, browsing, Host Scan, and failed analysis do not
+clear this durable contradiction. Only a successful fresh Endpoint Analysis
+(or another operation that genuinely observes the exact implementation) stores
+the current fingerprint and clears it. A mismatch reveals no replacement
+implementation and creates no Vulnerability Knowledge.
 
-Credential Access's own most recent completed attempt against a route is
-projected beside it once running work clears: a reached attempt whose
-attacked surface — KeyProbe's remembered GateSSH implementation, or the
-module's required Vulnerability — was no longer current states `ATTEMPT
-FAILED · Surface mismatch detected · previous route may be outdated`; a
-reached, current KeyProbe attempt whose one canonical decision came back
-negative states `Authentication attempt rejected`; and one whose canonical
-resolution recorded the exact compatible AuthGuard release blunting it states
-`Protection response detected`. These three categories come from
-`CredentialAccessProcess.result`'s own narrow `reason` field
-(`surface_mismatch` / `authentication_rejected` / `protection_observed`),
-set once by Credential Access resolution itself; NodeScan only projects it
-and never infers a reason from hidden World Truth. An attempt that never
-reached the target at all (the endpoint stopped resolving to the same
-network-usable Device and open Service) carries no such reason and is stated
-as a bare `ATTEMPT FAILED`. None of this rewrites the historical Knowledge or
-route that produced the attempt: a stale specialized-module route remains
-attemptable exactly as before, and Credential Access completion remains the
-only owner that resolves it against current World Truth.
+Noise, stealth, detection, trace, and security-response consequences are not
+CURRENT mechanics. KeyProbe remains probabilistic and GhostKey remains
+deterministic on its exact unchanged surface.
 
 When Flipper is installed, NodeScan's Known Space masthead provides a route to
 Flipper ARSENAL for collection and orientation. That route does not change the
@@ -305,82 +281,21 @@ Remote Session remains the highest-priority truth, and represented running work
 remains visible.
 
 
-A concrete attempt context is derived from the player's own legitimate
-information about a remembered Service together with a concrete owned
-provider, and not from any current target truth — but the two providers draw
-on structurally different information. The specialized Credential Access
-Module still forms from the player's own Knowledge of `AUTH-017` on a
-remembered Service; the initial standalone Credential Access Module supports
-`AUTH-017` directly, and a later installed Flipper build supports it after
-integrating that same module. Without either concrete source no module action
-is formed, the Knowledge that produced it is untouched, and the started
-module attempt still carries its `toolId`, `moduleId` and `vulnerabilityId`.
+A concrete Credential Access attempt context is derived only from the
+player's legitimate remembered Service implementation and a concrete owned
+provider. KeyProbe 1.0 has authored GateSSH 1.3.2 and 1.3.3 profiles and retains
+its existing compute scaling and AuthGuard behavior. GhostKey 1.0 has one
+authored compatibility, GateSSH 1.3.2, and works either from the possessed
+standalone artifact or the equivalent optional Flipper integration. A started
+attempt snapshots exact product, release, and build identity so resolution can
+detect later surface drift without retargeting.
 
-KeyProbe instead forms from the player's own legitimately remembered Service
-implementation identity alone — Discovery's Endpoint Analysis fingerprint,
-never Knowledge, never a named Vulnerability, and never current target truth.
-KeyProbe 1.0's authored attack profiles are keyed by that same concrete
-GateSSH implementation identity. A started KeyProbe attempt carries its
-`toolId` and a `serviceImplementation` snapshot instead of a `vulnerabilityId`.
-GateSSH 1.3.2's profile requires 1,200 work at a 48% threshold at compute
-capacity 100; GateSSH 1.3.3's requires 1,800 work at a 30% threshold, so the
-latter takes longer on equal Hardware while both continue to advance through
-the ordinary CPU scheduler. Each point of current executor CPU compute above
-or below 100 changes the applicable threshold by 0.25 percentage points
-before the profile-specific bounds are applied (15–78% for GateSSH 1.3.2,
-8–65% for GateSSH 1.3.3). Where AuthGuard 1.0 is installed on the target and
-supports the current GateSSH release the attempt actually reaches, its
-protection reduces the bounded threshold to one sixth — producing 5% at
-compute 100 against GateSSH 1.3.3 — independently of any named Vulnerability,
-including one that does not exist at all: a future GateSSH release with no
-authored Vulnerability can still be a valid, AuthGuard-protectable KeyProbe
-target purely by carrying its own KeyProbe profile. These are authored
-combinations, not additive difficulty modifiers, and never derived by parsing
-a semantic version number. GateSSH 1.3.2 separately derives the real
-Vulnerability `AUTH-017`, and GateSSH 1.3.3 separately derives `AUTH-031`
-(pre-authentication challenge state reuse); both remain real, Knowledge- and
-intelligence-relevant weaknesses, but neither is KeyProbe's own identity. The
-specialized Credential Access Module remains deterministic for `AUTH-017` and
-does not support `AUTH-031`, or any surface reachable only through KeyProbe's
-broader profile set. AuthGuard is the product; its represented 1.0 release
-explicitly supports the GateSSH 1.3.3 and 1.4.0 authentication pipelines,
-while 1.3.2 is unsupported. Compatibility alone does not create a Vulnerability
-or a module attack route: GateSSH 1.4.0 currently derives neither `AUTH-017`
-nor `AUTH-031`, though it remains a currently unauthored KeyProbe surface (no
-profile exists for it in V1). A Service's implementation is Device-owned
-World Truth and may change under the player: Petra's phone runs firmware-owned
-GateSSH, so a completed VEYRA firmware update moves `service-ssh-003` from
-1.3.2 to 1.3.3 and the Vulnerability, KeyProbe profile and
-remembered-intelligence behavior above then follow that real implementation
-with no update-specific rule (owned by `docs/current/DEVICE_SYSTEM.md` and
-`docs/current/VEYRA_OS.md`). Resolution validates the current causal surface —
-KeyProbe's remembered implementation identity against the Service's current
-one, or the module's required Vulnerability against `vulnerabilitiesForService`
-— before KeyProbe consumes exactly one random decision. `AUTH-031` remains a
-release-owned fact `vulnerabilitiesForService` derives from GateSSH 1.3.3, but
-under Recon V2 no ordinary Recon operation writes it into
-`knowledge.discoveredVulnerabilities`: Endpoint Analysis remembers
-implementation/interface evidence only, never a named Vulnerability. It is
-acceptable, and not a gap to route around, that the fresh current game has no
-ordinary Recon path that currently earns `AUTH-031` (or `AUTH-017` /
-`UPD-001`) Knowledge; a future represented artifact-interpretation mechanic is
-the accepted, not-yet-implemented, future owner of that gap (`docs/FUTURE.md`).
-AuthGuard's own protection mitigation at Credential Access resolution is real
-current World Truth, read directly and independently of Discovery — a hidden
-or unobserved AuthGuard installation still blunts a reached KeyProbe attempt.
-Presenting that protection back to the player as remembered AuthGuard
-intelligence (the `EST. SUCCESS` mitigation, the AuthGuard software-list
-entry) additionally requires a legitimate Discovery observation of it; no
-current operation produces that observation, so AuthGuard is never currently
-presented, even though its protection still applies at resolution.
-
-The canonical resolver selects the actual local source —
-preferring an integrated Flipper build when it supports the technique and
-otherwise using the exact standalone module — and NodeScan names that source
-and module without moving capability selection into presentation. Availability never predicts success; stale Player Information can
-still produce a legitimately failed attempt, which is projected through the
-narrow failure `reason` above (or, absent one, a bare failed attempt) while
-the same route stays available.
+GateSSH releases may still own real `AUTH-017` or `AUTH-031` World Truth and
+separately earned Knowledge may still describe it, but those concepts do not
+form GhostKey. Under Recon V2 no ordinary Recon operation produces named
+Vulnerability Knowledge; that producer remains intentionally unresolved for
+systems which genuinely require it. Endpoint Analysis observes implementation
+and interface evidence only.
 
 The focused Device view starts with compact Network affiliation and a single
 Device identity root, followed by its own Service → implementation evidence
@@ -777,36 +692,16 @@ later changes.
 
 The current concrete access mechanic is Credential Access.
 
-The specialized Credential Access Module forms once the player has remembered:
-
-- the represented SSH service
-- positive Weak Authentication (`AUTH-017`) Knowledge
-
-KeyProbe instead forms once the player has remembered:
-
-- the represented SSH service
-- its concrete implementation identity, from a legitimate Endpoint Analysis
-  fingerprint — no Vulnerability Knowledge required or consulted
-
-and in either case SELF owns the concrete provider in question. The initial
-local Device owns both the specialized standalone Credential Access Module and
-the ordinary installed KeyProbe 1.0 provider. NodeScan lists both as separate
-Credential Access choices, without ranking or preselecting either one. The
-player may initiate a Knowledge-driven credential attempt (always through the
-specialized module) through:
-
-```text
-attack <ipv4:port>
-```
-
-or initiate either provider through NodeScan's Credential Access ACTION, which
-uses the concrete context derived from the player's own legitimate information
-(Knowledge for the module, remembered implementation identity for KeyProbe)
-and selected owned provider. KeyProbe's attacked implementation identity is
-never accepted as caller-supplied data: Credential Access derives it itself,
-canonically, from this exact Service's own remembered Endpoint Analysis
-fingerprint in Discovery, so presentation can request KeyProbe against a
-Service but can never assert which implementation it attacks.
+GhostKey 1.0 forms once SELF possesses its exact supported standalone
+artifact (or its exact capability is integrated into Flipper), the target
+Service is remembered, and a fresh Endpoint Analysis remembers that exact
+Service as GateSSH 1.3.2. It does not require Flipper or named `AUTH-017`
+Knowledge. KeyProbe 1.0 likewise forms from a fresh remembered implementation
+supported by its own authored profiles. NodeScan lists both owned tools even
+without a current route, but offers `START ATTEMPT` only when the selected
+Service has fresh compatible implementation evidence and access is not already
+established. The contextual operation derives the attacked implementation from
+Discovery rather than accepting caller-supplied surface identity.
 
 Starting the attempt creates a Credential Access Process.
 
@@ -815,11 +710,9 @@ It does not establish access immediately.
 Completion resolves against current World Truth and validates the represented
 target, current Device network usability, selected endpoint relationship, open
 Service, and represented credential-access context before any probability
-decision — the module additionally validates its current Vulnerability, and
-KeyProbe additionally validates that the Service's current implementation
-identity still exactly matches the one the attempt actually remembered
-attacking. Against the current `AUTH-017` / GateSSH 1.3.2 case, the
-specialized module succeeds deterministically while KeyProbe makes exactly one
+decision — both tools validate that the Service's current implementation identity still
+exactly matches the concrete surface captured at admission. Against GateSSH
+1.3.2, GhostKey succeeds deterministically while KeyProbe makes exactly one
 canonical, current-executor compute-dependent decision per attempt using the
 concrete profile matching its remembered implementation. A completed result is
 terminal and is never rerolled. Success creates persistent USER `DeviceAccess`;
@@ -827,11 +720,9 @@ a reached probabilistic failure creates FAILURE authentication and Network
 evidence but no access. If the endpoint no longer reaches the intended current
 Device and open Service, completion creates no reached-attempt evidence and
 makes no probability decision. If the attempt reaches that Service but its
-attacked surface — the module's `AUTH-017` Vulnerability, or KeyProbe's
-remembered GateSSH implementation — or its Credential Access condition is no
+attacked surface — GhostKey's or KeyProbe's remembered GateSSH implementation — or its Credential Access condition is no
 longer valid, completion records the reached FAILURE through the existing
-evidence owners but still makes no probability decision. Neither outcome
-rewrites historical Discovery or Knowledge.
+evidence owners but still makes no probability decision. A reached surface mismatch preserves the historical fingerprint while marking that exact Service analysis stale; it never rewrites Knowledge or reveals the replacement implementation.
 
 Services remain concrete Device-owned network surfaces with no arbitrary
 canonical count cap: a Device may expose zero, one, or many. Device availability
@@ -839,7 +730,7 @@ and Service availability are distinct; a running, connected Device does not
 make every Service open, and one unavailable Service does not make its Device
 offline. A Service is not automatically vulnerable or an offensive target.
 
-RackUpdate 1.0 is a distinct public interaction, observed by Endpoint Analysis as `INTERFACE: Package submission`. `UPD-001` ("Rollback protection not enforced") is a release-owned fact `vulnerabilitiesForService` derives from RackUpdate's current release; Endpoint Analysis itself never creates or reads that Knowledge, so earning it currently requires the separately owned Knowledge mechanic, not Analysis. Knowledge alone is informative rather than submission authority: exploiting it requires the exact standalone Rollback Module or a Flipper build integrating that module. Credential Access follows the same rule for its own module and `AUTH-017`; each module's role stays equally narrow. The distributable canonical Flipper build integrates no modules, so a fresh Device supports no `UPD-001` until the Rollback Module is acquired, but integrating it into Flipper is optional. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and Flipper integration is finite represented work owned by `docs/current/FILES_SOFTWARE.md`.
+RackUpdate 1.0 is a distinct public interaction, observed by Endpoint Analysis as `INTERFACE: Package submission`. `UPD-001` ("Rollback protection not enforced") is a release-owned fact `vulnerabilitiesForService` derives from RackUpdate's current release; Endpoint Analysis itself never creates or reads that Knowledge, so earning it currently requires the separately owned Knowledge mechanic, not Analysis. Knowledge alone is informative rather than submission authority: exploiting it requires the exact standalone Rollback Module or a Flipper build integrating that module. GhostKey differs deliberately: its exact GateSSH 1.3.2 compatibility forms from fresh implementation evidence without named Vulnerability Knowledge. The distributable canonical Flipper build integrates no modules, so a fresh Device supports no `UPD-001` until the Rollback Module is acquired, but integrating it into Flipper is optional. The represented software Market is currently the only concrete acquisition path for that module artifact (`docs/current/MARKET.md`), and Flipper integration is finite represented work owned by `docs/current/FILES_SOFTWARE.md`.
 
 `AUTH-017` and `UPD-001` remain weakness identifiers owned by this document and by the service systems. The current artifacts are concrete providers of Credential Access and Rollback respectively, and compatible integration lets Flipper expose those same Techniques; the artifacts are not themselves weaknesses, Knowledge, or a universal category for Techniques. Possessing or integrating one discovers nothing, changes no remembered evidence, and creates no `discoveredVulnerabilities` entry. Reconnaissance stays entirely with NodeScan.
 
@@ -858,16 +749,15 @@ it. Directly scanning its communicated address discovers it as a remote
 Device and observes its one open SSH Service — and, like any Host Scan,
 incidentally reveals its own represented foreign Network relationship and
 that Network's other represented Hosts as shallow peers, never their Services
-or identity; Service
-Analysis of that Service records the same `AUTH-017` Knowledge, because its
-implementation is the same represented GateSSH 1.3.2 release; the same standalone or Flipper-integrated
-Credential Access Module forms the same way in; the attempt creates the same
+or identity. Service Analysis of that Service remembers GateSSH 1.3.2
+implementation evidence and creates no named Vulnerability Knowledge; the same
+standalone or Flipper-integrated GhostKey forms from that fresh evidence; the attempt creates the same
 Credential Access Process and, on success, the same USER `DeviceAccess`; and
 CONNECT opens the same kind of Session.
 
 No phone-specific weakness, tool, operation, mechanic or developer shortcut
-exists. Removing every credential tool — the standalone artifact and any installed Flipper build that integrates it — removes the offer without touching the
-Knowledge, exactly as for any other target. The only thing that differs after
+exists. Removing every credential tool removes the offer without touching
+Discovery or Knowledge, exactly as for any other target. The only thing that differs after
 entry is which operating surface the Shell presents.
 
 

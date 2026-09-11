@@ -13,8 +13,8 @@ describe('filesystem reads and identity', () => {
     expect(listDirectory(filesystem, '/')).toEqual({ status: 'ok', entries: [{ name: 'home', type: 'directory' }] })
     expect(listDirectory(filesystem, '/home/user')).toEqual({ status: 'ok', entries: [{ name: 'downloads', type: 'directory' }, { name: 'welcome.txt', type: 'file' }] })
     expect(listDirectory(filesystem, '/home/user/downloads')).toEqual({ status: 'ok', entries: [
-      { name: 'credential-access-1.0.mod', type: 'file' },
       { name: 'deauth.ext', type: 'file' },
+      { name: 'ghostkey-1.0.mod', type: 'file' },
       { name: 'node-miner-1.0.pkg', type: 'file' },
       { name: 'nodescan-1.2.pkg', type: 'file' },
     ] })

@@ -117,6 +117,7 @@
 .ns-action-facts { margin: 3px 0 0; }
 .ns-action-note { margin: 3px 0 0; }
 .ns-action-note strong { display: block; color: var(--caution); font-size: .6rem; letter-spacing: .08em; }
+.ns-assessment-matched { color: var(--green); }
 @media (max-width: 420px) {
   .ns-action { grid-template-columns: 1fr; }
   .ns-action .node-action,

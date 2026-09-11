@@ -71,7 +71,7 @@ describe('Files', () => {
   })
 
   it.each([
-    ['Credential Access Module', 'AUTH-017', CREDENTIAL_ACCESS_MODULE_1_0],
+    ['GhostKey', 'AUTH-017', CREDENTIAL_ACCESS_MODULE_1_0],
     ['Rollback Module', 'UPD-001', ROLLBACK_MODULE_1_0],
   ])('presents %s as standalone-usable while keeping optional host integration separate', async (name, technique, module) => {
     const base = createInitialGameState()

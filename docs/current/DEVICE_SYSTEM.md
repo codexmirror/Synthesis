@@ -31,7 +31,7 @@ GameState
 │       │   └── NodeScan (`nodescan`, release `nodescan-1.0-standard`) 1.0 Standard
 │       ├── filesystem
 │       │   ├── local installable NodeScan 1.2 Standard test package
-│       │   └── standalone Credential Access Module artifact
+│       │   └── standalone GhostKey artifact
 │       └── saved Dollar sign-in
 ├── dollarFinance
 ├── business — generic Company/Branch/Network structure; routed to the dedicated branch-commerce owner

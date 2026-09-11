@@ -385,7 +385,7 @@ describe('Attachments', () => {
     expect(within(app()).getByText('LOCAL FILES · node-01')).toBeInTheDocument()
     const files = Array.from(document.querySelectorAll('.mail-file'))
     expect(files.map((file) => file.querySelector('.mail-file-name')?.textContent))
-      .toEqual(['welcome.txt', 'node-miner-1.0.pkg', 'credential-access-1.0.mod', 'deauth.ext', 'nodescan-1.2.pkg'])
+      .toEqual(['welcome.txt', 'node-miner-1.0.pkg', 'ghostkey-1.0.mod', 'deauth.ext', 'nodescan-1.2.pkg'])
 
     // Kind, size and the provenance the artifact itself states.
     expect(within(files[1] as HTMLElement).getByText('SOFTWARE PACKAGE · 3.4 MB')).toBeInTheDocument()

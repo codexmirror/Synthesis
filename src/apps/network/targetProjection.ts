@@ -342,7 +342,7 @@ export interface TargetNetwork {
  */
 export type CredentialAccessAssessment =
   | { readonly kind: 'estimate'; readonly percent: number }
-  | { readonly kind: 'compatibility'; readonly status: 'EXPECTED' | 'MATCHED' | 'UNCONFIRMED' }
+  | { readonly kind: 'compatibility'; readonly status: 'MATCHED' | 'STALE' }
 
 export interface TargetOffensiveAction {
   readonly technique: 'Credential Access' | 'Rollback' | 'DEAUTH'
@@ -362,6 +362,8 @@ export interface TargetOffensiveAction {
    * hidden World Truth.
    */
   readonly lastFailureReason?: CredentialAccessFailureReason | 'unspecified'
+  /** Exact stale Service whose canonical Endpoint Analysis must be run before retry. */
+  readonly reanalysisServiceId?: string
 }
 
 /** One canonical or already-remembered fact the running operation itself supplies. */
@@ -576,18 +578,15 @@ function keyProbeEstimate(serviceImplementation: ServiceImplementationIdentity, 
 }
 
 /**
- * The specialized Credential Access Module targets exactly one authored
- * surface (`AUTH-017` / GateSSH 1.3.2) and is deterministic there, so it
+ * GhostKey targets exactly one authored
+ * GateSSH 1.3.2 surface and is deterministic there, so it
  * never earns a probability of its own. This states only what the player's
  * own currently remembered implementation evidence supports, never a
- * prediction: `MATCHED` when it still names that exact surface, `UNCONFIRMED`
- * when a later legitimate observation named a different one instead — which
- * a stale route may still justify attempting — and `EXPECTED` when nothing
- * observed contradicts the module's ordinary target.
+ * prediction: `MATCHED` when it names that exact fresh surface and `STALE`
+ * only after a reached attempt has canonically contradicted the evidence.
  */
-function moduleCompatibility(targetImplementation: string | undefined): CredentialAccessAssessment {
-  if (targetImplementation === undefined) return { kind: 'compatibility', status: 'EXPECTED' }
-  return { kind: 'compatibility', status: targetImplementation === 'GateSSH 1.3.2' ? 'MATCHED' : 'UNCONFIRMED' }
+function moduleCompatibility(stale: boolean): CredentialAccessAssessment {
+  return { kind: 'compatibility', status: stale ? 'STALE' : 'MATCHED' }
 }
 
 function deviceLiveStatus(operational: import('../../core/game/types').DeviceOperationalState): TopologyStatus {
@@ -599,8 +598,8 @@ function deviceLiveStatus(operational: import('../../core/game/types').DeviceOpe
 
 function credentialAccessProviderName(process: CredentialAccessProcess): string {
   if (process.toolId === 'keyprobe') return 'KeyProbe'
-  if (process.toolId === 'flipper') return 'Flipper · Credential Access Module'
-  return 'Credential Access Module'
+  if (process.toolId === 'flipper') return 'GhostKey · via Flipper'
+  return 'GhostKey'
 }
 
 /**
@@ -701,6 +700,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   const routes: TargetRoute[] = []
   /** KeyProbe's own formed route, entirely independent of the Vulnerability-based `routes` above. At most one is ever formed in V1. */
   let keyProbeRoute: KeyProbeRoute | undefined
+  let ghostKeyRoute: KeyProbeRoute | undefined
+  let staleCredentialServiceId: string | undefined
   const services = device.services.map((service): TargetService => {
     const observed = describeImplementation(service.inspect)
     const observedAuthGuard = device.inspect?.enhanced?.authGuard
@@ -730,7 +731,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     const viaAccess = established.find((access) => access.viaServiceId === service.id)
     // KeyProbe forms from the player's own legitimately observed authentication surface alone — no
     // Vulnerability Knowledge required, and never derived from hidden current World Truth.
-    if (!viaAccess && service.inspect?.implementation) {
+    if (!viaAccess && service.inspect?.implementation && !service.implementationAnalysisStale) {
       const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)
       if (profile) {
         keyProbeRoute = {
@@ -742,20 +743,14 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
         }
       }
     }
-    const supported = weaknesses.find(({ id }) => ownedCredentialAccessModuleProviders(information, id).length > 0)
-    const supportedProviders = supported ? ownedCredentialAccessModuleProviders(information, supported.id) : []
-    const techniqueTool = supported ? findLocalTechniqueTool(information.player.localDevice, supported.id) : undefined
-    if (supported && supportedProviders.length > 0 && !viaAccess) {
-      routes.push({
-        serviceId: service.id,
-        serviceName: service.name,
-        endpoint: service.endpoint,
-        vulnerabilityId: supported.id,
-        vulnerabilityLabel: supported.label,
-        toolName: techniqueTool?.toolName ?? supportedProviders[0].name,
-        ...(techniqueTool && moduleNameFor(supported.id) ? { moduleName: moduleNameFor(supported.id)! } : {}),
-        ...(observed ? { implementation: observed.implementation } : {}),
-      })
+    if (!viaAccess && service.implementationAnalysisStale) staleCredentialServiceId = service.id
+    if (!viaAccess && !service.implementationAnalysisStale && service.inspect?.implementation.name === 'GateSSH' && service.inspect.implementation.version === '1.3.2') {
+      const profile = keyProbeProfileForObservedImplementation(service.inspect.implementation)!
+      ghostKeyRoute = {
+        serviceId: service.id, serviceName: service.name, endpoint: service.endpoint,
+        serviceImplementation: { productId: profile.serviceProductId, releaseId: profile.serviceReleaseId, buildId: profile.serviceBuildId },
+        implementation: `${service.inspect.implementation.name} ${service.inspect.implementation.version}`,
+      }
     }
     return {
       id: service.id,
@@ -766,7 +761,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       software,
       ...(observed ? { observed } : {}),
       weaknesses,
-      analysisRequired: !observed && outcome !== 'analysis_complete',
+      analysisRequired: Boolean(service.implementationAnalysisStale) || (!observed && outcome !== 'analysis_complete'),
       ...(running ? { analysisPercent: percentOf(running) } : {}),
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),
@@ -793,9 +788,8 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     return artifact?.path
   }
   const rollbackProvider = providerFor('rollback', ROLLBACK_MODULE_1_0.name)
-  // The specialized module's route names exactly one Vulnerability (AUTH-017); at most one is ever formed.
-  const moduleRoute = routes[0] as TargetRoute | undefined
-  const moduleProviders = ownedCredentialAccessModuleProviders(information, moduleRoute?.vulnerabilityId ?? 'AUTH-017')
+  // GhostKey has one authored GateSSH 1.3.2 route; at most one is formed in the current target projection.
+  const moduleProviders = ownedCredentialAccessModuleProviders(information)
   const deviceAuthGuard = device.inspect?.enhanced?.authGuard
   // Only a legitimately observed AuthGuard match may affect the player's own estimate; a hidden or
   // unobserved installation, or one that names a different remembered implementation, never does. AuthGuard's
@@ -811,6 +805,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     providerId: STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID,
     running: hacking.length > 0,
     ...(keyProbeRoute ? { route: keyProbeRoute, assessment: keyProbeEstimate(keyProbeRoute.serviceImplementation, localComputeCapacity, legitimatelyObservedAuthGuardMatch) } : {}),
+    ...(staleCredentialServiceId ? { reanalysisServiceId: staleCredentialServiceId } : {}),
     ...(lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) ? { lastFailureReason: lastCredentialFailure(STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) } : {}),
   } : undefined
   const moduleAction = (provider: { readonly id: CredentialAccessProviderId; readonly name: string }): TargetOffensiveAction => {
@@ -820,7 +815,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       provider: provider.name,
       providerId: provider.id,
       running: hacking.length > 0,
-      ...(moduleRoute ? { route: moduleRoute, assessment: moduleCompatibility(moduleRoute.implementation) } : {}),
+      ...(ghostKeyRoute ? { route: ghostKeyRoute, assessment: moduleCompatibility(false) } : staleCredentialServiceId ? { assessment: moduleCompatibility(true), reanalysisServiceId: staleCredentialServiceId } : {}),
       ...(lastFailureReason ? { lastFailureReason } : {}),
     }
   }
@@ -838,7 +833,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     hacking: hacking.length > 0,
     disrupting: deauth.some((process) => process.status === 'running' && process.contextDeviceId === device.id),
     analyzing: analyzing.length > 0,
-    routes: routes.length + (keyProbeRoute ? 1 : 0),
+    routes: routes.length + (keyProbeRoute || ghostKeyRoute ? 1 : 0),
     servicesObserved: device.servicesObserved,
     services,
     packageSubmission,

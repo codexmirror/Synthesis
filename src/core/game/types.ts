@@ -1512,6 +1512,8 @@ export interface DiscoveredServiceSnapshot {
   readonly endpoint: string
   /** Historical Service facts observed by Enhanced Inspect, never live World Truth. */
   readonly inspect?: ServiceInspectSnapshot
+  /** A reached implementation-dependent attempt contradicted the last analysis without revealing the replacement. */
+  readonly implementationAnalysisStale?: true
 }
 
 /** Small, concrete Enhanced Inspect snapshot for one already-discovered Service. */

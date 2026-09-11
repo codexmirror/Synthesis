@@ -2,14 +2,16 @@ import { startProcess } from './processes'
 import { resolveServiceEndpoint } from './serviceAnalysis'
 import type { CredentialAccessProcess, GameState } from './types'
 import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from './flipper'
-import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID, vulnerabilitiesForService } from './serviceImplementations'
+import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
 import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import { authGuard10SupportsGateSshAuthentication } from './authGuard'
+import { markServiceImplementationAnalysisStale } from './discovery'
 
 /** The one Flipper module that supplies the specialized Vulnerability-specific technique. It is domain truth, never supplied by an interface. */
 const CREDENTIAL_ACCESS_MODULE_ID = 'credential-access' as const
+export const GHOSTKEY_PROVIDER_ID = 'credential-access-module' as const
 export const STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID = 'keyprobe' as const
 export type CredentialAccessProviderId = CredentialAccessProcess['toolId']
 export const CREDENTIAL_ACCESS_WORK_REQUIRED = 1200
@@ -111,15 +113,14 @@ export function ownsKeyProbe(state: Pick<GameState, 'player'>): boolean {
   return state.player.localDevice.installedSoftware.some(({ id, releaseId, buildId }) => id === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID && releaseId === 'keyprobe-1.0' && buildId === 'build-keyprobe-1.0-v0')
 }
 
-/** Concrete providers of the specialized Vulnerability-specific technique (standalone module or Flipper-integrated) for one named Vulnerability. AUTH-017 only; KeyProbe is never among these. */
-export function ownedCredentialAccessModuleProviders(state: Pick<GameState, 'player'>, vulnerabilityId: string): readonly { readonly id: CredentialAccessProviderId; readonly name: string }[] {
-  if (vulnerabilityId !== 'AUTH-017') return []
-  const tool = findLocalTechniqueTool(state.player.localDevice, vulnerabilityId)
+/** Concrete GhostKey providers (standalone artifact or equivalent Flipper integration). Stable module internals remain unchanged; formation is implementation-evidence-driven. */
+export function ownedCredentialAccessModuleProviders(state: Pick<GameState, 'player'>, _vulnerabilityId = 'AUTH-017'): readonly { readonly id: CredentialAccessProviderId; readonly name: string }[] {
+  const tool = findLocalTechniqueTool(state.player.localDevice, 'AUTH-017')
   if (!tool) return []
   const flipper = findInstalledFlipper(state.player.localDevice)
-  const integrated = Boolean(flipper && flipperSupportsTechnique(flipper, vulnerabilityId))
+  const integrated = Boolean(flipper && flipperSupportsTechnique(flipper, 'AUTH-017'))
   const standalone = findLocalFlipperModuleArtifacts(state.player.localDevice).find((file) => file.moduleId === CREDENTIAL_ACCESS_MODULE_ID && isSupportedFlipperModuleArtifact(file))
-  return [{ id: integrated ? FLIPPER_PRODUCT_ID : 'credential-access-module', name: integrated ? `${tool.toolName} · ${tool.moduleName}` : standalone?.path ?? tool.moduleName }]
+  return [{ id: integrated ? FLIPPER_PRODUCT_ID : GHOSTKEY_PROVIDER_ID, name: integrated ? 'GhostKey · via Flipper' : `${standalone?.name ?? tool.moduleName} 1.0` }]
 }
 
 export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' | 'discovery' | 'knowledge' | 'deviceAccess'>, observed: CredentialAccessObservation): boolean {
@@ -127,17 +128,17 @@ export function canFormCredentialAccessAttempt(state: Pick<GameState, 'player' |
   const service = device?.services.find(({ id, endpoint }) => id === observed.serviceId && endpoint === observed.endpoint)
   const accessed = state.deviceAccess.established.some((access) => access.sourceDeviceId === state.player.localDevice.id && access.targetDeviceId === observed.targetDeviceId && access.viaServiceId === observed.serviceId)
   if (!service || accessed) return false
-  const requestedProvider = observed.providerId ?? 'credential-access-module'
+  if (service.implementationAnalysisStale) return false
+  const requestedProvider = observed.providerId ?? GHOSTKEY_PROVIDER_ID
   if (requestedProvider === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID) {
     // KeyProbe forms from the player's own legitimately remembered authentication surface alone — no
     // Vulnerability Knowledge required, and never from a caller-asserted implementation identity: the
     // attacked surface is always the one this exact Service's own remembered Inspect fingerprint names.
     return Boolean(ownsKeyProbe(state) && keyProbeProfileForRememberedService(state, observed))
   }
-  const known = observed.vulnerabilityId !== undefined && state.knowledge.discoveredVulnerabilities.some((item) =>
-    item.targetDeviceId === observed.targetDeviceId && item.serviceId === observed.serviceId && item.vulnerabilityId === observed.vulnerabilityId)
-  const tool = observed.vulnerabilityId !== undefined && ownedCredentialAccessModuleProviders(state, observed.vulnerabilityId).some(({ id }) => id === requestedProvider)
-  return Boolean(known && tool)
+  const profile = service.inspect?.implementation && keyProbeProfileForObservedImplementation(service.inspect.implementation)
+  const ghostKeySurface = profile?.serviceReleaseId === GATE_SSH_1_3_2_RELEASE_ID && profile.serviceBuildId === GATE_SSH_1_3_2_BUILD_ID
+  return Boolean(ghostKeySurface && ownedCredentialAccessModuleProviders(state).some(({ id }) => id === requestedProvider))
 }
 
 export type StartCredentialAccessResult =
@@ -158,20 +159,19 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
   })
   if (started.status === 'insufficient_memory') return { ...started, state }
   const installedHost = findInstalledFlipper(state.player.localDevice)
-  const executionToolId = observed.providerId ?? 'credential-access-module'
-  if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && observed.vulnerabilityId !== undefined && flipperSupportsTechnique(installedHost, observed.vulnerabilityId))) return { status: 'not_available', state }
+  const executionToolId = observed.providerId ?? GHOSTKEY_PROVIDER_ID
+  if (executionToolId === FLIPPER_PRODUCT_ID && !(installedHost && flipperSupportsTechnique(installedHost, 'AUTH-017'))) return { status: 'not_available', state }
   const isKeyProbe = executionToolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
   // Re-derived here rather than trusted from `observed`: `canFormCredentialAccessAttempt` already proved this
   // exact Service's own remembered Inspect fingerprint names a supported profile, so the Process snapshots
   // that same canonically remembered identity, never whatever the caller happened to assert.
-  const keyProbe = isKeyProbe ? keyProbeProfileForRememberedService(state, observed) : undefined
+  const attackProfile = keyProbeProfileForRememberedService(state, observed)
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
-    workRequired: keyProbe?.workRequired ?? CREDENTIAL_ACCESS_WORK_REQUIRED,
+    workRequired: isKeyProbe ? attackProfile!.workRequired : CREDENTIAL_ACCESS_WORK_REQUIRED,
     startedEndpoint: observed.endpoint, toolId: executionToolId,
-    ...(isKeyProbe
-      ? { serviceImplementation: { productId: keyProbe!.serviceProductId, releaseId: keyProbe!.serviceReleaseId, buildId: keyProbe!.serviceBuildId } }
-      : { vulnerabilityId: observed.vulnerabilityId!, moduleId: CREDENTIAL_ACCESS_MODULE_ID }),
+    serviceImplementation: { productId: attackProfile!.serviceProductId, releaseId: attackProfile!.serviceReleaseId, buildId: attackProfile!.serviceBuildId },
+    ...(!isKeyProbe ? { vulnerabilityId: 'AUTH-017', moduleId: CREDENTIAL_ACCESS_MODULE_ID } : {}),
   } : process)
   return { status: 'started', processId: started.processId, state: { ...state, process: { ...started.state, processes } } }
 }
@@ -197,27 +197,29 @@ function resolveExecutorAddress(state: GameState, executorDeviceId: string): str
 export function resolveCompletedCredentialAccessAttempts(state: GameState, random: () => number = Math.random): GameState {
   let deviceAccess = state.deviceAccess
   let world = state.world
+  let discovery = state.discovery
   let changed = false
   const processes = state.process.processes.map((process) => {
     if (process.kind !== 'credential_access' || process.status !== 'completed' || process.result) return process
     changed = true
-    const resolved = resolveCompletedCredentialAccess({ ...state, deviceAccess, world }, process, random)
+    const resolved = resolveCompletedCredentialAccess({ ...state, deviceAccess, world, discovery }, process, random)
     deviceAccess = resolved.deviceAccess
     world = resolved.world
+    discovery = resolved.discovery
     return resolved.process
   })
   if (!changed) return state
-  return { ...state, process: { ...state.process, processes }, deviceAccess, world }
+  return { ...state, process: { ...state.process, processes }, deviceAccess, world, discovery }
 }
 
-export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess, random: () => number = Math.random): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess']; world: GameState['world'] } {
+export function resolveCompletedCredentialAccess(state: GameState, process: CredentialAccessProcess, random: () => number = Math.random): { process: CredentialAccessProcess; deviceAccess: GameState['deviceAccess']; world: GameState['world']; discovery: GameState['discovery'] } {
   const resolved = resolveServiceEndpoint(state, process.startedEndpoint)
   const host = state.world.network.hosts.find(({ id }) => id === process.targetDeviceId)
   const service = host?.services?.find(({ id }) => id === process.serviceId)
   const validEndpoint = resolved !== 'invalid' && resolved?.targetDeviceId === process.targetDeviceId && resolved.serviceId === process.serviceId
   // The simulated target only "received" the attempt while the originally selected endpoint still resolves to the same network-usable Device and open Service.
   const reached = Boolean(host && isDeviceNetworkUsable(host.operational) && service?.open && validEndpoint)
-  const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world }
+  const failedResult = { process: { ...process, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const } }, deviceAccess: state.deviceAccess, world: state.world, discovery: state.discovery }
   if (!reached || !service) return failedResult
 
   const isKeyProbe = process.toolId === STANDARD_CREDENTIAL_ACCESS_PROVIDER_ID
@@ -232,9 +234,14 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
     && service.implementation.productId === process.serviceImplementation.productId
     && service.implementation.releaseId === process.serviceImplementation.releaseId
     && service.implementation.buildId === process.serviceImplementation.buildId)
-  const validSurface = Boolean(service.credentialAccess && (isKeyProbe
-    ? validKeyProbeSurface
-    : process.vulnerabilityId !== undefined && vulnerabilitiesForService(service).some(({ id }) => id === process.vulnerabilityId)))
+  const validGhostKeySurface = Boolean(process.serviceImplementation
+    && service.implementation.productId === GATE_SSH_PRODUCT_ID
+    && service.implementation.releaseId === GATE_SSH_1_3_2_RELEASE_ID
+    && service.implementation.buildId === GATE_SSH_1_3_2_BUILD_ID
+    && service.implementation.productId === process.serviceImplementation.productId
+    && service.implementation.releaseId === process.serviceImplementation.releaseId
+    && service.implementation.buildId === process.serviceImplementation.buildId)
+  const validSurface = Boolean(service.credentialAccess && (isKeyProbe ? validKeyProbeSurface : validGhostKeySurface))
   // An unresolvable executor identity is an impossible/stale state for currently supported Credential Access
   // (only the local Device forms these attempts); rather than fabricate provenance, no history record is appended.
   const sourceAddress = resolveExecutorAddress(state, process.executorDeviceId)
@@ -280,16 +287,17 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
         ...(protectedByAuthGuard ? { authGuardProtectionObserved: true as const } : {}),
       },
       world,
+      discovery: reason === 'surface_mismatch' ? markServiceImplementationAnalysisStale(state.discovery, process.targetDeviceId, process.serviceId) : state.discovery,
     }
   }
 
   const existing = state.deviceAccess.established.find((access) => access.sourceDeviceId === process.executorDeviceId && access.targetDeviceId === process.targetDeviceId && access.viaServiceId === process.serviceId)
-  if (existing) return { process: { ...process, result: { status: 'access_established', accessId: existing.id } }, deviceAccess: state.deviceAccess, world }
+  if (existing) return { process: { ...process, result: { status: 'access_established', accessId: existing.id } }, deviceAccess: state.deviceAccess, world, discovery: state.discovery }
   const id = `access-${String(state.deviceAccess.nextId).padStart(4, '0')}`
   return { process: { ...process, result: { status: 'access_established', accessId: id } }, deviceAccess: { nextId: state.deviceAccess.nextId + 1, established: [...state.deviceAccess.established, {
     id, sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId,
     viaServiceId: process.serviceId, viaServiceBuildId: service.implementation.buildId,
     ...(process.vulnerabilityId !== undefined ? { viaVulnerabilityId: process.vulnerabilityId } : {}),
     privilege: service.credentialAccess!.privilege,
-  }] }, world }
+  }] }, world, discovery: state.discovery }
 }

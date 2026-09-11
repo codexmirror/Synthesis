@@ -96,7 +96,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       // stable identity; removed/closed Services no longer appear as current.
       const services = result.services.map((service) => {
         const previousService = previous?.services.find((item) => item.id === service.id)
-        return { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}) }
+        return { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}), ...(previousService?.implementationAnalysisStale ? { implementationAnalysisStale: true as const } : {}) }
       })
       const next = {
         id: result.targetId, address: result.address,
@@ -130,7 +130,23 @@ export function refreshSubmittedServiceImplementation(discovery: DiscoveryState,
   const serviceIndex = device.services.findIndex(({ id }) => id === serviceId)
   const service = device.services[serviceIndex]
   if (!service?.inspect) return discovery
-  const services = device.services.map((candidate, index) => index === serviceIndex ? { ...candidate, inspect: { ...candidate.inspect!, implementation } } : candidate)
+  const services = device.services.map((candidate, index) => {
+    if (index !== serviceIndex) return candidate
+    const { implementationAnalysisStale: _stale, ...fresh } = candidate
+    return { ...fresh, inspect: { ...candidate.inspect!, implementation } }
+  })
+  const devices = discovery.devices.map((candidate, index) => index === deviceIndex ? { ...candidate, services } : candidate)
+  return { ...discovery, devices }
+}
+
+/** Record only that a reached attempt contradicted this exact Service's remembered implementation. */
+export function markServiceImplementationAnalysisStale(discovery: DiscoveryState, deviceId: string, serviceId: string): DiscoveryState {
+  const deviceIndex = discovery.devices.findIndex(({ id }) => id === deviceId)
+  if (deviceIndex < 0) return discovery
+  const device = discovery.devices[deviceIndex]
+  const serviceIndex = device.services.findIndex(({ id }) => id === serviceId)
+  if (serviceIndex < 0 || !device.services[serviceIndex].inspect || device.services[serviceIndex].implementationAnalysisStale) return discovery
+  const services = device.services.map((service, index) => index === serviceIndex ? { ...service, implementationAnalysisStale: true as const } : service)
   const devices = discovery.devices.map((candidate, index) => index === deviceIndex ? { ...candidate, services } : candidate)
   return { ...discovery, devices }
 }

@@ -85,10 +85,13 @@ function scannedTarget(state: GameState = createInitialGameState()): GameState {
   return { ...known, discovery }
 }
 
-/** Earned AUTH-017 Knowledge, produced by resolving a real Service Analysis. */
+/** GateSSH 1.3.2 analyzed through the canonical operation, plus historical AUTH-017 Knowledge. */
 function knownWeakness(state: GameState = scannedTarget()): GameState {
+  const started = startServiceAnalysis(state, SRV_01, 'service-ssh-001')
+  if (started.status !== 'started') throw Error(started.status)
+  const analyzed = advanceGameState(started.state, 20_000)
   return {
-    ...state,
+    ...analyzed,
     knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-017', observedLabel: 'Weak authentication configuration', targetDeviceId: SRV_01, serviceId: 'service-ssh-001' }] },
   }
 }
@@ -107,7 +110,7 @@ function completedGateSshAnalysis(version: '1.3.2' | '1.3.3', vulnerabilityId: '
 }
 
 function credentialProcess(workCompleted: number): CredentialAccessProcess {
-  return { kind: 'credential_access', id: 'process-0009', label: 'CREDENTIAL ACCESS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 896, workRequired: 1200, workCompleted, targetDeviceId: SRV_01, serviceId: 'service-ssh-001', startedEndpoint: `${SRV_01_ADDRESS}:22`, vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access' }
+  return { kind: 'credential_access', id: 'process-0009', label: 'CREDENTIAL ACCESS', executorDeviceId: 'device-local-v0', status: 'running', ramRequiredMiB: 896, workRequired: 1200, workCompleted, targetDeviceId: SRV_01, serviceId: 'service-ssh-001', startedEndpoint: `${SRV_01_ADDRESS}:22`, vulnerabilityId: 'AUTH-017', toolId: 'flipper', moduleId: 'credential-access', serviceImplementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-gate-ssh-1.3.2-v0' } }
 }
 
 function withProcesses(state: GameState, processes: GameState['process']['processes']): GameState {
@@ -198,7 +201,7 @@ describe('NodeScan first hack', () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={knownWeakness()}><Network /><StateSnapshot /></GameProvider>)
     fireEvent.click(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
-    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
 
     const afterHack = currentState()
@@ -260,13 +263,13 @@ describe('NodeScan first hack', () => {
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 
     const actions = screen.getByRole('region', { name: 'ACTIONS' })
-    expect(actions).toHaveTextContent('CREDENTIAL ACCESS')
-    expect(actions).toHaveTextContent('/home/user/downloads/credential-access-1.0.mod')
-    await user.click(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' }))
+    expect(actions).toHaveTextContent('Credential Access')
+    expect(actions).toHaveTextContent('GHOSTKEY')
+    await user.click(screen.getByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' }))
     // The tool and the technique are still real: the started attempt carries both.
-    expect(currentState().process.processes).toEqual([expect.objectContaining({
+    expect(currentState().process.processes).toContainEqual(expect.objectContaining({
       kind: 'credential_access', serviceId: 'service-ssh-001', vulnerabilityId: 'AUTH-017', toolId: 'credential-access-module', moduleId: 'credential-access', status: 'running',
-    })])
+    }))
   })
 })
 
@@ -286,7 +289,7 @@ describe('NodeScan information boundary', () => {
 
     expect(selectTargets(information).map(({ address, stage }) => [address, stage])).toEqual([['198.51.100.1', 'unscanned'], [SRV_01_ADDRESS, 'route']])
     const target = selectTarget(information, SRV_01)!
-    expect(target.routes).toEqual([expect.objectContaining({ serviceName: 'SSH', vulnerabilityId: 'AUTH-017', toolName: 'Standalone Module', moduleName: 'Credential Access Module' })])
+    expect(target.offensiveActions).toContainEqual(expect.objectContaining({ provider: 'GhostKey 1.0', route: expect.objectContaining({ serviceName: 'SSH', implementation: 'GateSSH 1.3.2' }) }))
   })
 
   it('offers no way in from hidden World Truth alone', async () => {
@@ -337,13 +340,13 @@ describe('NodeScan information boundary', () => {
     const user = await openTarget(upgraded)
     const status = screen.getByLabelText('Target status')
     expect(within(status).queryByRole('button', { name: 'BYPASS' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).toBeInTheDocument()
     expect(within(status).queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
 
     await openDetails(user)
     expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
     expect(selectTarget(currentState(), SRV_01)?.stage).toBe('route')
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).toBeInTheDocument()
   })
 
   it('treats service-unavailable analysis as inconclusive and offers a canonical retry', async () => {
@@ -362,12 +365,12 @@ describe('NodeScan information boundary', () => {
     ])
   })
 
-  it('offers no way in without the represented tool, on identical Knowledge', () => {
+  it('keeps KeyProbe independent when GhostKey is removed, on identical information', () => {
     const withTool = selectTarget(knownWeakness(), SRV_01)!
     const withoutTool = selectTarget(withoutSoftware(knownWeakness(), 'flipper'), SRV_01)!
 
     expect(withTool.stage).toBe('route')
-    expect(withoutTool.stage).toBe('analysis_ready')
+    expect(withoutTool.stage).toBe('route')
     expect(withoutTool.routes).toEqual([])
     // The Knowledge itself is untouched; only the capability is gone.
     expect(withoutTool.services.find(({ id }) => id === 'service-ssh-001')!.weaknesses).toEqual([{ id: 'AUTH-017', label: 'Weak authentication configuration' }])
@@ -375,12 +378,12 @@ describe('NodeScan information boundary', () => {
 
   it('withdraws the hack from the interface when the represented tool is gone', async () => {
     await openTarget(knownWeakness())
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).toBeInTheDocument()
     cleanup()
 
     await openTarget(withoutSoftware(knownWeakness(), 'flipper'))
-    expect(screen.queryByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Target status')).toHaveTextContent('SERVICES FOUND')
+    expect(screen.queryByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
   })
 
   it('keeps stale remembered information stale after the world changes for a reason the player never observed', async () => {
@@ -475,7 +478,7 @@ describe('NodeScan progress', () => {
     await openTarget(failed)
     const status = screen.getByLabelText('Target status')
     expect(status).toHaveTextContent('TARGET OBSERVED')
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).toBeInTheDocument()
   })
 
   it('states the running attempt from its own canonical facts, and never from World Truth', async () => {
@@ -487,7 +490,7 @@ describe('NodeScan progress', () => {
       title: 'CREDENTIAL ACCESS',
       percent: 25,
       facts: [
-        { label: 'PROVIDER', value: 'Credential Access Module' },
+        { label: 'PROVIDER', value: 'GhostKey' },
         { label: 'ENDPOINT', value: `${SRV_01_ADDRESS}:22` },
         { label: 'WEAKNESS', value: 'AUTH-017 · Weak authentication configuration' },
       ],
@@ -504,15 +507,15 @@ describe('NodeScan progress', () => {
 
   it('names the provider the attempt actually ran through, not whatever is currently owned', () => {
     const throughFlipper = withProcesses(knownWeakness(), [credentialProcess(600)])
-    expect(selectTarget(throughFlipper, SRV_01)?.operation?.facts[0]).toEqual({ label: 'PROVIDER', value: 'Flipper · Credential Access Module' })
+    expect(selectTarget(throughFlipper, SRV_01)?.operation?.facts[0]).toEqual({ label: 'PROVIDER', value: 'Flipper · GhostKey' })
   })
 
   it('says a Technique is running where its EXECUTE was, rather than offering an attempt that can only report ALREADY RUNNING', async () => {
     await openTarget(withProcesses(knownWeakness(), [credentialProcess(300)]))
     const actions = screen.getByRole('region', { name: 'ACTIONS' })
 
-    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).not.toBeInTheDocument()
-    expect(within(actions).getByLabelText('Credential Access with /home/user/downloads/credential-access-1.0.mod running')).toHaveTextContent('RUNNING')
+    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).not.toBeInTheDocument()
+    expect(within(actions).getByLabelText('Credential Access with GhostKey 1.0 running')).toHaveTextContent('RUNNING')
   })
 
   it('describes running analyses per Service, at the endpoints they were started against', async () => {
@@ -640,25 +643,27 @@ describe('Credential Access domain presentation', () => {
     expect(action?.assessment).toEqual({ kind: 'compatibility', status: 'MATCHED' })
 
     await openTarget(inspected)
-    const moduleAction = screen.getByText('/home/user/downloads/credential-access-1.0.mod').closest('.ns-action') as HTMLElement
+    const moduleAction = screen.getByText('GHOSTKEY').closest('.ns-action') as HTMLElement
     expect(moduleAction).toHaveTextContent('COMPATIBILITY')
     expect(moduleAction).toHaveTextContent('MATCHED')
     expect(moduleAction).not.toHaveTextContent(/\d+%/)
   })
 
-  it('defaults the specialized module to EXPECTED compatibility without a current fingerprint observation', () => {
-    const action = selectTarget(knownWeakness(), SRV_01)?.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')
-    expect(action?.assessment).toEqual({ kind: 'compatibility', status: 'EXPECTED' })
+  it('keeps owned GhostKey visible but unavailable without current fingerprint observation', () => {
+    const action = selectTarget(scannedTarget(), SRV_01)?.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')
+    expect(action?.assessment).toBeUndefined()
+    expect(action?.route).toBeUndefined()
   })
 
-  it('marks the specialized module UNCONFIRMED once a later legitimate observation names a different implementation', () => {
+  it('keeps GhostKey owned but unmatched once a later legitimate observation names a different implementation', () => {
     const state = withNodeScan11(knownWeakness(scannedTarget(withNodeScan11(createInitialGameState()))))
     const patchedNetwork = { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === SRV_01 ? { ...host, services: host.services!.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' } } : service) } : host) }
     const targets = { localDevice: state.player.localDevice, network: patchedNetwork }
     const discovery = analyzedDiscovery(state, targets, state.discovery, SRV_01_ADDRESS)
     // Historical AUTH-017 Knowledge is untouched; the newer observation only informs compatibility.
     const action = selectTarget({ ...state, discovery }, SRV_01)?.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')
-    expect(action?.assessment).toEqual({ kind: 'compatibility', status: 'UNCONFIRMED' })
+    expect(action?.assessment).toBeUndefined()
+    expect(action?.route).toBeUndefined()
     expect(selectTarget({ ...state, discovery }, SRV_01)?.services.find(({ id }) => id === 'service-ssh-001')?.weaknesses).toEqual([{ id: 'AUTH-017', label: 'Weak authentication configuration' }])
   })
 
@@ -667,7 +672,7 @@ describe('Credential Access domain presentation', () => {
     await openTarget(withProcesses(knownWeakness(), [surfaceMismatch]))
     let actions = screen.getByRole('region', { name: 'ACTIONS' })
     expect(actions).toHaveTextContent('ATTEMPT FAILED')
-    expect(actions).toHaveTextContent('Surface mismatch detected')
+    expect(actions).toHaveTextContent('Your information may be outdated')
     cleanup()
 
     const rejected = { ...credentialProcess(1200), toolId: 'keyprobe' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'authentication_rejected' as const } }
@@ -683,13 +688,17 @@ describe('Credential Access domain presentation', () => {
     expect(actions).toHaveTextContent('Protection response detected')
   })
 
-  it('preserves stale historical AUTH-017 Knowledge and its module route after a surface-mismatch failure', () => {
+  it('preserves historical AUTH-017 Knowledge while stale canonical Discovery withdraws the route', () => {
     const before = knownWeakness()
-    const mismatched = withProcesses(before, [{ ...credentialProcess(1200), toolId: 'credential-access-module' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'surface_mismatch' as const } }])
+    const service = before.discovery.devices.find(({ id }) => id === SRV_01)!.services.find(({ id }) => id === 'service-ssh-001')!
+    const discovery = { ...before.discovery, devices: before.discovery.devices.map((device) => device.id === SRV_01 ? { ...device, services: device.services.map((candidate) => candidate.id === service.id ? { ...candidate, implementationAnalysisStale: true as const } : candidate) } : device) }
+    const mismatched = withProcesses({ ...before, discovery }, [{ ...credentialProcess(1200), toolId: 'credential-access-module' as const, status: 'completed' as const, result: { status: 'attempt_failed' as const, message: 'Authentication attempt failed.' as const, reason: 'surface_mismatch' as const } }])
     const target = selectTarget(mismatched, SRV_01)!
     expect(target.services.find(({ id }) => id === 'service-ssh-001')?.weaknesses).toEqual([{ id: 'AUTH-017', label: 'Weak authentication configuration' }])
     const action = target.offensiveActions.find((entry) => entry.providerId === 'credential-access-module')!
-    expect(action.route).toMatchObject({ vulnerabilityId: 'AUTH-017' })
+    expect(action.route).toBeUndefined()
+    expect(action.assessment).toEqual({ kind: 'compatibility', status: 'STALE' })
+    expect(action.reanalysisServiceId).toBe('service-ssh-001')
     expect(action.lastFailureReason).toBe('surface_mismatch')
   })
 })
@@ -885,7 +894,7 @@ describe('NodeScan target topology', () => {
     ])
     expect(selectTarget(learned132, SRV_01)?.services[0].intelligence).toEqual([expect.objectContaining({
       software: 'GateSSH 1.3.2',
-      details: expect.arrayContaining(['AUTH-017 · Weak authentication configuration', 'Credential Access Module successfully exploited AUTH-017.']),
+      details: expect.arrayContaining(['AUTH-017 · Weak authentication configuration', 'GhostKey successfully exploited AUTH-017.']),
     })])
 
     const device = learned132.discovery.devices.find(({ id }) => id === SRV_01)!
@@ -1103,7 +1112,7 @@ describe('RackUpdate exploit and package submission', () => {
     const actions = screen.getByRole('region', { name: 'ACTIONS' })
     expect(actions).toHaveTextContent('ROLLBACK')
     expect(actions).toHaveTextContent('/home/user/modules/rollback_1.0.mod')
-    expect(actions).not.toHaveTextContent('CREDENTIAL ACCESS')
+    expect(actions).not.toHaveTextContent('Credential Access')
   })
 
   it('presents owned Techniques without recommending one or calling Rollback Device access', async () => {
@@ -1117,13 +1126,13 @@ describe('RackUpdate exploit and package submission', () => {
     expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
     expect(screen.getByLabelText('Target status')).not.toHaveTextContent('ACCESS')
     const actions = screen.getByRole('region', { name: 'ACTIONS' })
-    expect(actions).toHaveTextContent('CREDENTIAL ACCESS')
+    expect(actions).toHaveTextContent('Credential Access')
     expect(actions).toHaveTextContent('ROLLBACK')
     expect(actions).not.toHaveTextContent(/RECOMMENDED|BEST OPTION/)
     // The specialized module has no currently formed execution context (AUTH-017
     // is not yet Knowledge here), so it stays visible with its provider but
     // presents a quiet unavailable mark instead of a disabled EXECUTE control.
-    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).not.toBeInTheDocument()
+    expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).not.toBeInTheDocument()
     expect(within(actions).getAllByLabelText(/Credential Access with .* unavailable/)).toHaveLength(1)
     // KeyProbe's own authentication surface is legitimately known from Inspect alone, with no Vulnerability
     // Knowledge required, so it stays a real EXECUTE control here.
@@ -1581,8 +1590,8 @@ describe('Known Space topology', () => {
     await user.click(within(screen.getByRole('region', { name: 'Network home-net' })).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` }))
 
     // One tap, straight to the decision: no Network page and no Device page between.
-    expect(screen.getByRole('region', { name: 'ACTIONS' })).toHaveTextContent('CREDENTIAL ACCESS')
-    expect(screen.getByRole('button', { name: 'Execute Credential Access with /home/user/downloads/credential-access-1.0.mod' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'ACTIONS' })).toHaveTextContent('Credential Access')
+    expect(screen.getByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).toBeInTheDocument()
   })
 
   it('observes nothing by presenting topology', async () => {

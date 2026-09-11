@@ -299,7 +299,7 @@ describe('Terminal credential access', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.type(screen.getByLabelText('Command input'), 'attack 198.51.100.47:22{enter}')
     expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS running' })).toBeInTheDocument()
-    expect(screen.getByText('Credential Access Module')).toBeInTheDocument()
+    expect(screen.getByText('GhostKey')).toBeInTheDocument()
     await act(async () => { vi.advanceTimersByTime(20_000) })
     expect(screen.getByRole('region', { name: 'CREDENTIAL ACCESS completed' })).toHaveTextContent('ATTEMPT FAILED')
     expect(screen.getByText('Authentication attempt failed.')).toBeInTheDocument()

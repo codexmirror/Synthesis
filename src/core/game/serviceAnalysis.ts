@@ -89,7 +89,8 @@ export function resolveCompletedServiceAnalyses(state: GameState): GameState {
       if (device && serviceIndex >= 0) {
         const current = currentService(state, process.targetDeviceId, process.serviceId).service
         const services = [...device.services]
-        services[serviceIndex] = { ...services[serviceIndex], inspect: {
+        const { implementationAnalysisStale: _stale, ...freshService } = services[serviceIndex]
+        services[serviceIndex] = { ...freshService, inspect: {
           implementation: resolved.process.analyzedImplementation,
           ...(current?.credentialAccess ? { authentication: 'Credential' as const } : {}),
           ...(current?.implementation.productId === 'rack-update' && current.implementation.releaseId === 'rack-update-1.0' ? { interface: 'Package submission' as const } : {}),

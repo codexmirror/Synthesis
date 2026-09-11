@@ -48,7 +48,7 @@ describe('standalone offensive module capability', () => {
   it('recognizes each exact authored standalone module without Flipper', () => {
     const state = withModules(createInitialGameState())
     expect(findInstalledFlipper(state.player.localDevice)).toBeUndefined()
-    expect(findLocalTechniqueTool(state.player.localDevice, 'AUTH-017')).toEqual({ toolName: 'Standalone Module', moduleName: 'Credential Access Module' })
+    expect(findLocalTechniqueTool(state.player.localDevice, 'AUTH-017')).toEqual({ toolName: 'Standalone Module', moduleName: 'GhostKey' })
     expect(findLocalTechniqueTool(state.player.localDevice, 'UPD-001')).toEqual({ toolName: 'Standalone Module', moduleName: 'Rollback Module' })
   })
 
@@ -158,7 +158,7 @@ describe('Flipper MODULES disclosure', () => {
     const device = state.player.localDevice
     const flipper = findInstalledFlipper(device)!
     const rows = deriveFlipperModuleDisclosure(flipper, device, findRunningFlipperModuleIntegration(state))
-    expect(rows).toEqual([{ moduleId: 'credential-access', name: 'Credential Access Module', technique: 'AUTH-017', status: 'integrated', artifact: expect.objectContaining({ moduleId: 'credential-access' }) }])
+    expect(rows).toEqual([{ moduleId: 'credential-access', name: 'GhostKey', technique: 'AUTH-017', status: 'integrated', artifact: expect.objectContaining({ moduleId: 'credential-access' }) }])
   })
 
   it('lists a possessed exact-compatible artifact as available for integration', () => {

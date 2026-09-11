@@ -108,17 +108,17 @@ describe('Initial credential access', () => {
     expect(muchLater.process.processes.filter(({ kind }) => kind === 'credential_access')).toEqual([])
     expect(muchLater.recentActivity.entries.at(-1)).toMatchObject({ termination: 'cancelled', process: { id: process.id } })
   })
-  it('forms only from remembered service, known weakness, and SELF-owned concrete tooling', () => {
+  it('forms GhostKey from remembered GateSSH 1.3.2 and owned concrete tooling without named Vulnerability Knowledge', () => {
     const state = prepared()
     expect(canFormCredentialAccessAttempt(state, observation)).toBe(true)
-    expect(canFormCredentialAccessAttempt({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation)).toBe(false)
-    expect(startCredentialAccessAttemptFromObservation({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation).status).toBe('not_available')
+    expect(canFormCredentialAccessAttempt({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation)).toBe(true)
+    expect(startCredentialAccessAttemptFromObservation({ ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }, observation).status).toBe('started')
     const noTool = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [], filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
     expect(canFormCredentialAccessAttempt(noTool, observation)).toBe(false)
     expect(startCredentialAccessAttemptFromObservation(noTool, observation).status).toBe('not_available')
     const unrelated = { ...observation, vulnerabilityId: 'UNRELATED-001' }
     const unrelatedKnown = { ...state, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ ...state.knowledge.discoveredVulnerabilities[0], vulnerabilityId: unrelated.vulnerabilityId }] } }
-    expect(canFormCredentialAccessAttempt(unrelatedKnown, unrelated)).toBe(false)
+    expect(canFormCredentialAccessAttempt(unrelatedKnown, unrelated)).toBe(true)
 
     const standardOnly = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, filesystem: { ...state.player.localDevice.filesystem, files: state.player.localDevice.filesystem.files.filter(({ kind }) => kind !== 'software_module') } } } }
     expect(canFormCredentialAccessAttempt(standardOnly, keyProbeObservation)).toBe(true)
@@ -221,6 +221,30 @@ describe('Initial credential access', () => {
     expect(canFormCredentialAccessAttempt(done, observation)).toBe(false)
   })
 
+  it('keeps contradicted analysis stale after Process cleanup and Host Scan, then clears it only after successful re-analysis', () => {
+    const started = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
+    if (started.status !== 'started') throw Error(started.status)
+    const mismatched = advanceGameState(changeService(started.state, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: GATE_SSH_1_3_3_RELEASE_ID, buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' } })), 30_000, () => { throw Error('surface mismatch must not roll') })
+    const stale = mismatched.discovery.devices[0].services[0]
+    expect(stale.inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
+    expect(stale.implementationAnalysisStale).toBe(true)
+    expect(canFormCredentialAccessAttempt(mismatched, keyProbeObservation)).toBe(false)
+    expect(canFormCredentialAccessAttempt(mismatched, observation)).toBe(false)
+
+    const cleared = { ...mismatched, process: clearCompletedProcesses(mismatched.process, mismatched.player.localDevice.id) }
+    expect(cleared.discovery.devices[0].services[0].implementationAnalysisStale).toBe(true)
+    const rescanned = { ...cleared, discovery: rememberScan(cleared.discovery, scanNetworkTarget({ localDevice: cleared.player.localDevice, network: cleared.world.network }, observation.endpoint.split(':')[0]), cleared.player.localDevice.id) }
+    expect(rescanned.discovery.devices[0].services[0]).toMatchObject({ implementationAnalysisStale: true, inspect: { implementation: { name: 'GateSSH', version: '1.3.2' } } })
+
+    const analysis = startServiceAnalysis(rescanned, observation.targetDeviceId, observation.serviceId)
+    if (analysis.status !== 'started') throw Error(analysis.status)
+    const refreshed = advanceGameState(analysis.state, 20_000)
+    expect(refreshed.discovery.devices[0].services[0].inspect?.implementation).toEqual({ name: 'GateSSH', version: '1.3.3' })
+    expect(refreshed.discovery.devices[0].services[0].implementationAnalysisStale).toBeUndefined()
+    expect(canFormCredentialAccessAttempt(refreshed, keyProbeObservation)).toBe(true)
+    expect(canFormCredentialAccessAttempt(refreshed, observation)).toBe(false)
+  })
+
   it('appends a FAILURE record, and creates no DeviceAccess, when the Service is reached but its weakness is gone', () => {
     const started = startCredentialAccessAttemptFromObservation(prepared(), keyProbeObservation)
     if (started.status !== 'started') throw Error(started.status)
@@ -228,7 +252,8 @@ describe('Initial credential access', () => {
     const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000, () => { throw Error('must validate the weakness before probability') })
     expect(done.deviceAccess.established).toEqual([])
     expect(done.process.processes.at(-1)).toMatchObject({ result: { status: 'attempt_failed', message: 'Authentication attempt failed.', reason: 'surface_mismatch' }, startedEndpoint: observation.endpoint })
-    expect(done.discovery).toBe(discovery); expect(done.knowledge).toBe(knowledge)
+    expect(done.discovery.devices[0].services[0]).toMatchObject({ inspect: { implementation: { name: 'GateSSH', version: '1.3.2' } }, implementationAnalysisStale: true })
+    expect(done.discovery).not.toBe(discovery); expect(done.knowledge).toBe(knowledge)
     const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
     expect(target?.authenticationHistory?.records).toEqual([{ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: done.player.localDevice.network.ip, result: 'FAILURE' }])
     expect(done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')?.activityHistory.records).toContainEqual(expect.objectContaining({ kind: 'connection_attempt', serviceId: observation.serviceId, result: 'FAILURE' }))
