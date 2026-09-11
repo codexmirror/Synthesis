@@ -229,6 +229,7 @@ export interface PackageSubmission {
  * unobserved instead of listing them.
  */
 export interface KnownNetwork {
+  readonly cidr?: string
   readonly id: string
   readonly name: string
   readonly membersObserved: boolean
@@ -247,6 +248,7 @@ export interface KnownNetwork {
  * projection below keeps reading player information only.
  */
 export interface ManagedNetworkIdentity {
+  readonly cidr?: string
   readonly id: string
   readonly name: string
 }
@@ -515,6 +517,7 @@ export function selectKnownSpace(information: PlayerInformation, managed: readon
   const root = (id: string, name: string, isManaged: boolean): KnownNetwork => ({
     id,
     name,
+    cidr: (isManaged ? managed.find((network) => network.id === id)?.cidr : undefined) ?? remembered.get(id)?.cidr,
     membersObserved: remembered.get(id)?.membersObserved ?? false,
     managed: isManaged,
     includesSelf: membersOf(id).some(({ deviceId }) => deviceId === localDeviceId),

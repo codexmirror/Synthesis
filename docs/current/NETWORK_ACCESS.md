@@ -156,14 +156,22 @@ Two routes hang off the tree, and they are deliberately different kinds of
 thing. A target row opens its card directly — there is no Device page or
 Service page between. A Network root offers an administration route only where
 the local Device actually holds `NetworkManagementAuthority` over it
-(`docs/current/DEVICE_SYSTEM.md`); a Network merely observed is marked
-OBSERVED and offers none, because observing a Network is not authority over
-it. That administration detail states the Network's represented name,
+(`docs/current/DEVICE_SYSTEM.md`). The managed Network name opens that route;
+MANAGED is quiet secondary context. An observed Network name toggles its
+remembered branch, with no administration route. Both kinds of root also have
+a separate compact expand/collapse control. Browsing neither observes nor
+upgrades the Network name. That administration detail states the Network's represented name,
 connectivity, coarse member count and its own Network Activity, and never
 member Device identity, address, Firmware or Services. Every Network root has
 an explicit `SCAN NETWORK` control invoking exactly one canonical Network Scan.
-A remembered Gateway clue links to its ordinary target card and explicit Host
-Scan; neither action chains a peer Scan or Endpoint Analysis.
+A remembered Gateway clue is an ordinary sibling Device row in the same
+continuous branch as SELF and other known members. It links to its focused
+Device view and explicit Host Scan; neither action chains a peer Scan or
+Endpoint Analysis. Its quiet GATEWAY cue describes the relationship, while its
+icon and classification derive only from remembered Device classification.
+Root CIDR comes from management authority for managed Networks or remembered
+Discovery for observed Networks; an unknown name and a later learned name
+occupy the same root.
 
 A target's identity on the card and in the tree is exactly what the player has
 legitimately learned. A remembered Device is presented at its observed
@@ -374,22 +382,19 @@ still produce a legitimately failed attempt, which is projected through the
 narrow failure `reason` above (or, absent one, a bare failed attempt) while
 the same route stays available.
 
-Above ACTIONS, the target card also draws a compact Network → Device →
-Service topology: a restrained connector tree carried by CSS rail-and-elbow
-lines rather than literal glyph characters, read as a deeper continuation of
-Known Space's own tree (the same technique that tree already uses for
-Network → Device, generalized one level deeper) rather than another stack of
-cards. The Network row states the remembered Network name (or that
-membership was not observed, exactly as Known Space's own `ELSEWHERE`
-grouping states it); the Device row states the target's identity — currently
-always the address, since no current operation observes a represented display
-name; each remembered Service row states its name, port and protocol, with a
-further row for its remembered software identity only where Endpoint Analysis
-actually observed one. An unscanned target states that Services were not
-observed rather than presenting an empty result, and this view fabricates no
-Service or software identity beyond what TECHNICAL INTELLIGENCE already
-carries: every fact it draws is the same `Target` projection, read a second
-time for compact legibility.
+The focused Device view starts with compact Network affiliation and a single
+Device identity root, followed by its own Service → implementation evidence
+tree. Thin CSS rails and elbows continue Known Space's relationship language.
+It never repeats peer addresses or Network membership. The Device root states
+its observed address and legitimately remembered classification; each Service
+states its name, port and protocol, with deeper software identity only where
+Endpoint Analysis observed it. An unscanned Device explicitly states that
+Services were not observed. Status and canonical actions use compact controls;
+repeated Host observation is consistently labeled SCAN. Network Scan remains
+on the Network root in Known Space. TECHNICAL INTELLIGENCE precedes ACTIONS,
+keeping explicit per-Service ANALYZE, endpoint references and detailed evidence
+available before offensive Techniques. Navigation to a different object starts
+at the top of that object's scroll region.
 
 Every status mark this view draws is deliberately weak, because
 `servicesObserved` proves only that a past Host Scan found the Device
@@ -604,7 +609,10 @@ Target SCAN invokes only the canonical Device (Host) Scan and refreshes the curr
 
 ## Live topology monitoring and integrated intelligence
 
-The target Network row includes a compact contextual member summary derived exclusively from remembered `networkDeviceRelations`. It excludes the selected target, which is represented once in the detailed topology below. A remembered relationship for the local Device appears as the player-relative identity `SELF`, without exposing its canonical display name; other remembered Devices appear by address, since no current operation observes a display name. It does not enumerate current World membership. Releases without legitimate live authority leave member status unstated.
+Known Space owns Network membership and peer Devices. The focused Device view
+shows only compact Network affiliation and the selected Device's own Services
+and implementation evidence; it does not render the contextual member summary
+available in the underlying projection.
 
 NodeScan 1.2's topology status is an ephemeral projection, never Discovery or Knowledge. Its represented monitoring capability may read only the current target Device operational state and the current open state of that Device's already-observed Services. Device status maps canonical `RUNNING` + `CONNECTED` to `ONLINE`, `SHUTTING_DOWN` to `SHUTTING DOWN`, `BOOTING` to `BOOTING`, `RECONNECTING` to `RECONNECTING`, and other unavailable combinations to `OFFLINE`. Service V1 status is only `ONLINE`, `OFFLINE`, or `CLOSED`, derived from Device usability and the Service's represented `open` field; there is no independent Service lifecycle, recovery phase, or timer.
 

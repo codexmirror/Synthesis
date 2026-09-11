@@ -15,6 +15,7 @@ export interface ManagedNetworkActivityRecordView {
 }
 
 export interface ManagedNetworkView {
+  readonly cidr?: string
   readonly id: string
   readonly name: string
   /** Represented maximum external connectivity capability; not current throughput or usage. */
@@ -54,6 +55,7 @@ export function selectManagedNetworks(state: GameState): readonly ManagedNetwork
   return resolveManagedNetworks(state, state.player.localDevice.id).map((network) => ({
     id: network.id,
     name: network.name,
+    cidr: network.cidr,
     connectivity: network.transferCapacity,
     memberCount: network.memberDeviceIds.length,
     activity: network.activityHistory.records.map(projectActivityRecord),
