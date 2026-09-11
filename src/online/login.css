@@ -1,0 +1,10 @@
+.online-entry { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #080b0d; color: #c8f7db; font-family: ui-monospace, monospace; }
+.online-entry__panel { width: min(100%, 360px); display: grid; gap: 18px; padding: 28px; border: 1px solid #315342; background: #0d1311; box-shadow: 0 18px 70px #000; }
+.online-entry__mark { color: #68ee9c; letter-spacing: .24em; margin-bottom: 8px; }
+.online-entry label { display: grid; gap: 7px; color: #8cae99; font-size: 12px; letter-spacing: .12em; }
+.online-entry input { min-height: 44px; border: 1px solid #315342; border-radius: 0; padding: 0 12px; background: #080b0d; color: #e4ffed; font: inherit; }
+.online-entry input:focus { outline: 1px solid #68ee9c; outline-offset: 2px; }
+.online-entry button { min-height: 46px; border: 1px solid #68ee9c; background: #10281a; color: #a8ffc7; font: inherit; letter-spacing: .08em; cursor: pointer; }
+.online-entry button:disabled { opacity: .55; cursor: wait; }
+.online-entry p { margin: -4px 0; color: #ff8f8f; font-size: 13px; line-height: 1.4; }
+.online-logout { position: fixed; z-index: 1000; top: 8px; right: 8px; border: 0; background: #101614cc; color: #8cae99; padding: 6px 8px; font: 10px ui-monospace, monospace; letter-spacing: .08em; }

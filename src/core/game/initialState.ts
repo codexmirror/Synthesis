@@ -22,13 +22,15 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 91
+export const GAME_STATE_VERSION = 92
 
 export function createInitialGameState(): GameState {
   return {
     version: GAME_STATE_VERSION,
     player: {
       id: 'player-local-v0',
+      ownedDeviceIds: ['device-local-v0'],
+      primaryDeviceId: 'device-local-v0',
       localDevice: {
         id: 'device-local-v0',
         displayName: 'node-01',

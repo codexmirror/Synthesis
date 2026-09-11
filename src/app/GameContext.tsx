@@ -110,7 +110,7 @@ export interface GameActions {
 }
 const GameActionsContext = createContext<GameActions | null>(null)
 
-export function GameProvider({ children, initialState }: { children: ReactNode; initialState?: GameState }) {
+export function GameProvider({ children, initialState, serverOwnsAdvancement = false }: { children: ReactNode; initialState?: GameState; serverOwnsAdvancement?: boolean }) {
   const [gameState, setGameState] = useState(() => initialState ?? createInitialGameState())
   const currentState = useRef(gameState)
   const lastTick = useRef(performance.now())
@@ -123,6 +123,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
   const [findTargets] = useState(() => createFindTargets(accessor.read, accessor.write))
   const [refreshNetwork] = useState(() => createRefreshNetwork(accessor.read, accessor.write))
   useEffect(() => {
+    if (serverOwnsAdvancement) return
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
       const state = currentState.current
@@ -132,7 +133,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       setGameState(nextState)
     }, 250)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [serverOwnsAdvancement])
   // Explicit composition: each domain owns its own application adapter; GameProvider only wires them to the shared canonical-state accessor.
   const actions: GameActions = {
     pingTarget, scanTarget, findTargets, refreshNetwork,

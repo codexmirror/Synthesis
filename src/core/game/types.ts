@@ -1,6 +1,15 @@
 export interface PlayerState {
   /** Stable player identity, separate from every device the player owns. */
   readonly id: string
+  /** Explicit ownership. V0 bootstraps one Device; the shape deliberately supports more. */
+  readonly ownedDeviceIds: readonly string[]
+  /** The owned Device NODE-OS treats as SELF. RemoteSession remains separate. */
+  readonly primaryDeviceId: string
+  /**
+   * Compatibility projection of `primaryDeviceId` while the existing gameplay
+   * operations are migrated to the world Device registry. Online bootstrap
+   * validates this projection fail-closed; it is never identity or ownership.
+   */
   readonly localDevice: LocalDeviceState
 }
 
