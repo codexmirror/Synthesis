@@ -3,6 +3,7 @@ import { dirname } from 'node:path'
 import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import type { OnlineWorldDocument } from './model'
 import { ONLINE_PERSISTENCE_VERSION } from './model'
+import { normalizeAccountName } from './password'
 
 export interface WorldPersistence {
   loadOrCreate(): Promise<OnlineWorldDocument>
@@ -22,6 +23,33 @@ function uniqueStrings(values: readonly unknown[]): boolean {
 
 function exactlyOne(items: readonly Record<string, unknown>[], key: string, value: unknown): boolean {
   return items.filter((item) => item[key] === value).length === 1
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0
+}
+
+function hasDollarAccountShape(value: unknown): value is Record<string, unknown> {
+  const account = record(value)
+  return Boolean(account && nonEmptyString(account.id) && nonEmptyString(account.accountReference)
+    && Number.isInteger(account.balanceCents))
+}
+
+function hasDollarSessionShape(value: unknown): value is Record<string, unknown> {
+  const session = record(value)
+  return Boolean(session && nonEmptyString(session.id) && nonEmptyString(session.accountId)
+    && nonEmptyString(session.clientDeviceId))
+}
+
+function hasCanonicalPlayerDeviceShape(device: Record<string, unknown>): boolean {
+  const network = record(device.network)
+  const operational = record(device.operational)
+  const lifecycleValues = new Set(['RUNNING', 'SHUTTING_DOWN', 'BOOTING'])
+  const connectivityValues = new Set(['CONNECTED', 'DISCONNECTED', 'RECONNECTING'])
+  return Boolean(network && typeof network.ip === 'string' && operational
+    && lifecycleValues.has(operational.lifecycle as string)
+    && connectivityValues.has(operational.connectivity as string)
+    && Array.isArray(device.installedSoftware))
 }
 
 const PLAYER_PRIVATE_OWNER_KEYS = [
@@ -47,7 +75,10 @@ function hasRequiredPlayerPrivateShape(value: unknown): boolean {
   const privateState = record(value)
   if (!privateState || !hasRecordOwners(privateState, PLAYER_PRIVATE_OWNER_KEYS)) return false
   const dollarSessions = record(privateState.dollarSessions)
+  const dollarAccount = record(privateState.dollarAccount)
+  const dollarCredential = record(privateState.dollarCredential)
   return Number.isInteger(dollarSessions?.nextId) && Array.isArray(dollarSessions?.active)
+    && dollarSessions.active.every(hasDollarSessionShape)
     && Array.isArray(record(privateState.marketPurchases)?.entitlements)
     && Array.isArray(record(privateState.discovery)?.devices)
     && Array.isArray(record(privateState.discovery)?.networks)
@@ -57,9 +88,11 @@ function hasRequiredPlayerPrivateShape(value: unknown): boolean {
     && Array.isArray(record(privateState.deviceAccess)?.established)
     && Array.isArray(record(privateState.networkManagement)?.established)
     && Array.isArray(record(privateState.recentActivity)?.entries)
-    && typeof record(privateState.nodeWallet)?.id === 'string'
-    && typeof record(privateState.dollarAccount)?.id === 'string'
-    && typeof record(privateState.dollarCredential)?.id === 'string'
+    && nonEmptyString(record(privateState.nodeWallet)?.id)
+    && hasDollarAccountShape(dollarAccount)
+    && Boolean(dollarCredential && nonEmptyString(dollarCredential.id)
+      && nonEmptyString(dollarCredential.accountId) && nonEmptyString(dollarCredential.loginIdentifier)
+      && typeof dollarCredential.password === 'string' && dollarCredential.accountId === dollarAccount?.id)
 }
 
 /** Minimum admission boundary for the current persisted online document. */
@@ -99,6 +132,9 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
     || !uniqueStrings(s.map(({ id }) => id)) || !uniqueStrings(s.map(({ tokenHash }) => tokenHash))) {
     throw new Error('Duplicate or invalid online persistence identity.')
   }
+  if (a.some((account) => !nonEmptyString(account.passwordHash) || !nonEmptyString(account.playerId)
+    || normalizeAccountName(account.normalizedName as string) !== account.normalizedName)) throw new Error('Invalid persisted Account authentication structure.')
+  if (s.some((session) => !nonEmptyString(session.accountId) || !nonEmptyString(session.createdAt))) throw new Error('Invalid persisted authentication Session structure.')
   const hostDeviceIds = new Set(h.map(({ id }) => id))
   if (d.some(({ id }) => hostDeviceIds.has(id))) throw new Error('Canonical Device identity collides across online Device registries.')
   const dollarFinance = record(state.dollarFinance)
@@ -107,8 +143,14 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
     || !Number.isInteger(sharedDollarSessions?.nextId) || !Array.isArray(sharedDollarSessions?.active)
     || !Array.isArray(record(state.market)?.offers)
     || !Array.isArray(record(state.process)?.processes)) throw new Error('Invalid shared online runtime owner structure.')
-  if (d.some((device) => !record(device.network) || typeof record(device.network)?.ip !== 'string'
-    || !Array.isArray(device.installedSoftware))) throw new Error('Invalid canonical Player Device structure.')
+  const sharedDollarAccounts = dollarFinance.accounts as unknown[]
+  const sharedSessions = sharedDollarSessions.active as unknown[]
+  if (!sharedDollarAccounts.every(hasDollarAccountShape) || !sharedSessions.every(hasDollarSessionShape)
+    || !uniqueStrings(sharedDollarAccounts.map((account) => (account as Record<string, unknown>).id))
+    || !uniqueStrings(sharedSessions.map((session) => (session as Record<string, unknown>).id))
+    || !uniqueStrings(sharedSessions.map((session) => (session as Record<string, unknown>).clientDeviceId))
+    || sharedSessions.some((session) => !exactlyOne(sharedDollarAccounts as Record<string, unknown>[], 'id', (session as Record<string, unknown>).accountId))) throw new Error('Invalid shared Civic Dollar runtime structure.')
+  if (d.some((device) => !hasCanonicalPlayerDeviceShape(device))) throw new Error('Invalid canonical Player Device structure.')
   if (a.some(({ playerId }) => !exactlyOne(p, 'id', playerId)) || s.some(({ accountId }) => !exactlyOne(a, 'id', accountId))) throw new Error('Dangling online authentication relationship.')
   const claimedOwnedDeviceIds = p.flatMap(({ ownedDeviceIds }) => Array.isArray(ownedDeviceIds) ? ownedDeviceIds : [])
   if (!uniqueStrings(p.map(({ primaryDeviceId }) => primaryDeviceId))
@@ -121,6 +163,16 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
     if (!hasRequiredPlayerPrivateShape(player.privateState) || !Array.isArray(player.ownedDeviceIds)
       || !uniqueStrings(player.ownedDeviceIds) || !player.ownedDeviceIds.includes(player.primaryDeviceId)
       || player.ownedDeviceIds.some((deviceId) => !exactlyOne(d, 'id', deviceId))) throw new Error('Invalid persisted Player Device ownership or private runtime state.')
+    const privateState = player.privateState as Record<string, unknown>
+    const personalAccount = privateState.dollarAccount as Record<string, unknown>
+    const personalSessions = (privateState.dollarSessions as Record<string, unknown>).active as Record<string, unknown>[]
+    if (sharedDollarAccounts.some((account) => (account as Record<string, unknown>).id === personalAccount.id)
+      || !uniqueStrings(personalSessions.map(({ id }) => id))
+      || !uniqueStrings(personalSessions.map(({ clientDeviceId }) => clientDeviceId))
+      || personalSessions.some((session) => session.accountId !== personalAccount.id
+        || !(player.ownedDeviceIds as unknown[]).includes(session.clientDeviceId)
+        || sharedSessions.some((sharedSession) => (sharedSession as Record<string, unknown>).id === session.id
+          || (sharedSession as Record<string, unknown>).clientDeviceId === session.clientDeviceId))) throw new Error('Invalid persisted Player Civic Dollar relationship.')
     const homes = n.filter(({ id }) => id === player.homeNetworkId)
     if (homes.length !== 1) throw new Error('Invalid persisted Player Home Network.')
     const home = homes[0]

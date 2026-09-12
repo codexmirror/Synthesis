@@ -300,4 +300,52 @@ describe('online persistence admission', () => {
       await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, [target]: player[source] })) }), 'not distinct')
     }
   })
+
+  it('rejects malformed Account and authentication Session scalars', async () => {
+    await expectInvalid((d) => ({ ...d, accounts: d.accounts.map((account) => {
+      const { passwordHash: _passwordHash, ...malformed } = account
+      return malformed
+    }) }), 'Account authentication')
+    await expectInvalid((d) => ({ ...d, accounts: d.accounts.map((account) => ({ ...account, passwordHash: 42 })) }), 'Account authentication')
+    await expectInvalid((d) => ({ ...d, accounts: d.accounts.map((account) => ({ ...account, normalizedName: 'Alice' })) }), 'Account authentication')
+    await expectInvalid((d) => ({ ...d, sessions: d.sessions.map((session) => {
+      const { createdAt: _createdAt, ...malformed } = session
+      return malformed
+    }) }), 'Session structure')
+    await expectInvalid((d) => ({ ...d, sessions: d.sessions.map((session) => ({ ...session, createdAt: 42 })) }), 'Session structure')
+  })
+
+  it('rejects malformed Player-private Civic Dollar relationships', async () => {
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: {
+      ...player.privateState, dollarAccount: { id: player.privateState.dollarAccount.id },
+    } })) }), 'private runtime')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: {
+      ...player.privateState, dollarCredential: { ...player.privateState.dollarCredential, accountId: undefined },
+    } })) }), 'private runtime')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: {
+      ...player.privateState, dollarCredential: { ...player.privateState.dollarCredential, accountId: 'missing-account' },
+    } })) }), 'private runtime')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: {
+      ...player.privateState, dollarSessions: { ...player.privateState.dollarSessions, active: [{ id: 'session-bad', clientDeviceId: player.primaryDeviceId }] },
+    } })) }), 'private runtime')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: {
+      ...player.privateState, dollarSessions: { ...player.privateState.dollarSessions, active: [{ id: 'session-bad', accountId: 'missing-account', clientDeviceId: player.primaryDeviceId }] },
+    } })) }), 'Civic Dollar relationship')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: {
+      ...player.privateState, dollarSessions: { ...player.privateState.dollarSessions, active: [{ id: 'session-bad', accountId: player.privateState.dollarAccount.id, clientDeviceId: 'not-owned' }] },
+    } })) }), 'Civic Dollar relationship')
+  })
+
+  it('rejects canonical Player Devices without usable operational truth', async () => {
+    await expectInvalid((d) => ({ ...d, shared: { ...d.shared, playerDevices: d.shared.playerDevices.map((device) => {
+      const { operational: _operational, ...malformed } = device
+      return malformed
+    }) } }), 'Player Device structure')
+    for (const operational of [
+      { lifecycle: 'INVALID', connectivity: 'CONNECTED' },
+      { lifecycle: 'RUNNING', connectivity: 'INVALID' },
+    ]) {
+      await expectInvalid((d) => ({ ...d, shared: { ...d.shared, playerDevices: d.shared.playerDevices.map((device) => ({ ...device, operational })) } }), 'Player Device structure')
+    }
+  })
 })
