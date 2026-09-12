@@ -42,7 +42,7 @@ describe('Bookstore Coffee Machine purchase', () => {
   it('seeds no machine, a distinct Coffee offering and unchanged historical sale in the new schema', () => {
     const state = createInitialGameState()
     expect(state.version).toBe(GAME_STATE_VERSION)
-    expect(GAME_STATE_VERSION).toBe(91)
+    expect(GAME_STATE_VERSION).toBe(92)
     expect(operations(state).coffeeMachine).toBeUndefined()
     expect(state.bookstoreCommerce.coffeeOffering).toEqual({ id: BOOKSTORE_HOUSE_COFFEE_ID, name: 'House Coffee', unitPriceCents: 350 })
     expect(state.bookstoreCommerce.bookCatalog.some(book => book.id === BOOKSTORE_HOUSE_COFFEE_ID)).toBe(false)

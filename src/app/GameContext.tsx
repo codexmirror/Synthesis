@@ -44,6 +44,8 @@ import type { StartRackOsFirmwareUpdateResult } from '../core/game/rackOsFirmwar
 import type { CreateRattlerPayloadResult, DeployRattlerResult } from '../core/game/rattler'
 import type { ComposeMailInput, ComposeMailResult, SendMailReplyResult } from '../core/game/mail'
 import type { InstalledSoftware } from '../core/game/types'
+import type { PingResult } from '../core/game/ping'
+import type { ScanResult } from '../core/game/scan'
 
 const GameContext = createContext<GameState | null>(null)
 
@@ -110,19 +112,29 @@ export interface GameActions {
 }
 const GameActionsContext = createContext<GameActions | null>(null)
 
-export function GameProvider({ children, initialState }: { children: ReactNode; initialState?: GameState }) {
+export interface AuthoritativeReconTransport { observe(kind: 'ping' | 'scan', input: string): Promise<{ result: PingResult | ScanResult; state: GameState }> }
+export function GameProvider({ children, initialState, serverOwnsAdvancement = false, reconTransport }: { children: ReactNode; initialState?: GameState; serverOwnsAdvancement?: boolean; reconTransport?: AuthoritativeReconTransport }) {
   const [gameState, setGameState] = useState(() => initialState ?? createInitialGameState())
   const currentState = useRef(gameState)
   const lastTick = useRef(performance.now())
   const [accessor] = useState<GameStateAccessor>(() => ({
     read: () => currentState.current,
-    write: (next) => { currentState.current = next; setGameState(next) },
+    write: (next) => { if (reconTransport) throw new Error('This gameplay mutation is not yet available online.'); currentState.current = next; setGameState(next) },
   }))
-  const [scanTarget] = useState(() => createLocalScanTarget(accessor.read, accessor.write))
-  const [pingTarget] = useState(() => createLocalPingTarget(accessor.read, accessor.write))
-  const [findTargets] = useState(() => createFindTargets(accessor.read, accessor.write))
-  const [refreshNetwork] = useState(() => createRefreshNetwork(accessor.read, accessor.write))
+  const [scanTarget] = useState<ScanTargetOperation>(() => reconTransport ? async (input: string) => { const response = await reconTransport.observe("scan", input); currentState.current = response.state; setGameState(response.state); return response.result as ScanResult } : createLocalScanTarget(accessor.read, accessor.write))
+  const [pingTarget] = useState<PingTargetOperation>(() => reconTransport ? async (input: string) => { const response = await reconTransport.observe("ping", input); currentState.current = response.state; setGameState(response.state); return response.result as PingResult } : createLocalPingTarget(accessor.read, accessor.write))
+  const [findTargets] = useState<FindTargetsOperation>(() => reconTransport ? async () => {
+    const state = accessor.read(); const result = await scanTarget(state.player.localDevice.network.ip)
+    if (result.status === 'software_unavailable') return { status: 'software_unavailable' }; if (result.status === 'no_response' || result.status === 'unknown_target') return { status: 'no_response' }
+    const latest = accessor.read(); return { status: 'observed', networksKnown: latest.discovery.networks.length, targetsKnown: latest.discovery.devices.length }
+  } : createFindTargets(accessor.read, accessor.write))
+  const [refreshNetwork] = useState<RefreshNetworkOperation>(() => reconTransport ? async (networkId: string): ReturnType<RefreshNetworkOperation> => {
+    const state = accessor.read(); const remembered = state.discovery.networks.find(({ id }) => id === networkId); const managed = state.world.network.localNetworks.find(({ id }) => id === networkId)
+    const input = remembered?.cidr ?? managed?.cidr ?? remembered?.name ?? managed?.name; if (!input) return { status: 'unknown_network' }
+    const result = await scanTarget(input); if (result.status === 'software_unavailable') return result; return result.status === 'network' ? { status: 'refreshed' as const } : { status: 'no_response' as const }
+  } : createRefreshNetwork(accessor.read, accessor.write))
   useEffect(() => {
+    if (serverOwnsAdvancement) return
     const timer = window.setInterval(() => {
       const now = performance.now(); const elapsed = now - lastTick.current; lastTick.current = now
       const state = currentState.current
@@ -132,7 +144,7 @@ export function GameProvider({ children, initialState }: { children: ReactNode; 
       setGameState(nextState)
     }, 250)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [serverOwnsAdvancement])
   // Explicit composition: each domain owns its own application adapter; GameProvider only wires them to the shared canonical-state accessor.
   const actions: GameActions = {
     pingTarget, scanTarget, findTargets, refreshNetwork,

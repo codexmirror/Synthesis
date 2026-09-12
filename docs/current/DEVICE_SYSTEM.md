@@ -5,6 +5,8 @@ Scope: The canonical `GameState` areas, the player's local Device, the
 represented World (network, servers, services, hardware, transfer capacity),
 and the System application, as currently implemented on `main`.
 
+Online Account identity, explicit Player Device ownership, Primary Device, and persistent shared-world composition are owned by [`ONLINE_RUNTIME.md`](ONLINE_RUNTIME.md). `player.localDevice` is currently the validated compatibility projection of the owned Primary Device while existing gameplay adapters migrate to a world Device registry; it is not Player identity or ownership truth.
+
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
 document wins. Durable rules behind this behavior belong to
