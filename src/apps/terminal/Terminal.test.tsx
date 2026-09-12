@@ -280,7 +280,7 @@ describe('Terminal credential access', () => {
     expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
   })
 
-  it('dispatches a UPD-001 endpoint to the RackUpdate exploit rather than Credential Access', async () => {
+  it('does not dispatch a private UPD-001 endpoint through the public Gateway', async () => {
     const base = createInitialGameState()
     const discovery = rememberScan(base.discovery, scanNetworkTarget({ localDevice: base.player.localDevice, network: base.world.network }, '203.0.113.42'), base.player.localDevice.id)
     const state = { ...base, discovery, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', observedLabel: 'Rollback protection not enforced' }] } }
@@ -294,10 +294,8 @@ describe('Terminal credential access', () => {
     render(<Terminal />)
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Command input'), 'attack 203.0.113.42:8443{enter}')
-    expect(startRackUpdateExploitAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
-      endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002',
-      vulnerabilityId: 'UPD-001',
-    })
+    expect(screen.getByText('NO KNOWN ATTACK METHOD')).toBeInTheDocument()
+    expect(startRackUpdateExploitAttemptFromObservation).not.toHaveBeenCalled()
     expect(startCredentialAccessAttemptFromObservation).not.toHaveBeenCalled()
   })
 
