@@ -116,7 +116,7 @@ const server = createServer(async (request, response) => {
     return send(response, 404, { error: 'Not found.' })
   } catch (error) { return send(response, error instanceof SyntaxError ? 400 : 401, { error: error instanceof Error ? error.message : 'Request failed.' }) }
 })
-server.listen(port, host, () => console.log(`Synthesis online runtime listening on http://${host}:${port}`))
+server.listen(port, host, () => console.log(`Synthesis online runtime listening on http://${host}:${server.address().port}`))
 let shuttingDown = false
 const shutdown = async () => {
   if (shuttingDown) return

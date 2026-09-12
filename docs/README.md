@@ -86,7 +86,7 @@ current implementation.
 - CURRENT TRUTH → [`current/ONLINE_RUNTIME.md`](current/ONLINE_RUNTIME.md)
 - ARCHITECTURE → A01–A04 in [`architecture/IDENTITY_AND_INFORMATION.md`](architecture/IDENTITY_AND_INFORMATION.md), A07–A08 in [`architecture/DEVICES_AND_ACCESS.md`](architecture/DEVICES_AND_ACCESS.md), and A10–A13 in [`architecture/RUNTIME_AND_CONSEQUENCES.md`](architecture/RUNTIME_AND_CONSEQUENCES.md)
 - CODE → `src/online/`, `server/index.mjs`, `src/App.tsx` (Sandbox/Online runtime-mode selection), `vite.config.ts` and `package.json` (mode-based build base and dev/build/start scripts)
-- TESTS → `src/online/worldStore.test.ts`, `src/online/deploymentMode.test.ts`
+- TESTS → `src/online/worldStore.test.ts`, `src/online/deploymentMode.test.ts`, `scripts/online-production-smoke.mjs` (executable proof against the real built Online production service)
 - DOCUMENTATION IMPACT OWNER → [`current/ONLINE_RUNTIME.md`](current/ONLINE_RUNTIME.md)
 
 ### Network, reconnaissance, and access
