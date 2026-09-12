@@ -203,9 +203,21 @@ describe('online persistence admission', () => {
     const { path, store } = await fixture()
     const alice = await store.enter('alice', 'correct-horse-1')
     const value = mutate(store.inspectForTests())
-    await writeFile(path, JSON.stringify(value))
+    const malformed = JSON.stringify(value)
+    await writeFile(path, malformed)
     await expect(new OnlineWorldStore(new JsonWorldPersistence(path)).open()).rejects.toThrow(message)
+    expect(await readFile(path, 'utf8')).toBe(malformed)
     expect(alice.created).toBe(true)
+  }
+
+  async function expectInvalidTwoPlayers(mutate: (document: OnlineWorldDocument) => unknown, message?: string) {
+    const { path, store } = await fixture()
+    await store.enter('alice', 'correct-horse-1')
+    await store.enter('bob', 'correct-horse-2')
+    const malformed = JSON.stringify(mutate(store.inspectForTests()))
+    await writeFile(path, malformed)
+    await expect(new OnlineWorldStore(new JsonWorldPersistence(path)).open()).rejects.toThrow(message)
+    expect(await readFile(path, 'utf8')).toBe(malformed)
   }
 
   it('rejects missing structure and invalid allocator values, while admitting exhausted 255', async () => {
@@ -235,5 +247,32 @@ describe('online persistence admission', () => {
     await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, homeNetworkId: 'missing' })) }), 'Home Network')
     await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, gatewayDeviceId: 'missing' })) }), 'topology')
     await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, starterServerDeviceId: 'missing' })) }), 'topology')
+  })
+
+  it('rejects missing Player-private and shared runtime owners', async () => {
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: {} })) }), 'private runtime')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => {
+      const { discovery: _discovery, ...privateState } = player.privateState
+      return { ...player, privateState }
+    }) }), 'private runtime')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, privateState: { ...player.privateState, dollarSessions: { ...player.privateState.dollarSessions, active: {} } } })) }), 'private runtime')
+    await expectInvalid((d) => {
+      const { market: _market, ...state } = d.shared.state
+      return { ...d, shared: { ...d.shared, state } }
+    }, 'structure')
+  })
+
+  it('rejects cross-Player ownership and generated-topology conflicts', async () => {
+    await expectInvalidTwoPlayers((d) => ({ ...d, players: d.players.map((player, index) => index === 1
+      ? { ...player, primaryDeviceId: d.players[0].primaryDeviceId, ownedDeviceIds: [d.players[0].primaryDeviceId] }
+      : player) }), 'cross-Player')
+    await expectInvalidTwoPlayers((d) => ({ ...d, players: d.players.map((player, index) => index === 1
+      ? { ...player, ownedDeviceIds: [player.primaryDeviceId, d.players[0].primaryDeviceId] }
+      : player) }), 'cross-Player')
+    for (const key of ['homeNetworkId', 'gatewayDeviceId', 'starterServerDeviceId'] as const) {
+      await expectInvalidTwoPlayers((d) => ({ ...d, players: d.players.map((player, index) => index === 1
+        ? { ...player, [key]: d.players[0][key] }
+        : player) }), 'cross-Player')
+    }
   })
 })

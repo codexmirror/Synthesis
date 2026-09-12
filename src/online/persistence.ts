@@ -24,6 +24,44 @@ function exactlyOne(items: readonly Record<string, unknown>[], key: string, valu
   return items.filter((item) => item[key] === value).length === 1
 }
 
+const PLAYER_PRIVATE_OWNER_KEYS = [
+  'nodeWallet', 'marketPurchases', 'knowledge', 'discovery', 'deviceAccess',
+  'networkManagement', 'remoteSession', 'fileTransfer', 'rackUpdate', 'mail',
+  'process', 'recentActivity', 'dollarAccount', 'dollarCredential', 'dollarSessions',
+] as const
+
+const SHARED_RUNTIME_OWNER_KEYS = [
+  'dollarFinance', 'business', 'bookstoreCommerce', 'bookstoreMarket',
+  'bookstoreTrend', 'bookstoreOperations', 'bookstoreRestock', 'bookstoreBackend',
+  'bookstoreSalesCadence', 'nodeWallet', 'nodeEconomy', 'market', 'process',
+  'knowledge', 'discovery', 'deviceAccess', 'networkManagement', 'remoteSession',
+  'fileTransfer', 'rackUpdate', 'mail', 'petraCompanyChat', 'technicianReaction',
+  'recentActivity',
+] as const
+
+function hasRecordOwners(owner: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.every((key) => record(owner[key]))
+}
+
+function hasRequiredPlayerPrivateShape(value: unknown): boolean {
+  const privateState = record(value)
+  if (!privateState || !hasRecordOwners(privateState, PLAYER_PRIVATE_OWNER_KEYS)) return false
+  const dollarSessions = record(privateState.dollarSessions)
+  return Number.isInteger(dollarSessions?.nextId) && Array.isArray(dollarSessions?.active)
+    && Array.isArray(record(privateState.marketPurchases)?.entitlements)
+    && Array.isArray(record(privateState.discovery)?.devices)
+    && Array.isArray(record(privateState.discovery)?.networks)
+    && Array.isArray(record(privateState.discovery)?.networkDeviceRelations)
+    && Array.isArray(record(privateState.process)?.processes)
+    && Array.isArray(record(privateState.mail)?.threads)
+    && Array.isArray(record(privateState.deviceAccess)?.established)
+    && Array.isArray(record(privateState.networkManagement)?.established)
+    && Array.isArray(record(privateState.recentActivity)?.entries)
+    && typeof record(privateState.nodeWallet)?.id === 'string'
+    && typeof record(privateState.dollarAccount)?.id === 'string'
+    && typeof record(privateState.dollarCredential)?.id === 'string'
+}
+
 /** Minimum admission boundary for the current persisted online document. */
 export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument {
   const root = record(value)
@@ -35,7 +73,8 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
   const network = record(world?.network)
   const cadence = record(state?.bookstoreSalesCadence)
   if (!shared || !state || state.version !== GAME_STATE_VERSION || !record(state.player)
-    || !record(state.business) || !cadence || !Array.isArray(cadence.records)
+    || !hasRecordOwners(state, SHARED_RUNTIME_OWNER_KEYS)
+    || !cadence || !Array.isArray(cadence.records)
     || !network || !Array.isArray(network.localNetworks) || !Array.isArray(network.hosts)
     || !Array.isArray(shared.playerDevices) || !Array.isArray(root.accounts)
     || !Array.isArray(root.sessions) || !Array.isArray(root.players)) {
@@ -59,11 +98,25 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
     || !uniqueStrings(s.map(({ id }) => id)) || !uniqueStrings(s.map(({ tokenHash }) => tokenHash))) {
     throw new Error('Duplicate or invalid online persistence identity.')
   }
+  const dollarFinance = record(state.dollarFinance)
+  const sharedDollarSessions = record(dollarFinance?.sessions)
+  if (!Array.isArray(dollarFinance?.accounts) || !Array.isArray(dollarFinance?.credentials)
+    || !Number.isInteger(sharedDollarSessions?.nextId) || !Array.isArray(sharedDollarSessions?.active)
+    || !Array.isArray(record(state.market)?.offers)
+    || !Array.isArray(record(state.process)?.processes)) throw new Error('Invalid shared online runtime owner structure.')
+  if (d.some((device) => !record(device.network) || typeof record(device.network)?.ip !== 'string'
+    || !Array.isArray(device.installedSoftware))) throw new Error('Invalid canonical Player Device structure.')
   if (a.some(({ playerId }) => !exactlyOne(p, 'id', playerId)) || s.some(({ accountId }) => !exactlyOne(a, 'id', accountId))) throw new Error('Dangling online authentication relationship.')
+  const claimedOwnedDeviceIds = p.flatMap(({ ownedDeviceIds }) => Array.isArray(ownedDeviceIds) ? ownedDeviceIds : [])
+  if (!uniqueStrings(p.map(({ primaryDeviceId }) => primaryDeviceId))
+    || !uniqueStrings(p.map(({ homeNetworkId }) => homeNetworkId))
+    || !uniqueStrings(p.map(({ gatewayDeviceId }) => gatewayDeviceId))
+    || !uniqueStrings(p.map(({ starterServerDeviceId }) => starterServerDeviceId))
+    || !uniqueStrings(claimedOwnedDeviceIds)) throw new Error('Conflicting cross-Player ownership or generated topology identity.')
   for (const player of p) {
-    if (!record(player.privateState) || !Array.isArray(player.ownedDeviceIds)
+    if (!hasRequiredPlayerPrivateShape(player.privateState) || !Array.isArray(player.ownedDeviceIds)
       || !uniqueStrings(player.ownedDeviceIds) || !player.ownedDeviceIds.includes(player.primaryDeviceId)
-      || !exactlyOne(d, 'id', player.primaryDeviceId)) throw new Error('Invalid persisted Player Device ownership.')
+      || player.ownedDeviceIds.some((deviceId) => !exactlyOne(d, 'id', deviceId))) throw new Error('Invalid persisted Player Device ownership or private runtime state.')
     const homes = n.filter(({ id }) => id === player.homeNetworkId)
     if (homes.length !== 1) throw new Error('Invalid persisted Player Home Network.')
     const home = homes[0]
