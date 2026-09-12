@@ -1,19 +1,87 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { createInitialGameState } from '../core/game/initialState'
+import { createInitialGameState, GAME_STATE_VERSION } from '../core/game/initialState'
 import type { OnlineWorldDocument } from './model'
 import { ONLINE_PERSISTENCE_VERSION } from './model'
+
+export interface WorldPersistence {
+  loadOrCreate(): Promise<OnlineWorldDocument>
+  save(document: OnlineWorldDocument): Promise<void>
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function uniqueStrings(values: readonly unknown[]): boolean {
+  return values.every((value) => typeof value === 'string' && value.length > 0)
+    && new Set(values).size === values.length
+}
+
+function exactlyOne(items: readonly Record<string, unknown>[], key: string, value: unknown): boolean {
+  return items.filter((item) => item[key] === value).length === 1
+}
+
+/** Minimum admission boundary for the current persisted online document. */
+export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument {
+  const root = record(value)
+  if (!root || root.persistenceVersion !== ONLINE_PERSISTENCE_VERSION) throw new Error('Unsupported online persistence version. Refusing to reset canonical world.')
+  if (!Number.isInteger(root.nextHomeSubnet) || (root.nextHomeSubnet as number) < 1 || (root.nextHomeSubnet as number) > 255) throw new Error('Invalid online persistence allocator state.')
+  const shared = record(root.shared)
+  const state = record(shared?.state)
+  const world = record(state?.world)
+  const network = record(world?.network)
+  const cadence = record(state?.bookstoreSalesCadence)
+  if (!shared || !state || state.version !== GAME_STATE_VERSION || !record(state.player)
+    || !record(state.business) || !cadence || !Array.isArray(cadence.records)
+    || !network || !Array.isArray(network.localNetworks) || !Array.isArray(network.hosts)
+    || !Array.isArray(shared.playerDevices) || !Array.isArray(root.accounts)
+    || !Array.isArray(root.sessions) || !Array.isArray(root.players)) {
+    throw new Error('Invalid online persistence structure.')
+  }
+  const accounts = root.accounts.map(record)
+  const sessions = root.sessions.map(record)
+  const players = root.players.map(record)
+  const devices = shared.playerDevices.map(record)
+  const networks = network.localNetworks.map(record)
+  const hosts = network.hosts.map(record)
+  if ([...accounts, ...sessions, ...players, ...devices, ...networks, ...hosts].some((item) => !item)) throw new Error('Invalid online persistence entity structure.')
+  const a = accounts as Record<string, unknown>[]
+  const s = sessions as Record<string, unknown>[]
+  const p = players as Record<string, unknown>[]
+  const d = devices as Record<string, unknown>[]
+  const n = networks as Record<string, unknown>[]
+  const h = hosts as Record<string, unknown>[]
+  if (!uniqueStrings(a.map(({ id }) => id)) || !uniqueStrings(a.map(({ normalizedName }) => normalizedName))
+    || !uniqueStrings(p.map(({ id }) => id)) || !uniqueStrings(d.map(({ id }) => id))
+    || !uniqueStrings(s.map(({ id }) => id)) || !uniqueStrings(s.map(({ tokenHash }) => tokenHash))) {
+    throw new Error('Duplicate or invalid online persistence identity.')
+  }
+  if (a.some(({ playerId }) => !exactlyOne(p, 'id', playerId)) || s.some(({ accountId }) => !exactlyOne(a, 'id', accountId))) throw new Error('Dangling online authentication relationship.')
+  for (const player of p) {
+    if (!record(player.privateState) || !Array.isArray(player.ownedDeviceIds)
+      || !uniqueStrings(player.ownedDeviceIds) || !player.ownedDeviceIds.includes(player.primaryDeviceId)
+      || !exactlyOne(d, 'id', player.primaryDeviceId)) throw new Error('Invalid persisted Player Device ownership.')
+    const homes = n.filter(({ id }) => id === player.homeNetworkId)
+    if (homes.length !== 1) throw new Error('Invalid persisted Player Home Network.')
+    const home = homes[0]
+    if (home.gatewayDeviceId !== player.gatewayDeviceId || !Array.isArray(home.memberDeviceIds)
+      || !uniqueStrings(home.memberDeviceIds) || !home.memberDeviceIds.includes(player.primaryDeviceId)
+      || !home.memberDeviceIds.includes(player.gatewayDeviceId)
+      || !home.memberDeviceIds.includes(player.starterServerDeviceId)) throw new Error('Invalid persisted Player topology relationship.')
+    if (!exactlyOne(h, 'id', player.gatewayDeviceId) || !exactlyOne(h, 'id', player.starterServerDeviceId)) throw new Error('Dangling persisted Player topology Device.')
+  }
+  return value as OnlineWorldDocument
+}
 
 export class JsonWorldPersistence {
   constructor(readonly path: string) {}
 
   async loadOrCreate(): Promise<OnlineWorldDocument> {
     try {
-      const parsed: unknown = JSON.parse(await readFile(this.path, 'utf8'))
-      if (!parsed || typeof parsed !== 'object' || (parsed as { persistenceVersion?: unknown }).persistenceVersion !== ONLINE_PERSISTENCE_VERSION) {
-        throw new Error(`Unsupported online persistence version in ${this.path}. Refusing to reset canonical world.`)
-      }
-      return parsed as OnlineWorldDocument
+      return validateOnlineWorldDocument(JSON.parse(await readFile(this.path, 'utf8')))
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       const initial = createInitialGameState()

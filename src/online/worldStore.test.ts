@@ -3,11 +3,29 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { JsonWorldPersistence } from './persistence'
+import type { WorldPersistence } from './persistence'
+import type { OnlineWorldDocument } from './model'
 import { OnlineWorldStore } from './worldStore'
 import { resolveDollarAccountForDevice } from '../core/game/dollarFinance'
 
 const directories: string[] = []
 async function fixture() { const directory = await mkdtemp(join(tmpdir(), 'synthesis-online-')); directories.push(directory); const path = join(directory, 'world.json'); return { path, store: await new OnlineWorldStore(new JsonWorldPersistence(path)).open() } }
+class ControlledPersistence implements WorldPersistence {
+  saves: OnlineWorldDocument[] = []
+  failures = 0
+  constructor(private persisted: OnlineWorldDocument) {}
+  async loadOrCreate() { return structuredClone(this.persisted) }
+  async save(document: OnlineWorldDocument) {
+    if (this.failures > 0) { this.failures -= 1; throw new Error('injected persistence failure') }
+    this.persisted = structuredClone(document); this.saves.push(structuredClone(document))
+  }
+  durable() { return structuredClone(this.persisted) }
+}
+async function controlledFixture() {
+  const base = await fixture()
+  const persistence = new ControlledPersistence(base.store.inspectForTests())
+  return { persistence, store: await new OnlineWorldStore(persistence).open() }
+}
 afterEach(async () => { await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))) })
 
 describe('OnlineWorldStore', () => {
@@ -112,4 +130,110 @@ describe('OnlineWorldStore', () => {
     expect(store.inspectForTests().accounts).toHaveLength(2)
   })
 
+  it('publishes account, session, observation, and logout mutations only after persistence', async () => {
+    const { store, persistence } = await controlledFixture()
+    const empty = store.inspectForTests()
+    persistence.failures = 1
+    await expect(store.enter('rejected', 'correct-horse-1')).rejects.toThrow('injected')
+    expect(store.inspectForTests()).toEqual(empty)
+    const alice = await store.enter('alice', 'correct-horse-1')
+    expect(store.inspectForTests().accounts.map(({ normalizedName }) => normalizedName)).toEqual(['alice'])
+    const beforeSession = store.inspectForTests()
+    persistence.failures = 1
+    await expect(store.enter('alice', 'correct-horse-1')).rejects.toThrow('injected')
+    expect(store.inspectForTests()).toEqual(beforeSession)
+    await store.advanceOnce(250)
+    const dirtyBeforeObservation = store.inspectForTests()
+    persistence.failures = 1
+    await expect(store.observe(alice.token, 'ping', '203.0.113.42')).rejects.toThrow('injected')
+    expect(store.inspectForTests()).toEqual(dirtyBeforeObservation)
+    expect(store.isDirtyForTests()).toBe(true)
+    await store.checkpoint()
+    expect(persistence.durable().players[0].privateState.discovery.devices).toHaveLength(0)
+    const beforeLogout = store.inspectForTests()
+    persistence.failures = 1
+    await expect(store.logout(alice.token)).rejects.toThrow('injected')
+    expect(store.inspectForTests()).toEqual(beforeLogout)
+    expect(store.restore(alice.token)).not.toBeNull()
+  })
+
+  it('checkpoints passive advancement separately from 250 ms simulation ticks', async () => {
+    const { store, persistence } = await controlledFixture()
+    const before = store.inspectForTests().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs
+    await store.advanceOnce(250); await store.advanceOnce(250); await store.advanceOnce(250)
+    expect(persistence.saves).toHaveLength(0)
+    expect(before - store.inspectForTests().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs).toBe(750)
+    expect(store.isDirtyForTests()).toBe(true)
+    persistence.failures = 1
+    await expect(store.checkpoint()).rejects.toThrow('injected')
+    expect(store.isDirtyForTests()).toBe(true)
+    await store.checkpoint()
+    expect(store.isDirtyForTests()).toBe(false)
+    expect(persistence.saves).toHaveLength(1)
+    expect(persistence.durable().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs).toBe(before - 750)
+  })
+
+  it('includes dirty advancement in semantic commits and flushes it on clean stop', async () => {
+    const first = await controlledFixture()
+    const before = first.store.inspectForTests().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs
+    await first.store.advanceOnce(500)
+    const alice = await first.store.enter('alice', 'correct-horse-1')
+    expect(first.store.isDirtyForTests()).toBe(false)
+    expect(first.persistence.durable().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs).toBe(before - 500)
+    expect(first.persistence.durable().accounts).toHaveLength(1)
+    expect(alice.created).toBe(true)
+    await first.store.advanceOnce(250)
+    await first.store.stopAdvancement()
+    expect(first.store.isDirtyForTests()).toBe(false)
+    expect(first.persistence.durable().shared.state.bookstoreSalesCadence.records[0].remainingUntilOpportunityMs).toBe(before - 750)
+  })
+
+  it('shared advancement never mutates canonical Player-private state', async () => {
+    const { store } = await controlledFixture()
+    await store.enter('alice', 'correct-horse-1')
+    const privateBefore = store.inspectForTests().players[0].privateState
+    await store.advanceOnce(1_000)
+    expect(store.inspectForTests().players[0].privateState).toEqual(privateBefore)
+  })
+
+})
+
+describe('online persistence admission', () => {
+  async function expectInvalid(mutate: (document: OnlineWorldDocument) => unknown, message?: string) {
+    const { path, store } = await fixture()
+    const alice = await store.enter('alice', 'correct-horse-1')
+    const value = mutate(store.inspectForTests())
+    await writeFile(path, JSON.stringify(value))
+    await expect(new OnlineWorldStore(new JsonWorldPersistence(path)).open()).rejects.toThrow(message)
+    expect(alice.created).toBe(true)
+  }
+
+  it('rejects missing structure and invalid allocator values, while admitting exhausted 255', async () => {
+    await expectInvalid((document) => { const { accounts: _accounts, ...missingAccounts } = document; return missingAccounts }, 'structure')
+    await expectInvalid((document) => ({ ...document, nextHomeSubnet: 0 }), 'allocator')
+    await expectInvalid((document) => ({ ...document, nextHomeSubnet: 256 }), 'allocator')
+    const { path, store } = await fixture(); await store.enter('alice', 'correct-horse-1')
+    await writeFile(path, JSON.stringify({ ...store.inspectForTests(), nextHomeSubnet: 255 }))
+    await expect(new OnlineWorldStore(new JsonWorldPersistence(path)).open()).resolves.toBeInstanceOf(OnlineWorldStore)
+  })
+
+  it('rejects duplicate authentication and simulation identities', async () => {
+    await expectInvalid((d) => ({ ...d, accounts: [...d.accounts, d.accounts[0]] }), 'Duplicate')
+    await expectInvalid((d) => ({ ...d, accounts: [...d.accounts, { ...d.accounts[0], id: 'account-other' }] }), 'Duplicate')
+    await expectInvalid((d) => ({ ...d, players: [...d.players, d.players[0]] }), 'Duplicate')
+    await expectInvalid((d) => ({ ...d, shared: { ...d.shared, playerDevices: [...d.shared.playerDevices, d.shared.playerDevices[0]] } }), 'Duplicate')
+    await expectInvalid((d) => ({ ...d, sessions: [...d.sessions, d.sessions[0]] }), 'Duplicate')
+    await expectInvalid((d) => ({ ...d, sessions: [...d.sessions, { ...d.sessions[0], id: 'session-other' }] }), 'Duplicate')
+  })
+
+  it('rejects dangling authentication, ownership, and generated topology relationships', async () => {
+    await expectInvalid((d) => ({ ...d, accounts: d.accounts.map((a) => ({ ...a, playerId: 'missing' })) }), 'authentication')
+    await expectInvalid((d) => ({ ...d, sessions: d.sessions.map((s) => ({ ...s, accountId: 'missing' })) }), 'authentication')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, ownedDeviceIds: [p.primaryDeviceId, p.primaryDeviceId] })) }), 'ownership')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, ownedDeviceIds: ['other'] })) }), 'ownership')
+    await expectInvalid((d) => ({ ...d, shared: { ...d.shared, playerDevices: [] } }), 'ownership')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, homeNetworkId: 'missing' })) }), 'Home Network')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, gatewayDeviceId: 'missing' })) }), 'topology')
+    await expectInvalid((d) => ({ ...d, players: d.players.map((p) => ({ ...p, starterServerDeviceId: 'missing' })) }), 'topology')
+  })
 })

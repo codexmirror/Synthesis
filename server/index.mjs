@@ -35,5 +35,18 @@ const server = createServer(async (request, response) => {
   } catch (error) { return send(response, error instanceof SyntaxError ? 400 : 401, { error: error instanceof Error ? error.message : 'Request failed.' }) }
 })
 server.listen(port, '127.0.0.1', () => console.log(`Synthesis online runtime listening on http://127.0.0.1:${port}`))
-const shutdown = async () => { server.close(); await store.stopAdvancement(); process.exit(0) }
+let shuttingDown = false
+const shutdown = async () => {
+  if (shuttingDown) return
+  shuttingDown = true
+  try {
+    const closed = new Promise((resolveClose, rejectClose) => server.close((error) => error ? rejectClose(error) : resolveClose()))
+    store.stopAdvancementScheduling()
+    await closed
+    await store.drainAndFlush()
+  } catch (error) {
+    console.error('Synthesis shutdown failed before the canonical world was flushed.', error)
+    process.exitCode = 1
+  }
+}
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown)
