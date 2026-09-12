@@ -29,6 +29,35 @@ async function controlledFixture() {
 afterEach(async () => { await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))) })
 
 describe('OnlineWorldStore', () => {
+  it('applies the local Scan eligibility boundary before resolving hidden canonical World truth', async () => {
+    const { store, persistence } = await controlledFixture()
+    const alice = await store.enter('alice', 'correct-horse-1')
+    const bob = await store.enter('bob', 'correct-horse-2')
+    const canonical = store.inspectForTests()
+    const bobRecord = canonical.players.find(({ id }) => id === bob.snapshot.playerId)!
+    const bobDevice = canonical.shared.playerDevices.find(({ id }) => id === bobRecord.primaryDeviceId)!
+    const bobNetwork = canonical.shared.state.world.network.localNetworks.find(({ id }) => id === bobRecord.homeNetworkId)!
+    const discoveryBefore = store.restore(alice.token)!.state.discovery
+    const savesBefore = persistence.saves.length
+
+    const hiddenHost = await store.observe(alice.token, 'scan', '203.0.113.42') as { result: { status: string; input?: string } }
+    const hiddenNetwork = await store.observe(alice.token, 'scan', bobNetwork.cidr!) as { result: { status: string; input?: string }; snapshot: typeof alice.snapshot }
+    expect(hiddenHost.result).toEqual({ status: 'unknown_target', input: '203.0.113.42' })
+    expect(hiddenNetwork.result).toEqual({ status: 'unknown_target', input: bobNetwork.cidr })
+    expect(hiddenNetwork.snapshot.state.discovery).toEqual(discoveryBefore)
+    expect(hiddenNetwork.snapshot.state.world.network.localNetworks.some(({ id }) => id === bobRecord.homeNetworkId)).toBe(false)
+    expect(persistence.saves).toHaveLength(savesBefore)
+
+    const ping = await store.observe(alice.token, 'ping', bobDevice.network.ip) as { result: { status: string } }
+    expect(ping.result.status).toBe('device')
+    const hostScan = await store.observe(alice.token, 'scan', bobDevice.network.ip) as { result: { status: string }; snapshot: typeof alice.snapshot }
+    expect(hostScan.result.status).toBe('device')
+    expect(hostScan.snapshot.state.discovery.networks).toContainEqual(expect.objectContaining({ id: bobNetwork.id, cidr: bobNetwork.cidr }))
+    const networkScan = await store.observe(alice.token, 'scan', bobNetwork.cidr!) as { result: { status: string; networkId?: string } }
+    expect(networkScan.result).toMatchObject({ status: 'network', networkId: bobNetwork.id })
+    expect(store.restore(bob.token)!.state.discovery.devices).toHaveLength(0)
+  })
+
   it('creates or authenticates without collapsing Account, Player, and Device identity', async () => {
     const { store, path } = await fixture()
     const alice = await store.enter(' Alice ', 'correct-horse-1')

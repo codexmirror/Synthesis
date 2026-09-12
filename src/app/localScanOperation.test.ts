@@ -5,6 +5,16 @@ import type { GameState } from '../core/game/types'
 import { createLocalScanTarget } from './localScanOperation'
 
 describe('local Scan application operation', () => {
+  it('admits only Player-known, SELF, or unambiguous local-Network targets', async () => {
+    let state = createInitialGameState()
+    const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
+
+    expect(await scanTarget('203.0.113.42')).toEqual({ status: 'unknown_target', input: '203.0.113.42' })
+    expect(await scanTarget('remote-segment-01')).toEqual({ status: 'unknown_target', input: 'remote-segment-01' })
+    expect(await scanTarget(state.player.localDevice.network.ip)).toMatchObject({ status: 'device', scope: 'self' })
+    expect(await scanTarget('home-net')).toMatchObject({ status: 'network', networkId: 'network-local-001' })
+  })
+
   it('keeps a stale Service snapshot until a later successful Scan refreshes the exposed surface', async () => {
     let state = createInitialGameState()
     state = { ...state, discovery: { networks: [], networkDeviceRelations: [], devices: [{ id: 'host-lan-001', address: '198.51.100.47', scope: 'unknown', servicesObserved: false, services: [] }] } }
