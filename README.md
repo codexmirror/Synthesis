@@ -29,15 +29,21 @@ npm install
 
 ## Development
 
+Two explicit runtime modes share one codebase — see
+[`docs/current/ONLINE_RUNTIME.md`](docs/current/ONLINE_RUNTIME.md).
+
 ```bash
-npm run dev
+npm run dev          # Sandbox: browser-authoritative, no server, no login
+npm run dev:online   # Online: real Node server + authenticated login/Account flow
 ```
 
 
 ## Production build
 
 ```bash
-npm run build
+npm run build           # Sandbox / GitHub Pages, base "/Synthesis/"
+npm run build:online    # Online, base "/"
+npm run start:online     # one Node service: serves the built frontend + /api/*
 ```
 
 

@@ -10,9 +10,16 @@ export default function App() {
   return <OnlineApp />
 }
 
-/** GitHub Pages stays intentionally offline until production server hosting exists. */
-export function onlineRuntimeEnabled(environment: Pick<ImportMetaEnv, 'MODE' | 'DEV' | 'VITE_SYNTHESIS_ONLINE'>): boolean {
-  return environment.MODE !== 'test' && (environment.DEV || environment.VITE_SYNTHESIS_ONLINE === '1')
+/**
+ * Runtime authority is an explicit selection, never a `DEV` side effect: the
+ * Sandbox (browser-authoritative) and Online (server-authoritative) runtimes
+ * share this one codebase, and `VITE_SYNTHESIS_ONLINE` is the only switch
+ * between them. `npm run dev` and the default/Pages production build leave it
+ * unset and stay Sandbox; `npm run dev:online` and `npm run build:online` set
+ * it via `.env.online`.
+ */
+export function onlineRuntimeEnabled(environment: Pick<ImportMetaEnv, 'MODE' | 'VITE_SYNTHESIS_ONLINE'>): boolean {
+  return environment.MODE !== 'test' && environment.VITE_SYNTHESIS_ONLINE === '1'
 }
 
 function OnlineApp() {

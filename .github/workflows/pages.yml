@@ -40,7 +40,13 @@ jobs:
       - name: Run tests
         run: npm run test:ci
 
-      - name: Build
+      - name: Build Online production artifacts
+        run: npm run build:online
+
+      - name: Online production smoke
+        run: npm run smoke:online
+
+      - name: Build Sandbox (GitHub Pages)
         run: npm run build
 
       - name: Configure Pages

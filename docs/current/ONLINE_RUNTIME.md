@@ -1,9 +1,19 @@
 # Online identity and persistent shared world — current truth
 
 Status: Accepted
-Scope: Account authentication, Player/Device ownership, the online persistence boundary, shared-versus-private state ownership, and canonical server advancement.
+Scope: The Sandbox/Online runtime-mode boundary, Account authentication, Player/Device ownership, the online persistence boundary, shared-versus-private state ownership, canonical server advancement, and Online production packaging.
 
 This document is the normative owner for the first online runtime. Domain rules still belong to their existing current-truth owners: the runtime invokes those rules rather than defining online alternatives.
+
+## Runtime modes
+
+Synthesis is one codebase with exactly two explicit runtime-authority modes. One codebase does not mean one runtime authority mode: which owns state is a deliberate build/dev-time selection, never an accident of `DEV`.
+
+**Sandbox** is browser-authoritative: a fresh `GameState` is created locally, there is no Account, server, or persistent Online World, and none is required. It is not a lesser or deprecated stand-in for Online — it is the intentional fast development and gameplay-iteration surface, and it is what GitHub Pages deploys. `npm run dev` and the default `npm run build` stay Sandbox.
+
+**Online** is server-authoritative: the server owns the canonical World and Player state behind Account authentication and persistence, using the authoritative PING/SCAN behavior described below. Development and production reach that same server differently. `npm run dev:online` runs the real Node server plus the Vite dev frontend, which forwards `/api` requests to it through Vite's dev-only proxy (`vite.config.ts`'s `server.proxy`) — two processes, one apparent origin. `npm run build:online` plus `npm run start:online` run the production packaging described in "Production hosting" instead: one Node process serves both the built frontend and `/api/*` directly, with no proxy layer at all.
+
+Selection is one explicit flag, `VITE_SYNTHESIS_ONLINE` (set via `.env.online`, consumed by `src/App.tsx`'s `onlineRuntimeEnabled`), checked at the same place both runtimes share. `import.meta.env.DEV` is never that switch — development and runtime authority are separate axes, and `dev:online` is the only supported way to get an authenticated Online flow during local development. Both modes build from the same application source and the same gameplay/domain owners; nothing about Account, Player, Device, or World ownership below is duplicated or altered between them.
 
 ## Identity and authentication
 
@@ -35,6 +45,10 @@ The server owns one idempotently started 250 ms simulation clock, independent of
 
 `shared.state` remains a GameState-shaped compatibility carrier for shared advancement; its shadow/default Player-shaped fields are not canonical Player-private ownership and advancement never writes them into a real `PlayerRecord.privateState`. Authenticated V0 admits only immediate PING and SCAN mutations; all Process-creating and other timed Player mutations are explicitly unavailable online. Player Process advancement is deferred until its full cross-domain consequences can be retained without discarding remote Device-owned World writes.
 
-Production server hosting is deferred. Vite development selects online mode, and a server-hosted production build can opt in with `VITE_SYNTHESIS_ONLINE=1`. The ordinary GitHub Pages production artifact deliberately remains the existing offline/local prototype so it never presents a login backed by a nonexistent `/api`.
+## Production hosting
 
-Authentication uses validated normalized names, slow salted password hashing, cryptographically random bearer material, SHA-256 session-token storage, timing-safe password verification, and a same-origin HttpOnly/SameSite cookie. Account recovery, OAuth, MFA, profiles, administration, public deployment hardening, and cross-origin credential support are deferred.
+The Online production runtime is one Node process (`server/index.mjs`, run via `npm run start:online`) that owns the built Online frontend, `/api/*`, canonical World runtime, and persistence. It serves the assets `npm run build:online` produces (a root-`/`-based Vite build, versus the `/Synthesis/`-based default/Pages Sandbox build) for any non-`/api` GET/HEAD request, with a path-traversal-safe static resolver and an SPA-entry fallback for application routes; the browser and API stay same-origin, so no CORS architecture exists or is needed. The ordinary GitHub Pages production artifact deliberately remains the Sandbox build so it never presents a login backed by a nonexistent `/api`.
+
+`SYNTHESIS_ONLINE_ENV=production` (set by `npm run start:online`) is the one explicit flag marking a real production process, independent of any host's own `NODE_ENV` conventions. It gates two things: the process fails closed at startup if `SYNTHESIS_DATABASE` is not also set, rather than silently persisting to the repository-local `.synthesis/world-v0.json` development default — production is expected to point that variable at a path on a persistent mounted volume; and it adds `Secure` to the session cookie, on top of the `HttpOnly`/`SameSite=Strict` that both modes always carry. Local Online development keeps the ordinary implicit persistence default and an HTTP-usable (non-`Secure`) cookie. The host/port bind (`SYNTHESIS_HOST`, default `0.0.0.0`; `PORT` or `SYNTHESIS_PORT`, default `4174`) is ordinary cloud-hosting-compatible configuration and chooses no specific provider.
+
+Authentication uses validated normalized names, slow salted password hashing, cryptographically random bearer material, SHA-256 session-token storage, timing-safe password verification, and a same-origin HttpOnly/SameSite/production-Secure cookie. Account recovery, OAuth, MFA, profiles, administration, and cross-origin credential support are deferred.

@@ -4,10 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run server:build && (node --experimental-specifier-resolution=node server/index.mjs & vite)",
+    "dev": "vite",
+    "dev:online": "npm run server:build && (node --experimental-specifier-resolution=node server/index.mjs & vite --mode online)",
     "server:build": "tsc -p tsconfig.server.json && node scripts/fix-server-imports.mjs",
     "server": "npm run server:build && node --experimental-specifier-resolution=node server/index.mjs",
-    "build": "tsc -b && npm run server:build && vite build",
+    "build": "tsc -b && vite build",
+    "build:online": "tsc -b && npm run server:build && vite build --mode online",
+    "start:online": "SYNTHESIS_ONLINE_ENV=production node --experimental-specifier-resolution=node server/index.mjs",
+    "smoke:online": "node scripts/online-production-smoke.mjs",
     "test": "node scripts/run-tests.mjs focused",
     "test:ci": "node scripts/run-tests.mjs ci",
     "docs:check": "node scripts/docs-check.mjs"
