@@ -111,6 +111,21 @@ export function appendNetworkConnectionAttemptEvidence(world: WorldState, observ
   }))
 }
 
+/** V1 path evidence belongs only to concrete gateway hops. This deliberately
+ * records no same-LAN activity: DIRECT_LOCAL does not traverse a gateway. */
+export function appendGatewayConnectionAttemptEvidence(world: WorldState, observation: NetworkConnectionAttemptObservation): WorldState {
+  const sourceNetworks = world.network.localNetworks.filter((network) => network.memberDeviceIds.includes(observation.sourceDeviceId))
+  const gatewayIds = new Set<string>()
+  if (sourceNetworks.length === 1 && sourceNetworks[0].gatewayDeviceId) gatewayIds.add(sourceNetworks[0].gatewayDeviceId)
+  for (const host of world.network.hosts) if (host.ip === observation.targetAddress && host.deviceType === 'ROUTER') gatewayIds.add(host.id)
+  if (!gatewayIds.size) return world
+  const hosts = world.network.hosts.map((host) => {
+    if (!gatewayIds.has(host.id) || !host.activityHistory) return host
+    return { ...host, activityHistory: appendNetworkActivityRecord(host.activityHistory, { kind: 'connection_attempt', perspective: 'outbound', sourceDeviceId: observation.sourceDeviceId, targetDeviceId: observation.targetDeviceId, sourceAddress: observation.sourceAddress, targetAddress: observation.targetAddress, serviceId: observation.serviceId, serviceName: observation.serviceName, result: observation.result } as Omit<NetworkActivityRecord, 'id'>) }
+  })
+  return { ...world, network: { ...world.network, hosts } }
+}
+
 export interface NetworkFileTransferObservation {
   readonly sourceDeviceId: string
   readonly destinationDeviceId: string

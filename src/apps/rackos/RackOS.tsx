@@ -23,6 +23,7 @@ import { formatDollarCents } from '../dollarFormat'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
 import { deriveRackOsFirmwarePresentationStatus, RACK_OS_1_1_BUSINESS_RELEASE, type RackOsFirmwarePresentationStatus } from '../../core/game/rackOsFirmwareUpdate'
 import { RackFirmwareUpdateSurface } from './RackFirmwareUpdate'
+import { scanFromDevice } from '../../core/game/scan'
 
 /**
  * Where the player currently is inside the operated Device's environment.
@@ -375,7 +376,7 @@ function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget
         return result.status === 'retargeted' ? { status: result.status, processId: result.processId, payoutAddress: result.payoutAddress } : { status: result.status }
       },
     }
-    const result = runRemoteCommand(context, command, { startRemoteFileDownload, startRemoteFileUpload, nodeMiner }); setInput('')
+    const result = runRemoteCommand(context, command, { startRemoteFileDownload, startRemoteFileUpload, nodeMiner, scan: (target) => scanFromDevice(state, context.target.id, target) }); setInput('')
     if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
     if (result.disconnect) onDisconnect()
   }

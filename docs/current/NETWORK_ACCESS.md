@@ -5,6 +5,26 @@ Scope: `ip`, Scan, the NodeScan application, Discovery, Endpoint (Service)
 Analysis, Knowledge, Credential Access, DeviceAccess, Remote Session / RACK-OS,
 and Authentication History, as currently implemented on `main`.
 
+## Gateway Reachability V1
+
+Every network-sensitive operation derives a path from its concrete executing
+Device and represented World Truth. Player Information admits target selection;
+it never creates reachability. The only current paths are `DIRECT_LOCAL` for
+unambiguous common LocalNetwork membership (no default Gateway traversal), and
+`EXPOSED_EDGE` for a target Network's valid default Gateway public address and
+one explicit protocol/port exposure to a real member Device Service. Missing,
+dangling, invalid, or ambiguous membership, gateway, exposure, target, or
+Service truth is `NO_ROUTE`.
+
+The Bookstore public address belongs to its Gateway, not `srv-02`. The gateway
+exposure references `srv-02`'s existing GateSSH Service; it owns no copied
+implementation, open-state, or authentication truth. External reconnaissance
+therefore observes only the exposed endpoint, not internal addressing or
+topology. A remote operating context makes its target Device the execution
+source, but does not lend local software to it. Gateway-hop evidence is
+Router-owned; common LocalNetwork membership creates no omniscient activity
+record.
+
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
 document wins. Durable rules behind this behavior belong to

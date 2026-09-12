@@ -1367,6 +1367,11 @@ export interface NetworkHost {
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */
   readonly services?: readonly NetworkService[]
+  /** A Router's concrete public ingress mappings.  The mapped service remains
+   * Device-owned truth; this is only the gateway edge relationship. */
+  readonly exposures?: readonly GatewayExposure[]
+  /** Concrete router-hop evidence; LocalNetwork membership is not an observer. */
+  readonly activityHistory?: NetworkActivityHistoryState
   /** Present only for endpoints whose transfer capability is concretely represented. */
   readonly transferCapacity?: NetworkTransferCapacity
   /** Device-owned authentication history, present only for concretely represented resource-capable hosts. */
@@ -1613,7 +1618,15 @@ export interface LocalNetwork {
    * Device's own AuthenticationHistory, of Recent Activity, and of Player
    * Knowledge/Discovery. Never exposed through Scan, Inspect, or Discovery.
    */
+  /** Compatibility presentation history. V1 writes path evidence to Router hops. */
   readonly activityHistory: NetworkActivityHistoryState
+}
+
+export interface GatewayExposure {
+  readonly protocol: 'TCP' | 'UDP'
+  readonly externalPort: number
+  readonly targetDeviceId: string
+  readonly targetServiceId: string
 }
 
 /**

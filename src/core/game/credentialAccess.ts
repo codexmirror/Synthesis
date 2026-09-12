@@ -4,7 +4,7 @@ import type { CredentialAccessProcess, GameState } from './types'
 import { FLIPPER_PRODUCT_ID, findInstalledFlipper, findLocalFlipperModuleArtifacts, findLocalTechniqueTool, flipperSupportsTechnique, isSupportedFlipperModuleArtifact } from './flipper'
 import { GATE_SSH_1_3_2_BUILD_ID, GATE_SSH_1_3_2_RELEASE_ID, GATE_SSH_1_3_3_BUILD_ID, GATE_SSH_1_3_3_RELEASE_ID, GATE_SSH_PRODUCT_ID } from './serviceImplementations'
 import { appendAuthenticationHistoryForHost } from './authenticationHistory'
-import { appendNetworkConnectionAttemptEvidence } from './networkActivityHistory'
+import { appendGatewayConnectionAttemptEvidence } from './networkActivityHistory'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import { authGuard10SupportsGateSshAuthentication } from './authGuard'
 import { markServiceImplementationAnalysisStale } from './discovery'
@@ -305,9 +305,9 @@ export function resolveCompletedCredentialAccess(state: GameState, process: Cred
   }
   const result = succeeds ? 'SUCCESS' as const : 'FAILURE' as const
   const world = sourceAddress
-    ? appendNetworkConnectionAttemptEvidence(
+    ? appendGatewayConnectionAttemptEvidence(
         appendAuthenticationHistoryForHost(state.world, process.targetDeviceId, { serviceId: service.id, serviceName: service.name, sourceAddress, result }),
-        { sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, sourceAddress, targetAddress: host!.ip, serviceId: service.id, serviceName: service.name, result },
+        { sourceDeviceId: process.executorDeviceId, targetDeviceId: process.targetDeviceId, sourceAddress, targetAddress: process.startedEndpoint.slice(0, process.startedEndpoint.lastIndexOf(':')), serviceId: service.id, serviceName: service.name, result },
       )
     : state.world
   if (!succeeds) {

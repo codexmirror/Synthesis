@@ -2,6 +2,7 @@ import { startProcess } from './processes'
 import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
+import { resolveNetworkPath } from './networkPath'
 
 export const SERVICE_ANALYSIS_WORK_REQUIRED = 1000
 export const SERVICE_ANALYSIS_RAM_REQUIRED_MIB = 768
@@ -20,9 +21,8 @@ export function resolveServiceEndpoint(state: GameState, endpoint: string): { ta
   if (!isValidIpv4(ip) || !/^\d+$/.test(portText)) return 'invalid'
   const port = Number(portText)
   if (port < 1 || port > 65535) return 'invalid'
-  const host = state.world.network.hosts.find((candidate) => candidate.ip === ip)
-  const service = host?.services?.find((candidate) => candidate.port === port)
-  return host && service ? { targetDeviceId: host.id, serviceId: service.id } : undefined
+  const path = resolveNetworkPath(state, state.player.localDevice.id, ip, port)
+  return path.kind !== 'NO_ROUTE' && path.targetService ? { targetDeviceId: path.target.id, serviceId: path.targetService.id } : undefined
 }
 
 function currentService(state: GameState, targetDeviceId: string, serviceId: string): { usable: boolean; hostIp?: string; service?: NetworkService } {

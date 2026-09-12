@@ -1,5 +1,7 @@
 import { isValidIpv4, resolveNetworkTarget, type NetworkTargets } from './networkTarget'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
+import { resolveNetworkPath } from './networkPath'
+import type { GameState } from './types'
 
 export type PingTargets = NetworkTargets
 export type PingResult =
@@ -15,4 +17,11 @@ export function pingNetworkTarget(targets: Readonly<PingTargets>, input: string)
   return isDeviceNetworkUsable(resolved.entity.operational)
     ? { status: 'device', targetId: resolved.entity.id, address: input }
     : { status: 'no_response', address: input }
+}
+
+export function pingFromDevice(state: Readonly<GameState>, sourceDeviceId: string, input: string): PingResult {
+  if (!isValidIpv4(input)) return { status: 'invalid_address', input }
+  const path = resolveNetworkPath(state, sourceDeviceId, input)
+  if (path.kind === 'NO_ROUTE') return { status: 'no_response', address: input }
+  return isDeviceNetworkUsable(path.target.operational) ? { status: 'device', targetId: path.target.id, address: input } : { status: 'no_response', address: input }
 }

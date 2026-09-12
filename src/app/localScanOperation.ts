@@ -1,4 +1,4 @@
-import { scanNetworkTarget, type ScanResult } from '../core/game/scan'
+import { scanFromDevice, type ScanResult } from '../core/game/scan'
 import type { GameState } from '../core/game/types'
 import { rememberScan } from '../core/game/discovery'
 import { findInstalledNodeScan } from '../core/game/software'
@@ -13,10 +13,7 @@ export function createLocalScanTarget(readState: () => GameState, writeState: (s
     if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable' }
     const admittedInput = resolveKnownScanTarget(state, input)
     if (!admittedInput) return { status: 'unknown_target', input }
-    const result = scanNetworkTarget({
-      localDevice: state.player.localDevice,
-      network: state.world.network,
-    }, admittedInput)
+    const result = scanFromDevice(state, state.player.localDevice.id, admittedInput)
     const latest = readState()
     const discovery = rememberScan(latest.discovery, result, latest.player.localDevice.id)
     if (discovery !== latest.discovery) writeState({ ...latest, discovery })

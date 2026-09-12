@@ -22,7 +22,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 92
+export const GAME_STATE_VERSION = 93
 
 export function createInitialGameState(): GameState {
   return {
@@ -145,8 +145,8 @@ export function createInitialGameState(): GameState {
         localNetworks: [
           // External connectivity capacity, deliberately well above every member Device's own endpoint capacity so it is never the bottleneck for the currently authored same-Network home-net route.
           { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gatewayDeviceId: 'router-home-001', memberDeviceIds: ['device-local-v0', 'host-lan-001', 'router-home-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
-          // srv-02's and the phone's shared external uplink/downlink; deliberately the cross-Network route node-01 actually exercises.
-          { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+          // Bookstore's public address is the gateway edge; members are private.
+          { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '10.42.0.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
         ],
         hosts: [
           {
@@ -179,7 +179,7 @@ export function createInitialGameState(): GameState {
             displayName: 'srv-02',
             deviceType: 'SERVER',
             deviceModel: RACK_CORE_120_DEVICE_MODEL,
-            ip: '203.0.113.42',
+            ip: '10.42.0.42',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             // This concrete srv-02's own represented recovery behavior for this precedent: it reboots on connectivity loss. Device-owned configuration, not a universal "every RACK-OS reboots" rule.
             connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT',
@@ -188,7 +188,7 @@ export function createInitialGameState(): GameState {
             firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
-            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, AUTH_GUARD_1_0_INSTALLATION],
+            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel }, AUTH_GUARD_1_0_INSTALLATION],
             filesystem: { nextFileId: 3, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
               { kind: 'software_package', id: 'file-0002', path: '/opt/packages/authguard-1.0.pkg', releaseId: AUTH_GUARD_1_0_RELEASE_ID, buildId: AUTH_GUARD_1_0_BUILD_ID, productId: AUTH_GUARD_PRODUCT_ID, name: 'AuthGuard', version: '1.0', publisher: 'rack-systems', sizeBytes: 4_800_000 },
@@ -207,7 +207,7 @@ export function createInitialGameState(): GameState {
             displayName: 'ops-01',
             deviceType: 'SERVER',
             deviceModel: RACK_CORE_120_DEVICE_MODEL,
-            ip: '203.0.113.43',
+            ip: '10.42.0.43',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
@@ -226,7 +226,7 @@ export function createInitialGameState(): GameState {
             id: 'host-phone-001',
             displayName: 'Petra’s Phone',
             deviceType: 'PHONE',
-            ip: '198.51.100.61',
+            ip: '10.42.0.61',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             // This concrete phone's own represented recovery behavior for this precedent: it reconnects on connectivity loss without ever rebooting. Device-owned configuration, not a universal "every VEYRA OS Device reconnects" rule.
             connectivityRecoveryBehavior: 'RECONNECT',
@@ -252,13 +252,16 @@ export function createInitialGameState(): GameState {
             ip: '198.51.100.1',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             services: [],
+            activityHistory: { nextId: 1, records: [] },
           },
           {
             id: 'router-foreign-001',
             deviceType: 'ROUTER',
-            ip: '203.0.113.1',
+            ip: '203.0.113.42',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             services: [{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', buildId: BASIC_HTTP_1_0_BUILD_ID, name: 'Basic HTTP', version: '1.0' } }],
+            exposures: [{ protocol: 'TCP', externalPort: 22, targetDeviceId: 'host-lan-002', targetServiceId: 'service-ssh-002' }],
+            activityHistory: { nextId: 1, records: [] },
           },
           // Deliberately shallow: operational truth is independent of hardware/runtime representation, so this unreachable training host needs no fabricated resource state to participate in it.
           { id: 'host-training-002', ip: '203.0.113.99', operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } },

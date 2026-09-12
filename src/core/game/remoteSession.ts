@@ -1,5 +1,6 @@
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DeviceAccess, GameState, NetworkHost, NetworkService, RemoteSession } from './types'
+import { resolveNetworkPath } from './networkPath'
 
 export interface ActiveRemoteTarget {
   readonly session: RemoteSession
@@ -43,7 +44,8 @@ export function connectRemoteFromObservation(state: GameState, observation: Remo
 
   const target = state.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
   const service = target?.services?.find(({ id }) => id === access.viaServiceId)
-  if (!isDeviceNetworkUsable(state.player.localDevice.operational) || !target || !isDeviceNetworkUsable(target.operational) || target.ip !== observation.address || !service?.open) {
+  const path = resolveNetworkPath(state, state.player.localDevice.id, observation.address, service?.port)
+  if (!isDeviceNetworkUsable(state.player.localDevice.operational) || !target || !isDeviceNetworkUsable(target.operational) || !service?.open || path.kind === 'NO_ROUTE' || path.target.id !== target.id || path.targetService?.id !== service.id) {
     return { status: 'target_not_available', state }
   }
 
@@ -85,6 +87,7 @@ export function advanceRemoteSessionReachability(state: GameState): GameState {
   if (!resolved) return state.remoteSession.active
     ? { ...state, remoteSession: { ...state.remoteSession, active: null } }
     : state
-  if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational)) return state
+  const path = resolveNetworkPath(state, state.player.localDevice.id, resolved.session.connectedAddress, resolved.service.port)
+  if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational) && path.kind !== 'NO_ROUTE' && path.target.id === resolved.target.id && path.targetService?.id === resolved.service.id) return state
   return { ...state, remoteSession: { ...state.remoteSession, active: null } }
 }
