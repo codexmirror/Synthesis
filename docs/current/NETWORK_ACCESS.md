@@ -112,6 +112,9 @@ That operation admits SELF, a uniquely resolved Network the acting Device
 belongs to, or a Host/Network selector already present in Player Discovery.
 Represented but undiscovered remote Hosts and Networks remain `unknown_target`;
 only after admission may canonical World Truth resolve the Scan observation.
+An admitted Network presentation label is converted to that Network's unique
+CIDR before World resolution, so separate Networks may legitimately share a
+display name without making the Player-context operation globally ambiguous.
 
 Known Space accepts a player-supplied IPv4 address for immediate PING. Typing, pasting, or locally validating it is presentation state only. A positive PING remembers only stable Device identity and the observed address; it observes no name, Firmware, Services, vulnerabilities, Network membership, or topology. Invalid input is rejected before observation, no response creates no Discovery, and PING creates no Process. A foreign Device learned this way appears under ELSEWHERE as NOT SCANNED.
 

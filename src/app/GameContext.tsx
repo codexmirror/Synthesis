@@ -130,7 +130,7 @@ export function GameProvider({ children, initialState, serverOwnsAdvancement = f
   } : createFindTargets(accessor.read, accessor.write))
   const [refreshNetwork] = useState<RefreshNetworkOperation>(() => reconTransport ? async (networkId: string): ReturnType<RefreshNetworkOperation> => {
     const state = accessor.read(); const remembered = state.discovery.networks.find(({ id }) => id === networkId); const managed = state.world.network.localNetworks.find(({ id }) => id === networkId)
-    const input = remembered?.name ?? remembered?.cidr ?? managed?.name ?? managed?.cidr; if (!input) return { status: 'unknown_network' }
+    const input = remembered?.cidr ?? managed?.cidr ?? remembered?.name ?? managed?.name; if (!input) return { status: 'unknown_network' }
     const result = await scanTarget(input); if (result.status === 'software_unavailable') return result; return result.status === 'network' ? { status: 'refreshed' as const } : { status: 'no_response' as const }
   } : createRefreshNetwork(accessor.read, accessor.write))
   useEffect(() => {

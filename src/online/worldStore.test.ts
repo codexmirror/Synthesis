@@ -37,6 +37,9 @@ describe('OnlineWorldStore', () => {
     const bobRecord = canonical.players.find(({ id }) => id === bob.snapshot.playerId)!
     const bobDevice = canonical.shared.playerDevices.find(({ id }) => id === bobRecord.primaryDeviceId)!
     const bobNetwork = canonical.shared.state.world.network.localNetworks.find(({ id }) => id === bobRecord.homeNetworkId)!
+    const aliceNetwork = canonical.shared.state.world.network.localNetworks.find(({ id }) => id === alice.snapshot.homeNetworkId)!
+    expect(aliceNetwork.name).toBe('home-net')
+    expect(bobNetwork.name).toBe('home-net')
     const discoveryBefore = store.restore(alice.token)!.state.discovery
     const savesBefore = persistence.saves.length
 
@@ -48,6 +51,12 @@ describe('OnlineWorldStore', () => {
     expect(hiddenNetwork.snapshot.state.world.network.localNetworks.some(({ id }) => id === bobRecord.homeNetworkId)).toBe(false)
     expect(persistence.saves).toHaveLength(savesBefore)
 
+    const aliceHomeScan = await store.observe(alice.token, 'scan', 'home-net') as { result: { status: string; networkId?: string } }
+    const bobHomeScan = await store.observe(bob.token, 'scan', 'home-net') as { result: { status: string; networkId?: string } }
+    expect(aliceHomeScan.result).toMatchObject({ status: 'network', networkId: aliceNetwork.id })
+    expect(bobHomeScan.result).toMatchObject({ status: 'network', networkId: bobNetwork.id })
+    const bobDiscoveryAfterOwnScan = store.restore(bob.token)!.state.discovery
+
     const ping = await store.observe(alice.token, 'ping', bobDevice.network.ip) as { result: { status: string } }
     expect(ping.result.status).toBe('device')
     const hostScan = await store.observe(alice.token, 'scan', bobDevice.network.ip) as { result: { status: string }; snapshot: typeof alice.snapshot }
@@ -55,7 +64,7 @@ describe('OnlineWorldStore', () => {
     expect(hostScan.snapshot.state.discovery.networks).toContainEqual(expect.objectContaining({ id: bobNetwork.id, cidr: bobNetwork.cidr }))
     const networkScan = await store.observe(alice.token, 'scan', bobNetwork.cidr!) as { result: { status: string; networkId?: string } }
     expect(networkScan.result).toMatchObject({ status: 'network', networkId: bobNetwork.id })
-    expect(store.restore(bob.token)!.state.discovery.devices).toHaveLength(0)
+    expect(store.restore(bob.token)!.state.discovery).toEqual(bobDiscoveryAfterOwnScan)
   })
 
   it('creates or authenticates without collapsing Account, Player, and Device identity', async () => {

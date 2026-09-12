@@ -15,6 +15,17 @@ describe('local Scan application operation', () => {
     expect(await scanTarget('home-net')).toMatchObject({ status: 'network', networkId: 'network-local-001' })
   })
 
+  it('canonicalizes an own-Network name before globally ambiguous World resolution', async () => {
+    let state = createInitialGameState()
+    state = { ...state, world: { network: { ...state.world.network, localNetworks: [
+      ...state.world.network.localNetworks,
+      { ...state.world.network.localNetworks[0], id: 'network-other-player', name: 'home-net', cidr: '10.64.2.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['other-player-device'] },
+    ] } } }
+    const scanTarget = createLocalScanTarget(() => state, (next) => { state = next })
+
+    expect(await scanTarget('home-net')).toMatchObject({ status: 'network', networkId: 'network-local-001' })
+  })
+
   it('keeps a stale Service snapshot until a later successful Scan refreshes the exposed surface', async () => {
     let state = createInitialGameState()
     state = { ...state, discovery: { networks: [], networkDeviceRelations: [], devices: [{ id: 'host-lan-001', address: '198.51.100.47', scope: 'unknown', servicesObserved: false, services: [] }] } }

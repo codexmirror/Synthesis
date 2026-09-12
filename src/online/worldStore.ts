@@ -4,7 +4,7 @@ import { findInstalledNodeScan } from '../core/game/software'
 import { pingNetworkTarget } from '../core/game/ping'
 import { scanNetworkTarget } from '../core/game/scan'
 import { rememberPing, rememberScan } from '../core/game/discovery'
-import { isScanTargetKnown } from '../core/game/scanEligibility'
+import { resolveKnownScanTarget } from '../core/game/scanEligibility'
 import { bootstrapPlayer, composeCanonicalOperationState, projectAuthenticatedPlayerState, resolveCanonicalPrimaryDevice } from './bootstrap'
 import type { AuthenticatedSnapshot, OnlineWorldDocument, PlayerPrivateState } from './model'
 import { hashPassword, normalizeAccountName, validateAuthenticationInput, verifyPassword } from './password'
@@ -91,12 +91,13 @@ export class OnlineWorldStore {
       const index = this.document.players.findIndex(({ id }) => id === account.playerId); if (index < 0) throw new Error('Player not found.')
       const player = this.document.players[index]; const state = composeCanonicalOperationState(this.document.shared, player)
       if (!findInstalledNodeScan(state.player.localDevice)) return { result: { status: 'software_unavailable' }, snapshot: this.snapshotForAccount(account.id) }
-      if (kind === 'scan' && !isScanTargetKnown(state, input)) {
+      const admittedScanInput = kind === 'scan' ? resolveKnownScanTarget(state, input) : undefined
+      if (kind === 'scan' && !admittedScanInput) {
         return { result: { status: 'unknown_target', input }, snapshot: this.snapshotForAccount(account.id) }
       }
       const result = kind === 'ping'
         ? pingNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, input)
-        : scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, input)
+        : scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, admittedScanInput!)
       const discovery = kind === 'ping' ? rememberPing(state.discovery, result as ReturnType<typeof pingNetworkTarget>, state.player.primaryDeviceId) : rememberScan(state.discovery, result as ReturnType<typeof scanNetworkTarget>, state.player.primaryDeviceId)
       if (discovery !== state.discovery) {
         const privateState: PlayerPrivateState = { ...player.privateState, discovery }
