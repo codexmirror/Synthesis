@@ -275,4 +275,29 @@ describe('online persistence admission', () => {
         : player) }), 'cross-Player')
     }
   })
+
+  it('rejects ambiguous canonical Device and Network stable identities', async () => {
+    await expectInvalid((d) => ({ ...d, shared: { ...d.shared, state: { ...d.shared.state, world: { network: {
+      ...d.shared.state.world.network,
+      hosts: [...d.shared.state.world.network.hosts, d.shared.state.world.network.hosts[0]],
+    } } } } }), 'Duplicate')
+    await expectInvalid((d) => ({ ...d, shared: { ...d.shared, state: { ...d.shared.state, world: { network: {
+      ...d.shared.state.world.network,
+      localNetworks: [...d.shared.state.world.network.localNetworks, d.shared.state.world.network.localNetworks[0]],
+    } } } } }), 'Duplicate')
+    await expectInvalid((d) => ({ ...d, shared: { ...d.shared, state: { ...d.shared.state, world: { network: {
+      ...d.shared.state.world.network,
+      hosts: [...d.shared.state.world.network.hosts, d.shared.playerDevices[0]],
+    } } } } }), 'collides')
+  })
+
+  it('rejects collapsed Primary, Gateway, and starter-server Device roles', async () => {
+    for (const [target, source] of [
+      ['gatewayDeviceId', 'primaryDeviceId'],
+      ['starterServerDeviceId', 'primaryDeviceId'],
+      ['starterServerDeviceId', 'gatewayDeviceId'],
+    ] as const) {
+      await expectInvalid((d) => ({ ...d, players: d.players.map((player) => ({ ...player, [target]: player[source] })) }), 'not distinct')
+    }
+  })
 })

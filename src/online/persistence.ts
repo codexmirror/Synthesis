@@ -95,9 +95,12 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
   const h = hosts as Record<string, unknown>[]
   if (!uniqueStrings(a.map(({ id }) => id)) || !uniqueStrings(a.map(({ normalizedName }) => normalizedName))
     || !uniqueStrings(p.map(({ id }) => id)) || !uniqueStrings(d.map(({ id }) => id))
+    || !uniqueStrings(h.map(({ id }) => id)) || !uniqueStrings(n.map(({ id }) => id))
     || !uniqueStrings(s.map(({ id }) => id)) || !uniqueStrings(s.map(({ tokenHash }) => tokenHash))) {
     throw new Error('Duplicate or invalid online persistence identity.')
   }
+  const hostDeviceIds = new Set(h.map(({ id }) => id))
+  if (d.some(({ id }) => hostDeviceIds.has(id))) throw new Error('Canonical Device identity collides across online Device registries.')
   const dollarFinance = record(state.dollarFinance)
   const sharedDollarSessions = record(dollarFinance?.sessions)
   if (!Array.isArray(dollarFinance?.accounts) || !Array.isArray(dollarFinance?.credentials)
@@ -114,6 +117,7 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
     || !uniqueStrings(p.map(({ starterServerDeviceId }) => starterServerDeviceId))
     || !uniqueStrings(claimedOwnedDeviceIds)) throw new Error('Conflicting cross-Player ownership or generated topology identity.')
   for (const player of p) {
+    if (new Set([player.primaryDeviceId, player.gatewayDeviceId, player.starterServerDeviceId]).size !== 3) throw new Error('Persisted Player generated Device roles are not distinct.')
     if (!hasRequiredPlayerPrivateShape(player.privateState) || !Array.isArray(player.ownedDeviceIds)
       || !uniqueStrings(player.ownedDeviceIds) || !player.ownedDeviceIds.includes(player.primaryDeviceId)
       || player.ownedDeviceIds.some((deviceId) => !exactlyOne(d, 'id', deviceId))) throw new Error('Invalid persisted Player Device ownership or private runtime state.')
