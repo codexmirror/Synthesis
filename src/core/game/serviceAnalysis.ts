@@ -22,7 +22,7 @@ export function resolveServiceEndpoint(state: GameState, endpoint: string): { ta
   const port = Number(portText)
   if (port < 1 || port > 65535) return 'invalid'
   const path = resolveNetworkPath(state, state.player.localDevice.id, ip, port)
-  return path.kind !== 'NO_ROUTE' && path.targetService ? { targetDeviceId: path.target.id, serviceId: path.targetService.id } : undefined
+  return path.kind !== 'NO_ROUTE' && path.target && path.targetService ? { targetDeviceId: path.target.id, serviceId: path.targetService.id } : undefined
 }
 
 function currentService(state: GameState, targetDeviceId: string, serviceId: string): { usable: boolean; hostIp?: string; service?: NetworkService } {

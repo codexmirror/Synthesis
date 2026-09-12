@@ -71,10 +71,10 @@ export function scanFromDevice(state: Readonly<GameState>, sourceDeviceId: strin
   }
   const path = resolveNetworkPath(state, sourceDeviceId, input)
   if (path.kind === 'NO_ROUTE') return { status: 'no_response', address: input }
-  const target = path.target
+  const target = path.kind === 'EXPOSED_EDGE' ? (path.target ?? path.gateway) : path.target
   if (!isDeviceNetworkUsable(target.operational)) return { status: 'no_response', address: input }
   const network = resolveDeviceNetwork({ localDevice: state.player.localDevice, network: state.world.network }, target.id)
   const gateway = path.kind === 'DIRECT_LOCAL' && network ? resolveNetworkGateway({ localDevice: state.player.localDevice, network: state.world.network }, network) : undefined
-  const services = path.kind === 'EXPOSED_EDGE' ? [path.targetService] : ((target as NetworkHost).services ?? []).filter(({ open }) => open)
+  const services = path.kind === 'EXPOSED_EDGE' && path.targetService ? [path.targetService] : ((target as NetworkHost).services ?? []).filter(({ open }) => open)
   return { status: 'device', targetId: target.id, address: input, scope: path.kind === 'DIRECT_LOCAL' ? 'lan' : 'remote', networks: path.kind === 'DIRECT_LOCAL' && network ? [{ id: network.id, ...(network.cidr ? { cidr: network.cidr } : {}), ...(gateway ? { gateway: { targetId: gateway.deviceId, address: gateway.address, scope: 'lan' as const } } : {}) }] : [], services: services.filter(({ open }) => open).map(({ id, name, port, protocol }) => ({ id, name, port, protocol })), ...(classifying ? { classification: classifyDeviceKind(target.deviceType) } : {}) }
 }

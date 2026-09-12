@@ -7,7 +7,7 @@ describe('PING observation boundary', () => {
   it('returns only stable identity and observed address', () => {
     const state = createInitialGameState()
     expect(pingNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '203.0.113.42')).toEqual({
-      status: 'device', targetId: 'host-lan-002', address: '203.0.113.42',
+      status: 'device', targetId: 'router-foreign-001', address: '203.0.113.42',
     })
   })
 
@@ -16,7 +16,7 @@ describe('PING observation boundary', () => {
     const targets = { localDevice: state.player.localDevice, network: state.world.network }
     const remembered = rememberPing(state.discovery, pingNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
     expect(remembered).toEqual({ networks: [], networkDeviceRelations: [], devices: [{
-      id: 'host-lan-002', address: '203.0.113.42', scope: 'unknown', servicesObserved: false, services: [],
+      id: 'router-foreign-001', address: '203.0.113.42', scope: 'unknown', servicesObserved: false, services: [],
     }] })
     expect(rememberPing(state.discovery, pingNetworkTarget(targets, '192.0.2.250'), state.player.localDevice.id)).toBe(state.discovery)
   })
@@ -25,7 +25,7 @@ describe('PING observation boundary', () => {
     const state = createInitialGameState()
     const targets = { localDevice: state.player.localDevice, network: state.world.network }
     const remembered = rememberPing(state.discovery, pingNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
-    const movedNetwork = { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-002' ? { ...host, ip: '203.0.113.99' } : host) }
+    const movedNetwork = { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'router-foreign-001' ? { ...host, ip: '203.0.113.99' } : host) }
     expect(remembered.devices[0].address).toBe('203.0.113.42')
     const refreshed = rememberPing(remembered, pingNetworkTarget({ localDevice: state.player.localDevice, network: movedNetwork }, '203.0.113.99'), state.player.localDevice.id)
     expect(refreshed.devices[0].address).toBe('203.0.113.99')

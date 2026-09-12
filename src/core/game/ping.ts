@@ -11,17 +11,14 @@ export type PingResult =
 
 /** Observe only whether a represented Device currently responds at an IPv4 address. */
 export function pingNetworkTarget(targets: Readonly<PingTargets>, input: string): PingResult {
-  if (!isValidIpv4(input)) return { status: 'invalid_address', input }
-  const resolved = resolveNetworkTarget(targets, input)
-  if (!resolved) return { status: 'no_response', address: input }
-  return isDeviceNetworkUsable(resolved.entity.operational)
-    ? { status: 'device', targetId: resolved.entity.id, address: input }
-    : { status: 'no_response', address: input }
+  const state = { player: { localDevice: targets.localDevice }, world: { network: targets.network } } as GameState
+  return pingFromDevice(state, targets.localDevice.id, input)
 }
 
 export function pingFromDevice(state: Readonly<GameState>, sourceDeviceId: string, input: string): PingResult {
   if (!isValidIpv4(input)) return { status: 'invalid_address', input }
   const path = resolveNetworkPath(state, sourceDeviceId, input)
   if (path.kind === 'NO_ROUTE') return { status: 'no_response', address: input }
-  return isDeviceNetworkUsable(path.target.operational) ? { status: 'device', targetId: path.target.id, address: input } : { status: 'no_response', address: input }
+  const target = path.kind === 'EXPOSED_EDGE' ? (path.target ?? path.gateway) : path.target
+  return isDeviceNetworkUsable(target.operational) ? { status: 'device', targetId: target.id, address: input } : { status: 'no_response', address: input }
 }

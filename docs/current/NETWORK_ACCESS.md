@@ -12,7 +12,9 @@ Device and represented World Truth. Player Information admits target selection;
 it never creates reachability. The only current paths are `DIRECT_LOCAL` for
 unambiguous common LocalNetwork membership (no default Gateway traversal), and
 `EXPOSED_EDGE` for a target Network's valid default Gateway public address and
-one explicit protocol/port exposure to a real member Device Service. Missing,
+a concrete protocol/port exposure to a real member Device Service. Portless
+PING/host Scan observes the public Gateway itself, independently of how many
+exposures it forwards; it never selects an arbitrary backend. Missing,
 dangling, invalid, or ambiguous membership, gateway, exposure, target, or
 Service truth is `NO_ROUTE`.
 
@@ -21,7 +23,10 @@ exposure references `srv-02`'s existing GateSSH Service; it owns no copied
 implementation, open-state, or authentication truth. External reconnaissance
 therefore observes only the exposed endpoint, not internal addressing or
 topology. A remote operating context makes its target Device the execution
-source, but does not lend local software to it. Gateway-hop evidence is
+source, but does not lend local software to it. Remote `ip` reads the operated
+Device's intrinsic address/CIDR/gateway configuration, and remote Scan uses the
+same Player-Information admission boundary as local Scan before source-specific
+reachability. Gateway-hop evidence is
 Router-owned; common LocalNetwork membership creates no omniscient activity
 record.
 

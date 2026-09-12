@@ -17,7 +17,8 @@ export interface RemoteCommandOperations {
   readonly startRemoteFileDownload: (path: string) => StartRemoteFileDownloadResult
   readonly startRemoteFileUpload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult
   readonly nodeMiner: NodeMinerTerminalOperations
-  readonly scan: (input: string) => ScanResult
+  readonly scan: (input: string) => ScanResult | { readonly status: 'software_unavailable' }
+  readonly networkContext: () => readonly string[]
 }
 
 export function runRemoteCommand(context: ActiveRemoteTarget, source: string, operations: RemoteCommandOperations): RemoteCommandResult {
@@ -27,7 +28,7 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string, op
   const nodeMinerSoftware = context.target.installedSoftware?.find(({ id }) => id === 'node-miner')
   if (name === 'help') return { output: [`${context.target.firmware!.name.toUpperCase()} ${context.target.firmware!.version}`, 'help  clear  ip  scan  ls  cat  download  upload  disconnect', ...(nodeMinerAvailable && nodeMinerSoftware ? ['', `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, `node-miner — ${NODE_MINER_TERMINAL_DESCRIPTION}`] : [])] }
   if (name === 'clear') return { output: [], clear: true }
-  if (name === 'ip') return { output: [context.target.ip] }
+  if (name === 'ip') return { output: operations.networkContext() }
   if (name === 'scan') {
     if (args.length !== 1) return { output: ['USAGE: scan <network|address>'] }
     const result = operations.scan(args[0])

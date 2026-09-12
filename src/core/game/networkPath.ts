@@ -2,7 +2,7 @@ import type { GameState, LocalDeviceState, LocalNetwork, NetworkHost, NetworkSer
 
 export type NetworkPath =
   | { readonly kind: 'DIRECT_LOCAL'; readonly source: LocalDeviceState | NetworkHost; readonly target: LocalDeviceState | NetworkHost; readonly targetService?: NetworkService }
-  | { readonly kind: 'EXPOSED_EDGE'; readonly source: LocalDeviceState | NetworkHost; readonly target: NetworkHost; readonly targetService: NetworkService; readonly gateway: NetworkHost }
+  | { readonly kind: 'EXPOSED_EDGE'; readonly source: LocalDeviceState | NetworkHost; readonly gateway: NetworkHost; readonly target?: NetworkHost; readonly targetService?: NetworkService }
   | { readonly kind: 'NO_ROUTE' }
 
 export function resolveDevice(state: Readonly<GameState>, id: string): LocalDeviceState | NetworkHost | undefined {
@@ -18,6 +18,17 @@ function validGateway(state: Readonly<GameState>, network: LocalNetwork): Networ
   if (!network.gatewayDeviceId || !network.memberDeviceIds.includes(network.gatewayDeviceId)) return undefined
   const matches = state.world.network.hosts.filter((host) => host.id === network.gatewayDeviceId && host.deviceType === 'ROUTER')
   return matches.length === 1 ? matches[0] : undefined
+}
+
+/** Intrinsic configuration of one represented Device. It never creates
+ * Discovery: `ip` observes SELF in the current operating context. */
+export function resolveDeviceNetworkContext(state: Readonly<GameState>, deviceId: string): { readonly address: string; readonly cidr: string; readonly gateway: string } | undefined {
+  const device = resolveDevice(state, deviceId)
+  const network = uniqueNetwork(state, deviceId)
+  if (!device || !network?.cidr) return undefined
+  const gateway = validGateway(state, network)
+  if (!gateway) return undefined
+  return { address: 'network' in device ? device.network.ip : device.ip, cidr: network.cidr, gateway: gateway.ip }
 }
 
 /** The sole V1 route owner. It derives paths from represented membership and
@@ -42,7 +53,11 @@ export function resolveNetworkPath(state: Readonly<GameState>, sourceDeviceId: s
   if (edgeNetworks.length !== 1) return { kind: 'NO_ROUTE' }
   const network = edgeNetworks[0]; const gateway = validGateway(state, network)
   if (!gateway) return { kind: 'NO_ROUTE' }
-  const matches = (gateway.exposures ?? []).filter((exposure) => exposure.protocol === protocol && (port === undefined || exposure.externalPort === port))
+  // A public address is the Gateway's own edge. Portless reconnaissance may
+  // reach it regardless of how many forwards exist, and must not pretend one
+  // backend is the public endpoint.
+  if (port === undefined) return { kind: 'EXPOSED_EDGE', source, gateway }
+  const matches = (gateway.exposures ?? []).filter((exposure) => exposure.protocol === protocol && exposure.externalPort === port)
   if (matches.length !== 1) return { kind: 'NO_ROUTE' }
   const exposure = matches[0]
   if (!network.memberDeviceIds.includes(exposure.targetDeviceId)) return { kind: 'NO_ROUTE' }
