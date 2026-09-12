@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from '../../core/game/initialState'
 import { rememberScan } from '../../core/game/discovery'
-import { scanNetworkTarget } from '../../core/game/scan'
+import { scanFromDevice } from '../../core/game/scan'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION } from '../../core/game/flipper'
 import { selectTarget } from './targetProjection'
 
 function knownRemote() {
   const base = createInitialGameState()
   const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [...base.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION] } } }
-  const discovery = rememberScan(state.discovery, scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, 'remote-segment-01'), state.player.localDevice.id)
+  // network-foreign-001 has no route from home; srv-02 is the only member the game seeds with NodeScan, so
+  // the genuine Network Scan that legitimately reveals its own topology is sourced from there.
+  const discovery = rememberScan(state.discovery, scanFromDevice(state, 'host-lan-002', 'remote-segment-01'), state.player.localDevice.id)
   return { ...state, discovery }
 }
 

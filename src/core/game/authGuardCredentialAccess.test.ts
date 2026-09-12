@@ -22,7 +22,7 @@ function learned(): GameState {
   let state = createInitialGameState()
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
   const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
-  const analysis = startServiceAnalysis({ ...state, discovery }, observation.targetDeviceId, observation.serviceId)
+  const analysis = startServiceAnalysis({ ...state, discovery }, observation.targetDeviceId, observation.serviceId, observation.endpoint)
   if (analysis.status !== 'started') throw Error(analysis.status)
   return advanceGameState(analysis.state, 20_000)
 }

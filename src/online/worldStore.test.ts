@@ -127,7 +127,7 @@ describe('OnlineWorldStore', () => {
     expect(bobScan.result).toMatchObject({ status: 'device', targetId: bobRecord.primaryDeviceId })
     expect(bobScan.snapshot.state.world.network.localNetworks.some(({ id }) => id === bobRecord.homeNetworkId)).toBe(false)
     await store.observe(alice.token, 'ping', '203.0.113.42')
-    expect(store.restore(alice.token)?.state.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: bobRecord.primaryDeviceId }), expect.objectContaining({ id: 'host-lan-002' })]))
+    expect(store.restore(alice.token)?.state.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: bobRecord.primaryDeviceId }), expect.objectContaining({ id: 'router-foreign-001' })]))
     expect(store.restore(bob.token)?.state.discovery.devices).toHaveLength(0)
     expect(store.restore(bob.token)?.state.mail).not.toBe(store.restore(alice.token)?.state.mail)
     expect(store.restore(bob.token)?.state.nodeWallet.id).not.toBe(store.restore(alice.token)?.state.nodeWallet.id)
@@ -136,7 +136,7 @@ describe('OnlineWorldStore', () => {
   it('restores sessions and progression from versioned persistence and logs out', async () => {
     const { store, path } = await fixture(); const alice = await store.enter('alice', 'correct-horse-1'); await store.observe(alice.token, 'ping', '203.0.113.42')
     const restarted = await new OnlineWorldStore(new JsonWorldPersistence(path)).open()
-    expect(restarted.restore(alice.token)?.state.discovery.devices[0].id).toBe('host-lan-002')
+    expect(restarted.restore(alice.token)?.state.discovery.devices[0].id).toBe('router-foreign-001')
     expect(restarted.restore(alice.token)?.state.player.primaryDeviceId).toBe(alice.snapshot.state.player.primaryDeviceId)
     await restarted.logout(alice.token); expect(restarted.restore(alice.token)).toBeNull()
   })

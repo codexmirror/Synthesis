@@ -16,7 +16,7 @@ function phoneConnectedState(state = createInitialGameState()): GameState {
       targetDeviceId: PHONE_ID, viaServiceId: 'service-ssh-003', privilege: 'USER',
     }] },
   }
-  return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_ID, address: '198.51.100.61' }).state
+  return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_ID, address: '10.42.0.61' }).state
 }
 
 describe('Device-owned Wallet protection', () => {

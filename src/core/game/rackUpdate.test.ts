@@ -20,7 +20,14 @@ import type { GameState, NetworkHost, NetworkService } from './types'
 const RACK_UPDATE_ENDPOINT = { targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', endpoint: '203.0.113.42:8443' }
 const UPD_001_OBSERVATION = { ...RACK_UPDATE_ENDPOINT, vulnerabilityId: 'UPD-001' } as const
 
-/** Scanned, then Analyzed at both the GateSSH and RackUpdate Endpoints — the only current route to their remembered implementation/interface evidence. */
+/**
+ * Scanned, then Analyzed at both the GateSSH and RackUpdate Endpoints —
+ * the only current route to their remembered implementation/interface
+ * evidence. Both are reached through Bookstore's own public Gateway edge,
+ * which forwards each to its own external port; the portless Scan itself
+ * still only ever observes the Gateway's own identity, never pretending one
+ * private backend is the public endpoint.
+ */
 function observed(): GameState {
   let state = createInitialGameState()
   const targets = () => ({ localDevice: state.player.localDevice, network: state.world.network })
@@ -75,6 +82,9 @@ function withStandaloneRollback(state: GameState): GameState {
 
 function alterTarget(state: GameState, alter: (host: NetworkHost) => NetworkHost): GameState {
   return { ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-002' ? alter(host) : host) } } }
+}
+function alterGateway(state: GameState, alter: (host: NetworkHost) => NetworkHost): GameState {
+  return { ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'router-foreign-001' ? alter(host) : host) } } }
 }
 function alterService(state: GameState, id: string, alter: (service: NetworkService) => NetworkService): GameState {
   return alterTarget(state, (host) => ({ ...host, services: host.services!.map((service) => service.id === id ? alter(service) : service) }))
@@ -362,7 +372,7 @@ describe('RackUpdate package submission: represented upload work, not an instant
 
   it.each([
     ['wrong observed endpoint', (state: GameState) => state, { endpoint: '203.0.113.42:9443' }, 'observation_required'],
-    ['stale endpoint after the current port changes', (state: GameState) => alterUpdate(state, (service) => ({ ...service, port: 9443 })), {}, 'service_unavailable'],
+    ['revoked Gateway exposure after the current forward changes', (state: GameState) => alterGateway(state, (host) => ({ ...host, exposures: host.exposures!.filter(({ targetServiceId }) => targetServiceId !== 'service-rack-update-002') })), {}, 'service_unavailable'],
     ['offline target', (state: GameState) => alterTarget(state, (host) => ({ ...host, operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } })), {}, 'service_unavailable'],
     ['closed RackUpdate', (state: GameState) => alterUpdate(state, (service) => ({ ...service, open: false })), {}, 'service_unavailable'],
     ['changed RackUpdate', (state: GameState) => alterUpdate(state, (service) => ({ ...service, implementation: { ...service.implementation, releaseId: 'rack-update-1.1' } })), {}, 'service_unavailable'],

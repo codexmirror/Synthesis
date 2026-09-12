@@ -1,6 +1,6 @@
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DeviceAccess, GameState, NetworkHost, NetworkService, RemoteSession } from './types'
-import { resolveNetworkPath } from './networkPath'
+import { resolvePlayerNetworkPath } from './networkPath'
 
 export interface ActiveRemoteTarget {
   readonly session: RemoteSession
@@ -44,7 +44,7 @@ export function connectRemoteFromObservation(state: GameState, observation: Remo
 
   const target = state.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
   const service = target?.services?.find(({ id }) => id === access.viaServiceId)
-  const path = resolveNetworkPath(state, state.player.localDevice.id, observation.address, service?.port)
+  const path = resolvePlayerNetworkPath(state, observation.address, service?.port)
   if (!isDeviceNetworkUsable(state.player.localDevice.operational) || !target || !isDeviceNetworkUsable(target.operational) || !service?.open || path.kind === 'NO_ROUTE' || path.target?.id !== target.id || path.targetService?.id !== service.id) {
     return { status: 'target_not_available', state }
   }
@@ -87,7 +87,10 @@ export function advanceRemoteSessionReachability(state: GameState): GameState {
   if (!resolved) return state.remoteSession.active
     ? { ...state, remoteSession: { ...state.remoteSession, active: null } }
     : state
-  const path = resolveNetworkPath(state, state.player.localDevice.id, resolved.session.connectedAddress, resolved.service.port)
+  // Re-derived from the target's own current address, never the Session's historical `connectedAddress`:
+  // identity and reachability both resolve through stable World Truth, exactly like `resolveActiveRemoteTarget`
+  // above — a Device's address changing after connection must not itself end a Session built on stable identity.
+  const path = resolvePlayerNetworkPath(state, resolved.target.ip, resolved.service.port)
   if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational) && path.kind !== 'NO_ROUTE' && path.target?.id === resolved.target.id && path.targetService?.id === resolved.service.id) return state
   return { ...state, remoteSession: { ...state.remoteSession, active: null } }
 }

@@ -29,16 +29,17 @@ vi.mock('../../shell/useEditingViewport', () => ({
 }))
 
 const PHONE_DEVICE_ID = 'host-phone-001'
-const PHONE_ADDRESS = '198.51.100.61'
+const PHONE_ADDRESS = '10.42.0.61'
 const PHONE_ACCOUNT_ID = 'dollar-account-veyra-phone-v0'
 
+/** The phone's private segment is reachable only by pivoting through already-compromised srv-02, its Gateway's sole exposed edge. */
 function phoneConnectedState(state = createInitialGameState()): GameState {
   const accessed: GameState = {
     ...state,
-    deviceAccess: { nextId: 2, established: [{
-      id: 'access-phone', sourceDeviceId: state.player.localDevice.id,
-      targetDeviceId: PHONE_DEVICE_ID, viaServiceId: 'service-ssh-003', privilege: 'USER',
-    }] },
+    deviceAccess: { nextId: 3, established: [
+      { id: 'access-server', sourceDeviceId: state.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' },
+      { id: 'access-phone', sourceDeviceId: state.player.localDevice.id, targetDeviceId: PHONE_DEVICE_ID, viaServiceId: 'service-ssh-003', privilege: 'USER' },
+    ] },
   }
   return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_DEVICE_ID, address: PHONE_ADDRESS }).state
 }

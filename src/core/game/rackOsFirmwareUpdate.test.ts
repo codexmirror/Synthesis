@@ -201,7 +201,7 @@ describe('admitting a RACK-OS firmware installation', () => {
   })
 
   it('fails closed on an incompatible Device and on one already running the release', () => {
-    const phone = withArtifactOn(operating(PHONE_ID, '198.51.100.61', 'service-ssh-003'), PHONE_ID)
+    const phone = withArtifactOn(operating(PHONE_ID, '10.42.0.61', 'service-ssh-003'), PHONE_ID)
     const onPhone = startRackOsFirmwareUpdateForOperatedRemoteDevice(phone, INSTALLER_PATH)
     expect(onPhone.status).toBe('incompatible_device')
     expect(onPhone.state).toBe(phone)

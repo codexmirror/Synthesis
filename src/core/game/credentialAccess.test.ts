@@ -256,7 +256,8 @@ describe('Initial credential access', () => {
     expect(done.discovery).not.toBe(discovery); expect(done.knowledge).toBe(knowledge)
     const target = done.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
     expect(target?.authenticationHistory?.records).toEqual([{ id: 'auth-0001', serviceId: observation.serviceId, serviceName: 'SSH', sourceAddress: done.player.localDevice.network.ip, result: 'FAILURE' }])
-    expect(done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')?.activityHistory.records).toContainEqual(expect.objectContaining({ kind: 'connection_attempt', serviceId: observation.serviceId, result: 'FAILURE' }))
+    // A same-Network attempt traverses no Gateway: no Router-owned Network evidence, only the Device-owned Authentication History above.
+    expect(done.world.network.hosts.find(({ id }) => id === 'router-home-001')?.activityHistory?.records).toEqual([])
   })
 
   it('classifies a valid KeyProbe probabilistic rejection distinctly from a stale-surface failure', () => {
@@ -280,25 +281,18 @@ describe('Initial credential access', () => {
   })
 
   describe('Network connection-attempt evidence', () => {
-    // host-lan-001 (the target) and device-local-v0 (the executor) both belong to home-net.
-    it('appends one internal Network record alongside the existing SUCCESS Device history for a same-Network attempt', () => {
+    // host-lan-001 (the target) and device-local-v0 (the executor) both belong to home-net: V1 path evidence
+    // belongs only to concrete Gateway hops, so a same-Network (internal) attempt traverses none.
+    it('creates no Gateway evidence for a same-Network (internal) attempt, only Device-owned Authentication History', () => {
       const done = advanceGameState(start(), 30_000)
-      const homeNet = done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
-      expect(homeNet?.activityHistory.records).toEqual([{
-        id: 'net-activity-0001', kind: 'connection_attempt', perspective: 'internal',
-        sourceDeviceId: 'device-local-v0', targetDeviceId: observation.targetDeviceId,
-        sourceAddress: done.player.localDevice.network.ip, targetAddress: '198.51.100.47',
-        serviceId: observation.serviceId, serviceName: 'SSH', result: 'SUCCESS',
-      }])
-      const otherNet = done.world.network.localNetworks.find(({ id }) => id === 'network-foreign-001')
-      expect(otherNet?.activityHistory.records).toEqual([])
+      expect(done.world.network.hosts.find(({ id }) => id === 'router-home-001')?.activityHistory?.records).toEqual([])
+      expect(done.world.network.hosts.find(({ id }) => id === 'router-foreign-001')?.activityHistory?.records).toEqual([])
     })
 
-    it('appends one internal Network record with FAILURE for a reached, failed attempt', () => {
+    it('creates no Gateway evidence for a same-Network attempt that reaches the target and legitimately fails', () => {
       const running = start()
       const done = advanceGameState(changeService(running, (service) => ({ ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.4.0', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.4.0' } })), 30_000)
-      const homeNet = done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
-      expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ kind: 'connection_attempt', result: 'FAILURE' })])
+      expect(done.world.network.hosts.find(({ id }) => id === 'router-home-001')?.activityHistory?.records).toEqual([])
     })
 
     it.each([
@@ -308,27 +302,32 @@ describe('Initial credential access', () => {
       const running = start()
       const done = advanceGameState(mutate(running), 30_000)
       for (const network of done.world.network.localNetworks) expect(network.activityHistory.records).toEqual([])
+      for (const host of done.world.network.hosts) if (host.activityHistory) expect(host.activityHistory.records).toEqual([])
     })
 
     it('never stores Player, toolkit, or vulnerability identity on the Network record', () => {
-      const done = advanceGameState(start(), 30_000)
-      const record = done.world.network.localNetworks.find(({ id }) => id === 'network-local-001')?.activityHistory.records[0]
+      const running = start()
+      const runningProcess = running.process.processes.at(-1) as CredentialAccessProcess
+      // A cross-Network attempt is required to produce any Gateway-owned Network evidence at all (see above).
+      const crossProcess: CredentialAccessProcess = { ...runningProcess, status: 'completed', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', startedEndpoint: '203.0.113.42:22' }
+      const resolved = resolveCompletedCredentialAccess(running, crossProcess)
+      const record = resolved.world.network.hosts.find(({ id }) => id === 'router-home-001')?.activityHistory?.records[0]
       expect(record).not.toHaveProperty('toolId')
       expect(record).not.toHaveProperty('vulnerabilityId')
       expect(record).not.toHaveProperty('playerId')
     })
 
-    it('appends distinct source-side (home-net) and destination-side (remote-segment-01) Network records for a cross-Network attempt reaching srv-02', () => {
+    it('appends distinct source-side (home-net) and destination-side (remote-segment-01) Gateway records for a cross-Network attempt reaching srv-02', () => {
       const running = start()
       const runningProcess = running.process.processes.at(-1) as CredentialAccessProcess
       // srv-02 is patched for AUTH-017, so this reaches the represented target/service and legitimately resolves FAILURE.
       const crossProcess: CredentialAccessProcess = { ...runningProcess, status: 'completed', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002', startedEndpoint: '203.0.113.42:22' }
       const resolved = resolveCompletedCredentialAccess(running, crossProcess)
       expect(resolved.process.result).toEqual({ status: 'attempt_failed', message: 'Authentication attempt failed.', reason: 'surface_mismatch' })
-      const homeNet = resolved.world.network.localNetworks.find(({ id }) => id === 'network-local-001')
-      const foreignNet = resolved.world.network.localNetworks.find(({ id }) => id === 'network-foreign-001')
-      expect(homeNet?.activityHistory.records).toEqual([expect.objectContaining({ perspective: 'outbound', targetDeviceId: 'host-lan-002', sourceDeviceId: running.player.localDevice.id, result: 'FAILURE' })])
-      expect(foreignNet?.activityHistory.records).toEqual([expect.objectContaining({ perspective: 'inbound', targetDeviceId: 'host-lan-002', result: 'FAILURE' })])
+      const homeGateway = resolved.world.network.hosts.find(({ id }) => id === 'router-home-001')
+      const foreignGateway = resolved.world.network.hosts.find(({ id }) => id === 'router-foreign-001')
+      expect(homeGateway?.activityHistory?.records).toEqual([expect.objectContaining({ perspective: 'outbound', targetDeviceId: 'host-lan-002', sourceDeviceId: running.player.localDevice.id, result: 'FAILURE' })])
+      expect(foreignGateway?.activityHistory?.records).toEqual([expect.objectContaining({ perspective: 'inbound', targetDeviceId: 'host-lan-002', result: 'FAILURE' })])
     })
   })
 

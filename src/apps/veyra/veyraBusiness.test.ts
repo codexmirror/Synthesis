@@ -21,10 +21,14 @@ import { projectVeyraBusiness } from './veyraBusiness'
 const PHONE_ID = 'host-phone-001'
 const OPS_ID = 'host-lan-003'
 
-function operating(state: GameState, targetDeviceId = PHONE_ID, viaServiceId = 'service-ssh-003', address = '198.51.100.61'): GameState {
+/** Both VEYRA targets sit on the private `network-foreign-001`: reachable only by pivoting through already-compromised srv-02, its Gateway's sole exposed edge. */
+function operating(state: GameState, targetDeviceId = PHONE_ID, viaServiceId = 'service-ssh-003', address = '10.42.0.61'): GameState {
   const accessed: GameState = {
     ...state,
-    deviceAccess: { nextId: 2, established: [{ id: `access-${targetDeviceId}`, sourceDeviceId: state.player.localDevice.id, targetDeviceId, viaServiceId, privilege: 'USER' }] },
+    deviceAccess: { nextId: 3, established: [
+      { id: 'access-server', sourceDeviceId: state.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' },
+      { id: `access-${targetDeviceId}`, sourceDeviceId: state.player.localDevice.id, targetDeviceId, viaServiceId, privilege: 'USER' },
+    ] },
   }
   const connected = connectRemoteFromObservation(accessed, { targetDeviceId, address })
   if (connected.status !== 'connected') throw new Error(connected.status)
@@ -223,7 +227,7 @@ describe('VEYRA Business projection', () => {
   })
 
   it('is not resolvable for a Device that is merely operated', () => {
-    const ops = operating(createInitialGameState(), OPS_ID, 'service-ssh-004', '203.0.113.43')
+    const ops = operating(createInitialGameState(), OPS_ID, 'service-ssh-004', '10.42.0.43')
     expect(projectVeyraBusiness(ops)).toEqual({ status: 'no_company_access' })
     expect(projectVeyraBusiness(createInitialGameState())).toEqual({ status: 'no_company_access' })
   })

@@ -260,7 +260,12 @@ export function createInitialGameState(): GameState {
             ip: '203.0.113.42',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             services: [{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', buildId: BASIC_HTTP_1_0_BUILD_ID, name: 'Basic HTTP', version: '1.0' } }],
-            exposures: [{ protocol: 'TCP', externalPort: 22, targetDeviceId: 'host-lan-002', targetServiceId: 'service-ssh-002' }],
+            // Bookstore's own public Gateway edge forwards both its GateSSH admin surface and its RackUpdate
+            // management surface; the backend's other Service (its own Bookstore Backend included) stays private.
+            exposures: [
+              { protocol: 'TCP', externalPort: 22, targetDeviceId: 'host-lan-002', targetServiceId: 'service-ssh-002' },
+              { protocol: 'TCP', externalPort: 8443, targetDeviceId: 'host-lan-002', targetServiceId: 'service-rack-update-002' },
+            ],
             activityHistory: { nextId: 1, records: [] },
           },
           // Deliberately shallow: operational truth is independent of hardware/runtime representation, so this unreachable training host needs no fabricated resource state to participate in it.

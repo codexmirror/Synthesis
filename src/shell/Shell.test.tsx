@@ -276,7 +276,7 @@ describe('Remote Session handoff', () => {
 })
 
 describe('Firmware-driven remote operating surface', () => {
-  const phoneObservation = { targetDeviceId: 'host-phone-001', address: '198.51.100.61' }
+  const phoneObservation = { targetDeviceId: 'host-phone-001', address: '10.42.0.61' }
 
   /** An entered-Session world for the represented VEYRA phone, optionally running other Firmware. */
   function phoneConnectedState(firmware?: FirmwareState): GameState {

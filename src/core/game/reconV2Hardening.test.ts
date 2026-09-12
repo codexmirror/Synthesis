@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createInitialGameState } from './initialState'
 import { createEmptyDiscovery, rememberPing, rememberScan } from './discovery'
-import { scanNetworkTarget } from './scan'
+import { scanFromDevice, scanNetworkTarget } from './scan'
 import { pingNetworkTarget } from './ping'
 import { createRefreshNetwork } from '../../app/targetDiscoveryOperation'
 import { createLocalScanTarget } from '../../app/localScanOperation'
@@ -42,6 +42,24 @@ function withNodeScan12(state: GameState): GameState {
   }
 }
 
+/** Upgrades srv-02's own NodeScan install to 1.2, for tests that pivot Scans through it as source. */
+function withPivotNodeScan12(state: GameState): GameState {
+  return {
+    ...state,
+    world: {
+      ...state.world,
+      network: {
+        ...state.world.network,
+        hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-002'
+          ? { ...host, installedSoftware: (host.installedSoftware ?? []).map((software) => software.id === 'nodescan'
+            ? { id: NODESCAN_1_2_STANDARD.productId, releaseId: NODESCAN_1_2_STANDARD.releaseId, buildId: NODESCAN_1_2_STANDARD.buildId, name: NODESCAN_1_2_STANDARD.name, version: NODESCAN_1_2_STANDARD.version, channel: NODESCAN_1_2_STANDARD.channel }
+            : software) }
+          : host),
+      },
+    },
+  }
+}
+
 const targetsOf = (state: GameState) => ({ localDevice: state.player.localDevice, network: state.world.network })
 
 /** The realistic path to a legitimate Scan-by-address through the application adapter: PING first, exactly as the player must. */
@@ -52,7 +70,9 @@ function pinged(state: GameState, address: string): GameState {
 describe('Host Scan Network expansion (Regression #1)', () => {
   it('gives a scanned remote Host a gameplay path out of ELSEWHERE via its own owned Network, without deep-scanning its peers', () => {
     const state = createInitialGameState()
-    const scan1 = scanNetworkTarget(targetsOf(state), '203.0.113.42')
+    // srv-02's own address has no direct route from home; a Device Scan sourced from srv-02 itself
+    // (the only Device on its private segment running NodeScan) reveals its own Network/Gateway context.
+    const scan1 = scanFromDevice(state, 'host-lan-002', '10.42.0.42')
     const discovery = rememberScan(createEmptyDiscovery(), scan1, state.player.localDevice.id)
 
     expect(discovery.networkDeviceRelations).toContainEqual({ networkId: 'network-foreign-001', deviceId: 'host-lan-002' })
@@ -61,13 +81,13 @@ describe('Host Scan Network expansion (Regression #1)', () => {
     const ops = discovery.devices.find(({ id }) => id === 'host-lan-003')
     expect(phone).toBeUndefined()
     expect(ops).toBeUndefined()
-    expect(discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({ address: '203.0.113.1', servicesObserved: false })
+    expect(discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({ address: '203.0.113.42', servicesObserved: false })
 
     // Only the Host actually scanned is deep: its own Service surface is remembered.
     expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.servicesObserved).toBe(true)
 
     // The player must still explicitly Scan a peer individually to learn its own Endpoint surface.
-    const scan2 = scanNetworkTarget(targetsOf(state), '198.51.100.61')
+    const scan2 = scanFromDevice(state, 'host-lan-002', '10.42.0.61')
     const deeper = rememberScan(discovery, scan2, state.player.localDevice.id)
     expect(deeper.devices.find(({ id }) => id === 'host-phone-001')).toMatchObject({ servicesObserved: true })
     expect(deeper.devices.find(({ id }) => id === 'host-lan-003')).toBeUndefined()
@@ -75,14 +95,14 @@ describe('Host Scan Network expansion (Regression #1)', () => {
 
   it('never leaks the Network\'s own mutable display name from an incidental Host Scan relation', () => {
     const state = createInitialGameState()
-    const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.42'), state.player.localDevice.id)
+    const discovery = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     const network = discovery.networks.find(({ id }) => id === 'network-foreign-001')!
     expect(network.name).toBeUndefined()
-    expect(network.cidr).toBe('203.0.113.0/24')
+    expect(network.cidr).toBe('10.42.0.0/24')
     expect(JSON.stringify(discovery)).not.toContain('remote-segment-01')
 
     // A genuine Network Scan by CIDR is the separate legitimate observation that earns the real name.
-    const named = rememberScan(discovery, scanNetworkTarget(targetsOf(state), '203.0.113.0/24'), state.player.localDevice.id)
+    const named = rememberScan(discovery, scanFromDevice(state, 'host-lan-002', '10.42.0.0/24'), state.player.localDevice.id)
     expect(named.networks.find(({ id }) => id === 'network-foreign-001')?.name).toBe('remote-segment-01')
   })
 
@@ -92,7 +112,10 @@ describe('Host Scan Network expansion (Regression #1)', () => {
       ...state.world.network.localNetworks,
       { ...state.world.network.localNetworks[1], id: 'network-foreign-002', name: 'also-remote', cidr: '198.18.0.0/24' },
     ] }
-    const result = scanNetworkTarget({ localDevice: state.player.localDevice, network: ambiguous }, '203.0.113.42')
+    const ambiguousState = { ...state, world: { ...state.world, network: ambiguous } }
+    // A self-scan always resolves regardless of membership ambiguity; only the represented Network
+    // relation itself fails closed here, exactly like any other ambiguous membership resolution.
+    const result = scanFromDevice(ambiguousState, 'host-lan-002', '10.42.0.42')
     expect(result).toMatchObject({ status: 'device', networks: [] })
   })
 })
@@ -100,28 +123,28 @@ describe('Host Scan Network expansion (Regression #1)', () => {
 describe('NodeScan 1.2 Device classification lifecycle', () => {
   it('classifies an individually scanned Router as NETWORK DEVICE without revealing display identity', () => {
     const state = withNodeScan12(createInitialGameState())
-    const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.1'), state.player.localDevice.id)
+    const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.42'), state.player.localDevice.id)
     const router = discovery.devices.find(({ id }) => id === 'router-foreign-001')
-    expect(router).toMatchObject({ address: '203.0.113.1', classification: 'NETWORK DEVICE', servicesObserved: true })
-    expect(router?.services).toEqual([{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', endpoint: '203.0.113.1:80' }])
+    expect(router).toMatchObject({ address: '203.0.113.42', classification: 'NETWORK DEVICE', servicesObserved: true })
+    expect(router?.services).toEqual([{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', endpoint: '203.0.113.42:80' }])
     expect(router?.inspect).toBeUndefined()
   })
   it('never remembers classification below NodeScan 1.2', () => {
     const state = createInitialGameState()
-    const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.42'), state.player.localDevice.id)
+    const discovery = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBeUndefined()
   })
 
   it('does not retroactively classify an already-remembered Device merely from installing 1.2', () => {
     const state = createInitialGameState()
-    const scanned = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.42'), state.player.localDevice.id)
+    const scanned = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     // Installing 1.2 after the fact changes nothing about already-remembered Discovery.
     expect(scanned.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBeUndefined()
   })
 
   it('remembers classification from a legitimate Scan performed while 1.2 is installed, as stored Discovery evidence', () => {
-    const state = withNodeScan12(createInitialGameState())
-    const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.42'), state.player.localDevice.id)
+    const state = withPivotNodeScan12(createInitialGameState())
+    const discovery = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
 
     const projected = selectTarget({ ...state, discovery }, 'host-lan-002')
@@ -131,9 +154,9 @@ describe('NodeScan 1.2 Device classification lifecycle', () => {
   })
 
   it('classifies the phone as a mobile device, never by its concrete Device identity', () => {
-    const state = withNodeScan12(createInitialGameState())
+    const state = withPivotNodeScan12(createInitialGameState())
     expect(state.world.network.hosts.find(({ id }) => id === 'host-phone-001')?.displayName).toContain('Phone')
-    const discovery = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '198.51.100.61'), state.player.localDevice.id)
+    const discovery = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.61'), state.player.localDevice.id)
     const phone = discovery.devices.find(({ id }) => id === 'host-phone-001')
     expect(phone?.classification).toBe('MOBILE DEVICE')
     expect(JSON.stringify(discovery)).not.toMatch(/Petra/i)
@@ -144,17 +167,17 @@ describe('NodeScan 1.2 Device classification lifecycle', () => {
   })
 
   it('survives a NodeScan downgrade once legitimately remembered', () => {
-    const state12 = withNodeScan12(createInitialGameState())
-    const classified = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state12), '203.0.113.42'), state12.player.localDevice.id)
+    const state12 = withPivotNodeScan12(createInitialGameState())
+    const classified = rememberScan(createEmptyDiscovery(), scanFromDevice(state12, 'host-lan-002', '10.42.0.42'), state12.player.localDevice.id)
 
-    const state10 = createInitialGameState() // NodeScan 1.0, downgraded from 1.2
-    const rescanned = rememberScan(classified, scanNetworkTarget(targetsOf(state10), '203.0.113.42'), state10.player.localDevice.id)
+    const state10 = createInitialGameState() // srv-02's own NodeScan 1.0, downgraded from 1.2
+    const rescanned = rememberScan(classified, scanFromDevice(state10, 'host-lan-002', '10.42.0.42'), state10.player.localDevice.id)
     expect(rescanned.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
   })
 
   it('never silently refreshes from a hidden World Truth change; only another legitimate 1.2 observation may refresh it', () => {
-    const state = withNodeScan12(createInitialGameState())
-    const classified = rememberScan(createEmptyDiscovery(), scanNetworkTarget(targetsOf(state), '203.0.113.42'), state.player.localDevice.id)
+    const state = withPivotNodeScan12(createInitialGameState())
+    const classified = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     expect(classified.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
 
     // Hidden World Truth changes underneath the remembered classification.
@@ -163,40 +186,41 @@ describe('NodeScan 1.2 Device classification lifecycle', () => {
     expect(classified.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
 
     // Only a later legitimate 1.2 Scan may refresh it, and it may refresh it to a different value.
-    const refreshed = rememberScan(classified, scanNetworkTarget(targetsOf(reclassifiedWorld), '203.0.113.42'), reclassifiedWorld.player.localDevice.id)
+    const refreshed = rememberScan(classified, scanFromDevice(reclassifiedWorld, 'host-lan-002', '10.42.0.42'), reclassifiedWorld.player.localDevice.id)
     expect(refreshed.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('MOBILE DEVICE')
   })
 
   it('lets a legitimate Network Refresh under 1.2 refresh classification for the Hosts it re-observes, without a hidden second observation', async () => {
-    let state = pinged(withNodeScan12(createInitialGameState()), '203.0.113.42')
+    // srv-02's own foreign segment has no Network Refresh route from home; home-net's own genuine
+    // multi-member Network exercises the identical Refresh + classification lifecycle instead.
+    let state = pinged(withNodeScan12(createInitialGameState()), '198.51.100.47')
     const scan = createLocalScanTarget(() => state, (next) => { state = next })
-    // A Host Scan of host-lan-002 both classifies it and legitimately earns network-foreign-001's CIDR.
-    await scan('203.0.113.42')
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-002')?.servicesObserved).toBe(true)
+    // A Host Scan of srv-01 both classifies it and legitimately earns home-net's CIDR.
+    await scan('198.51.100.47')
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.classification).toBe('SERVER')
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.servicesObserved).toBe(true)
 
     const refresh = createRefreshNetwork(() => state, (next) => { state = next })
-    expect(await refresh('network-foreign-001')).toEqual({ status: 'refreshed' })
+    expect(await refresh('network-local-001')).toEqual({ status: 'refreshed' })
     // Refresh's own genuine Network Scan re-observes every member, including the still-shallow peer.
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-003')?.classification).toBe('SERVER')
-    expect(state.discovery.devices.find(({ id }) => id === 'host-phone-001')?.classification).toBe('MOBILE DEVICE')
+    expect(state.discovery.devices.find(({ id }) => id === 'router-home-001')?.classification).toBe('NETWORK DEVICE')
     // Refresh still never deepens a remembered Host beyond Network Scan ownership.
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-003')?.servicesObserved).toBe(false)
+    expect(state.discovery.devices.find(({ id }) => id === 'router-home-001')?.servicesObserved).toBe(false)
   })
 
   it('never lets a lower-release Network Scan erase classification already remembered from an earlier 1.2 observation', async () => {
-    let state = pinged(withNodeScan12(createInitialGameState()), '203.0.113.42')
+    let state = pinged(withNodeScan12(createInitialGameState()), '198.51.100.47')
     const scan12 = createLocalScanTarget(() => state, (next) => { state = next })
-    await scan12('203.0.113.42')
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
+    await scan12('198.51.100.47')
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.classification).toBe('SERVER')
 
     state = downgradeToNodeScan10(state) // downgrade to NodeScan 1.0, keep Discovery
     const refresh10 = createRefreshNetwork(() => state, (next) => { state = next })
-    expect(await refresh10('network-foreign-001')).toEqual({ status: 'refreshed' })
+    expect(await refresh10('network-local-001')).toEqual({ status: 'refreshed' })
     // The 1.0 Refresh re-observes every member, but classification is 1.2's own capability: it neither erases
     // the already-earned classification nor extends it to the still-shallow, never-classified peer.
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
-    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-003')?.classification).toBeUndefined()
+    expect(state.discovery.devices.find(({ id }) => id === 'host-lan-001')?.classification).toBe('SERVER')
+    expect(state.discovery.devices.find(({ id }) => id === 'router-home-001')?.classification).toBeUndefined()
   })
 })
 
@@ -207,19 +231,19 @@ function downgradeToNodeScan10(state: GameState): GameState {
 
 describe('Terminal / NodeScan shared canonical Discovery', () => {
   it('remembers identical Network expansion and classification whether a Scan is Terminal-triggered or NodeScan-triggered', async () => {
-    const base = pinged(withNodeScan12(createInitialGameState()), '203.0.113.42')
+    const base = pinged(withNodeScan12(createInitialGameState()), '198.51.100.47')
 
     // NodeScan's own path: the graphical target card calls this exact application adapter directly.
     let nodeScanState = base
-    await createLocalScanTarget(() => nodeScanState, (next) => { nodeScanState = next })('203.0.113.42')
+    await createLocalScanTarget(() => nodeScanState, (next) => { nodeScanState = next })('198.51.100.47')
 
     // Terminal's own path: the same adapter, reached through the command dispatcher instead.
     let terminalState = base
     const scanTarget = createLocalScanTarget(() => terminalState, (next) => { terminalState = next })
-    const { dispatched } = dispatchNodeCommand('scan 203.0.113.42', terminalState, actionsWithRealScan(scanTarget), { totalCpuLoad: 0, totalRamUsage: 0 } as never)
+    const { dispatched } = dispatchNodeCommand('scan 198.51.100.47', terminalState, actionsWithRealScan(scanTarget), { totalCpuLoad: 0, totalRamUsage: 0 } as never)
     if (dispatched instanceof Promise) await dispatched
 
     expect(terminalState.discovery).toEqual(nodeScanState.discovery)
-    expect(terminalState.discovery.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBe('SERVER')
+    expect(terminalState.discovery.devices.find(({ id }) => id === 'host-lan-001')?.classification).toBe('SERVER')
   })
 })

@@ -4,20 +4,40 @@ import { rememberScan } from './discovery'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation, resolveActiveRemoteTarget } from './remoteSession'
-import { scanNetworkTarget } from './scan'
+import { scanFromDevice, scanNetworkTarget } from './scan'
 import { startServiceAnalysis } from './serviceAnalysis'
 import { VEYRA_OS_4_1_FIRMWARE_ID } from './firmwareIdentity'
 import type { GameState } from './types'
 
+const SRV_02 = 'host-lan-002'
 const PHONE = 'host-phone-001'
-const PHONE_ADDRESS = '198.51.100.61'
+const PHONE_ADDRESS = '10.42.0.61'
 const observation = { endpoint: `${PHONE_ADDRESS}:22`, targetDeviceId: PHONE, serviceId: 'service-ssh-003', vulnerabilityId: 'AUTH-017' } as const
 
 /**
+ * The phone's own private segment (`network-foreign-001`) has no exposed
+ * edge of its own: srv-02 — already compromised through Bookstore's public
+ * Gateway edge — is the sole pivot into it. Fabricated directly here, like
+ * every other precondition in this file, rather than re-simulating a
+ * chance-based KeyProbe attack against srv-02.
+ */
+function pivotedThroughSrv02(state: GameState): GameState {
+  return {
+    ...state,
+    deviceAccess: { ...state.deviceAccess, nextId: state.deviceAccess.nextId + 1, established: [...state.deviceAccess.established, {
+      id: 'access-server', sourceDeviceId: state.player.localDevice.id,
+      targetDeviceId: SRV_02, viaServiceId: 'service-ssh-002',
+      viaServiceBuildId: 'build-gate-ssh-1.3.3-v0', viaVulnerabilityId: 'AUTH-031', privilege: 'USER' as const,
+    }] },
+  }
+}
+
+/**
  * The represented VEYRA phone is reachable through the game's existing
- * grammar and nothing else: the player scans, finds the represented weakness,
- * uses the tool they already have, and connects. No phone-specific mechanic,
- * operation or shortcut exists, and this proves each step actually happens.
+ * grammar and nothing else: once srv-02 is compromised, the player pivots a
+ * Scan through it, finds the represented weakness, uses the tool they
+ * already have, and connects. No phone-specific mechanic, operation or
+ * shortcut exists, and this proves each step actually happens.
  */
 describe('reaching the VEYRA phone through the existing access loop', () => {
   it('is not discovered by scanning SELF\'s Network', () => {
@@ -29,14 +49,18 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     expect(result.devices.map(({ targetId }) => targetId)).not.toContain(PHONE)
   })
 
-  it('yields a way in only after real Scan and Endpoint Analysis of the exact GateSSH 1.3.2 surface, with zero named Vulnerability Knowledge, then establishes access and connects', () => {
+  it('yields a way in only after pivoting a Scan through compromised srv-02 and real Endpoint Analysis of the exact GateSSH 1.3.2 surface, with zero named Vulnerability Knowledge, then establishes access and connects', () => {
     const base = createInitialGameState()
-    const targets = { localDevice: base.player.localDevice, network: base.world.network }
 
     // Before any observation the player knows nothing about this Device.
     expect(canFormCredentialAccessAttempt(base, observation)).toBe(false)
 
-    const scanned: GameState = { ...base, discovery: rememberScan(base.discovery, scanNetworkTarget(targets, PHONE_ADDRESS), base.player.localDevice.id) }
+    const pivoted = pivotedThroughSrv02(base)
+    // The player's own Device has no route into the phone's private segment at all.
+    expect(scanFromDevice(pivoted, pivoted.player.localDevice.id, PHONE_ADDRESS)).toMatchObject({ status: 'no_response' })
+
+    // Scanning sourced from the compromised srv-02 reveals it: srv-02 sits on the same private LocalNetwork.
+    const scanned: GameState = { ...pivoted, discovery: rememberScan(pivoted.discovery, scanFromDevice(pivoted, SRV_02, PHONE_ADDRESS), SRV_02) }
     expect(scanned.discovery.devices).toContainEqual(expect.objectContaining({ id: PHONE, address: PHONE_ADDRESS, scope: 'remote' }))
     // A remembered Service alone, with no Endpoint Analysis yet, is not a formed route.
     expect(canFormCredentialAccessAttempt(scanned, observation)).toBe(false)
@@ -59,6 +83,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     const access = attacked.deviceAccess.established.find(({ targetDeviceId }) => targetDeviceId === PHONE)
     expect(access).toMatchObject({ sourceDeviceId: base.player.localDevice.id, viaServiceId: observation.serviceId, privilege: 'USER' })
 
+    // Connect resolves through the same compromised srv-02 pivot: the player's own Device still has no direct route.
     const connected = connectRemoteFromObservation(attacked, { targetDeviceId: PHONE, address: PHONE_ADDRESS })
     expect(connected.status).toBe('connected')
 
@@ -69,9 +94,8 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
   })
 
   it('requires the credential tool the player already owns, and no phone-specific one', () => {
-    const base = createInitialGameState()
-    const targets = { localDevice: base.player.localDevice, network: base.world.network }
-    const scanned: GameState = { ...base, discovery: rememberScan(base.discovery, scanNetworkTarget(targets, PHONE_ADDRESS), base.player.localDevice.id) }
+    const pivoted = pivotedThroughSrv02(createInitialGameState())
+    const scanned: GameState = { ...pivoted, discovery: rememberScan(pivoted.discovery, scanFromDevice(pivoted, SRV_02, PHONE_ADDRESS), SRV_02) }
     const analysis = startServiceAnalysis(scanned, PHONE, observation.serviceId)
     if (analysis.status !== 'started') throw new Error(analysis.status)
     const analyzed = advanceGameState(analysis.state, 20_000)

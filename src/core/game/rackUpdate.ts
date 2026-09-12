@@ -174,7 +174,11 @@ export function startRackUpdatePackageSubmission(state: GameState, input: RackUp
   const targetIndex = state.world.network.hosts.findIndex(({ id }) => id === input.targetDeviceId)
   const target = state.world.network.hosts[targetIndex]
   const update = target?.services?.find(({ id }) => id === input.serviceId)
-  if (!target || !isDeviceNetworkUsable(target.operational) || !update || !update.open || `${target.ip}:${update.port}` !== input.endpoint
+  // Re-resolved through the same path the observation was reached through — a Gateway's own public edge
+  // for an EXPOSED_EDGE backend — never a private address:port the endpoint itself never named.
+  const resolvedEndpoint = resolveServiceEndpoint(state, input.endpoint)
+  if (!target || !isDeviceNetworkUsable(target.operational) || !update || !update.open
+    || resolvedEndpoint === 'invalid' || !resolvedEndpoint || resolvedEndpoint.targetDeviceId !== input.targetDeviceId || resolvedEndpoint.serviceId !== input.serviceId
     || update.implementation.productId !== RACK_UPDATE_PRODUCT_ID || update.implementation.releaseId !== RACK_UPDATE_1_0_RELEASE_ID) {
     return { status: 'service_unavailable', state }
   }

@@ -588,7 +588,7 @@ describe('Dollars acted by the operated remote Device', () => {
 
   function operatingPhone(state = createInitialGameState()): GameState {
     const accessed: GameState = { ...state, deviceAccess: { nextId: 2, established: [{ id: 'access-phone', sourceDeviceId: state.player.localDevice.id, targetDeviceId: PHONE, viaServiceId: 'service-ssh-003', privilege: 'USER' }] } }
-    return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE, address: '198.51.100.61' }).state
+    return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE, address: '10.42.0.61' }).state
   }
 
   it('resolves the operated Device Account, never the local one, and nothing without a Session', () => {
