@@ -32,7 +32,23 @@ separately discovered Device — in Player-facing presentation (CLI or Known
 Space) or in a player-facing count of discovered targets — until something
 more direct legitimately observes that Device (Endpoint Analysis of its own
 exposed Service, a genuine Scan or PING that reaches it, or Network Scan
-membership). Missing, dangling, invalid, or ambiguous membership, gateway,
+membership).
+
+One Scan observation is one body of Player Information, so every surface
+presents the same public Service surface from it: what the Terminal prints
+for a portless public-edge Scan and what NodeScan presents on that Gateway's
+own target are the same five-or-however-many observed endpoints, never more
+on one surface than the other. Those forwarded endpoints are presented as
+Services of the public edge the player dialed — name, external port, protocol
+and that public endpoint — and they carry no evidence belonging to the Device
+behind them: no implementation, authentication, open-state, live status, or
+Vulnerability truth is copied onto the exposure, and no Device row, private
+address, or LocalNetwork membership appears for the backend. Acting on such a
+row still resolves through the canonical owners against the Device that
+really answers that endpoint, so Endpoint Analysis of a forwarded endpoint
+investigates the backend Service the exposure names; once it completes, that
+Device is legitimately discovered and its endpoints are presented on its own
+target instead of the edge's. Missing, dangling, invalid, or ambiguous membership, gateway,
 exposure, target, or Service truth is `NO_ROUTE`, and a dangling exposure
 (naming a Device or Service that no longer legitimately resolves) is silently
 excluded from what the edge currently reports rather than surfaced as broken.

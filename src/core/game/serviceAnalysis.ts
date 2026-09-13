@@ -104,9 +104,10 @@ export function resolveCompletedServiceAnalyses(state: GameState): GameState {
         }
         const devices = [...discovery.devices]
         // A completed Endpoint Analysis is itself a genuine direct observation of this exact Device and
-        // Service, so any earlier taint from merely observing it as a Gateway's forwarded exposure clears
+        // Service, so an entry known so far only as a Gateway's forwarded exposure stops being only that
         // here — the player has now legitimately investigated the endpoint itself, not just its Gateway.
-        devices[deviceIndex] = { ...device, services, observedOnlyAsGatewayExposure: false }
+        const { observedOnlyAsGatewayExposure: _exposureOnly, ...directlyObserved } = device
+        devices[deviceIndex] = { ...directlyObserved, services }
         discovery = { ...discovery, devices }
       } else if (current.service) {
         // Directed Endpoint Analysis of a Device reached only through a Gateway's own exposed

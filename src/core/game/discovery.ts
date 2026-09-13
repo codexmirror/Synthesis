@@ -127,6 +127,11 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
     for (const [targetDeviceId, exposedServices] of exposedByDevice) {
       const index = devices.findIndex((item) => item.id === targetDeviceId)
       const previous = devices[index]
+      // An entry already observed directly stays directly observed; every other one records the Gateway
+      // whose own edge reported this forward, so these endpoints present there rather than as Devices.
+      const gatewayExposureOnly = previous && !previous.observedOnlyAsGatewayExposure
+        ? undefined
+        : { gatewayDeviceId: result.targetId }
       const services = exposedServices.map((service) => {
         const previousService = previous?.services.find((item) => item.id === service.id)
         return { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}), ...(previousService?.implementationAnalysisStale ? { implementationAnalysisStale: true as const } : {}) }
@@ -137,7 +142,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
         servicesObserved: true, services: [...untouched, ...services],
         ...(previous?.classification ? { classification: previous.classification } : {}),
         ...(previous?.inspect ? { inspect: previous.inspect } : {}),
-        observedOnlyAsGatewayExposure: previous ? previous.observedOnlyAsGatewayExposure === true : true,
+        ...(gatewayExposureOnly ? { observedOnlyAsGatewayExposure: gatewayExposureOnly } : {}),
       }
       if (index < 0) devices.push(next); else devices[index] = next
     }

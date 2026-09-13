@@ -154,6 +154,14 @@ export type AnalysisOutcome = 'analysis_complete' | 'service_unavailable'
 
 export interface TargetService {
   readonly id: string
+  /**
+   * The stable Device this Service actually belongs to: this target itself for
+   * its own observed Services, and the forwarded backend for a public-edge row
+   * a Gateway reports. Presentation never renders it — it exists so an action
+   * taken on the row resolves through the canonical owners against the Device
+   * that really answers the endpoint the player dialed.
+   */
+  readonly deviceId: string
   readonly name: string
   readonly port: number
   readonly protocol: 'TCP' | 'UDP'
@@ -715,20 +723,38 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
    */
   let keyProbeStaleServiceId: string | undefined
   let ghostKeyStaleServiceId: string | undefined
-  const services = device.services.map((service): TargetService => {
+  /**
+   * A Gateway's own public edge additionally presents the Services it currently forwards, exactly as the
+   * same portless Scan observed them: real endpoints reachable at this very address. Each is still
+   * remembered only as that forward, so the backend Device answering behind it is never named and never
+   * becomes a Device of its own here — only the endpoint, its own external port, and its protocol are
+   * stated, which is precisely what the public edge itself revealed. Once a directed Endpoint Analysis
+   * legitimately discovers that Device, its rows move with it onto its own target instead.
+   */
+  const forwardedHere = information.discovery.devices.filter((candidate) =>
+    candidate.observedOnlyAsGatewayExposure?.gatewayDeviceId === device.id)
+  const observedServices = [
+    ...device.services.map((service) => ({ service, deviceId: device.id })),
+    ...forwardedHere.flatMap((backend) => backend.services.map((service) => ({ service, deviceId: backend.id }))),
+  ]
+  const services = observedServices.map(({ service, deviceId }): TargetService => {
+    const ownService = deviceId === device.id
+    const serviceAccess = ownService ? established : accessFor(information, deviceId)
     const observed = describeImplementation(service.inspect)
-    const observedAuthGuard = device.inspect?.enhanced?.authGuard
+    // AuthGuard evidence is this Device's own remembered Inspect truth; it never describes a Service
+    // merely forwarded through this edge for another Device.
+    const observedAuthGuard = ownService ? device.inspect?.enhanced?.authGuard : undefined
     const software = [
       ...(observed ? [observed.implementation] : []),
       ...(observed && observedAuthGuard?.protectedImplementation === observed.implementation ? [`${observedAuthGuard.name} ${observedAuthGuard.version}`] : []),
     ]
-    const weaknesses = knowledgeFor(information, device.id, service.id)
-    const serviceAnalyses = analyses.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
-    const serviceAttempts = attempts.filter((process) => process.targetDeviceId === device.id && process.serviceId === service.id)
+    const weaknesses = knowledgeFor(information, deviceId, service.id)
+    const serviceAnalyses = analyses.filter((process) => process.targetDeviceId === deviceId && process.serviceId === service.id)
+    const serviceAttempts = attempts.filter((process) => process.targetDeviceId === deviceId && process.serviceId === service.id)
     const intelligence = nodeScan && nodeScanSupportsIntegratedIntelligence(nodeScan)
       ? knownSoftwareIntelligence(software, serviceAnalyses, serviceAttempts, observedAuthGuard, weaknesses)
       : []
-    const analysis = serviceProcesses(analyses, device.id, service.id, service.endpoint)
+    const analysis = serviceProcesses(analyses, deviceId, service.id, service.endpoint)
     const running = analysis.find(({ status }) => status === 'running')
     const currentFingerprint = service.inspect?.implementation
     const outcome = [...analysis].reverse().find((process) => {
@@ -741,8 +767,11 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
         && process.analyzedImplementation.version === currentFingerprint.version
       ))
     })?.result?.status
-    const viaAccess = established.find((access) => access.viaServiceId === service.id)
-    if (!viaAccess && service.inspect?.implementation) {
+    const viaAccess = serviceAccess.find((access) => access.viaServiceId === service.id)
+    // A route is formed and executed against this target's own Device identity, so only this Device's
+    // own Services form one here. A row merely forwarded through this edge carries no Analysis evidence
+    // to form from anyway: the Device it belongs to becomes its own target the moment one exists.
+    if (ownService && !viaAccess && service.inspect?.implementation) {
       if (service.implementationAnalysisStale) {
         // The historical remembered fingerprint (preserved for exactly this
         // contradicted Service) decides which provider's own reanalysis hint
@@ -777,6 +806,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
     }
     return {
       id: service.id,
+      deviceId,
       name: service.name,
       port: service.port,
       protocol: service.protocol,
@@ -789,7 +819,9 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
       ...(outcome ? { analysisOutcome: outcome } : {}),
       ...(viaAccess ? { accessPrivilege: viaAccess.privilege } : {}),
       intelligence,
-      ...(currentHost && (monitorAll || usableAccessServiceIds.has(service.id))
+      // Live status is this target Device's own monitored truth. A Service merely forwarded through its
+      // edge belongs to a Device the player has not discovered, so no live claim is made about it.
+      ...(ownService && currentHost && (monitorAll || usableAccessServiceIds.has(service.id))
         ? { liveStatus: !isDeviceNetworkUsable(currentHost.operational) ? { label: 'OFFLINE', tone: 'down' } : currentHost.services?.find(({ id }) => id === service.id)?.open ? { label: 'ONLINE', tone: 'available' } : { label: 'CLOSED', tone: 'down' } }
         : {}),
     }

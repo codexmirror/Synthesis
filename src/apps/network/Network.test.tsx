@@ -111,6 +111,15 @@ function scannedTarget(state: GameState = createInitialGameState()): GameState {
   return { ...known, discovery }
 }
 
+/**
+ * Discovery after one legitimate portless Scan of Bookstore's public Gateway edge: the Gateway's own
+ * Service plus every exposure it currently forwards, each remembered only as that forward.
+ */
+function gatewayScanned(state: GameState = createInitialGameState()): GameState {
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  return { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, GATEWAY_ADDRESS), state.player.localDevice.id) }
+}
+
 /** GateSSH 1.3.2 analyzed through the canonical operation, plus historical AUTH-017 Knowledge. */
 function knownWeakness(state: GameState = scannedTarget()): GameState {
   const started = startServiceAnalysis(state, SRV_01, 'service-ssh-001')
@@ -276,7 +285,7 @@ describe('NodeScan first hack', () => {
     expect(currentState().process.processes).toEqual([])
     expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
     await openDetails(user)
-    await user.click(screen.getByRole('button', { name: 'Analyze SSH' }))
+    await user.click(screen.getByRole('button', { name: `Analyze SSH at ${SRV_01_ADDRESS}:22` }))
     expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-ssh-001' })])
   })
 
@@ -564,7 +573,7 @@ describe('NodeScan progress', () => {
     const alongside = await openTarget(withProcesses(connected, [analysisProcess('process-0001', 'service-http-001', 500)]))
     await openDetails(alongside)
     expect(screen.getByLabelText('Target status')).toHaveTextContent('CONNECTED')
-    expect(screen.getByRole('group', { name: 'HTTP analysis progress' })).toHaveTextContent('50%')
+    expect(screen.getByRole('group', { name: `HTTP at ${SRV_01_ADDRESS}:80 analysis progress` })).toHaveTextContent('50%')
   })
 })
 
@@ -778,7 +787,7 @@ describe('NodeScan technical details', () => {
     const user = await openTarget(scannedTarget(withNodeScan11(createInitialGameState())))
     await openDetails(user)
     expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Analyze SSH' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: `Analyze SSH at ${SRV_01_ADDRESS}:22` })).toBeInTheDocument()
   })
 
   it('keeps technical intelligence separate from the action provenance', async () => {
@@ -798,7 +807,7 @@ describe('NodeScan technical details', () => {
   it('keeps single-Service investigation available as advanced depth', async () => {
     const user = await openTarget(scannedTarget())
     await openDetails(user)
-    await user.click(screen.getByRole('button', { name: 'Analyze HTTP' }))
+    await user.click(screen.getByRole('button', { name: `Analyze HTTP at ${SRV_01_ADDRESS}:80` }))
 
     expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-http-001', status: 'running' })])
   })
@@ -818,7 +827,7 @@ describe('NodeScan technical details', () => {
     const user = await openTarget(analysed)
     await openDetails(user)
 
-    const serviceOf = (name: string) => screen.getByRole('button', { name: `Analyze ${name}` }).closest('.ns-service') as HTMLElement
+    const serviceOf = (name: string) => screen.getByRole('button', { name: new RegExp(`^Analyze ${name} at `) }).closest('.ns-service') as HTMLElement
     const precedesItsAction = (article: HTMLElement, statement: HTMLElement) =>
       statement.compareDocumentPosition(within(article).getByRole('button', { name: /^Analyze / })) & Node.DOCUMENT_POSITION_FOLLOWING
 
@@ -1482,6 +1491,72 @@ describe('Known Space topology', () => {
     expect(screen.getAllByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })).toHaveLength(1)
     const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
     expect(within(elsewhere).getAllByRole('button', { name: /^Open target /i })).toHaveLength(1)
+  })
+
+  it('presents the same public Service surface the canonical Scan observed, whichever surface the player used', async () => {
+    const scanned = { ...createInitialGameState(), discovery: gatewayScanned().discovery }
+    const target = selectTarget(scanned, 'router-foreign-001')!
+
+    // Exactly the five public endpoints the Terminal prints for this same observation.
+    expect(target.services.map(({ name, endpoint, protocol }) => `${name} ${endpoint}/${protocol}`)).toEqual([
+      `HTTP ${GATEWAY_ADDRESS}:80/TCP`,
+      `SSH ${GATEWAY_ADDRESS}:22/TCP`,
+      `RackUpdate ${GATEWAY_ADDRESS}:8443/TCP`,
+      `SSH ${GATEWAY_ADDRESS}:2222/TCP`,
+      `SSH ${GATEWAY_ADDRESS}:2223/TCP`,
+    ])
+    // Each row resolves against the Device that really answers that endpoint, so a later operation stays
+    // causally correct — while nothing about those Devices is stated as observed evidence.
+    expect(target.services.map(({ deviceId }) => deviceId)).toEqual(['router-foreign-001', SRV_02, SRV_02, 'host-phone-001', 'host-lan-003'])
+    expect(target.services.every(({ observed, liveStatus, accessPrivilege }) => !observed && !liveStatus && !accessPrivilege)).toBe(true)
+    expect(target.networks).toEqual([])
+  })
+
+  it('never states a forwarded backend Device, its private address, or its topology on the public edge card', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={gatewayScanned()}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` }))
+    await openDetails(user)
+
+    const card = screen.getByRole('region', { name: 'NodeScan' })
+    for (const endpoint of [':80', ':22', ':8443', ':2222', ':2223']) {
+      expect(within(card).getByText(`${GATEWAY_ADDRESS}${endpoint}`)).toBeInTheDocument()
+    }
+    const rendered = card.textContent ?? ''
+    expect(rendered).not.toMatch(/10\.42\.0\.42|10\.42\.0\.43|10\.42\.0\.61|10\.42\.0\.1\b|10\.42\.0\.0\/24/)
+    expect(rendered).not.toMatch(/srv-02|ops-01|Petra|Bookstore Backend/i)
+    expect(rendered).not.toMatch(/8090|host-lan-002|host-lan-003|host-phone-001/)
+    // The forwarded backends stay entirely absent from Known Space as Devices of their own: only the one
+    // public edge the player actually observed is a Device here.
+    expect(selectKnownSpace(gatewayScanned()).elsewhere.map(({ id }) => id)).toEqual(['router-foreign-001'])
+  })
+
+  it('resolves an ANALYZE taken on a forwarded public endpoint against the backend that actually answers it', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={gatewayScanned()}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` }))
+    await openDetails(user)
+    await user.click(screen.getByRole('button', { name: `Analyze SSH at ${GATEWAY_ADDRESS}:2222` }))
+
+    // The phone's own stable identity, reached through the represented exposure, at the endpoint the
+    // player actually dialed — never the Gateway's identity and never the phone's private address.
+    expect(currentState().process.processes).toEqual([expect.objectContaining({
+      kind: 'service_analysis', targetDeviceId: 'host-phone-001', serviceId: 'service-ssh-003', startedEndpoint: `${GATEWAY_ADDRESS}:2222`,
+    })])
+  })
+
+  it('moves a forwarded endpoint onto its own target once a directed Analysis legitimately discovers that Device', () => {
+    const analysis = startServiceAnalysis(gatewayScanned(), 'host-phone-001', 'service-ssh-003', `${GATEWAY_ADDRESS}:2222`)
+    if (analysis.status !== 'started') throw new Error(analysis.status)
+    const analyzed = advanceGameState(analysis.state, 20_000)
+
+    // The public edge keeps forwarding what it forwards, but this endpoint is no longer known *only*
+    // as its forward: it now belongs to the Device the player legitimately investigated.
+    expect(selectTarget(analyzed, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:8443`, `${GATEWAY_ADDRESS}:2223`])
+    const phone = selectTarget(analyzed, 'host-phone-001')!
+    expect(phone.address).toBe(GATEWAY_ADDRESS)
+    expect(phone.services.map(({ endpoint, deviceId }) => [endpoint, deviceId])).toEqual([[`${GATEWAY_ADDRESS}:2222`, 'host-phone-001']])
   })
 
   it('marks only the Device just observed as arriving, deriving nothing new and remembering nothing extra', async () => {

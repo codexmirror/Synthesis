@@ -66,7 +66,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     // The Scan alone remembers only that a Service is reachable there, keyed by the backend's stable
     // identity for later causal resolution — it is not yet itself a discovered private Device.
     const exposedOnly = scanned.discovery.devices.find(({ id }) => id === PHONE)
-    expect(exposedOnly).toMatchObject({ address: BOOKSTORE_PUBLIC_EDGE, observedOnlyAsGatewayExposure: true })
+    expect(exposedOnly).toMatchObject({ address: BOOKSTORE_PUBLIC_EDGE, observedOnlyAsGatewayExposure: { gatewayDeviceId: 'router-foreign-001' } })
     expect(exposedOnly?.services.find(({ id }) => id === observation.serviceId)?.inspect).toBeUndefined()
     // A bare public-edge Scan is not itself actionable knowledge: no GhostKey offer without real Analysis.
     expect(canFormCredentialAccessAttempt(scanned, observation)).toBe(false)
@@ -77,9 +77,11 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     // Endpoint Analysis remembers implementation evidence only; it never creates named Vulnerability Knowledge.
     expect(analyzed.knowledge.discoveredVulnerabilities).toEqual([])
     // The Analysis reached through the public exposure remembers the phone by the endpoint the player
-    // actually dialed, never its private backend address, and this genuine direct observation now
-    // clears the earlier gateway-only taint: the phone is legitimately its own discovered Device.
-    expect(analyzed.discovery.devices.find(({ id }) => id === PHONE)).toMatchObject({ address: BOOKSTORE_PUBLIC_EDGE, observedOnlyAsGatewayExposure: false })
+    // actually dialed, never its private backend address, and this genuine direct observation ends its
+    // gateway-exposure-only standing: the phone is legitimately its own discovered Device now.
+    const analyzedPhone = analyzed.discovery.devices.find(({ id }) => id === PHONE)
+    expect(analyzedPhone).toMatchObject({ address: BOOKSTORE_PUBLIC_EDGE })
+    expect(analyzedPhone?.observedOnlyAsGatewayExposure).toBeUndefined()
 
     // GhostKey forms directly from the legitimately remembered GateSSH 1.3.2 fingerprint and the owned
     // GhostKey artifact/capability alone: zero named Vulnerability Knowledge is required.

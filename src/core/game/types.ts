@@ -1594,17 +1594,22 @@ export interface DiscoveredDeviceSnapshot {
    */
   readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server'; readonly displayName?: string; readonly enhanced?: EnhancedInspectEvidence }
   /**
-   * True only while this entry exists solely because a Gateway's own portless
-   * public-edge Scan reported it as one of its currently forwarded exposures.
-   * That Scan observed only that a Service is reachable at the Gateway's own
-   * address and what it is — never this backend Device's own identity,
-   * private address, or LocalNetwork placement — so the entry stays keyed by
-   * stable identity for causal endpoint resolution (Analyze/Attack/Connect)
-   * but must never itself present as a separately discovered Device. Cleared
-   * the moment a genuine direct observation of this exact Device (Endpoint
-   * Analysis, its own Scan/Ping, or Network Scan membership) touches it.
+   * Present only while this entry exists solely because a Gateway's own
+   * portless public-edge Scan reported it as one of its currently forwarded
+   * exposures. That Scan observed only that a Service is reachable at the
+   * Gateway's own address and what it is — never this backend Device's own
+   * identity, private address, or LocalNetwork placement — so the entry stays
+   * keyed by stable identity for causal endpoint resolution
+   * (Analyze/Attack/Connect) but must never itself present as a separately
+   * discovered Device. `gatewayDeviceId` is the Gateway whose own edge
+   * reported it, which is itself legitimate Player Information: it is where
+   * the player dialed, and it is what lets those observed public endpoints be
+   * presented on that Gateway's own target rather than as Devices of their
+   * own. Cleared the moment a genuine direct observation of this exact Device
+   * (Endpoint Analysis, its own Scan/Ping, or Network Scan membership)
+   * touches it.
    */
-  readonly observedOnlyAsGatewayExposure?: boolean
+  readonly observedOnlyAsGatewayExposure?: { readonly gatewayDeviceId: string }
 }
 
 export interface DiscoveryState {

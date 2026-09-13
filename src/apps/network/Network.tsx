@@ -257,8 +257,11 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
       : null)
   }
 
-  function analyze(target: Target, service: TargetService) {
-    const result = actions.startServiceAnalysisFromObservation({ endpoint: service.endpoint, targetDeviceId: target.id, serviceId: service.id })
+  // A Service row resolves against the Device that actually answers the endpoint the player dialed: this
+  // target for its own Services, and the canonical backend a Gateway's public edge forwards to for one of
+  // its exposures — the same stable identity the canonical owners already resolve that endpoint through.
+  function analyze(service: TargetService) {
+    const result = actions.startServiceAnalysisFromObservation({ endpoint: service.endpoint, targetDeviceId: service.deviceId, serviceId: service.id })
     if (result.status === 'started') setNotice(null)
     else if (result.status === 'insufficient_memory') setNotice(`NOT ENOUGH MEMORY · ${result.requiredMiB} MiB required · ${Math.floor(result.availableMiB)} MiB available`)
     else setNotice(result.status === 'already_running' ? 'ALREADY RUNNING'
@@ -268,7 +271,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
 
   function analyzeAll(target: Target) {
     const relevant = target.services.filter((service) => service.analysisRequired && service.analysisPercent === undefined)
-    const result = actions.startObservedServiceAnalyses(relevant.map((service) => ({ endpoint: service.endpoint, targetDeviceId: target.id, serviceId: service.id })))
+    const result = actions.startObservedServiceAnalyses(relevant.map((service) => ({ endpoint: service.endpoint, targetDeviceId: service.deviceId, serviceId: service.id })))
     if (result.insufficientMemory) setNotice(`${result.started ? `${result.started} ANALYSIS${result.started === 1 ? '' : 'ES'} STARTED · ` : ''}NOT ENOUGH MEMORY FOR ALL SERVICES · ${result.insufficientMemory.requiredMiB} MiB required · ${Math.floor(result.insufficientMemory.availableMiB)} MiB available`)
     else setNotice(result.started ? null : 'NO ANALYSIS AVAILABLE')
   }
@@ -356,7 +359,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
             : action.route && actions.startDeauthAttempt(action.route as { networkId: string; networkName: string; contextDeviceId: string })}
         onConnect={() => connect(target)}
         onDisconnect={() => { actions.disconnectRemoteSession(); setNotice(null) }}
-        onAnalyze={(service) => analyze(target, service)}
+        onAnalyze={analyze}
         onAnalyzeAll={() => analyzeAll(target)}
         onCopy={copy}
         onSelectPackage={setSelectedPackageId}
@@ -1088,10 +1091,10 @@ function TechnicalDetails({ target, release, stageOwnsAnalysis, copyState, selec
           {service.analysisPercent === undefined && service.analysisOutcome === 'service_unavailable' && <p className="ns-quiet-note">Last analysis did not complete against the service.</p>}
           {service.accessPrivilege && <p className="ns-quiet-note">{service.accessPrivilege} access was established through this service.</p>}
           {service.analysisPercent === undefined
-            ? <button type="button" className="node-action" aria-label={`Analyze ${service.name}`} onClick={() => onAnalyze(service)}>ANALYZE</button>
+            ? <button type="button" className="node-action" aria-label={`Analyze ${service.name} at ${service.endpoint}`} onClick={() => onAnalyze(service)}>ANALYZE</button>
             : stageOwnsAnalysis
               ? <p className="ns-service-running"><i className="ns-live-dot" aria-hidden="true" />ANALYZING</p>
-              : <Progress percent={service.analysisPercent} label={`${service.name} analysis progress`} />}
+              : <Progress percent={service.analysisPercent} label={`${service.name} at ${service.endpoint} analysis progress`} />}
         </article>)}</div>}
 
     {target.packageSubmission && <>
