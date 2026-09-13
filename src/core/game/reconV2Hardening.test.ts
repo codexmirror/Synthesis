@@ -7,7 +7,7 @@ import { createRefreshNetwork } from '../../app/targetDiscoveryOperation'
 import { createLocalScanTarget } from '../../app/localScanOperation'
 import { dispatchNodeCommand } from '../../apps/terminal/nodeCommandAdapter'
 import { selectTarget } from '../../apps/network/targetProjection'
-import { NODESCAN_1_2_STANDARD } from './softwareReleaseContent'
+import { NODESCAN_1_0_STANDARD, NODESCAN_1_2_STANDARD } from './softwareReleaseContent'
 import type { GameState } from './types'
 import type { GameActions } from '../../app/GameContext'
 
@@ -42,8 +42,13 @@ function withNodeScan12(state: GameState): GameState {
   }
 }
 
-/** Upgrades srv-02's own NodeScan install to 1.2, for tests that pivot Scans through it as source. */
-function withPivotNodeScan12(state: GameState): GameState {
+/**
+ * Installs one NodeScan release on srv-02 as a pure test-local fixture for this file's own generic Host
+ * Scan / classification regression coverage — never a default game-content assumption. It exercises
+ * exactly the same accepted "explicit-source Scan from an operated Device" pattern RackOS Terminal's own
+ * `scan` command already uses, not a new or implicit pivot: srv-02 itself carries no NodeScan by default.
+ */
+function withSrv02NodeScan(state: GameState, release: typeof NODESCAN_1_0_STANDARD | typeof NODESCAN_1_2_STANDARD): GameState {
   return {
     ...state,
     world: {
@@ -51,14 +56,15 @@ function withPivotNodeScan12(state: GameState): GameState {
       network: {
         ...state.world.network,
         hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-002'
-          ? { ...host, installedSoftware: (host.installedSoftware ?? []).map((software) => software.id === 'nodescan'
-            ? { id: NODESCAN_1_2_STANDARD.productId, releaseId: NODESCAN_1_2_STANDARD.releaseId, buildId: NODESCAN_1_2_STANDARD.buildId, name: NODESCAN_1_2_STANDARD.name, version: NODESCAN_1_2_STANDARD.version, channel: NODESCAN_1_2_STANDARD.channel }
-            : software) }
+          ? { ...host, installedSoftware: [...(host.installedSoftware ?? []).filter((software) => software.id !== 'nodescan'), { id: release.productId, releaseId: release.releaseId, buildId: release.buildId, name: release.name, version: release.version, channel: release.channel }] }
           : host),
       },
     },
   }
 }
+
+const withPivotNodeScan10 = (state: GameState) => withSrv02NodeScan(state, NODESCAN_1_0_STANDARD)
+const withPivotNodeScan12 = (state: GameState) => withSrv02NodeScan(state, NODESCAN_1_2_STANDARD)
 
 const targetsOf = (state: GameState) => ({ localDevice: state.player.localDevice, network: state.world.network })
 
@@ -69,9 +75,10 @@ function pinged(state: GameState, address: string): GameState {
 
 describe('Host Scan Network expansion (Regression #1)', () => {
   it('gives a scanned remote Host a gameplay path out of ELSEWHERE via its own owned Network, without deep-scanning its peers', () => {
-    const state = createInitialGameState()
+    const state = withPivotNodeScan10(createInitialGameState())
     // srv-02's own address has no direct route from home; a Device Scan sourced from srv-02 itself
-    // (the only Device on its private segment running NodeScan) reveals its own Network/Gateway context.
+    // (an operated Device running its own test-fixture NodeScan, never a default game assumption)
+    // reveals its own Network/Gateway context.
     const scan1 = scanFromDevice(state, 'host-lan-002', '10.42.0.42')
     const discovery = rememberScan(createEmptyDiscovery(), scan1, state.player.localDevice.id)
 
@@ -94,7 +101,7 @@ describe('Host Scan Network expansion (Regression #1)', () => {
   })
 
   it('never leaks the Network\'s own mutable display name from an incidental Host Scan relation', () => {
-    const state = createInitialGameState()
+    const state = withPivotNodeScan10(createInitialGameState())
     const discovery = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     const network = discovery.networks.find(({ id }) => id === 'network-foreign-001')!
     expect(network.name).toBeUndefined()
@@ -107,7 +114,7 @@ describe('Host Scan Network expansion (Regression #1)', () => {
   })
 
   it('fails closed rather than arbitrarily picking a Network for a Host with ambiguous represented membership', () => {
-    const state = createInitialGameState()
+    const state = withPivotNodeScan10(createInitialGameState())
     const ambiguous = { ...state.world.network, localNetworks: [
       ...state.world.network.localNetworks,
       { ...state.world.network.localNetworks[1], id: 'network-foreign-002', name: 'also-remote', cidr: '198.18.0.0/24' },
@@ -130,13 +137,13 @@ describe('NodeScan 1.2 Device classification lifecycle', () => {
     expect(router?.inspect).toBeUndefined()
   })
   it('never remembers classification below NodeScan 1.2', () => {
-    const state = createInitialGameState()
+    const state = withPivotNodeScan10(createInitialGameState())
     const discovery = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBeUndefined()
   })
 
   it('does not retroactively classify an already-remembered Device merely from installing 1.2', () => {
-    const state = createInitialGameState()
+    const state = withPivotNodeScan10(createInitialGameState())
     const scanned = rememberScan(createEmptyDiscovery(), scanFromDevice(state, 'host-lan-002', '10.42.0.42'), state.player.localDevice.id)
     // Installing 1.2 after the fact changes nothing about already-remembered Discovery.
     expect(scanned.devices.find(({ id }) => id === 'host-lan-002')?.classification).toBeUndefined()

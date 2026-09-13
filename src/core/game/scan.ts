@@ -33,6 +33,13 @@ export type ScanResult =
     readonly scope: 'self' | 'lan' | 'remote'
     readonly networks: readonly DiscoveredNetworkRelation[]
     readonly services: readonly DiscoveredService[]
+    /**
+     * A Gateway's own currently forwarded exposures, observed at this same public address: the public
+     * edge's own real observable surface. Present only for a portless Scan of a Gateway's public edge
+     * itself, never for any other target. It reveals that a Service is reachable here and what it is,
+     * exactly like a banner would — never the backend Device's identity, private address, or LocalNetwork.
+     */
+    readonly exposedBackends?: readonly { readonly targetDeviceId: string; readonly service: DiscoveredService }[]
     /** NodeScan 1.2's own passive classification of exactly this scanned Host, present only while 1.2 is installed. */
     readonly classification?: DeviceClassification
   }
@@ -45,6 +52,28 @@ export type ScanResult =
   }
   | { readonly status: 'no_response'; readonly address: string }
   | { readonly status: 'unknown_target'; readonly input: string }
+
+/**
+ * Every one of a Gateway's own configured exposures that currently resolves to a real, open, usable
+ * backend Service — the public edge's own real observable surface, independent of any particular dialed
+ * port. Membership is re-verified against the Gateway's own Network so a dangling or foreign exposure
+ * target never surfaces.
+ */
+function resolveGatewayExposures(state: Readonly<GameState>, gateway: NetworkHost): readonly { readonly targetDeviceId: string; readonly service: DiscoveredService }[] {
+  const network = state.world.network.localNetworks.find((candidate) => candidate.gatewayDeviceId === gateway.id)
+  if (!network) return []
+  const resolved: { targetDeviceId: string; service: DiscoveredService }[] = []
+  for (const exposure of gateway.exposures ?? []) {
+    if (!network.memberDeviceIds.includes(exposure.targetDeviceId)) continue
+    const target = state.world.network.hosts.find((host) => host.id === exposure.targetDeviceId)
+    if (!target || !isDeviceNetworkUsable(target.operational)) continue
+    const service = target.services?.find((candidate) => candidate.id === exposure.targetServiceId && candidate.protocol === exposure.protocol && candidate.open)
+    // The externally dialed port is the exposure's own — never assumed equal to the backend's internal
+    // Service port, even though this world's own authored exposures currently happen to match.
+    if (service) resolved.push({ targetDeviceId: target.id, service: { id: service.id, name: service.name, port: exposure.externalPort, protocol: exposure.protocol } })
+  }
+  return resolved
+}
 
 /** Explore outward from one supported IPv4 or local-network-name target without mutation. */
 export function scanNetworkTarget(targets: Readonly<ScanTargets>, input: string): ScanResult {
@@ -81,5 +110,15 @@ export function scanFromDevice(state: Readonly<GameState>, sourceDeviceId: strin
   // Network membership (`resolveNetworkPath`), so path kind alone determines scope.
   const scope = target.id === sourceDeviceId ? 'self' as const : path.kind === 'DIRECT_LOCAL' ? 'lan' as const : 'remote' as const
   const services = path.kind === 'EXPOSED_EDGE' && path.targetService ? [path.targetService] : ((target as NetworkHost).services ?? []).filter(({ open }) => open)
-  return { status: 'device', targetId: target.id, address: input, scope, networks: path.kind === 'DIRECT_LOCAL' && network ? [{ id: network.id, ...(network.cidr ? { cidr: network.cidr } : {}), ...(gateway ? { gateway: { targetId: gateway.deviceId, address: gateway.address, scope: 'lan' as const } } : {}) }] : [], services: services.filter(({ open }) => open).map(({ id, name, port, protocol }) => ({ id, name, port, protocol })), ...(classifying ? { classification: classifyDeviceKind(target.deviceType) } : {}) }
+  // A portless Scan of a Gateway's own public edge additionally observes each of its currently forwarded
+  // exposures as a Service reachable at this same address — its own real observable surface — without
+  // ever revealing which backend Device it forwards to.
+  const exposedBackends = path.kind === 'EXPOSED_EDGE' && !path.target ? resolveGatewayExposures(state, path.gateway) : []
+  return {
+    status: 'device', targetId: target.id, address: input, scope,
+    networks: path.kind === 'DIRECT_LOCAL' && network ? [{ id: network.id, ...(network.cidr ? { cidr: network.cidr } : {}), ...(gateway ? { gateway: { targetId: gateway.deviceId, address: gateway.address, scope: 'lan' as const } } : {}) }] : [],
+    services: services.filter(({ open }) => open).map(({ id, name, port, protocol }) => ({ id, name, port, protocol })),
+    ...(exposedBackends.length ? { exposedBackends } : {}),
+    ...(classifying ? { classification: classifyDeviceKind(target.deviceType) } : {}),
+  }
 }

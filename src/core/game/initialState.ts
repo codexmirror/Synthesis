@@ -188,7 +188,7 @@ export function createInitialGameState(): GameState {
             firmware: { id: RACK_OS_FIRMWARE_ID, name: 'RACK-OS', version: '1.0' },
             hardware: { cpu: { name: 'Server CPU', computeCapacity: 120 }, ram: { name: '8 GB', capacityMiB: 8192 } },
             runtime: { baselineCpuLoad: 9, baselineRamUsage: 16 },
-            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel }, AUTH_GUARD_1_0_INSTALLATION],
+            installedSoftware: [{ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: GATE_SSH_1_3_3_BUILD_ID, name: 'GateSSH', version: '1.3.3' }, AUTH_GUARD_1_0_INSTALLATION],
             filesystem: { nextFileId: 3, files: [
               { kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' },
               { kind: 'software_package', id: 'file-0002', path: '/opt/packages/authguard-1.0.pkg', releaseId: AUTH_GUARD_1_0_RELEASE_ID, buildId: AUTH_GUARD_1_0_BUILD_ID, productId: AUTH_GUARD_PRODUCT_ID, name: 'AuthGuard', version: '1.0', publisher: 'rack-systems', sizeBytes: 4_800_000 },
@@ -263,10 +263,11 @@ export function createInitialGameState(): GameState {
             publicAddress: '203.0.113.42',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             services: [{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', buildId: BASIC_HTTP_1_0_BUILD_ID, name: 'Basic HTTP', version: '1.0' } }],
-            // Bookstore's own public Gateway edge forwards its GateSSH admin surface, its RackUpdate
-            // management surface, and the same existing GateSSH access loop the phone and ops-01 already
-            // use, each its own distinct external port since one internal Service port may forward to only
-            // one backend at a time; the backend's other Service (its own Bookstore Backend included) stays private.
+            // Bookstore's own public Gateway edge forwards srv-02's GateSSH admin surface and its RackUpdate
+            // management surface, and separately the phone's and ops-01's own GateSSH surfaces, each its
+            // own independent represented exposure. The backend's other Service (its own Bookstore Backend
+            // included) stays private: there is no represented exposure for it, and no pivot mechanic
+            // reaches it — a deeper compromised-server pivot loop is a later, separate feature, not V1.
             exposures: [
               { protocol: 'TCP', externalPort: 22, targetDeviceId: 'host-lan-002', targetServiceId: 'service-ssh-002' },
               { protocol: 'TCP', externalPort: 8443, targetDeviceId: 'host-lan-002', targetServiceId: 'service-rack-update-002' },

@@ -3,13 +3,18 @@ import { createInitialGameState } from '../../core/game/initialState'
 import { rememberScan } from '../../core/game/discovery'
 import { scanFromDevice } from '../../core/game/scan'
 import { FLIPPER_1_0_CANONICAL_INSTALLATION } from '../../core/game/flipper'
+import { NODESCAN_1_0_STANDARD } from '../../core/game/softwareReleaseContent'
 import { selectTarget } from './targetProjection'
 
 function knownRemote() {
   const base = createInitialGameState()
-  const state = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, installedSoftware: [...base.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION] } } }
-  // network-foreign-001 has no route from home; srv-02 is the only member the game seeds with NodeScan, so
-  // the genuine Network Scan that legitimately reveals its own topology is sourced from there.
+  const withNodeScan = { ...base, world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((host) => host.id === 'host-lan-002'
+    ? { ...host, installedSoftware: [...(host.installedSoftware ?? []), { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel }] }
+    : host) } } }
+  const state = { ...withNodeScan, player: { ...withNodeScan.player, localDevice: { ...withNodeScan.player.localDevice, installedSoftware: [...withNodeScan.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION] } } }
+  // network-foreign-001 has no route from home; this test installs NodeScan on srv-02 as its own
+  // fixture (never a default game assumption) so the genuine Network Scan that legitimately reveals
+  // its own topology can be sourced from an operated Device there.
   const discovery = rememberScan(state.discovery, scanFromDevice(state, 'host-lan-002', 'remote-segment-01'), state.player.localDevice.id)
   return { ...state, discovery }
 }

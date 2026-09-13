@@ -42,6 +42,19 @@ function analyzedSrv02Ssh(state: GameState = createInitialGameState()): GameStat
   return advanceGameState(started.state, 20_000)
 }
 
+/**
+ * Installs NodeScan on srv-02 as a pure test-local fixture for this file's own Known Space / target
+ * topology rendering coverage — never a default game assumption or an accepted V1 route to Bookstore's
+ * private segment. It only lets these tests construct a specific remembered Discovery shape (as if some
+ * operated Device had run the same explicit-source Scan RackOS Terminal's own `scan` command already
+ * supports) so the projection/rendering behavior under test has a concrete fixture to render.
+ */
+function withSrv02NodeScan(state: GameState): GameState {
+  return { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === SRV_02
+    ? { ...host, installedSoftware: [...(host.installedSoftware ?? []), { id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', name: 'NodeScan', version: '1.0', channel: 'standard' }] }
+    : host) } } }
+}
+
 /* ---------------------------------------------------------------- fixtures */
 
 function withNodeScan11(state: GameState): GameState {
@@ -837,15 +850,15 @@ describe('NodeScan technical details', () => {
 
 describe('NodeScan target topology', () => {
   /**
-   * srv-02 itself, plus its private LAN peers: established through Bookstore's
-   * public Gateway edge (srv-02's own Discovery identity), then a pivoted Scan
-   * sourced from srv-02 (its peers) — the only reachable route into
-   * `network-foreign-001` now that it is a private segment.
+   * srv-02 itself (established through Bookstore's public Gateway edge, its own Discovery identity),
+   * plus its private LAN peers as remembered from a hypothetical Scan sourced from srv-02 — a test
+   * fixture for this file's own topology-rendering coverage only, not a default game assumption or a
+   * route the shipped V1 game actually offers.
    */
   function knownRemote(state: GameState = createInitialGameState()): GameState {
     const withFlipper = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION] } } }
     const analyzed = analyzedSrv02Ssh(withFlipper)
-    const discovery = rememberScan(analyzed.discovery, scanFromDevice(analyzed, SRV_02, 'remote-segment-01'), SRV_02)
+    const discovery = rememberScan(analyzed.discovery, scanFromDevice(withSrv02NodeScan(analyzed), SRV_02, 'remote-segment-01'), SRV_02)
     return { ...analyzed, discovery }
   }
 
@@ -1464,8 +1477,9 @@ describe('Known Space topology', () => {
   it('keeps a Pinged foreign Gateway ungrouped, and regroups it plus its peers only through Network Scan', () => {
     const state = createInitialGameState()
     const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    // The Gateway's own public edge is the one foreign Device directly PINGable from home; its private
-    // peers (the phone included) are reachable only through a pivoted Network Scan sourced from srv-02.
+    // The Gateway's own public edge is the one foreign Device directly PINGable from home; a Network
+    // Scan of its private segment (here a test fixture, not a route the shipped game offers) is what
+    // regroups its peers.
     const pinged = rememberPing(state.discovery, pingNetworkTarget(targets, GATEWAY_ADDRESS), state.player.localDevice.id)
     const before = { ...state, discovery: pinged }
     expect(selectKnownSpace(before).elsewhere.map(({ id }) => id)).toContain('router-foreign-001')
@@ -1473,7 +1487,7 @@ describe('Known Space topology', () => {
     expect(pinged.networks).toEqual([])
     expect(pinged.devices.some(({ id }) => id === 'host-phone-001')).toBe(false)
 
-    const scanned = rememberScan(pinged, scanFromDevice(state, SRV_02, 'remote-segment-01'), SRV_02)
+    const scanned = rememberScan(pinged, scanFromDevice(withSrv02NodeScan(state), SRV_02, 'remote-segment-01'), SRV_02)
     const after = { ...state, discovery: scanned }
     const foreign = selectKnownSpace(after).networks.find(({ id }) => id === 'network-foreign-001')!
     expect(foreign.name).toBe('remote-segment-01')
@@ -1558,10 +1572,10 @@ describe('Known Space topology', () => {
 
   it('regroups a scanned remote Device out of Elsewhere into its owned Network, shown without a name it has not separately earned', () => {
     const observed = createInitialGameState()
-    // A Device Scan sourced from the already-compromised srv-02 pivot — the only route into this private
-    // segment — legitimately reveals a peer's own Network context, exactly like a Scan from home would for
-    // an ordinary reachable Device.
-    const discovery = rememberScan(foundTargets(observed).discovery, scanFromDevice(observed, SRV_02, PHONE_ADDRESS), SRV_02)
+    // A Device Scan sourced from an operated srv-02 (a test fixture here, not a route the shipped game
+    // offers) reveals a peer's own Network context, exactly like a Scan from home would for an ordinary
+    // reachable Device.
+    const discovery = rememberScan(foundTargets(observed).discovery, scanFromDevice(withSrv02NodeScan(observed), SRV_02, PHONE_ADDRESS), SRV_02)
     render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
 
     const home = screen.getByRole('region', { name: 'Network home-net' })
@@ -1578,7 +1592,7 @@ describe('Known Space topology', () => {
 
   it('keeps Gateway in the same sibling branch, and neither browsing nor a Scan sourced from home can earn this private Network a name', async () => {
     const base = createInitialGameState()
-    const discovery = rememberScan(base.discovery, scanFromDevice(base, SRV_02, PHONE_ADDRESS), SRV_02)
+    const discovery = rememberScan(base.discovery, scanFromDevice(withSrv02NodeScan(base), SRV_02, PHONE_ADDRESS), SRV_02)
     const user = userEvent.setup()
     render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
     const root = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 10.42.0.0/24' })
@@ -1600,10 +1614,11 @@ describe('Known Space topology', () => {
 
   it('reveals the Gateway\'s own internal LAN position as its clue, never its public edge, and a plain Known Space Scan of it (always SELF-sourced) gets no response', async () => {
     const base = createInitialGameState()
-    // Sourced from already-compromised srv-02, on the same private LAN as the phone: the represented
-    // Gateway clue this reveals is the internal position srv-02 itself sees, `10.42.0.1` — never the
-    // externally reconnaissable public edge, which is a distinct, independent fact this pivot never observes.
-    const discovery = rememberScan(base.discovery, scanFromDevice(base, SRV_02, PHONE_ADDRESS), SRV_02)
+    // Sourced from an operated srv-02 (a test fixture, not a route the shipped game offers), on the same
+    // private LAN as the phone: the represented Gateway clue this reveals is the internal position srv-02
+    // itself sees, `10.42.0.1` — never the externally reconnaissable public edge, a distinct, independent
+    // fact this Scan never observes.
+    const discovery = rememberScan(base.discovery, scanFromDevice(withSrv02NodeScan(base), SRV_02, PHONE_ADDRESS), SRV_02)
     const gatewayInternalAddress = '10.42.0.1'
     const user = userEvent.setup()
     render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
@@ -1793,9 +1808,9 @@ describe('Network administration inside NodeScan', () => {
 
   it('gives a discovered foreign Network no administration route, because Discovery is not authority', () => {
     const base = createInitialGameState()
-    // The phone's foreign Network becomes remembered only through a legitimate Network Scan, sourced from
-    // the already-compromised srv-02 pivot — the only route into this private segment.
-    const discovery = rememberScan(base.discovery, scanFromDevice(base, SRV_02, 'remote-segment-01'), SRV_02)
+    // The phone's foreign Network becomes remembered only through a legitimate Network Scan, here sourced
+    // from an operated srv-02 test fixture (not a route the shipped game offers).
+    const discovery = rememberScan(base.discovery, scanFromDevice(withSrv02NodeScan(base), SRV_02, 'remote-segment-01'), SRV_02)
     render(<GameProvider initialState={{ ...base, discovery }}><Network /></GameProvider>)
 
     const foreign = screen.getByRole('region', { name: 'Network remote-segment-01' })

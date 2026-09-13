@@ -1,4 +1,4 @@
-import type { ScanResult } from './scan'
+import type { DiscoveredService, ScanResult } from './scan'
 import type { PingResult } from './ping'
 import type { DiscoveryState } from './types'
 
@@ -108,6 +108,34 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       if (index < 0) devices.push(next); else devices[index] = next
     }
     for (const gateway of gateways) rememberShallowPeer(gateway)
+
+    // A Gateway's own portless Scan additionally remembers each currently forwarded exposure as a real
+    // Service on its own backend Device's stable identity — never on the Gateway's own — addressed at
+    // the public endpoint actually dialed, and with no represented Network relation of its own: exactly
+    // what the public edge itself reveals, and nothing about internal topology.
+    const exposedByDevice = new Map<string, DiscoveredService[]>()
+    for (const backend of result.exposedBackends ?? []) {
+      if (backend.targetDeviceId === selfDeviceId) continue
+      const list = exposedByDevice.get(backend.targetDeviceId) ?? []
+      list.push(backend.service)
+      exposedByDevice.set(backend.targetDeviceId, list)
+    }
+    for (const [targetDeviceId, exposedServices] of exposedByDevice) {
+      const index = devices.findIndex((item) => item.id === targetDeviceId)
+      const previous = devices[index]
+      const services = exposedServices.map((service) => {
+        const previousService = previous?.services.find((item) => item.id === service.id)
+        return { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}), ...(previousService?.implementationAnalysisStale ? { implementationAnalysisStale: true as const } : {}) }
+      })
+      const untouched = previous?.services.filter((item) => !services.some((service) => service.id === item.id)) ?? []
+      const next = {
+        id: targetDeviceId, address: result.address, scope: previous?.scope ?? 'remote' as const,
+        servicesObserved: true, services: [...untouched, ...services],
+        ...(previous?.classification ? { classification: previous.classification } : {}),
+        ...(previous?.inspect ? { inspect: previous.inspect } : {}),
+      }
+      if (index < 0) devices.push(next); else devices[index] = next
+    }
   }
   return { networks, devices, networkDeviceRelations: relations }
 }

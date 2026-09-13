@@ -23,8 +23,12 @@ export const MYRA_FIRST_CONTACT_THREAD_SUBJECT = 'something for you'
  * another — and never a projection of any Device's current network address. It
  * must not be resolved against World Truth when the message is created or
  * rendered: if the World later changes, what Myra said stays what Myra said.
+ *
+ * This is the usable public entry address, not any Device's private LAN
+ * position: a private 10.42.0.x address is never directly reachable from the
+ * player's local NODE, and Myra's lead never claims otherwise.
  */
-export const MYRA_FIRST_TARGET_ADDRESS = '10.42.0.61'
+export const MYRA_FIRST_TARGET_ADDRESS = '203.0.113.42'
 
 export const MYRA_FIRST_CONTACT_OPENING_MESSAGE = 'Maybe I have something you might be interested in.\nLet me know if you want it.'
 
