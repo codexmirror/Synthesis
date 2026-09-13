@@ -20,7 +20,14 @@ export const scanCommand: TerminalCommand = {
     const targetScope = result.address === localDevice.ip ? 'local' : 'external'
     const lines: TerminalLine[] = [`Scanning ${result.address}...`, '']
     if (result.status === 'no_response') return { type: 'output', lines: [...lines, 'NO RESPONSE'] }
-    if (result.networks.length === 0 && result.services.length === 0) {
+    // A Gateway's own currently forwarded exposures are reachable right here, at this same public
+    // address: real observed public services, exactly like the Gateway's own hosted Service, just never
+    // naming which private backend Device answers behind any one of them.
+    const observedServices = [
+      ...result.services.map((service) => ({ service, targetId: result.targetId })),
+      ...(result.exposedBackends ?? []).map(({ targetDeviceId, service }) => ({ service, targetId: targetDeviceId })),
+    ]
+    if (result.networks.length === 0 && observedServices.length === 0) {
       return { type: 'output', lines: [...lines, 'NO RELATIONSHIPS OR SERVICES FOUND'] }
     }
     lines.push(`RELATIONSHIPS FOUND: ${result.networks.length}`)
@@ -30,10 +37,10 @@ export const scanCommand: TerminalCommand = {
       network.cidr ? [text('Network: '), targetFragment(network.cidr)] : [text('Network: UNKNOWN NETWORK')],
       ...(network.gateway ? [[text('Gateway: '), targetFragment(network.gateway.address, network.gateway.scope === 'lan' ? 'local' : 'external')] as TerminalLine] : []),
     ]))
-    lines.push('', `SERVICES FOUND: ${result.services.length}`)
-    for (const service of result.services) {
+    lines.push('', `SERVICES FOUND: ${observedServices.length}`)
+    for (const { service, targetId } of observedServices) {
       lines.push('', service.name, [text('Endpoint: '), targetFragment(`${result.address}:${service.port}`, targetScope)], `Protocol: ${service.protocol}`)
-      for (const label of operations.knownWeaknesses(result.targetId, service.id)) lines.push(`Known weakness: ${label}`)
+      for (const label of operations.knownWeaknesses(targetId, service.id)) lines.push(`Known weakness: ${label}`)
     }
     return { type: 'output' as const, lines }
     }

@@ -26,9 +26,13 @@ describe('multi-Device stable identity regressions', () => {
   it('does not let mutable IP or display name substitute for Device identity', () => {
     const state = createInitialGameState()
     const moved = { ...state, world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'host-lan-002' ? { ...host, ip: '192.0.2.88', displayName: 'renamed-rack' } : host) } } }
-    expect(startServiceAnalysisFromObservation(moved, { endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }).status).toBe('endpoint_not_found')
+    // The public exposed endpoint resolves this exact forward by the Gateway's own stable exposure
+    // record, never by the target Device's own current address: it keeps working after the Device moves.
+    expect(startServiceAnalysisFromObservation(moved, { endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }).status).toBe('started')
+    // The Device's own private address is never itself a route, whether asserted against the wrong
+    // Device or the right one: only the Gateway's own public forward ever resolves it.
     expect(startServiceAnalysisFromObservation(moved, { endpoint: '192.0.2.88:8443', targetDeviceId: 'host-lan-001', serviceId: 'service-rack-update-002' }).status).toBe('endpoint_not_found')
-    expect(startServiceAnalysisFromObservation(moved, { endpoint: '192.0.2.88:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }).status).toBe('started')
+    expect(startServiceAnalysisFromObservation(moved, { endpoint: '192.0.2.88:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }).status).toBe('endpoint_not_found')
   })
 
   it('keeps represented RACK-OS Devices and their filesystems independent', () => {

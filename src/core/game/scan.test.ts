@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialGameState } from './initialState'
-import { scanNetworkTarget, type ScanTargets } from './scan'
+import { scanFromDevice, scanNetworkTarget, type ScanTargets } from './scan'
+import { NODESCAN_1_0_STANDARD } from './softwareReleaseContent'
+import type { GameState } from './types'
 
 const state = createInitialGameState()
 const targets: ScanTargets = { localDevice: state.player.localDevice, network: state.world.network }
+
+/** Installs NodeScan on srv-02 as a pure test-local fixture, exercising the same accepted
+ * explicit-source Scan an operated Device can already run — never a default game assumption. */
+function withSrv02NodeScan(base: GameState): GameState {
+  return { ...base, world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((host) => host.id === 'host-lan-002'
+    ? { ...host, installedSoftware: [...(host.installedSoftware ?? []), { id: NODESCAN_1_0_STANDARD.productId, releaseId: NODESCAN_1_0_STANDARD.releaseId, buildId: NODESCAN_1_0_STANDARD.buildId, name: NODESCAN_1_0_STANDARD.name, version: NODESCAN_1_0_STANDARD.version, channel: NODESCAN_1_0_STANDARD.channel }] }
+    : host) } } }
+}
 
 describe('scanNetworkTarget outward discovery', () => {
   it('discovers real network relationships with stable identity from canonical membership, never the Network\'s own mutable name', () => {
@@ -78,10 +88,12 @@ describe('scanNetworkTarget outward discovery', () => {
     })
   })
 
-  it('classifies LAN only when the target shares represented membership with SELF', () => {
+  it('classifies LAN only when the target shares represented membership with SELF, and fails closed without a Gateway otherwise', () => {
     const hostOnlyNetwork = { id: 'network-other', name: 'other-net', memberDeviceIds: ['host-lan-001'], transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 }, activityHistory: { nextId: 1, records: [] } }
-    expect(scanNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [hostOnlyNetwork] } }, '198.51.100.47')).toMatchObject({
-      status: 'device', targetId: 'host-lan-001', scope: 'remote',
+    // SELF shares no Network with this Device at all, and its own Network names no Gateway either:
+    // a real cross-Network case with no represented route in, exactly like Bookstore's own private segment.
+    expect(scanNetworkTarget({ ...targets, network: { ...targets.network, localNetworks: [hostOnlyNetwork] } }, '198.51.100.47')).toEqual({
+      status: 'no_response', address: '198.51.100.47',
     })
 
     const sharedNetwork = { ...hostOnlyNetwork, memberDeviceIds: [targets.localDevice.id, 'host-lan-001'] }
@@ -106,13 +118,14 @@ describe('scanNetworkTarget outward discovery', () => {
     expect(scanNetworkTarget(targets, '198.51.100.47')).toMatchObject({
       status: 'device', scope: 'lan', networks: [{ id: 'network-local-001', cidr: '198.51.100.0/24', gateway: { targetId: 'router-home-001', address: '198.51.100.1', scope: 'lan' } }],
     })
-    expect(scanNetworkTarget(targets, '203.0.113.42')).toEqual({
-      status: 'device', targetId: 'host-lan-002', address: '203.0.113.42', scope: 'remote',
-      networks: [{ id: 'network-foreign-001', cidr: '203.0.113.0/24', gateway: { targetId: 'router-foreign-001', address: '203.0.113.1', scope: 'remote' } }],
+    // srv-02's private segment has no directly scannable foreign backend from home; a Device Scan sourced
+    // from an operated srv-02 (here a test-local NodeScan fixture, not default game content) reveals a
+    // peer's own Network/Gateway context instead.
+    expect(scanFromDevice(withSrv02NodeScan(state), 'host-lan-002', '10.42.0.61')).toEqual({
+      status: 'device', targetId: 'host-phone-001', address: '10.42.0.61', scope: 'lan',
+      networks: [{ id: 'network-foreign-001', cidr: '10.42.0.0/24', gateway: { targetId: 'router-foreign-001', address: '10.42.0.1', scope: 'lan' } }],
       services: [
-        { id: 'service-ssh-002', name: 'SSH', port: 22, protocol: 'TCP' },
-        { id: 'service-rack-update-002', name: 'RackUpdate', port: 8443, protocol: 'TCP' },
-        { id: 'service-bookstore-backend-002', name: 'Bookstore Backend', port: 8090, protocol: 'TCP' },
+        { id: 'service-ssh-003', name: 'SSH', port: 22, protocol: 'TCP' },
       ],
     })
   })

@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useRef, useState 
 import { createInitialGameState } from '../core/game/initialState'
 import type { GameState } from '../core/game/types'
 import { advanceGameState } from '../core/game/gameAdvancement'
-import { createLocalScanTarget, type ScanTargetOperation } from './localScanOperation'
+import { createLocalScanTarget, scanTargetFromSource, type ScanTargetOperation } from './localScanOperation'
 import { createLocalPingTarget, type PingTargetOperation } from './localPingOperation'
 import { createFindTargets, createRefreshNetwork, type FindTargetsOperation, type RefreshNetworkOperation } from './targetDiscoveryOperation'
 import type { GameStateAccessor } from './gameStateAccess'
@@ -23,6 +23,7 @@ import { createFirmwareActions } from './firmwareOperations'
 import { createRattlerActions } from './rattlerOperations'
 import { createMailActions } from './mailOperations'
 import { createRecentActivityActions } from './recentActivityOperations'
+import { rememberScan } from '../core/game/discovery'
 import { createDeauthActions } from './deauthOperations'
 import type { DeauthObservation, StartDeauthResult } from '../core/game/deauth'
 import type { ObservedServiceTarget } from '../core/game/serviceAnalysis'
@@ -52,6 +53,7 @@ const GameContext = createContext<GameState | null>(null)
 export interface GameActions {
   pingTarget: PingTargetOperation
   scanTarget: ScanTargetOperation
+  scanRemoteTarget?(sourceDeviceId: string, input: string): ScanResult | { status: 'software_unavailable' }
   findTargets: FindTargetsOperation
   refreshNetwork: RefreshNetworkOperation
   startServiceAnalysis(targetDeviceId: string, serviceId: string): NodeScanStartServiceAnalysisResult
@@ -147,7 +149,15 @@ export function GameProvider({ children, initialState, serverOwnsAdvancement = f
   }, [serverOwnsAdvancement])
   // Explicit composition: each domain owns its own application adapter; GameProvider only wires them to the shared canonical-state accessor.
   const actions: GameActions = {
-    pingTarget, scanTarget, findTargets, refreshNetwork,
+    pingTarget, scanTarget, scanRemoteTarget: (sourceDeviceId, input) => {
+      const state = accessor.read()
+      const result = scanTargetFromSource(state, sourceDeviceId, input)
+      if (result.status !== 'software_unavailable') {
+        const discovery = rememberScan(state.discovery, result, sourceDeviceId)
+        if (discovery !== state.discovery) accessor.write({ ...state, discovery })
+      }
+      return result
+    }, findTargets, refreshNetwork,
     ...createServiceAnalysisActions(accessor),
     ...createCredentialAccessActions(accessor),
     ...createDeauthActions(accessor),

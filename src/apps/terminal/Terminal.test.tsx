@@ -237,6 +237,25 @@ describe('Terminal asynchronous Scan submission', () => {
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('scan home-net')
   })
+
+  it('renders every currently forwarded public exposure a real Scan of the Gateway observes, never a private backend address', async () => {
+    const state = createInitialGameState()
+    const realResult = scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '203.0.113.42')
+    const scanTarget = vi.fn(() => Promise.resolve(realResult))
+    const input = renderTerminal(scanTarget)
+    const user = userEvent.setup()
+
+    await user.type(input, 'scan 203.0.113.42{enter}')
+    await waitFor(() => expect(terminal().getByText('SERVICES FOUND: 5')).toBeInTheDocument())
+    expect(terminal().getByText('203.0.113.42:80')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:22')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:8443')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:2222')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:2223')).toBeInTheDocument()
+    const rendered = document.querySelector('.terminal-output')?.textContent ?? ''
+    expect(rendered).not.toMatch(/10\.42\.0\.42|10\.42\.0\.43|10\.42\.0\.61|10\.42\.0\.0\/24|10\.42\.0\.1\b/)
+    expect(rendered).not.toMatch(/host-lan-002|host-lan-003|host-phone-001|Petra|Bookstore Backend|8090/i)
+  })
 })
 
 /**
@@ -280,8 +299,10 @@ describe('Terminal credential access', () => {
     expect(screen.getByText('PROCESS UNAVAILABLE')).toBeInTheDocument()
   })
 
-  it('dispatches a UPD-001 endpoint to the RackUpdate exploit rather than Credential Access', async () => {
+  it('dispatches the RackUpdate attack via the public endpoint the Gateway actually exposes, never the private backend address Discovery never observed', async () => {
     const base = createInitialGameState()
+    // A Host Scan of the public edge legitimately observes the RackUpdate exposure itself now — never
+    // the private backend it forwards to — so `attack` against that same public endpoint dispatches.
     const discovery = rememberScan(base.discovery, scanNetworkTarget({ localDevice: base.player.localDevice, network: base.world.network }, '203.0.113.42'), base.player.localDevice.id)
     const state = { ...base, discovery, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', observedLabel: 'Rollback protection not enforced' }] } }
     const startCredentialAccessAttemptFromObservation = vi.fn()
@@ -295,9 +316,27 @@ describe('Terminal credential access', () => {
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Command input'), 'attack 203.0.113.42:8443{enter}')
     expect(startRackUpdateExploitAttemptFromObservation).toHaveBeenCalledExactlyOnceWith({
-      endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002',
-      vulnerabilityId: 'UPD-001',
+      endpoint: '203.0.113.42:8443', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', vulnerabilityId: 'UPD-001',
     })
+    expect(startCredentialAccessAttemptFromObservation).not.toHaveBeenCalled()
+  })
+
+  it('never dispatches a private backend endpoint Discovery has not itself observed', async () => {
+    const base = createInitialGameState()
+    const discovery = rememberScan(base.discovery, scanNetworkTarget({ localDevice: base.player.localDevice, network: base.world.network }, '203.0.113.42'), base.player.localDevice.id)
+    const state = { ...base, discovery, knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002', observedLabel: 'Rollback protection not enforced' }] } }
+    const startCredentialAccessAttemptFromObservation = vi.fn()
+    const startRackUpdateExploitAttemptFromObservation = vi.fn(() => ({ status: 'started' as const, processId: 'process-test', state }))
+    vi.spyOn(GameContext, 'useGameState').mockReturnValue(state)
+    vi.spyOn(GameContext, 'useGameActions').mockReturnValue({
+      pingTarget: vi.fn(), scanTarget: vi.fn(), findTargets: vi.fn(), refreshNetwork: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(), startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(),
+      startCredentialAccessAttemptFromObservation, startDeauthAttempt: vi.fn(), startRackUpdateExploitAttemptFromObservation, startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(), connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(), installLocalSoftwarePackage: vi.fn(), installRemoteSoftwarePackage: vi.fn(), removeInstalledSoftware: vi.fn(), startFlipperModuleIntegration: vi.fn(), openMailThread: vi.fn(), sendMailReply: vi.fn(), composeMail: vi.fn(), deleteMailThreads: vi.fn(), clearRecentActivity: vi.fn(), removeRecentActivity: vi.fn(), authenticateDollarAccount: vi.fn(), authenticateDollarAccountWithSavedSignIn: vi.fn(), logoutDollarAccount: vi.fn(), transferDollars: vi.fn(), transferRemoteDollars: vi.fn(), cancelFileTransfer: vi.fn(), purchaseMarketOffer: vi.fn(), startMarketPackageDownload: vi.fn(), cancelLocalProcess: vi.fn(), runNodeMiner: vi.fn(), stopNodeMiner: vi.fn(), runRemoteNodeMiner: vi.fn(), stopRemoteNodeMiner: vi.fn(), retargetLocalNodeMinerPayout: vi.fn(), payoutLocalNodeMiner: vi.fn(), payoutNodeMiner: vi.fn(), retargetNodeMinerPayout: vi.fn(), changeWalletProtectionForOperatedRemoteDevice: vi.fn(), startVeyraFirmwareUpdateForOperatedRemoteDevice: vi.fn(), startRackOsFirmwareUpdateForOperatedRemoteDevice: vi.fn(), verifyDevicePinForOperatedRemoteDevice: vi.fn(), placeBookstoreRestockOrderFromOperatedRemoteDevice: vi.fn(), requestBookstoreMarketReportFromOperatedRemoteDevice: vi.fn(), purchaseBookstoreCoffeeMachineFromOperatedRemoteDevice: vi.fn(), createRattlerPayload: vi.fn(),
+    })
+    render(<Terminal />)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Command input'), 'attack 10.42.0.42:8443{enter}')
+    expect(screen.getByText('NO KNOWN ATTACK METHOD')).toBeInTheDocument()
+    expect(startRackUpdateExploitAttemptFromObservation).not.toHaveBeenCalled()
     expect(startCredentialAccessAttemptFromObservation).not.toHaveBeenCalled()
   })
 

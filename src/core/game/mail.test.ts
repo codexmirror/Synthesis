@@ -21,7 +21,7 @@ import { NODEMAIL_SYSTEM_CORRESPONDENT_ADDRESS } from './mail'
 import { snapshotMailAttachment } from './mailAttachments'
 import { MYRA_FIRST_TARGET_ADDRESS, MYRA_FIRST_CONTACT_THREAD_ID } from './myraFirstContactCorrespondence'
 import { rememberScan } from './discovery'
-import { scanNetworkTarget } from './scan'
+import { scanFromDevice } from './scan'
 import type { GameState, MailMessage } from './types'
 
 function send(state: GameState, text: string): GameState {
@@ -229,7 +229,10 @@ describe('communicated information is not observation', () => {
     const mailed = send(createInitialGameState(), 'send it')
     expect(mailed.discovery.devices).not.toContainEqual(expect.objectContaining({ id: 'host-phone-001' }))
 
-    const observation = scanNetworkTarget({ localDevice: mailed.player.localDevice, network: mailed.world.network }, MYRA_FIRST_TARGET_ADDRESS)
+    // The addressed public entry is the Gateway's own edge; a portless Scan of it from the player's own
+    // Device reveals the phone's currently forwarded exposure, keyed by its own stable identity and
+    // addressed at the public endpoint actually dialed — never its private backend address.
+    const observation = scanFromDevice(mailed, mailed.player.localDevice.id, MYRA_FIRST_TARGET_ADDRESS)
     const discovery = rememberScan(mailed.discovery, observation, mailed.player.localDevice.id)
     expect(discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: MYRA_FIRST_TARGET_ADDRESS }))
   })
@@ -241,10 +244,10 @@ describe('communicated information is not observation', () => {
     const worldMoved: GameState = {
       ...sent,
       world: { network: { ...sent.world.network, hosts: sent.world.network.hosts.map((host) =>
-        host.ip === MYRA_FIRST_TARGET_ADDRESS ? { ...host, ip: '203.0.113.77' } : host) } },
+        host.publicAddress === MYRA_FIRST_TARGET_ADDRESS ? { ...host, publicAddress: '203.0.113.77' } : host) } },
     }
 
-    expect(worldMoved.world.network.hosts.some((host) => host.ip === MYRA_FIRST_TARGET_ADDRESS)).toBe(false)
+    expect(worldMoved.world.network.hosts.some((host) => host.publicAddress === MYRA_FIRST_TARGET_ADDRESS)).toBe(false)
     expect(worldMoved.mail.messages.map((message) => message.body)).toEqual(communicated)
     expect(lastReply(worldMoved)).toContain(MYRA_FIRST_TARGET_ADDRESS)
 

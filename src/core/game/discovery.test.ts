@@ -53,6 +53,73 @@ describe('Discovery memory', () => {
   })
 })
 
+describe('Gateway exposure refresh', () => {
+  const GATEWAY_ADDRESS = '203.0.113.42'
+  const scanGateway = (world: typeof state.world = state.world) => scanNetworkTarget({ localDevice: state.player.localDevice, network: world.network }, GATEWAY_ADDRESS)
+  const withoutExposure = (targetServiceId: string) => ({
+    ...state,
+    world: { network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'router-foreign-001'
+      ? { ...host, exposures: host.exposures!.filter((exposure) => exposure.targetServiceId !== targetServiceId) }
+      : host) } },
+  })
+
+  it('remembers every currently forwarded backend by stable identity, keyed as this Gateway\'s own exposure', () => {
+    const discovery = rememberScan(createEmptyDiscovery(), scanGateway(), state.player.localDevice.id)
+    const srv02 = discovery.devices.find(({ id }) => id === 'host-lan-002')
+    const phone = discovery.devices.find(({ id }) => id === 'host-phone-001')
+    expect(srv02).toMatchObject({ observedOnlyAsGatewayExposure: { gatewayDeviceId: 'router-foreign-001' } })
+    expect(srv02?.services.map(({ id }) => id).sort()).toEqual(['service-rack-update-002', 'service-ssh-002'])
+    expect(phone).toMatchObject({ observedOnlyAsGatewayExposure: { gatewayDeviceId: 'router-foreign-001' } })
+    expect(phone?.services.map(({ id }) => id)).toEqual(['service-ssh-003'])
+  })
+
+  it('stays remembered as stale until a rescan, matching the established Discovery model for a direct Device Scan', () => {
+    const scanned = rememberScan(createEmptyDiscovery(), scanGateway(), state.player.localDevice.id)
+    // World Truth changes underneath what was remembered; merely holding it never refreshes anything.
+    const removed = withoutExposure('service-rack-update-002')
+    const rescan = scanGateway(removed.world)
+    expect(rescan.status === 'device' ? rescan.exposedBackends?.some(({ service }) => service.id === 'service-rack-update-002') : undefined).toBe(false)
+    expect(scanned.devices.find(({ id }) => id === 'host-lan-002')?.services.map(({ id }) => id).sort()).toEqual(['service-rack-update-002', 'service-ssh-002'])
+  })
+
+  it('drops one disappeared exposure on rescan while preserving the same backend\'s other still-observed exposure', () => {
+    let discovery = rememberScan(createEmptyDiscovery(), scanGateway(), state.player.localDevice.id)
+    const removed = withoutExposure('service-rack-update-002')
+    discovery = rememberScan(discovery, scanGateway(removed.world), state.player.localDevice.id)
+    const srv02 = discovery.devices.find(({ id }) => id === 'host-lan-002')
+    expect(srv02?.services.map(({ id }) => id)).toEqual(['service-ssh-002'])
+    expect(srv02?.observedOnlyAsGatewayExposure).toEqual({ gatewayDeviceId: 'router-foreign-001' })
+  })
+
+  it('removes a gateway-exposure-only backend outright once its one and only exposure disappears on rescan', () => {
+    let discovery = rememberScan(createEmptyDiscovery(), scanGateway(), state.player.localDevice.id)
+    expect(discovery.devices.some(({ id }) => id === 'host-phone-001')).toBe(true)
+    const removed = withoutExposure('service-ssh-003')
+    discovery = rememberScan(discovery, scanGateway(removed.world), state.player.localDevice.id)
+    expect(discovery.devices.some(({ id }) => id === 'host-phone-001')).toBe(false)
+    // Every other backend the Gateway still forwards is untouched by this refresh.
+    expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.services).toHaveLength(2)
+    expect(discovery.devices.some(({ id }) => id === 'host-lan-003')).toBe(true)
+  })
+
+  it('never erases a backend\'s own directly observed evidence merely because its Gateway exposure later disappears', () => {
+    // A direct Device Scan sourced from within the segment (a test fixture; never default game content)
+    // legitimately discovers srv-02 itself, remembering its private-facing Service surface for real.
+    const direct: ScanResult = { status: 'device', targetId: 'host-lan-002', address: '10.42.0.42', scope: 'remote', networks: [], services: [{ id: 'service-bookstore-backend-002', name: 'Bookstore Backend', port: 8090, protocol: 'TCP' }] }
+    let discovery = rememberScan(createEmptyDiscovery(), direct, state.player.localDevice.id)
+    discovery = rememberScan(discovery, scanGateway(), state.player.localDevice.id)
+    expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.observedOnlyAsGatewayExposure).toBeUndefined()
+
+    const removed = withoutExposure('service-ssh-002')
+    discovery = rememberScan(discovery, scanGateway(removed.world), state.player.localDevice.id)
+    const srv02 = discovery.devices.find(({ id }) => id === 'host-lan-002')!
+    // Still a real, directly observed Device: never removed, and its own non-forwarded evidence survives.
+    expect(srv02.observedOnlyAsGatewayExposure).toBeUndefined()
+    expect(srv02.services.find(({ id }) => id === 'service-bookstore-backend-002')).toBeDefined()
+    expect(srv02.services.find(({ id }) => id === 'service-rack-update-002')).toBeDefined()
+  })
+})
+
 describe('remembered Device display identity', () => {
   const selfId = state.player.localDevice.id
   const scanned = () => rememberScan(state.discovery, observe('198.51.100.47'), selfId)

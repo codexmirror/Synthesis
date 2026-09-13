@@ -40,7 +40,7 @@ describe('RATTLER 1.0', () => {
     const withPayload: GameState = { ...base, world: { ...base.world, network: { ...base.world.network, hosts: base.world.network.hosts.map((host) => host.id === phone.id
       ? { ...host, security: { ...host.security!, devicePin: pin }, filesystem: { ...host.filesystem!, files: [...host.filesystem!.files, payload] } } : host) } },
       deviceAccess: { nextId: 2, established: [{ id: 'access-phone', sourceDeviceId: base.player.localDevice.id, targetDeviceId: phone.id, viaServiceId: 'service-ssh-003', privilege: 'USER' }] } }
-    return connectRemoteFromObservation(withPayload, { targetDeviceId: phone.id, address: phone.ip }).state
+    return connectRemoteFromObservation(withPayload, { targetDeviceId: phone.id, address: '203.0.113.42' }).state
   }
 
   it('uses the full 10,000 deterministic ascending candidates 0000..9999 with Petra at attempt 7043', () => {

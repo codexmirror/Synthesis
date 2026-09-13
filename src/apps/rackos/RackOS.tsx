@@ -23,6 +23,7 @@ import { formatDollarCents } from '../dollarFormat'
 import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
 import { deriveRackOsFirmwarePresentationStatus, RACK_OS_1_1_BUSINESS_RELEASE, type RackOsFirmwarePresentationStatus } from '../../core/game/rackOsFirmwareUpdate'
 import { RackFirmwareUpdateSurface } from './RackFirmwareUpdate'
+import { resolveDeviceNetworkContext } from '../../core/game/networkPath'
 
 /**
  * Where the player currently is inside the operated Device's environment.
@@ -339,7 +340,7 @@ function BusinessSurface({ state, context }: {
 
 function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget; onDisconnect(): void }) {
   const state = useGameState()
-  const { startRemoteFileDownload, startRemoteFileUpload, runRemoteNodeMiner, stopRemoteNodeMiner, retargetNodeMinerPayout, payoutNodeMiner } = useGameActions()
+  const { startRemoteFileDownload, startRemoteFileUpload, runRemoteNodeMiner, stopRemoteNodeMiner, retargetNodeMinerPayout, payoutNodeMiner, scanRemoteTarget } = useGameActions()
   const [input, setInput] = useState('')
   const [lines, setLines] = useState<readonly { command: string; output: readonly string[] }[]>([])
   function submit(event: FormEvent) {
@@ -375,7 +376,10 @@ function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget
         return result.status === 'retargeted' ? { status: result.status, processId: result.processId, payoutAddress: result.payoutAddress } : { status: result.status }
       },
     }
-    const result = runRemoteCommand(context, command, { startRemoteFileDownload, startRemoteFileUpload, nodeMiner }); setInput('')
+    const result = runRemoteCommand(context, command, { startRemoteFileDownload, startRemoteFileUpload, nodeMiner, scan: (target) => scanRemoteTarget ? scanRemoteTarget(context.target.id, target) : { status: 'unknown_target' as const, input: target }, networkContext: () => {
+      const network = resolveDeviceNetworkContext(state, context.target.id)
+      return network ? [`ADDRESS   ${network.address}`, `NETWORK   ${network.cidr}`, `GATEWAY   ${network.gateway}`] : [`ADDRESS   ${context.target.ip}`, 'NETWORK   UNAVAILABLE', 'GATEWAY   UNAVAILABLE']
+    } }); setInput('')
     if (result.clear) setLines([]); else setLines((current) => [...current, { command, output: result.output }])
     if (result.disconnect) onDisconnect()
   }

@@ -4,6 +4,7 @@ import type { StartRemoteFileDownloadResult, StartRemoteFileUploadResult } from 
 import { isNodeMinerAvailable } from '../../core/game/nodeMiner'
 import { NODE_MINER_TERMINAL_DESCRIPTION, runNodeMinerTerminal, type NodeMinerTerminalOperations } from '../nodeMinerTerminal'
 import { describeUploadFailure } from '../uploadFailure'
+import type { ScanResult } from '../../core/game/scan'
 
 export type RemoteCommandResult = { readonly output: readonly string[]; readonly clear?: boolean; readonly disconnect?: boolean }
 
@@ -16,6 +17,8 @@ export interface RemoteCommandOperations {
   readonly startRemoteFileDownload: (path: string) => StartRemoteFileDownloadResult
   readonly startRemoteFileUpload: (sourcePath: string, destinationPath: string) => StartRemoteFileUploadResult
   readonly nodeMiner: NodeMinerTerminalOperations
+  readonly scan: (input: string) => ScanResult | { readonly status: 'software_unavailable' }
+  readonly networkContext: () => readonly string[]
 }
 
 export function runRemoteCommand(context: ActiveRemoteTarget, source: string, operations: RemoteCommandOperations): RemoteCommandResult {
@@ -23,9 +26,16 @@ export function runRemoteCommand(context: ActiveRemoteTarget, source: string, op
   const [name = '', ...args] = source.trim().split(/\s+/)
   const nodeMinerAvailable = isNodeMinerAvailable(context.target)
   const nodeMinerSoftware = context.target.installedSoftware?.find(({ id }) => id === 'node-miner')
-  if (name === 'help') return { output: [`${context.target.firmware!.name.toUpperCase()} ${context.target.firmware!.version}`, 'help  clear  ip  ls  cat  download  upload  disconnect', ...(nodeMinerAvailable && nodeMinerSoftware ? ['', `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, `node-miner — ${NODE_MINER_TERMINAL_DESCRIPTION}`] : [])] }
+  if (name === 'help') return { output: [`${context.target.firmware!.name.toUpperCase()} ${context.target.firmware!.version}`, 'help  clear  ip  scan  ls  cat  download  upload  disconnect', ...(nodeMinerAvailable && nodeMinerSoftware ? ['', `${nodeMinerSoftware.name.toUpperCase()} ${nodeMinerSoftware.version}`, `node-miner — ${NODE_MINER_TERMINAL_DESCRIPTION}`] : [])] }
   if (name === 'clear') return { output: [], clear: true }
-  if (name === 'ip') return { output: [context.target.ip] }
+  if (name === 'ip') return { output: operations.networkContext() }
+  if (name === 'scan') {
+    if (args.length !== 1) return { output: ['USAGE: scan <network|address>'] }
+    const result = operations.scan(args[0])
+    if (result.status === 'network') return { output: result.devices.map(({ address }) => address) }
+    if (result.status === 'device') return { output: result.services.map(({ name, port }) => `${name} ${port}`) }
+    return { output: [result.status.toUpperCase().replaceAll('_', ' ')] }
+  }
   if (name === 'disconnect') return { output: [], disconnect: true }
   if (name === 'ls') {
     const path = args[0] ?? '/'

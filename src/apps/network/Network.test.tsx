@@ -6,9 +6,9 @@ import { GameProvider, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import { appRegistry } from '../../shell/appRegistry'
 import { advanceGameState } from '../../core/game/gameAdvancement'
-import { scanNetworkTarget } from '../../core/game/scan'
+import { scanFromDevice, scanNetworkTarget } from '../../core/game/scan'
 import { rememberPing, rememberScan } from '../../core/game/discovery'
-import { startServiceAnalysis } from '../../core/game/serviceAnalysis'
+import { startServiceAnalysis, startServiceAnalysisFromObservation } from '../../core/game/serviceAnalysis'
 import { pingNetworkTarget } from '../../core/game/ping'
 import type { CredentialAccessProcess, GameState, ServiceAnalysisProcess } from '../../core/game/types'
 import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
@@ -27,7 +27,33 @@ vi.mock('../../core/game/scan', async (importOriginal) => {
 
 const SRV_01 = 'host-lan-001'
 const SRV_01_ADDRESS = '198.51.100.47'
-const PHONE_ADDRESS = '198.51.100.61'
+const PHONE_ADDRESS = '10.42.0.61'
+const SRV_02 = 'host-lan-002'
+// srv-02 sits behind Bookstore's private segment: every legitimate observation of it is reached (and
+// therefore addressed) through its Gateway's own public edge, never its own private World Truth address.
+const GATEWAY_ADDRESS = '203.0.113.42'
+const SRV_02_ADDRESS = GATEWAY_ADDRESS
+const SRV_02_GATEWAY_EDGE = `${GATEWAY_ADDRESS}:22`
+
+/** srv-02's GateSSH, reached the only way it is reachable: Bookstore's public Gateway edge. Creates srv-02's own Discovery identity as a side effect, exactly like a Scan would. */
+function analyzedSrv02Ssh(state: GameState = createInitialGameState()): GameState {
+  const started = startServiceAnalysisFromObservation(state, { endpoint: SRV_02_GATEWAY_EDGE, targetDeviceId: SRV_02, serviceId: 'service-ssh-002' })
+  if (started.status !== 'started') throw new Error(started.status)
+  return advanceGameState(started.state, 20_000)
+}
+
+/**
+ * Installs NodeScan on srv-02 as a pure test-local fixture for this file's own Known Space / target
+ * topology rendering coverage — never a default game assumption or an accepted V1 route to Bookstore's
+ * private segment. It only lets these tests construct a specific remembered Discovery shape (as if some
+ * operated Device had run the same explicit-source Scan RackOS Terminal's own `scan` command already
+ * supports) so the projection/rendering behavior under test has a concrete fixture to render.
+ */
+function withSrv02NodeScan(state: GameState): GameState {
+  return { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === SRV_02
+    ? { ...host, installedSoftware: [...(host.installedSoftware ?? []), { id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', name: 'NodeScan', version: '1.0', channel: 'standard' }] }
+    : host) } } }
+}
 
 /* ---------------------------------------------------------------- fixtures */
 
@@ -83,6 +109,15 @@ function scannedTarget(state: GameState = createInitialGameState()): GameState {
     discovery = analyzedDiscovery(known, targets, discovery, SRV_01_ADDRESS)
   }
   return { ...known, discovery }
+}
+
+/**
+ * Discovery after one legitimate portless Scan of Bookstore's public Gateway edge: the Gateway's own
+ * Service plus every exposure it currently forwards, each remembered only as that forward.
+ */
+function gatewayScanned(state: GameState = createInitialGameState()): GameState {
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  return { ...state, discovery: rememberScan(state.discovery, scanNetworkTarget(targets, GATEWAY_ADDRESS), state.player.localDevice.id) }
 }
 
 /** GateSSH 1.3.2 analyzed through the canonical operation, plus historical AUTH-017 Knowledge. */
@@ -250,7 +285,7 @@ describe('NodeScan first hack', () => {
     expect(currentState().process.processes).toEqual([])
     expect(currentState().discovery.devices.find(({ id }) => id === SRV_01)?.inspect).toBeUndefined()
     await openDetails(user)
-    await user.click(screen.getByRole('button', { name: 'Analyze SSH' }))
+    await user.click(screen.getByRole('button', { name: `Analyze SSH at ${SRV_01_ADDRESS}:22` }))
     expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-ssh-001' })])
   })
 
@@ -390,18 +425,15 @@ describe('NodeScan information boundary', () => {
     // Some other cause changed the represented GateSSH release on a second
     // target (not the player's own submission). Remembered evidence must not
     // silently refresh from hidden World Truth.
-    const observed = withNodeScan11(createInitialGameState())
-    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
-    const scanned = rememberScan(observed.discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
-    const discovery = analyzedDiscovery(observed, targets, scanned, '203.0.113.42')
+    const analyzed = analyzedSrv02Ssh(withNodeScan11(createInitialGameState()))
     const changedWorld = {
-      ...observed, discovery,
-      world: { network: { ...observed.world.network, hosts: observed.world.network.hosts.map((host) => host.id !== 'host-lan-002' ? host : { ...host, services: host.services!.map((service) => service.id !== 'service-ssh-002' ? service : { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.3.2' } }) }) } },
+      ...analyzed,
+      world: { network: { ...analyzed.world.network, hosts: analyzed.world.network.hosts.map((host) => host.id !== 'host-lan-002' ? host : { ...host, services: host.services!.map((service) => service.id !== 'service-ssh-002' ? service : { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: 'build-fixture-v0', name: 'GateSSH', version: '1.3.2' } }) }) } },
     }
 
     const user = userEvent.setup()
     render(<GameProvider initialState={changedWorld}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    await user.click(await screen.findByRole('button', { name: `Open target ${SRV_02_ADDRESS}` }))
     // The world now runs GateSSH 1.3.2, which is vulnerable. Player memory says 1.3.3: KeyProbe's own
     // surface is legitimately known from that stale memory alone, so its route and estimate already form.
     expect(screen.getByLabelText('Target status')).toHaveTextContent('TARGET OBSERVED')
@@ -417,12 +449,10 @@ describe('NodeScan information boundary', () => {
   })
 
   it('never reveals AuthGuard, since no current operation observes it', async () => {
-    const state = createInitialGameState()
-    const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    const discovery = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
+    const analyzed = analyzedSrv02Ssh()
     const user = userEvent.setup()
-    render(<GameProvider initialState={{ ...state, discovery }}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
+    render(<GameProvider initialState={analyzed}><Network /></GameProvider>)
+    await user.click(await screen.findByRole('button', { name: `Open target ${SRV_02_ADDRESS}` }))
     await openDetails(user)
 
     const ssh = screen.getByText('SSH').closest('.ns-service') as HTMLElement
@@ -543,16 +573,13 @@ describe('NodeScan progress', () => {
     const alongside = await openTarget(withProcesses(connected, [analysisProcess('process-0001', 'service-http-001', 500)]))
     await openDetails(alongside)
     expect(screen.getByLabelText('Target status')).toHaveTextContent('CONNECTED')
-    expect(screen.getByRole('group', { name: 'HTTP analysis progress' })).toHaveTextContent('50%')
+    expect(screen.getByRole('group', { name: `HTTP at ${SRV_01_ADDRESS}:80 analysis progress` })).toHaveTextContent('50%')
   })
 })
 
 /* -------------------------------------------- Credential Access semantics */
 
 describe('Credential Access domain presentation', () => {
-  const SRV_02 = 'host-lan-002'
-  const SRV_02_ADDRESS = '203.0.113.42'
-
   function withCompute(state: GameState, computeCapacity: number): GameState {
     return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, hardware: { ...state.player.localDevice.hardware, cpu: { ...state.player.localDevice.hardware.cpu, computeCapacity } } } } }
   }
@@ -562,19 +589,19 @@ describe('Credential Access domain presentation', () => {
   }
 
   /**
-   * Known AUTH-031 against srv-02, optionally Analyzed, with AuthGuard
-   * stripped from the represented current World Truth. No current operation
-   * ever legitimately observes AuthGuard, so every fixture here represents
-   * the only reachable case.
+   * Known AUTH-031 against srv-02, optionally Analyzed through Bookstore's
+   * public Gateway edge — the sole reachable route into its private
+   * segment — with AuthGuard stripped from the represented current World
+   * Truth. No current operation ever legitimately observes AuthGuard, so
+   * every fixture here represents the only reachable case.
    */
   function knownAuth031({ inspect = false }: { inspect?: boolean } = {}): GameState {
     const base = withNodeScan11(createInitialGameState())
     const network = { ...base.world.network, hosts: base.world.network.hosts.map((host) => host.id === SRV_02 ? { ...host, installedSoftware: host.installedSoftware?.filter(({ id }) => id !== 'auth-guard') } : host) }
-    const targets = { localDevice: base.player.localDevice, network }
-    let discovery = rememberScan(base.discovery, scanNetworkTarget(targets, SRV_02_ADDRESS), base.player.localDevice.id)
-    if (inspect) discovery = analyzedDiscovery(base, targets, discovery, SRV_02_ADDRESS)
+    const stripped = { ...base, world: { network } }
+    const analyzed = inspect ? analyzedSrv02Ssh(stripped) : stripped
     return {
-      ...base, world: { network }, discovery,
+      ...analyzed,
       knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'AUTH-031', observedLabel: 'Pre-authentication challenge state reuse', targetDeviceId: SRV_02, serviceId: 'service-ssh-002' }] },
     }
   }
@@ -627,9 +654,13 @@ describe('Credential Access domain presentation', () => {
     expect(selectTarget(running, SRV_02)?.operation?.facts).toContainEqual({ label: 'TARGET', value: 'GateSSH 1.3.3' })
 
     // The player legitimately re-Analyzes the endpoint mid-attempt; Discovery now remembers a different implementation.
-    const targets = { localDevice: running.player.localDevice, network: { ...running.world.network, hosts: running.world.network.hosts.map((host) => host.id === SRV_02 ? { ...host, services: host.services!.map((service) => service.id === 'service-ssh-002' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2' } } : service) } : host) } }
-    const refreshedDiscovery = analyzedDiscovery(running, targets, running.discovery, SRV_02_ADDRESS)
-    const refreshed = { ...running, discovery: refreshedDiscovery }
+    // Elapsed time is longer than `analyzedDiscovery`'s usual 20s: this re-analysis now shares the executor's
+    // compute with the still-running KeyProbe attempt above, so it needs enough of a shared segment to finish
+    // while comfortably leaving that longer KeyProbe attempt still running once it gets the freed-up full rate.
+    const alteredWorld = { ...running.world, network: { ...running.world.network, hosts: running.world.network.hosts.map((host) => host.id === SRV_02 ? { ...host, services: host.services!.map((service) => service.id === 'service-ssh-002' ? { ...service, implementation: { productId: 'gate-ssh', releaseId: 'gate-ssh-1.3.2', buildId: GATE_SSH_1_3_2_BUILD_ID, name: 'GateSSH', version: '1.3.2' } } : service) } : host) } }
+    const reanalyzing = startServiceAnalysis({ ...running, world: alteredWorld }, SRV_02, 'service-ssh-002')
+    if (reanalyzing.status !== 'started') throw new Error(reanalyzing.status)
+    const refreshed = advanceGameState(reanalyzing.state, 27_000)
     const afterTarget = selectTarget(refreshed, SRV_02)!
     expect(afterTarget.services.find(({ id }) => id === 'service-ssh-002')?.observed?.implementation).toBe('GateSSH 1.3.2')
     // The running operation still describes what this Process actually started against, not the fresher observation.
@@ -756,7 +787,7 @@ describe('NodeScan technical details', () => {
     const user = await openTarget(scannedTarget(withNodeScan11(createInitialGameState())))
     await openDetails(user)
     expect(screen.queryByRole('button', { name: 'INSPECT' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Analyze SSH' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: `Analyze SSH at ${SRV_01_ADDRESS}:22` })).toBeInTheDocument()
   })
 
   it('keeps technical intelligence separate from the action provenance', async () => {
@@ -776,7 +807,7 @@ describe('NodeScan technical details', () => {
   it('keeps single-Service investigation available as advanced depth', async () => {
     const user = await openTarget(scannedTarget())
     await openDetails(user)
-    await user.click(screen.getByRole('button', { name: 'Analyze HTTP' }))
+    await user.click(screen.getByRole('button', { name: `Analyze HTTP at ${SRV_01_ADDRESS}:80` }))
 
     expect(currentState().process.processes).toEqual([expect.objectContaining({ kind: 'service_analysis', serviceId: 'service-http-001', status: 'running' })])
   })
@@ -796,7 +827,7 @@ describe('NodeScan technical details', () => {
     const user = await openTarget(analysed)
     await openDetails(user)
 
-    const serviceOf = (name: string) => screen.getByRole('button', { name: `Analyze ${name}` }).closest('.ns-service') as HTMLElement
+    const serviceOf = (name: string) => screen.getByRole('button', { name: new RegExp(`^Analyze ${name} at `) }).closest('.ns-service') as HTMLElement
     const precedesItsAction = (article: HTMLElement, statement: HTMLElement) =>
       statement.compareDocumentPosition(within(article).getByRole('button', { name: /^Analyze / })) & Node.DOCUMENT_POSITION_FOLLOWING
 
@@ -827,12 +858,17 @@ describe('NodeScan technical details', () => {
 /* ------------------------------------------------------- target topology */
 
 describe('NodeScan target topology', () => {
-  const SRV_02_ADDRESS = '203.0.113.42'
-
+  /**
+   * srv-02 itself (established through Bookstore's public Gateway edge, its own Discovery identity),
+   * plus its private LAN peers as remembered from a hypothetical Scan sourced from srv-02 — a test
+   * fixture for this file's own topology-rendering coverage only, not a default game assumption or a
+   * route the shipped V1 game actually offers.
+   */
   function knownRemote(state: GameState = createInitialGameState()): GameState {
     const withFlipper = { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: [...state.player.localDevice.installedSoftware, FLIPPER_1_0_CANONICAL_INSTALLATION] } } }
-    const discovery = rememberScan(withFlipper.discovery, scanNetworkTarget({ localDevice: withFlipper.player.localDevice, network: withFlipper.world.network }, 'remote-segment-01'), withFlipper.player.localDevice.id)
-    return { ...withFlipper, discovery }
+    const analyzed = analyzedSrv02Ssh(withFlipper)
+    const discovery = rememberScan(analyzed.discovery, scanFromDevice(withSrv02NodeScan(analyzed), SRV_02, 'remote-segment-01'), SRV_02)
+    return { ...analyzed, discovery }
   }
 
   it('presents a compact Network -> Device -> Service hierarchy above ACTIONS, from observed identity alone', async () => {
@@ -950,17 +986,14 @@ describe('NodeScan target topology', () => {
   })
 
   it('never presents AuthGuard intelligence, since no current operation observes it', () => {
-    let state = withNodeScan12(createInitialGameState())
-    const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    const scanned = rememberScan(state.discovery, scanNetworkTarget(targets, '203.0.113.42'), state.player.localDevice.id)
-    const discovery = analyzedDiscovery(state, targets, scanned, '203.0.113.42')
+    let state = analyzedSrv02Ssh(withNodeScan12(createInitialGameState()))
     const failed: CredentialAccessProcess = {
       ...credentialProcess(1200), id: 'protected-attempt', status: 'completed', targetDeviceId: 'host-lan-002', serviceId: 'service-ssh-002',
       startedEndpoint: '203.0.113.42:22', vulnerabilityId: 'AUTH-031', toolId: 'keyprobe', moduleId: undefined,
       authGuardProtectionObserved: true,
       result: { status: 'attempt_failed', message: 'Authentication attempt failed.' },
     }
-    state = { ...state, discovery, process: { nextId: 2, processes: [failed] } }
+    state = { ...state, process: { nextId: 2, processes: [failed] } }
     const intelligence = selectTarget(state, 'host-lan-002')!.services[0].intelligence
     expect(intelligence.find(({ software }) => software === 'AuthGuard 1.0')).toBeUndefined()
     expect(intelligence.find(({ software }) => software === 'GateSSH 1.3.3')).toBeUndefined()
@@ -998,9 +1031,9 @@ describe('NodeScan target topology', () => {
     const scanned = knownRemote(withNodeScan12(createInitialGameState()))
     const members = selectTarget(scanned, 'host-lan-002', scanned)!.networks[0].members
     expect(members).toEqual([
-      expect.objectContaining({ id: 'host-lan-003', address: '203.0.113.43', liveStatus: { label: 'ONLINE', tone: 'available' } }),
+      expect.objectContaining({ id: 'host-lan-003', address: '10.42.0.43', liveStatus: { label: 'ONLINE', tone: 'available' } }),
       expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, liveStatus: { label: 'ONLINE', tone: 'available' } }),
-      expect.objectContaining({ id: 'router-foreign-001', address: '203.0.113.1', liveStatus: { label: 'ONLINE', tone: 'available' } }),
+      expect.objectContaining({ id: 'router-foreign-001', address: '10.42.0.1', liveStatus: { label: 'ONLINE', tone: 'available' } }),
     ])
     expect(members[0].displayName).toBeUndefined()
     expect(members[1].displayName).toBeUndefined()
@@ -1012,8 +1045,9 @@ describe('NodeScan target topology', () => {
     const rendered = screen.getByRole('region', { name: 'Target topology' })
     expect(rendered).toHaveTextContent('remote-segment-01')
     expect(rendered).not.toHaveTextContent(PHONE_ADDRESS)
-    expect(rendered).not.toHaveTextContent('203.0.113.43')
-    expect(rendered).not.toHaveTextContent('203.0.113.1')
+    expect(rendered).not.toHaveTextContent('10.42.0.43')
+    // srv-02's own legitimately observed address is its Gateway's public edge — the same one this check
+    // once verified was never leaked as an unrelated peer's, back when srv-02 was shown at a different address.
     expect(rendered).toHaveTextContent(SRV_02_ADDRESS)
 
   })
@@ -1040,7 +1074,7 @@ describe('NodeScan target topology', () => {
     expect(within(topology).queryByLabelText('Known members of remote-segment-01')).not.toBeInTheDocument()
     expect(topology).toHaveTextContent('remote-segment-01')
     expect(topology).not.toHaveTextContent(SRV_02_ADDRESS)
-    expect(topology).not.toHaveTextContent('203.0.113.1')
+    expect(topology).not.toHaveTextContent('203.0.113.42')
     expect(within(topology).getAllByText(PHONE_ADDRESS)).toHaveLength(1)
   })
 
@@ -1105,15 +1139,16 @@ describe('NodeScan target topology', () => {
 
 describe('RackUpdate exploit and package submission', () => {
   // The Rollback Module is not integrated by default (the Market is its represented acquisition path), so this fixture states the concrete Flipper build that has it.
+  // Both srv-02's GateSSH and RackUpdate surfaces are reached through Bookstore's own public Gateway edge,
+  // which forwards each to its own external port.
   function srv02(): GameState {
-    const observed = withNodeScan11(createInitialGameState())
-    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
-    const scanned = rememberScan(observed.discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
-    const discovery = analyzedDiscovery(observed, targets, scanned, '203.0.113.42')
+    const analyzed = analyzedSrv02Ssh(withNodeScan11(createInitialGameState()))
+    const rackUpdateAnalysis = startServiceAnalysisFromObservation(analyzed, { endpoint: '203.0.113.42:8443', targetDeviceId: SRV_02, serviceId: 'service-rack-update-002' })
+    if (rackUpdateAnalysis.status !== 'started') throw new Error(rackUpdateAnalysis.status)
+    const observed = advanceGameState(rackUpdateAnalysis.state, 20_000)
     const gatePackage = observed.world.network.hosts.find(({ id }) => id === SRV_01)!.filesystem!.files.find(({ id }) => id === 'file-0003')!
     return {
       ...observed,
-      discovery,
       knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [{ vulnerabilityId: 'UPD-001', observedLabel: 'Rollback protection not enforced', targetDeviceId: 'host-lan-002', serviceId: 'service-rack-update-002' }] },
       player: {
         ...observed.player,
@@ -1414,23 +1449,148 @@ describe('Known Space topology', () => {
     const form = input.closest('form')!
     const before = currentState()
 
-    await user.type(input, PHONE_ADDRESS)
+    // A Gateway's own public edge is portlessly reachable directly; the private backends behind it are not.
+    await user.type(input, GATEWAY_ADDRESS)
 
     const entered = currentState()
     expect(entered.discovery).toEqual(before.discovery)
     expect(entered.knowledge).toEqual(before.knowledge)
     expect(entered.deviceAccess).toEqual(before.deviceAccess)
     expect(entered.remoteSession).toEqual(before.remoteSession)
-    expect(screen.queryByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })).not.toBeInTheDocument()
     expect(scanTargetSpy).not.toHaveBeenCalled()
 
     await user.click(within(form).getByRole('button', { name: 'Ping target address' }))
 
     expect(scanTargetSpy).not.toHaveBeenCalled()
-    expect(currentState().discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, scope: 'unknown' }))
+    expect(currentState().discovery.devices).toContainEqual(expect.objectContaining({ id: 'router-foreign-001', address: GATEWAY_ADDRESS, scope: 'unknown' }))
     expect(currentState().discovery.networkDeviceRelations).toEqual([])
     expect(screen.getByRole('region', { name: 'Elsewhere' })).toHaveTextContent('Membership not observed')
-    expect(screen.getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })).toBeInTheDocument()
+  })
+
+  it('does not present a Gateway\'s currently forwarded exposures as separate discovered Devices merely from its own portless Scan', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+    const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
+    await user.type(input, GATEWAY_ADDRESS)
+    await user.click(screen.getByRole('button', { name: 'Ping target address' }))
+    await user.click(await screen.findByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` }))
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
+
+    // The Scan legitimately remembers all four currently forwarded backends by stable identity, keyed
+    // for later causal endpoint resolution, but every one of them is gateway-only tainted.
+    const atGatewayAddress = currentState().discovery.devices.filter(({ address }) => address === GATEWAY_ADDRESS)
+    expect(atGatewayAddress).toHaveLength(4)
+    expect(atGatewayAddress.filter((device) => device.observedOnlyAsGatewayExposure)).toHaveLength(3)
+
+    // Known Space still presents exactly one Device at this public address: the Gateway itself. No
+    // "Open target 203.0.113.42" duplicate appears for any forwarded backend, and Elsewhere never grows
+    // beyond the one Gateway entry the player actually observed.
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    expect(screen.getAllByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })).toHaveLength(1)
+    const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
+    expect(within(elsewhere).getAllByRole('button', { name: /^Open target /i })).toHaveLength(1)
+  })
+
+  it('presents the same public Service surface the canonical Scan observed, whichever surface the player used', async () => {
+    const scanned = { ...createInitialGameState(), discovery: gatewayScanned().discovery }
+    const target = selectTarget(scanned, 'router-foreign-001')!
+
+    // Exactly the five public endpoints the Terminal prints for this same observation.
+    expect(target.services.map(({ name, endpoint, protocol }) => `${name} ${endpoint}/${protocol}`)).toEqual([
+      `HTTP ${GATEWAY_ADDRESS}:80/TCP`,
+      `SSH ${GATEWAY_ADDRESS}:22/TCP`,
+      `RackUpdate ${GATEWAY_ADDRESS}:8443/TCP`,
+      `SSH ${GATEWAY_ADDRESS}:2222/TCP`,
+      `SSH ${GATEWAY_ADDRESS}:2223/TCP`,
+    ])
+    // Each row resolves against the Device that really answers that endpoint, so a later operation stays
+    // causally correct — while nothing about those Devices is stated as observed evidence.
+    expect(target.services.map(({ deviceId }) => deviceId)).toEqual(['router-foreign-001', SRV_02, SRV_02, 'host-phone-001', 'host-lan-003'])
+    expect(target.services.every(({ observed, liveStatus, accessPrivilege }) => !observed && !liveStatus && !accessPrivilege)).toBe(true)
+    expect(target.networks).toEqual([])
+  })
+
+  it('never states a forwarded backend Device, its private address, or its topology on the public edge card', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={gatewayScanned()}><Network /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` }))
+    await openDetails(user)
+
+    const card = screen.getByRole('region', { name: 'NodeScan' })
+    for (const endpoint of [':80', ':22', ':8443', ':2222', ':2223']) {
+      expect(within(card).getByText(`${GATEWAY_ADDRESS}${endpoint}`)).toBeInTheDocument()
+    }
+    const rendered = card.textContent ?? ''
+    expect(rendered).not.toMatch(/10\.42\.0\.42|10\.42\.0\.43|10\.42\.0\.61|10\.42\.0\.1\b|10\.42\.0\.0\/24/)
+    expect(rendered).not.toMatch(/srv-02|ops-01|Petra|Bookstore Backend/i)
+    expect(rendered).not.toMatch(/8090|host-lan-002|host-lan-003|host-phone-001/)
+    // The forwarded backends stay entirely absent from Known Space as Devices of their own: only the one
+    // public edge the player actually observed is a Device here.
+    expect(selectKnownSpace(gatewayScanned()).elsewhere.map(({ id }) => id)).toEqual(['router-foreign-001'])
+  })
+
+  it('resolves an ANALYZE taken on a forwarded public endpoint against the backend that actually answers it', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={gatewayScanned()}><Network /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` }))
+    await openDetails(user)
+    await user.click(screen.getByRole('button', { name: `Analyze SSH at ${GATEWAY_ADDRESS}:2222` }))
+
+    // The phone's own stable identity, reached through the represented exposure, at the endpoint the
+    // player actually dialed — never the Gateway's identity and never the phone's private address.
+    expect(currentState().process.processes).toEqual([expect.objectContaining({
+      kind: 'service_analysis', targetDeviceId: 'host-phone-001', serviceId: 'service-ssh-003', startedEndpoint: `${GATEWAY_ADDRESS}:2222`,
+    })])
+  })
+
+  it('moves a forwarded endpoint onto its own target once a directed Analysis legitimately discovers that Device', () => {
+    const analysis = startServiceAnalysis(gatewayScanned(), 'host-phone-001', 'service-ssh-003', `${GATEWAY_ADDRESS}:2222`)
+    if (analysis.status !== 'started') throw new Error(analysis.status)
+    const analyzed = advanceGameState(analysis.state, 20_000)
+
+    // The public edge keeps forwarding what it forwards, but this endpoint is no longer known *only*
+    // as its forward: it now belongs to the Device the player legitimately investigated.
+    expect(selectTarget(analyzed, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:8443`, `${GATEWAY_ADDRESS}:2223`])
+    const phone = selectTarget(analyzed, 'host-phone-001')!
+    expect(phone.address).toBe(GATEWAY_ADDRESS)
+    expect(phone.services.map(({ endpoint, deviceId }) => [endpoint, deviceId])).toEqual([[`${GATEWAY_ADDRESS}:2222`, 'host-phone-001']])
+  })
+
+  it('refreshes the Gateway target card on rescan once a forwarded exposure disappears, dropping only what World Truth no longer forwards', () => {
+    const scanned = gatewayScanned()
+    expect(selectTarget(scanned, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:8443`, `${GATEWAY_ADDRESS}:2222`, `${GATEWAY_ADDRESS}:2223`])
+
+    // srv-02's RackUpdate exposure is withdrawn in World Truth; a second legitimate Scan observes that.
+    const rackUpdateGone = { ...scanned, world: { ...scanned.world, network: { ...scanned.world.network, hosts: scanned.world.network.hosts.map((host) => host.id === 'router-foreign-001'
+      ? { ...host, exposures: host.exposures!.filter((exposure) => exposure.targetServiceId !== 'service-rack-update-002') }
+      : host) } } }
+    const rescanned = gatewayScanned(rackUpdateGone)
+
+    // The vanished exposure drops; srv-02's own still-current GateSSH exposure remains right where it was.
+    expect(selectTarget(rescanned, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:2222`, `${GATEWAY_ADDRESS}:2223`])
+    // No stale RackUpdate identity leaks anywhere in the rendered result.
+    expect(JSON.stringify(selectTarget(rescanned, 'router-foreign-001'))).not.toContain('rack-update')
+  })
+
+  it('removes a gateway-exposure-only Device from Known Space entirely once its one exposure disappears and the Gateway is rescanned', () => {
+    const scanned = gatewayScanned()
+    expect(scanned.discovery.devices.some(({ id }) => id === 'host-phone-001')).toBe(true)
+
+    const phoneGone = { ...scanned, world: { ...scanned.world, network: { ...scanned.world.network, hosts: scanned.world.network.hosts.map((host) => host.id === 'router-foreign-001'
+      ? { ...host, exposures: host.exposures!.filter((exposure) => exposure.targetServiceId !== 'service-ssh-003') }
+      : host) } } }
+    const rescanned = gatewayScanned(phoneGone)
+
+    expect(rescanned.discovery.devices.some(({ id }) => id === 'host-phone-001')).toBe(false)
+    expect(selectTarget(rescanned, 'host-phone-001')).toBeUndefined()
+    expect(selectKnownSpace(rescanned).elsewhere.map(({ id }) => id)).toEqual(['router-foreign-001'])
+    expect(selectTarget(rescanned, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:8443`, `${GATEWAY_ADDRESS}:2223`])
   })
 
   it('marks only the Device just observed as arriving, deriving nothing new and remembering nothing extra', async () => {
@@ -1440,30 +1600,33 @@ describe('Known Space topology', () => {
     expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).not.toHaveClass('ns-node--arrived')
 
     const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
-    await user.type(input, PHONE_ADDRESS)
+    await user.type(input, GATEWAY_ADDRESS)
     await user.click(screen.getByRole('button', { name: 'Ping target address' }))
 
-    expect(await screen.findByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toHaveClass('ns-node--arrived')
+    expect(await screen.findByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })).toHaveClass('ns-node--arrived')
     expect(screen.getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).not.toHaveClass('ns-node--arrived')
   })
 
-  it('keeps a Pinged foreign phone ungrouped, and regroups it plus its peers only through Network Scan', () => {
+  it('keeps a Pinged foreign Gateway ungrouped, and regroups it plus its peers only through Network Scan', () => {
     const state = createInitialGameState()
     const targets = { localDevice: state.player.localDevice, network: state.world.network }
-    const pinged = rememberPing(state.discovery, pingNetworkTarget(targets, PHONE_ADDRESS), state.player.localDevice.id)
+    // The Gateway's own public edge is the one foreign Device directly PINGable from home; a Network
+    // Scan of its private segment (here a test fixture, not a route the shipped game offers) is what
+    // regroups its peers.
+    const pinged = rememberPing(state.discovery, pingNetworkTarget(targets, GATEWAY_ADDRESS), state.player.localDevice.id)
     const before = { ...state, discovery: pinged }
-    expect(selectKnownSpace(before).elsewhere.map(({ id }) => id)).toContain('host-phone-001')
+    expect(selectKnownSpace(before).elsewhere.map(({ id }) => id)).toContain('router-foreign-001')
     // Ping is optional reachability evidence only: it never remembers Network membership.
     expect(pinged.networks).toEqual([])
-    expect(pinged.devices.some(({ id }) => id === 'host-lan-002')).toBe(false)
+    expect(pinged.devices.some(({ id }) => id === 'host-phone-001')).toBe(false)
 
-    const scanned = rememberScan(pinged, scanNetworkTarget(targets, 'remote-segment-01'), state.player.localDevice.id)
+    const scanned = rememberScan(pinged, scanFromDevice(withSrv02NodeScan(state), SRV_02, 'remote-segment-01'), SRV_02)
     const after = { ...state, discovery: scanned }
     const foreign = selectKnownSpace(after).networks.find(({ id }) => id === 'network-foreign-001')!
     expect(foreign.name).toBe('remote-segment-01')
-    expect(foreign.targets.map(({ id }) => id)).toContain('host-phone-001')
-    expect(selectKnownSpace(after).elsewhere.some(({ id }) => id === 'host-phone-001')).toBe(false)
-    expect(scanned.devices.some(({ id }) => id === 'host-lan-002')).toBe(true)
+    expect(foreign.targets.map(({ id }) => id)).toContain('router-foreign-001')
+    expect(selectKnownSpace(after).elsewhere.some(({ id }) => id === 'router-foreign-001')).toBe(false)
+    expect(scanned.devices.some(({ id }) => id === 'host-phone-001')).toBe(true)
   })
 
   it('rejects malformed direct input locally without observing or mutating canonical state', async () => {
@@ -1542,68 +1705,77 @@ describe('Known Space topology', () => {
 
   it('regroups a scanned remote Device out of Elsewhere into its owned Network, shown without a name it has not separately earned', () => {
     const observed = createInitialGameState()
-    const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
-    // A directly scanned remote Device now legitimately reveals its own Network context.
-    const discovery = rememberScan(foundTargets().discovery, scanNetworkTarget(targets, '203.0.113.42'), observed.player.localDevice.id)
+    // A Device Scan sourced from an operated srv-02 (a test fixture here, not a route the shipped game
+    // offers) reveals a peer's own Network context, exactly like a Scan from home would for an ordinary
+    // reachable Device.
+    const discovery = rememberScan(foundTargets(observed).discovery, scanFromDevice(withSrv02NodeScan(observed), SRV_02, PHONE_ADDRESS), SRV_02)
     render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
 
     const home = screen.getByRole('region', { name: 'Network home-net' })
     expect(within(home).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toBeInTheDocument()
-    expect(within(home).queryByRole('button', { name: 'Open target 203.0.113.42' })).not.toBeInTheDocument()
+    expect(within(home).queryByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).not.toBeInTheDocument()
 
     expect(screen.queryByRole('region', { name: 'Elsewhere' })).not.toBeInTheDocument()
-    const foreign = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 203.0.113.0/24' })
-    expect(within(foreign).getByRole('button', { name: 'Open target 203.0.113.42' })).toBeInTheDocument()
+    const foreign = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 10.42.0.0/24' })
+    expect(within(foreign).getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toBeInTheDocument()
     // Host Scan does not enumerate peers; it exposes only the Gateway clue.
-    expect(within(foreign).queryByRole('button', { name: 'Open target 203.0.113.43' })).not.toBeInTheDocument()
-    expect(within(foreign).queryByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).not.toBeInTheDocument()
-    expect(within(foreign).getByRole('button', { name: 'Scan gateway 203.0.113.1' })).toBeInTheDocument()
+    expect(within(foreign).queryByRole('button', { name: 'Open target 10.42.0.43' })).not.toBeInTheDocument()
+    expect(within(foreign).getByRole('button', { name: `Scan gateway 10.42.0.1` })).toBeInTheDocument()
   })
 
-  it('keeps Gateway in the same sibling branch and browsing cannot earn a Network name', async () => {
+  it('keeps Gateway in the same sibling branch, and neither browsing nor a Scan sourced from home can earn this private Network a name', async () => {
     const base = createInitialGameState()
-    const discovery = rememberScan(base.discovery, scanNetworkTarget({ localDevice: base.player.localDevice, network: base.world.network }, PHONE_ADDRESS), base.player.localDevice.id)
+    const discovery = rememberScan(base.discovery, scanFromDevice(withSrv02NodeScan(base), SRV_02, PHONE_ADDRESS), SRV_02)
     const user = userEvent.setup()
     render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
-    const root = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 203.0.113.0/24' })
+    const root = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 10.42.0.0/24' })
     const host = within(root).getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })
-    const gateway = within(root).getByRole('button', { name: 'Open target 203.0.113.1' })
+    const gateway = within(root).getByRole('button', { name: `Open target 10.42.0.1` })
     expect(gateway.closest('.ns-limb')?.parentElement).toBe(host.closest('.ns-limb')?.parentElement)
     expect(gateway).toHaveTextContent('UNKNOWN DEVICE')
     expect(gateway).toHaveTextContent('GATEWAY')
     expect(gateway).not.toHaveTextContent('NETWORK DEVICE')
     const before = currentState().discovery
-    await user.click(within(root).getByRole('button', { name: 'Browse network UNKNOWN NETWORK 203.0.113.0/24' }))
-    await user.click(within(root).getByRole('button', { name: 'Browse network UNKNOWN NETWORK 203.0.113.0/24' }))
+    await user.click(within(root).getByRole('button', { name: 'Browse network UNKNOWN NETWORK 10.42.0.0/24' }))
+    await user.click(within(root).getByRole('button', { name: 'Browse network UNKNOWN NETWORK 10.42.0.0/24' }))
     expect(currentState().discovery).toEqual(before)
     expect(root).not.toHaveTextContent('remote-segment-01')
-    await user.click(within(root).getByRole('button', { name: 'Scan network UNKNOWN NETWORK 203.0.113.0/24' }))
-    expect(screen.getByRole('region', { name: 'Network remote-segment-01' })).toBe(root)
-    expect(root).toHaveTextContent('203.0.113.0/24')
+    await user.click(within(root).getByRole('button', { name: 'Scan network UNKNOWN NETWORK 10.42.0.0/24' }))
+    // Home holds no membership in this private segment: even a remembered CIDR never admits a Scan that reaches it.
+    expect(root).not.toHaveTextContent('remote-segment-01')
   })
 
-  it('scans a remembered Gateway directly with one Host Scan and does not enumerate peers', async () => {
+  it('reveals the Gateway\'s own internal LAN position as its clue, never its public edge, and a plain Known Space Scan of it (always SELF-sourced) gets no response', async () => {
     const base = createInitialGameState()
-    const targets = { localDevice: base.player.localDevice, network: base.world.network }
-    const discovery = rememberScan(base.discovery, scanNetworkTarget(targets, '203.0.113.42'), base.player.localDevice.id)
+    // Sourced from an operated srv-02 (a test fixture, not a route the shipped game offers), on the same
+    // private LAN as the phone: the represented Gateway clue this reveals is the internal position srv-02
+    // itself sees, `10.42.0.1` — never the externally reconnaissable public edge, a distinct, independent
+    // fact this Scan never observes.
+    const discovery = rememberScan(base.discovery, scanFromDevice(withSrv02NodeScan(base), SRV_02, PHONE_ADDRESS), SRV_02)
+    const gatewayInternalAddress = '10.42.0.1'
     const user = userEvent.setup()
     render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
 
-    await user.click(screen.getByRole('button', { name: 'Scan gateway 203.0.113.1' }))
+    // Known Space's own Scan action always sources from SELF; SELF has no represented route to the
+    // Gateway's internal LAN address at all, so this correctly gets no response.
+    await user.click(screen.getByRole('button', { name: `Scan gateway ${gatewayInternalAddress}` }))
 
     expect(currentState().discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({
-      address: '203.0.113.1', servicesObserved: true,
-      services: [expect.objectContaining({ endpoint: '203.0.113.1:80', name: 'HTTP' })],
+      address: gatewayInternalAddress, servicesObserved: false,
     })
     expect(currentState().discovery.networks.find(({ id }) => id === 'network-foreign-001')?.membersObserved).toBe(false)
     expect(currentState().discovery.devices.some(({ id }) => id === 'host-lan-003')).toBe(false)
   })
 
-  it('keeps a Device with genuinely no represented Network membership visibly separate', () => {
+  it('never reaches a Device with genuinely no represented Network membership, and reveals nothing about it', () => {
     const base = createInitialGameState()
     const unrelatedHost = { id: 'host-unrelated', ip: '192.0.2.77', operational: { lifecycle: 'RUNNING' as const, connectivity: 'CONNECTED' as const } }
     const observed = { ...base, world: { network: { ...base.world.network, hosts: [...base.world.network.hosts, unrelatedHost] } } }
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    // A Device with no represented Network placement at all is never globally reachable merely because
+    // placement truth is absent: it fails closed exactly like any other missing membership, so Scan
+    // observes nothing and it never enters Discovery or Known Space at all.
+    expect(scanNetworkTarget(targets, '192.0.2.77')).toEqual({ status: 'no_response', address: '192.0.2.77' })
     const discovery = rememberScan(foundTargets(observed).discovery, scanNetworkTarget(targets, '192.0.2.77'), observed.player.localDevice.id)
     render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
 
@@ -1611,9 +1783,7 @@ describe('Known Space topology', () => {
     expect(within(home).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toBeInTheDocument()
     expect(within(home).queryByRole('button', { name: 'Open target 192.0.2.77' })).not.toBeInTheDocument()
 
-    const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
-    expect(within(elsewhere).getByRole('button', { name: 'Open target 192.0.2.77' })).toBeInTheDocument()
-    expect(elsewhere).toHaveTextContent('Remote')
+    expect(screen.queryByRole('region', { name: 'Elsewhere' })).not.toBeInTheDocument()
   })
 
   it('opens the same simple target card straight from the topology', async () => {
@@ -1771,9 +1941,9 @@ describe('Network administration inside NodeScan', () => {
 
   it('gives a discovered foreign Network no administration route, because Discovery is not authority', () => {
     const base = createInitialGameState()
-    const targets = { localDevice: base.player.localDevice, network: base.world.network }
-    // The phone's foreign Network becomes remembered only through a legitimate Network Scan.
-    const discovery = rememberScan(base.discovery, scanNetworkTarget(targets, 'remote-segment-01'), base.player.localDevice.id)
+    // The phone's foreign Network becomes remembered only through a legitimate Network Scan, here sourced
+    // from an operated srv-02 test fixture (not a route the shipped game offers).
+    const discovery = rememberScan(base.discovery, scanFromDevice(withSrv02NodeScan(base), SRV_02, 'remote-segment-01'), SRV_02)
     render(<GameProvider initialState={{ ...base, discovery }}><Network /></GameProvider>)
 
     const foreign = screen.getByRole('region', { name: 'Network remote-segment-01' })

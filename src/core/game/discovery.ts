@@ -1,4 +1,4 @@
-import type { ScanResult } from './scan'
+import type { DiscoveredService, ScanResult } from './scan'
 import type { PingResult } from './ping'
 import type { DiscoveryState } from './types'
 
@@ -20,7 +20,7 @@ export function rememberPing(discovery: DiscoveryState, result: PingResult, self
 export function rememberScan(discovery: DiscoveryState, result: ScanResult, selfDeviceId: string): DiscoveryState {
   if (result.status === 'no_response' || result.status === 'unknown_target') return discovery
   const networks = [...discovery.networks]
-  const devices = [...discovery.devices]
+  let devices = [...discovery.devices]
   const relations = [...discovery.networkDeviceRelations]
   const rememberRelation = (networkId: string, deviceId: string) => {
     if (!relations.some((item) => item.networkId === networkId && item.deviceId === deviceId)) relations.push({ networkId, deviceId })
@@ -108,6 +108,59 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
       if (index < 0) devices.push(next); else devices[index] = next
     }
     for (const gateway of gateways) rememberShallowPeer(gateway)
+
+    // A Gateway's own portless Scan additionally remembers each currently forwarded exposure as a real
+    // Service on its own backend Device's stable identity — never on the Gateway's own — addressed at
+    // the public endpoint actually dialed, and with no represented Network relation of its own: exactly
+    // what the public edge itself reveals, and nothing about internal topology. The backend's own
+    // identity is remembered only for later causal endpoint resolution (Analyze/Attack/Connect); a brand
+    // new entry created this way is marked `observedOnlyAsGatewayExposure` so it never itself presents as
+    // a separately discovered Device until something more direct legitimately observes it. An already
+    // real (or already merely gateway-observed) entry keeps whatever it already was.
+    const exposedByDevice = new Map<string, DiscoveredService[]>()
+    for (const backend of result.exposedBackends ?? []) {
+      if (backend.targetDeviceId === selfDeviceId) continue
+      const list = exposedByDevice.get(backend.targetDeviceId) ?? []
+      list.push(backend.service)
+      exposedByDevice.set(backend.targetDeviceId, list)
+    }
+    /**
+     * A successful Gateway Scan refreshes this same edge's own forwarded-exposure observation, exactly
+     * like a direct Device Scan refreshes its own Service snapshot: an exposure that no longer resolves
+     * no longer appears. This owns only entries that exist *solely* because this Gateway's own earlier
+     * edge observation reported them — an already directly observed Device may legitimately hold other
+     * Service memory this Scan says nothing about, and keeps it untouched. A gateway-exposure-only
+     * backend with no remaining exposure from this Gateway is removed outright: a hidden Device shell
+     * with no Service left to forward is not meaningful Player Information.
+     */
+    devices = devices.filter((item) =>
+      item.observedOnlyAsGatewayExposure?.gatewayDeviceId !== result.targetId || exposedByDevice.has(item.id))
+    for (const [targetDeviceId, exposedServices] of exposedByDevice) {
+      const index = devices.findIndex((item) => item.id === targetDeviceId)
+      const previous = devices[index]
+      // An entry already observed directly stays directly observed; every other one records the Gateway
+      // whose own edge reported this forward, so these endpoints present there rather than as Devices.
+      const gatewayExposureOnly = previous && !previous.observedOnlyAsGatewayExposure
+        ? undefined
+        : { gatewayDeviceId: result.targetId }
+      const services = exposedServices.map((service) => {
+        const previousService = previous?.services.find((item) => item.id === service.id)
+        return { ...service, endpoint: `${result.address}:${service.port}`, ...(previousService?.inspect ? { inspect: previousService.inspect } : {}), ...(previousService?.implementationAnalysisStale ? { implementationAnalysisStale: true as const } : {}) }
+      })
+      // A gateway-exposure-only entry's whole remembered surface came from this same edge, so this Scan
+      // fully refreshes it — nothing is preserved beyond what it currently observes. A directly observed
+      // entry may hold Service memory from another, non-forwarded source (a real Scan or Analysis this
+      // observation never touched), so that memory still survives until its own owner refreshes it.
+      const untouched = gatewayExposureOnly ? [] : (previous?.services.filter((item) => !services.some((service) => service.id === item.id)) ?? [])
+      const next = {
+        id: targetDeviceId, address: result.address, scope: previous?.scope ?? 'remote' as const,
+        servicesObserved: true, services: [...untouched, ...services],
+        ...(previous?.classification ? { classification: previous.classification } : {}),
+        ...(previous?.inspect ? { inspect: previous.inspect } : {}),
+        ...(gatewayExposureOnly ? { observedOnlyAsGatewayExposure: gatewayExposureOnly } : {}),
+      }
+      if (index < 0) devices.push(next); else devices[index] = next
+    }
   }
   return { networks, devices, networkDeviceRelations: relations }
 }

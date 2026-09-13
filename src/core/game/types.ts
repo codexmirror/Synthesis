@@ -1367,6 +1367,19 @@ export interface NetworkHost {
   readonly role?: 'server'
   /** Network services owned by this device, not a global service registry. */
   readonly services?: readonly NetworkService[]
+  /** A Router's concrete public ingress mappings.  The mapped service remains
+   * Device-owned truth; this is only the gateway edge relationship. */
+  readonly exposures?: readonly GatewayExposure[]
+  /**
+   * A Router's own externally reconnaissable public edge address, distinct
+   * from `ip` — its ordinary internal LAN position, the address its own
+   * member Devices see as their default Gateway. A Router with no
+   * `publicAddress` has no external edge at all: it is reachable only from
+   * within its own represented LocalNetwork, exactly like an ordinary Device.
+   */
+  readonly publicAddress?: string
+  /** Concrete router-hop evidence; LocalNetwork membership is not an observer. */
+  readonly activityHistory?: NetworkActivityHistoryState
   /** Present only for endpoints whose transfer capability is concretely represented. */
   readonly transferCapacity?: NetworkTransferCapacity
   /** Device-owned authentication history, present only for concretely represented resource-capable hosts. */
@@ -1580,6 +1593,23 @@ export interface DiscoveredDeviceSnapshot {
    * such an observation happened.
    */
   readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server'; readonly displayName?: string; readonly enhanced?: EnhancedInspectEvidence }
+  /**
+   * Present only while this entry exists solely because a Gateway's own
+   * portless public-edge Scan reported it as one of its currently forwarded
+   * exposures. That Scan observed only that a Service is reachable at the
+   * Gateway's own address and what it is — never this backend Device's own
+   * identity, private address, or LocalNetwork placement — so the entry stays
+   * keyed by stable identity for causal endpoint resolution
+   * (Analyze/Attack/Connect) but must never itself present as a separately
+   * discovered Device. `gatewayDeviceId` is the Gateway whose own edge
+   * reported it, which is itself legitimate Player Information: it is where
+   * the player dialed, and it is what lets those observed public endpoints be
+   * presented on that Gateway's own target rather than as Devices of their
+   * own. Cleared the moment a genuine direct observation of this exact Device
+   * (Endpoint Analysis, its own Scan/Ping, or Network Scan membership)
+   * touches it.
+   */
+  readonly observedOnlyAsGatewayExposure?: { readonly gatewayDeviceId: string }
 }
 
 export interface DiscoveryState {
@@ -1613,7 +1643,15 @@ export interface LocalNetwork {
    * Device's own AuthenticationHistory, of Recent Activity, and of Player
    * Knowledge/Discovery. Never exposed through Scan, Inspect, or Discovery.
    */
+  /** Compatibility presentation history. V1 writes path evidence to Router hops. */
   readonly activityHistory: NetworkActivityHistoryState
+}
+
+export interface GatewayExposure {
+  readonly protocol: 'TCP' | 'UDP'
+  readonly externalPort: number
+  readonly targetDeviceId: string
+  readonly targetServiceId: string
 }
 
 /**

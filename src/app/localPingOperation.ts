@@ -1,4 +1,4 @@
-import { pingNetworkTarget, type PingResult } from '../core/game/ping'
+import { pingFromDevice, type PingResult } from '../core/game/ping'
 import { rememberPing } from '../core/game/discovery'
 import { findInstalledNodeScan } from '../core/game/software'
 import type { GameState } from '../core/game/types'
@@ -11,7 +11,7 @@ export function createLocalPingTarget(readState: () => GameState, writeState: (s
   return (input) => {
     const state = readState()
     if (!findInstalledNodeScan(state.player.localDevice)) return { status: 'software_unavailable' }
-    const result = pingNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, input)
+    const result = pingFromDevice(state, state.player.localDevice.id, input)
     const latest = readState()
     const discovery = rememberPing(latest.discovery, result, latest.player.localDevice.id)
     if (discovery !== latest.discovery) writeState({ ...latest, discovery })

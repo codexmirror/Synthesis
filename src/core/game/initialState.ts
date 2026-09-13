@@ -22,7 +22,7 @@ import { createInitialBookstoreRestockState } from './bookstoreRestock'
 import { BOOKSTORE_SALE_STATEMENT_PURPOSE } from './bookstoreSale'
 import { RACK_OS_1_1_BUSINESS_RELEASE } from './rackOsFirmwareUpdate'
 
-export const GAME_STATE_VERSION = 92
+export const GAME_STATE_VERSION = 93
 
 export function createInitialGameState(): GameState {
   return {
@@ -145,8 +145,8 @@ export function createInitialGameState(): GameState {
         localNetworks: [
           // External connectivity capacity, deliberately well above every member Device's own endpoint capacity so it is never the bottleneck for the currently authored same-Network home-net route.
           { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gatewayDeviceId: 'router-home-001', memberDeviceIds: ['device-local-v0', 'host-lan-001', 'router-home-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
-          // srv-02's and the phone's shared external uplink/downlink; deliberately the cross-Network route node-01 actually exercises.
-          { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+          // Bookstore's public address is the gateway edge; members are private.
+          { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '10.42.0.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
         ],
         hosts: [
           {
@@ -179,7 +179,7 @@ export function createInitialGameState(): GameState {
             displayName: 'srv-02',
             deviceType: 'SERVER',
             deviceModel: RACK_CORE_120_DEVICE_MODEL,
-            ip: '203.0.113.42',
+            ip: '10.42.0.42',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             // This concrete srv-02's own represented recovery behavior for this precedent: it reboots on connectivity loss. Device-owned configuration, not a universal "every RACK-OS reboots" rule.
             connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT',
@@ -207,7 +207,7 @@ export function createInitialGameState(): GameState {
             displayName: 'ops-01',
             deviceType: 'SERVER',
             deviceModel: RACK_CORE_120_DEVICE_MODEL,
-            ip: '203.0.113.43',
+            ip: '10.42.0.43',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             role: 'server',
             transferCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 },
@@ -226,7 +226,7 @@ export function createInitialGameState(): GameState {
             id: 'host-phone-001',
             displayName: 'Petra’s Phone',
             deviceType: 'PHONE',
-            ip: '198.51.100.61',
+            ip: '10.42.0.61',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             // This concrete phone's own represented recovery behavior for this precedent: it reconnects on connectivity loss without ever rebooting. Device-owned configuration, not a universal "every VEYRA OS Device reconnects" rule.
             connectivityRecoveryBehavior: 'RECONNECT',
@@ -252,13 +252,29 @@ export function createInitialGameState(): GameState {
             ip: '198.51.100.1',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             services: [],
+            activityHistory: { nextId: 1, records: [] },
           },
           {
             id: 'router-foreign-001',
             deviceType: 'ROUTER',
-            ip: '203.0.113.1',
+            // Its own internal LAN position, as `network-foreign-001`'s member Devices see their default
+            // Gateway — distinct from its externally reconnaissable `publicAddress` below.
+            ip: '10.42.0.1',
+            publicAddress: '203.0.113.42',
             operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
             services: [{ id: 'service-http-router-001', name: 'HTTP', port: 80, protocol: 'TCP', open: true, implementation: { productId: 'basic-http', releaseId: 'basic-http-1.0', buildId: BASIC_HTTP_1_0_BUILD_ID, name: 'Basic HTTP', version: '1.0' } }],
+            // Bookstore's own public Gateway edge forwards srv-02's GateSSH admin surface and its RackUpdate
+            // management surface, and separately the phone's and ops-01's own GateSSH surfaces, each its
+            // own independent represented exposure. The backend's other Service (its own Bookstore Backend
+            // included) stays private: there is no represented exposure for it, and no pivot mechanic
+            // reaches it — a deeper compromised-server pivot loop is a later, separate feature, not V1.
+            exposures: [
+              { protocol: 'TCP', externalPort: 22, targetDeviceId: 'host-lan-002', targetServiceId: 'service-ssh-002' },
+              { protocol: 'TCP', externalPort: 8443, targetDeviceId: 'host-lan-002', targetServiceId: 'service-rack-update-002' },
+              { protocol: 'TCP', externalPort: 2222, targetDeviceId: 'host-phone-001', targetServiceId: 'service-ssh-003' },
+              { protocol: 'TCP', externalPort: 2223, targetDeviceId: 'host-lan-003', targetServiceId: 'service-ssh-004' },
+            ],
+            activityHistory: { nextId: 1, records: [] },
           },
           // Deliberately shallow: operational truth is independent of hardware/runtime representation, so this unreachable training host needs no fabricated resource state to participate in it.
           { id: 'host-training-002', ip: '203.0.113.99', operational: { lifecycle: 'RUNNING', connectivity: 'DISCONNECTED' } },

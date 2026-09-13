@@ -295,9 +295,9 @@ describe('RACK-OS', () => {
 
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
     expect(rackOs).toHaveTextContent('RACK-OS 1.0')
-    expect(rackOs).toHaveTextContent('srv-02 · 203.0.113.42')
+    expect(rackOs).toHaveTextContent('srv-02 · 10.42.0.42')
     const input = screen.getByLabelText('Remote command')
-    await user.type(input, 'ip{enter}'); expect(rackOs).toHaveTextContent('203.0.113.42')
+    await user.type(input, 'ip{enter}'); expect(rackOs).toHaveTextContent('10.42.0.1')
     await user.type(input, 'ls /srv{enter}'); expect(rackOs).toHaveTextContent('backup-manifest.txt')
     await user.type(input, 'cat /srv/backup-manifest.txt{enter}')
     expect(rackOs).toHaveTextContent('Backup manifest for srv-02.')
@@ -808,7 +808,7 @@ describe('RACK-OS remote software installation', () => {
     await user.click(screen.getByRole('button', { name: 'TERMINAL' }))
     const input = screen.getByLabelText('Remote command')
     await user.type(input, 'help{enter}')
-    expect(rackOs).toHaveTextContent('help clear ip ls cat download upload disconnect')
+    expect(rackOs).toHaveTextContent('help clear ip scan ls cat download upload disconnect')
     expect(rackOs).not.toHaveTextContent('node-miner')
     await user.type(input, `install ${REMOTE_PACKAGE}{enter}`)
     expect(rackOs).toHaveTextContent('COMMAND NOT FOUND')
@@ -851,7 +851,9 @@ describe('RACK-OS remote NODE Miner execution', () => {
       deviceAccess: { nextId: 2, established: [{ id: 'access-remote-run', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: `service-ssh-00${hostIndex + 1}`, privilege: 'USER' }] },
       world: { ...base.world, network: { ...base.world.network, hosts: hosts.map((candidate, index) => index === hostIndex ? host : candidate) } },
     }
-    return connectRemoteFromObservation(authorized, { targetDeviceId: host.id, address: host.ip }).state
+    // srv-02 sits behind Bookstore's private segment; only its Gateway's own public edge reaches it.
+    const address = host.id === 'host-lan-002' ? '203.0.113.42' : host.ip
+    return connectRemoteFromObservation(authorized, { targetDeviceId: host.id, address }).state
   }
 
   async function openRemoteExecutable(user: ReturnType<typeof userEvent.setup>) {
@@ -1055,7 +1057,7 @@ describe('RACK-OS remote NODE Miner execution', () => {
     const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
 
     await user.type(input, 'help{enter}')
-    expect(rackOs).toHaveTextContent('help clear ip ls cat download upload disconnect')
+    expect(rackOs).toHaveTextContent('help clear ip scan ls cat download upload disconnect')
     expect(rackOs).toHaveTextContent('NODE MINER 1.0')
     expect(rackOs).toHaveTextContent('node-miner — Control NODE Miner on this Device')
     expect(rackOs).not.toHaveTextContent(' upload miner ')
@@ -1189,9 +1191,10 @@ function srv01OnBusiness(): GameState {
  */
 function ops01Connected(): GameState {
   const base = createInitialGameState()
+  // ops-01 sits on Bookstore's private segment, reachable only through its Gateway's own public edge.
   const access = { id: 'access-ops-01', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-003', viaServiceId: 'service-ssh-004', privilege: 'USER' as const }
   const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
-  return connectRemoteFromObservation(authorized, { targetDeviceId: 'host-lan-003', address: '203.0.113.43' }).state
+  return connectRemoteFromObservation(authorized, { targetDeviceId: 'host-lan-003', address: '203.0.113.42' }).state
 }
 
 function ops01WithIncomingRestock(): GameState {
@@ -1206,8 +1209,9 @@ function ops01WithIncomingRestock(): GameState {
   if (restockProposal.status !== 'proposed') throw new Error('expected fixture proposal')
   const order = placeBookstoreRestockOrder(state, BOOKSTORE_BRANCH_ID, { caseCount: 1 }, restockProposal.proposal)
   if (order.status !== 'ordered') throw new Error('expected fixture restock order')
+  // ops-01 sits on Bookstore's private segment, reachable only through its Gateway's own public edge.
   const access = { id: 'access-ops-01', sourceDeviceId: order.state.player.localDevice.id, targetDeviceId: 'host-lan-003', viaServiceId: 'service-ssh-004', privilege: 'USER' as const }
-  return connectRemoteFromObservation({ ...order.state, deviceAccess: { nextId: 2, established: [access] } }, { targetDeviceId: 'host-lan-003', address: '203.0.113.43' }).state
+  return connectRemoteFromObservation({ ...order.state, deviceAccess: { nextId: 2, established: [access] } }, { targetDeviceId: 'host-lan-003', address: '203.0.113.42' }).state
 }
 
 function ReconnectControl() {

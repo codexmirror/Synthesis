@@ -39,7 +39,7 @@ describe('Recon V2 canonical operations', () => {
 
   it('scans and analyzes the foreign Router through the ordinary Host/Endpoint operations', () => {
     let state = createInitialGameState()
-    const scanned = scanNetworkTarget(targets(state), '203.0.113.1')
+    const scanned = scanNetworkTarget(targets(state), '203.0.113.42')
     state = { ...state, discovery: rememberScan(state.discovery, scanned, state.player.localDevice.id) }
     const router = state.discovery.devices.find(({ id }) => id === 'router-foreign-001')!
     const service = router.services[0]
