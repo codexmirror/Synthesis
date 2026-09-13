@@ -1,5 +1,6 @@
 import { isDeviceNetworkUsable } from './deviceOperationalState'
 import type { DeviceAccess, GameState, NetworkHost, NetworkService, RemoteSession } from './types'
+import { resolveKnownServicePath } from './networkPath'
 
 export interface ActiveRemoteTarget {
   readonly session: RemoteSession
@@ -43,7 +44,9 @@ export function connectRemoteFromObservation(state: GameState, observation: Remo
 
   const target = state.world.network.hosts.find(({ id }) => id === observation.targetDeviceId)
   const service = target?.services?.find(({ id }) => id === access.viaServiceId)
-  if (!isDeviceNetworkUsable(state.player.localDevice.operational) || !target || !isDeviceNetworkUsable(target.operational) || target.ip !== observation.address || !service?.open) {
+  if (!target || !service) return { status: 'target_not_available', state }
+  const path = resolveKnownServicePath(state, state.player.localDevice.id, observation.address, target.id, service.id)
+  if (!isDeviceNetworkUsable(state.player.localDevice.operational) || !isDeviceNetworkUsable(target.operational) || !service.open || path.kind === 'NO_ROUTE' || path.target?.id !== target.id || path.targetService?.id !== service.id) {
     return { status: 'target_not_available', state }
   }
 
@@ -85,6 +88,17 @@ export function advanceRemoteSessionReachability(state: GameState): GameState {
   if (!resolved) return state.remoteSession.active
     ? { ...state, remoteSession: { ...state.remoteSession, active: null } }
     : state
-  if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational)) return state
+  // Re-derived from the local Device's own current route, never an implicit DeviceAccess pivot. A
+  // DIRECT_LOCAL Session keeps validating by the target's own current address (a Device's address
+  // changing after connection must not itself end a Session built on stable identity), while an
+  // EXPOSED_EDGE Session was never reachable at the target's own private address to begin with — it
+  // remains valid only through the same public Gateway edge originally dialed (`connectedAddress`),
+  // which resolves by the exposure's own stable Device reference regardless of the backend's current
+  // private address.
+  const localId = state.player.localDevice.id
+  const viaCurrentAddress = resolveKnownServicePath(state, localId, resolved.target.ip, resolved.target.id, resolved.service.id)
+  const viaDialedEdge = resolveKnownServicePath(state, localId, resolved.session.connectedAddress, resolved.target.id, resolved.service.id)
+  const reachable = [viaCurrentAddress, viaDialedEdge].some((path) => path.kind !== 'NO_ROUTE' && path.target?.id === resolved.target.id && path.targetService?.id === resolved.service.id)
+  if (isDeviceNetworkUsable(state.player.localDevice.operational) && isDeviceNetworkUsable(resolved.target.operational) && reachable) return state
   return { ...state, remoteSession: { ...state.remoteSession, active: null } }
 }

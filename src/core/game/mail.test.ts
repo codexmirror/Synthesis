@@ -21,7 +21,7 @@ import { NODEMAIL_SYSTEM_CORRESPONDENT_ADDRESS } from './mail'
 import { snapshotMailAttachment } from './mailAttachments'
 import { MYRA_FIRST_TARGET_ADDRESS, MYRA_FIRST_CONTACT_THREAD_ID } from './myraFirstContactCorrespondence'
 import { rememberScan } from './discovery'
-import { scanNetworkTarget } from './scan'
+import { scanFromDevice } from './scan'
 import type { GameState, MailMessage } from './types'
 
 function send(state: GameState, text: string): GameState {
@@ -229,7 +229,9 @@ describe('communicated information is not observation', () => {
     const mailed = send(createInitialGameState(), 'send it')
     expect(mailed.discovery.devices).not.toContainEqual(expect.objectContaining({ id: 'host-phone-001' }))
 
-    const observation = scanNetworkTarget({ localDevice: mailed.player.localDevice, network: mailed.world.network }, MYRA_FIRST_TARGET_ADDRESS)
+    // The addressed Device sits behind srv-02's own private segment; a Device Scan sourced from
+    // srv-02 (the only pivot the game seeds NodeScan on) reaches it, same as any other foreign peer.
+    const observation = scanFromDevice(mailed, 'host-lan-002', MYRA_FIRST_TARGET_ADDRESS)
     const discovery = rememberScan(mailed.discovery, observation, mailed.player.localDevice.id)
     expect(discovery.devices).toContainEqual(expect.objectContaining({ id: 'host-phone-001', address: MYRA_FIRST_TARGET_ADDRESS }))
   })

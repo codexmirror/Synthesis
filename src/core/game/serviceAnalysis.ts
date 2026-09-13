@@ -2,6 +2,7 @@ import { startProcess } from './processes'
 import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
 import { isDeviceNetworkUsable } from './deviceOperationalState'
+import { resolvePlayerNetworkPath } from './networkPath'
 
 export const SERVICE_ANALYSIS_WORK_REQUIRED = 1000
 export const SERVICE_ANALYSIS_RAM_REQUIRED_MIB = 768
@@ -20,9 +21,8 @@ export function resolveServiceEndpoint(state: GameState, endpoint: string): { ta
   if (!isValidIpv4(ip) || !/^\d+$/.test(portText)) return 'invalid'
   const port = Number(portText)
   if (port < 1 || port > 65535) return 'invalid'
-  const host = state.world.network.hosts.find((candidate) => candidate.ip === ip)
-  const service = host?.services?.find((candidate) => candidate.port === port)
-  return host && service ? { targetDeviceId: host.id, serviceId: service.id } : undefined
+  const path = resolvePlayerNetworkPath(state, ip, port)
+  return path.kind !== 'NO_ROUTE' && path.target && path.targetService ? { targetDeviceId: path.target.id, serviceId: path.targetService.id } : undefined
 }
 
 function currentService(state: GameState, targetDeviceId: string, serviceId: string): { usable: boolean; hostIp?: string; service?: NetworkService } {
@@ -30,10 +30,12 @@ function currentService(state: GameState, targetDeviceId: string, serviceId: str
   return { usable: Boolean(host && isDeviceNetworkUsable(host.operational)), hostIp: host?.ip, service: host?.services?.find(({ id }) => id === serviceId) }
 }
 
-export function startServiceAnalysis(state: GameState, targetDeviceId: string, serviceId: string): StartServiceAnalysisResult {
+export function startServiceAnalysis(state: GameState, targetDeviceId: string, serviceId: string, dialedEndpoint?: string): StartServiceAnalysisResult {
   const current = currentService(state, targetDeviceId, serviceId)
   if (!current.usable || !current.hostIp || !current.service?.open) return { status: 'unavailable', state }
-  const startedEndpoint = `${current.hostIp}:${current.service.port}`
+  // The player-visible endpoint they actually dialed — a Gateway's own public edge for an EXPOSED_EDGE
+  // path — rather than the private backend address a caller resolving by Device+Service alone never named.
+  const startedEndpoint = dialedEndpoint ?? `${current.hostIp}:${current.service.port}`
   if (state.process.processes.some((process) => process.kind === 'service_analysis' && process.status === 'running' && process.targetDeviceId === targetDeviceId && process.serviceId === serviceId)) return { status: 'already_running', state }
   const started = startProcess(state.process, state.player.localDevice, {
     label: 'SERVICE ANALYSIS',
@@ -50,7 +52,7 @@ export function startServiceAnalysisAtEndpoint(state: GameState, endpoint: strin
   const resolved = resolveServiceEndpoint(state, endpoint)
   if (resolved === 'invalid') return { status: 'invalid_endpoint', state }
   if (!resolved) return { status: 'endpoint_not_found', state }
-  return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId)
+  return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId, endpoint)
 }
 
 export interface ObservedServiceTarget {
@@ -66,7 +68,7 @@ export function startServiceAnalysisFromObservation(state: GameState, observed: 
   if (!resolved || resolved.targetDeviceId !== observed.targetDeviceId || resolved.serviceId !== observed.serviceId) {
     return { status: 'endpoint_not_found', state }
   }
-  return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId)
+  return startServiceAnalysis(state, resolved.targetDeviceId, resolved.serviceId, observed.endpoint)
 }
 
 /**
@@ -83,21 +85,38 @@ export function resolveCompletedServiceAnalyses(state: GameState): GameState {
     changed = true
     const resolved = resolveCompletedServiceAnalysis(state, process)
     if (resolved.process.analyzedImplementation) {
+      const current = currentService(state, process.targetDeviceId, process.serviceId)
+      const inspect = {
+        implementation: resolved.process.analyzedImplementation,
+        ...(current.service?.credentialAccess ? { authentication: 'Credential' as const } : {}),
+        ...(current.service?.implementation.productId === 'rack-update' && current.service.implementation.releaseId === 'rack-update-1.0' ? { interface: 'Package submission' as const } : {}),
+      }
       const deviceIndex = discovery.devices.findIndex(({ id }) => id === process.targetDeviceId)
       const device = discovery.devices[deviceIndex]
-      const serviceIndex = device?.services.findIndex(({ id }) => id === process.serviceId) ?? -1
-      if (device && serviceIndex >= 0) {
-        const current = currentService(state, process.targetDeviceId, process.serviceId).service
+      if (device) {
+        const serviceIndex = device.services.findIndex(({ id }) => id === process.serviceId)
         const services = [...device.services]
-        const { implementationAnalysisStale: _stale, ...freshService } = services[serviceIndex]
-        services[serviceIndex] = { ...freshService, inspect: {
-          implementation: resolved.process.analyzedImplementation,
-          ...(current?.credentialAccess ? { authentication: 'Credential' as const } : {}),
-          ...(current?.implementation.productId === 'rack-update' && current.implementation.releaseId === 'rack-update-1.0' ? { interface: 'Package submission' as const } : {}),
-        } }
+        if (serviceIndex >= 0) {
+          const { implementationAnalysisStale: _stale, ...freshService } = services[serviceIndex]
+          services[serviceIndex] = { ...freshService, inspect }
+        } else if (current.service) {
+          services.push({ id: current.service.id, name: current.service.name, port: current.service.port, protocol: current.service.protocol, endpoint: process.startedEndpoint, inspect })
+        }
         const devices = [...discovery.devices]
         devices[deviceIndex] = { ...device, services }
         discovery = { ...discovery, devices }
+      } else if (current.service) {
+        // Directed Endpoint Analysis of a Device reached only through a Gateway's own exposed
+        // edge — never itself revealed by a portless Scan of that edge — legitimately teaches the
+        // Service evidence it exposed, keyed by the backend's own stable identity so later Access
+        // and Session truth remain causally correct. It is never represented at the backend's own
+        // private address: the player only ever observed the public endpoint they actually dialed,
+        // and that dialed endpoint — never World Truth's own private `ip` — is what Discovery states.
+        const dialedAddress = process.startedEndpoint.slice(0, process.startedEndpoint.lastIndexOf(':'))
+        discovery = { ...discovery, devices: [...discovery.devices, {
+          id: process.targetDeviceId, address: dialedAddress, scope: 'remote', servicesObserved: true,
+          services: [{ id: current.service.id, name: current.service.name, port: current.service.port, protocol: current.service.protocol, endpoint: process.startedEndpoint, inspect }],
+        }] }
       }
     }
     return resolved.process

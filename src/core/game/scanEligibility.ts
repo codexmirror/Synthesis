@@ -6,8 +6,11 @@ import type { GameState } from './types'
  * canonical selector before World resolution, so repeated presentation names
  * cannot retarget or invalidate an admitted operation.
  */
-export function resolveKnownScanTarget(state: Readonly<GameState>, input: string): string | undefined {
-  if (input === state.player.localDevice.network.ip) return input
+export function resolveKnownScanTarget(state: Readonly<GameState>, input: string, sourceDeviceId = state.player.localDevice.id): string | undefined {
+  const source = sourceDeviceId === state.player.localDevice.id
+    ? state.player.localDevice
+    : state.world.network.hosts.find(({ id }) => id === sourceDeviceId)
+  if (source && ('network' in source ? source.network.ip : source.ip) === input) return input
   if (state.discovery.devices.some(({ address }) => address === input)) return input
 
   const rememberedNetworks = state.discovery.networks.filter(({ name, cidr }) => name === input || cidr === input)
@@ -20,6 +23,6 @@ export function resolveKnownScanTarget(state: Readonly<GameState>, input: string
   }
 
   const matchingLocalNetworks = state.world.network.localNetworks.filter(({ name, cidr, memberDeviceIds }) =>
-    memberDeviceIds.includes(state.player.localDevice.id) && (name === input || cidr === input))
+    memberDeviceIds.includes(sourceDeviceId) && (name === input || cidr === input))
   return matchingLocalNetworks.length === 1 ? matchingLocalNetworks[0].cidr : undefined
 }

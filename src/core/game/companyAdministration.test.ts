@@ -162,10 +162,10 @@ describe('Company Administration Session', () => {
     const state = createInitialGameState()
     expect(resolveSoleCompanyAdministrationContextForOperatedRemoteDevice(state)).toEqual({ status: 'unavailable' })
 
-    const phone = operating(state, PHONE_ID, 'service-ssh-003', '198.51.100.61')
+    const phone = operating(state, PHONE_ID, 'service-ssh-003', '203.0.113.42')
     expect(resolveSoleCompanyAdministrationContextForOperatedRemoteDevice(phone).status).toBe('administered')
     // Operating a different Device resolves that Device's own authority, and it has none.
-    const ops = operating(state, OPS_ID, 'service-ssh-004', '203.0.113.43')
+    const ops = operating(state, OPS_ID, 'service-ssh-004', '203.0.113.42')
     expect(resolveSoleCompanyAdministrationContextForOperatedRemoteDevice(ops)).toEqual({ status: 'unavailable' })
     // Ending the Session removes the operating context, never the represented authority.
     const disconnected = disconnectRemoteSession(phone)
@@ -174,7 +174,7 @@ describe('Company Administration Session', () => {
   })
 
   it('persists independently when the player disconnects the RemoteSession', () => {
-    const operated = operating(createInitialGameState(), PHONE_ID, 'service-ssh-003', '198.51.100.61')
+    const operated = operating(createInitialGameState(), PHONE_ID, 'service-ssh-003', '203.0.113.42')
     const disconnected = disconnectRemoteSession(operated)
     expect(disconnected.status).toBe('disconnected')
     expect(disconnected.state.business.administrationSessions).toBe(operated.business.administrationSessions)
@@ -196,7 +196,7 @@ describe('Company Administration Session', () => {
 
   it('refuses atomically when administration is absent despite Treasury, phone finance, access, RemoteSession, Network membership, and management authority', () => {
     const earned = earnRestockPrice(createInitialGameState())
-    const phoneOperated = operating(withoutAdministration(earned), PHONE_ID, 'service-ssh-003', '198.51.100.61')
+    const phoneOperated = operating(withoutAdministration(earned), PHONE_ID, 'service-ssh-003', '203.0.113.42')
     const phoneSnapshot = structuredClone(phoneOperated)
     const phoneResult = placeBookstoreRestockOrderFromOperatedRemoteDevice(phoneOperated, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(phoneResult).toEqual({ status: 'administration_unavailable', state: phoneOperated })
@@ -204,7 +204,7 @@ describe('Company Administration Session', () => {
     expect(phoneOperated).toEqual(phoneSnapshot)
     expect(phoneOperated.dollarFinance.sessions.active.some(({ clientDeviceId }) => clientDeviceId === PHONE_ID)).toBe(true)
 
-    const operated = operating(withoutAdministration(earned), OPS_ID, 'service-ssh-004', '203.0.113.43')
+    const operated = operating(withoutAdministration(earned), OPS_ID, 'service-ssh-004', '203.0.113.42')
     const input: GameState = { ...operated, networkManagement: { ...operated.networkManagement, established: [...operated.networkManagement.established, { id: 'network-management-bookstore-fixture', deviceId: OPS_ID, networkId: 'network-foreign-001' }] } }
     const snapshot = structuredClone(input)
     const result = placeBookstoreRestockOrderFromOperatedRemoteDevice(input, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
@@ -219,7 +219,7 @@ describe('Company Administration Session', () => {
     const withoutRemote = placeBookstoreRestockOrderFromOperatedRemoteDevice(earned, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(withoutRemote).toEqual({ status: 'session_unavailable', state: earned })
 
-    const operated = operating(earned, PHONE_ID, 'service-ssh-003', '198.51.100.61')
+    const operated = operating(earned, PHONE_ID, 'service-ssh-003', '203.0.113.42')
     const result = placeBookstoreRestockOrderFromOperatedRemoteDevice(operated, BOOKSTORE_BRANCH_ID, BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID)
     expect(result.status).toBe('ordered')
     if (result.status !== 'ordered') throw new Error('expected order')

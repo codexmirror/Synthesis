@@ -20,19 +20,21 @@ function withoutNodeScan(state: GameState): GameState {
   return { ...state, player: { ...state.player, localDevice: { ...state.player.localDevice, installedSoftware: state.player.localDevice.installedSoftware.filter(({ id }) => id !== 'nodescan') } } }
 }
 
-function knownRemote(state: GameState): GameState {
+// network-foreign-001 has no Network Refresh route from home (Refresh always sources from the player's
+// own Device); home-net's own genuine multi-member Network exercises the identical Refresh lifecycle.
+function knownHomeNetwork(state: GameState): GameState {
   const targets = { localDevice: state.player.localDevice, network: state.world.network }
-  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'remote-segment-01'), state.player.localDevice.id)
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
   for (const device of discovery.devices) {
     discovery = rememberScan(discovery, scanNetworkTarget(targets, device.address), state.player.localDevice.id)
   }
   return { ...state, discovery }
 }
 
-/** `knownRemote` plus one legitimate Endpoint Analysis of host-lan-002's SSH service, the only route to remembered implementation evidence in Recon V2. */
-function knownRemoteWithAnalyzedEndpoint(state: GameState): GameState {
-  const scanned = knownRemote(state)
-  const analysis = startServiceAnalysis(scanned, 'host-lan-002', 'service-ssh-002')
+/** `knownHomeNetwork` plus one legitimate Endpoint Analysis of srv-01's SSH service, the only route to remembered implementation evidence in Recon V2. */
+function knownHomeNetworkWithAnalyzedEndpoint(state: GameState): GameState {
+  const scanned = knownHomeNetwork(state)
+  const analysis = startServiceAnalysis(scanned, 'host-lan-001', 'service-ssh-001')
   if (analysis.status !== 'started') throw new Error(analysis.status)
   return advanceGameState(analysis.state, 20_000)
 }
@@ -74,42 +76,42 @@ describe('findTargets', () => {
 
 describe('refreshNetwork', () => {
   it('repeats the canonical Network Scan and refreshes only Network-Scan-owned evidence', async () => {
-    const initial = knownRemote(createInitialGameState())
-    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-003' ? { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } } : host) } } }
+    const initial = knownHomeNetwork(createInitialGameState())
+    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, operational: { lifecycle: 'RUNNING' as const, connectivity: 'DISCONNECTED' as const } } : host) } } }
     const state = store(changed)
 
-    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-003')).toBeDefined()
-    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toEqual({ status: 'refreshed' })
-    expect(state.current.discovery.networks.find(({ id }) => id === 'network-foreign-001')?.membersObserved).toBe(true)
+    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-001')).toBeDefined()
+    expect(await createRefreshNetwork(state.read, state.write)('network-local-001')).toEqual({ status: 'refreshed' })
+    expect(state.current.discovery.networks.find(({ id }) => id === 'network-local-001')?.membersObserved).toBe(true)
     expect(state.current.process.processes).toEqual([])
   })
 
   it('never deepens a remembered Host beyond Network Scan ownership, even where NodeScan 1.2 is installed', async () => {
-    const initial = knownRemote(createInitialGameState())
-    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-002' ? { ...host, displayName: 'Changed hidden name' } : host) } } }
+    const initial = knownHomeNetwork(createInitialGameState())
+    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, displayName: 'Changed hidden name' } : host) } } }
     const state = store(changed)
 
-    await createRefreshNetwork(state.read, state.write)('network-foreign-001')
-    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-002')?.inspect).toBeUndefined()
-    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-002')?.services.some((service) => service.inspect)).toBe(false)
+    await createRefreshNetwork(state.read, state.write)('network-local-001')
+    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-001')?.inspect).toBeUndefined()
+    expect(state.current.discovery.devices.find(({ id }) => id === 'host-lan-001')?.services.some((service) => service.inspect)).toBe(false)
   })
 
   it('preserves, but never refreshes, remembered Endpoint Analysis evidence a prior legitimate Analyze produced', async () => {
-    const initial = knownRemoteWithAnalyzedEndpoint(createInitialGameState())
-    const before = initial.discovery.devices.find(({ id }) => id === 'host-lan-002')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect
-    expect(before?.implementation).toEqual({ name: 'GateSSH', version: '1.3.3' })
+    const initial = knownHomeNetworkWithAnalyzedEndpoint(createInitialGameState())
+    const before = initial.discovery.devices.find(({ id }) => id === 'host-lan-001')!.services.find(({ id }) => id === 'service-ssh-001')!.inspect
+    expect(before?.implementation).toEqual({ name: 'GateSSH', version: '1.3.2' })
     // World Truth changes underneath the remembered fingerprint; refresh must not silently observe it.
-    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-002' ? { ...host, services: host.services?.map((service) => service.id === 'service-ssh-002' ? { ...service, implementation: { ...service.implementation, version: '1.4.0' } } : service) } : host) } } }
+    const changed = { ...initial, world: { network: { ...initial.world.network, hosts: initial.world.network.hosts.map((host) => host.id === 'host-lan-001' ? { ...host, services: host.services?.map((service) => service.id === 'service-ssh-001' ? { ...service, implementation: { ...service.implementation, version: '1.4.0' } } : service) } : host) } } }
     const state = store(changed)
 
-    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toEqual({ status: 'refreshed' })
-    const after = state.current.discovery.devices.find(({ id }) => id === 'host-lan-002')!.services.find(({ id }) => id === 'service-ssh-002')!.inspect
+    expect(await createRefreshNetwork(state.read, state.write)('network-local-001')).toEqual({ status: 'refreshed' })
+    const after = state.current.discovery.devices.find(({ id }) => id === 'host-lan-001')!.services.find(({ id }) => id === 'service-ssh-001')!.inspect
     expect(after).toEqual(before)
   })
 
   it('requires an installed NodeScan release', async () => {
-    const state = store(withoutNodeScan(knownRemote(createInitialGameState())))
-    expect(await createRefreshNetwork(state.read, state.write)('network-foreign-001')).toEqual({ status: 'software_unavailable' })
+    const state = store(withoutNodeScan(knownHomeNetwork(createInitialGameState())))
+    expect(await createRefreshNetwork(state.read, state.write)('network-local-001')).toEqual({ status: 'software_unavailable' })
   })
 
   it('reports unknown_network for a Network the player does not remember', async () => {

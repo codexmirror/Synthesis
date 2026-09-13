@@ -192,7 +192,7 @@ A message body is a snapshot of what was communicated, written when the message
 is created. It never live-projects mutable World Truth.
 
 Myra's first target address is authored correspondence content: the literal
-`198.51.100.61` is stored in the message she sent. It is not a stored Device
+`10.42.0.61` is stored in the message she sent. It is not a stored Device
 reference resolved to `target.ip` at render time. If that Device's address later
 changes, or the Device stops being represented at all, the old message still
 says exactly what Myra said.
@@ -329,7 +329,7 @@ vocabulary against the player's own words, case-insensitively:
 
 | Player wording | Myra's answer |
 | — | — |
-| clear interest (`yes`, `interested`, `send it`, `what do you have`, `let me see`, `tell me`, or an address request) | the first target address `198.51.100.61` and limited context |
+| clear interest (`yes`, `interested`, `send it`, `what do you have`, `let me see`, `tell me`, or an address request) | the first target address `10.42.0.61` and limited context |
 | credentials (`password`, `passwd`, `credential(s)`, `login`) | says she has no credentials for the player and does not reveal the address |
 | anything else | leaves the choice with the player and invites clear interest |
 

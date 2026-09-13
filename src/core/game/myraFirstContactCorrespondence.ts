@@ -24,7 +24,7 @@ export const MYRA_FIRST_CONTACT_THREAD_SUBJECT = 'something for you'
  * must not be resolved against World Truth when the message is created or
  * rendered: if the World later changes, what Myra said stays what Myra said.
  */
-export const MYRA_FIRST_TARGET_ADDRESS = '198.51.100.61'
+export const MYRA_FIRST_TARGET_ADDRESS = '10.42.0.61'
 
 export const MYRA_FIRST_CONTACT_OPENING_MESSAGE = 'Maybe I have something you might be interested in.\nLet me know if you want it.'
 

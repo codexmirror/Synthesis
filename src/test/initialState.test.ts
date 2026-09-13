@@ -40,16 +40,16 @@ describe('createInitialGameState', () => {
     expect(first).toEqual(second)
   })
 
-  it('separates identities and seeds explicit Primary Device ownership in schema version 92', () => {
+  it('separates identities and seeds explicit Primary Device ownership in schema version 93', () => {
     const state = createInitialGameState()
-    expect(GAME_STATE_VERSION).toBe(92)
+    expect(GAME_STATE_VERSION).toBe(93)
     expect(state.player.ownedDeviceIds).toEqual(['device-local-v0'])
     expect(state.player.primaryDeviceId).toBe('device-local-v0')
     expect(state.player.id).not.toBe(state.player.primaryDeviceId)
     expect(state.remoteSession).toEqual({ nextId: 1, active: null })
     expect(state.fileTransfer).toEqual({ nextId: 1, active: null })
     expect(state.recentActivity).toEqual({ entries: [] })
-    expect(state.version).toBe(92)
+    expect(state.version).toBe(93)
     expect(state.technicianReaction).toEqual({ pending: null })
     expect(state.rackUpdate.submission).toEqual({ nextId: 1, active: null, outcome: null })
     expect(state.world.network.hosts.every((host) => host.pendingGateSshActivation === undefined)).toBe(true)
@@ -112,16 +112,16 @@ describe('createInitialGameState', () => {
     expect(state.knowledge).toEqual({ discoveredVulnerabilities: [], knownDevicePins: [], bookstoreMarket: { nextReportId: 1, reports: [] } })
     expect(state.world.network.hosts.map(({ id, ip }) => ({ id, ip }))).toEqual([
       { id: 'host-lan-001', ip: '198.51.100.47' },
-      { id: 'host-lan-002', ip: '203.0.113.42' },
-      { id: 'host-lan-003', ip: '203.0.113.43' },
-      { id: 'host-phone-001', ip: '198.51.100.61' },
+      { id: 'host-lan-002', ip: '10.42.0.42' },
+      { id: 'host-lan-003', ip: '10.42.0.43' },
+      { id: 'host-phone-001', ip: '10.42.0.61' },
       { id: 'router-home-001', ip: '198.51.100.1' },
-      { id: 'router-foreign-001', ip: '203.0.113.1' },
+      { id: 'router-foreign-001', ip: '10.42.0.1' },
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([
       { id: 'network-local-001', name: 'home-net', cidr: '198.51.100.0/24', gatewayDeviceId: 'router-home-001', memberDeviceIds: [state.player.localDevice.id, 'host-lan-001', 'router-home-001'], transferCapacity: { uploadBytesPerSecond: 16_777_216, downloadBytesPerSecond: 16_777_216 }, activityHistory: { nextId: 1, records: [] } },
-      { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '203.0.113.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
+      { id: 'network-foreign-001', name: 'remote-segment-01', cidr: '10.42.0.0/24', gatewayDeviceId: 'router-foreign-001', memberDeviceIds: ['host-phone-001', 'host-lan-002', 'host-lan-003', 'router-foreign-001'], transferCapacity: { uploadBytesPerSecond: 8_388_608, downloadBytesPerSecond: 8_388_608 }, activityHistory: { nextId: 1, records: [] } },
     ])
     for (const localNetwork of state.world.network.localNetworks) {
       expect(isValidNetworkTransferCapacity(localNetwork.transferCapacity)).toBe(true)
@@ -179,7 +179,7 @@ describe('createInitialGameState', () => {
     const state = createInitialGameState()
     const server = state.world.network.hosts.find(({ id }) => id === 'host-lan-002')
 
-    expect(server).toMatchObject({ id: 'host-lan-002', ip: '203.0.113.42', role: 'server', deviceType: 'SERVER', deviceModel: { id: 'device-model-rack-core-120-v0', name: 'RACK Core 120', maximumComputeCapacity: 120, maximumNetworkCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 } }, operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' }, connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT' })
+    expect(server).toMatchObject({ id: 'host-lan-002', ip: '10.42.0.42', role: 'server', deviceType: 'SERVER', deviceModel: { id: 'device-model-rack-core-120-v0', name: 'RACK Core 120', maximumComputeCapacity: 120, maximumNetworkCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 } }, operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' }, connectivityRecoveryBehavior: 'REBOOT_ON_DISCONNECT' })
     expect(server).toMatchObject({ displayName: 'srv-02', firmware: { id: 'firmware-rack-os-v1', name: 'RACK-OS', version: '1.0' }, filesystem: { nextFileId: 3 } })
     expect(server?.filesystem?.files).toContainEqual({ kind: 'text', id: 'file-0001', path: '/srv/backup-manifest.txt', content: 'Backup manifest for srv-02.' })
     expect(server?.filesystem?.files).toContainEqual({ kind: 'software_package', id: 'file-0002', path: '/opt/packages/authguard-1.0.pkg', releaseId: 'auth-guard-1.0', buildId: 'build-auth-guard-1.0-v0', productId: 'auth-guard', name: 'AuthGuard', version: '1.0', publisher: 'rack-systems', sizeBytes: 4_800_000 })
@@ -192,7 +192,8 @@ describe('createInitialGameState', () => {
     expect(server?.id).not.toBe('host-lan-001')
     expect(server?.installedSoftware).toContainEqual({ id: 'gate-ssh', releaseId: 'gate-ssh-1.3.3', buildId: 'build-gate-ssh-1.3.3-v0', name: 'GateSSH', version: '1.3.3' })
     expect(server?.installedSoftware).toContainEqual({ id: 'auth-guard', releaseId: 'auth-guard-1.0', buildId: 'build-auth-guard-1.0-v0', name: 'AuthGuard', version: '1.0', publisher: 'rack-systems' })
-    expect(server?.installedSoftware).toHaveLength(2)
+    expect(server?.installedSoftware).toContainEqual({ id: 'nodescan', releaseId: 'nodescan-1.0-standard', buildId: 'build-nodescan-1.0-standard-v0', name: 'NodeScan', version: '1.0', channel: 'standard' })
+    expect(server?.installedSoftware).toHaveLength(3)
     expect(server?.installedSoftware).not.toBe(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.installedSoftware)
     expect(server?.filesystem).not.toEqual(state.world.network.hosts.find(({ id }) => id === 'host-lan-001')?.filesystem)
   })
@@ -215,7 +216,7 @@ describe('createInitialGameState', () => {
     expect(opsServer).toMatchObject({
       id: 'host-lan-003',
       displayName: 'ops-01',
-      ip: '203.0.113.43',
+      ip: '10.42.0.43',
       role: 'server',
       deviceType: 'SERVER',
       deviceModel: { id: 'device-model-rack-core-120-v0', name: 'RACK Core 120', maximumComputeCapacity: 120, maximumNetworkCapacity: { uploadBytesPerSecond: 1_048_576, downloadBytesPerSecond: 1_048_576 } },
@@ -260,7 +261,7 @@ describe('createInitialGameState', () => {
       id: 'host-phone-001',
       displayName: 'Petra\u2019s Phone',
       deviceType: 'PHONE',
-      ip: '198.51.100.61',
+      ip: '10.42.0.61',
       operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' },
       connectivityRecoveryBehavior: 'RECONNECT',
       firmware: { id: VEYRA_OS_4_1_FIRMWARE_ID, name: 'VEYRA OS', version: '4.1' },

@@ -213,7 +213,7 @@ describe('Thread', () => {
       .toEqual(['Myra Keller', 'YOU', 'Myra Keller'])
     expect(messages[1].className).not.toBe(messages[2].className)
     expect(messages[1]).toHaveTextContent("I'm interested")
-    expect(messages[2]).toHaveTextContent("Alright. First one's free. Try 198.51.100.61. Consumer endpoint. Small operation. That's all I have.")
+    expect(messages[2]).toHaveTextContent("Alright. First one's free. Try 10.42.0.61. Consumer endpoint. Small operation. That's all I have.")
   })
 
   it('accepts multiline free text, keeps Enter as a newline, and only sends on SEND', async () => {

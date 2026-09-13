@@ -34,18 +34,34 @@ const PHONE_ID = 'host-phone-001'
 const PHONE_PIN = '7042'
 const SRV_02_ID = 'host-lan-002'
 
-/** An entered-Session world for the represented VEYRA phone, reached the way the game reaches it. */
+/**
+ * An entered-Session world for the represented VEYRA phone, reached the way
+ * the game reaches it. The phone sits on the private `network-foreign-001`,
+ * reachable only through its Gateway's own public edge — never its private
+ * address directly — so the fabricated access here (skipping the chance-based
+ * KeyProbe attack itself) is dialed at that same public edge. The unrelated
+ * srv-02 access alongside it exists only so isolation assertions below have a
+ * genuinely unrelated existing `DeviceAccess` entry to check stays untouched;
+ * it plays no part in reaching the phone.
+ */
 function phoneConnectedState(state = createInitialGameState()): GameState {
   const accessed: GameState = {
     ...state,
-    deviceAccess: { nextId: 2, established: [{
-      id: 'access-phone', sourceDeviceId: state.player.localDevice.id,
-      targetDeviceId: PHONE_ID, viaServiceId: 'service-ssh-003',
-      viaServiceBuildId: phoneSsh(state).implementation.buildId,
-      viaVulnerabilityId: 'AUTH-017', privilege: 'USER',
-    }] },
+    deviceAccess: { nextId: 3, established: [
+      {
+        id: 'access-server', sourceDeviceId: state.player.localDevice.id,
+        targetDeviceId: SRV_02_ID, viaServiceId: 'service-ssh-002',
+        viaServiceBuildId: 'build-gate-ssh-1.3.3-v0', viaVulnerabilityId: 'AUTH-031', privilege: 'USER',
+      },
+      {
+        id: 'access-phone', sourceDeviceId: state.player.localDevice.id,
+        targetDeviceId: PHONE_ID, viaServiceId: 'service-ssh-003',
+        viaServiceBuildId: phoneSsh(state).implementation.buildId,
+        viaVulnerabilityId: 'AUTH-017', privilege: 'USER',
+      },
+    ] },
   }
-  return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_ID, address: '198.51.100.61' }).state
+  return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_ID, address: '203.0.113.42' }).state
 }
 
 const phoneOf = (state: GameState): NetworkHost => state.world.network.hosts.find(({ id }) => id === PHONE_ID)!
@@ -184,15 +200,10 @@ describe('the represented installation', () => {
     { label: 'after the complete reboot', elapsedMs: 10_500, lifecycle: 'RUNNING', recoveryElapsedMs: undefined },
   ] as const)('is partition invariant across firmware activation and the real reboot boundary $label', ({ elapsedMs, lifecycle, recoveryElapsedMs }) => {
     const connected = phoneConnectedState()
-    const unrelated = {
-      id: 'access-server', sourceDeviceId: connected.player.localDevice.id,
-      targetDeviceId: SRV_02_ID, viaServiceId: 'service-ssh-002',
-      viaServiceBuildId: 'build-gate-ssh-1.3.3-v0', viaVulnerabilityId: 'AUTH-031', privilege: 'USER' as const,
-    }
-    const started = startVeyraFirmwareUpdateForOperatedRemoteDevice({
-      ...connected,
-      deviceAccess: { ...connected.deviceAccess, established: [...connected.deviceAccess.established, unrelated] },
-    }, PHONE_PIN).state
+    // The pivot access into srv-02 that `phoneConnectedState` already established: unrelated to the
+    // phone's own firmware update, and this proves it stays untouched by one.
+    const unrelated = connected.deviceAccess.established.find(({ targetDeviceId }) => targetDeviceId === SRV_02_ID)!
+    const started = startVeyraFirmwareUpdateForOperatedRemoteDevice(connected, PHONE_PIN).state
     const shortlyBeforeCompletion = advanceGameState(started, VEYRA_FIRMWARE_UPDATE_DURATION_MS - 500)
 
     const oneStep = advanceGameState(shortlyBeforeCompletion, elapsedMs)
@@ -273,9 +284,9 @@ describe('what the completed release actually changes', () => {
   })
 
   it('leaves Device security, Wallet protection, Knowledge and Dollar state untouched while invalidating only obsolete Access', () => {
-    const connected = phoneConnectedState()
-    const unrelated = { id: 'access-server', sourceDeviceId: connected.player.localDevice.id, targetDeviceId: SRV_02_ID, viaServiceId: 'service-ssh-002', viaServiceBuildId: 'build-gate-ssh-1.3.3-v0', viaVulnerabilityId: 'AUTH-031', privilege: 'USER' as const }
-    const before = { ...connected, deviceAccess: { ...connected.deviceAccess, established: [...connected.deviceAccess.established, unrelated] } }
+    const before = phoneConnectedState()
+    // The pivot access into srv-02 `phoneConnectedState` already established, unrelated to the phone's own update.
+    const unrelated = before.deviceAccess.established.find(({ targetDeviceId }) => targetDeviceId === SRV_02_ID)!
     const after = installed()
     expect(phoneOf(after).security).toEqual({ devicePin: PHONE_PIN, walletProtectionEnabled: false })
     expect(after.knowledge).toEqual(before.knowledge)
@@ -288,7 +299,7 @@ describe('what the completed release actually changes', () => {
 
   it('requires newly established Access before reconnecting after the reboot', () => {
     const after = installed()
-    expect(connectRemoteFromObservation(after, { targetDeviceId: PHONE_ID, address: '198.51.100.61' }).status).toBe('access_required')
+    expect(connectRemoteFromObservation(after, { targetDeviceId: PHONE_ID, address: '203.0.113.42' }).status).toBe('access_required')
   })
 
   it('lets an existing Credential Access attempt observe the resulting real surface', () => {
@@ -299,7 +310,7 @@ describe('what the completed release actually changes', () => {
     const attempt = (serviceImplementation: { productId: string; releaseId: string; buildId: string }): CredentialAccessProcess => ({
       kind: 'credential_access', id: 'process-0001', label: 'CREDENTIAL ACCESS', status: 'completed',
       executorDeviceId: after.player.localDevice.id, ramRequiredMiB: 896, workRequired: 1, workCompleted: 1,
-      targetDeviceId: PHONE_ID, serviceId: 'service-ssh-003', startedEndpoint: '198.51.100.61:22',
+      targetDeviceId: PHONE_ID, serviceId: 'service-ssh-003', startedEndpoint: '203.0.113.42:2222',
       serviceImplementation, toolId: 'keyprobe',
     })
 
