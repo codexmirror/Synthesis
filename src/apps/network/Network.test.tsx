@@ -1559,6 +1559,40 @@ describe('Known Space topology', () => {
     expect(phone.services.map(({ endpoint, deviceId }) => [endpoint, deviceId])).toEqual([[`${GATEWAY_ADDRESS}:2222`, 'host-phone-001']])
   })
 
+  it('refreshes the Gateway target card on rescan once a forwarded exposure disappears, dropping only what World Truth no longer forwards', () => {
+    const scanned = gatewayScanned()
+    expect(selectTarget(scanned, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:8443`, `${GATEWAY_ADDRESS}:2222`, `${GATEWAY_ADDRESS}:2223`])
+
+    // srv-02's RackUpdate exposure is withdrawn in World Truth; a second legitimate Scan observes that.
+    const rackUpdateGone = { ...scanned, world: { ...scanned.world, network: { ...scanned.world.network, hosts: scanned.world.network.hosts.map((host) => host.id === 'router-foreign-001'
+      ? { ...host, exposures: host.exposures!.filter((exposure) => exposure.targetServiceId !== 'service-rack-update-002') }
+      : host) } } }
+    const rescanned = gatewayScanned(rackUpdateGone)
+
+    // The vanished exposure drops; srv-02's own still-current GateSSH exposure remains right where it was.
+    expect(selectTarget(rescanned, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:2222`, `${GATEWAY_ADDRESS}:2223`])
+    // No stale RackUpdate identity leaks anywhere in the rendered result.
+    expect(JSON.stringify(selectTarget(rescanned, 'router-foreign-001'))).not.toContain('rack-update')
+  })
+
+  it('removes a gateway-exposure-only Device from Known Space entirely once its one exposure disappears and the Gateway is rescanned', () => {
+    const scanned = gatewayScanned()
+    expect(scanned.discovery.devices.some(({ id }) => id === 'host-phone-001')).toBe(true)
+
+    const phoneGone = { ...scanned, world: { ...scanned.world, network: { ...scanned.world.network, hosts: scanned.world.network.hosts.map((host) => host.id === 'router-foreign-001'
+      ? { ...host, exposures: host.exposures!.filter((exposure) => exposure.targetServiceId !== 'service-ssh-003') }
+      : host) } } }
+    const rescanned = gatewayScanned(phoneGone)
+
+    expect(rescanned.discovery.devices.some(({ id }) => id === 'host-phone-001')).toBe(false)
+    expect(selectTarget(rescanned, 'host-phone-001')).toBeUndefined()
+    expect(selectKnownSpace(rescanned).elsewhere.map(({ id }) => id)).toEqual(['router-foreign-001'])
+    expect(selectTarget(rescanned, 'router-foreign-001')!.services.map(({ endpoint }) => endpoint))
+      .toEqual([`${GATEWAY_ADDRESS}:80`, `${GATEWAY_ADDRESS}:22`, `${GATEWAY_ADDRESS}:8443`, `${GATEWAY_ADDRESS}:2223`])
+  })
+
   it('marks only the Device just observed as arriving, deriving nothing new and remembering nothing extra', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={foundTargets()}><Network /></GameProvider>)

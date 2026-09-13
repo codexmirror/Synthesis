@@ -3,6 +3,7 @@ import { createInitialGameState } from './initialState'
 import { resolveNetworkPath } from './networkPath'
 import { scanFromDevice } from './scan'
 import { pingFromDevice } from './ping'
+import { rememberScan, createEmptyDiscovery } from './discovery'
 import { scanTargetFromSource } from '../../app/localScanOperation'
 import { resolveDeviceNetworkContext } from './networkPath'
 import { NODESCAN_1_0_STANDARD } from './softwareReleaseContent'
@@ -94,6 +95,34 @@ describe('Gateway Reachability V1', () => {
     expect(resolveNetworkPath(state, player, '10.42.0.42')).toEqual({ kind: 'NO_ROUTE' })
     expect(resolveNetworkPath(state, player, '10.42.0.43')).toEqual({ kind: 'NO_ROUTE' })
     expect(resolveNetworkPath(state, player, '10.42.0.1')).toEqual({ kind: 'NO_ROUTE' })
+  })
+
+  it('refreshes a stale forwarded-exposure observation on rescan, exactly like a direct Device Scan refreshes its own snapshot', () => {
+    const state = createInitialGameState()
+    const player = state.player.localDevice.id
+    const withoutExposures = (...targetServiceIds: readonly string[]): GameState => ({
+      ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'router-foreign-001'
+        ? { ...host, exposures: host.exposures!.filter((exposure) => !targetServiceIds.includes(exposure.targetServiceId)) }
+        : host) } },
+    })
+
+    // Case 1: srv-02 keeps its GateSSH exposure while RackUpdate disappears — only the vanished one drops.
+    let discovery = rememberScan(createEmptyDiscovery(), scanFromDevice(state, player, '203.0.113.42'), player)
+    expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.services.map(({ id }) => id).sort())
+      .toEqual(['service-rack-update-002', 'service-ssh-002'])
+    const rackUpdateGone = withoutExposures('service-rack-update-002')
+    discovery = rememberScan(discovery, scanFromDevice(rackUpdateGone, player, '203.0.113.42'), player)
+    const srv02 = discovery.devices.find(({ id }) => id === 'host-lan-002')
+    expect(srv02?.services.map(({ id }) => id)).toEqual(['service-ssh-002'])
+    expect(srv02?.observedOnlyAsGatewayExposure).toEqual({ gatewayDeviceId: 'router-foreign-001' })
+
+    // Case 2: the phone's only exposure disappears too — it stops contributing any forwarded row at all.
+    const phoneGoneToo = withoutExposures('service-rack-update-002', 'service-ssh-003')
+    discovery = rememberScan(discovery, scanFromDevice(phoneGoneToo, player, '203.0.113.42'), player)
+    expect(discovery.devices.some(({ id }) => id === 'host-phone-001')).toBe(false)
+    // srv-02 and ops-01, still genuinely forwarded, are untouched by the phone's own disappearance.
+    expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.services).toHaveLength(1)
+    expect(discovery.devices.some(({ id }) => id === 'host-lan-003')).toBe(true)
   })
 
   it('admits remote Scan from player information plus the remote Device intrinsic network identity', () => {
