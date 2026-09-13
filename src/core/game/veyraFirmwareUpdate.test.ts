@@ -36,12 +36,13 @@ const SRV_02_ID = 'host-lan-002'
 
 /**
  * An entered-Session world for the represented VEYRA phone, reached the way
- * the game reaches it. The phone's own private segment (`network-foreign-001`)
- * is reachable only by pivoting through already-compromised srv-02 — its
- * Gateway's sole exposed edge — so every scenario in this file starts from
- * that same pre-established srv-02 access, fabricated directly here exactly
- * like the phone's own access below, rather than re-simulating a chance-based
- * KeyProbe attack against it.
+ * the game reaches it. The phone sits on the private `network-foreign-001`,
+ * reachable only through its Gateway's own public edge — never its private
+ * address directly — so the fabricated access here (skipping the chance-based
+ * KeyProbe attack itself) is dialed at that same public edge. The unrelated
+ * srv-02 access alongside it exists only so isolation assertions below have a
+ * genuinely unrelated existing `DeviceAccess` entry to check stays untouched;
+ * it plays no part in reaching the phone.
  */
 function phoneConnectedState(state = createInitialGameState()): GameState {
   const accessed: GameState = {
@@ -60,7 +61,7 @@ function phoneConnectedState(state = createInitialGameState()): GameState {
       },
     ] },
   }
-  return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_ID, address: '10.42.0.61' }).state
+  return connectRemoteFromObservation(accessed, { targetDeviceId: PHONE_ID, address: '203.0.113.42' }).state
 }
 
 const phoneOf = (state: GameState): NetworkHost => state.world.network.hosts.find(({ id }) => id === PHONE_ID)!
@@ -298,7 +299,7 @@ describe('what the completed release actually changes', () => {
 
   it('requires newly established Access before reconnecting after the reboot', () => {
     const after = installed()
-    expect(connectRemoteFromObservation(after, { targetDeviceId: PHONE_ID, address: '10.42.0.61' }).status).toBe('access_required')
+    expect(connectRemoteFromObservation(after, { targetDeviceId: PHONE_ID, address: '203.0.113.42' }).status).toBe('access_required')
   })
 
   it('lets an existing Credential Access attempt observe the resulting real surface', () => {
@@ -309,7 +310,7 @@ describe('what the completed release actually changes', () => {
     const attempt = (serviceImplementation: { productId: string; releaseId: string; buildId: string }): CredentialAccessProcess => ({
       kind: 'credential_access', id: 'process-0001', label: 'CREDENTIAL ACCESS', status: 'completed',
       executorDeviceId: after.player.localDevice.id, ramRequiredMiB: 896, workRequired: 1, workCompleted: 1,
-      targetDeviceId: PHONE_ID, serviceId: 'service-ssh-003', startedEndpoint: '10.42.0.61:22',
+      targetDeviceId: PHONE_ID, serviceId: 'service-ssh-003', startedEndpoint: '203.0.113.42:2222',
       serviceImplementation, toolId: 'keyprobe',
     })
 

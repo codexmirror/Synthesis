@@ -56,14 +56,18 @@ describe('OnlineWorldStore', () => {
     expect(aliceHomeScan.result).toMatchObject({ status: 'network', networkId: aliceNetwork.id })
     expect(bobHomeScan.result).toMatchObject({ status: 'network', networkId: bobNetwork.id })
     const bobDiscoveryAfterOwnScan = store.restore(bob.token)!.state.discovery
+    const aliceDiscoveryAfterOwnScan = store.restore(alice.token)!.state.discovery
 
+    // Bob's own home Network is a distinct LocalNetwork alice does not belong to, and his Gateway
+    // represents no public exposure at all: different LocalNetworks are never automatically reachable,
+    // so his own primary Device and Network stay unreachable to her.
     const ping = await store.observe(alice.token, 'ping', bobDevice.network.ip) as { result: { status: string } }
-    expect(ping.result.status).toBe('device')
+    expect(ping.result.status).toBe('no_response')
     const hostScan = await store.observe(alice.token, 'scan', bobDevice.network.ip) as { result: { status: string }; snapshot: typeof alice.snapshot }
-    expect(hostScan.result.status).toBe('device')
-    expect(hostScan.snapshot.state.discovery.networks).toContainEqual(expect.objectContaining({ id: bobNetwork.id, cidr: bobNetwork.cidr }))
-    const networkScan = await store.observe(alice.token, 'scan', bobNetwork.cidr!) as { result: { status: string; networkId?: string } }
-    expect(networkScan.result).toMatchObject({ status: 'network', networkId: bobNetwork.id })
+    expect(hostScan.result.status).toBe('unknown_target')
+    expect(hostScan.snapshot.state.discovery).toEqual(aliceDiscoveryAfterOwnScan)
+    const networkScan = await store.observe(alice.token, 'scan', bobNetwork.cidr!) as { result: { status: string; input?: string } }
+    expect(networkScan.result).toEqual({ status: 'unknown_target', input: bobNetwork.cidr })
     expect(store.restore(bob.token)!.state.discovery).toEqual(bobDiscoveryAfterOwnScan)
   })
 
@@ -118,16 +122,17 @@ describe('OnlineWorldStore', () => {
     expect(alice.snapshot.state.mail.account.id).not.toBe(bob.snapshot.state.mail.account.id)
     const aliceHome = alice.snapshot.state.world.network.localNetworks.find(({ id }) => id === alice.snapshot.homeNetworkId)!
     expect(aliceHome.memberDeviceIds).toContain(alice.snapshot.state.player.primaryDeviceId)
+    // Bob's own home Network is a distinct LocalNetwork alice does not belong to, and his Gateway
+    // represents no public exposure at all: his own primary Device stays unreachable to her.
     const bobPing = await store.observe(alice.token, 'ping', bobDeviceTruth.network.ip) as { result: { status: string; targetId?: string }; snapshot: typeof alice.snapshot }
-    expect(bobPing.result).toMatchObject({ status: 'device', targetId: bob.snapshot.state.player.primaryDeviceId })
-    expect(bobPing.snapshot.state.discovery.devices).toContainEqual(expect.objectContaining({ id: bobRecord.primaryDeviceId, address: bobDeviceTruth.network.ip }))
-    expect(bobPing.snapshot.state.world.network.hosts.some(({ id }) => id === bobRecord.primaryDeviceId)).toBe(false)
+    expect(bobPing.result).toEqual({ status: 'no_response', address: bobDeviceTruth.network.ip })
+    expect(bobPing.snapshot.state.discovery.devices).not.toContainEqual(expect.objectContaining({ id: bobRecord.primaryDeviceId }))
     expect(JSON.stringify(bobPing.snapshot.state.player.localDevice)).not.toContain(bobDeviceTruth.savedDollarSignIn!.password)
-    const bobScan = await store.observe(alice.token, 'scan', bobDeviceTruth.network.ip) as { result: { status: string; targetId?: string }; snapshot: typeof alice.snapshot }
-    expect(bobScan.result).toMatchObject({ status: 'device', targetId: bobRecord.primaryDeviceId })
-    expect(bobScan.snapshot.state.world.network.localNetworks.some(({ id }) => id === bobRecord.homeNetworkId)).toBe(false)
+    const bobScan = await store.observe(alice.token, 'scan', bobDeviceTruth.network.ip) as { result: { status: string; input?: string } }
+    expect(bobScan.result).toEqual({ status: 'unknown_target', input: bobDeviceTruth.network.ip })
     await store.observe(alice.token, 'ping', '203.0.113.42')
-    expect(store.restore(alice.token)?.state.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: bobRecord.primaryDeviceId }), expect.objectContaining({ id: 'router-foreign-001' })]))
+    expect(store.restore(alice.token)?.state.discovery.devices).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'router-foreign-001' })]))
+    expect(store.restore(alice.token)?.state.discovery.devices).not.toContainEqual(expect.objectContaining({ id: bobRecord.primaryDeviceId }))
     expect(store.restore(bob.token)?.state.discovery.devices).toHaveLength(0)
     expect(store.restore(bob.token)?.state.mail).not.toBe(store.restore(alice.token)?.state.mail)
     expect(store.restore(bob.token)?.state.nodeWallet.id).not.toBe(store.restore(alice.token)?.state.nodeWallet.id)

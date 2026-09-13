@@ -116,7 +116,7 @@ describe('createInitialGameState', () => {
       { id: 'host-lan-003', ip: '10.42.0.43' },
       { id: 'host-phone-001', ip: '10.42.0.61' },
       { id: 'router-home-001', ip: '198.51.100.1' },
-      { id: 'router-foreign-001', ip: '203.0.113.42' },
+      { id: 'router-foreign-001', ip: '10.42.0.1' },
       { id: 'host-training-002', ip: '203.0.113.99' },
     ])
     expect(state.world.network.localNetworks).toEqual([

@@ -1,5 +1,4 @@
 import type { GameState, LocalDeviceState, LocalNetwork, NetworkHost, NetworkService } from './types'
-import { isDeviceNetworkUsable } from './deviceOperationalState'
 
 export type NetworkPath =
   | { readonly kind: 'DIRECT_LOCAL'; readonly source: LocalDeviceState | NetworkHost; readonly target: LocalDeviceState | NetworkHost; readonly targetService?: NetworkService }
@@ -42,29 +41,26 @@ export function resolveNetworkPath(state: Readonly<GameState>, sourceDeviceId: s
     const target = directCandidates[0]
     const targetMemberships = state.world.network.localNetworks.filter((network) => network.memberDeviceIds.includes(target.id))
     const sourceNetwork = uniqueNetwork(state, source.id)
-    // A transparent Gateway — one whose own `exposures` are simply never configured, like an ordinary
-    // home Router — passes every member straight through exactly like the pre-NAT open internet; only a
-    // Gateway that actually defines `exposures` (network-foreign-001's own Router) does NAT-style gating.
-    const targetGateway = targetMemberships.length === 1 ? validGateway(state, targetMemberships[0]) : undefined
-    const transparentGateway = Boolean(targetGateway && targetGateway.exposures === undefined)
-    // A Device always resolves itself, regardless of any Network membership ambiguity: knowing where you
-    // stand never depends on how many represented Networks claim you. A standalone Device with no represented
-    // Network membership at all is never gated behind one either — directly addressable regardless of the
-    // source's own membership, exactly like the open internet. A Device sharing the source's own Network is
-    // always directly reachable too. Any other cross-Network case — including a real but currently
-    // unresolvable Gateway relationship — fails closed exactly like every other membership resolution here;
-    // it never falls back to treating a broken Gateway record as no Gateway at all.
-    const reachableDirectly = target.id === source.id || targetMemberships.length === 0
+    // DIRECT_LOCAL requires unambiguous membership in exactly the same represented LocalNetwork as the
+    // source. A Device always resolves itself, regardless of any Network membership ambiguity: knowing
+    // where you stand never depends on how many represented Networks claim you. Every other case —
+    // including a Device with no represented Network placement at all, and a real but currently
+    // unresolvable Gateway relationship — fails closed exactly like every other membership resolution
+    // here. Missing or absent placement truth is never treated as an absence of gating.
+    const reachableDirectly = target.id === source.id
       || (targetMemberships.length === 1 && Boolean(sourceNetwork && sourceNetwork.id === targetMemberships[0].id))
-      || transparentGateway
     if (reachableDirectly) {
       const targetService = port === undefined ? undefined : ('services' in target ? target.services?.find((service) => service.port === port && service.protocol === protocol) : undefined)
       return { kind: 'DIRECT_LOCAL', source, target, ...(targetService ? { targetService } : {}) }
     }
   }
+  // EXPOSED_EDGE resolves only against a Gateway's own explicit `publicAddress` — its externally
+  // reconnaissable edge, distinct from `ip`, its ordinary internal LAN position. A Gateway with no
+  // `publicAddress` has no external edge at all and never becomes reachable merely because it is a
+  // Gateway; the represented edge must be named explicitly, never inferred from absent truth.
   const edgeNetworks = state.world.network.localNetworks.filter((network) => {
     const gateway = validGateway(state, network)
-    return gateway?.ip === address && uniqueNetwork(state, source.id)?.id !== network.id
+    return Boolean(gateway?.publicAddress) && gateway!.publicAddress === address && uniqueNetwork(state, source.id)?.id !== network.id
   })
   if (edgeNetworks.length !== 1) return { kind: 'NO_ROUTE' }
   const network = edgeNetworks[0]; const gateway = validGateway(state, network)
@@ -89,26 +85,48 @@ export function resolveNetworkPath(state: Readonly<GameState>, sourceDeviceId: s
 }
 
 /**
- * The path the player's own tools actually resolve through: their own
- * Device directly, or onward through any Device they hold established
- * DeviceAccess to. A compromised Device is a legitimate network pivot for
- * Endpoint Analysis, Credential Access and Connect — independent of whether
- * an interactive Remote Session into it happens to be open right now — while
- * Scan/Ping remain deliberately explicit-source (`scanFromDevice`,
- * `pingFromDevice`) so reconnaissance itself always names its own vantage
- * point. The player's own Device is tried first; each compromised Device is
- * tried in turn, skipping any no longer network-usable.
+ * Whether one already-known target Device + Service — identity `Connect` and
+ * RemoteSession revalidation already hold via `DeviceAccess`, never an
+ * arbitrary dialed port — is currently reachable from `sourceDeviceId` at
+ * `address`: DIRECT_LOCAL by shared LocalNetwork membership, or EXPOSED_EDGE
+ * through a Gateway's own public edge and an exposure (or the Gateway's own
+ * hosted Service) explicitly naming this exact Device/Service. This resolves
+ * by stable identity rather than a numeric port match so distinct backend
+ * Devices may share the same internal Service port while forwarded through
+ * distinct external ports, without Connect ever needing to know which.
  */
-export function resolvePlayerNetworkPath(state: Readonly<GameState>, address: string, port?: number, protocol: 'TCP' | 'UDP' = 'TCP'): NetworkPath {
-  const localId = state.player.localDevice.id
-  const pivotIds = state.deviceAccess.established
-    .filter((access) => access.sourceDeviceId === localId)
-    .map((access) => access.targetDeviceId)
-  for (const candidateId of [localId, ...pivotIds]) {
-    const candidate = resolveDevice(state, candidateId)
-    if (!candidate || !isDeviceNetworkUsable(candidate.operational)) continue
-    const path = resolveNetworkPath(state, candidateId, address, port, protocol)
-    if (path.kind !== 'NO_ROUTE') return path
+export function resolveKnownServicePath(state: Readonly<GameState>, sourceDeviceId: string, address: string, targetDeviceId: string, serviceId: string): NetworkPath {
+  const portless = resolveNetworkPath(state, sourceDeviceId, address)
+  if (portless.kind === 'DIRECT_LOCAL') {
+    if (portless.target.id !== targetDeviceId) return { kind: 'NO_ROUTE' }
+    const targetService = 'services' in portless.target ? portless.target.services?.find((service) => service.id === serviceId) : undefined
+    return targetService ? { ...portless, targetService } : { kind: 'NO_ROUTE' }
+  }
+  if (portless.kind === 'EXPOSED_EDGE') {
+    if (portless.gateway.id === targetDeviceId) {
+      const targetService = portless.gateway.services?.find((service) => service.id === serviceId)
+      return targetService ? { ...portless, target: portless.gateway, targetService } : { kind: 'NO_ROUTE' }
+    }
+    const exposure = (portless.gateway.exposures ?? []).find((item) => item.targetDeviceId === targetDeviceId && item.targetServiceId === serviceId)
+    if (!exposure) return { kind: 'NO_ROUTE' }
+    const target = state.world.network.hosts.find((host) => host.id === exposure.targetDeviceId)
+    const targetService = target?.services?.find((service) => service.id === exposure.targetServiceId && service.protocol === exposure.protocol)
+    return target && targetService ? { kind: 'EXPOSED_EDGE', source: portless.source, gateway: portless.gateway, target, targetService } : { kind: 'NO_ROUTE' }
   }
   return { kind: 'NO_ROUTE' }
+}
+
+/**
+ * The path an ordinary local Analysis / Credential Access / Connect operation
+ * resolves through: always the player's own local Device. `DeviceAccess`
+ * proves a represented access relationship to a target Device — it is never
+ * network position, and it is never an implicit alternative source here. A
+ * remote Device becomes the executing source only when an operation is
+ * explicitly invoked from it through a represented remote execution surface,
+ * exactly like Scan's own explicit-source pattern (`scanFromDevice`,
+ * `pingFromDevice`); no current Analysis, Credential Access, or Connect
+ * operation offers that surface yet, so this always resolves from SELF.
+ */
+export function resolvePlayerNetworkPath(state: Readonly<GameState>, address: string, port?: number, protocol: 'TCP' | 'UDP' = 'TCP'): NetworkPath {
+  return resolveNetworkPath(state, state.player.localDevice.id, address, port, protocol)
 }

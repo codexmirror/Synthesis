@@ -29,8 +29,10 @@ const SRV_01 = 'host-lan-001'
 const SRV_01_ADDRESS = '198.51.100.47'
 const PHONE_ADDRESS = '10.42.0.61'
 const SRV_02 = 'host-lan-002'
-const SRV_02_ADDRESS = '10.42.0.42'
+// srv-02 sits behind Bookstore's private segment: every legitimate observation of it is reached (and
+// therefore addressed) through its Gateway's own public edge, never its own private World Truth address.
 const GATEWAY_ADDRESS = '203.0.113.42'
+const SRV_02_ADDRESS = GATEWAY_ADDRESS
 const SRV_02_GATEWAY_EDGE = `${GATEWAY_ADDRESS}:22`
 
 /** srv-02's GateSSH, reached the only way it is reachable: Bookstore's public Gateway edge. Creates srv-02's own Discovery identity as a side effect, exactly like a Scan would. */
@@ -1009,7 +1011,7 @@ describe('NodeScan target topology', () => {
     expect(members).toEqual([
       expect.objectContaining({ id: 'host-lan-003', address: '10.42.0.43', liveStatus: { label: 'ONLINE', tone: 'available' } }),
       expect.objectContaining({ id: 'host-phone-001', address: PHONE_ADDRESS, liveStatus: { label: 'ONLINE', tone: 'available' } }),
-      expect.objectContaining({ id: 'router-foreign-001', address: '203.0.113.42', liveStatus: { label: 'ONLINE', tone: 'available' } }),
+      expect.objectContaining({ id: 'router-foreign-001', address: '10.42.0.1', liveStatus: { label: 'ONLINE', tone: 'available' } }),
     ])
     expect(members[0].displayName).toBeUndefined()
     expect(members[1].displayName).toBeUndefined()
@@ -1022,7 +1024,8 @@ describe('NodeScan target topology', () => {
     expect(rendered).toHaveTextContent('remote-segment-01')
     expect(rendered).not.toHaveTextContent(PHONE_ADDRESS)
     expect(rendered).not.toHaveTextContent('10.42.0.43')
-    expect(rendered).not.toHaveTextContent('203.0.113.42')
+    // srv-02's own legitimately observed address is its Gateway's public edge — the same one this check
+    // once verified was never leaked as an unrelated peer's, back when srv-02 was shown at a different address.
     expect(rendered).toHaveTextContent(SRV_02_ADDRESS)
 
   })
@@ -1150,7 +1153,7 @@ describe('RackUpdate exploit and package submission', () => {
       } },
     }
     render(<GameProvider initialState={rollbackOnly}><Network /></GameProvider>)
-    fireEvent.click(screen.getByRole('button', { name: 'Open target 10.42.0.42' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open target 203.0.113.42' }))
     const actions = screen.getByRole('region', { name: 'ACTIONS' })
     expect(actions).toHaveTextContent('ROLLBACK')
     expect(actions).toHaveTextContent('/home/user/modules/rollback_1.0.mod')
@@ -1160,7 +1163,7 @@ describe('RackUpdate exploit and package submission', () => {
   it('presents owned Techniques without recommending one or calling Rollback Device access', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open target 10.42.0.42' }))
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
 
     const view = screen.getByLabelText('NodeScan')
     const details = view.querySelector('details')!
@@ -1189,7 +1192,7 @@ describe('RackUpdate exploit and package submission', () => {
     const unknown = { ...srv02(), knowledge: { bookstoreMarket: { nextReportId: 1, reports: [] }, discoveredVulnerabilities: [] } }
     const user = userEvent.setup()
     render(<GameProvider initialState={unknown}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open target 10.42.0.42' }))
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
     await openDetails(user)
 
     expect(screen.queryByText('PACKAGE SUBMISSION')).not.toBeInTheDocument()
@@ -1200,7 +1203,7 @@ describe('RackUpdate exploit and package submission', () => {
     const withoutTool = { ...srv02(), player: { ...srv02().player, localDevice: { ...srv02().player.localDevice, installedSoftware: srv02().player.localDevice.installedSoftware.map((software) => software.id === 'flipper' ? FLIPPER_1_0_CANONICAL_INSTALLATION : software) } } }
     const user = userEvent.setup()
     render(<GameProvider initialState={withoutTool}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open target 10.42.0.42' }))
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
     await openDetails(user)
 
     expect(screen.getByText(/does not enforce rollback protection/)).toBeInTheDocument()
@@ -1211,7 +1214,7 @@ describe('RackUpdate exploit and package submission', () => {
   it('requires finite work, then presents accepted/reboot-required while active GateSSH stays unchanged', async () => {
     vi.useFakeTimers()
     render(<GameProvider initialState={srv02()}><Network /><StateSnapshot /></GameProvider>)
-    fireEvent.click(screen.getByRole('button', { name: `Open target 10.42.0.42` }))
+    fireEvent.click(screen.getByRole('button', { name: `Open target 203.0.113.42` }))
     // Rollback grants only the narrow submission capability: finite work, no immediate consequence.
     fireEvent.click(screen.getByRole('button', { name: 'Execute Rollback' }))
     expect(screen.getByRole('group', { name: 'Attack progress' })).toBeInTheDocument()
@@ -1298,7 +1301,7 @@ describe('RackUpdate exploit and package submission', () => {
     }
     const user = userEvent.setup()
     render(<GameProvider initialState={withCandidates}><Network /></GameProvider>)
-    await user.click(await screen.findByRole('button', { name: 'Open target 10.42.0.42' }))
+    await user.click(await screen.findByRole('button', { name: 'Open target 203.0.113.42' }))
     await user.click(screen.getByText('TECHNICAL INTELLIGENCE'))
     fireEvent.change(screen.getByRole('combobox', { name: 'Rollback package' }), { target: { value: 'file-local-gate' } })
     fireEvent.click(screen.getByRole('button', { name: 'SUBMIT PACKAGE' }))
@@ -1570,7 +1573,7 @@ describe('Known Space topology', () => {
     expect(within(foreign).getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })).toBeInTheDocument()
     // Host Scan does not enumerate peers; it exposes only the Gateway clue.
     expect(within(foreign).queryByRole('button', { name: 'Open target 10.42.0.43' })).not.toBeInTheDocument()
-    expect(within(foreign).getByRole('button', { name: `Scan gateway ${GATEWAY_ADDRESS}` })).toBeInTheDocument()
+    expect(within(foreign).getByRole('button', { name: `Scan gateway 10.42.0.1` })).toBeInTheDocument()
   })
 
   it('keeps Gateway in the same sibling branch, and neither browsing nor a Scan sourced from home can earn this private Network a name', async () => {
@@ -1580,7 +1583,7 @@ describe('Known Space topology', () => {
     render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
     const root = screen.getByRole('region', { name: 'Network UNKNOWN NETWORK 10.42.0.0/24' })
     const host = within(root).getByRole('button', { name: `Open target ${PHONE_ADDRESS}` })
-    const gateway = within(root).getByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })
+    const gateway = within(root).getByRole('button', { name: `Open target 10.42.0.1` })
     expect(gateway.closest('.ns-limb')?.parentElement).toBe(host.closest('.ns-limb')?.parentElement)
     expect(gateway).toHaveTextContent('UNKNOWN DEVICE')
     expect(gateway).toHaveTextContent('GATEWAY')
@@ -1595,27 +1598,36 @@ describe('Known Space topology', () => {
     expect(root).not.toHaveTextContent('remote-segment-01')
   })
 
-  it('scans a remembered Gateway directly with one Host Scan and does not enumerate peers', async () => {
+  it('reveals the Gateway\'s own internal LAN position as its clue, never its public edge, and a plain Known Space Scan of it (always SELF-sourced) gets no response', async () => {
     const base = createInitialGameState()
+    // Sourced from already-compromised srv-02, on the same private LAN as the phone: the represented
+    // Gateway clue this reveals is the internal position srv-02 itself sees, `10.42.0.1` — never the
+    // externally reconnaissable public edge, which is a distinct, independent fact this pivot never observes.
     const discovery = rememberScan(base.discovery, scanFromDevice(base, SRV_02, PHONE_ADDRESS), SRV_02)
+    const gatewayInternalAddress = '10.42.0.1'
     const user = userEvent.setup()
     render(<GameProvider initialState={{ ...base, discovery }}><Network /><StateSnapshot /></GameProvider>)
 
-    await user.click(screen.getByRole('button', { name: `Scan gateway ${GATEWAY_ADDRESS}` }))
+    // Known Space's own Scan action always sources from SELF; SELF has no represented route to the
+    // Gateway's internal LAN address at all, so this correctly gets no response.
+    await user.click(screen.getByRole('button', { name: `Scan gateway ${gatewayInternalAddress}` }))
 
     expect(currentState().discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({
-      address: GATEWAY_ADDRESS, servicesObserved: true,
-      services: [expect.objectContaining({ endpoint: `${GATEWAY_ADDRESS}:80`, name: 'HTTP' })],
+      address: gatewayInternalAddress, servicesObserved: false,
     })
     expect(currentState().discovery.networks.find(({ id }) => id === 'network-foreign-001')?.membersObserved).toBe(false)
     expect(currentState().discovery.devices.some(({ id }) => id === 'host-lan-003')).toBe(false)
   })
 
-  it('keeps a Device with genuinely no represented Network membership visibly separate', () => {
+  it('never reaches a Device with genuinely no represented Network membership, and reveals nothing about it', () => {
     const base = createInitialGameState()
     const unrelatedHost = { id: 'host-unrelated', ip: '192.0.2.77', operational: { lifecycle: 'RUNNING' as const, connectivity: 'CONNECTED' as const } }
     const observed = { ...base, world: { network: { ...base.world.network, hosts: [...base.world.network.hosts, unrelatedHost] } } }
     const targets = { localDevice: observed.player.localDevice, network: observed.world.network }
+    // A Device with no represented Network placement at all is never globally reachable merely because
+    // placement truth is absent: it fails closed exactly like any other missing membership, so Scan
+    // observes nothing and it never enters Discovery or Known Space at all.
+    expect(scanNetworkTarget(targets, '192.0.2.77')).toEqual({ status: 'no_response', address: '192.0.2.77' })
     const discovery = rememberScan(foundTargets(observed).discovery, scanNetworkTarget(targets, '192.0.2.77'), observed.player.localDevice.id)
     render(<GameProvider initialState={{ ...observed, discovery }}><Network /></GameProvider>)
 
@@ -1623,9 +1635,7 @@ describe('Known Space topology', () => {
     expect(within(home).getByRole('button', { name: `Open target ${SRV_01_ADDRESS}` })).toBeInTheDocument()
     expect(within(home).queryByRole('button', { name: 'Open target 192.0.2.77' })).not.toBeInTheDocument()
 
-    const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
-    expect(within(elsewhere).getByRole('button', { name: 'Open target 192.0.2.77' })).toBeInTheDocument()
-    expect(elsewhere).toHaveTextContent('Remote')
+    expect(screen.queryByRole('region', { name: 'Elsewhere' })).not.toBeInTheDocument()
   })
 
   it('opens the same simple target card straight from the topology', async () => {

@@ -105,12 +105,16 @@ export function resolveCompletedServiceAnalyses(state: GameState): GameState {
         const devices = [...discovery.devices]
         devices[deviceIndex] = { ...device, services }
         discovery = { ...discovery, devices }
-      } else if (current.service && current.hostIp) {
+      } else if (current.service) {
         // Directed Endpoint Analysis of a Device reached only through a Gateway's own exposed
-        // edge — never itself revealed by a portless Scan of that edge — legitimately teaches its
-        // identity too, exactly like a Scan would, rather than silently dropping real evidence.
+        // edge — never itself revealed by a portless Scan of that edge — legitimately teaches the
+        // Service evidence it exposed, keyed by the backend's own stable identity so later Access
+        // and Session truth remain causally correct. It is never represented at the backend's own
+        // private address: the player only ever observed the public endpoint they actually dialed,
+        // and that dialed endpoint — never World Truth's own private `ip` — is what Discovery states.
+        const dialedAddress = process.startedEndpoint.slice(0, process.startedEndpoint.lastIndexOf(':'))
         discovery = { ...discovery, devices: [...discovery.devices, {
-          id: process.targetDeviceId, address: current.hostIp, scope: 'remote', servicesObserved: true,
+          id: process.targetDeviceId, address: dialedAddress, scope: 'remote', servicesObserved: true,
           services: [{ id: current.service.id, name: current.service.name, port: current.service.port, protocol: current.service.protocol, endpoint: process.startedEndpoint, inspect }],
         }] }
       }

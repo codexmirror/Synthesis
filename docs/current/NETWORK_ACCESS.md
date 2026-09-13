@@ -9,26 +9,68 @@ and Authentication History, as currently implemented on `main`.
 
 Every network-sensitive operation derives a path from its concrete executing
 Device and represented World Truth. Player Information admits target selection;
-it never creates reachability. The only current paths are `DIRECT_LOCAL` for
-unambiguous common LocalNetwork membership (no default Gateway traversal), and
-`EXPOSED_EDGE` for a target Network's valid default Gateway public address and
-a concrete protocol/port exposure to a real member Device Service. Portless
-PING/host Scan observes the public Gateway itself, independently of how many
-exposures it forwards; it never selects an arbitrary backend. Missing,
-dangling, invalid, or ambiguous membership, gateway, exposure, target, or
-Service truth is `NO_ROUTE`.
+it never creates reachability. The only current paths are `DIRECT_LOCAL` —
+unambiguous common LocalNetwork membership with the executing source, and
+nothing else, so a Device with no represented Network placement at all is
+never globally reachable merely because that placement truth is absent — and
+`EXPOSED_EDGE` for a target Network's Gateway's own explicit `publicAddress`
+and a concrete protocol/port exposure (or the Gateway's own hosted Service) to
+a real member Device Service. A Gateway with no `publicAddress` represents no
+external edge at all and is reachable only from within its own LocalNetwork,
+exactly like an ordinary Device; nothing infers reachability from a Gateway's
+mere existence or from the absence of an exposure. Portless PING/host Scan
+observes the public Gateway itself, independently of how many exposures it
+forwards; it never selects an arbitrary backend. Missing, dangling, invalid,
+or ambiguous membership, gateway, exposure, target, or Service truth is
+`NO_ROUTE`.
+
+The Gateway's own `publicAddress` is a distinct fact from `ip`, its ordinary
+internal LAN position — the address its own member Devices see as their
+default Gateway (`ip`) and remote `ip` for an operated member reports
+accordingly. Bookstore's Gateway (`router-foreign-001`) sits at `10.42.0.1`
+inside its own `10.42.0.0/24` LocalNetwork and is externally reconnaissable at
+`203.0.113.42`; a Host Scan pivoted through an already-compromised LAN member
+legitimately reveals the former as that member's own Gateway clue, never the
+latter, since internal routing knowledge and public-edge knowledge are
+independent facts.
+
+Ordinary local operations — Endpoint (Service) Analysis, Credential Access,
+and Connect — always execute from the player's own local Device. An
+established `DeviceAccess` relationship proves represented access to its
+target Device; it is never network position and never an implicit alternative
+source for another operation. A remote Device becomes an operation's
+executing source only when that operation is explicitly invoked from it
+through a represented remote execution surface, exactly like Scan and PING's
+own explicit-source pattern (`scanFromDevice`, `pingFromDevice`, and remote
+Scan below); no current Analysis, Credential Access, or Connect operation
+offers that surface, so reaching a Device this way remains a deliberately
+deferred future capability rather than an implicit pivot through existing
+`DeviceAccess`. An active Remote Session's own continued reachability is
+revalidated the same way it was established: by the target's own current
+address for a `DIRECT_LOCAL` Session (a Device's address changing after
+connection does not itself end a Session built on stable identity), or by the
+Session's own originally dialed public Gateway address for an `EXPOSED_EDGE`
+Session — never by pretending the backend's private address is itself
+directly reachable.
 
 The Bookstore public address belongs to its Gateway, not `srv-02`. The gateway
 exposure references `srv-02`'s existing GateSSH Service; it owns no copied
 implementation, open-state, or authentication truth. External reconnaissance
 therefore observes only the exposed endpoint, not internal addressing or
-topology. A remote operating context makes its target Device the execution
-source, but does not lend local software to it. Remote `ip` reads the operated
-Device's intrinsic address/CIDR/gateway configuration, and remote Scan uses the
-same Player-Information admission boundary as local Scan before source-specific
-reachability. Gateway-hop evidence is
-Router-owned; common LocalNetwork membership creates no omniscient activity
-record.
+topology: a successful Endpoint Analysis reached only through a Gateway's own
+exposed edge remembers the backend Service's evidence keyed by the backend
+Device's own stable identity — so later Access and Session truth resolve
+correctly — but states its address as the public endpoint the player actually
+dialed, never the private backend address that public exposure exists to
+hide; the backend's own LocalNetwork membership, LAN CIDR, and internal
+Gateway address are never revealed this way either. A remote operating context
+makes its target Device the execution source, but does not lend local
+software to it. Remote `ip` reads the operated Device's own intrinsic
+internal address/CIDR/gateway configuration — its LAN position, never its
+Gateway's public edge — and remote Scan uses the same Player-Information
+admission boundary as local Scan before source-specific reachability.
+Gateway-hop evidence is Router-owned; common LocalNetwork membership creates
+no omniscient activity record.
 
 This document is the normative owner of current implemented truth for that
 scope. `docs/V0.md` may summarize it; where a detailed statement differs, this
@@ -777,15 +819,23 @@ Only when the upload actually completes does a valid represented GateSSH package
 The represented VEYRA phone (`docs/current/DEVICE_SYSTEM.md`) is reached through
 exactly the ordinary access loop above and nothing else. It is not a member of
 SELF's temporary `home-net`, so a Network Scan of `home-net` does not reveal
-it. Directly scanning its communicated address discovers it as a remote
-Device and observes its one open SSH Service — and, like any Host Scan,
-incidentally reveals its own represented foreign Network relationship and
-that Network's other represented Hosts as shallow peers, never their Services
-or identity. Service Analysis of that Service remembers GateSSH 1.3.2
+it, and it sits on Bookstore's own private `network-foreign-001`, so SELF has
+no `DIRECT_LOCAL` route to its own private address either. Its Gateway
+forwards its GateSSH Service out to its own public edge exactly like `srv-02`'s
+own GateSSH and RackUpdate surfaces, so Endpoint Analysis of that exposed
+endpoint — reached directly from SELF, requiring no other Device's `DeviceAccess`
+as an intermediary — discovers it and observes its one open SSH Service, keyed
+by its own stable identity but stated at the public endpoint actually dialed,
+never its private backend address. A Host Scan pivoted through an
+already-compromised LAN member (`srv-02`) is the separate, independent route
+to its internal LAN identity and Network relationship instead, exactly like
+any other Host Scan sourced from within that segment. Service Analysis of the
+phone's GateSSH Service remembers GateSSH 1.3.2
 implementation evidence and creates no named Vulnerability Knowledge; the same
 standalone or Flipper-integrated GhostKey forms from that fresh evidence; the attempt creates the same
 Credential Access Process and, on success, the same USER `DeviceAccess`; and
-CONNECT opens the same kind of Session.
+CONNECT opens the same kind of Session — resolved the same way, through the
+Gateway's own public edge, never the phone's private address.
 
 No phone-specific weakness, tool, operation, mechanic or developer shortcut
 exists. Removing every credential tool removes the offer without touching

@@ -81,7 +81,7 @@ describe('Host Scan Network expansion (Regression #1)', () => {
     const ops = discovery.devices.find(({ id }) => id === 'host-lan-003')
     expect(phone).toBeUndefined()
     expect(ops).toBeUndefined()
-    expect(discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({ address: '203.0.113.42', servicesObserved: false })
+    expect(discovery.devices.find(({ id }) => id === 'router-foreign-001')).toMatchObject({ address: '10.42.0.1', servicesObserved: false })
 
     // Only the Host actually scanned is deep: its own Service surface is remembered.
     expect(discovery.devices.find(({ id }) => id === 'host-lan-002')?.servicesObserved).toBe(true)

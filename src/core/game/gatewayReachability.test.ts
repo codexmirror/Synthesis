@@ -31,14 +31,15 @@ describe('Gateway Reachability V1', () => {
   it('keeps public-edge reconnaissance responsive with multiple exposures without choosing a private backend', () => {
     const state = createInitialGameState()
     const gateway = state.world.network.hosts.find(({ id }) => id === 'router-foreign-001')!
-    expect(gateway.exposures).toHaveLength(2)
-    // A third, hypothetical exposure — Bookstore's own backend, still private by default — proves resolution
+    // GateSSH and RackUpdate on srv-02, plus the same existing GateSSH access loop the phone and ops-01 use.
+    expect(gateway.exposures).toHaveLength(4)
+    // A fifth, hypothetical exposure — Bookstore's own backend, still private by default — proves resolution
     // scales to several forwards without ever guessing a private backend for an address:port it does not name.
     const multiExposure = { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === gateway.id ? { ...host, exposures: [...gateway.exposures!, { protocol: 'TCP' as const, externalPort: 8090, targetDeviceId: 'host-lan-002', targetServiceId: 'service-bookstore-backend-002' }] } : host) } } }
-    expect(pingFromDevice(multiExposure, multiExposure.player.localDevice.id, gateway.ip)).toEqual({ status: 'device', targetId: gateway.id, address: gateway.ip })
-    expect(scanFromDevice(multiExposure, multiExposure.player.localDevice.id, gateway.ip)).toMatchObject({ status: 'device', targetId: gateway.id, services: [{ id: 'service-http-router-001', port: 80 }], networks: [] })
-    expect(resolveNetworkPath(multiExposure, multiExposure.player.localDevice.id, gateway.ip, 8090)).toMatchObject({ kind: 'EXPOSED_EDGE', target: { id: 'host-lan-002' }, targetService: { id: 'service-bookstore-backend-002' } })
-    expect(resolveNetworkPath(multiExposure, multiExposure.player.localDevice.id, gateway.ip, 9999)).toEqual({ kind: 'NO_ROUTE' })
+    expect(pingFromDevice(multiExposure, multiExposure.player.localDevice.id, gateway.publicAddress!)).toEqual({ status: 'device', targetId: gateway.id, address: gateway.publicAddress })
+    expect(scanFromDevice(multiExposure, multiExposure.player.localDevice.id, gateway.publicAddress!)).toMatchObject({ status: 'device', targetId: gateway.id, services: [{ id: 'service-http-router-001', port: 80 }], networks: [] })
+    expect(resolveNetworkPath(multiExposure, multiExposure.player.localDevice.id, gateway.publicAddress!, 8090)).toMatchObject({ kind: 'EXPOSED_EDGE', target: { id: 'host-lan-002' }, targetService: { id: 'service-bookstore-backend-002' } })
+    expect(resolveNetworkPath(multiExposure, multiExposure.player.localDevice.id, gateway.publicAddress!, 9999)).toEqual({ kind: 'NO_ROUTE' })
     expect(resolveNetworkPath(multiExposure, 'host-lan-002', '10.42.0.61')).toMatchObject({ kind: 'DIRECT_LOCAL', target: { id: 'host-phone-001' } })
   })
 
@@ -46,6 +47,8 @@ describe('Gateway Reachability V1', () => {
     const state = createInitialGameState()
     expect(scanTargetFromSource(state, 'host-lan-002', '10.42.0.0/24')).toMatchObject({ status: 'network', networkId: 'network-foreign-001' })
     expect(scanTargetFromSource(state, 'host-lan-002', '10.42.0.43')).toEqual({ status: 'unknown_target', input: '10.42.0.43' })
-    expect(resolveDeviceNetworkContext(state, 'host-lan-002')).toEqual({ address: '10.42.0.42', cidr: '10.42.0.0/24', gateway: '203.0.113.42' })
+    // The Gateway's own internal LAN position — as its member Devices see their default Gateway —
+    // distinct from its externally reconnaissable public edge.
+    expect(resolveDeviceNetworkContext(state, 'host-lan-002')).toEqual({ address: '10.42.0.42', cidr: '10.42.0.0/24', gateway: '10.42.0.1' })
   })
 })

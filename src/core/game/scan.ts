@@ -63,14 +63,9 @@ export function scanFromDevice(state: Readonly<GameState>, sourceDeviceId: strin
   if (!isValidIpv4(input)) {
     const network = resolveLocalNetwork(state.world.network, input)
     if (!network) return { status: 'unknown_target', input }
-    if (!network.memberDeviceIds.includes(sourceDeviceId)) {
-      // A transparent Gateway (its own `exposures` simply never configured, like an ordinary home Router)
-      // passes a genuine Network Scan through exactly like the pre-NAT open internet; only a Gateway that
-      // actually defines `exposures` does NAT-style gating, failing closed for a non-member source here.
-      const gateway = resolveNetworkGateway({ localDevice: state.player.localDevice, network: state.world.network }, network)
-      const gatewayHost = gateway && state.world.network.hosts.find(({ id }) => id === gateway.deviceId)
-      if (!gatewayHost || gatewayHost.exposures !== undefined) return { status: 'no_response', address: input }
-    }
+    // A genuine Network Scan requires the acting Device's own represented membership: different
+    // LocalNetworks are never automatically reachable from one another, regardless of Gateway truth.
+    if (!network.memberDeviceIds.includes(sourceDeviceId)) return { status: 'no_response', address: input }
     const devices = [state.player.localDevice, ...state.world.network.hosts]
       .filter((device) => network.memberDeviceIds.includes(device.id) && isDeviceNetworkUsable(device.operational))
       .map((device) => ({ targetId: device.id, address: 'network' in device ? device.network.ip : device.ip, scope: device.id === sourceDeviceId ? 'self' as const : 'lan' as const, ...(device.id !== sourceDeviceId && classifying ? { classification: classifyDeviceKind(device.deviceType) } : {}) }))
@@ -82,10 +77,9 @@ export function scanFromDevice(state: Readonly<GameState>, sourceDeviceId: strin
   if (!isDeviceNetworkUsable(target.operational)) return { status: 'no_response', address: input }
   const network = resolveDeviceNetwork({ localDevice: state.player.localDevice, network: state.world.network }, target.id)
   const gateway = path.kind === 'DIRECT_LOCAL' && network ? resolveNetworkGateway({ localDevice: state.player.localDevice, network: state.world.network }, network) : undefined
-  // A DIRECT_LOCAL path can now also reach a standalone Device or an ungated Network's member the source
-  // does not itself belong to (see `resolveNetworkPath`); scope reflects actual shared membership, not path kind alone.
-  const sharesTargetNetwork = Boolean(network && network.memberDeviceIds.includes(sourceDeviceId))
-  const scope = target.id === sourceDeviceId ? 'self' as const : path.kind === 'DIRECT_LOCAL' ? (sharesTargetNetwork ? 'lan' as const : 'remote' as const) : 'remote' as const
+  // DIRECT_LOCAL now only ever resolves for SELF or a Device sharing the source's own represented
+  // Network membership (`resolveNetworkPath`), so path kind alone determines scope.
+  const scope = target.id === sourceDeviceId ? 'self' as const : path.kind === 'DIRECT_LOCAL' ? 'lan' as const : 'remote' as const
   const services = path.kind === 'EXPOSED_EDGE' && path.targetService ? [path.targetService] : ((target as NetworkHost).services ?? []).filter(({ open }) => open)
   return { status: 'device', targetId: target.id, address: input, scope, networks: path.kind === 'DIRECT_LOCAL' && network ? [{ id: network.id, ...(network.cidr ? { cidr: network.cidr } : {}), ...(gateway ? { gateway: { targetId: gateway.deviceId, address: gateway.address, scope: 'lan' as const } } : {}) }] : [], services: services.filter(({ open }) => open).map(({ id, name, port, protocol }) => ({ id, name, port, protocol })), ...(classifying ? { classification: classifyDeviceKind(target.deviceType) } : {}) }
 }

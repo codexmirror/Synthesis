@@ -11,7 +11,7 @@ function operated(state = createInitialGameState()): GameState {
   const withAccess: GameState = { ...state, deviceAccess: { nextId: 2, established: [{
     id: 'access-phone', sourceDeviceId: state.player.localDevice.id, targetDeviceId: 'host-phone-001', viaServiceId: 'service-ssh-003', privilege: 'USER',
   }] } }
-  return connectRemoteFromObservation(withAccess, { targetDeviceId: 'host-phone-001', address: '10.42.0.61' }).state
+  return connectRemoteFromObservation(withAccess, { targetDeviceId: 'host-phone-001', address: '203.0.113.42' }).state
 }
 
 describe('Bookstore Market Analyst observation', () => {

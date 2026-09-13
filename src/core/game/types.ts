@@ -1370,6 +1370,14 @@ export interface NetworkHost {
   /** A Router's concrete public ingress mappings.  The mapped service remains
    * Device-owned truth; this is only the gateway edge relationship. */
   readonly exposures?: readonly GatewayExposure[]
+  /**
+   * A Router's own externally reconnaissable public edge address, distinct
+   * from `ip` — its ordinary internal LAN position, the address its own
+   * member Devices see as their default Gateway. A Router with no
+   * `publicAddress` has no external edge at all: it is reachable only from
+   * within its own represented LocalNetwork, exactly like an ordinary Device.
+   */
+  readonly publicAddress?: string
   /** Concrete router-hop evidence; LocalNetwork membership is not an observer. */
   readonly activityHistory?: NetworkActivityHistoryState
   /** Present only for endpoints whose transfer capability is concretely represented. */

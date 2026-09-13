@@ -112,7 +112,7 @@ describe('scanNetworkTarget outward discovery', () => {
     // from the already-compromised srv-02 pivot reveals a peer's own Network/Gateway context instead.
     expect(scanFromDevice(state, 'host-lan-002', '10.42.0.61')).toEqual({
       status: 'device', targetId: 'host-phone-001', address: '10.42.0.61', scope: 'lan',
-      networks: [{ id: 'network-foreign-001', cidr: '10.42.0.0/24', gateway: { targetId: 'router-foreign-001', address: '203.0.113.42', scope: 'lan' } }],
+      networks: [{ id: 'network-foreign-001', cidr: '10.42.0.0/24', gateway: { targetId: 'router-foreign-001', address: '10.42.0.1', scope: 'lan' } }],
       services: [
         { id: 'service-ssh-003', name: 'SSH', port: 22, protocol: 'TCP' },
       ],

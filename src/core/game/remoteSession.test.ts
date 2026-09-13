@@ -87,14 +87,13 @@ describe('remote session lifecycle', () => {
     const base = createInitialGameState()
     const withPhoneAccess: GameState = {
       ...base,
-      discovery: { ...base.discovery, devices: [{ id: 'host-phone-001', address: '10.42.0.61', scope: 'remote', servicesObserved: true, services: [] }] },
-      // The phone's private segment is reachable only by pivoting through already-compromised srv-02.
-      deviceAccess: { nextId: 3, established: [
-        { id: 'access-server-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' },
+      discovery: { ...base.discovery, devices: [{ id: 'host-phone-001', address: '203.0.113.42', scope: 'remote', servicesObserved: true, services: [] }] },
+      // The phone sits on Bookstore's private segment, reachable only through its Gateway's own public edge.
+      deviceAccess: { nextId: 2, established: [
         { id: 'access-phone-0001', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-phone-001', viaServiceId: 'service-ssh-003', privilege: 'USER' },
       ] },
     }
-    const connected = connectRemoteFromObservation(withPhoneAccess, { targetDeviceId: 'host-phone-001', address: '10.42.0.61' }).state
+    const connected = connectRemoteFromObservation(withPhoneAccess, { targetDeviceId: 'host-phone-001', address: '203.0.113.42' }).state
     expect(connected.remoteSession.active).not.toBeNull()
 
     const interrupted = interruptLocalNetworkConnectivity(connected, 'network-foreign-001')
