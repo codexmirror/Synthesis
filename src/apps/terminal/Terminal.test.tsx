@@ -237,6 +237,25 @@ describe('Terminal asynchronous Scan submission', () => {
     await user.keyboard('{ArrowUp}')
     expect(input).toHaveValue('scan home-net')
   })
+
+  it('renders every currently forwarded public exposure a real Scan of the Gateway observes, never a private backend address', async () => {
+    const state = createInitialGameState()
+    const realResult = scanNetworkTarget({ localDevice: state.player.localDevice, network: state.world.network }, '203.0.113.42')
+    const scanTarget = vi.fn(() => Promise.resolve(realResult))
+    const input = renderTerminal(scanTarget)
+    const user = userEvent.setup()
+
+    await user.type(input, 'scan 203.0.113.42{enter}')
+    await waitFor(() => expect(terminal().getByText('SERVICES FOUND: 5')).toBeInTheDocument())
+    expect(terminal().getByText('203.0.113.42:80')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:22')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:8443')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:2222')).toBeInTheDocument()
+    expect(terminal().getByText('203.0.113.42:2223')).toBeInTheDocument()
+    const rendered = document.querySelector('.terminal-output')?.textContent ?? ''
+    expect(rendered).not.toMatch(/10\.42\.0\.42|10\.42\.0\.43|10\.42\.0\.61|10\.42\.0\.0\/24|10\.42\.0\.1\b/)
+    expect(rendered).not.toMatch(/host-lan-002|host-lan-003|host-phone-001|Petra|Bookstore Backend|8090/i)
+  })
 })
 
 /**

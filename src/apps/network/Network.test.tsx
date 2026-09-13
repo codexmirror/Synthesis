@@ -1460,6 +1460,30 @@ describe('Known Space topology', () => {
     expect(screen.getByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })).toBeInTheDocument()
   })
 
+  it('does not present a Gateway\'s currently forwarded exposures as separate discovered Devices merely from its own portless Scan', async () => {
+    const user = userEvent.setup()
+    render(<GameProvider initialState={createInitialGameState()}><Network /><StateSnapshot /></GameProvider>)
+    const input = screen.getByRole('textbox', { name: 'TARGET ADDRESS' })
+    await user.type(input, GATEWAY_ADDRESS)
+    await user.click(screen.getByRole('button', { name: 'Ping target address' }))
+    await user.click(await screen.findByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` }))
+    await user.click(screen.getByRole('button', { name: 'SCAN' }))
+
+    // The Scan legitimately remembers all four currently forwarded backends by stable identity, keyed
+    // for later causal endpoint resolution, but every one of them is gateway-only tainted.
+    const atGatewayAddress = currentState().discovery.devices.filter(({ address }) => address === GATEWAY_ADDRESS)
+    expect(atGatewayAddress).toHaveLength(4)
+    expect(atGatewayAddress.filter((device) => device.observedOnlyAsGatewayExposure)).toHaveLength(3)
+
+    // Known Space still presents exactly one Device at this public address: the Gateway itself. No
+    // "Open target 203.0.113.42" duplicate appears for any forwarded backend, and Elsewhere never grows
+    // beyond the one Gateway entry the player actually observed.
+    await user.click(screen.getByRole('button', { name: '← Known Space' }))
+    expect(screen.getAllByRole('button', { name: `Open target ${GATEWAY_ADDRESS}` })).toHaveLength(1)
+    const elsewhere = screen.getByRole('region', { name: 'Elsewhere' })
+    expect(within(elsewhere).getAllByRole('button', { name: /^Open target /i })).toHaveLength(1)
+  })
+
   it('marks only the Device just observed as arriving, deriving nothing new and remembering nothing extra', async () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={foundTargets()}><Network /></GameProvider>)

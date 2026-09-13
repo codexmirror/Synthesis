@@ -112,7 +112,11 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
     // A Gateway's own portless Scan additionally remembers each currently forwarded exposure as a real
     // Service on its own backend Device's stable identity — never on the Gateway's own — addressed at
     // the public endpoint actually dialed, and with no represented Network relation of its own: exactly
-    // what the public edge itself reveals, and nothing about internal topology.
+    // what the public edge itself reveals, and nothing about internal topology. The backend's own
+    // identity is remembered only for later causal endpoint resolution (Analyze/Attack/Connect); a brand
+    // new entry created this way is marked `observedOnlyAsGatewayExposure` so it never itself presents as
+    // a separately discovered Device until something more direct legitimately observes it. An already
+    // real (or already merely gateway-observed) entry keeps whatever it already was.
     const exposedByDevice = new Map<string, DiscoveredService[]>()
     for (const backend of result.exposedBackends ?? []) {
       if (backend.targetDeviceId === selfDeviceId) continue
@@ -133,6 +137,7 @@ export function rememberScan(discovery: DiscoveryState, result: ScanResult, self
         servicesObserved: true, services: [...untouched, ...services],
         ...(previous?.classification ? { classification: previous.classification } : {}),
         ...(previous?.inspect ? { inspect: previous.inspect } : {}),
+        observedOnlyAsGatewayExposure: previous ? previous.observedOnlyAsGatewayExposure === true : true,
       }
       if (index < 0) devices.push(next); else devices[index] = next
     }

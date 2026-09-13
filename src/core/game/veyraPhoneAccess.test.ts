@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canFormCredentialAccessAttempt, startCredentialAccessAttemptFromObservation } from './credentialAccess'
+import { rememberScan } from './discovery'
 import { advanceGameState } from './gameAdvancement'
 import { createInitialGameState } from './initialState'
 import { connectRemoteFromObservation, resolveActiveRemoteTarget } from './remoteSession'
@@ -10,8 +11,25 @@ import type { GameState } from './types'
 
 const PHONE = 'host-phone-001'
 const PHONE_PRIVATE_ADDRESS = '10.42.0.61'
-const PHONE_PUBLIC_ENDPOINT = '203.0.113.42:2222'
+const BOOKSTORE_PUBLIC_EDGE = '203.0.113.42'
+const PHONE_PUBLIC_ENDPOINT = `${BOOKSTORE_PUBLIC_EDGE}:2222`
 const observation = { endpoint: PHONE_PUBLIC_ENDPOINT, targetDeviceId: PHONE, serviceId: 'service-ssh-003', vulnerabilityId: 'AUTH-017' } as const
+
+/**
+ * The exact endpoint Analysis later dials is never asserted as prior test
+ * knowledge: this derives it from a real portless Scan of the public edge,
+ * the same reconnaissance step Myra's lead (`docs/current/COMMUNICATION.md`)
+ * points the player at, proving the causal chain from public-edge
+ * observation through to the actionable endpoint rather than assuming it.
+ */
+function scannedPublicEdge(state: GameState = createInitialGameState()): { state: GameState; endpoint: string } {
+  const publicScan = scanFromDevice(state, state.player.localDevice.id, BOOKSTORE_PUBLIC_EDGE)
+  if (publicScan.status !== 'device') throw new Error(publicScan.status)
+  const phoneExposure = publicScan.exposedBackends?.find(({ targetDeviceId }) => targetDeviceId === PHONE)
+  if (!phoneExposure) throw new Error('expected the phone\'s GateSSH exposure in the public Scan observation')
+  const discovery = rememberScan(state.discovery, publicScan, state.player.localDevice.id)
+  return { state: { ...state, discovery }, endpoint: `${BOOKSTORE_PUBLIC_EDGE}:${phoneExposure.service.port}` }
+}
 
 /**
  * The represented VEYRA phone is reachable through the game's existing
@@ -32,7 +50,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     expect(result.devices.map(({ targetId }) => targetId)).not.toContain(PHONE)
   })
 
-  it('yields a way in only after real Endpoint Analysis of the exact GateSSH 1.3.2 surface reached through the Gateway\'s own public edge, with zero named Vulnerability Knowledge, then establishes access and connects', () => {
+  it('yields a way in only after a public-edge Scan surfaces the exposed endpoint and real Endpoint Analysis of the exact GateSSH 1.3.2 surface, with zero named Vulnerability Knowledge, then establishes access and connects', () => {
     const base = createInitialGameState()
 
     // Before any observation the player knows nothing about this Device.
@@ -41,14 +59,27 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     // The player's own Device has no route to the phone's private address at all — only its Gateway's own public edge.
     expect(scanFromDevice(base, base.player.localDevice.id, PHONE_PRIVATE_ADDRESS)).toMatchObject({ status: 'no_response' })
 
-    const analysis = startServiceAnalysisAtEndpoint(base, PHONE_PUBLIC_ENDPOINT)
+    // A portless Scan of the public edge Myra's lead names legitimately surfaces the forwarded endpoint
+    // itself — this is where `PHONE_PUBLIC_ENDPOINT` actually comes from, not asserted prior knowledge.
+    const { state: scanned, endpoint } = scannedPublicEdge(base)
+    expect(endpoint).toBe(PHONE_PUBLIC_ENDPOINT)
+    // The Scan alone remembers only that a Service is reachable there, keyed by the backend's stable
+    // identity for later causal resolution — it is not yet itself a discovered private Device.
+    const exposedOnly = scanned.discovery.devices.find(({ id }) => id === PHONE)
+    expect(exposedOnly).toMatchObject({ address: BOOKSTORE_PUBLIC_EDGE, observedOnlyAsGatewayExposure: true })
+    expect(exposedOnly?.services.find(({ id }) => id === observation.serviceId)?.inspect).toBeUndefined()
+    // A bare public-edge Scan is not itself actionable knowledge: no GhostKey offer without real Analysis.
+    expect(canFormCredentialAccessAttempt(scanned, observation)).toBe(false)
+
+    const analysis = startServiceAnalysisAtEndpoint(scanned, PHONE_PUBLIC_ENDPOINT)
     expect(analysis.status).toBe('started'); if (analysis.status !== 'started') return
     const analyzed = advanceGameState(analysis.state, 20_000)
     // Endpoint Analysis remembers implementation evidence only; it never creates named Vulnerability Knowledge.
     expect(analyzed.knowledge.discoveredVulnerabilities).toEqual([])
     // The Analysis reached through the public exposure remembers the phone by the endpoint the player
-    // actually dialed, never its private backend address.
-    expect(analyzed.discovery.devices.find(({ id }) => id === PHONE)).toMatchObject({ address: '203.0.113.42' })
+    // actually dialed, never its private backend address, and this genuine direct observation now
+    // clears the earlier gateway-only taint: the phone is legitimately its own discovered Device.
+    expect(analyzed.discovery.devices.find(({ id }) => id === PHONE)).toMatchObject({ address: BOOKSTORE_PUBLIC_EDGE, observedOnlyAsGatewayExposure: false })
 
     // GhostKey forms directly from the legitimately remembered GateSSH 1.3.2 fingerprint and the owned
     // GhostKey artifact/capability alone: zero named Vulnerability Knowledge is required.
@@ -63,7 +94,7 @@ describe('reaching the VEYRA phone through the existing access loop', () => {
     expect(access).toMatchObject({ sourceDeviceId: base.player.localDevice.id, viaServiceId: observation.serviceId, privilege: 'USER' })
 
     // Connect resolves through the same public Gateway edge the Analysis and Access were formed through.
-    const connected = connectRemoteFromObservation(attacked, { targetDeviceId: PHONE, address: '203.0.113.42' })
+    const connected = connectRemoteFromObservation(attacked, { targetDeviceId: PHONE, address: BOOKSTORE_PUBLIC_EDGE })
     expect(connected.status).toBe('connected')
 
     // The entered target resolves to the phone and to its own Firmware.

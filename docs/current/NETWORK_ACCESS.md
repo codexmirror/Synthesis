@@ -18,11 +18,24 @@ and a concrete protocol/port exposure (or the Gateway's own hosted Service) to
 a real member Device Service. A Gateway with no `publicAddress` represents no
 external edge at all and is reachable only from within its own LocalNetwork,
 exactly like an ordinary Device; nothing infers reachability from a Gateway's
-mere existence or from the absence of an exposure. Portless PING/host Scan
-observes the public Gateway itself, independently of how many exposures it
-forwards; it never selects an arbitrary backend. Missing, dangling, invalid,
-or ambiguous membership, gateway, exposure, target, or Service truth is
-`NO_ROUTE`.
+mere existence or from the absence of an exposure. Portless PING observes the
+public Gateway itself and nothing else. A portless host Scan observes the
+Gateway itself plus every one of its currently forwarded exposures as a real
+reachable public Service — its own observable surface, reported at the
+external port and protocol the exposure actually names — but never which
+backend Device answers behind any one of them, never an arbitrary single
+choice among several, and never the private addressing, LocalNetwork
+membership, or topology behind the edge. That backend identity is remembered
+only for later causal resolution of the exact endpoint a further operation
+dials (Endpoint Analysis, Attack, Connect); it never itself surfaces as a
+separately discovered Device — in Player-facing presentation (CLI or Known
+Space) or in a player-facing count of discovered targets — until something
+more direct legitimately observes that Device (Endpoint Analysis of its own
+exposed Service, a genuine Scan or PING that reaches it, or Network Scan
+membership). Missing, dangling, invalid, or ambiguous membership, gateway,
+exposure, target, or Service truth is `NO_ROUTE`, and a dangling exposure
+(naming a Device or Service that no longer legitimately resolves) is silently
+excluded from what the edge currently reports rather than surfaced as broken.
 
 The Gateway's own `publicAddress` is a distinct fact from `ip`, its ordinary
 internal LAN position — the address its own member Devices see as their

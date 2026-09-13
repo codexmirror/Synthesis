@@ -157,12 +157,29 @@ describe('command dispatcher', () => {
   })
   it('renders invalid, online, offline, and valid unknown scan observations', () => {
     expect(dispatch('scan 999.999.999.999')).toEqual({ type: 'output', lines: ['Unknown scan target: 999.999.999.999'] })
-    // The public Bookstore address is the Gateway, not srv-02: portless
-    // reconnaissance may observe only Gateway-owned public facts and cannot
-    // leak the private Network or one arbitrary forwarded backend.
-    expect(dispatch('scan 203.0.113.42')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.42...', '', 'RELATIONSHIPS FOUND: 0', '', 'SERVICES FOUND: 1', '', 'HTTP', labeledTarget('Endpoint: ', '203.0.113.42:80'), 'Protocol: TCP'] })
     expect(dispatch('scan 203.0.113.99')).toEqual({ type: 'output', lines: ['Scanning 203.0.113.99...', '', 'NO RESPONSE'] })
     expect(dispatch('scan 192.0.2.10')).toEqual({ type: 'output', lines: ['Scanning 192.0.2.10...', '', 'NO RESPONSE'] })
+  })
+
+  it('presents every currently forwarded public exposure a portless Scan of the Gateway legitimately observes, by external port, without naming any backend Device', () => {
+    // The public Bookstore address is the Gateway, not srv-02: portless reconnaissance observes the
+    // Gateway's own hosted Service plus each currently forwarded exposure — real public services,
+    // reachable right here — but never which private backend Device answers behind any one of them.
+    const output = dispatch('scan 203.0.113.42')
+    expect(output).toEqual({ type: 'output', lines: [
+      'Scanning 203.0.113.42...', '', 'RELATIONSHIPS FOUND: 0', '', 'SERVICES FOUND: 5', '',
+      'HTTP', labeledTarget('Endpoint: ', '203.0.113.42:80'), 'Protocol: TCP', '',
+      'SSH', labeledTarget('Endpoint: ', '203.0.113.42:22'), 'Protocol: TCP', '',
+      'RackUpdate', labeledTarget('Endpoint: ', '203.0.113.42:8443'), 'Protocol: TCP', '',
+      'SSH', labeledTarget('Endpoint: ', '203.0.113.42:2222'), 'Protocol: TCP', '',
+      'SSH', labeledTarget('Endpoint: ', '203.0.113.42:2223'), 'Protocol: TCP',
+    ] })
+    // Never the private backend addresses, CIDR, internal Gateway position, or a backend Device identity.
+    const rendered = JSON.stringify(output)
+    expect(rendered).not.toMatch(/10\.42\.0\.42|10\.42\.0\.43|10\.42\.0\.61|10\.42\.0\.0\/24|10\.42\.0\.1\b/)
+    expect(rendered).not.toMatch(/host-lan-002|host-lan-003|host-phone-001|Petra/i)
+    // Never the private Bookstore Backend Service, which has no represented public Gateway exposure.
+    expect(rendered).not.toMatch(/Bookstore Backend|8090/)
   })
   it('renders local scope when scanning the current device', () => {
     expect(dispatch('scan 198.51.100.23')).toEqual({

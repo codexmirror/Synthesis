@@ -1593,6 +1593,18 @@ export interface DiscoveredDeviceSnapshot {
    * such an observation happened.
    */
   readonly inspect?: { readonly networkStatus: 'ONLINE'; readonly deviceKind: 'device' | 'server'; readonly displayName?: string; readonly enhanced?: EnhancedInspectEvidence }
+  /**
+   * True only while this entry exists solely because a Gateway's own portless
+   * public-edge Scan reported it as one of its currently forwarded exposures.
+   * That Scan observed only that a Service is reachable at the Gateway's own
+   * address and what it is — never this backend Device's own identity,
+   * private address, or LocalNetwork placement — so the entry stays keyed by
+   * stable identity for causal endpoint resolution (Analyze/Attack/Connect)
+   * but must never itself present as a separately discovered Device. Cleared
+   * the moment a genuine direct observation of this exact Device (Endpoint
+   * Analysis, its own Scan/Ping, or Network Scan membership) touches it.
+   */
+  readonly observedOnlyAsGatewayExposure?: boolean
 }
 
 export interface DiscoveryState {

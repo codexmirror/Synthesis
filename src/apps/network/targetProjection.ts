@@ -653,7 +653,11 @@ function knownSoftwareIntelligence(
 
 export function selectTarget(information: PlayerInformation, deviceId: string, liveTruth?: LiveTopologyTruth): Target | undefined {
   const device = information.discovery.devices.find(({ id }) => id === deviceId)
-  if (!device) return undefined
+  // A Gateway's own portless public-edge Scan observes only that address's reachable public endpoints,
+  // never a forwarded backend's own identity: an entry remembered solely from that observation stays
+  // keyed by stable identity for later causal endpoint resolution, but never itself presents as a
+  // separately discovered Device until something more direct legitimately observes it.
+  if (!device || device.observedOnlyAsGatewayExposure) return undefined
 
   const analyses = information.process.processes.filter(isServiceAnalysis)
   const attempts = information.process.processes.filter(isCredentialAccess)

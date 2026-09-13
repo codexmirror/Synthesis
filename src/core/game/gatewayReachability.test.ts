@@ -64,6 +64,38 @@ describe('Gateway Reachability V1', () => {
     expect(resolveNetworkPath(multiExposure, 'host-lan-002', '10.42.0.61')).toMatchObject({ kind: 'DIRECT_LOCAL', target: { id: 'host-phone-001' } })
   })
 
+  it('resolves every currently exposed backend independently by its own external port, and fails closed for a dangling or unrepresented one', () => {
+    const state = createInitialGameState()
+    const gateway = state.player.localDevice.id
+    expect(resolveNetworkPath(state, gateway, '203.0.113.42', 22)).toMatchObject({ kind: 'EXPOSED_EDGE', target: { id: 'host-lan-002' }, targetService: { id: 'service-ssh-002' } })
+    expect(resolveNetworkPath(state, gateway, '203.0.113.42', 8443)).toMatchObject({ kind: 'EXPOSED_EDGE', target: { id: 'host-lan-002' }, targetService: { id: 'service-rack-update-002' } })
+    expect(resolveNetworkPath(state, gateway, '203.0.113.42', 2222)).toMatchObject({ kind: 'EXPOSED_EDGE', target: { id: 'host-phone-001' }, targetService: { id: 'service-ssh-003' } })
+    expect(resolveNetworkPath(state, gateway, '203.0.113.42', 2223)).toMatchObject({ kind: 'EXPOSED_EDGE', target: { id: 'host-lan-003' }, targetService: { id: 'service-ssh-004' } })
+    // No represented exposure forwards the Bookstore Backend: its private port is never publicly dialable.
+    expect(resolveNetworkPath(state, gateway, '203.0.113.42', 8090)).toEqual({ kind: 'NO_ROUTE' })
+
+    // A dangling exposure — its named target Device does not exist — fails closed rather than guessing.
+    const dangling = { ...state, world: { ...state.world, network: { ...state.world.network, hosts: state.world.network.hosts.map((host) => host.id === 'router-foreign-001'
+      ? { ...host, exposures: [...host.exposures!, { protocol: 'TCP' as const, externalPort: 9001, targetDeviceId: 'host-does-not-exist', targetServiceId: 'service-none' }] }
+      : host) } } }
+    expect(resolveNetworkPath(dangling, gateway, '203.0.113.42', 9001)).toEqual({ kind: 'NO_ROUTE' })
+    const publicScan = scanFromDevice(dangling, gateway, '203.0.113.42')
+    expect(publicScan.status === 'device' ? publicScan.exposedBackends?.some(({ targetDeviceId }) => targetDeviceId === 'host-does-not-exist') : undefined).toBe(false)
+  })
+
+  it('never opens a private route from SELF merely by having scanned or pinged the public edge', () => {
+    const state = createInitialGameState()
+    const player = state.player.localDevice.id
+    // Observation (Scan/PING) is pure Player Information: it derives a result but never mutates World
+    // Truth or `state` itself, so private reachability from SELF is unaffected by having run either.
+    scanFromDevice(state, player, '203.0.113.42')
+    pingFromDevice(state, player, '203.0.113.42')
+    expect(resolveNetworkPath(state, player, '10.42.0.61')).toEqual({ kind: 'NO_ROUTE' })
+    expect(resolveNetworkPath(state, player, '10.42.0.42')).toEqual({ kind: 'NO_ROUTE' })
+    expect(resolveNetworkPath(state, player, '10.42.0.43')).toEqual({ kind: 'NO_ROUTE' })
+    expect(resolveNetworkPath(state, player, '10.42.0.1')).toEqual({ kind: 'NO_ROUTE' })
+  })
+
   it('admits remote Scan from player information plus the remote Device intrinsic network identity', () => {
     const state = withSrv02NodeScan(createInitialGameState())
     expect(scanTargetFromSource(state, 'host-lan-002', '10.42.0.0/24')).toMatchObject({ status: 'network', networkId: 'network-foreign-001' })
