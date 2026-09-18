@@ -95,8 +95,8 @@ function hasRequiredPlayerPrivateShape(value: unknown): boolean {
       && typeof dollarCredential.password === 'string' && dollarCredential.accountId === dollarAccount?.id)
 }
 
-/** Minimum admission boundary for the current persisted online document. */
-export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument {
+/** Minimum admission boundary for a persisted online document at one known GameState version. */
+function validateOnlineWorldDocumentVersion(value: unknown, gameStateVersion: number): OnlineWorldDocument {
   const root = record(value)
   if (!root || root.persistenceVersion !== ONLINE_PERSISTENCE_VERSION) throw new Error('Unsupported online persistence version. Refusing to reset canonical world.')
   if (!Number.isInteger(root.nextHomeSubnet) || (root.nextHomeSubnet as number) < 1 || (root.nextHomeSubnet as number) > 255) throw new Error('Invalid online persistence allocator state.')
@@ -105,7 +105,7 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
   const world = record(state?.world)
   const network = record(world?.network)
   const cadence = record(state?.bookstoreSalesCadence)
-  if (!shared || !state || state.version !== GAME_STATE_VERSION || !record(state.player)
+  if (!shared || !state || state.version !== gameStateVersion || !record(state.player)
     || !hasRecordOwners(state, SHARED_RUNTIME_OWNER_KEYS)
     || !cadence || !Array.isArray(cadence.records)
     || !network || !Array.isArray(network.localNetworks) || !Array.isArray(network.hosts)
@@ -185,12 +185,118 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
   return value as OnlineWorldDocument
 }
 
+/** Minimum admission boundary for the current persisted online document. */
+export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument {
+  return validateOnlineWorldDocumentVersion(value, GAME_STATE_VERSION)
+}
+
+const PREDECESSOR_GAME_STATE_VERSION = 92
+const FOREIGN_NETWORK_ID = 'network-foreign-001'
+const ROUTER_ACTIVITY_INITIAL = { nextId: 1, records: [] } as const
+const AUTHORED_ROUTER_IDS = ['router-foreign-001'] as const
+const HOST_ADDRESS_CHANGES: ReadonlyMap<string, readonly [string, string]> = new Map([
+  ['host-lan-002', ['203.0.113.42', '10.42.0.42']],
+  ['host-lan-003', ['203.0.113.43', '10.42.0.43']],
+  ['host-phone-001', ['198.51.100.61', '10.42.0.61']],
+  ['router-foreign-001', ['203.0.113.1', '10.42.0.1']],
+] as const)
+const FOREIGN_GATEWAY_EXPOSURES = [
+  { protocol: 'TCP', externalPort: 22, targetDeviceId: 'host-lan-002', targetServiceId: 'service-ssh-002' },
+  { protocol: 'TCP', externalPort: 8443, targetDeviceId: 'host-lan-002', targetServiceId: 'service-rack-update-002' },
+  { protocol: 'TCP', externalPort: 2222, targetDeviceId: 'host-phone-001', targetServiceId: 'service-ssh-003' },
+  { protocol: 'TCP', externalPort: 2223, targetDeviceId: 'host-lan-003', targetServiceId: 'service-ssh-004' },
+] as const
+
+function owns(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key)
+}
+
+/** The one repository-owned persisted content migration: Online v2 / GameState 92 to 93. */
+function migrateVersion92Document(value: unknown): OnlineWorldDocument {
+  const source = validateOnlineWorldDocumentVersion(value, PREDECESSOR_GAME_STATE_VERSION)
+  const state = source.shared.state
+  const networks = state.world.network.localNetworks
+  const hosts = state.world.network.hosts
+  const foreignNetworks = networks.filter(({ id }) => id === FOREIGN_NETWORK_ID)
+  if (foreignNetworks.length !== 1 || foreignNetworks[0].cidr !== '203.0.113.0/24'
+    || networks.some(({ id, cidr }) => id !== FOREIGN_NETWORK_ID && cidr === '10.42.0.0/24')) {
+    throw new Error('Version 92 online migration topology is missing or conflicting.')
+  }
+
+  for (const [id, [sourceAddress, destinationAddress]] of HOST_ADDRESS_CHANGES) {
+    const matches = hosts.filter((host) => host.id === id)
+    if (matches.length !== 1 || matches[0].ip !== sourceAddress
+      || hosts.some((host) => host.id !== id && (host.ip === destinationAddress || host.publicAddress === destinationAddress))) {
+      throw new Error('Version 92 online migration topology is missing or conflicting.')
+    }
+  }
+
+  const routerIds = new Set<string>([...AUTHORED_ROUTER_IDS, ...source.players.map(({ gatewayDeviceId }) => gatewayDeviceId)])
+  for (const id of routerIds) {
+    const matches = hosts.filter((host) => host.id === id)
+    if (matches.length !== 1 || matches[0].deviceType !== 'ROUTER'
+      || owns(matches[0] as unknown as Record<string, unknown>, 'activityHistory')) {
+      throw new Error('Version 92 online migration Router state is missing or ambiguous.')
+    }
+  }
+  const foreignRouter = hosts.find(({ id }) => id === 'router-foreign-001')!
+  if (owns(foreignRouter as unknown as Record<string, unknown>, 'publicAddress')
+    || owns(foreignRouter as unknown as Record<string, unknown>, 'exposures')
+    || hosts.some((host) => host.id !== 'host-lan-002'
+      && (host.ip === '203.0.113.42' || host.publicAddress === '203.0.113.42'))) {
+    throw new Error('Version 92 online migration Gateway state is ambiguous.')
+  }
+  for (const exposure of FOREIGN_GATEWAY_EXPOSURES) {
+    const target = hosts.find(({ id }) => id === exposure.targetDeviceId)
+    const services = target?.services?.filter(({ id }) => id === exposure.targetServiceId) ?? []
+    if (services.length !== 1 || services[0].protocol !== exposure.protocol) {
+      throw new Error('Version 92 online migration Gateway target is missing or ambiguous.')
+    }
+  }
+
+  const migratedHosts = hosts.map((host) => {
+    const addressChange = HOST_ADDRESS_CHANGES.get(host.id)
+    const withAddress = addressChange ? { ...host, ip: addressChange[1] } : host
+    if (host.id === 'router-foreign-001') return {
+      ...withAddress,
+      publicAddress: '203.0.113.42',
+      exposures: FOREIGN_GATEWAY_EXPOSURES,
+      activityHistory: ROUTER_ACTIVITY_INITIAL,
+    }
+    return routerIds.has(host.id) ? { ...withAddress, activityHistory: ROUTER_ACTIVITY_INITIAL } : withAddress
+  })
+  const migrated: OnlineWorldDocument = {
+    ...source,
+    shared: { ...source.shared, state: {
+      ...state,
+      version: GAME_STATE_VERSION,
+      world: { network: {
+        ...state.world.network,
+        localNetworks: networks.map((network) => network.id === FOREIGN_NETWORK_ID ? { ...network, cidr: '10.42.0.0/24' } : network),
+        hosts: migratedHosts,
+      } },
+    } },
+  }
+  return validateOnlineWorldDocument(migrated)
+}
+
 export class JsonWorldPersistence {
   constructor(readonly path: string) {}
 
   async loadOrCreate(): Promise<OnlineWorldDocument> {
     try {
-      return validateOnlineWorldDocument(JSON.parse(await readFile(this.path, 'utf8')))
+      const parsed: unknown = JSON.parse(await readFile(this.path, 'utf8'))
+      const root = record(parsed)
+      const state = record(record(root?.shared)?.state)
+      if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === GAME_STATE_VERSION) {
+        return validateOnlineWorldDocument(parsed)
+      }
+      if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === PREDECESSOR_GAME_STATE_VERSION) {
+        const migrated = migrateVersion92Document(parsed)
+        await this.save(migrated)
+        return migrated
+      }
+      throw new Error('Unsupported online persistence version. Refusing to reset canonical world.')
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       const initial = createInitialGameState()
