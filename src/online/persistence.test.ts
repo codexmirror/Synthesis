@@ -6,7 +6,7 @@ import { canFormCredentialAccessAttempt, GHOSTKEY_PROVIDER_ID } from '../core/ga
 import { resolveServiceEndpoint } from '../core/game/serviceAnalysis'
 import { composeCanonicalOperationState } from './bootstrap'
 import type { OnlineWorldDocument } from './model'
-import { JsonWorldPersistence } from './persistence'
+import { JsonWorldPersistence, ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION } from './persistence'
 import { OnlineWorldStore } from './worldStore'
 
 const directories: string[] = []
@@ -43,6 +43,20 @@ afterEach(async () => {
 })
 
 describe('JsonWorldPersistence version admission and migration', () => {
+  it('creates and saves a fresh current document only when the initial read finds no file', async () => {
+    const path = await temporaryPath()
+    class CountingPersistence extends JsonWorldPersistence {
+      saves = 0
+      override async save(document: OnlineWorldDocument): Promise<void> { this.saves += 1; await super.save(document) }
+    }
+    const persistence = new CountingPersistence(path)
+
+    const created = await persistence.loadOrCreate()
+    expect(created.shared.state.version).toBe(93)
+    expect(persistence.saves).toBe(1)
+    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual(created)
+  })
+
   it('loads a current document without rewriting it', async () => {
     const path = await temporaryPath()
     const current = await populatedCurrentDocument(path)
@@ -82,6 +96,7 @@ describe('JsonWorldPersistence version admission and migration', () => {
     const migrated = opened.inspectForTests()
     const durable = JSON.parse(await readFile(path, 'utf8')) as OnlineWorldDocument
     expect(durable).toEqual(migrated)
+    expect(ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION).toBe(93)
     expect(migrated.shared.state.version).toBe(93)
     expect(migrated.nextHomeSubnet).toBe(allocator)
     expect(migrated.accounts).toEqual(predecessor.accounts)
@@ -140,6 +155,8 @@ describe('JsonWorldPersistence version admission and migration', () => {
     ['malformed predecessor', (value: any) => { delete value.players[0].privateState.discovery }],
     ['missing stable entity', (value: any) => { value.shared.state.world.network.hosts = value.shared.state.world.network.hosts.filter(({ id }: any) => id !== 'host-lan-002') }],
     ['conflicting destination', (value: any) => { value.shared.state.world.network.hosts.push({ id: 'conflict', ip: '10.42.0.42', operational: { lifecycle: 'RUNNING', connectivity: 'CONNECTED' } }) }],
+    ['wrong foreign gateway relationship', (value: any) => { value.shared.state.world.network.localNetworks.find(({ id }: any) => id === 'network-foreign-001').gatewayDeviceId = 'host-lan-002' }],
+    ['missing required foreign member', (value: any) => { const network = value.shared.state.world.network.localNetworks.find(({ id }: any) => id === 'network-foreign-001'); network.memberDeviceIds = network.memberDeviceIds.filter((id: string) => id !== 'host-phone-001') }],
   ])('rejects %s without replacing the durable document', async (_name, corrupt) => {
     const path = await temporaryPath()
     const predecessor = version92Fixture(await populatedCurrentDocument(path)) as any
@@ -160,6 +177,26 @@ describe('JsonWorldPersistence version admission and migration', () => {
     }
     const store = new OnlineWorldStore(new FailingMigrationPersistence(path))
     await expect(store.open()).rejects.toThrow('injected migration save failure')
+    expect(store.inspectForTests()).toBeUndefined()
+    expect(await readFile(path, 'utf8')).toBe(original)
+  })
+
+  it('does not treat ENOENT from migration save as an absent persistence file', async () => {
+    const path = await temporaryPath()
+    const predecessor = version92Fixture(await populatedCurrentDocument(path))
+    const original = `${JSON.stringify(predecessor)}\n`
+    await writeFile(path, original)
+    class MissingMigrationDestinationPersistence extends JsonWorldPersistence {
+      saves = 0
+      override async save(): Promise<void> {
+        this.saves += 1
+        throw Object.assign(new Error('injected missing migration destination'), { code: 'ENOENT' })
+      }
+    }
+    const persistence = new MissingMigrationDestinationPersistence(path)
+    const store = new OnlineWorldStore(persistence)
+    await expect(store.open()).rejects.toThrow('injected missing migration destination')
+    expect(persistence.saves).toBe(1)
     expect(store.inspectForTests()).toBeUndefined()
     expect(await readFile(path, 'utf8')).toBe(original)
   })

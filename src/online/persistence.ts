@@ -191,6 +191,8 @@ export function validateOnlineWorldDocument(value: unknown): OnlineWorldDocument
 }
 
 const PREDECESSOR_GAME_STATE_VERSION = 92
+/** Captures the complete semantic destination of the one supported migration step. */
+export const ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION = 93
 const FOREIGN_NETWORK_ID = 'network-foreign-001'
 const ROUTER_ACTIVITY_INITIAL = { nextId: 1, records: [] } as const
 const AUTHORED_ROUTER_IDS = ['router-foreign-001'] as const
@@ -218,7 +220,10 @@ function migrateVersion92Document(value: unknown): OnlineWorldDocument {
   const networks = state.world.network.localNetworks
   const hosts = state.world.network.hosts
   const foreignNetworks = networks.filter(({ id }) => id === FOREIGN_NETWORK_ID)
+  const requiredForeignMemberIds = new Set(['router-foreign-001', 'host-lan-002', 'host-lan-003', 'host-phone-001'])
   if (foreignNetworks.length !== 1 || foreignNetworks[0].cidr !== '203.0.113.0/24'
+    || foreignNetworks[0].gatewayDeviceId !== 'router-foreign-001'
+    || ![...requiredForeignMemberIds].every((id) => foreignNetworks[0].memberDeviceIds.includes(id))
     || networks.some(({ id, cidr }) => id !== FOREIGN_NETWORK_ID && cidr === '10.42.0.0/24')) {
     throw new Error('Version 92 online migration topology is missing or conflicting.')
   }
@@ -269,7 +274,7 @@ function migrateVersion92Document(value: unknown): OnlineWorldDocument {
     ...source,
     shared: { ...source.shared, state: {
       ...state,
-      version: GAME_STATE_VERSION,
+      version: ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION,
       world: { network: {
         ...state.world.network,
         localNetworks: networks.map((network) => network.id === FOREIGN_NETWORK_ID ? { ...network, cidr: '10.42.0.0/24' } : network),
@@ -277,26 +282,16 @@ function migrateVersion92Document(value: unknown): OnlineWorldDocument {
       } },
     } },
   }
-  return validateOnlineWorldDocument(migrated)
+  return validateOnlineWorldDocumentVersion(migrated, ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION)
 }
 
 export class JsonWorldPersistence {
   constructor(readonly path: string) {}
 
   async loadOrCreate(): Promise<OnlineWorldDocument> {
+    let serialized: string
     try {
-      const parsed: unknown = JSON.parse(await readFile(this.path, 'utf8'))
-      const root = record(parsed)
-      const state = record(record(root?.shared)?.state)
-      if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === GAME_STATE_VERSION) {
-        return validateOnlineWorldDocument(parsed)
-      }
-      if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === PREDECESSOR_GAME_STATE_VERSION) {
-        const migrated = migrateVersion92Document(parsed)
-        await this.save(migrated)
-        return migrated
-      }
-      throw new Error('Unsupported online persistence version. Refusing to reset canonical world.')
+      serialized = await readFile(this.path, 'utf8')
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       const initial = createInitialGameState()
@@ -319,6 +314,21 @@ export class JsonWorldPersistence {
       await this.save(document)
       return document
     }
+    const parsed: unknown = JSON.parse(serialized)
+    const root = record(parsed)
+    const state = record(record(root?.shared)?.state)
+    if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === GAME_STATE_VERSION) {
+      return validateOnlineWorldDocument(parsed)
+    }
+    if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === PREDECESSOR_GAME_STATE_VERSION) {
+      if (GAME_STATE_VERSION !== ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION) {
+        throw new Error('The version 92 online migration does not reach the current GameState version.')
+      }
+      const migrated = migrateVersion92Document(parsed)
+      await this.save(migrated)
+      return migrated
+    }
+    throw new Error('Unsupported online persistence version. Refusing to reset canonical world.')
   }
 
   async save(document: OnlineWorldDocument): Promise<void> {
