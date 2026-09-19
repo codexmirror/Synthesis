@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
-    "test": "vitest run"
+    "dev": "vite --config vite.config.ts --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build --config vite.config.ts",
+    "test": "vitest run --config vite.config.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
