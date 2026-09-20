@@ -1,5 +1,7 @@
 # Interface and Shell — current truth
 
+> V1 scope: Sandbox V1 Home prioritizes six gameplay applications and moves machine utilities into a disclosure. Connect enters the actual remote firmware directly after keyboard recovery; Software is the common package/installation surface. See [Sandbox fieldwork](FIELDWORK.md). The base/Online shell retains its existing entry flow.
+
 Status: Accepted
 Scope: NODE-OS Shell presentation, Home, the shared presentation language,
 Terminal as an interface, Notes, NodeMail presentation, and the mobile/editing

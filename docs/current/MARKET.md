@@ -1,5 +1,7 @@
 # Software Market — current truth
 
+> V1 scope: Sandbox V1 assigns differentiated prices to the existing operator’s offers and exposes installation of a possessed package from the selected offering. Purchase, physical transfer and installation remain separate canonical operations. [Sandbox fieldwork](FIELDWORK.md) owns that composition; the base/Online catalog below remains unchanged.
+
 Status: Accepted
 Scope: The one represented software Market, its operator/seller identity, its
 offerings and prices, canonical purchase entitlement, Market package

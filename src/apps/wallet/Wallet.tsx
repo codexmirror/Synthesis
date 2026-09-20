@@ -49,10 +49,10 @@ export function Wallet() {
               <p className="eyebrow wallet-node-activity-label">NODE ACTIVITY</p>
               {activity.map((record) => <div className="wallet-node-row" key={record.id}>
                 <span className="wallet-node-row-detail">
-                  <small>{record.kind === 'mining_payout' ? 'MINING PAYOUT' : 'MARKET PURCHASE'}</small>
+                  <small>{record.kind === 'recovery_payment' ? 'RECOVERY PAYMENT' : record.kind === 'mining_payout' ? 'MINING PAYOUT' : 'MARKET PURCHASE'}</small>
                   {record.kind === 'market_purchase' && <span>{record.releaseName} {record.releaseVersion}</span>}
                 </span>
-                <strong>{record.kind === 'mining_payout' ? '+' : '-'}{record.amountNodeUnits.toLocaleString('en-US')} units</strong>
+                <strong>{record.kind === 'market_purchase' ? '-' : '+'}{record.amountNodeUnits.toLocaleString('en-US')} units</strong>
               </div>)}
             </div>
           : <div className="wallet-node-activity wallet-node-activity--empty">

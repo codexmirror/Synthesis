@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { useRef } from 'react'
 import {
   act,
@@ -7,9 +7,11 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
+import { SANDBOX_SAVE_KEY, SANDBOX_BACKUP_KEY } from './app/sandboxSave'
 import { GameProvider, useGameState } from './app/GameContext'
 import { Shell } from './shell/Shell'
 import { ViewportDebug } from './shell/ViewportDebug'
@@ -210,6 +212,8 @@ function dispatchTouch(
   return target.dispatchEvent(event)
 }
 
+beforeEach(() => { localStorage.removeItem(SANDBOX_SAVE_KEY); localStorage.removeItem(SANDBOX_BACKUP_KEY) })
+
 afterEach(() => {
   vi.useRealTimers()
   localStorage.clear()
@@ -293,15 +297,22 @@ function remoteConnectedState(): GameState {
   }).state
 }
 
+// Viewport and Terminal proofs use a fixed world, independently of gameplay
+// population, saves, Home prominence or autonomous company maintenance.
 async function openTerminal() {
   const user = userEvent.setup()
-  render(<App />)
+  render(<GameProvider initialState={createInitialGameState()}><Shell /></GameProvider>)
   await user.click(screen.getByRole('button', { name: /open terminal/i }))
   return {
     user,
     input: screen.getByLabelText('Command input'),
     shell: screen.getByTestId('os-shell'),
   }
+}
+
+async function openUtility(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+  if (!screen.queryByRole('button', { name })) await user.click(screen.getByText('MACHINE UTILITIES'))
+  await user.click(screen.getByRole('button', { name }))
 }
 
 async function command(name: string) {
@@ -1600,7 +1611,7 @@ describe('dedicated editing viewport', () => {
     installEditingPresentation()
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: /open notes/i }))
+    await openUtility(user, /open notes/i)
     const notes = screen.getByRole('textbox')
     expect(notes).toHaveAttribute('data-editing-scroll-owner')
     await user.click(notes)
@@ -1926,13 +1937,13 @@ describe('NODE-OS shell and applications', () => {
     )
   })
 
-  it('orders and exposes exactly the nine Home launcher controls, with NodeScan the one network surface', () => {
+  it('puts the six gameplay applications on Home and keeps machine utilities accessible', () => {
     render(<App />)
-    const launchers = screen.getAllByRole('button', { name: /^open /i })
-    expect(launchers.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Open Terminal', 'Open NodeScan', 'Open NodeMail', 'Open Processes',
-      'Open Files', 'Open Market', 'Open Wallet', 'Open Notes', 'Open System',
-    ])
+    const primary = within(screen.getByRole('group', { name: 'Primary applications' }))
+    expect(primary.getByRole('button', { name: 'Open Software' })).toBeInTheDocument()
+    expect(primary.getByRole('button', { name: 'Open NodeScan' })).toBeInTheDocument()
+    expect(primary.queryByRole('button', { name: 'Open Terminal' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open Terminal' }).closest('details')).not.toHaveAttribute('open')
     // Network administration is reached inside NodeScan, not from a second launcher.
     expect(screen.queryByRole('button', { name: 'Open Network' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /open tools/i })).not.toBeInTheDocument()
@@ -2001,7 +2012,7 @@ describe('NODE-OS shell and applications', () => {
   it('opens an app and returns home', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: /open wallet/i }))
+    await openUtility(user, /open wallet/i)
     expect(screen.getByText('Civic Dollar')).toBeInTheDocument()
     expect(screen.getByText('$1,250.00')).toBeInTheDocument()
     expect(screen.queryByText('MODULE')).not.toBeInTheDocument()
@@ -2019,7 +2030,7 @@ describe('NODE-OS shell and applications', () => {
       </GameProvider>,
     )
     const before = stateSnapshotWithoutBookstoreCadenceTiming()
-    await user.click(screen.getByRole('button', { name: /open wallet/i }))
+    await openUtility(user, /open wallet/i)
     await user.click(screen.getByRole('button', { name: /back to home/i }))
     expect(stateSnapshotWithoutBookstoreCadenceTiming()).toEqual(before)
   })
@@ -2027,7 +2038,7 @@ describe('NODE-OS shell and applications', () => {
   it('shows canonical runtime values in the System app', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: /open system/i }))
+    await openUtility(user, /open system/i)
     expect(screen.getAllByText('198.51.100.23')).toHaveLength(2)
     expect(screen.getAllByText('18%')).toHaveLength(2)
     expect(screen.getAllByText('23%')).toHaveLength(2)
@@ -2054,7 +2065,7 @@ describe('NODE-OS shell and applications', () => {
     const user = userEvent.setup()
     render(<GameProvider initialState={state}><Shell /></GameProvider>)
 
-    await user.click(screen.getByRole('button', { name: /open system/i }))
+    await openUtility(user, /open system/i)
 
     expect(screen.getByText('DEVICE').parentElement).toHaveTextContent('test-device')
     expect(screen.getByText('TYPE').parentElement).toHaveTextContent('NODE')

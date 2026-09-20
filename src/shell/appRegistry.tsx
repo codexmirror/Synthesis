@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { Software } from '../apps/Software'
 import { Files } from '../apps/files/Files'
 import { Flipper } from '../apps/flipper/Flipper'
 import { Market } from '../apps/market/Market'
@@ -11,10 +12,11 @@ import { Wallet } from '../apps/wallet/Wallet'
 import { Processes } from '../apps/processes/Processes'
 import { Rattler } from '../apps/rattler/Rattler'
 
-export type ExecutableAppId = 'flipper' | 'rattler'
+export type ExecutableAppId = 'flipper' | 'rattler' | 'network' | 'files' | 'market' | 'software'
 export interface AppDefinition { label: string; component: ComponentType<{ openApp?: (app: ExecutableAppId) => void }>; home?: boolean }
 
 export const appRegistry = {
+  software: { label: 'Software', component: Software },
   terminal: { label: 'Terminal', component: Terminal },
   network: { label: 'NodeScan', component: Network },
   mail: { label: 'NodeMail', component: Mail },

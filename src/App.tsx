@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { GameProvider } from './app/GameContext'
+import { Sandbox } from './app/Sandbox'
 import { Shell } from './shell/Shell'
 import type { AuthenticatedSnapshot } from './online/model'
 import { enterSynthesis, logoutOnlineSession, observeOnline, restoreOnlineSession } from './online/client'
 import { Login } from './online/Login'
 
 export default function App() {
-  if (!onlineRuntimeEnabled(import.meta.env)) return <GameProvider><Shell /></GameProvider>
+  if (!onlineRuntimeEnabled(import.meta.env)) return <Sandbox />
   return <OnlineApp />
 }
 

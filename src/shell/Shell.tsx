@@ -38,7 +38,8 @@ export function Shell() {
   const [enteredRemoteSessionId, setEnteredRemoteSessionId] = useState<string | null>(null)
   const [operatingContext, setOperatingContext] = useState<'local' | 'remote'>('local')
   const [pendingOperatingContext, setPendingOperatingContext] = useState<'local' | 'remote' | null>(null)
-  const remoteTarget = resolveActiveRemoteTarget(useGameState())
+  const gameState = useGameState()
+  const remoteTarget = resolveActiveRemoteTarget(gameState)
   const remoteSessionId = remoteTarget?.session.id
   /* Which foreign environment this target actually runs, decided from its own
      represented Firmware identity. Firmware this Shell cannot present resolves
@@ -73,6 +74,13 @@ export function Shell() {
     }
     endEditing()
   }, [remoteSessionId])
+
+  useEffect(() => {
+    if (gameState.fieldwork && remoteSessionId && remoteSurface && viewport.recoveryReady && enteredRemoteSessionId !== remoteSessionId) {
+      setEnteredRemoteSessionId(remoteSessionId)
+      setOperatingContext('remote')
+    }
+  }, [gameState.fieldwork, remoteSessionId, remoteSurface, viewport.recoveryReady, enteredRemoteSessionId])
 
   useEffect(() => {
     if (!pendingOperatingContext || !viewport.recoveryReady) return

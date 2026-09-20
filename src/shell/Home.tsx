@@ -25,8 +25,9 @@ export function Home({ openApp }: { openApp: (app: AppId) => void }) {
         <h1>HOME</h1>
         <p>LOCAL DEVICE <span>·</span> {device.displayName}</p>
       </div>
-      <div className="app-grid">
-        {appEntries.map(([id, app]) => (
+      {state.fieldwork && <section className="home-fieldwork"><span className="ns-eyebrow">YOUR MACHINE. THEIR NETWORKS.</span><h2>Something worth breaking into.</h2><p>{state.fieldwork.requests.filter(r => !r.delivered).length} recovery requests · {state.fieldwork.receipts.length} delivered · {(state.nodeWallet.balanceNodeUnits / 1_000_000).toFixed(3)} NODE</p><button className="node-action" onClick={() => openApp('network')}>EXPLORE NETWORKS</button><button className="node-action" onClick={() => openApp('software')}>YOUR SOFTWARE</button></section>}
+      <div className="app-grid" role="group" aria-label="Primary applications">
+        {appEntries.filter(([id]) => state.fieldwork ? ['network', 'software', 'files', 'market', 'processes', 'mail'].includes(id) : id !== 'software').map(([id, app]) => (
           <button
             className="app-launcher"
             key={id}
@@ -41,6 +42,7 @@ export function Home({ openApp }: { openApp: (app: AppId) => void }) {
           </button>
         ))}
       </div>
+      {state.fieldwork && <details className="home-utilities"><summary>MACHINE UTILITIES</summary>{appEntries.filter(([id]) => ['terminal', 'wallet', 'notes', 'system'].includes(id)).map(([id, app]) => <button className="node-action" key={id} aria-label={`Open ${app.label}`} onClick={() => openApp(id)}>{app.label}</button>)}</details>}
       <section className="device-observation" aria-labelledby="this-device-title">
         <h2 id="this-device-title">THIS DEVICE</h2>
         <dl>

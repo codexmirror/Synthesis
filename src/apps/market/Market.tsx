@@ -4,6 +4,8 @@ import type { StartMarketPackageDownloadResult } from '../../core/game/fileTrans
 import type { PurchaseMarketOfferResult } from '../../core/game/market'
 import { formatByteProgress, formatBytes } from '../byteFormat'
 import { formatNodeUnitsAsNode } from '../nodeFormat'
+import { deriveSoftwarePackageEligibility } from '../../core/game/softwareInstallation'
+import { softwarePurpose } from '../softwarePurpose'
 import { SoftwareReleaseDisclosure } from '../SoftwareReleaseDocumentation'
 import './market.css'
 import { deriveMarketView, type MarketCatalogEntry, type MarketReleaseView, type MarketSourceView, type MarketView } from './marketProjection'
@@ -272,6 +274,10 @@ function ReleaseDetail({ release, entry, view, feedback, buy, download }: {
   buy: (offerId: string) => void
   download: (offerId: string) => void
 }) {
+  const state = useGameState(), actions = useGameActions()
+  const [installFeedback, setInstallFeedback] = useState('')
+  const localPackage = state.player.localDevice.filesystem.files.find(file => file.path === release.localCopyPath && file.kind === 'software_package')
+  const eligibility = localPackage?.kind === 'software_package' ? deriveSoftwarePackageEligibility(localPackage, state.player.localDevice, state.process) : undefined
   return <div className="mk-release">
     <div className="mk-release-head">
       <span className="mk-release-version">{release.version}</span>
@@ -296,7 +302,8 @@ function ReleaseDetail({ release, entry, view, feedback, buy, download }: {
         </p>
       </div>}
       {release.action === 'NONE' && release.destinationOccupied && release.purchased && <p className="node-note node-note--caution">DESTINATION OCCUPIED · {release.destinationPath}</p>}
-      {release.localCopyPath && <p className="node-note">{release.artifact === 'software_module'
+      {state.fieldwork && localPackage?.kind === 'software_package' && <><p className="node-note">{softwarePurpose(localPackage.productId)}</p><button className="node-action" disabled={eligibility?.status !== 'installable'} onClick={() => { const result = actions.installLocalSoftwarePackage(localPackage.path); setInstallFeedback(result.status === 'started' ? 'Installation started on your NODE.' : result.status.replaceAll('_', ' ')) }}>{eligibility?.status === 'installed' ? 'INSTALLED' : eligibility?.status === 'installing' ? 'INSTALLING' : 'INSTALL ON YOUR NODE'}</button>{installFeedback && <p role="status">{installFeedback}</p>}</>}
+      {release.localCopyPath && !state.fieldwork && <p className="node-note">{release.artifact === 'software_module'
         ? 'The Market ends at acquisition. Open Flipper to integrate this module.'
         : release.artifact === 'firmware_package'
           ? 'The Market ends at acquisition. Transfer this installer to a compatible Device and run it from that Device\u2019s own Files.'

@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { createInitialGameState } from '../core/game/initialState'
+import { createFieldworkActions } from './fieldworkOperations'
 import type { GameState } from '../core/game/types'
 import { advanceGameState } from '../core/game/gameAdvancement'
 import { createLocalScanTarget, scanTargetFromSource, type ScanTargetOperation } from './localScanOperation'
@@ -50,7 +51,7 @@ import type { ScanResult } from '../core/game/scan'
 
 const GameContext = createContext<GameState | null>(null)
 
-export interface GameActions {
+export interface GameActions extends ReturnType<typeof createFieldworkActions> {
   pingTarget: PingTargetOperation
   scanTarget: ScanTargetOperation
   scanRemoteTarget?(sourceDeviceId: string, input: string): ScanResult | { status: 'software_unavailable' }
@@ -158,6 +159,7 @@ export function GameProvider({ children, initialState, serverOwnsAdvancement = f
       }
       return result
     }, findTargets, refreshNetwork,
+    ...createFieldworkActions(accessor),
     ...createServiceAnalysisActions(accessor),
     ...createCredentialAccessActions(accessor),
     ...createDeauthActions(accessor),

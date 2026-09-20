@@ -9,6 +9,13 @@ gameplay, or workflow truth of its own. Every statement of truth belongs to the
 owner it routes to.
 
 
+## Sandbox V1 gameplay
+
+For recovery requests, company maintenance, service keys, Sentry, gameplay
+pacing or local checkpoints, start with [current/FIELDWORK.md](current/FIELDWORK.md).
+Then read the existing domain owners for the mechanics actually being changed.
+Focused proof: `src/core/game/fieldwork.test.ts`, `src/app/sandboxSave.test.ts`.
+
 ## How to use this portal
 
 1. Inspect current `main` — accepted code is canonical repository truth.

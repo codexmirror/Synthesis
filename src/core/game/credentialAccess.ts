@@ -206,7 +206,7 @@ export function startCredentialAccessAttemptFromObservation(state: GameState, ob
     : ghostKeySurfaceForRememberedService(state, observed)!
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic' ? {
     ...process, kind: 'credential_access' as const, targetDeviceId: observed.targetDeviceId, serviceId: observed.serviceId,
-    workRequired: isKeyProbe ? attackProfile!.workRequired : CREDENTIAL_ACCESS_WORK_REQUIRED,
+    workRequired: (isKeyProbe ? attackProfile!.workRequired : CREDENTIAL_ACCESS_WORK_REQUIRED) * (state.fieldwork ? 0.4 : 1),
     startedEndpoint: observed.endpoint, toolId: executionToolId,
     serviceImplementation: attackedSurface,
     ...(!isKeyProbe ? { vulnerabilityId: 'AUTH-017', moduleId: CREDENTIAL_ACCESS_MODULE_ID } : {}),

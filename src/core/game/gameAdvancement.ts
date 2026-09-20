@@ -18,6 +18,7 @@ import { advanceDeviceFirmwareUpdatesWithRemainder } from './deviceFirmwareUpdat
 import { advanceBookstoreSalesCadence } from './bookstoreSalesCadence'
 import { advanceBookstoreRestockDeliveries } from './bookstoreRestock'
 import { advanceBookstoreTrend } from './bookstoreTrend'
+import { advanceFieldwork } from './fieldwork'
 
 /**
  * Canonical advancement boundary: finished concrete work is resolved exactly
@@ -59,15 +60,15 @@ export function advanceGameState(
   bookstoreGratuityRandom: () => number = Math.random,
   bookstoreCoffeeRandom: () => number = Math.random,
 ): GameState {
-  return advanceBookstoreSalesCadence(
-    state,
-    elapsedMs,
+  return advanceFieldwork(state, elapsedMs, (fieldState, fieldElapsed) => advanceBookstoreSalesCadence(
+    fieldState,
+    fieldElapsed,
     (segmentState, segmentElapsedMs) => advanceGameStateCore(segmentState, segmentElapsedMs, credentialAccessRandom),
     bookstoreDemandRandom,
     bookstorePurchaseRandom,
     bookstoreGratuityRandom,
     bookstoreCoffeeRandom,
-  )
+  ))
 }
 
 /**

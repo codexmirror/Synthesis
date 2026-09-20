@@ -1,5 +1,7 @@
 # Files, Transfer, and Software — current truth
 
+> V1 scope: Sandbox V1 adds Sentry, credential/advisory text files and a Software workbench. Remote Files indexes authorized Device-owned artifacts and can install a completed local download through the same installation operation. See [Sandbox fieldwork](FIELDWORK.md) for its concrete cleanup and progression rules.
+
 Status: Accepted
 Scope: The Device-owned filesystem, the Files application, the FileTransfer
 runtime (Download and Upload), software packages and recognition, Software

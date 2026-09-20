@@ -320,11 +320,15 @@ export class JsonWorldPersistence {
     if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === GAME_STATE_VERSION) {
       return validateOnlineWorldDocument(parsed)
     }
+    if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === 93) {
+      const previous = validateOnlineWorldDocumentVersion(parsed, 93)
+      const migrated = { ...previous, shared: { ...previous.shared, state: { ...previous.shared.state, version: GAME_STATE_VERSION } } }
+      await this.save(migrated)
+      return validateOnlineWorldDocument(migrated)
+    }
     if (root?.persistenceVersion === ONLINE_PERSISTENCE_VERSION && state?.version === PREDECESSOR_GAME_STATE_VERSION) {
-      if (GAME_STATE_VERSION !== ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION) {
-        throw new Error('The version 92 online migration does not reach the current GameState version.')
-      }
-      const migrated = migrateVersion92Document(parsed)
+      const previous = migrateVersion92Document(parsed)
+      const migrated = { ...previous, shared: { ...previous.shared, state: { ...previous.shared.state, version: GAME_STATE_VERSION } } }
       await this.save(migrated)
       return migrated
     }

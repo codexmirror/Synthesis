@@ -1,3 +1,5 @@
+import { recoveryDigest } from '../../core/game/fieldwork'
+import { softwarePurpose } from '../softwarePurpose'
 import './rackos.css'
 import { type FormEvent, useEffect, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
@@ -65,7 +67,7 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
   const { target, access, service } = context
   const state = useGameState()
   const business = target.firmware!.id === RACK_OS_1_1_BUSINESS_FIRMWARE_ID
-  const [location, setLocation] = useState<RackLocation>(business ? 'applications' : 'terminal')
+  const [location, setLocation] = useState<RackLocation>(state.fieldwork ? 'files' : business ? 'applications' : 'terminal')
   const [requestedLocation, setRequestedLocation] = useState<RackLocation>()
   /* BUSINESS is a Firmware-owned built-in of RACK-OS 1.1 Business, always
      present regardless of whether the operated Device's actual Network
@@ -135,6 +137,7 @@ export function RackOS({ context, hidden, onReturnLocal, editingRecoveryReady, o
           <div><dt>FIRMWARE</dt><dd>{target.firmware!.name} {target.firmware!.version}</dd></div>{target.role && <div><dt>ROLE</dt><dd>{target.role.toUpperCase()}</dd></div>}
           <div><dt>SESSION AUTHORITY</dt><dd>{access.privilege}</dd></div><div><dt>ACCESS PATH</dt><dd>{service.name}</dd></div>
         </dl>
+        {target.securityMaintenance && <dl className="rack-facts"><div><dt>NEXT MAINTENANCE</dt><dd>{Math.ceil(target.securityMaintenance.remainingMs / 1000)} seconds</dd></div><div><dt>SECURITY</dt><dd>Authentication review, credential rotation and SSH patching. Pending updates activate through a restart.</dd></div><div><dt>ROTATIONS</dt><dd>{target.securityMaintenance.rotations}</dd></div></dl>}
         <AuthenticationHistory records={target.authenticationHistory?.records ?? []} />
       </section>}
     </main>
@@ -157,6 +160,7 @@ function RackContextFrame({ target, access, maintenance, onReturnLocal, onDiscon
   return <header className="rack-header">
     <div><strong>{target.firmware!.name} {target.firmware!.version}</strong><span>{maintenance ? 'MAINTENANCE' : 'REMOTE'}</span></div>
     <div><span>{target.displayName} · {target.ip}</span><span>{access.privilege}</span></div>
+    {target.securityMaintenance && <div className="rack-security-clock">Security review in {Math.ceil(target.securityMaintenance.remainingMs / 1000)}s · access may expire</div>}
     <div className="rack-header__actions">
       <button type="button" className="rack-header__return" onClick={onReturnLocal} aria-label="Return to NODE-OS without disconnecting"><span aria-hidden="true">←</span> NODE-OS</button>
       <button type="button" className="rack-header__disconnect" onClick={onDisconnect}>DISCONNECT</button>
@@ -387,6 +391,7 @@ function RemoteTerminal({ context, onDisconnect }: { context: ActiveRemoteTarget
 }
 
 function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
+  const actions = useGameActions()
   const state = useGameState()
   const { startRemoteFileDownload, startRemoteFileUpload, installRemoteSoftwarePackage, runRemoteNodeMiner, stopRemoteNodeMiner } = useGameActions()
   const { id: targetDeviceId, ip: targetAddress, filesystem, displayName: targetDisplayName } = context.target
@@ -476,17 +481,21 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
             : result.file.kind === 'firmware_package'
               ? <RemoteFirmwareArtifact key={selected} file={result.file} target={context.target} openInstaller={() => setInstallerPath(selected)} />
               : <RemoteExecutable key={selected} file={result.file} targetDisplayName={targetDisplayName!} runningProcess={targetNodeMiner} nodeWalletAddress={state.nodeWallet.address} run={runRemoteNodeMiner} stop={stopRemoteNodeMiner} />}
+      {state.fieldwork && result.file.kind === 'text' && state.fieldwork.requests.some(request => !request.delivered && result.file.kind === 'text' && recoveryDigest(result.file.content) === request.digest) && <p className="rack-reward-purpose">REQUESTED DOCUMENT · Copy this file, then deliver it through Switchboard in NodeScan.</p>}
+      {state.fieldwork && result.file.kind === 'software_package' && <p className="rack-reward-purpose">ON YOUR NODE: {softwarePurpose(result.file.productId)}</p>}
       {/* Transfer is the artifact's relationship to node-01, so on a Device the
           player is operating it stays secondary to that Device's own software and
           execution state. A text file has no such state, so it keeps no label. */}
       {result.file.kind !== 'text' && <p className="rack-artifact-kind rack-transfer-label">TRANSFER</p>}
-      {downloadState === 'available' && <button className="rack-primary" onClick={download}>DOWNLOAD</button>}
+      {downloadState === 'available' && <button className="rack-primary" disabled={Boolean(state.fileTransfer.active)} onClick={download}>{state.fileTransfer.active ? 'TRANSFER BUSY' : 'DOWNLOAD'}</button>}
+      {state.fieldwork && state.fileTransfer.active && <p className="rack-reward-purpose" role="status">COPYING {state.fileTransfer.active.destinationPath.split('/').pop()} · {Math.floor(state.fileTransfer.active.bytesTransferred / state.fileTransfer.active.bytesTotal * 100)}%</p>}
       {downloadState === 'in_progress' && <div className="rack-download-state" role="status">
         <button className="rack-primary" disabled>DOWNLOAD STARTED</button>
       </div>}
       {downloadState === 'downloaded' && <div className="rack-download-state" role="status">
         <button className="rack-primary" disabled>DOWNLOADED ✓</button>
         <dl className="rack-facts"><div><dt>LOCAL COPY</dt><dd>{destinationPath}</dd></div></dl>
+        {state.fieldwork && localResult?.status === 'ok' && localResult.file.kind === 'software_package' && <button className="rack-primary" onClick={() => { const installed = actions.installLocalSoftwarePackage(destinationPath!); setFeedback(installed.status === 'started' ? 'Installing on your NODE. Remote machine unchanged.' : installed.status.replaceAll('_', ' ')) }}>INSTALL ON YOUR NODE</button>}
       </div>}
       {downloadState === 'occupied' && <div className="rack-download-state" role="status">
         <strong>LOCAL DESTINATION OCCUPIED</strong>
@@ -501,6 +510,7 @@ function RemoteFiles({ context }: { context: ActiveRemoteTarget }) {
       <span>PATH</span><code>{path}</code>
       <button className="rack-upload-entry" type="button" onClick={() => { setAcknowledgement(undefined); setUploadDirectory(path) }}>UPLOAD</button>
     </div>
+    {state.fieldwork && path === '/' && <div className="rack-recovered"><h2>ON THIS MACHINE</h2><p>Files owned by {targetDisplayName}. Open a document, take a tool, or browse the directories below.</p>{filesystem!.files.filter(file => file.kind !== 'executable').map(file => <button className="rack-file-row" key={file.id} onClick={() => setSelected(file.path)}><span className="rack-file-tag">{file.kind === 'text' ? 'DOC' : 'TOOL'}</span><span className="rack-file-name">{file.path.split('/').pop()}<small>{file.kind === 'software_package' ? softwarePurpose(file.productId) : file.kind === 'software_module' ? softwarePurpose(file.moduleId) : file.path}</small></span></button>)}</div>}
     {acknowledgement && <output className="rack-upload-ack" role="status">{acknowledgement}</output>}
     {listing.status === 'ok' ? <div className="rack-file-list">
       {path !== '/' && <button className="rack-file-row" onClick={() => { setAcknowledgement(undefined); setPath(parentPath(path)) }}>

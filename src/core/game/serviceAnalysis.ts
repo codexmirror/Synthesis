@@ -1,3 +1,4 @@
+import { NODESCAN_1_2_STANDARD_BUILD_ID } from './softwareReleaseContent'
 import { startProcess } from './processes'
 import type { GameState, NetworkService, ServiceAnalysisProcess } from './types'
 import { isValidIpv4 } from './networkTarget'
@@ -39,7 +40,7 @@ export function startServiceAnalysis(state: GameState, targetDeviceId: string, s
   if (state.process.processes.some((process) => process.kind === 'service_analysis' && process.status === 'running' && process.targetDeviceId === targetDeviceId && process.serviceId === serviceId)) return { status: 'already_running', state }
   const started = startProcess(state.process, state.player.localDevice, {
     label: 'SERVICE ANALYSIS',
-    workRequired: SERVICE_ANALYSIS_WORK_REQUIRED, ramRequiredMiB: SERVICE_ANALYSIS_RAM_REQUIRED_MIB,
+    workRequired: state.fieldwork ? (state.player.localDevice.installedSoftware.some(s => s.id === 'nodescan' && s.buildId === NODESCAN_1_2_STANDARD_BUILD_ID) ? 120 : 360) : SERVICE_ANALYSIS_WORK_REQUIRED, ramRequiredMiB: SERVICE_ANALYSIS_RAM_REQUIRED_MIB,
   })
   if (started.status === 'insufficient_memory') return { ...started, state }
   const processes = started.state.processes.map((process) => process.id === started.processId && process.kind === 'generic'

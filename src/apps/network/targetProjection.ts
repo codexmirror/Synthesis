@@ -276,6 +276,7 @@ export interface KnownSpace {
 }
 
 export interface TargetSummary {
+  readonly endpointLabel?: string
   readonly id: string
   readonly address: string
   readonly scope: 'unknown' | 'lan' | 'remote'
@@ -930,6 +931,7 @@ export function selectTarget(information: PlayerInformation, deviceId: string, l
   return {
     id: device.id,
     address: device.address,
+    endpointLabel: device.services.map(service => `${service.name} :${service.port}`).join(' · '),
     scope: device.scope,
     networkNames: networkNamesOf(information, device.id),
     stage,

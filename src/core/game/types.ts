@@ -1109,7 +1109,7 @@ export interface BookstoreSalesCadenceState {
 }
 
 /** One represented balance-changing event in the local NODE Wallet. */
-export type NodeWalletActivityRecord = NodeWalletMiningPayoutActivityRecord | NodeWalletMarketPurchaseActivityRecord
+export type NodeWalletActivityRecord = NodeWalletMiningPayoutActivityRecord | NodeWalletMarketPurchaseActivityRecord | { readonly id: string; readonly kind: 'recovery_payment'; readonly amountNodeUnits: number; readonly title: string }
 
 export interface NodeWalletMiningPayoutActivityRecord {
   /** Deterministic per-Wallet record identity and ordering. */
@@ -1322,6 +1322,8 @@ export interface MarketState {
 }
 
 export interface NetworkHost {
+  readonly serviceKeys?: readonly import('./fieldworkTypes').ServiceKey[]
+  readonly securityMaintenance?: import('./fieldworkTypes').SecurityMaintenance
   /** Stable entity identity; the simulated IP remains a separate attribute. */
   readonly id: string
   readonly ip: string
@@ -1908,6 +1910,8 @@ export type RecentActivityEntry =
 export interface RecentActivityState { readonly entries: readonly RecentActivityEntry[] }
 
 export interface GameState {
+  /** Optional Sandbox campaign; Online does not seed or execute fieldwork. */
+  readonly fieldwork?: import('./fieldworkTypes').FieldworkState
   readonly version: number
   readonly player: PlayerState
   readonly dollarFinance: DollarFinanceState

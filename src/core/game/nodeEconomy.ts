@@ -17,7 +17,9 @@ export interface NodeRecipients {
 }
 
 /** Appends one balance-changing record with identity shared across all kinds. */
-function appendNodeWalletActivity(activity: NodeWalletActivityState, record: Omit<NodeWalletActivityRecord, 'id'>): NodeWalletActivityState {
+type NewWalletActivity<T = NodeWalletActivityRecord> = T extends { id: string } ? Omit<T, 'id'> : never
+
+function appendNodeWalletActivity(activity: NodeWalletActivityState, record: NewWalletActivity): NodeWalletActivityState {
   const identifiedRecord = { ...record, id: `node-activity-${String(activity.nextId).padStart(4, '0')}` } as NodeWalletActivityRecord
   return { nextId: activity.nextId + 1, records: [...activity.records, identifiedRecord].slice(-NODE_WALLET_ACTIVITY_CAPACITY) }
 }
@@ -70,4 +72,10 @@ export function creditNodeAddress(recipients: NodeRecipients, address: string, a
 /** The represented account currently holding `address`, if one exists. */
 export function findNodeAccountByAddress(nodeEconomy: NodeEconomyState, address: string): NodeAccount | undefined {
   return nodeEconomy.accounts.find((account) => account.address === address)
+}
+
+/** Credits a settled recovery payment using the Wallet's shared activity identity. */
+export function creditNodeWalletRecovery(nodeWallet: NodeWalletState, amountNodeUnits: number, title: string): NodeWalletState {
+  return { ...nodeWallet, balanceNodeUnits: nodeWallet.balanceNodeUnits + amountNodeUnits,
+    activity: appendNodeWalletActivity(nodeWallet.activity, { kind: 'recovery_payment', amountNodeUnits, title }) }
 }

@@ -1595,8 +1595,8 @@ describe('RACK-OS firmware update from a target-owned installer artifact', () =>
     // outside a test.
     const realSetInterval = window.setInterval.bind(window)
     const setIntervalSpy = vi.spyOn(window, 'setInterval').mockImplementation((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
-      if (timeout === 250) return 0 as unknown as ReturnType<typeof window.setInterval>
-      return realSetInterval(handler as TimerHandler, timeout, ...args)
+      if (timeout === 250) return 0 as unknown as unknown as ReturnType<typeof window.setInterval>
+      return realSetInterval(handler as TimerHandler, timeout, ...args) as unknown as ReturnType<typeof window.setInterval>
     })
     try {
       const user = userEvent.setup()

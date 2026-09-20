@@ -1,3 +1,4 @@
+import { GAME_STATE_VERSION } from '../core/game/initialState'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -52,7 +53,7 @@ describe('JsonWorldPersistence version admission and migration', () => {
     const persistence = new CountingPersistence(path)
 
     const created = await persistence.loadOrCreate()
-    expect(created.shared.state.version).toBe(93)
+    expect(created.shared.state.version).toBe(GAME_STATE_VERSION)
     expect(persistence.saves).toBe(1)
     expect(JSON.parse(await readFile(path, 'utf8'))).toEqual(created)
   })
@@ -68,6 +69,17 @@ describe('JsonWorldPersistence version admission and migration', () => {
 
     expect(await persistence.loadOrCreate()).toEqual(current)
     expect(persistence.saves).toBe(0)
+  })
+
+  it('upgrades version 93 losslessly without injecting Sandbox gameplay into Online', async () => {
+    const path = await temporaryPath()
+    const current = await populatedCurrentDocument(path)
+    const predecessor = { ...current, shared: { ...current.shared, state: { ...current.shared.state, version: 93 } } }
+    await writeFile(path, JSON.stringify(predecessor))
+    const migrated = await new JsonWorldPersistence(path).loadOrCreate()
+    expect(migrated).toEqual(current)
+    expect(migrated.shared.state).not.toHaveProperty('fieldwork')
+    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual(current)
   })
 
   it('durably migrates the genuine version-92 topology exactly once while preserving private and shared progression', async () => {
@@ -97,7 +109,7 @@ describe('JsonWorldPersistence version admission and migration', () => {
     const durable = JSON.parse(await readFile(path, 'utf8')) as OnlineWorldDocument
     expect(durable).toEqual(migrated)
     expect(ONLINE_GAME_STATE_92_MIGRATION_DESTINATION_VERSION).toBe(93)
-    expect(migrated.shared.state.version).toBe(93)
+    expect(migrated.shared.state.version).toBe(GAME_STATE_VERSION)
     expect(migrated.nextHomeSubnet).toBe(allocator)
     expect(migrated.accounts).toEqual(predecessor.accounts)
     expect(migrated.sessions).toEqual(predecessor.sessions)
@@ -150,7 +162,7 @@ describe('JsonWorldPersistence version admission and migration', () => {
 
   it.each([
     ['older game state', (value: any) => { value.shared.state.version = 91 }],
-    ['future game state', (value: any) => { value.shared.state.version = 94 }],
+    ['future game state', (value: any) => { value.shared.state.version = GAME_STATE_VERSION + 1 }],
     ['old envelope', (value: any) => { value.persistenceVersion = 1 }],
     ['malformed predecessor', (value: any) => { delete value.players[0].privateState.discovery }],
     ['missing stable entity', (value: any) => { value.shared.state.world.network.hosts = value.shared.state.world.network.hosts.filter(({ id }: any) => id !== 'host-lan-002') }],

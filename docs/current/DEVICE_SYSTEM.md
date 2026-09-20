@@ -1,5 +1,7 @@
 # Devices, World, and System — current truth
 
+> V1 scope: GameState version is now 94. Sandbox-only optional fieldwork and Device-owned service credentials/maintenance enrich the existing world; [Sandbox fieldwork](FIELDWORK.md) owns these additions. Online v93 documents migrate losslessly by version bump, without adding the Sandbox population.
+
 Status: Accepted
 Scope: The canonical `GameState` areas, the player's local Device, the
 represented World (network, servers, services, hardware, transfer capacity),

@@ -158,7 +158,7 @@ function withAccess(state: GameState = knownWeakness()): GameState {
 
 function actionStubs(): GameContext.GameActions {
   return {
-    pingTarget: vi.fn(), scanTarget: vi.fn(), findTargets: vi.fn(), refreshNetwork: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
+    deliverRecovery: vi.fn(), authenticateServiceKey: vi.fn(), runSentrySweep: vi.fn(), surveyAddress: vi.fn(), pingTarget: vi.fn(), scanTarget: vi.fn(), findTargets: vi.fn(), refreshNetwork: vi.fn(), startServiceAnalysis: vi.fn(), startServiceAnalysisAtEndpoint: vi.fn(),
     startServiceAnalysisFromObservation: vi.fn(), startObservedServiceAnalyses: vi.fn(), startCredentialAccessAttemptFromObservation: vi.fn(), startDeauthAttempt: vi.fn(),
     startRackUpdateExploitAttemptFromObservation: vi.fn(), startRackUpdatePackageSubmission: vi.fn(), cancelRackUpdatePackageSubmission: vi.fn(),
     connectRemoteFromObservation: vi.fn(), disconnectRemoteSession: vi.fn(), startRemoteFileDownload: vi.fn(), startRemoteFileUpload: vi.fn(),
@@ -1197,10 +1197,9 @@ describe('RackUpdate exploit and package submission', () => {
     expect(actions).toHaveTextContent('ROLLBACK')
     expect(actions).not.toHaveTextContent(/RECOMMENDED|BEST OPTION/)
     // The specialized module has no currently formed execution context (AUTH-017
-    // is not yet Knowledge here), so it stays visible with its provider but
-    // presents a quiet unavailable mark instead of a disabled EXECUTE control.
+    // is not yet Knowledge here), so V1 omits its non-action from this list.
     expect(within(actions).queryByRole('button', { name: 'Execute Credential Access with GhostKey 1.0' })).not.toBeInTheDocument()
-    expect(within(actions).getAllByLabelText(/Credential Access with .* unavailable/)).toHaveLength(1)
+    expect(within(actions).queryAllByLabelText(/Credential Access with .* unavailable/)).toHaveLength(0)
     // KeyProbe's own authentication surface is legitimately known from Inspect alone, with no Vulnerability
     // Knowledge required, so it stays a real EXECUTE control here.
     expect(within(actions).getByRole('button', { name: 'Execute Credential Access with KeyProbe' })).toBeInTheDocument()

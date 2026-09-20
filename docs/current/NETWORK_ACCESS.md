@@ -1,5 +1,7 @@
 # Network, Reconnaissance, and Access — current truth
 
+> V1 scope: Sandbox V1 adds composed investigation, recovered service-key authentication, advisory-derived Knowledge and company maintenance. Its pacing and player-visible consequences are owned by [Sandbox fieldwork](FIELDWORK.md). The underlying observation / Access / Session distinctions below remain unchanged; base/Online retains explicit reconnaissance steps.
+
 Status: Accepted
 Scope: `ip`, Scan, the NodeScan application, Discovery, Endpoint (Service)
 Analysis, Knowledge, Credential Access, DeviceAccess, Remote Session / RACK-OS,

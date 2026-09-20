@@ -1,4 +1,6 @@
 import './network.css'
+import { FieldworkPanel } from './FieldworkPanel'
+import { readServiceKey } from '../../core/game/fieldwork'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useGameActions, useGameState } from '../../app/GameContext'
 import { isValidIpv4 } from '../../core/game/networkTarget'
@@ -190,7 +192,14 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     } catch { finishRequest('self', generation) }
   }
 
+  function survey(address: string) {
+    const result = actions.surveyAddress(address)
+    if (result.targetId) open({ kind: 'target', deviceId: result.targetId })
+    else setNotice('No response at this address. Your previous observations remain available.')
+  }
+
   async function pingDirectAddress() {
+    if (gameState.fieldwork) { survey(directAddress.trim()); return }
     const address = directAddress.trim()
     if (!isValidIpv4(address)) {
       setNotice('INVALID ADDRESS')
@@ -209,6 +218,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
   }
 
   async function scan(target: Pick<Target, 'id' | 'address'>) {
+    if (gameState.fieldwork) { survey(target.address); return }
     const generation = beginRequest(target.id)
     if (generation === null) return
     try {
@@ -343,7 +353,11 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
     // selector's narrow live-observation projection. That selector admits it
     // through NodeScan monitoring or a currently usable Service access path.
     const target = selectTarget(information, focus.deviceId, gameState)
+    if (!target && gameState.process.processes.some(p => p.kind === 'service_analysis' && p.status === 'running' && p.targetDeviceId === focus.deviceId)) return <section className="app-content scan-app"><button className="node-back" onClick={() => open({ kind: 'targets' })}>← Known Space</button><h2>INVESTIGATING SERVICES</h2><p>Reading the endpoint you requested. You can explore other opportunities while this runs.</p>{gameState.process.processes.filter(p => p.kind === 'service_analysis' && p.status === 'running' && p.targetDeviceId === focus.deviceId).map(p => <progress key={p.id} aria-label="Survey progress" value={'workCompleted' in p ? p.workCompleted : 0} max={'workRequired' in p ? p.workRequired : 1} />)}</section>
     if (target) return <section key={`device:${target.id}`} className="app-content scan-app" aria-label="NodeScan">
+      {gameState.fieldwork?.lastNotice && <p className="node-note node-note--caution" role="status">{gameState.fieldwork.lastNotice}</p>}
+      {gameState.fieldwork && <div className="target-purpose">{gameState.fieldwork.requests.filter(r => r.address === target.address && !r.delivered).map(r => <p key={r.id}><strong>{r.company} · {r.title}</strong><br />Recover <code>{r.filename}</code> · {r.reward / 1_000_000} NODE</p>)}
+      {gameState.player.localDevice.filesystem.files.filter(f => readServiceKey(f)?.targetId === target.id).map(file => <button key={file.id} className="node-action" onClick={() => { const result = actions.authenticateServiceKey(file.id); setNotice(result.status === 'access_established' ? 'Maintenance key accepted. You can connect.' : 'Key rejected. Recover a fresh copy from its source.') }}>USE {file.path.split('/').pop()}</button>)}</div>}
       <TargetCard
         target={target}
         release={release}
@@ -369,6 +383,7 @@ export function Network({ openApp }: { openApp?: (app: 'flipper' | 'rattler') =>
   }
 
   return <section key="known-space" className="app-content scan-app" aria-label="NodeScan">
+    <FieldworkPanel inspect={survey} />
     <KnownSpaceView
       space={selectKnownSpace(information, managedNetworks)}
       release={release}
@@ -574,6 +589,7 @@ function DeviceRow({ target, showLocation, gateway, arrived, onOpen }: {
     <DeviceIcon classification={target.classification} />
     <span className="ns-target-copy">
       <strong>{target.displayName ?? target.address}</strong>
+      {target.endpointLabel && <span className="ns-target-note">{target.endpointLabel}</span>}
       {!target.displayName && <span className="ns-target-note">{target.classification ?? 'UNKNOWN DEVICE'}{gateway && <span className="ns-gateway-cue"> · GATEWAY</span>}</span>}
       {note && <span className="ns-target-note">{note}</span>}
     </span>
@@ -701,6 +717,20 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
   onSelectPackage(fileId: string): void
   onSubmitPackage(): void
 }) {
+  const sandbox = Boolean(useGameState().fieldwork)
+  const actions = target.offensiveActions.filter(action => {
+    if (!(action.route || action.running || action.lastFailureReason)) return false
+    if (!sandbox) return true
+    // One progress rail owns a running attempt. Avoid presenting a second,
+    // strictly weaker choice against the same remembered authentication surface.
+    if (target.stage === 'hacking') return false
+    if (action.providerId !== 'keyprobe' || !action.route || !('serviceId' in action.route)) return true
+    const serviceId = action.route.serviceId
+    return !target.offensiveActions.some(other => other.providerId !== 'keyprobe'
+      && other.technique === 'Credential Access' && other.assessment?.kind === 'compatibility'
+      && other.assessment.status === 'MATCHED' && other.route && 'serviceId' in other.route
+      && other.route.serviceId === serviceId)
+  })
   return <div className="ns-view">
     <nav className="scan-crumbs" aria-label="NodeScan navigation">
       <button type="button" onClick={onBack}>← Known Space</button>
@@ -767,7 +797,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
     </StageSection>
     {notice && <p className="node-note node-note--caution" role="status">{notice}</p>}
 
-    <details className="ns-details">
+    <details className="ns-details" open={sandbox && target.stage === 'submission_ready' ? true : undefined}>
       <summary>
         <span>TECHNICAL INTELLIGENCE</span>
         {/*
@@ -790,11 +820,11 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
         onSubmitPackage={onSubmitPackage}
       />
     </details>
-    <section className="ns-actions" aria-labelledby="nodescan-actions-heading">
-      <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{target.offensiveActions.length || undefined}</span></div>
+    {(!sandbox || actions.length > 0) && <section className="ns-actions" aria-labelledby="nodescan-actions-heading">
+      <div className="node-section"><span id="nodescan-actions-heading">ACTIONS</span><span>{actions.length || undefined}</span></div>
       {target.offensiveActions.length === 0
         ? <div className="node-empty"><strong>NO OFFENSIVE TECHNIQUES AVAILABLE</strong><span>This Device owns no supported provider.</span></div>
-        : <div className="ns-action-list">{target.offensiveActions.map((action) => <article className="ns-action" key={`${action.technique}:${action.provider}`}>
+        : <div className="ns-action-list">{actions.map((action) => <article className="ns-action" key={`${action.technique}:${action.provider}`}>
           <div className="ns-action-copy">
             <strong>{action.technique === 'Credential Access' ? action.provider.split(' ·')[0].replace(/ 1\.0$/, '').toUpperCase() : action.technique.toUpperCase()}</strong>
             <span>{action.technique === 'Credential Access' ? `Credential Access${action.provider.includes('via Flipper') ? ' · via Flipper' : ''}` : `${action.technique === 'DEAUTH' && action.route && 'networkName' in action.route ? `NETWORK · ${action.route.networkName} · ` : ''}${action.provider}`}</span>
@@ -833,7 +863,7 @@ function TargetCard({ target, release, pending, notice, copyState, selectedPacka
               ? <button type="button" className="node-action" aria-label={action.technique === 'Credential Access' ? `Execute ${action.technique} with ${action.provider}` : `Execute ${action.technique}`} onClick={() => onExecuteAction(action)}>{action.technique === 'Credential Access' ? 'START ATTEMPT' : 'EXECUTE'}</button>
               : <span className="node-chip node-chip--quiet" aria-label={`${action.technique} with ${action.provider} unavailable`}>UNAVAILABLE</span>}
         </article>)}</div>}
-    </section>
+    </section>}
   </div>
 }
 

@@ -132,6 +132,15 @@ export const RATTLER_1_0 = {
   },
 } as const satisfies SoftwareReleaseContent
 
+export const SENTRY_1_0 = {
+  productId: 'sentry', releaseId: 'sentry-1.0', buildId: 'build-sentry-1.0', name: 'Sentry', version: '1.0', publisher: 'Northline Systems',
+  documentation: {
+    about: 'A narrow signature cleaner for known RATTLER payloads and NODE Miner executables.',
+    capabilities: [{ label: 'SIGNATURE SWEEP', description: 'Remove matching files and stop their running work on the Device being cleaned. Company installations sweep during maintenance.' }],
+    changes: ['Initial signature set. Does not repair services, rotate keys or prevent future uploads.'],
+  },
+} as const satisfies SoftwareReleaseContent
+
 /** The complete authored V1 content set, used only for authoring and descriptive projection. */
 export const AUTHORED_SOFTWARE_RELEASES: readonly SoftwareReleaseContent[] = [
   NODESCAN_1_0_STANDARD,
@@ -140,4 +149,5 @@ export const AUTHORED_SOFTWARE_RELEASES: readonly SoftwareReleaseContent[] = [
   FLIPPER_1_0,
   NODE_MINER_1_0,
   RATTLER_1_0,
+  SENTRY_1_0,
 ]

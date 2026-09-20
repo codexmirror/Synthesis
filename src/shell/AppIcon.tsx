@@ -11,6 +11,7 @@ export function AppIcon({ app }: { app: AppId }) {
   }
 
   const paths = {
+    software: <><path d="M4 4h16v16H4zM8 8h8v8H8zM8 2v4M16 18v4" /></>,
     terminal: <><path d="m5 7 4 4-4 4" /><path d="M11 16h8" /></>,
     network: <><circle cx="12" cy="12" r="3" /><circle cx="12" cy="12" r="8" /><path d="M12 4V2M20 12h2M12 20v2M4 12H2" /></>,
     mail: <><path d="M3 6h18v12H3z" /><path d="m3 7 9 6 9-6" /></>,

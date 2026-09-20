@@ -1,5 +1,7 @@
 # Processes and Activity — current truth
 
+> V1 scope: Sandbox fieldwork adjusts analysis/credential-attempt work costs and adds exact-build scanner acceleration while retaining resource scheduling. Sentry can remove matching malware/miner work on the cleaned Device. See [Sandbox fieldwork](FIELDWORK.md); base/Online process costs are unchanged.
+
 Status: Accepted
 Scope: The canonical `GameProcess` runtime, executor-owned scheduling,
 finite and continuous Processes, cancellation, and the Processes / Activity
