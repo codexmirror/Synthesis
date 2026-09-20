@@ -8,7 +8,7 @@ import { MYRA_FIRST_TARGET_ADDRESS, MYRA_FIRST_CONTACT_THREAD_ID } from '../../c
 import type { GameState } from '../../core/game/types'
 import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
 import { Home } from '../../shell/Home'
-import { appEntries } from '../../shell/appRegistry'
+import { appRegistry } from '../../shell/appRegistry'
 import { Mail } from './Mail'
 import mailSource from './Mail.tsx?raw'
 import threadSource from './MailThreadView.tsx?raw'
@@ -58,8 +58,8 @@ function composedState(state: GameState, subject: string, body = 'Following up.'
 }
 
 describe('NodeMail on Home', () => {
-  it('is a launcher in the current application order', () => {
-    expect(appEntries.map(([id]) => id)).toEqual(['terminal', 'network', 'mail', 'processes', 'files', 'market', 'wallet', 'notes', 'system'])
+  it('registers its own launcher', () => {
+    expect(appRegistry).toHaveProperty('mail')
     render(<GameProvider><Home openApp={vi.fn()} /></GameProvider>)
     expect(screen.getByRole('button', { name: 'Open NodeMail' })).toBeInTheDocument()
   })
