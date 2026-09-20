@@ -125,7 +125,9 @@ below.
 - TESTS → `src/core/game/scan.test.ts`,
   `src/core/game/discovery.test.ts`, `src/core/game/credentialAccess.test.ts`,
   `src/core/game/remoteSession.test.ts`,
-  `src/app/targetDiscoveryOperation.test.ts`, `src/apps/network/Network.test.tsx`,
+  `src/app/targetDiscoveryOperation.test.ts`,
+  `src/apps/network/NetworkActions.test.tsx`,
+  `src/apps/network/NetworkTopology.test.tsx`,
   `src/apps/rackos/RackOS.test.tsx`, `src/core/game/rackOsFirmwareUpdate.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
@@ -362,7 +364,8 @@ interface, Notes, editing/viewport presentation.
 - TESTS → `src/shell/Shell.test.tsx`,
   `src/shell/editingViewportGeometry.test.ts`,
   `src/shell/editingPresentationContract.test.ts`,
-  `src/App.test.tsx` (editing viewport lifecycle and leaving editing),
+  `src/AppViewport.test.tsx` (editing viewport lifecycle and leaving editing),
+  `src/AppShell.test.tsx` (NODE-OS application hosting and Terminal presentation),
   `src/apps/terminal/Terminal.test.tsx`,
   `src/styles/presentationLanguage.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/INTERFACE_SHELL.md`](current/INTERFACE_SHELL.md)

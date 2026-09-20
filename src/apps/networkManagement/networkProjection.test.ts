@@ -6,7 +6,7 @@ import { selectManagedNetworks } from './networkProjection'
 /**
  * The management projection owns what authority legitimately supplies about a
  * Network the local Device administers. NodeScan presents it
- * (`src/apps/network/Network.test.tsx`); this file holds the information
+ * (`src/apps/network/NetworkTopology.test.tsx`); this file holds the information
  * boundary itself, independently of any surface.
  */
 function withActivity(): GameState {

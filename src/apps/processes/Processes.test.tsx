@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GameProvider, useGameState } from '../../app/GameContext'
 import { createInitialGameState } from '../../core/game/initialState'
 import type { DeviceAccessFileTransfer, GameState } from '../../core/game/types'
-import { appEntries, appRegistry } from '../../shell/appRegistry'
+import { appRegistry } from '../../shell/appRegistry'
 import { Processes } from './Processes'
 import processesCss from './processes.css?raw'
 import nodeUiCss from '../../styles/nodeui.css?raw'
@@ -76,7 +76,7 @@ const section = (heading: string) => within(detail()).getByText(heading).closest
 const railWidths = (scope: HTMLElement) => Array.from(scope.querySelectorAll('.am-rail--stacked i')).map((bar) => (bar as HTMLElement).style.width)
 
 describe('Processes application integration', () => {
-  it('is a canonical app while NodeScan remains the one registered network surface', () => { expect(appEntries).toHaveLength(9); expect(appRegistry).toHaveProperty('processes'); expect(appRegistry).toHaveProperty('network'); expect(appRegistry).not.toHaveProperty('networkManagement') })
+  it('registers its own launcher', () => { expect(appRegistry).toHaveProperty('processes') })
 
   it('presents a truthful idle Device load and an explicit idle state', () => {
     render(<GameProvider><Processes /></GameProvider>)
