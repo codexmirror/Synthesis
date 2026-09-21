@@ -128,7 +128,12 @@ below.
   `src/app/targetDiscoveryOperation.test.ts`,
   `src/apps/network/NetworkActions.test.tsx`,
   `src/apps/network/NetworkTopology.test.tsx`,
-  `src/apps/rackos/RackOS.test.tsx`, `src/core/game/rackOsFirmwareUpdate.test.ts`
+  `src/apps/rackos/RackOS.remote-files.test.tsx`,
+  `src/apps/rackos/RackOS.remote-installation.test.tsx`,
+  `src/apps/rackos/RackOS.remote-miner.test.tsx`,
+  `src/apps/rackos/RackOS.presentation.test.tsx`,
+  `src/apps/rackos/RackOS.firmware-update.test.tsx`,
+  `src/core/game/rackOsFirmwareUpdate.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/NETWORK_ACCESS.md`](current/NETWORK_ACCESS.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
 
@@ -183,7 +188,10 @@ module-integration mechanic.
   `src/core/game/software.test.ts`,
   `src/core/game/softwareInstallation.test.ts`,
   `src/core/game/softwareRemoval.test.ts`, `src/core/game/flipper.test.ts`,
-  `src/apps/files/Files.test.tsx`, `src/apps/flipper/Flipper.test.tsx`,
+  `src/apps/files/Files.browsing-transfer.test.tsx`,
+  `src/apps/files/Files.software.test.tsx`,
+  `src/apps/files/Files.artifacts.test.tsx`,
+  `src/apps/flipper/Flipper.test.tsx`,
   `src/apps/softwareReleaseInformation.test.ts`
 - DOCUMENTATION IMPACT OWNER → [`current/FILES_SOFTWARE.md`](current/FILES_SOFTWARE.md)
 - NOT REQUIRED BY DEFAULT → `FUTURE.md`, unrelated domains, archived work orders
@@ -312,7 +320,7 @@ backend.
   `src/core/game/bookstoreOperations.test.ts`, `src/core/game/bookstoreBackend.test.ts`,
   `src/core/game/bookstoreSale.test.ts`, `src/core/game/bookstoreRestock.test.ts`,
   `src/core/game/bookstoreSalesCadence.test.ts`,
-  `src/apps/rackos/RackOS.test.tsx`
+  `src/apps/rackos/RackOS.business.test.tsx`
 - DOCUMENTATION IMPACT OWNER → [`current/BRANCH_COMMERCE.md`](current/BRANCH_COMMERCE.md)
 - NOT REQUIRED BY DEFAULT → unrelated domains and archived work orders
 

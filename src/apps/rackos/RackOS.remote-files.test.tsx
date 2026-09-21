@@ -1,0 +1,499 @@
+import { act, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { GameProvider, useGameActions, useGameState } from '../../app/GameContext'
+import { connectRemoteFromObservation } from '../../core/game/remoteSession'
+import { installRemoteSoftwarePackage } from '../../core/game/softwareInstallation'
+import { createInitialGameState } from '../../core/game/initialState'
+import { RACK_OS_1_1_BUSINESS_FIRMWARE_ID, RACK_OS_FIRMWARE_ID } from '../../core/game/firmwareIdentity'
+import { RACK_OS_1_1_BUSINESS_RELEASE, RACK_OS_FIRMWARE_UPDATE_DURATION_MS } from '../../core/game/rackOsFirmwareUpdate'
+import { Shell } from '../../shell/Shell'
+import type { ExecutableFile, GameProcess, GameState, NetworkHost, NodeMinerProcess } from '../../core/game/types'
+import { rememberScan } from '../../core/game/discovery'
+import { scanNetworkTarget } from '../../core/game/scan'
+import { Terminal } from '../terminal/Terminal'
+import { withoutBookstoreBackgroundTiming } from '../../test/canonicalSnapshot'
+import rackSource from './RackOS.tsx?raw'
+import rackUpdateSource from './RackFirmwareUpdate.tsx?raw'
+import rackCss from './rackos.css?raw'
+import { executeBookstoreSale } from '../../core/game/bookstoreSale'
+import { BOOKSTORE_BRANCH_ID } from '../../core/game/business'
+import { BOOKSTORE_ATLAS_MIXED_SHELF_REFILL_OFFER_ID, placeBookstoreRestockOrder, proposeBookstoreRestockOrder } from '../../core/game/bookstoreRestock'
+
+function StateSnapshot() { return <output data-testid="game-state">{JSON.stringify(useGameState())}</output> }
+
+function discoveredAccessState(): GameState {
+  const state = createInitialGameState()
+  const targets = { localDevice: state.player.localDevice, network: state.world.network }
+  let discovery = rememberScan(state.discovery, scanNetworkTarget(targets, state.player.localDevice.network.ip), state.player.localDevice.id)
+  discovery = rememberScan(discovery, scanNetworkTarget(targets, 'home-net'), state.player.localDevice.id)
+  discovery = rememberScan(discovery, scanNetworkTarget(targets, '198.51.100.47'), state.player.localDevice.id)
+  return { ...state, discovery, deviceAccess: { nextId: 2, established: [{ id: 'access-roundtrip', sourceDeviceId: state.player.localDevice.id, targetDeviceId: 'host-lan-001', viaServiceId: 'service-ssh-001', privilege: 'USER' }] } }
+}
+
+function connectedState(): GameState {
+  const base = createInitialGameState()
+  const host = base.world.network.hosts[0]
+  const altered = { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, displayName: 'live-server', ip: '192.0.2.99', firmware: { id: RACK_OS_FIRMWARE_ID, name: 'STATE-OS', version: '7.4' }, filesystem: { nextFileId: 50, files: [{ kind: 'text' as const, id: 'file-fixture-text', path: '/srv/proof.txt', content: 'Foreign canonical proof.' }] } }, ...base.world.network.hosts.slice(1)] } }, deviceAccess: { nextId: 2, established: [{ id: 'access-test', sourceDeviceId: base.player.localDevice.id, targetDeviceId: host.id, viaServiceId: 'service-http-001', privilege: 'USER' as const }] } }
+  const connected = connectRemoteFromObservation(altered, { targetDeviceId: host.id, address: '192.0.2.99' }).state
+  return { ...connected, remoteSession: { ...connected.remoteSession, active: { ...connected.remoteSession.active!, connectedAddress: '198.51.100.47' } } }
+}
+
+/** `connectedState` plus a represented remote `/home/user` directory, so the
+ *  remote-first Upload workflow can start from a non-root remote directory. */
+function connectedStateWithRemoteHome(): GameState {
+  const base = connectedState()
+  const host = base.world.network.hosts[0]
+  const files = [...host.filesystem!.files, { kind: 'text' as const, id: 'file-fixture-remote-home', path: '/home/user/notes.txt', content: 'Remote workspace notes.' }]
+  return { ...base, world: { network: { ...base.world.network, hosts: [{ ...host, filesystem: { nextFileId: 60, files } }, ...base.world.network.hosts.slice(1)] } } }
+}
+
+async function enterRemote(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /^ENTER .+ →$/ }))
+}
+
+afterEach(() => vi.useRealTimers())
+
+describe('RACK-OS', () => {
+  it('presents live canonical identity, authority, access path, and one filesystem through Files and Terminal', async () => {
+    const user = userEvent.setup(); const initial = connectedState(); const discoveryBefore = initial.discovery; const knowledgeBefore = initial.knowledge
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    expect(screen.getByLabelText('STATE-OS remote operating environment')).toHaveTextContent('STATE-OS 7.4')
+    expect(document.body).toHaveTextContent('live-server · 192.0.2.99')
+    expect(document.querySelector('.node-workspace')).toHaveAttribute('hidden')
+    const input = screen.getByLabelText('Remote command')
+    await user.type(input, 'ip{enter}'); expect(document.body).toHaveTextContent('192.0.2.99')
+    await user.type(input, 'ls /srv{enter}'); expect(document.body).toHaveTextContent('proof.txt')
+    await user.type(input, 'cat /srv/proof.txt{enter}'); expect(document.body).toHaveTextContent('Foreign canonical proof.')
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.discovery).toEqual(discoveryBefore); expect(current.knowledge).toEqual(knowledgeBefore)
+    await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR srv' })); await user.click(screen.getByRole('button', { name: 'FILE proof.txt' })); expect(document.body).toHaveTextContent('Foreign canonical proof.')
+    expect(screen.queryByRole('button', { name: 'OPERATIONS' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'SYSTEM' })); expect(document.body).toHaveTextContent('STATE-OS 7.4'); expect(document.body).toHaveTextContent('HTTP')
+  })
+
+  it('uses the shared disconnect operation and returns to preserved local presentation', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    expect(screen.queryByLabelText('STATE-OS remote operating environment')).not.toBeInTheDocument()
+    expect(document.querySelector('.node-workspace')).not.toHaveAttribute('hidden')
+  })
+
+  it('navigates and presents canonical package metadata while cat rejects the artifact', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const initial = connectedState()
+    const host = initial.world.network.hosts[0]
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/packages/scanner.release', releaseId: 'canonical-package', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'Altered NodeScan', version: '8.7', channel: 'nightly', sizeBytes: 1_000 }
+    const state = { ...initial, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    render(<GameProvider initialState={state}><Shell /><StateSnapshot /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await enterRemote(user)
+
+    await user.type(screen.getByLabelText('Remote command'), 'cat /opt/packages/scanner.release{enter}')
+    expect(document.body).toHaveTextContent('NOT A TEXT FILE')
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR opt' }))
+    await user.click(screen.getByRole('button', { name: 'DIR packages' }))
+    await user.click(screen.getByRole('button', { name: 'FILE scanner.release' }))
+    expect(document.body).toHaveTextContent('SOFTWARE PACKAGE')
+    expect(screen.getByRole('heading', { name: 'Altered NodeScan' })).toBeInTheDocument()
+    expect(document.body).toHaveTextContent('8.7 Nightly')
+    expect(document.body).toHaveTextContent('RELEASE')
+    expect(document.body).toHaveTextContent('canonical-package')
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /install|run/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOAD STARTED' })).toBeDisabled()
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
+    expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('LOCAL COPY/home/user/downloads/scanner.release')
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.player.localDevice.filesystem.files.at(-1)).toEqual({ ...packageFile, id: 'file-0006', path: '/home/user/downloads/scanner.release' })
+    expect(current.player.localDevice.installedSoftware[0]).toMatchObject({ version: '1.0', channel: 'standard' })
+    expect(current.process.processes).toEqual([])
+    expect(current.fileTransfer.active).toBeNull()
+    expect(screen.queryByRole('button', { name: /install|run/i })).not.toBeInTheDocument()
+  })
+
+  it('disconnects from the remote Terminal through canonical Session state', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await user.type(screen.getByLabelText('Remote command'), 'disconnect{enter}')
+    expect(screen.queryByLabelText('STATE-OS remote operating environment')).not.toBeInTheDocument()
+    expect((JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).remoteSession.active).toBeNull()
+  })
+
+  it('downloads through the remote Terminal into canonical local Files', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await enterRemote(user)
+    await user.type(screen.getByLabelText('Remote command'), 'download /srv/proof.txt{enter}')
+    expect(document.body).toHaveTextContent('DOWNLOAD STARTED')
+    expect(document.body).toHaveTextContent('/home/user/downloads/proof.txt')
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    await user.type(screen.getByLabelText('Remote command'), 'download /srv/proof.txt{enter}')
+    expect(document.body).toHaveTextContent('DESTINATION ALREADY EXISTS')
+    await user.type(screen.getByLabelText('Remote command'), 'disconnect{enter}')
+    await user.click(screen.getByRole('button', { name: 'Open Files' }))
+    await user.click(screen.getByRole('button', { name: /downloads/ }))
+    await user.click(screen.getByRole('button', { name: /proof.txt/ }))
+    expect(document.body).toHaveTextContent('Foreign canonical proof.')
+  })
+
+  it('uploads through the shared action with exact paths and reports syntax and admission results', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<GameProvider initialState={connectedState()}><Shell /><StateSnapshot /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime }); await enterRemote(user)
+    const input = screen.getByLabelText('Remote command')
+    await user.type(input, 'help{enter}'); expect(document.body).toHaveTextContent('upload')
+    await user.type(input, 'upload /one{enter}'); expect(document.body).toHaveTextContent('USAGE: upload /absolute/local/file /absolute/remote/file')
+    await user.type(input, 'upload /home/user/downloads/node-miner-1.0.pkg /home/user/custom.pkg{enter}')
+    expect(document.body).toHaveTextContent('UPLOAD STARTED')
+    const transfer = (JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState).fileTransfer.active!
+    const source = createInitialGameState().player.localDevice.filesystem.files.find(({ path }) => path.endsWith('node-miner-1.0.pkg'))!
+    expect(transfer).toMatchObject({ sourceDeviceId: 'device-local-v0', sourceFileId: source.id, destinationDeviceId: 'host-lan-001', destinationPath: '/home/user/custom.pkg' })
+    await user.type(input, 'upload /home/user/downloads/node-miner-1.0.pkg /home/user/second.pkg{enter}')
+    expect(document.body).toHaveTextContent('TRANSFER IN PROGRESS')
+    await act(async () => { vi.advanceTimersByTime(4_000) })
+    const completed = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const remoteCopy = completed.world.network.hosts[0].filesystem!.files.find(({ path }) => path === '/home/user/custom.pkg')!
+    expect(remoteCopy).toEqual({ ...source, id: remoteCopy.id, path: '/home/user/custom.pkg' })
+    expect(remoteCopy.id).not.toBe(source.id)
+    expect(completed.player.localDevice.filesystem.files).toContainEqual(source)
+    expect(completed.player.localDevice.installedSoftware.some(({ id }) => id === 'node-miner')).toBe(false)
+    expect(completed.process.processes).toEqual([])
+  })
+
+  it('derives graphical Download, successful, and reopened states from canonical local truth', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR srv' }))
+    await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOAD' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'DOWNLOAD' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOAD STARTED' })).toBeDisabled()
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('LOCAL COPY/home/user/downloads/proof.txt')
+    expect(screen.queryByRole('button', { name: 'DOWNLOAD' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← /srv' }))
+    await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/proof.txt')
+    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    await user.click(screen.getByRole('button', { name: 'Open Files' }))
+    await user.click(screen.getByRole('button', { name: /downloads/ }))
+    expect(screen.getByRole('button', { name: /proof.txt/ })).toBeInTheDocument()
+  })
+
+  it('shows a truthful collision and no action for a different artifact at the destination', async () => {
+    const initial = connectedState()
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, { kind: 'text' as const, id: 'file-fixture-text', path: '/home/user/downloads/proof.txt', content: 'Different artifact.' }] } } } }
+    const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR srv' }))
+    await user.click(screen.getByRole('button', { name: 'FILE proof.txt' }))
+    expect(screen.getByRole('status')).toHaveTextContent('LOCAL DESTINATION OCCUPIED')
+    expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/proof.txt')
+    expect(screen.queryByRole('button', { name: /DOWNLOAD/ })).not.toBeInTheDocument()
+  })
+
+  it('derives an existing package copy by full canonical metadata, not its filename', async () => {
+    const initial = connectedState(); const host = initial.world.network.hosts[0]
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, { ...packageFile, id: 'file-local-package', path: '/home/user/downloads/weird.txt' }] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR opt' })); await user.click(screen.getByRole('button', { name: 'FILE weird.txt' }))
+    expect(screen.getByRole('button', { name: 'DOWNLOADED ✓' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('/home/user/downloads/weird.txt')
+  })
+
+  it.each([
+    ['a different release', { releaseId: 'release-2' }],
+    ['changed metadata for the same release', { version: '9.9' }],
+  ])('presents a package collision for %s', async (_description, changed) => {
+    const initial = connectedState(); const host = initial.world.network.hosts[0]
+    const packageFile = { kind: 'software_package' as const, id: 'file-fixture-package', path: '/opt/weird.txt', releaseId: 'release-1', buildId: 'build-fixture-v0', productId: 'nodescan', name: 'NodeScan', version: '1.1', channel: 'experimental', sizeBytes: 1_000 }
+    const localFile = { ...packageFile, ...changed, id: 'file-local-package', path: '/home/user/downloads/weird.txt' }
+    const state = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, filesystem: { nextFileId: 50, files: [...initial.player.localDevice.filesystem.files, localFile] } } }, world: { network: { ...initial.world.network, hosts: [{ ...host, filesystem: { nextFileId: 50, files: [packageFile] } }, ...initial.world.network.hosts.slice(1)] } } }
+    const user = userEvent.setup(); render(<GameProvider initialState={state}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' })); await user.click(screen.getByRole('button', { name: 'DIR opt' })); await user.click(screen.getByRole('button', { name: 'FILE weird.txt' }))
+    expect(screen.getByRole('status')).toHaveTextContent('LOCAL DESTINATION OCCUPIED')
+    expect(screen.queryByRole('button', { name: /DOWNLOAD/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('DOWNLOADED ✓')).not.toBeInTheDocument()
+  })
+
+  it('preserves the same NodeScan target across CONNECT and DISCONNECT', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={discoveredAccessState()}><Shell /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open NodeScan' }))
+    await user.click(screen.getByRole('button', { name: 'Open target 198.51.100.47' }))
+    expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /CONNECT/ }))
+    await enterRemote(user)
+    expect(screen.getByLabelText('RACK-OS remote operating environment')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'DISCONNECT' }))
+    expect(screen.getByLabelText('Target status')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy 198.51.100.47' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'HOME' })).not.toBeInTheDocument()
+    // Still on the same target, not returned to the target list.
+    expect(screen.queryByRole('button', { name: 'Open target 198.51.100.47' })).not.toBeInTheDocument()
+  })
+
+  it('enters, presents, and downloads from the second interactive target (host-lan-002) through its own stable identity', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const base = createInitialGameState()
+    const access = { id: 'access-b', sourceDeviceId: base.player.localDevice.id, targetDeviceId: 'host-lan-002', viaServiceId: 'service-ssh-002', privilege: 'USER' as const }
+    const authorized = { ...base, deviceAccess: { nextId: 2, established: [access] } }
+    const connected = connectRemoteFromObservation(authorized, { targetDeviceId: access.targetDeviceId, address: '203.0.113.42' }).state
+    // A changed current destination must not rewrite or hide the completed
+    // sale's canonical historical settlement.
+    const withChangedSettlement = { ...connected, bookstoreCommerce: { ...connected.bookstoreCommerce, records: connected.bookstoreCommerce.records.map((record) => record.branchId === 'bookstore-branch-01' ? { ...record, settlementAccountId: 'dollar-account-local-v0' } : record) } }
+    render(<GameProvider initialState={withChangedSettlement}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+
+    const rackOs = screen.getByLabelText('RACK-OS remote operating environment')
+    expect(rackOs).toHaveTextContent('RACK-OS 1.0')
+    expect(rackOs).toHaveTextContent('srv-02 · 10.42.0.42')
+    const input = screen.getByLabelText('Remote command')
+    await user.type(input, 'ip{enter}'); expect(rackOs).toHaveTextContent('10.42.0.1')
+    await user.type(input, 'ls /srv{enter}'); expect(rackOs).toHaveTextContent('backup-manifest.txt')
+    await user.type(input, 'cat /srv/backup-manifest.txt{enter}')
+    expect(rackOs).toHaveTextContent('Backup manifest for srv-02.')
+    expect(rackOs).not.toHaveTextContent('Service workspace.')
+
+    /* RACK-OS 1.0 is the old technical environment: Terminal, Files and System
+       and nothing else. srv-02's Network really does have an associated
+       Business Branch, and this release simply has no application shell to
+       present it in — the represented Business truth itself is untouched. */
+    expect(within(screen.getByRole('navigation', { name: 'RACK-OS sections' })).getAllByRole('button').map((button) => button.textContent))
+      .toEqual(['TERMINAL', 'FILES', 'SYSTEM'])
+    expect(screen.queryByRole('button', { name: 'OPERATIONS' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Business' })).toBeNull()
+    expect(rackOs.textContent).not.toContain('Bookstore Branch 01')
+
+    await user.type(screen.getByLabelText('Remote command'), 'download /srv/backup-manifest.txt{enter}')
+    expect(rackOs).toHaveTextContent('DOWNLOAD STARTED')
+    expect(rackOs).toHaveTextContent('/home/user/downloads/backup-manifest.txt')
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.player.localDevice.filesystem.files.at(-1)).toMatchObject({ path: '/home/user/downloads/backup-manifest.txt', content: 'Backup manifest for srv-02.' })
+    expect(current.fileTransfer.active).toBeNull()
+  })
+
+  it('presents the current target Device authentication history in SYSTEM without exposing internal Device or Service IDs', async () => {
+    const user = userEvent.setup()
+    const initial = connectedState()
+    const host = initial.world.network.hosts[0]
+    const withHistory = {
+      ...initial,
+      world: {
+        network: {
+          ...initial.world.network,
+          hosts: [
+            { ...host, authenticationHistory: { nextId: 3, records: [
+              { id: 'auth-0001', serviceId: 'service-http-001', serviceName: 'HTTP', sourceAddress: '198.51.100.23', result: 'SUCCESS' as const },
+              { id: 'auth-0002', serviceId: 'service-http-001', serviceName: 'HTTP', sourceAddress: '203.0.113.7', result: 'FAILURE' as const },
+            ] } },
+            ...initial.world.network.hosts.slice(1),
+          ],
+        },
+      },
+    }
+    render(<GameProvider initialState={withHistory}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'SYSTEM' }))
+
+    expect(document.body).toHaveTextContent('AUTHENTICATION HISTORY')
+    expect(document.body).toHaveTextContent('SOURCE 198.51.100.23')
+    expect(document.body).toHaveTextContent('SUCCESS')
+    expect(document.body).toHaveTextContent('SOURCE 203.0.113.7')
+    expect(document.body).toHaveTextContent('FAILURE')
+    expect(document.body).not.toHaveTextContent(host.id)
+    expect(document.body).not.toHaveTextContent('service-http-001')
+  })
+
+  it('presents a deliberate compact empty state when the target Device has no authentication history', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Shell /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'SYSTEM' }))
+    expect(document.body).toHaveTextContent('AUTHENTICATION HISTORY')
+    expect(document.body).toHaveTextContent('NO AUTHENTICATION HISTORY')
+  })
+
+  it('offers UPLOAD from the remote directory itself and derives the destination from that directory and the chosen local file', async () => {
+    const user = userEvent.setup()
+    const initial = connectedStateWithRemoteHome()
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+
+    // A: the directory view itself carries UPLOAD; no remote file is opened.
+    expect(screen.getByRole('button', { name: 'UPLOAD' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '← /' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'DIR home' }))
+    await user.click(screen.getByRole('button', { name: 'DIR user' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    // B: the workflow opens inside RACK-OS; NODE-OS is never presented.
+    const workflow = screen.getByLabelText('Upload to remote')
+    expect(workflow).toHaveTextContent('/home/user')
+    expect(screen.getByLabelText('STATE-OS remote operating environment')).not.toHaveAttribute('hidden')
+    expect(document.querySelector('.node-workspace')).toHaveAttribute('hidden')
+
+    // C + D + E: the picker reads the canonical LOCAL filesystem, navigates
+    // local directories, and selects one concrete local file.
+    const localFiles = initial.player.localDevice.filesystem.files
+    expect(within(workflow).getByRole('button', { name: 'Select local file welcome.txt' })).toBeInTheDocument()
+    expect(workflow).not.toHaveTextContent('proof.txt')
+    await user.click(within(workflow).getByRole('button', { name: 'Open local directory downloads' }))
+    expect(screen.getByLabelText('Upload to remote')).toHaveTextContent('/home/user/downloads')
+    await user.click(screen.getByRole('button', { name: 'Select local file node-miner-1.0.pkg' }))
+
+    // F: remote directory + local basename, visible and editable.
+    const review = screen.getByLabelText('Upload to remote')
+    // The editing surface owns its own scrolling, and remains the only owner,
+    // so CANCEL/UPLOAD stay reachable under the software keyboard.
+    expect(review).toHaveAttribute('data-editing-scroll-owner')
+    expect(document.querySelectorAll('.rack-os [data-editing-scroll-owner]')).toHaveLength(1)
+    expect(screen.getByLabelText('Remote destination path')).toHaveValue('/home/user/node-miner-1.0.pkg')
+    expect(review).toHaveTextContent('/home/user/downloads/node-miner-1.0.pkg')
+    expect(review).toHaveTextContent('3.4 MB')
+    expect(review).toHaveTextContent('192.0.2.99')
+    const source = localFiles.find(({ path }) => path === '/home/user/downloads/node-miner-1.0.pkg')!
+
+    // G + H: exactly the edited destination is submitted, against the local
+    // source, never the other way round.
+    const destination = screen.getByLabelText('Remote destination path')
+    await user.clear(destination)
+    await user.type(destination, '/srv/custom-miner.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toMatchObject({
+      sourceDeviceId: initial.player.localDevice.id, sourceFileId: source.id,
+      destinationDeviceId: initial.world.network.hosts[0].id, destinationPath: '/srv/custom-miner.pkg',
+    })
+    // J + K: canonical FileTransfer only; no installation, no Process, and no
+    // remote artifact before completion.
+    expect(current.player.localDevice.installedSoftware).toEqual(initial.player.localDevice.installedSoftware)
+    expect(current.process.processes).toEqual([])
+    expect(current.world.network.hosts[0].filesystem!.files.some(({ path }) => path === '/srv/custom-miner.pkg')).toBe(false)
+    expect(current.player.localDevice.filesystem.files).toContainEqual(source)
+
+    // The player lands back in the remote directory they started from.
+    expect(screen.getByRole('button', { name: 'FILE notes.txt' })).toBeInTheDocument()
+    expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('UPLOAD STARTED')
+  })
+
+  it('reports canonical Upload admission failures without touching the remote filesystem', async () => {
+    const user = userEvent.setup()
+    /* The represented local upload capacity is deliberately one byte per second,
+       exactly as the single-transfer test below does it. `welcome.txt` is 33
+       bytes, so at node-01's normal capacity the admitted transfer legitimately
+       *completes* inside the first advancement tick that lands between the
+       click and the assertion — which reads as a missing transfer rather than
+       as the finished one it is. Slowing the represented route keeps the
+       admitted transfer observably running instead of weakening the
+       assertion. */
+    const base = connectedStateWithRemoteHome()
+    const initial: GameState = { ...base, player: { ...base.player, localDevice: { ...base.player.localDevice, network: { ...base.player.localDevice.network, transferCapacity: { ...base.player.localDevice.network.transferCapacity, uploadBytesPerSecond: 1 } } } } }
+    const remoteBefore = initial.world.network.hosts[0].filesystem
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'Select local file welcome.txt' }))
+
+    const destination = screen.getByLabelText('Remote destination path')
+    expect(destination).toHaveValue('/welcome.txt')
+    await user.clear(destination)
+    await user.type(destination, '/srv/proof.txt')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('DESTINATION ALREADY EXISTS')
+    let current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toBeNull()
+    expect(current.world.network.hosts[0].filesystem).toEqual(remoteBefore)
+
+    // A second, valid destination goes through the same shared action.
+    await user.clear(screen.getByLabelText('Remote destination path'))
+    await user.type(screen.getByLabelText('Remote destination path'), '/srv/copied-welcome.txt')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toMatchObject({ destinationPath: '/srv/copied-welcome.txt', sourceFileId: 'file-0001' })
+    // Still an admission only: the destination artifact appears at completion, not now.
+    expect(current.world.network.hosts[0].filesystem).toEqual(remoteBefore)
+  })
+
+  it('presents the canonical single-transfer rejection rather than queueing an Upload', async () => {
+    const user = userEvent.setup()
+    const initial = connectedStateWithRemoteHome()
+    const slow: GameState = { ...initial, player: { ...initial.player, localDevice: { ...initial.player.localDevice, network: { ...initial.player.localDevice.network, transferCapacity: { ...initial.player.localDevice.network.transferCapacity, uploadBytesPerSecond: 1 } } } } }
+    render(<GameProvider initialState={slow}><Shell /><StateSnapshot /></GameProvider>)
+    await enterRemote(user)
+    await user.type(screen.getByLabelText('Remote command'), 'upload /home/user/welcome.txt /srv/first.txt{enter}')
+    expect(document.body).toHaveTextContent('UPLOAD STARTED')
+
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'Select local file welcome.txt' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    expect(within(screen.getByLabelText('STATE-OS remote operating environment')).getByRole('status')).toHaveTextContent('TRANSFER IN PROGRESS')
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    expect(current.fileTransfer.active).toMatchObject({ destinationPath: '/srv/first.txt' })
+  })
+
+  it('reaches canonical FileTransfer from an established DeviceAccess through the remote-first workflow alone', async () => {
+    const user = userEvent.setup()
+    const initial = discoveredAccessState()
+    render(<GameProvider initialState={initial}><Shell /><StateSnapshot /></GameProvider>)
+    await user.click(screen.getByRole('button', { name: 'Open NodeScan' }))
+    await user.click(screen.getByRole('button', { name: 'Open target 198.51.100.47' }))
+    await user.click(screen.getByRole('button', { name: /CONNECT/ }))
+    await enterRemote(user)
+
+    await user.click(screen.getByRole('button', { name: 'FILES' }))
+    await user.click(screen.getByRole('button', { name: 'DIR srv' }))
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+    await user.click(screen.getByRole('button', { name: 'Open local directory downloads' }))
+    await user.click(screen.getByRole('button', { name: 'Select local file node-miner-1.0.pkg' }))
+    expect(screen.getByLabelText('Remote destination path')).toHaveValue('/srv/node-miner-1.0.pkg')
+    await user.click(screen.getByRole('button', { name: 'UPLOAD' }))
+
+    const current = JSON.parse(screen.getByTestId('game-state').textContent ?? '') as GameState
+    const source = initial.player.localDevice.filesystem.files.find(({ path }) => path === '/home/user/downloads/node-miner-1.0.pkg')!
+    expect(current.fileTransfer.active).toMatchObject({
+      sourceDeviceId: initial.player.localDevice.id, sourceFileId: source.id,
+      destinationDeviceId: 'host-lan-001', destinationPath: '/srv/node-miner-1.0.pkg',
+    })
+    expect(current.process.processes).toEqual([])
+    expect(current.player.localDevice.installedSoftware).toEqual(initial.player.localDevice.installedSoftware)
+  })
+
+
+  it('keeps the existing NODE-OS Terminal bound to local address and filesystem during an active Session', async () => {
+    const user = userEvent.setup(); render(<GameProvider initialState={connectedState()}><Terminal /></GameProvider>)
+    const input = screen.getByLabelText('Command input')
+    await user.type(input, 'ip{enter}cat /home/user/welcome.txt{enter}')
+    expect(screen.getByText('198.51.100.23')).toBeInTheDocument()
+    expect(screen.getByText('Welcome to your local filesystem.')).toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('Foreign canonical proof.')
+  })
+})
+
+/**
+ * Remote installation on the Device the player is currently operating. Every
+ * state below is read out of canonical truth: srv-01's own installed-software
+ * inventory and the installation Processes its own executor identity runs.
+ */
